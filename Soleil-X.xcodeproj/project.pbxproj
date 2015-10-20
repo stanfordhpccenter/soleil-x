@@ -1,0 +1,299 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		E9519EC91BD70630000851BC /* README.md in Sources */ = {isa = PBXBuildFile; fileRef = E9519EB91BD70630000851BC /* README.md */; settings = {ASSET_TAGS = (); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		E9519EAB1BD705D2000851BC /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		E9519EB81BD70630000851BC /* params_template.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = params_template.lua; sourceTree = "<group>"; };
+		E9519EB91BD70630000851BC /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		E9519EBB1BD70630000851BC /* params.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = params.lua; sourceTree = "<group>"; };
+		E9519EBC1BD70630000851BC /* soleil-x.t */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "soleil-x.t"; sourceTree = "<group>"; };
+		E9519EBF1BD70630000851BC /* cavity_32x32.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = cavity_32x32.lua; sourceTree = "<group>"; };
+		E9519EC01BD70630000851BC /* cavity_64x64.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = cavity_64x64.lua; sourceTree = "<group>"; };
+		E9519EC21BD70630000851BC /* couette.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = couette.lua; sourceTree = "<group>"; };
+		E9519EC41BD70630000851BC /* forced_turbulence.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = forced_turbulence.lua; sourceTree = "<group>"; };
+		E9519EC61BD70630000851BC /* poiseuille.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = poiseuille.lua; sourceTree = "<group>"; };
+		E9519ECA1BD70690000851BC /* Soleil-X */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; name = "Soleil-X"; path = "/Users/economon/soleil-x/build/Debug/Soleil-X"; sourceTree = "<absolute>"; };
+		E9519ECC1BD70BFB000851BC /* taylor_green_vortex.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = taylor_green_vortex.lua; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		E9519EAA1BD705D2000851BC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		E9519EA41BD705D2000851BC = {
+			isa = PBXGroup;
+			children = (
+				E9519EB81BD70630000851BC /* params_template.lua */,
+				E9519EB91BD70630000851BC /* README.md */,
+				E9519EBA1BD70630000851BC /* src */,
+				E9519EBD1BD70630000851BC /* testcases */,
+			);
+			sourceTree = "<group>";
+		};
+		E9519EBA1BD70630000851BC /* src */ = {
+			isa = PBXGroup;
+			children = (
+				E9519EBB1BD70630000851BC /* params.lua */,
+				E9519EBC1BD70630000851BC /* soleil-x.t */,
+			);
+			path = src;
+			sourceTree = "<group>";
+		};
+		E9519EBD1BD70630000851BC /* testcases */ = {
+			isa = PBXGroup;
+			children = (
+				E9519EBE1BD70630000851BC /* cavity */,
+				E9519EC11BD70630000851BC /* couette */,
+				E9519EC31BD70630000851BC /* forced_turbulence */,
+				E9519EC51BD70630000851BC /* poiseuille */,
+				E9519ECB1BD70BFB000851BC /* taylor_green_vortex */,
+			);
+			path = testcases;
+			sourceTree = "<group>";
+		};
+		E9519EBE1BD70630000851BC /* cavity */ = {
+			isa = PBXGroup;
+			children = (
+				E9519EBF1BD70630000851BC /* cavity_32x32.lua */,
+				E9519EC01BD70630000851BC /* cavity_64x64.lua */,
+			);
+			path = cavity;
+			sourceTree = "<group>";
+		};
+		E9519EC11BD70630000851BC /* couette */ = {
+			isa = PBXGroup;
+			children = (
+				E9519EC21BD70630000851BC /* couette.lua */,
+			);
+			path = couette;
+			sourceTree = "<group>";
+		};
+		E9519EC31BD70630000851BC /* forced_turbulence */ = {
+			isa = PBXGroup;
+			children = (
+				E9519EC41BD70630000851BC /* forced_turbulence.lua */,
+			);
+			path = forced_turbulence;
+			sourceTree = "<group>";
+		};
+		E9519EC51BD70630000851BC /* poiseuille */ = {
+			isa = PBXGroup;
+			children = (
+				E9519EC61BD70630000851BC /* poiseuille.lua */,
+			);
+			path = poiseuille;
+			sourceTree = "<group>";
+		};
+		E9519ECB1BD70BFB000851BC /* taylor_green_vortex */ = {
+			isa = PBXGroup;
+			children = (
+				E9519ECC1BD70BFB000851BC /* taylor_green_vortex.lua */,
+			);
+			path = taylor_green_vortex;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		E9519EAC1BD705D2000851BC /* Soleil-X */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E9519EB41BD705D2000851BC /* Build configuration list for PBXNativeTarget "Soleil-X" */;
+			buildPhases = (
+				E9519EA91BD705D2000851BC /* Sources */,
+				E9519EAA1BD705D2000851BC /* Frameworks */,
+				E9519EAB1BD705D2000851BC /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "Soleil-X";
+			productName = "Soleil-X";
+			productReference = E9519ECA1BD70690000851BC /* Soleil-X */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E9519EA51BD705D2000851BC /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0700;
+				TargetAttributes = {
+					E9519EAC1BD705D2000851BC = {
+						CreatedOnToolsVersion = 7.0.1;
+					};
+				};
+			};
+			buildConfigurationList = E9519EA81BD705D2000851BC /* Build configuration list for PBXProject "Soleil-X" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = E9519EA41BD705D2000851BC;
+			productRefGroup = E9519EA41BD705D2000851BC;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				E9519EAC1BD705D2000851BC /* Soleil-X */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		E9519EA91BD705D2000851BC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E9519EC91BD70630000851BC /* README.md in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		E9519EB21BD705D2000851BC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		E9519EB31BD705D2000851BC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		E9519EB51BD705D2000851BC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		E9519EB61BD705D2000851BC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		E9519EA81BD705D2000851BC /* Build configuration list for PBXProject "Soleil-X" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E9519EB21BD705D2000851BC /* Debug */,
+				E9519EB31BD705D2000851BC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E9519EB41BD705D2000851BC /* Build configuration list for PBXNativeTarget "Soleil-X" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E9519EB51BD705D2000851BC /* Debug */,
+				E9519EB61BD705D2000851BC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = E9519EA51BD705D2000851BC /* Project object */;
+}
