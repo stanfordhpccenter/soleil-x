@@ -37,7 +37,7 @@ local PN = require 'ebb.lib.pathname'
 -- have multiple config files available in other locations, and copy them
 -- to this location with the name params.lua before running.
 
-local filename = './devapps/soleil/params.lua'
+local filename = '../soleil-x/src/params.lua'
 local config = loadfile(filename)()
 
 --- Immediately check that the output directory exists. Throw an error if not.
@@ -1260,8 +1260,6 @@ ebb Flow.InitializePrimitives (c : grid.cells)
       c.velocity[0] = flow_options.initParams[2] + (C.rand_unity()*1e-4)
       c.velocity[1] = flow_options.initParams[3] + (C.rand_unity()*1e-4)
       c.velocity[2] = flow_options.initParams[4] + (C.rand_unity()*1e-4)
-    elseif flow_options.initCase == Flow.Restart then
-     -- Do nothing here, since we have initialized using CSV restarts.
     end
 end
 
@@ -2960,7 +2958,12 @@ function TimeIntegrator.InitializeVariables()
     grid.cells.interior:foreach(Flow.InitializeCellRindLayer)
     grid.vertices:foreach(Flow.InitializeVertexCoordinates)
     grid.vertices.interior:foreach(Flow.InitializeVertexRindLayer)
-    grid.cells.interior:foreach(Flow.InitializePrimitives)
+    
+    -- Avoid the initialization for restarts (random function inside)
+    if flow_options.initCase ~= Flow.Restart then
+      grid.cells.interior:foreach(Flow.InitializePrimitives)
+    end
+    
     grid.cells.interior:foreach(Flow.UpdateConservedFromPrimitive)
     Flow.UpdateAuxiliary()
     Flow.UpdateGhost()

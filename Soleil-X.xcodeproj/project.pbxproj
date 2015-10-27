@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		E9519EC91BD70630000851BC /* README.md in Sources */ = {isa = PBXBuildFile; fileRef = E9519EB91BD70630000851BC /* README.md */; settings = {ASSET_TAGS = (); }; };
+		E9519EC91BD70630000851BC /* README.md in Sources */ = {isa = PBXBuildFile; fileRef = E9519EB91BD70630000851BC /* README.md */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -25,7 +25,7 @@
 /* Begin PBXFileReference section */
 		E9519EB81BD70630000851BC /* params_template.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = params_template.lua; sourceTree = "<group>"; };
 		E9519EB91BD70630000851BC /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
-		E9519EBB1BD70630000851BC /* params.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = params.lua; sourceTree = "<group>"; };
+		E9519EBB1BD70630000851BC /* params.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = params.lua; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.lua; };
 		E9519EBC1BD70630000851BC /* soleil-x.t */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "soleil-x.t"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.lua; };
 		E9519EBF1BD70630000851BC /* cavity_32x32.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = cavity_32x32.lua; sourceTree = "<group>"; };
 		E9519EC01BD70630000851BC /* cavity_64x64.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = cavity_64x64.lua; sourceTree = "<group>"; };
