@@ -3042,6 +3042,14 @@ function TimeIntegrator.CalculateDeltaTime()
     -- Delta time using the CFL and max spectral radius for stability
     TimeIntegrator.deltaTime:set(TimeIntegrator.cfl / spectralRadius)
     
+    -- For forced turbulence calculations, increase the forcing
+    -- coefficient to get the flow started at the beginning.
+    if TimeIntegrator.timeStep:get() < 100 then
+      flow_options.turbForceCoeff:set(config.turbForceCoeff*1000.0)
+    else
+      flow_options.turbForceCoeff:set(config.turbForceCoeff)
+    end
+    
   end
   
 end
