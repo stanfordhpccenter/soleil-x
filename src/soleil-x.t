@@ -94,6 +94,7 @@ Particles.FeederOverTimeInRandomBox    = L.Global(L.int, 1)
 Particles.FeederUQCase                 = L.Global(L.int, 2)
 Particles.Random                       = L.Global(L.int, 3)
 Particles.Restart                      = L.Global(L.int, 4)
+Particles.Constant                     = L.Global(L.int, 5)
 
 -- Particles collector
 Particles.CollectorNone     = L.Global(L.int, 0)
@@ -461,6 +462,8 @@ if config.initParticles == 'Random' then
   particles_options.initParticles = Particles.Random
 elseif config.initParticles == 'Restart' then
   particles_options.initParticles = Particles.Restart
+elseif config.initParticles == 'Constant' then
+  particles_options.initParticles = Particles.Constant
 else
   error("Particle initialization type not defined")
 end
@@ -792,18 +795,24 @@ if particles_options.initParticles == Particles.Restart then
                                  'restart_particle_diameter_' ..
                                  config.restartParticleIter .. '.csv')
   particles.state         :Load(1)
+elseif particles_options.initParticles == Particles.Constant then
+  particles.position      :Load({0, 0, 0})
+  particles.velocity      :Load({0, 0, 0})
+  particles.temperature   :Load(particles_options.initialTemperature)
+  particles.diameter      :Load(particles_options.diameter_mean)
+  particles.state         :Load(1)
 else
-particles.position      :Load({0, 0, 0})
-particles.velocity      :Load({0, 0, 0})
-particles.temperature   :Load(particles_options.initialTemperature)
--- Initialize to random distribution with given mean value and maximum
--- deviation from it
-particles.diameter      :Load(function(i)
-                              return C.rand_unity() *
-                                particles_options.diameter_maxDeviation +
-                                particles_options.diameter_mean
-                              end)
-particles.state         :Load(0)
+  particles.position      :Load({0, 0, 0})
+  particles.velocity      :Load({0, 0, 0})
+  particles.temperature   :Load(particles_options.initialTemperature)
+  -- Initialize to random distribution with given mean value and maximum
+  -- deviation from it
+  particles.diameter      :Load(function(i)
+                                return C.rand_unity() *
+                                  particles_options.diameter_maxDeviation +
+                                  particles_options.diameter_mean
+                                end)
+  particles.state         :Load(0)
 end
 
 particles:NewField('position_ghost', L.vec3d)                 :Load({0, 0, 0})

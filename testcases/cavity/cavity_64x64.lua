@@ -50,8 +50,8 @@ return {
   wrt1DSlice = 'ON',
   wrtParticleEvolution = 'OFF',
   particleEvolutionIndex = 0,
-  outputEveryTimeSteps  = 1000,
-  restartEveryTimeSteps = 1000,
+  outputEveryTimeSteps  = 10000,
+  restartEveryTimeSteps = 10000,
   headerFrequency       = 20,
   outputFormat = 'Tecplot', -- Only 'Tecplot' is currently available
   outputDirectory = '../soleilOutput/', -- relative to the liszt-ebb home directory
@@ -69,7 +69,7 @@ return {
   suth_s_ref = 110.4,           -- Sutherland's Law S constant [K]
   
   -- Particle Options --
-  initParticles = 'Random', -- 'Random' or 'Restart'
+  initParticles = 'Constant', -- 'Random' or 'Restart'
   restartParticleIter = 0,
   particleType = 'Free', -- Fixed or Free
   twoWayCoupling = 'OFF', -- ON or OFF

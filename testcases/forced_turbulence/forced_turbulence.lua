@@ -13,9 +13,9 @@ return {
   ynum = 32,                -- Number of internal cells in the y-direction
   znum = 32,                 -- Number of internal cells in the z-direction
   origin = {0.0, 0.0, 0.0}, -- Spatial origin of the computational domain
-  xWidth = 6.283185307179586,             -- Physical length of the domain in the x-dir. [m]
-  yWidth = 6.283185307179586,             -- Physical length of the domain in the y-dir. [m]
-  zWidth = 6.283185307179586,             -- Physical length of the domain in the z-dir. [m]
+  xWidth = 0.04,             -- Physical length of the domain in the x-dir. [m]
+  yWidth = 0.04,             -- Physical length of the domain in the y-dir. [m]
+  zWidth = 0.04,             -- Physical length of the domain in the z-dir. [m]
   xBCLeft  = 'periodic',         -- Boundary conditions on each boundary face.
   xBCLeftVel = {0.0, 0.0, 0.0},  -- Opposite faces must match. Options are
   xBCLeftTemp = 0.0,             -- 'periodic', 'symmetry', 'adiabatic_wall', or
@@ -41,18 +41,18 @@ return {
   initCase = 'Perturbed',         -- 'Uniform', 'Restart', 'TaylorGreen2DVortex',
                                 --  'TaylorGreen3DVortex' or 'Perturbed'
   restartIter = 0,              -- Starting iteration number for flow restart
-  initParams = {1.0,101325.0,0.0,0.0,0.0}, -- Input flow conditions.
+  initParams = {1.2,104040.0,0.0,0.0,0.0}, -- Input flow conditions.
                                 -- Uniform: {density, pressure, u, v, w}
                                 -- Restart: unused
                                 -- TGV 2D: {density, pressure, vel, null, null}
                                 -- TGV 3D: {density, pressure, vel, null, null}
                                 -- Perturbed {mean density, pressure, u, v, w}
   bodyForce = {0.0,0.0,0},      -- Body force (acceleration) in x, y, z
-  turbForceCoeff = 0.2,         -- Turbulent linear forcing coefficient (f = A*rho*u)
-  gasConstant = 287.058,          -- Ideal gas constant, R = cp - cv [J/kg/K]
+  turbForceCoeff = 17.6056,         -- Turbulent linear forcing coefficient (f = A*rho*u)
+  gasConstant = 289.0,          -- Ideal gas constant, R = cp - cv [J/kg/K]
   gamma = 1.4,                 -- Ratio of specific heats, gamma = cp/cv
   viscosity_model = 'Constant', -- 'Constant', 'PowerLaw', or 'Sutherland'
-  constant_visc = 0.004491,          -- Value for a constant viscosity [kg/m/s]
+  constant_visc = 1.9e-5,          -- Value for a constant viscosity [kg/m/s]
   powerlaw_visc_ref = 0.001,    -- Power-law reference viscosity [kg/m/s]
   powerlaw_temp_ref = 273.0,    -- Power-law reference temperature [K]
   suth_visc_ref = 1.68e-5,      -- Sutherland's Law reference viscosity [kg/m/s]
@@ -100,7 +100,7 @@ return {
   cfl = 0.3,               -- CFL condition. Setting this to a negative value
                            -- imposes a fixed time step that is given by
                            -- the 'delta_time' config option.
-  delta_time = 1e-4,       -- Fixed time step [s], ignored if CFL > 0.0
+  delta_time = 1e-5,       -- Fixed time step [s], ignored if CFL > 0.0
   
   -----------------------------------------------------------------------------
   --[[                          FILE I/O OPTIONS                           ]]--
@@ -111,8 +111,8 @@ return {
   wrt1DSlice = 'ON',            -- Enable CSV slices at centerlines
   wrtParticleEvolution = 'ON', -- Enable tracking of a single particle
   particleEvolutionIndex = 0,   -- Index of particle to be tracked
-  outputEveryTimeSteps  = 10000, -- Iterations between writing solutions
-  restartEveryTimeSteps = 10000, -- Iterations between writing restarts
+  outputEveryTimeSteps  = 1000, -- Iterations between writing solutions
+  restartEveryTimeSteps = 1000, -- Iterations between writing restarts
   headerFrequency       = 20,   -- Iterations between console output headers
   outputDirectory = '../forced_turbulence/' -- Relative to the ebb root dir
   

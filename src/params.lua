@@ -1,119 +1,93 @@
+-- This is a Lua config file for the Soleil code.
 
--- This is a Lua config file for the Soleil-X code. The options (and comments)
--- here are intended to be a template configuration file that can be reused
--- for new cases by changing the desired options. This 'master' config will
--- always be kept up to date with the latest version of the code.
-
+-- This case defines the 64x64 lid-driven cavity problem
 return {
   
-  -----------------------------------------------------------------------------
-  --[[                            GRID OPTIONS                             ]]--
-  -----------------------------------------------------------------------------
-  xnum = 32,                -- Number of internal cells in the x-direction
-  ynum = 32,                -- Number of internal cells in the y-direction
-  znum = 32,                 -- Number of internal cells in the z-direction
-  origin = {0.0, 0.0, 0.0}, -- Spatial origin of the computational domain
-  xWidth = 6.283185307179586,             -- Physical length of the domain in the x-dir. [m]
-  yWidth = 6.283185307179586,             -- Physical length of the domain in the y-dir. [m]
-  zWidth = 6.283185307179586,             -- Physical length of the domain in the z-dir. [m]
-  xBCLeft  = 'periodic',         -- Boundary conditions on each boundary face.
-  xBCLeftVel = {0.0, 0.0, 0.0},  -- Opposite faces must match. Options are
-  xBCLeftTemp = 0.0,             -- 'periodic', 'symmetry', 'adiabatic_wall', or
-  xBCRight = 'periodic',         -- 'isothermal_wall'. Each BC can also have a
-  xBCRightVel = {0.0, 0.0, 0.0}, -- prescribed wall velocity {u,v,w}, which is
-  xBCRightTemp = 0.0,            -- always applied, and a wall temperature that
-  yBCLeft  = 'periodic',   -- is ignored unless if is an isothermal wall.
+  -- Flow Initialization  Options --
+  initCase     = 'Uniform', -- Uniform, Restart, TaylorGreen2DVortex, TaylorGreen3DVortex
+  initParams = {1.0,71.42857142857143,0.0,0.0,0.0}, -- necessary input conditions
+  bodyForce = {0,0.0,0}, -- body force in x, y, z
+  turbForceCoeff = 0.0, -- Turbulent linear forcing coefficient (f = A*rho*u)
+  restartIter = 20000,
+  
+  -- Grid Options --
+  xnum = 64, -- number of cells in the x-direction
+  ynum = 64, -- number of cells in the y-direction
+  znum = 1,  -- number of cells in the z-direction
+  origin = {0.0, 0.0, 0.0}, -- spatial origin of the computational domain
+  xWidth = 1.0,
+  yWidth = 1.0,
+  zWidth = 0.1,
+  -- BCs: 'periodic,' 'symmetry,' 'adiabatic_wall,' or 'isothermal_wall'
+  xBCLeft  = 'adiabatic_wall',
+  xBCLeftVel = {0.0, 0.0, 0.0},
+  xBCLeftTemp = 0.0,
+  xBCRight = 'adiabatic_wall',
+  xBCRightVel = {0.0, 0.0, 0.0},
+  xBCRightTemp = 0.0,
+  yBCLeft  = 'adiabatic_wall',
   yBCLeftVel = {0.0, 0.0, 0.0},
   yBCLeftTemp = 0.0,
-  yBCRight = 'periodic',
-  yBCRightVel = {0.0, 0.0, 0.0},
+  yBCRight = 'adiabatic_wall',
+  yBCRightVel = {1.0, 0.0, 0.0},
   yBCRightTemp = 0.0,
-  zBCLeft  = 'periodic',
+  zBCLeft  = 'symmetry',
   zBCLeftVel = {0.0, 0.0, 0.0},
   zBCLeftTemp = 0.0,
-  zBCRight = 'periodic',
+  zBCRight = 'symmetry',
   zBCRightVel = {0.0, 0.0, 0.0},
   zBCRightTemp = 0.0,
   
-  -----------------------------------------------------------------------------
-  --[[                        FLUID PHASE OPTIONS                          ]]--
-  -----------------------------------------------------------------------------
-  initCase = 'Perturbed',         -- 'Uniform', 'Restart', 'TaylorGreen2DVortex',
-                                --  'TaylorGreen3DVortex' or 'Perturbed'
-  restartIter = 0,              -- Starting iteration number for flow restart
-  initParams = {1.0,101325.0,0.0,0.0,0.0}, -- Input flow conditions.
-                                -- Uniform: {density, pressure, u, v, w}
-                                -- Restart: unused
-                                -- TGV 2D: {density, pressure, vel, null, null}
-                                -- TGV 3D: {density, pressure, vel, null, null}
-                                -- Perturbed {mean density, pressure, u, v, w}
-  bodyForce = {0.0,0.0,0},      -- Body force (acceleration) in x, y, z
-  turbForceCoeff = 0.2,         -- Turbulent linear forcing coefficient (f = A*rho*u)
-  gasConstant = 287.058,          -- Ideal gas constant, R = cp - cv [J/kg/K]
-  gamma = 1.4,                 -- Ratio of specific heats, gamma = cp/cv
+  --Time Integration Options --
+  final_time            = 2000.00001,
+  max_iter              = 50000,
+  cfl                   = -2.0, -- Negative CFL implies that we will used fixed delta T
+  delta_time            = 1e-3,
+  
+  --- File Output Options --
+  wrtRestart = 'ON',
+  wrtVolumeSolution = 'ON',
+  wrt1DSlice = 'ON',
+  wrtParticleEvolution = 'OFF',
+  particleEvolutionIndex = 0,
+  outputEveryTimeSteps  = 10000,
+  restartEveryTimeSteps = 10000,
+  headerFrequency       = 20,
+  outputFormat = 'Tecplot', -- Only 'Tecplot' is currently available
+  outputDirectory = '../soleilOutput/', -- relative to the liszt-ebb home directory
+  
+  -- Fluid Options --
+  gasConstant = 287.058,
+  gamma = 1.4,
+  prandtl = 0.72,
   viscosity_model = 'Constant', -- 'Constant', 'PowerLaw', or 'Sutherland'
-  constant_visc = 0.004491,          -- Value for a constant viscosity [kg/m/s]
+  constant_visc = 1.0e-3,          -- Value for a constant viscosity [kg/m/s]
   powerlaw_visc_ref = 0.001,    -- Power-law reference viscosity [kg/m/s]
   powerlaw_temp_ref = 273.0,    -- Power-law reference temperature [K]
-  suth_visc_ref = 1.68e-5,      -- Sutherland's Law reference viscosity [kg/m/s]
-  suth_temp_ref = 273.0,        -- Sutherland's Law reference temperature [K]
-  suth_s_ref = 110.5,           -- Sutherland's Law S constant [K]
-  prandtl = 0.72,                -- Prandtl number, Pr
-                                -- Note: thermal conductivity, k = cp*visc/Pr
+  suth_visc_ref = 1.716E-5,     -- Sutherland's Law reference viscosity [kg/m/s]
+  suth_temp_ref = 273.15,       -- Sutherland's Law referene temperature [K]
+  suth_s_ref = 110.4,           -- Sutherland's Law S constant [K]
   
-  -----------------------------------------------------------------------------
-  --[[                       PARTICLE PHASE OPTIONS                        ]]--
-  -----------------------------------------------------------------------------
-  initParticles = 'Random',        -- Particle init: 'Random' or 'Restart'
-  restartParticleIter = 0,         -- Starting iteration for particle restart
-  particleType = 'Free',          -- Particle can be 'Fixed' or 'Free' to move
-  twoWayCoupling = 'OFF',          -- Enable two-way coupling with fluid.
-                                   -- 'ON' is two-way, 'OFF' is fluid->particle
-  num = 10000.0,                    -- Prescribe the total number of particles
-  restitutionCoefficient = 1.0,    -- Restitution coeff. for wall collisions
-  convectiveCoefficient = 20000.0, -- Convective heat transfer coeff. [W/m^2/K]
-  heatCapacity = 1000.0,           -- Particle heat capacity,h [J/kg/K]
-                                   -- Note: Nusselt = h*Dp/k
-  absorptivity = 1.0,              -- Radiation absorption coeff., 0.0 <-> 1.0
-  initialTemperature = 400.0,      -- Initial temperature [K]
-  density = 9e3,                   -- Particle density [kg/m^3]
-  diameter_mean = 1e-2,            -- Mean value for stochastic diameter, Dp [m]
-  diameter_maxDeviation = 0.0,     -- Maximum deviation for stochastic diameter
-  bodyForceParticles = {0.0,0.0,0.0}, -- Constant body force (acceleration)
-                                   -- on particles in the {x,y,z} directions
+  -- Particle Options --
+  initParticles = 'Constant', -- 'Random' or 'Restart'
+  restartParticleIter = 0,
+  particleType = 'Free', -- Fixed or Free
+  twoWayCoupling = 'OFF', -- ON or OFF
+  num = 1000.0,
+  restitutionCoefficient = 1.0,
+  convectiveCoefficient = 0.7, -- W m^-2 K^-1
+  heatCapacity = 0.7, -- J Kg^-1 K^-1
+  initialTemperature = 0.248830, -- K
+  density = 8900, --1000, --8900,
+  diameter_mean = 1e-3, --1e-5, -- 1.2e-5, --0.03,
+  diameter_maxDeviation = 5e-4, --0.02,
+  bodyForceParticles = {0,0,0}, -- {0,-1.1,0}
+  absorptivity = 1.0, -- Equal to emissivity in thermal equilibrium
+  -- (Kirchhoff law of thermal radiation)
   
-  -----------------------------------------------------------------------------
-  --[[                         RADIATION OPTIONS                           ]]--
-  -----------------------------------------------------------------------------
-  radiationType = 'OFF',     -- Enable algebraic radiation model, 'ON' or 'OFF'
-  radiationIntensity = 3e6,  -- Radiation intensity as a heat flux [W/m^2]
-                             -- Note:
-  zeroAvgHeatSource = 'OFF', -- Subtract the average heat addition due to
-                             -- from all cells to enable a steady problem
-                             -- when radiation is applied.
-  
-  -----------------------------------------------------------------------------
-  --[[                      TIME INTEGRATION OPTIONS                       ]]--
-  -----------------------------------------------------------------------------
-  final_time = 2000.00001, -- Maximum physical time for the simulation [s]
-  max_iter = 30000,         -- Maximum number of iterations
-  cfl = 0.3,               -- CFL condition. Setting this to a negative value
-                           -- imposes a fixed time step that is given by
-                           -- the 'delta_time' config option.
-  delta_time = 1e-4,       -- Fixed time step [s], ignored if CFL > 0.0
-  
-  -----------------------------------------------------------------------------
-  --[[                          FILE I/O OPTIONS                           ]]--
-  -----------------------------------------------------------------------------
-  wrtRestart = 'ON',            -- Enable restart file output, 'ON' or 'OFF'
-  wrtVolumeSolution = 'ON',     -- Enable volume solution output
-  outputFormat = 'Tecplot',     -- Volume solution format, 'Tecplot' only
-  wrt1DSlice = 'ON',            -- Enable CSV slices at centerlines
-  wrtParticleEvolution = 'ON', -- Enable tracking of a single particle
-  particleEvolutionIndex = 0,   -- Index of particle to be tracked
-  outputEveryTimeSteps  = 10000, -- Iterations between writing solutions
-  restartEveryTimeSteps = 10000, -- Iterations between writing restarts
-  headerFrequency       = 20,   -- Iterations between console output headers
-  outputDirectory = '../forced_turbulence/' -- Relative to the ebb root dir
+  -- Radiation Options --
+  radiationType = 'OFF', -- ON or OFF
+  radiationIntensity = 1e1,
+  zeroAvgHeatSource = 'OFF'
   
 }
