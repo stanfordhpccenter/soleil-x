@@ -1266,9 +1266,9 @@ ebb Flow.InitializePrimitives (c : grid.cells)
       -- the density field used to start up forced turbulence cases
       c.rho         = flow_options.initParams[0]
       c.pressure    = flow_options.initParams[1]
-      c.velocity[0] = flow_options.initParams[2] + (C.rand_unity()*1e-4)
-      c.velocity[1] = flow_options.initParams[3] + (C.rand_unity()*1e-4)
-      c.velocity[2] = flow_options.initParams[4] + (C.rand_unity()*1e-4)
+      c.velocity[0] = flow_options.initParams[2] + ((C.rand_unity()-0.5)*1e-2)
+      c.velocity[1] = flow_options.initParams[3] + ((C.rand_unity()-0.5)*1e-2)
+      c.velocity[2] = flow_options.initParams[4] + ((C.rand_unity()-0.5)*1e-2)
     end
 end
 
@@ -1732,6 +1732,8 @@ ebb Flow.AddBodyForces (c : grid.cells)
 
     -- Add source for forced isotropic turbulence (linear in velocity)
     c.rhoVelocity_t += c.rho * flow_options.turbForceCoeff * c.velocity
+    c.rhoEnergy_t += c.rho * flow_options.turbForceCoeff * L.dot(c.velocity,c.velocity)
+    --L.print(c.rho * flow_options.turbForceCoeff * c.velocity)
 
     -- Body force contribution to energy equations
     c.rhoEnergy_t += c.rho * L.dot(flow_options.bodyForce,c.velocity)

@@ -9,9 +9,9 @@ return {
   -----------------------------------------------------------------------------
   --[[                            GRID OPTIONS                             ]]--
   -----------------------------------------------------------------------------
-  xnum = 32,                -- Number of internal cells in the x-direction
-  ynum = 32,                -- Number of internal cells in the y-direction
-  znum = 32,                 -- Number of internal cells in the z-direction
+  xnum = 64,                -- Number of internal cells in the x-direction
+  ynum = 64,                -- Number of internal cells in the y-direction
+  znum = 64,                 -- Number of internal cells in the z-direction
   origin = {0.0, 0.0, 0.0}, -- Spatial origin of the computational domain
   xWidth = 0.04,             -- Physical length of the domain in the x-dir. [m]
   yWidth = 0.04,             -- Physical length of the domain in the y-dir. [m]
@@ -51,7 +51,7 @@ return {
   turbForceCoeff = 17.6056,         -- Turbulent linear forcing coefficient (f = A*rho*u)
   gasConstant = 289.0,          -- Ideal gas constant, R = cp - cv [J/kg/K]
   gamma = 1.4,                 -- Ratio of specific heats, gamma = cp/cv
-  viscosity_model = 'Constant', -- 'Constant', 'PowerLaw', or 'Sutherland'
+  viscosity_model = 'Sutherland', -- 'Constant', 'PowerLaw', or 'Sutherland'
   constant_visc = 1.9e-5,          -- Value for a constant viscosity [kg/m/s]
   powerlaw_visc_ref = 0.001,    -- Power-law reference viscosity [kg/m/s]
   powerlaw_temp_ref = 273.0,    -- Power-law reference temperature [K]
@@ -96,8 +96,8 @@ return {
   --[[                      TIME INTEGRATION OPTIONS                       ]]--
   -----------------------------------------------------------------------------
   final_time = 2000.00001, -- Maximum physical time for the simulation [s]
-  max_iter = 30000,         -- Maximum number of iterations
-  cfl = 0.3,               -- CFL condition. Setting this to a negative value
+  max_iter = 300000,         -- Maximum number of iterations
+  cfl = 2.0,               -- CFL condition. Setting this to a negative value
                            -- imposes a fixed time step that is given by
                            -- the 'delta_time' config option.
   delta_time = 1e-5,       -- Fixed time step [s], ignored if CFL > 0.0
@@ -111,8 +111,8 @@ return {
   wrt1DSlice = 'ON',            -- Enable CSV slices at centerlines
   wrtParticleEvolution = 'ON', -- Enable tracking of a single particle
   particleEvolutionIndex = 0,   -- Index of particle to be tracked
-  outputEveryTimeSteps  = 1000, -- Iterations between writing solutions
-  restartEveryTimeSteps = 1000, -- Iterations between writing restarts
+  outputEveryTimeSteps  = 3000, -- Iterations between writing solutions
+  restartEveryTimeSteps = 3000, -- Iterations between writing restarts
   headerFrequency       = 20,   -- Iterations between console output headers
   outputDirectory = '../forced_turbulence/' -- Relative to the ebb root dir
   
