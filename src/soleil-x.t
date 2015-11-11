@@ -40,7 +40,7 @@ local PN = require 'ebb.lib.pathname'
 -- have multiple config files available in other locations, and copy them
 -- to this location with the name params.lua before running.
 
-local filename = '../soleil-x/src/params.lua'
+local filename = './devapps/soleil-x/src/params.lua'
 local config = loadfile(filename)()
 
 --- Immediately check that the output directory exists. Throw an error if not.
@@ -1637,7 +1637,7 @@ ebb Flow.AddViscousGetFluxZ (c : grid.cells)
        
         -- Half cell size due to the 0.5 above
         velocityX_ZFace   /= (grid_dz*0.5)
-        velocityZ_ZFace   /= (grid_dz*0.5)
+        velocityY_ZFace   /= (grid_dz*0.5)
         velocityZ_ZFace   /= (grid_dz*0.5)
         temperature_ZFace /= (grid_dz*0.5)
 

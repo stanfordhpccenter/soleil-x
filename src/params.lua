@@ -38,7 +38,7 @@ return {
   -----------------------------------------------------------------------------
   --[[                        FLUID PHASE OPTIONS                          ]]--
   -----------------------------------------------------------------------------
-  initCase = 'Restart',         -- 'Uniform', 'Restart', 'TaylorGreen2DVortex',
+  initCase = 'Perturbed',         -- 'Uniform', 'Restart', 'TaylorGreen2DVortex',
                                 --  'TaylorGreen3DVortex' or 'Perturbed'
   restartIter = 0,              -- Starting iteration number for flow restart
   initParams = {1.2,104040.0,0.0,0.0,0.0}, -- Input flow conditions.
@@ -64,12 +64,12 @@ return {
   -----------------------------------------------------------------------------
   --[[                       PARTICLE PHASE OPTIONS                        ]]--
   -----------------------------------------------------------------------------
-  initParticles = 'Restart',        -- Particle init: 'Random' or 'Restart'
+  initParticles = 'Random',        -- Particle init: 'Random' or 'Restart'
   restartParticleIter = 0,         -- Starting iteration for particle restart
   particleType = 'Free',          -- Particle can be 'Fixed' or 'Free' to move
   twoWayCoupling = 'OFF',          -- Enable two-way coupling with fluid.
                                    -- 'ON' is two-way, 'OFF' is fluid->particle
-  num = 10000.0,                    -- Prescribe the total number of particles
+  num = 1000.0,                    -- Prescribe the total number of particles
   restitutionCoefficient = 1.0,    -- Restitution coeff. for wall collisions
   convectiveCoefficient = 20000.0, -- Convective heat transfer coeff. [W/m^2/K]
   heatCapacity = 1000.0,           -- Particle heat capacity,h [J/kg/K]
