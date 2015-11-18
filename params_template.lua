@@ -64,7 +64,7 @@ return {
   -----------------------------------------------------------------------------
   --[[                       PARTICLE PHASE OPTIONS                        ]]--
   -----------------------------------------------------------------------------
-  initParticles = 'Random',        -- Part. init: 'Random', 'Restart', or 'Constant'
+  initParticles = 'Random',        -- Part. init: 'Random', 'Restart', or 'Uniform'
   restartParticleIter = 0,         -- Starting iteration for particle restart
   particleType = 'Free',          -- Particle can be 'Fixed' or 'Free' to move
   twoWayCoupling = 'OFF',          -- Enable two-way coupling with fluid.

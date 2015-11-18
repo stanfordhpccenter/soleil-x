@@ -22,6 +22,9 @@ double rand_unity() {
 
 ]]
 
+-- Use the built in rand() function from Liszt
+local rand_float = L.rand
+
 C.srand(C.time(nil));
 local vdb = require 'ebb.lib.vdb'
 
@@ -97,7 +100,7 @@ Particles.FeederOverTimeInRandomBox    = L.Global(L.int, 1)
 Particles.FeederUQCase                 = L.Global(L.int, 2)
 Particles.Random                       = L.Global(L.int, 3)
 Particles.Restart                      = L.Global(L.int, 4)
-Particles.Constant                     = L.Global(L.int, 5)
+Particles.Uniform                      = L.Global(L.int, 5)
 
 -- Particles collector
 Particles.CollectorNone     = L.Global(L.int, 0)
@@ -465,8 +468,8 @@ if config.initParticles == 'Random' then
   particles_options.initParticles = Particles.Random
 elseif config.initParticles == 'Restart' then
   particles_options.initParticles = Particles.Restart
-elseif config.initParticles == 'Constant' then
-  particles_options.initParticles = Particles.Constant
+elseif config.initParticles == 'Uniform' then
+  particles_options.initParticles = Particles.Uniform
 else
   error("Particle initialization type not defined")
 end
@@ -649,6 +652,11 @@ else
   zBCPeriodic = false
 end
 
+
+-----------------------------------------------------------------------------
+--[[                         GRID PREPROCESSING                          ]]--
+-----------------------------------------------------------------------------
+
 -- Declare and initialize grid and related fields
 -- As we are second-order, we will initialize the grid
 -- with a single layer of halo cells (unless running a
@@ -767,20 +775,44 @@ grid.cells:NewField('rhoFlux', L.double)                      :Load(0)
 grid.cells:NewField('rhoVelocityFlux', L.vec3d)               :Load({0, 0, 0})
 grid.cells:NewField('rhoEnergyFlux', L.double)                :Load(0)
 
+
+-----------------------------------------------------------------------------
+--[[                       PARTICLE PREPROCESSING                        ]]--
+-----------------------------------------------------------------------------
+
 -- Declare and initialize particle relation and fields over the particle
+local INSERT_DELETE = false -- hard-code to false for now while we fix
+local mode = 'PLAIN'
+if INSERT_DELETE then mode = 'ELASTIC' end
 
 local particles = L.NewRelation {
+  mode = mode,
   size = particles_options.num,
   name = 'particles'
 }
 
-particles:NewField('dual_cell', grid.dual_cells)              :Load({0,0,0})
-particles:NewField('cell', grid.cells)                        :Load({0,0,0})
+-- Evenly distribute the particles throughout the cells by default. We will
+-- adjust the locations for particular initializations later.
 
-particles:NewField('position', L.vec3d)
-particles:NewField('velocity', L.vec3d)
+local PARTICLE_LEN_X = grid_options.xnum - (xBCPeriodic and 0 or 1)
+local PARTICLE_LEN_Y = grid_options.ynum - (yBCPeriodic and 0 or 1)
+local PARTICLE_LEN_Z = grid_options.znum - (zBCPeriodic and 0 or 1)
+particles:NewField('dual_cell', grid.dual_cells):Load(function(i)
+    local xid = math.floor(i%PARTICLE_LEN_X)
+    local yid = math.floor(i/PARTICLE_LEN_X)%(PARTICLE_LEN_Y)
+    local zid = math.floor(i/(PARTICLE_LEN_X*PARTICLE_LEN_Y))
+    if not xBCPeriodic then xid = xid+1 end
+    if not yBCPeriodic then yid = yid+1 end
+    if not zBCPeriodic then zid = zid+1 end
+    L.print(xid,yid,zid)
+    return {xid,yid,zid}
+end)
+
+
+particles:NewField('position',    L.vec3d)
+particles:NewField('velocity',    L.vec3d)
 particles:NewField('temperature', L.double)
-particles:NewField('diameter', L.double)
+particles:NewField('diameter',    L.double)
 -- state of a particle:
 --   - a particle not yet fed has a state = 0
 --   - a particle fed into the domain and active has a state = 1
@@ -800,31 +832,41 @@ if particles_options.initParticles == Particles.Restart then
                                     'restart_particle_diameter_' ..
                                     config.restartParticleIter .. '.csv')
   particles.state         :Load(1)
-elseif particles_options.initParticles == Particles.Constant then
-  particles.position      :Load({0, 0, 0})
+elseif particles_options.initParticles == Particles.Uniform then
+  particles:foreach(ebb (p : particles) -- init particle position from dual
+                    p.position = p.dual_cell.vertex.cell(-1,-1,-1).center +
+                    L.vec3f({grid_dx/2.0, grid_dy/2.0, grid_dz/2.0})
+                    L.print(p.position)
+                    end)
   particles.velocity      :Load({0, 0, 0})
   particles.temperature   :Load(particles_options.initialTemperature)
   particles.diameter      :Load(particles_options.diameter_mean)
   particles.state         :Load(1)
-else
+elseif particles_options.initParticles == Particles.Random then
   particles.position      :Load({0, 0, 0})
   particles.velocity      :Load({0, 0, 0})
   particles.temperature   :Load(particles_options.initialTemperature)
   -- Initialize to random distribution with given mean value and maximum
   -- deviation from it
-  particles.diameter      :Load(function(i)
-                                return C.rand_unity() *
-                                  particles_options.diameter_maxDeviation +
-                                  particles_options.diameter_mean
-                                end)
+  particles:foreach(ebb (p : particles) -- init particle position from dual
+                    p.diameter = (rand_float() - 0.5) *
+                    particles_options.diameter_maxDeviation +
+                    particles_options.diameter_mean
+                    end)
   particles.state         :Load(0)
 end
 
-particles:NewField('position_ghost', L.vec3d)                 :Load({0, 0, 0})
-particles:NewField('velocity_ghost', L.vec3d)                 :Load({0, 0, 0})
-particles:NewField('velocity_t_ghost', L.vec3d)               :Load({0, 0, 0})
+particles:NewField('cell', grid.cells)
+particles:foreach(ebb (p : particles) -- init cell
+                  -- Retrieve cell containing this particle
+                  p.cell = grid.cell_locate(p.position)
+                  end)
 
-particles:NewField('density', L.double)       :Load(particles_options.density)
+particles:NewField('position_ghost', L.vec3d):Load({0, 0, 0})
+particles:NewField('velocity_ghost', L.vec3d):Load({0, 0, 0})
+particles:NewField('velocity_t_ghost', L.vec3d):Load({0, 0, 0})
+
+particles:NewField('density', L.double):Load(particles_options.density)
 particles:NewField('deltaVelocityOverRelaxationTime', L.vec3d):Load({0, 0, 0})
 particles:NewField('deltaTemperatureTerm', L.double)          :Load(0)
 -- ID field
@@ -1271,9 +1313,9 @@ ebb Flow.InitializePrimitives (c : grid.cells)
       -- the density field used to start up forced turbulence cases
       c.rho         = flow_options.initParams[0]
       c.pressure    = flow_options.initParams[1]
-      c.velocity[0] = flow_options.initParams[2] + ((C.rand_unity()-0.5)*1e-2)
-      c.velocity[1] = flow_options.initParams[3] + ((C.rand_unity()-0.5)*1e-2)
-      c.velocity[2] = flow_options.initParams[4] + ((C.rand_unity()-0.5)*1e-2)
+      c.velocity[0] = flow_options.initParams[2] + ((rand_float()-0.5)*1e-2)
+      c.velocity[1] = flow_options.initParams[3] + ((rand_float()-0.5)*1e-2)
+      c.velocity[2] = flow_options.initParams[4] + ((rand_float()-0.5)*1e-2)
     end
 end
 
@@ -2659,6 +2701,7 @@ end
 ---------
 
 -- Particles feeder
+--[[
 ebb Particles.Feed(p: particles)
 
     if p.state == 0 then
@@ -2685,9 +2728,9 @@ ebb Particles.Feed(p: particles)
         var widthY    = particles_options.feederParams[4]
         var widthZ    = particles_options.feederParams[5]
 
-        p.position[0] = centerX + (C.rand_unity()-0.5) * widthX
-        p.position[1] = centerY + (C.rand_unity()-0.5) * widthY
-        p.position[2] = centerZ + (C.rand_unity()-0.5) * widthZ
+        p.position[0] = centerX + (rand_float()-0.5) * widthX
+        p.position[1] = centerY + (rand_float()-0.5) * widthY
+        p.position[2] = centerZ + (rand_float()-0.5) * widthZ
         p.state = 1
                         
       elseif particles_options.feederType == 
@@ -2708,11 +2751,11 @@ ebb Particles.Feed(p: particles)
         if L.floor(p.id/injectorBox_particlesPerTimeStep) ==
            TimeIntegrator.timeStep then
             p.position[0] = injectorBox_centerX +
-                            (C.rand_unity()-0.5) * injectorBox_widthX
+                            (rand_float()-0.5) * injectorBox_widthX
             p.position[1] = injectorBox_centerY +
-                            (C.rand_unity()-0.5) * injectorBox_widthY
+                            (rand_float()-0.5) * injectorBox_widthY
             p.position[2] = injectorBox_centerZ +
-                            (C.rand_unity()-0.5) * injectorBox_widthZ
+                            (rand_float()-0.5) * injectorBox_widthZ
             p.velocity[0] = injectorBox_velocityX
             p.velocity[1] = injectorBox_velocityY
             p.velocity[2] = injectorBox_velocityZ
@@ -2755,11 +2798,11 @@ ebb Particles.Feed(p: particles)
         if L.floor(p.id/injectorA_particlesPerTimeStep) ==
           TimeIntegrator.timeStep then
             p.position[0] = injectorA_centerX +
-                            (C.rand_unity()-0.5) * injectorA_widthX
+                            (rand_float()-0.5) * injectorA_widthX
             p.position[1] = injectorA_centerY +
-                            (C.rand_unity()-0.5) * injectorA_widthY
+                            (rand_float()-0.5) * injectorA_widthY
             p.position[2] = injectorA_centerZ +
-                            (C.rand_unity()-0.5) * injectorA_widthZ
+                            (rand_float()-0.5) * injectorA_widthZ
             p.velocity[0] = injectorA_velocityX
             p.velocity[1] = injectorA_velocityY
             p.velocity[2] = injectorA_velocityZ
@@ -2775,11 +2818,11 @@ ebb Particles.Feed(p: particles)
                        injectorB_particlesPerTimeStep) ==
           TimeIntegrator.timeStep then
             p.position[0] = injectorB_centerX +
-                            (C.rand_unity()-0.5) * injectorB_widthX
+                            (rand_float()-0.5) * injectorB_widthX
             p.position[1] = injectorB_centerY +
-                            (C.rand_unity()-0.5) * injectorB_widthY
+                            (rand_float()-0.5) * injectorB_widthY
             p.position[2] = injectorB_centerZ +
-                            (C.rand_unity()-0.5) * injectorB_widthZ
+                            (rand_float()-0.5) * injectorB_widthZ
             p.velocity[0] = injectorB_velocityX
             p.velocity[1] = injectorB_velocityY
             p.velocity[2] = injectorB_velocityZ
@@ -2792,12 +2835,14 @@ ebb Particles.Feed(p: particles)
     end
 
 end
+]]--
 
 ------------
 -- Collector 
 ------------
 
 -- Particles collector 
+--[[
 ebb Particles.Collect (p: particles)
 
     if p.state == 1 then
@@ -2826,7 +2871,7 @@ ebb Particles.Collect (p: particles)
     end
 
 end
-
+]]--
 
 -------------
 -- Statistics
@@ -2950,7 +2995,8 @@ function TimeIntegrator.SetupTimeStep()
 end
 
 function TimeIntegrator.ConcludeTimeStep()
-    particles:foreach(Particles.Collect)
+    -- disabling collecting of particles while we fix
+    --particles:foreach(Particles.Collect)
 end
 
 function TimeIntegrator.InitializeTimeDerivatives()
@@ -2983,9 +3029,10 @@ function TimeIntegrator.InitializeVariables()
     grid.cells.interior:foreach(Flow.UpdateConservedFromPrimitive)
     Flow.UpdateAuxiliary()
     Flow.UpdateGhost()
-    if particles_options.initParticles ~= Particles.Restart then
-      particles:foreach(Particles.Feed)
-    end
+    -- disabling the feed kernel while we fix
+    --if particles_options.initParticles ~= Particles.Restart then
+    --  particles:foreach(Particles.Feed)
+    --end
     particles:foreach(Particles.Locate)
     particles:foreach(Particles.SetVelocitiesToFlow)
 end
