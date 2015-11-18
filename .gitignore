@@ -1,3 +1,6 @@
 # Files ignored by git
 
 .DS_Store
+
+# Xcode files
+#*.xcworkspace

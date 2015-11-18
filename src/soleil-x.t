@@ -709,24 +709,10 @@ grid.vertices:NewField('centerCoordinates', L.vec3d)          :Load({0, 0, 0})
 grid.vertices:NewField('vertexRindLayer', L.int)              :Load(1)
 grid.cells:NewField('cellRindLayer', L.int)                   :Load(1)
 
--- Primitive variables (note that these may be initialized from a restart)
-grid.cells:NewField('rho', L.double)
-grid.cells:NewField('pressure', L.double)
-grid.cells:NewField('velocity', L.vec3d)
-if flow_options.initCase == Flow.Restart then
-  grid.cells.rho:Load(CSV.Load, IO.outputFileNamePrefix .. 'restart_rho_' ..
-                                config.restartIter .. '.csv')
-  grid.cells.pressure:Load(CSV.Load, IO.outputFileNamePrefix ..
-                                     'restart_pressure_' ..
-                                     config.restartIter .. '.csv')
-  grid.cells.velocity:Load(CSV.Load, IO.outputFileNamePrefix ..
-                                     'restart_velocity_'
-                                     .. config.restartIter .. '.csv')
-else
-  grid.cells.rho        :Load(0)
-  grid.cells.pressure   :Load(0)
-  grid.cells.velocity   :Load({0, 0, 0})
-end
+-- Primitive variables
+grid.cells:NewField('rho', L.double) :Load(0)
+grid.cells:NewField('pressure', L.double) :Load(0)
+grid.cells:NewField('velocity', L.vec3d) :Load({0, 0, 0})
 
 -- Remaining primitive variables
 grid.cells:NewField('centerCoordinates', L.vec3d)             :Load({0, 0, 0})
@@ -1241,73 +1227,75 @@ ebb Flow.InitializeVertexRindLayer (v : grid.vertices)
     v.vertexRindLayer = 0
 end
 
+ebb Flow.InitializeUniform (c : grid.cells)
+    c.rho         = flow_options.initParams[0]
+    c.pressure    = flow_options.initParams[1]
+    c.velocity[0] = flow_options.initParams[2]
+    c.velocity[1] = flow_options.initParams[3]
+    c.velocity[2] = flow_options.initParams[4]
+end
 
-ebb Flow.InitializePrimitives (c : grid.cells)
-    if flow_options.initCase == Flow.TaylorGreen2DVortex then
-      -- Define Taylor Green Vortex
-      var taylorGreenDensity  = flow_options.initParams[0]
-      var taylorGreenPressure = flow_options.initParams[1]
-      var taylorGreenVelocity = flow_options.initParams[2]
-      -- Initialize
-      var xy = c.center
-      var coorZ = 0
-      c.rho = taylorGreenDensity
-      c.velocity = 
-          taylorGreenVelocity *
-          L.vec3d({L.sin(xy[0]) * 
-                   L.cos(xy[1]) *
-                   L.cos(coorZ),
-                 - L.cos(xy[0]) *
-                   L.sin(xy[1]) *
-                   L.cos(coorZ),
-                   0})
-      var factorA = L.cos(2.0*coorZ) + 2.0
-      var factorB = L.cos(2.0*xy[0]) +
-                    L.cos(2.0*xy[1])
-      c.pressure = 
-          taylorGreenPressure + 
-          taylorGreenDensity * L.pow(taylorGreenVelocity,2) / 16 *
-          factorA * factorB
-    elseif flow_options.initCase == Flow.TaylorGreen3DVortex then
-      -- Define Taylor Green Vortex
-      var taylorGreenDensity  = flow_options.initParams[0]
-      var taylorGreenPressure = flow_options.initParams[1]
-      var taylorGreenVelocity = flow_options.initParams[2]
-      -- Initialize
-      var xy = c.center
-      c.rho = taylorGreenDensity
-      c.velocity = 
-          taylorGreenVelocity *
-          L.vec3d({L.sin(xy[0]) * 
-                   L.cos(xy[1]) *
-                   L.cos(xy[2]),
-                 - L.cos(xy[0]) *
-                   L.sin(xy[1]) *
-                   L.cos(xy[2]),
-                   0})
-      var factorA = L.cos(2.0*xy[2]) + 2.0
-      var factorB = L.cos(2.0*xy[0]) +
-                    L.cos(2.0*xy[1])
-      c.pressure = 
-          taylorGreenPressure + 
-          taylorGreenDensity * L.pow(taylorGreenVelocity,2) / 16 *
-          factorA * factorB
-    elseif flow_options.initCase == Flow.Uniform then
-      c.rho         = flow_options.initParams[0]
-      c.pressure    = flow_options.initParams[1]
-      c.velocity[0] = flow_options.initParams[2]
-      c.velocity[1] = flow_options.initParams[3]
-      c.velocity[2] = flow_options.initParams[4]
-      
-    elseif flow_options.initCase == Flow.Perturbed then
-      -- This initialization imposes a small random perturbation in 
-      -- the density field used to start up forced turbulence cases
-      c.rho         = flow_options.initParams[0]
-      c.pressure    = flow_options.initParams[1]
-      c.velocity[0] = flow_options.initParams[2] + ((rand_float()-0.5)*1e-2)
-      c.velocity[1] = flow_options.initParams[3] + ((rand_float()-0.5)*1e-2)
-      c.velocity[2] = flow_options.initParams[4] + ((rand_float()-0.5)*1e-2)
-    end
+ebb Flow.InitializeTaylorGreen2D (c : grid.cells)
+    -- Define Taylor Green Vortex
+    var taylorGreenDensity  = flow_options.initParams[0]
+    var taylorGreenPressure = flow_options.initParams[1]
+    var taylorGreenVelocity = flow_options.initParams[2]
+    -- Initialize
+    var xy = c.center
+    var coorZ = 0
+    c.rho = taylorGreenDensity
+    c.velocity =
+    taylorGreenVelocity *
+    L.vec3d({L.sin(xy[0]) *
+            L.cos(xy[1]) *
+            L.cos(coorZ),
+            - L.cos(xy[0]) *
+            L.sin(xy[1]) *
+            L.cos(coorZ),
+            0})
+    var factorA = L.cos(2.0*coorZ) + 2.0
+    var factorB = L.cos(2.0*xy[0]) +
+    L.cos(2.0*xy[1])
+    c.pressure =
+    taylorGreenPressure +
+    taylorGreenDensity * L.pow(taylorGreenVelocity,2) / 16 *
+    factorA * factorB
+end
+
+ebb Flow.InitializeTaylorGreen3D (c : grid.cells)
+    -- Define Taylor Green Vortex
+    var taylorGreenDensity  = flow_options.initParams[0]
+    var taylorGreenPressure = flow_options.initParams[1]
+    var taylorGreenVelocity = flow_options.initParams[2]
+    -- Initialize
+    var xy = c.center
+    c.rho = taylorGreenDensity
+    c.velocity =
+    taylorGreenVelocity *
+    L.vec3d({L.sin(xy[0]) *
+            L.cos(xy[1]) *
+            L.cos(xy[2]),
+            - L.cos(xy[0]) *
+            L.sin(xy[1]) *
+            L.cos(xy[2]),
+            0})
+    var factorA = L.cos(2.0*xy[2]) + 2.0
+    var factorB = L.cos(2.0*xy[0]) +
+    L.cos(2.0*xy[1])
+    c.pressure =
+    taylorGreenPressure +
+    taylorGreenDensity * L.pow(taylorGreenVelocity,2) / 16 *
+    factorA * factorB
+end
+
+ebb Flow.InitializePerturbed (c : grid.cells)
+    -- This initialization imposes a small random perturbation in
+    -- the velocity field used to start up forced turbulence cases
+    c.rho         = flow_options.initParams[0]
+    c.pressure    = flow_options.initParams[1]
+    c.velocity[0] = flow_options.initParams[2] + ((rand_float()-0.5)*1e-2)
+    c.velocity[1] = flow_options.initParams[3] + ((rand_float()-0.5)*1e-2)
+    c.velocity[2] = flow_options.initParams[4] + ((rand_float()-0.5)*1e-2)
 end
 
 ebb Flow.UpdateConservedFromPrimitive (c : grid.cells)
@@ -2898,6 +2886,27 @@ end
 -- FLOW
 -------
 
+function Flow.InitializePrimitives()
+    if flow_options.initCase == Flow.Uniform then
+        grid.cells:foreach(Flow.InitializeUniform)
+    elseif flow_options.initCase == Flow.TaylorGreen2DVortex then
+        grid.cells:foreach(Flow.InitializeTaylorGreen2D)
+    elseif flow_options.initCase == Flow.TaylorGreen3DVortex then
+        grid.cells:foreach(Flow.InitializeTaylorGreen3D)
+    elseif flow_options.initCase == Flow.Perturbed then
+        grid.cells:foreach(Flow.InitializePerturbed)
+    elseif flow_options.initCase == Flow.Restart then
+        grid.cells.rho:Load(CSV.Load, IO.outputFileNamePrefix .. 'restart_rho_' ..
+                                config.restartIter .. '.csv')
+        grid.cells.pressure:Load(CSV.Load, IO.outputFileNamePrefix ..
+                                     'restart_pressure_' ..
+                                     config.restartIter .. '.csv')
+        grid.cells.velocity:Load(CSV.Load, IO.outputFileNamePrefix ..
+                                     'restart_velocity_'
+                                     .. config.restartIter .. '.csv')
+    end
+end
+
 function Flow.AddInviscid()
     grid.cells:foreach(Flow.AddInviscidInitialize)
     grid.cells:foreach(Flow.AddInviscidGetFluxX)
@@ -2949,6 +2958,10 @@ end
 -- PARTICLES
 ------------
 
+function Particles.InitializePrimitives()
+
+end
+
 function Particles.Update(stage)
     particles:foreach(Particles.UpdateFunctions[stage])
 end
@@ -2996,11 +3009,8 @@ function TimeIntegrator.InitializeVariables()
     grid.vertices:foreach(Flow.InitializeVertexCoordinates)
     grid.vertices.interior:foreach(Flow.InitializeVertexRindLayer)
     
-    -- Avoid the initialization for restarts (random function inside)
-    if flow_options.initCase ~= Flow.Restart then
-      grid.cells.interior:foreach(Flow.InitializePrimitives)
-    end
-    
+    -- Set initial condition for the primitive vars (uniform, restart, etc.)
+    Flow.InitializePrimitives()
     grid.cells.interior:foreach(Flow.UpdateConservedFromPrimitive)
     Flow.UpdateAuxiliary()
     Flow.UpdateGhost()
