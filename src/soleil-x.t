@@ -813,11 +813,7 @@ particles:NewField('position',    L.vec3d)
 particles:NewField('velocity',    L.vec3d)
 particles:NewField('temperature', L.double)
 particles:NewField('diameter',    L.double)
--- state of a particle:
---   - a particle not yet fed has a state = 0
---   - a particle fed into the domain and active has a state = 1
---   - a particle already collected has a state = 2
-particles:NewField('state', L.int)
+
 if particles_options.initParticles == Particles.Restart then
   particles.position:Load(CSV.Load, IO.outputFileNamePrefix ..
                                     'restart_particle_position_' ..
@@ -831,7 +827,6 @@ if particles_options.initParticles == Particles.Restart then
   particles.diameter:Load(CSV.Load, IO.outputFileNamePrefix ..
                                     'restart_particle_diameter_' ..
                                     config.restartParticleIter .. '.csv')
-  particles.state         :Load(1)
 elseif particles_options.initParticles == Particles.Uniform then
   particles:foreach(ebb (p : particles) -- init particle position from cell
                     p.position = p.cell.center
@@ -839,7 +834,6 @@ elseif particles_options.initParticles == Particles.Uniform then
   particles.velocity      :Load({0, 0, 0})
   particles.temperature   :Load(particles_options.initialTemperature)
   particles.diameter      :Load(particles_options.diameter_mean)
-  particles.state         :Load(1)
 elseif particles_options.initParticles == Particles.Random then
   particles.position      :Load({0, 0, 0})
   particles.velocity      :Load({0, 0, 0})
@@ -851,7 +845,6 @@ elseif particles_options.initParticles == Particles.Random then
                     particles_options.diameter_maxDeviation +
                     particles_options.diameter_mean
                     end)
-  particles.state         :Load(0)
 end
 
 particles:NewField('dual_cell', grid.dual_cells):Load({0, 0, 0}) --init cell, we'll overwrite this immediately during initialization routine
@@ -1730,39 +1723,38 @@ end
 ---------------------
 
 ebb Flow.AddParticlesCoupling (p : particles)
-    if p.state == 1  and particles_options.twoWayCoupling == ON then
-      
-        -- WARNING: Assumes that deltaVelocityOverRelaxationTime and 
-        -- deltaTemperatureTerm have been computed previously, and that
-        -- we have called the cell_locate kernel for the particles.
-        -- (for example, when adding the flow coupling to the particles, 
-        -- which should be called before in the time stepper)
 
-        -- WARNING: Uniform grid assumption
-        var cellVolume = grid_dx * grid_dy * grid_dz
-        
-        -- Add contribution to momentum and energy equations from the previously
-        -- computed deltaVelocityOverRelaxationTime and deltaTemperatureTerm
-        p.cell.rhoVelocity_t += -p.mass * p.deltaVelocityOverRelaxationTime / cellVolume
-        p.cell.rhoEnergy_t   += -p.deltaTemperatureTerm / cellVolume
-        
-        -- In case we want to hold a fixed temperature by subtracting
-        -- a constant heat flux from the fluid, compute the avg. 
-        -- deltaTemperatureTerm to be adjusted later (note change in sign)
-        Flow.averageHeatSource += p.deltaTemperatureTerm / cellVolume
-    end
+    -- WARNING: Assumes that deltaVelocityOverRelaxationTime and
+    -- deltaTemperatureTerm have been computed previously, and that
+    -- we have called the cell_locate kernel for the particles.
+    -- (for example, when adding the flow coupling to the particles, 
+    -- which should be called before in the time stepper)
+
+    -- WARNING: Uniform grid assumption
+    var cellVolume = grid_dx * grid_dy * grid_dz
+
+    -- Add contribution to momentum and energy equations from the previously
+    -- computed deltaVelocityOverRelaxationTime and deltaTemperatureTerm
+    p.cell.rhoVelocity_t += -p.mass * p.deltaVelocityOverRelaxationTime / cellVolume
+    p.cell.rhoEnergy_t   += -p.deltaTemperatureTerm / cellVolume
+
+    -- In case we want to hold a fixed temperature by subtracting
+    -- a constant heat flux from the fluid, compute the avg. 
+    -- deltaTemperatureTerm to be adjusted later (note change in sign)
+    Flow.averageHeatSource += p.deltaTemperatureTerm / cellVolume
+
 end
 
 --------------
--- Holding Temperature Fixed in the presence of Radiation
+-- Holding avg. temperature fixed in the presence of radiation
 --------------
 
-ebb Flow.AddEnergySource (c : grid.cells)
-  if radiation_options.zeroAvgHeatSource == ON then
+ebb Flow.AdjustHeatSource (c : grid.cells)
+
     -- Remove a constant heat flux in all cells to balance with radiation.
     -- Note that this has been pre-computed before reaching this kernel (above).
     c.rhoEnergy_t += Flow.averageHeatSource
-  end
+
 end
 
 --------------
@@ -2338,14 +2330,12 @@ end
 
 -- Initialize temporaries for time stepper
 ebb Particles.InitializeTemporaries (p : particles)
-    if p.state == 1 then
-        p.position_old    = p.position
-        p.velocity_old    = p.velocity
-        p.temperature_old = p.temperature
-        p.position_new    = p.position
-        p.velocity_new    = p.velocity
-        p.temperature_new = p.temperature
-    end
+    p.position_old    = p.position
+    p.velocity_old    = p.velocity
+    p.temperature_old = p.temperature
+    p.position_new    = p.position
+    p.velocity_new    = p.velocity
+    p.temperature_new = p.temperature
 end
 
 ----------------
@@ -2354,17 +2344,14 @@ end
 
 -- Initialize time derivative for each stage of time stepper
 ebb Particles.InitializeTimeDerivatives (p : particles)
-    if p.state == 1 then
-        p.position_t = L.vec3d({0, 0, 0})
-        p.velocity_t = L.vec3d({0, 0, 0})
-        p.temperature_t = L.double(0)
-    end
+    p.position_t = L.vec3d({0, 0, 0})
+    p.velocity_t = L.vec3d({0, 0, 0})
+    p.temperature_t = L.double(0)
 end
 
 -- Update particle fields based on flow fields
 ebb Particles.AddFlowCoupling (p: particles)
-  if p.state == 1 then
-    
+
     -- WARNING: assumes we have already located particles
     
     var flowDensity     = L.double(0)
@@ -2405,7 +2392,6 @@ ebb Particles.AddFlowCoupling (p: particles)
     end
     p.temperature_t += p.deltaTemperatureTerm / (p.mass * particles_options.heat_capacity)
     
-  end
 end
 
 --------------
@@ -2413,9 +2399,7 @@ end
 --------------
 
 ebb Particles.AddBodyForces (p : particles)
-    if p.state == 1 and particles_options.particleType == Particles.Free then
-        p.velocity_t += particles_options.bodyForce
-    end
+    p.velocity_t += particles_options.bodyForce
 end
 
 ------------
@@ -2423,18 +2407,17 @@ end
 ------------
 
 ebb Particles.AddRadiation (p : particles)
-    if p.state == 1 and radiation_options.radiationType == ON then
-        -- Calculate absorbed radiation intensity considering optically thin
-        -- particles, for a collimated radiation source with negligible 
-        -- blackbody self radiation
-        var absorbedRadiationIntensity =
-          particles_options.absorptivity *
-          radiation_options.radiationIntensity * p.cross_section_area
 
-        -- Add contribution to particle temperature time evolution
-        p.temperature_t += absorbedRadiationIntensity /
-                           (p.mass * particles_options.heat_capacity)
-    end
+    -- Calculate absorbed radiation intensity considering optically thin
+    -- particles, for a collimated radiation source with negligible 
+    -- blackbody self radiation
+    var absorbedRadiationIntensity =
+      particles_options.absorptivity *
+      radiation_options.radiationIntensity * p.cross_section_area
+
+    -- Add contribution to particle temperature time evolution
+    p.temperature_t += absorbedRadiationIntensity /
+                       (p.mass * particles_options.heat_capacity)
 end
 
 -- Set particle velocities to underlying flow velocity for initialization
@@ -2472,8 +2455,7 @@ function Particles.GenerateUpdateFunctions(relation, stage)
     local deltaTime  = TimeIntegrator.deltaTime
     if stage <= 3 then
         return ebb(r : relation)
-            if r.state == 1 then
-              r.position_new += 
+              r.position_new +=
                  coeff_fun * deltaTime * r.position_t
               r.position       = r.position_old +
                  coeff_time * deltaTime * r.position_t
@@ -2485,18 +2467,15 @@ function Particles.GenerateUpdateFunctions(relation, stage)
                  coeff_fun * deltaTime * r.temperature_t
               r.temperature       = r.temperature_old +
                  coeff_time * deltaTime * r.temperature_t
-            end
         end
     elseif stage == 4 then
         return ebb(r : relation)
-            if r.state == 1 then
               r.position = r.position_new +
                  coeff_fun * deltaTime * r.position_t
               r.velocity = r.velocity_new +
                  coeff_fun * deltaTime * r.velocity_t
               r.temperature = r.temperature_new +
                  coeff_fun * deltaTime * r.temperature_t
-            end
         end
     end
 end
@@ -2506,7 +2485,6 @@ for i = 1, 4 do
 end
 
 ebb Particles.UpdateAuxiliaryStep1 (p : particles)
-    if p.state == 1 then
 
         -- Initialize position and velocity before we check for wall collisions
         
@@ -2688,14 +2666,11 @@ ebb Particles.UpdateAuxiliaryStep1 (p : particles)
           end
         end
         
-    end
 end
 ebb Particles.UpdateAuxiliaryStep2 (p : particles)
-    if p.state == 1 then
-        p.position   = p.position_ghost
-        p.velocity   = p.velocity_ghost
-        p.velocity_t = p.velocity_t_ghost
-    end
+    p.position   = p.position_ghost
+    p.velocity   = p.velocity_ghost
+    p.velocity_t = p.velocity_t_ghost
 end
 
 ---------
@@ -2880,9 +2855,7 @@ end
 -------------
 
 ebb Particles.IntegrateQuantities (p : particles)
-    if p.state == 1 then
-        Particles.averageTemperature += p.temperature
-    end
+    Particles.averageTemperature += p.temperature
 end
 
 
@@ -3053,16 +3026,28 @@ function TimeIntegrator.ComputeDFunctionDt()
     particles:foreach(Particles.Dual_Locate)
     particles:foreach(Particles.Cell_Locate)
     particles:foreach(Particles.AddFlowCoupling)
-    particles:foreach(Particles.AddBodyForces)
-    particles:foreach(Particles.AddRadiation)
+    
+    if particles_options.particleType == Particles.Free then
+        particles:foreach(Particles.AddBodyForces)
+    end
+    
+    if radiation_options.radiationType == ON then
+        particles:foreach(Particles.AddRadiation)
+    end
     
     -- Compute two-way coupling in momentum and energy
-    particles:foreach(Flow.AddParticlesCoupling)
+    if particles_options.twoWayCoupling == ON then
+        particles:foreach(Flow.AddParticlesCoupling)
+    end
+    
     -- In case we want to hold flow temp fixed with radiation active
     --print(Flow.averageHeatSource:get())
-    Flow.averageHeatSource:set(Flow.averageHeatSource:get()/
-                               Flow.numberOfInteriorCells:get())
-    grid.cells.interior:foreach(Flow.AddEnergySource)
+
+    if radiation_options.zeroAvgHeatSource == ON then
+        Flow.averageHeatSource:set(Flow.averageHeatSource:get()/
+                                 Flow.numberOfInteriorCells:get())
+        grid.cells.interior:foreach(Flow.AdjustHeatSource)
+    end
 end
 
 function TimeIntegrator.UpdateSolution(stage)
