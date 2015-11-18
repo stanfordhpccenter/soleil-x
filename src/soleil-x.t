@@ -797,7 +797,7 @@ local particles = L.NewRelation {
 local PARTICLE_LEN_X = grid_options.xnum - (xBCPeriodic and 0 or 1)
 local PARTICLE_LEN_Y = grid_options.ynum - (yBCPeriodic and 0 or 1)
 local PARTICLE_LEN_Z = grid_options.znum - (zBCPeriodic and 0 or 1)
-particles:NewField('dual_cell', grid.dual_cells):Load(function(i)
+particles:NewField('cell', grid.cells):Load(function(i)
     local xid = math.floor(i%PARTICLE_LEN_X)
     local yid = math.floor(i/PARTICLE_LEN_X)%(PARTICLE_LEN_Y)
     local zid = math.floor(i/(PARTICLE_LEN_X*PARTICLE_LEN_Y))
@@ -833,10 +833,8 @@ if particles_options.initParticles == Particles.Restart then
                                     config.restartParticleIter .. '.csv')
   particles.state         :Load(1)
 elseif particles_options.initParticles == Particles.Uniform then
-  particles:foreach(ebb (p : particles) -- init particle position from dual
-                    p.position = p.dual_cell.vertex.cell(-1,-1,-1).center +
-                    L.vec3f({grid_dx/2.0, grid_dy/2.0, grid_dz/2.0})
-                    L.print(p.position)
+  particles:foreach(ebb (p : particles) -- init particle position from cell
+                    p.position = p.cell.center
                     end)
   particles.velocity      :Load({0, 0, 0})
   particles.temperature   :Load(particles_options.initialTemperature)
@@ -848,7 +846,7 @@ elseif particles_options.initParticles == Particles.Random then
   particles.temperature   :Load(particles_options.initialTemperature)
   -- Initialize to random distribution with given mean value and maximum
   -- deviation from it
-  particles:foreach(ebb (p : particles) -- init particle position from dual
+  particles:foreach(ebb (p : particles)
                     p.diameter = (rand_float() - 0.5) *
                     particles_options.diameter_maxDeviation +
                     particles_options.diameter_mean
@@ -856,11 +854,11 @@ elseif particles_options.initParticles == Particles.Random then
   particles.state         :Load(0)
 end
 
-particles:NewField('cell', grid.cells)
-particles:foreach(ebb (p : particles) -- init cell
-                  -- Retrieve cell containing this particle
-                  p.cell = grid.cell_locate(p.position)
-                  end)
+particles:NewField('dual_cell', grid.dual_cells):Load({0, 0, 0}) --init cell, we'll overwrite this immediately during initialization routine
+--particles:foreach(ebb (p : particles) -- init cell
+--                  -- Retrieve cell containing this particle
+--                  p.dual_cell = grid.dual_locate(p.position)
+--                  end)
 
 particles:NewField('position_ghost', L.vec3d):Load({0, 0, 0})
 particles:NewField('velocity_ghost', L.vec3d):Load({0, 0, 0})
@@ -1733,16 +1731,15 @@ end
 
 ebb Flow.AddParticlesCoupling (p : particles)
     if p.state == 1  and particles_options.twoWayCoupling == ON then
+      
         -- WARNING: Assumes that deltaVelocityOverRelaxationTime and 
-        -- deltaTemperatureTerm have been computed previously 
+        -- deltaTemperatureTerm have been computed previously, and that
+        -- we have called the cell_locate kernel for the particles.
         -- (for example, when adding the flow coupling to the particles, 
         -- which should be called before in the time stepper)
 
         -- WARNING: Uniform grid assumption
         var cellVolume = grid_dx * grid_dy * grid_dz
-        
-        -- Retrieve cell containing this particle
-        p.cell = grid.cell_locate(p.position)
         
         -- Add contribution to momentum and energy equations from the previously
         -- computed deltaVelocityOverRelaxationTime and deltaTemperatureTerm
@@ -2329,8 +2326,13 @@ end
 -- PARTICLES
 ------------
 
+-- Locate particles in cells
+ebb Particles.Cell_Locate (p : particles)
+    p.cell = grid.cell_locate(p.position)
+end
+
 -- Locate particles in dual cells
-ebb Particles.Locate (p : particles)
+ebb Particles.Dual_Locate (p : particles)
     p.dual_cell = grid.dual_locate(p.position)
 end
 
@@ -2363,8 +2365,8 @@ end
 ebb Particles.AddFlowCoupling (p: particles)
   if p.state == 1 then
     
-    -- Locate the dual cell within which this particle is located
-    p.dual_cell = grid.dual_locate(p.position)
+    -- WARNING: assumes we have already located particles
+    
     var flowDensity     = L.double(0)
     var flowVelocity    = L.vec3d({0, 0, 0})
     var flowTemperature = L.double(0)
@@ -2438,8 +2440,8 @@ end
 -- Set particle velocities to underlying flow velocity for initialization
 ebb Particles.SetVelocitiesToFlow (p: particles)
 
-    -- Locate the dual cell within which this particle is located
-    p.dual_cell = grid.dual_locate(p.position)
+    -- WARNING: assumes we have called dual locate previously
+
     var flowDensity     = L.double(0)
     var flowVelocity    = L.vec3d({0, 0, 0})
     var flowTemperature = L.double(0)
@@ -3033,19 +3035,28 @@ function TimeIntegrator.InitializeVariables()
     --if particles_options.initParticles ~= Particles.Restart then
     --  particles:foreach(Particles.Feed)
     --end
-    particles:foreach(Particles.Locate)
+    particles:foreach(Particles.Dual_Locate)
+    particles:foreach(Particles.Cell_Locate)
     particles:foreach(Particles.SetVelocitiesToFlow)
 end
 
 function TimeIntegrator.ComputeDFunctionDt()
+  
+    -- Compute flow convective, viscous, and body force residuals
     Flow.AddInviscid()
     Flow.UpdateGhostVelocityGradient()
     Flow.AddViscous()
     Flow.averageHeatSource:set(0.0)
     grid.cells.interior:foreach(Flow.AddBodyForces)
+    
+    -- Compute residuals for the particles (locate all particles first)
+    particles:foreach(Particles.Dual_Locate)
+    particles:foreach(Particles.Cell_Locate)
     particles:foreach(Particles.AddFlowCoupling)
     particles:foreach(Particles.AddBodyForces)
     particles:foreach(Particles.AddRadiation)
+    
+    -- Compute two-way coupling in momentum and energy
     particles:foreach(Flow.AddParticlesCoupling)
     -- In case we want to hold flow temp fixed with radiation active
     --print(Flow.averageHeatSource:get())
@@ -3104,14 +3115,6 @@ function TimeIntegrator.CalculateDeltaTime()
     
     -- Delta time using the CFL and max spectral radius for stability
     TimeIntegrator.deltaTime:set(TimeIntegrator.cfl / spectralRadius)
-    
-    -- For forced turbulence calculations, increase the forcing
-    -- coefficient to get the flow started at the beginning.
-    if TimeIntegrator.timeStep:get() < 100 then
-      flow_options.turbForceCoeff:set(config.turbForceCoeff*1000.0)
-    else
-      flow_options.turbForceCoeff:set(config.turbForceCoeff)
-    end
     
   end
   
