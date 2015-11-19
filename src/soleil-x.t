@@ -697,6 +697,9 @@ local grid = Grid.NewGrid3d{
 local grid_originX = L.Constant(L.double, grid:xOrigin())
 local grid_originY = L.Constant(L.double, grid:yOrigin())
 local grid_originZ = L.Constant(L.double, grid:zOrigin())
+local grid_widthX  = L.Constant(L.double, grid:xWidth())
+local grid_widthY  = L.Constant(L.double, grid:yWidth())
+local grid_widthZ  = L.Constant(L.double, grid:zWidth())
 local grid_dx      = L.Constant(L.double, grid:xCellWidth())
 local grid_dy      = L.Constant(L.double, grid:yCellWidth())
 local grid_dz      = L.Constant(L.double, grid:zCellWidth())
@@ -790,72 +793,20 @@ particles:NewField('cell', grid.cells):Load(function(i)
     if not xBCPeriodic then xid = xid+1 end
     if not yBCPeriodic then yid = yid+1 end
     if not zBCPeriodic then zid = zid+1 end
-    L.print(xid,yid,zid)
     return {xid,yid,zid}
-end)
-
-
-particles:NewField('position',    L.vec3d)
-particles:NewField('velocity',    L.vec3d)
-particles:NewField('temperature', L.double)
-particles:NewField('diameter',    L.double)
-
-if particles_options.initParticles == Particles.Restart then
-  particles.position:Load(CSV.Load, IO.outputFileNamePrefix ..
-                                    'restart_particle_position_' ..
-                                    config.restartParticleIter .. '.csv')
-  particles.velocity:Load(CSV.Load, IO.outputFileNamePrefix ..
-                                    'restart_particle_velocity_' ..
-                                    config.restartParticleIter .. '.csv')
-  particles.temperature:Load(CSV.Load, IO.outputFileNamePrefix ..
-                                       'restart_particle_temperature_' ..
-                                       config.restartParticleIter .. '.csv')
-  particles.diameter:Load(CSV.Load, IO.outputFileNamePrefix ..
-                                    'restart_particle_diameter_' ..
-                                    config.restartParticleIter .. '.csv')
-elseif particles_options.initParticles == Particles.Uniform then
-  particles:foreach(ebb (p : particles) -- init particle position from cell
-                    p.position = p.cell.center
-                    end)
-  particles.velocity      :Load({0, 0, 0})
-  particles.temperature   :Load(particles_options.initialTemperature)
-  particles.diameter      :Load(particles_options.diameter_mean)
-elseif particles_options.initParticles == Particles.Random then
-  particles.position      :Load({0, 0, 0})
-  particles.velocity      :Load({0, 0, 0})
-  particles.temperature   :Load(particles_options.initialTemperature)
-  -- Initialize to random distribution with given mean value and maximum
-  -- deviation from it
-  particles:foreach(ebb (p : particles)
-                    p.diameter = (rand_float() - 0.5) *
-                    particles_options.diameter_maxDeviation +
-                    particles_options.diameter_mean
-                    end)
-end
-
-particles:NewField('dual_cell', grid.dual_cells):Load({0, 0, 0}) --init cell, we'll overwrite this immediately during initialization routine
---particles:foreach(ebb (p : particles) -- init cell
---                  -- Retrieve cell containing this particle
---                  p.dual_cell = grid.dual_locate(p.position)
---                  end)
+    end)
+particles:NewField('dual_cell', grid.dual_cells):Load({0, 0, 0})
+particles:NewField('position',    L.vec3d):Load({0, 0, 0})
+particles:NewField('velocity',    L.vec3d):Load({0, 0, 0})
+particles:NewField('density', L.double):Load(0)
+particles:NewField('temperature', L.double)    :Load(0)
+particles:NewField('diameter',    L.double)    :Load(0)
 
 particles:NewField('position_ghost', L.vec3d):Load({0, 0, 0})
 particles:NewField('velocity_ghost', L.vec3d):Load({0, 0, 0})
 particles:NewField('velocity_t_ghost', L.vec3d):Load({0, 0, 0})
-
-particles:NewField('density', L.double):Load(particles_options.density)
 particles:NewField('deltaVelocityOverRelaxationTime', L.vec3d):Load({0, 0, 0})
 particles:NewField('deltaTemperatureTerm', L.double)          :Load(0)
--- ID field
-particles:NewField('id', L.int):
--- Initialize to random distribution with given mean value and maximum 
--- deviation from it
-Load(function(i)
-    return i -- TODO: THIS IS NOT RANDOM
-end)
--- groupID: differentiates particles within a given distribution
--- For example, when multiple injectors are used
-particles:NewField('groupID', L.int)                          :Load(0)
 
 -- scratch (temporary) fields
 -- intermediate values and copies
@@ -2772,7 +2723,6 @@ ebb Particles.Feed(p: particles)
             p.velocity[1] = injectorA_velocityY
             p.velocity[2] = injectorA_velocityZ
             p.state = 1
-            p.groupID = 0
         end
         -- Inject particles at injectorB if matching timeStep requirements
         -- (if injectorA has injected this particle at this timeStep, it
@@ -2792,7 +2742,6 @@ ebb Particles.Feed(p: particles)
             p.velocity[1] = injectorB_velocityY
             p.velocity[2] = injectorB_velocityZ
             p.state = 1
-            p.groupID = 1
         end
 
       end
@@ -2858,16 +2807,9 @@ ebb Particles.DrawFunction (p : particles)
     var xMax = 1.0
     var yMax = 1.0
     var zMax = 1.0
-    --var scale = p.temperature/particles_options.initialTemperature
-    --var scale = 0.5 + 0.5*p.groupID
-    --vdb.color(scale*blue)
-    if p.groupID == 0 then
-      vdb.color(red)
-    elseif p.groupID == 1 then
-      vdb.color(blue)
-    else
-      vdb.color(green)
-    end
+
+    vdb.color(green)
+
     var pos : L.vec3d = { p.position[0]/xMax,
                           p.position[1]/yMax,
                           p.position[2]/zMax }
@@ -2958,8 +2900,80 @@ end
 -- PARTICLES
 ------------
 
-function Particles.InitializePrimitives()
+ebb Particles.InitializePositionCurrentCell (p : particles)
+    -- init particle position from cell
+    p.position = p.cell.center
+end
 
+ebb Particles.InitializePositionRandom (p : particles)
+
+  -- Particles randomly distributed within the complete domain
+
+  var centerX   = (grid_originX + grid_widthX)/2.0
+  var centerY   = (grid_originY + grid_widthY)/2.0
+  var centerZ   = (grid_originZ + grid_widthZ)/2.0
+
+  var widthX    = grid_originX + grid_widthX
+  var widthY    = grid_originY + grid_widthY
+  var widthZ    = grid_originZ + grid_widthZ
+
+  p.position[0] = centerX + (rand_float()-0.5) * widthX
+  p.position[1] = centerY + (rand_float()-0.5) * widthY
+  p.position[2] = centerZ + (rand_float()-0.5) * widthZ
+
+end
+
+ebb Particles.InitializeDiameterRandom (p : particles)
+  -- Initialize to random distribution with given mean value and maximum
+  -- deviation from it
+   p.diameter = (rand_float() - 0.5) * particles_options.diameter_maxDeviation +
+                    particles_options.diameter_mean
+end
+
+function Particles.InitializePrimitives()
+  
+  -- Upon entering this routine, all active particles are unitialized,
+  -- except that they begin uniformly distributed in the cells by default.
+  -- However, the positions still need to be set. We will call the locate
+  -- kernels again after this initialization function.
+  
+  if particles_options.initParticles == Particles.Uniform then
+    particles:foreach(Particles.InitializePositionCurrentCell)
+    particles.temperature   :Load(particles_options.initialTemperature)
+    particles.density:Load(particles_options.density)
+    particles.diameter:Load(particles_options.diameter_mean)
+    
+    particles:foreach(Particles.Dual_Locate)
+    particles:foreach(Particles.Cell_Locate)
+    particles:foreach(Particles.SetVelocitiesToFlow)
+    
+  elseif particles_options.initParticles == Particles.Random then
+    particles:foreach(Particles.InitializePositionRandom)
+    particles.density:Load(particles_options.density)
+    particles.temperature   :Load(particles_options.initialTemperature)
+    particles:foreach(Particles.InitializeDiameterRandom)
+    particles:foreach(Particles.Dual_Locate)
+    particles:foreach(Particles.Cell_Locate)
+    particles:foreach(Particles.SetVelocitiesToFlow)
+  
+  elseif particles_options.initParticles == Particles.Restart then
+    particles.position:Load(CSV.Load, IO.outputFileNamePrefix ..
+                                      'restart_particle_position_' ..
+                                      config.restartParticleIter .. '.csv')
+    particles.velocity:Load(CSV.Load, IO.outputFileNamePrefix ..
+                                      'restart_particle_velocity_' ..
+                                      config.restartParticleIter .. '.csv')
+    particles.temperature:Load(CSV.Load, IO.outputFileNamePrefix ..
+                                         'restart_particle_temperature_' ..
+                                         config.restartParticleIter .. '.csv')
+    particles.diameter:Load(CSV.Load, IO.outputFileNamePrefix ..
+                                      'restart_particle_diameter_' ..
+                                      config.restartParticleIter .. '.csv')
+    particles.density:Load(particles_options.density)
+    particles:foreach(Particles.Dual_Locate)
+    particles:foreach(Particles.Cell_Locate)
+  end
+  
 end
 
 function Particles.Update(stage)
@@ -3018,9 +3032,10 @@ function TimeIntegrator.InitializeVariables()
     --if particles_options.initParticles ~= Particles.Restart then
     --  particles:foreach(Particles.Feed)
     --end
-    particles:foreach(Particles.Dual_Locate)
-    particles:foreach(Particles.Cell_Locate)
-    particles:foreach(Particles.SetVelocitiesToFlow)
+    
+    -- Init the particles (position, velocity, temp, diameter, locate)
+    Particles.InitializePrimitives()
+
 end
 
 function TimeIntegrator.ComputeDFunctionDt()
