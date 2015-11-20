@@ -402,55 +402,15 @@ flow_options.bodyForce      = L.Global(L.vec3d, config.bodyForce)
 flow_options.turbForceCoeff = L.Global(L.double, config.turbForceCoeff)
 
 local particles_options = {
-    -- Feeder is defined by a type and a set of parameters
-    -- feedeerParams is a vector of double values whose meaning
-    -- differs for each feederType. Please refer to the 
-    -- Particles.Feed function where it is specialized
-    --
-    -- Feed all particles at start randomly
-    -- distributed on a box defined by its center and sides
-    feederType = Particles.FeederAtStartTimeInRandomBox,
-    --feederParams = L.Global(L.vector(L.double,6),
-    --                           {pi,pi,pi,2*pi,2*pi,2*pi}), -- TGV problem
-    feederParams = L.Global(L.vector(L.double,6),  -- Default is entire box
-                               {(grid_options.origin[1]+grid_options.xWidth)/2.,
-                               (grid_options.origin[2]+grid_options.yWidth)/2.,
-                               (grid_options.origin[3]+grid_options.zWidth)/2.,
-                               (grid_options.origin[1]+grid_options.xWidth),
-                               (grid_options.origin[2]+grid_options.yWidth),
-                               (grid_options.origin[3]+grid_options.zWidth)}),
-
-    -- Feeding a given number of particles every timestep randomly
-    -- distributed on a box defined by its center and sides
-    --feederType = Particles.FeederOverTimeInRandomBox,
-    --feederParams = L.Global(L.vector(L.double,10),
-    --                           {pi,pi,pi, -- centerCoor
-    --                            2*pi,2*pi,2*pi, -- widthCoor
-    --                            2.0,2.0,0, -- velocity
-    --                            0.5, -- particlesPerTimestep
-    --                           }), 
-    --
-    ---- UQCase
-    --feederType = Particles.FeederUQCase,
-    --feederParams = L.Global(L.vector(L.double,20),
-    --                   {pi/4,  pi/2,pi,0.1*pi,0.1*pi,pi/2,4, 4,0,0.3,
-    --                    pi/4,3*pi/2,pi,0.1*pi,0.1*pi,pi/2,4,-4,0,0.8}),
-    
-    -- Collector is defined by a type and a set of parameters
-    -- collectorParams is a vector of double values whose meaning
-    -- differs for each collectorType. Please refer to the 
-    -- Particles.Collect function where it is specialized
-    --
-    -- Do not collect particles (freely move within the domain)
-    collectorType   = Particles.CollectorNone,
-    collectorParams = L.Global(L.vector(L.double,1),{0}),
-    
-    -- Collect all particles that exit a box defined by its Cartesian 
-    -- min/max coordinates
-    --collectorType = Particles.CollectorOutOfBox,
-    --collectorParams = L.Global(L.vector(L.double,6),{0.5,0.5,0.5,12,6,6}),
-
+  
+    -- Define the initial number of particles and insertion/deletion
     num = config.num,
+    maximum_num = config.maximum_num,
+    insertion_rate = config.insertion_rate,
+    insertion_mode = L.Global(L.vector(L.int,6), config.insertion_mode),
+    deletion_mode = L.Global(L.vector(L.int,6), config.deletion_mode),
+    
+    -- Particle characteristics
     restitution_coefficient = L.Global(L.double,
                                           config.restitutionCoefficient),
     convective_coefficient = L.Global(L.double,
@@ -770,12 +730,21 @@ grid.cells:NewField('rhoEnergyFlux', L.double)                :Load(0)
 -----------------------------------------------------------------------------
 
 -- Declare and initialize particle relation and fields over the particle
-local INSERT_DELETE = false -- hard-code to false for now while we fix
-local mode = 'PLAIN'
-if INSERT_DELETE then mode = 'ELASTIC' end
+local INSERT_DELETE = false
+local particle_mode = 'PLAIN'
+
+-- Check for insert and delete on faces
+for i = 0,6 do
+  if (config.insertion_mode[i+1] == 1  or
+      config.deletion_mode[i+1]  == 1) then
+      INSERT_DELETE = true
+      break
+  end
+end
+if INSERT_DELETE then particle_mode = 'ELASTIC' end
 
 local particles = L.NewRelation {
-  mode = mode,
+  mode = particle_mode,
   size = particles_options.num,
   name = 'particles'
 }
@@ -975,6 +944,7 @@ io.stdout:write(" Linearly forced isotropic turbulence coefficient: ",
                 string.format(" %f",config.turbForceCoeff), "\n")
 print("")
 print("------------------------- Particle Options --------------------------")
+io.stdout:write(" Particle mode: ", particle_mode, "\n")
 io.stdout:write(" Particle init. type: ", config.initParticles, "\n")
 if particles_options.initCase == Particles.Restart then
   io.stdout:write(" Restarting from iteration: ",
@@ -989,7 +959,26 @@ else
 end
 io.stdout:write(" Particle type (fixed or free): ", config.particleType, "\n")
 io.stdout:write(" Two-way coupling: ", config.twoWayCoupling, "\n")
-io.stdout:write(" Number of particles: ", string.format(" %d",config.num), "\n")
+io.stdout:write(" Initial number of particles: ",
+                string.format(" %d",config.num), "\n")
+io.stdout:write(" Maximum number of particles: ",
+                string.format(" %d",config.maximum_num), "\n")
+io.stdout:write(" Particle insertion rate (per face per time step): ",
+                string.format(" %f",config.insertion_rate), "\n")
+io.stdout:write(" Particle insertion mode by face (X-,X+,Y-,Y+,Z-,Z+): (",
+                string.format("%1d",config.insertion_mode[1]), ",",
+                string.format("%1d",config.insertion_mode[2]), ",",
+                string.format("%1d",config.insertion_mode[3]), ",",
+                string.format("%1d",config.insertion_mode[4]), ",",
+                string.format("%1d",config.insertion_mode[5]), ",",
+                string.format("%1d",config.insertion_mode[6]), ")\n")
+io.stdout:write(" Particle deletion mode by face (X-,X+,Y-,Y+,Z-,Z+): (",
+                string.format("%1d",config.deletion_mode[1]), ",",
+                string.format("%1d",config.deletion_mode[2]), ",",
+                string.format("%1d",config.deletion_mode[3]), ",",
+                string.format("%1d",config.deletion_mode[4]), ",",
+                string.format("%1d",config.deletion_mode[5]), ",",
+                string.format("%1d",config.deletion_mode[6]), ")\n")
 io.stdout:write(" Particle density: ",
                 string.format(" %f",config.density), "\n")
 io.stdout:write(" Coefficient of restitution: ",
@@ -1705,14 +1694,18 @@ ebb Flow.AddBodyForces (c : grid.cells)
     -- Add body forces (accelerations) to the momentum
     c.rhoVelocity_t += c.rho * flow_options.bodyForce
 
-    -- Add source for forced isotropic turbulence (linear in velocity)
-    c.rhoVelocity_t += c.rho * flow_options.turbForceCoeff * c.velocity
-    c.rhoEnergy_t += c.rho * flow_options.turbForceCoeff * L.dot(c.velocity,c.velocity)
-    --L.print(c.rho * flow_options.turbForceCoeff * c.velocity)
-
-    -- Body force contribution to energy equations
+    -- Body force contribution to energy equation
     c.rhoEnergy_t += c.rho * L.dot(flow_options.bodyForce,c.velocity)
+
+    -- Add source for forced turbulence (linear in velocity)
+    c.rhoVelocity_t += c.rho * flow_options.turbForceCoeff * c.velocity
+    c.rhoEnergy_t   += c.rho * flow_options.turbForceCoeff * L.dot(c.velocity,
+                                                                   c.velocity)
+
+    -- Compute average heat source contribution in case we would
+    -- like to subtract this later to recover a steady solution with radiation.
     Flow.averageHeatSource += -c.rho * L.dot(flow_options.bodyForce,c.velocity)
+
 end
 
 -------------------
@@ -2616,7 +2609,71 @@ end
 -- Feeder
 ---------
 
+ebb Flow.InsertParticle (c : grid.cells)
+
+    -- Insert a particle once we locate the correct cell
+-- random insertion just for testing
+
+--[[
+    var create_particle = rand_float() < 0.01
+    if create_particle then
+        var pos = c.center + L.vec3f({
+            grid_dx * (rand_float() - 0.5),
+            grid_dy * (rand_float() - 0.5),
+            grid_dz * (rand_float() - 0.5)
+        })
+        insert {
+            dual_cell = grid.dual_locate(pos),
+            position = pos
+            --next_pos = pos
+        } into particles
+    end
+ ]]--
+end
+
 -- Particles feeder
+function Particles.Feed()
+  
+  if particles:Size() < particles_options.maximum_num then
+  grid.cells:foreach(Flow.InsertParticle)
+  end
+  
+end
+
+-- For now, delete anything that leaves the domain
+ebb Particles.DeleteParticle (p: particles)
+
+  var min_x = grid_originX
+  var max_x = grid_originX + grid_widthX
+  var min_y = grid_originY
+  var max_y = grid_originY + grid_widthY
+  var min_z = grid_originZ
+  var max_z = grid_originZ + grid_widthZ
+
+  var pos = p.position
+  if (pos[0] > max_x or pos[0] < min_x  or
+      pos[1] > max_y or pos[1] < min_y  or
+      pos[2] > max_z or pos[2] < min_z) then
+      --L.print(p.position)
+      --delete p
+  end
+
+  -- random delete just for testing
+  var delete_particle = rand_float() < 0.01
+  if delete_particle then
+    --L.print(p.position)
+    delete p
+    end
+
+end
+
+-- Particle collector
+function Particles.Collect()
+  
+  particles:foreach(Particles.DeleteParticle)
+
+end
+
 --[[
 ebb Particles.Feed(p: particles)
 
@@ -2990,15 +3047,17 @@ end
 ------------------
 
 function TimeIntegrator.SetupTimeStep()
-    --particles:foreach(Particles.Feed)
-    -- for now, feeding of particles is disabled
+    if particle_mode == 'ELASTIC' then
+        Particles.Feed()
+    end
     grid.cells:foreach(Flow.InitializeTemporaries)
     particles:foreach(Particles.InitializeTemporaries)
 end
 
 function TimeIntegrator.ConcludeTimeStep()
-    -- disabling collecting of particles while we fix
-    --particles:foreach(Particles.Collect)
+  if particle_mode == 'ELASTIC' then
+    Particles.Collect()
+  end
 end
 
 function TimeIntegrator.InitializeTimeDerivatives()
@@ -3018,22 +3077,20 @@ function TimeIntegrator.UpdateTime(timeOld, stage)
 end
 
 function TimeIntegrator.InitializeVariables()
+  
+    -- Initialize several grid related entitities
     grid.cells:foreach(Flow.InitializeCenterCoordinates)
     grid.cells.interior:foreach(Flow.InitializeCellRindLayer)
     grid.vertices:foreach(Flow.InitializeVertexCoordinates)
     grid.vertices.interior:foreach(Flow.InitializeVertexRindLayer)
     
-    -- Set initial condition for the primitive vars (uniform, restart, etc.)
+    -- Set initial condition for the flow and all auxiliary flow variables
     Flow.InitializePrimitives()
     grid.cells.interior:foreach(Flow.UpdateConservedFromPrimitive)
     Flow.UpdateAuxiliary()
     Flow.UpdateGhost()
-    -- disabling the feed kernel while we fix
-    --if particles_options.initParticles ~= Particles.Restart then
-    --  particles:foreach(Particles.Feed)
-    --end
-    
-    -- Init the particles (position, velocity, temp, diameter, locate)
+
+    -- Initialize the particles (position, velocity, temp, diameter, locate)
     Particles.InitializePrimitives()
 
 end
@@ -3185,7 +3242,9 @@ function IO.WriteConsoleOutput(timeStep)
     io.stdout:write(" Min Flow Temp: ",
       string.format("%11.6f",Flow.minTemperature:get()), " K.")
     io.stdout:write(" Max Flow Temp: ",
-      string.format("%11.6f",Flow.maxTemperature:get()), " K.\n\n")
+      string.format("%11.6f",Flow.maxTemperature:get()), " K.\n")
+    io.stdout:write(" Current number of particles: ",
+                    string.format(" %d",particles:Size()), ".\n\n")
     io.stdout:write(string.format("%8s",'    Iter'),
       string.format("%12s",'   Time(s)'),
       string.format("%12s",'Avg Press'),
@@ -3972,14 +4031,18 @@ function IO.WriteOutput(timeStep)
   
   -- Write the particle restart files
   
+  if particle_mode ~= 'ELASTIC' then
   IO.WriteParticleRestart(timeStep)
+  end
 
   -- Write the volume solution files for visualization
 
   if IO.outputFormat == IO.Tecplot then
     IO.WriteFlowTecplotTerra(timeStep)
     --IO.WriteFlowTecplotLua(timeStep)
+    if particle_mode ~= 'ELASTIC' then
     IO.WriteParticleTecplotTerra(timeStep)
+    end
     --IO.WriteParticleTecplotLua(timeStep)
   else
     print("Output format not defined. No output written to disk.")
@@ -3994,7 +4057,9 @@ function IO.WriteOutput(timeStep)
 
   -- Write a file for the evolution in time of particle i
   
+  if particle_mode ~= 'ELASTIC' then
   IO.WriteParticleEvolution(timeStep)
+  end
 
 end
 

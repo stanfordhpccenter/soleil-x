@@ -70,6 +70,10 @@ return {
   twoWayCoupling = 'OFF',          -- Enable two-way coupling with fluid.
                                    -- 'ON' is two-way, 'OFF' is fluid->particle
   num = 1000.0,                    -- Prescribe the total number of particles
+  maximum_num = 1000.0, -- upper bound on particles with insertion
+  insertion_rate = 0, -- per face and per time step
+  insertion_mode = {0,0,0,0,0,0}, --bool, MinX MaxX MinY MaxY MinZ MaxZ
+  deletion_mode = {0,0,0,0,0,0}, --bool, MinX MaxX MinY MaxY MinZ MaxZ
   restitutionCoefficient = 1.0,    -- Restitution coeff. for wall collisions
   convectiveCoefficient = 20000.0, -- Convective heat transfer coeff. [W/m^2/K]
   heatCapacity = 1000.0,           -- Particle heat capacity,h [J/kg/K]
