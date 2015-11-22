@@ -1,7 +1,7 @@
 import "ebb"
 
 -- dld for terra callbacks (Tecplot output)
-local dld  = require 'ebb.src.dld'
+local dld  = require 'ebb.lib.dld'
 
 local Grid  = require 'ebb.domains.grid' 
 local C = terralib.includecstring [[
@@ -43,7 +43,7 @@ local PN = require 'ebb.lib.pathname'
 -- have multiple config files available in other locations, and copy them
 -- to this location with the name params.lua before running.
 
-local filename = './devapps/soleil-x/src/params.lua'
+local filename = './src/params.lua'
 local config = loadfile(filename)()
 
 --- Immediately check that the output directory exists. Throw an error if not.
@@ -2251,13 +2251,9 @@ end
 ------------
 
 -- Locate particles in cells
-ebb Particles.Cell_Locate (p : particles)
-    p.cell = grid.cell_locate(p.position)
-end
-
--- Locate particles in dual cells
-ebb Particles.Dual_Locate (p : particles)
-    p.dual_cell = grid.dual_locate(p.position)
+function Particles.Locate()
+  grid.locate_in_cells(particles, 'position', 'cell')
+  grid.locate_in_duals(particles, 'position', 'dual_cell')
 end
 
 -- Initialize temporaries for time stepper
@@ -3000,8 +2996,7 @@ function Particles.InitializePrimitives()
     particles.density:Load(particles_options.density)
     particles.diameter:Load(particles_options.diameter_mean)
     
-    particles:foreach(Particles.Dual_Locate)
-    particles:foreach(Particles.Cell_Locate)
+    Particles.Locate()
     particles:foreach(Particles.SetVelocitiesToFlow)
     
   elseif particles_options.initParticles == Particles.Random then
@@ -3009,8 +3004,7 @@ function Particles.InitializePrimitives()
     particles.density:Load(particles_options.density)
     particles.temperature   :Load(particles_options.initialTemperature)
     particles:foreach(Particles.InitializeDiameterRandom)
-    particles:foreach(Particles.Dual_Locate)
-    particles:foreach(Particles.Cell_Locate)
+    Particles.Locate()
     particles:foreach(Particles.SetVelocitiesToFlow)
   
   elseif particles_options.initParticles == Particles.Restart then
@@ -3027,8 +3021,7 @@ function Particles.InitializePrimitives()
                                       'restart_particle_diameter_' ..
                                       config.restartParticleIter .. '.csv')
     particles.density:Load(particles_options.density)
-    particles:foreach(Particles.Dual_Locate)
-    particles:foreach(Particles.Cell_Locate)
+    Particles.Locate()
   end
   
 end
@@ -3105,8 +3098,7 @@ function TimeIntegrator.ComputeDFunctionDt()
     grid.cells.interior:foreach(Flow.AddBodyForces)
     
     -- Compute residuals for the particles (locate all particles first)
-    particles:foreach(Particles.Dual_Locate)
-    particles:foreach(Particles.Cell_Locate)
+    Particles.Locate()
     particles:foreach(Particles.AddFlowCoupling)
     
     if particles_options.particleType == Particles.Free then
