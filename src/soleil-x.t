@@ -1067,13 +1067,13 @@ end
 
 -- Function to retrieve particle area, volume and mass
 -- These are Ebb user-defined functions that behave like a field
-particles:NewFieldFunction('cross_section_area', ebb(p)
+particles:NewFieldReadFunction('cross_section_area', ebb(p)
     return pi * L.pow(p.diameter, 2) / 4.0
 end)
-particles:NewFieldFunction('volume', ebb(p)
+particles:NewFieldReadFunction('volume', ebb(p)
     return pi * L.pow(p.diameter, 3) / 6.0
 end)
-particles:NewFieldFunction('mass', ebb(p)
+particles:NewFieldReadFunction('mass', ebb(p)
     return p.volume * p.density
 end)
 
