@@ -1,4 +1,5 @@
 import "ebb"
+local L = require "ebblib"
 
 -- dld for terra callbacks (Tecplot output)
 local dld  = require 'ebb.lib.dld'
