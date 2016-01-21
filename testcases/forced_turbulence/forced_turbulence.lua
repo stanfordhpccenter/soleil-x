@@ -69,7 +69,7 @@ return {
   particleType = 'Free',          -- Particle can be 'Fixed' or 'Free' to move
   twoWayCoupling = 'OFF',          -- Enable two-way coupling with fluid.
                                    -- 'ON' is two-way, 'OFF' is fluid->particle
-  num = 10000.0,                    -- Prescribe the total number of particles
+  num = 1000.0,                    -- Prescribe the total number of particles
   maximum_num = 1000.0, -- upper bound on particles with insertion
   insertion_rate = 0, -- per face and per time step
   insertion_mode = {0,0,0,0,0,0}, --bool, MinX MaxX MinY MaxY MinZ MaxZ

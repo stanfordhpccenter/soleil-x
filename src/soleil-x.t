@@ -44,7 +44,8 @@ local PN = require 'ebb.lib.pathname'
 -- have multiple config files available in other locations, and copy them
 -- to this location with the name params.lua before running.
 
-local filename = './src/params.lua'
+local filename = tostring(PN.scriptdir() .. 'params.lua')
+--local filename = '../soleil-x/src/params.lua'
 local config = loadfile(filename)()
 
 --- Immediately check that the output directory exists. Throw an error if not.
@@ -735,7 +736,8 @@ local INSERT_DELETE = false
 local particle_mode = 'PLAIN'
 
 -- Check for insert and delete on faces
-for i = 0,6 do
+-- WARNING: This is disabled until instertion/deletion is more mature
+--[[for i = 0,6 do
   if (config.insertion_mode[i+1] == 1  or
       config.deletion_mode[i+1]  == 1) then
       INSERT_DELETE = true
@@ -743,6 +745,7 @@ for i = 0,6 do
   end
 end
 if INSERT_DELETE then particle_mode = 'ELASTIC' end
+]]--
 
 local particles = L.NewRelation {
   mode = particle_mode,
@@ -2656,11 +2659,11 @@ ebb Particles.DeleteParticle (p: particles)
   end
 
   -- random delete just for testing
-  var delete_particle = rand_float() < 0.01
-  if delete_particle then
+  --var delete_particle = rand_float() < 0.01
+  --if delete_particle then
     --L.print(p.position)
-    delete p
-    end
+  --  delete p
+  --  end
 
 end
 
@@ -2996,7 +2999,6 @@ function Particles.InitializePrimitives()
     particles.temperature   :Load(particles_options.initialTemperature)
     particles.density:Load(particles_options.density)
     particles.diameter:Load(particles_options.diameter_mean)
-    
     Particles.Locate()
     particles:foreach(Particles.SetVelocitiesToFlow)
     
