@@ -1,7 +1,40 @@
 -- This is a Lua config file for the Soleil code.
 
--- This case defines the 32x32 lid-driven cavity problem
+-- This defines the 64^3 TaylorGreen Vortex problem w/out particles or radiation
 return {
+  
+  
+  -----------------------------------------------------------
+  -----------------------------------------------------------
+  -- Options of interest for Liszt/Legion tests
+  
+  -- Number of particles (initially distributed one per cell), 0 turns off
+  num = 0,
+  --num = 10000.0,
+  
+  -- grid size control to add compute load
+  xnum = 64, -- number of cells in the x-direction
+  ynum = 64, -- number of cells in the y-direction
+  znum = 64,  -- number of cells in the z-direction
+  
+  -- I/O control (OFF/ON). Set all to 'OFF' to completely disable I/O.
+  -- frequency/output location is controlled below
+  wrtRestart = 'OFF',
+  wrtVolumeSolution = 'OFF',
+  wrt1DSlice = 'OFF',
+  wrtParticleEvolution = 'OFF',
+  
+  -- set a fixed number of iterations
+  max_iter = 100,
+    
+  -- force a fixed time step to avoid global comms.
+  -- decrease if calculation diverges right away
+  delta_time  = 1e-4,
+
+
+  -----------------------------------------------------------
+  -----------------------------------------------------------
+
   
   -- Flow Initialization  Options --
   initCase     = 'TaylorGreen3DVortex', -- Uniform, Restart, TaylorGreen2DVortex, TaylorGreen3DVortex
@@ -11,9 +44,6 @@ return {
   restartIter = 10000,
   
   -- Grid Options -- PERIODICITY
-  xnum = 64, -- number of cells in the x-direction
-  ynum = 64, -- number of cells in the y-direction
-  znum = 64,  -- number of cells in the z-direction
   origin = {0.0, 0.0, 0.0}, -- spatial origin of the computational domain
   xWidth = 6.283185307179586,
   yWidth = 6.283185307179586,
@@ -40,21 +70,15 @@ return {
   
   --Time Integration Options --
   final_time            = 20.00001,
-  max_iter              = 20000,
-  cfl                   = 1.0, -- Negative CFL implies that we will used fixed delta T
-  delta_time            = 1e-5,
+
+  cfl                   = -1.0, -- Negative CFL implies that we will used fixed delta T
   
   --- File Output Options --
-  wrtRestart = 'ON',
-  wrtVolumeSolution = 'ON',
-  wrt1DSlice = 'ON',
-  wrtParticleEvolution = 'OFF',
   particleEvolutionIndex = 0,
   outputEveryTimeSteps  = 50,
   restartEveryTimeSteps = 50,
   headerFrequency       = 20,
   outputFormat = 'Tecplot', -- Only 'Tecplot' is currently available
-  outputDirectory = '../soleilOutput/', -- relative to the liszt-ebb home directory
   
   -- Fluid Options --
   gasConstant = 20.4128,
@@ -69,12 +93,11 @@ return {
   suth_s_ref = 110.4,           -- Sutherland's Law S constant [K]
   
   -- Particle Options --
-  initParticles = 'Random', -- 'Random' or 'Restart'
+  initParticles = 'Uniform', -- 'Uniform', 'Random', or 'Restart'
   restartParticleIter = 0,
   particleType = 'Free', -- Fixed or Free
   twoWayCoupling = 'OFF', -- ON or OFF
-  num = 10000.0,
-  maximum_num = 1000.0, -- upper bound on particles with insertion
+  maximum_num = 10000.0, -- upper bound on particles with insertion
   insertion_rate = 0, -- per face and per time step
   insertion_mode = {0,0,0,0,0,0}, --bool, MinX MaxX MinY MaxY MinZ MaxZ
   deletion_mode = {0,0,0,0,0,0}, --bool, MinX MaxX MinY MaxY MinZ MaxZ

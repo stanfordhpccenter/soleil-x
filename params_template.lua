@@ -38,7 +38,7 @@ return {
   -----------------------------------------------------------------------------
   --[[                        FLUID PHASE OPTIONS                          ]]--
   -----------------------------------------------------------------------------
-  initCase = 'Perturbed',         -- 'Uniform', 'Restart', 'TaylorGreen2DVortex',
+  initCase = 'Uniform',         -- 'Uniform', 'Restart', 'TaylorGreen2DVortex',
                                 --  'TaylorGreen3DVortex' or 'Perturbed'
   restartIter = 0,              -- Starting iteration number for flow restart
   initParams = {1.0,101325.0,0.0,0.0,0.0}, -- Input flow conditions.
@@ -64,7 +64,7 @@ return {
   -----------------------------------------------------------------------------
   --[[                       PARTICLE PHASE OPTIONS                        ]]--
   -----------------------------------------------------------------------------
-  initParticles = 'Random',        -- Part. init: 'Random', 'Restart', or 'Uniform'
+  initParticles = 'Uniform',        -- Part. init: 'Random', 'Restart', or 'Uniform'
   restartParticleIter = 0,         -- Starting iteration for particle restart
   particleType = 'Free',          -- Particle can be 'Fixed' or 'Free' to move
   twoWayCoupling = 'OFF',          -- Enable two-way coupling with fluid.
@@ -113,7 +113,6 @@ return {
   particleEvolutionIndex = 0,   -- Index of particle to be tracked
   outputEveryTimeSteps  = 10000, -- Iterations between writing solutions
   restartEveryTimeSteps = 10000, -- Iterations between writing restarts
-  headerFrequency       = 20,   -- Iterations between console output headers
-  outputDirectory = '../forced_turbulence/' -- Relative to the ebb root dir
-  
+  headerFrequency       = 20   -- Iterations between console output headers
+
 }

@@ -54,7 +54,6 @@ return {
   restartEveryTimeSteps = 10000,
   headerFrequency       = 20,
   outputFormat = 'Tecplot', -- Only 'Tecplot' is currently available
-  outputDirectory = '../soleilOutput/', -- relative to the liszt-ebb home directory
   
   -- Fluid Options --
   gasConstant = 287.058,
@@ -69,7 +68,7 @@ return {
   suth_s_ref = 110.4,           -- Sutherland's Law S constant [K]
   
   -- Particle Options --
-  initParticles = 'Constant', -- 'Random' or 'Restart'
+  initParticles = 'Uniform', -- 'Random' or 'Restart'
   restartParticleIter = 0,
   particleType = 'Free', -- Fixed or Free
   twoWayCoupling = 'OFF', -- ON or OFF

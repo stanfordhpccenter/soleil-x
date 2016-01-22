@@ -114,7 +114,6 @@ return {
   particleEvolutionIndex = 0,   -- Index of particle to be tracked
   outputEveryTimeSteps  = 1000, -- Iterations between writing solutions
   restartEveryTimeSteps = 1000, -- Iterations between writing restarts
-  headerFrequency       = 20,   -- Iterations between console output headers
-  outputDirectory = '../soleilOutput/' -- Relative to the ebb root dir
-  
+  headerFrequency       = 20   -- Iterations between console output headers
+
 }

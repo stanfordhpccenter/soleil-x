@@ -117,7 +117,6 @@ return {
   particleEvolutionIndex = 0,   -- Index of particle to be tracked
   outputEveryTimeSteps  = 3000, -- Iterations between writing solutions
   restartEveryTimeSteps = 3000, -- Iterations between writing restarts
-  headerFrequency       = 20,   -- Iterations between console output headers
-  outputDirectory = '../forced_turbulence/' -- Relative to the ebb root dir
-  
+  headerFrequency       = 20   -- Iterations between console output headers
+
 }

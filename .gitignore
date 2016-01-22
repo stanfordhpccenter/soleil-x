@@ -4,3 +4,7 @@
 
 # Xcode files
 *.xcworkspace
+
+# Solution files Tecplot / CSV
+*.dat
+*.csv

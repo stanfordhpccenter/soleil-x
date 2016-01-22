@@ -1,3 +1,30 @@
+-----------------------------------------------------------------------------
+--[[
+-----------------------------------------------------------------------------
+ 
+Soleil-X Version 0.0.1
+Copyright (C) 2013-2015, Dr. Thomas D. Economon,
+                         Dr. Ivan Bermejo-Moreno
+ 
+ This program is free software; you can redistribute it and/or
+ modify it under the terms of the GNU General Public
+ License as published by the Free Software Foundation; either
+ version 2 of the License, or (at your option) any later version.
+ 
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ General Public License for more details.
+ 
+ You should have received a copy of the GNU General Public
+ License along with this program; if not, write to the Free
+ Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ Boston, MA 02110-1301 USA.  
+ 
+ -----------------------------------------------------------------------------
+ ]]--
+ -----------------------------------------------------------------------------
+
 import "ebb"
 local L = require "ebblib"
 
@@ -37,29 +64,58 @@ local CSV = require 'ebb.io.csv'
 local PN = require 'ebb.lib.pathname'
 
 -----------------------------------------------------------------------------
---[[                       LOAD THE CONFIG FILE                          ]]--
+--[[                       COMMAND LINE OPTIONS                          ]]--
 -----------------------------------------------------------------------------
 
--- This location is hard-coded at the moment. The idea is that you will
--- have multiple config files available in other locations, and copy them
--- to this location with the name params.lua before running.
-
-local filename = tostring(PN.scriptdir() .. 'params.lua')
---local filename = '../soleil-x/src/params.lua'
-local config = loadfile(filename)()
-
---- Immediately check that the output directory exists. Throw an error if not.
-
-local Pathname  = PN.Pathname
-local outputdir = Pathname.new(config.outputDirectory)
-
-if not outputdir:exists() then
-  outputdir:mkdir()
-  print("\nWARNING: The requested output directory does not exist: "..
-        config.outputDirectory .. ", \n"..
-        "so it has been created. Please check your intended behavior.\n")
+local function printUsageAndExit()
+  print("Usage : ./ebb [ebb options] ~/path/to/soleil-x.t <options>")
+  print("          -f <parameter file with Soleil-X options> (** required **)")
+  print("          -x <number of grid partitions in the x direction. (default: 1)>")
+  print("          -y <number of grid partitions in the y direction. (default: 1)>")
+  print("          -z <number of grid partitions in the z direction. (default: 1)>")
+  print("          -p <number of partitions for particles. (default: 1)>")
+  os.exit(1)
 end
 
+-- default values for options
+local configFileName = nil
+local xParts = 1
+local yParts = 1
+local zParts = 1
+local pParts = 1
+
+
+if #arg < 2 then
+  printUsageAndExit()
+  else
+  for i=1,#arg,2 do
+    if arg[i] == '-f' then
+        configFileName = arg[i+1]
+      elseif arg[i] == '-x' then
+        xParts = tonumber(arg[i+1])
+      elseif arg[i] == '-y' then
+        yParts = tonumber(arg[i+1])
+      elseif arg[i] == '-z' then
+        zParts = tonumber(arg[i+1])
+      elseif arg[i] == '-p' then
+        pParts = tonumber(arg[i+1])
+      else
+        printUsageAndExit()
+    end
+  end
+  if not configFileName then
+    print("Config file name required")
+    printUsageAndExit()
+  end
+end
+
+-- Load up the configuration file.
+
+local config = loadfile(configFileName)()
+
+-- Set the output directory to the current working directory
+
+local outputdir = PN.pwd_str()
 
 -----------------------------------------------------------------------------
 --[[                            CONSTANT VARIABLES                       ]]--
@@ -507,7 +563,7 @@ end
 IO.particleEvolutionIndex = config.particleEvolutionIndex
 
 -- Store the directory for all output files from the config
-IO.outputFileNamePrefix = config.outputDirectory
+IO.outputFileNamePrefix = outputdir .. '/'
 
 -- VDB options. For now, disable VDB (can add back in config.visualize later)
 local vdb_options = {}
@@ -835,7 +891,7 @@ print("|                                                                   |")
 print("| This program is free software; you can redistribute it and/or     |")
 print("| modify it under the terms of the GNU General Public               |")
 print("| License as published by the Free Software Foundation; either      |")
-print("| version 3 of the License, or (at your option) any later version.  |")
+print("| version 2 of the License, or (at your option) any later version.  |")
 print("|                                                                   |")
 print("| This program is distributed in the hope that it will be useful,   |")
 print("| but WITHOUT ANY WARRANTY; without even the implied warranty of    |")
@@ -843,12 +899,14 @@ print("| MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU  |")
 print("| General Public License for more details.                          |")
 print("|                                                                   |")
 print("| You should have received a copy of the GNU General Public         |")
-print("| License along with this program. If not, see                      |")
-print("| <http://www.gnu.org/licenses/>.                                   |")
+print("| License along with this program; if not, write to the Free        |")
+print("| Software Foundation, Inc., 51 Franklin Street, Fifth Floor,       |")
+print("| Boston, MA 02110-1301 USA.                                        |")
 print("|                                                                   |")
 print("---------------------------------------------------------------------")
 print("")
 print("------------------------- Grid Definition ---------------------------")
+
 io.stdout:write(" Grid cells: ",
                 string.format(" %d",grid_options.xnum), " x",
                 string.format(" %d",grid_options.ynum), " x",
@@ -873,6 +931,10 @@ io.stdout:write(" Total grid cells (w/ halo): ",
                 string.format(" %d",(grid_options.xnum+2*grid:xBoundaryDepth())
                 *(grid_options.ynum+2*grid:yBoundaryDepth())
                 *(grid_options.znum+2*grid:zBoundaryDepth())), "\n")
+io.stdout:write(" Grid partitions in x, y, and z directions: ",
+                string.format(" %d",xParts), " x",
+                string.format(" %d",yParts), " x",
+                string.format(" %d",zParts), "\n")
 print("")
 print("----------------------- Boundary Conditions -------------------------")
 io.stdout:write(" X- : ", grid_options.xBCLeft, ", V = (",
@@ -949,6 +1011,8 @@ io.stdout:write(" Linearly forced isotropic turbulence coefficient: ",
 print("")
 print("------------------------- Particle Options --------------------------")
 io.stdout:write(" Particle mode: ", particle_mode, "\n")
+io.stdout:write(" Number of particle partitions: ",
+                string.format(" %d",pParts), "\n")
 io.stdout:write(" Particle init. type: ", config.initParticles, "\n")
 if particles_options.initCase == Particles.Restart then
   io.stdout:write(" Restarting from iteration: ",
@@ -1029,7 +1093,7 @@ io.stdout:write(" Solution output frequency (iterations): ",
 io.stdout:write(" Header frequency (iterations): ",
                 string.format(" %d",config.headerFrequency), "\n")
 io.stdout:write(" Output format: ", config.outputFormat, "\n")
-io.stdout:write(" Output directory: ", config.outputDirectory, "\n")
+io.stdout:write(" Output directory: ", outputdir, "\n")
 print("")
 print("--------------------------- Start Solver ----------------------------")
 print("")
