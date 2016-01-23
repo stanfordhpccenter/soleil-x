@@ -18,7 +18,7 @@ Research to connect the Liszt-Ebb DSL with the [Legion Programming System](https
   Executing Soleil-X
 ----------------------------------------------------------
 
-After installing Liszt-Ebb and obtaining a copy of the Soleil-X source repository, one can execute the solver. Apart from the source script, you will need to provide a configuration file as input to the solver that describes your particular problem conditions. A template configuration file is available to serve as an example (params_template.lua) in the root directory of the source. In addition, there are several existing configuration files available in the testcases/ directory.
+After installing Liszt-Ebb and obtaining a copy of the Soleil-X source repository, one can execute the solver. Apart from the source script, you will need to provide a configuration file as input to the solver that describes your particular problem conditions. A thoroughly commented template configuration file is available to serve as an example (params_template.lua) in the root directory of the source. In addition, there are several existing configuration files available in the testcases/ directory.
 
 Get started quickly by doing the following:
 
@@ -45,7 +45,7 @@ That's it!
 There are new options to control the partitioning of the underlying grid and particle relations in Liszt. They take the form of optional command line args after the config file specification. The grid partitions are defined in each direction independently (x,y,z) along with a separate value for partitioning particles:
 
 ```
-$ ebb /path/to/soleil-x.t -f your_config.lua -x 2 -y 4 -z 5 -p 1
+$ /path/to/ebb /path/to/soleil-x.t -f your_config.lua -x 2 -y 4 -z 5 -p 1
 ```
 
 where here we are requesting 2 partitions along the x direction, 4 in the y, and 5 in the z for the grid (fluid), and no partitioning (1) for the particles.
