@@ -22,17 +22,19 @@ After installing Liszt-Ebb and obtaining a copy of the Soleil-X source repositor
 
 Get started quickly by doing the following:
 
-1. Prepare your own config file or use one of the examples. We will use the Taylor Green Vortex case.
+1. Prepare your own config file or use one of the examples. We will use the Taylor Green Vortex case that is provided.
 
 2. Move to the directory containing the config file.
-```
-$ cd soleil-x/testcases/taylor_green_vortex
-```
+
+    ```
+    $ cd soleil-x/testcases/taylor_green_vortex
+    ```
 
 3. Execute the script through Ebb and provide the config file as a command line arg (with the '-f' option). You will see console output as the case runs, and any output will be written to the current working directory, such as restart files or files to visualize the flow and particle solutions with Tecplot.
-```
-$ /path/to/ebb ../../src/soleil-x.t -f taylor_green_vortex.lua
-```
+
+    ```
+    $ /path/to/ebb ../../src/soleil-x.t -f taylor_green_vortex.lua
+    ```
 
 That's it!
 
@@ -41,9 +43,11 @@ That's it!
 ----------------------------------------------------------
 
 There are new options to control the partitioning of the underlying grid and particle relations in Liszt. They take the form of optional command line args after the config file specification. The grid partitions are defined in each direction independently (x,y,z) along with a separate value for partitioning particles:
+
 ```
 $ ebb /path/to/soleil-x.t -f your_config.lua -x 2 -y 4 -z 5 -p 1
 ```
+
 where here we are requesting 2 partitions along the x direction, 4 in the y, and 5 in the z for the grid (fluid), and no partitioning (1) for the particles.
 
 ----------------------------------------------------------
