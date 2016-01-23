@@ -31,6 +31,10 @@ return {
   -- decrease if calculation diverges right away
   delta_time  = 1e-4,
 
+  -- console writing frequency. Set to a large number, i.e., larger than
+  -- the number of specified iterations to avoid reductions/global comms
+  -- to compute statistics and other outputs
+  consoleFrequency = 100,  -- Iterations between console output of statistics
 
   -----------------------------------------------------------
   -----------------------------------------------------------

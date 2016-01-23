@@ -53,6 +53,7 @@ return {
   outputEveryTimeSteps  = 10000,
   restartEveryTimeSteps = 10000,
   headerFrequency       = 20,
+  consoleFrequency = 101,  -- Iterations between console output of statistics
   outputFormat = 'Tecplot', -- Only 'Tecplot' is currently available
   
   -- Fluid Options --

@@ -114,6 +114,7 @@ return {
   particleEvolutionIndex = 0,   -- Index of particle to be tracked
   outputEveryTimeSteps  = 1000, -- Iterations between writing solutions
   restartEveryTimeSteps = 1000, -- Iterations between writing restarts
+  consoleFrequency = 101,  -- Iterations between console output of statistics
   headerFrequency       = 20   -- Iterations between console output headers
 
 }

@@ -419,7 +419,8 @@ TimeIntegrator.delta_time            = config.delta_time
 TimeIntegrator.outputEveryTimeSteps  = config.outputEveryTimeSteps
 TimeIntegrator.restartEveryTimeSteps = config.restartEveryTimeSteps
 TimeIntegrator.headerFrequency       = config.headerFrequency
-TimeIntegrator.deltaTime             = L.Global(L.double, 0.01)
+TimeIntegrator.consoleFrequency      = config.consoleFrequency
+TimeIntegrator.deltaTime             = L.Global(L.double, 0.0001)
 
 local fluid_options = {}
 if config.viscosity_model == 'Constant' then
@@ -709,6 +710,12 @@ local grid = Grid.NewGrid3d{
               boundary_depth = {xBnum, yBnum, zBnum},
               periodic_boundary = {xBCPeriodic, yBCPeriodic, zBCPeriodic} }
 
+
+-----------------------------------------------------------------------------
+-- Define grid partioning based on command line inputs
+grid.cells:SetPartitions{xParts, yParts, zParts}
+-----------------------------------------------------------------------------
+
 -- Define uniform grid spacing
 -- WARNING: These are used for uniform grids and should be replaced by different
 -- metrics for non-uniform ones (see other WARNINGS throughout the code)
@@ -808,6 +815,11 @@ local particles = L.NewRelation {
   size = particles_options.num,
   name = 'particles'
 }
+
+-----------------------------------------------------------------------------
+-- Define particle partioning based on command line inputs
+particles:SetPartitions{pParts}
+-----------------------------------------------------------------------------
 
 -- Evenly distribute the particles throughout the cells by default. We will
 -- adjust the locations for particular initializations later.
@@ -3294,40 +3306,42 @@ end
 function IO.WriteConsoleOutput(timeStep)
   
   -- Output log headers at a specified frequency
+  if (timeStep % TimeIntegrator.consoleFrequency == 0) then
+   
+    if timeStep % TimeIntegrator.headerFrequency == 0 then
+      io.stdout:write("\n Current time step: ",
+        string.format(" %2.6e",TimeIntegrator.deltaTime:get()), " s.\n")
+      io.stdout:write(" Min Flow Temp: ",
+        string.format("%11.6f",Flow.minTemperature:get()), " K.")
+      io.stdout:write(" Max Flow Temp: ",
+        string.format("%11.6f",Flow.maxTemperature:get()), " K.\n")
+      io.stdout:write(" Current number of particles: ",
+                      string.format(" %d",particles:Size()), ".\n\n")
+      io.stdout:write(string.format("%8s",'    Iter'),
+        string.format("%12s",'   Time(s)'),
+        string.format("%12s",'Avg Press'),
+        string.format("%12s",'Avg Temp'),
+        string.format("%12s",'Avg KE'),
+        string.format("%12s",'Particle T'),'\n')
+    end
 
-  if timeStep % TimeIntegrator.headerFrequency == 0 then
-    io.stdout:write("\n Current time step: ",
-      string.format(" %2.6e",TimeIntegrator.deltaTime:get()), " s.\n")
-    io.stdout:write(" Min Flow Temp: ",
-      string.format("%11.6f",Flow.minTemperature:get()), " K.")
-    io.stdout:write(" Max Flow Temp: ",
-      string.format("%11.6f",Flow.maxTemperature:get()), " K.\n")
-    io.stdout:write(" Current number of particles: ",
-                    string.format(" %d",particles:Size()), ".\n\n")
-    io.stdout:write(string.format("%8s",'    Iter'),
-      string.format("%12s",'   Time(s)'),
-      string.format("%12s",'Avg Press'),
-      string.format("%12s",'Avg Temp'),
-      string.format("%12s",'Avg KE'),
-      string.format("%12s",'Particle T'),'\n')
+    -- Check if we have particles (simply to avoid nan printed to screen)
+
+    local particle_avg_temp = 0.0
+    if particles_options.num > 0 then
+      particle_avg_temp = Particles.averageTemperature:get()
+    end
+
+    -- Output the current stats to the console for this iteration
+    
+    io.stdout:write(string.format("%8d",timeStep),
+                    string.format(" %11.6f",TimeIntegrator.simTime:get()),
+                    string.format(" %11.6f",Flow.averagePressure:get()),
+                    string.format(" %11.6f",Flow.averageTemperature:get()),
+                    string.format(" %11.6f",Flow.averageKineticEnergy:get()),
+                    string.format(" %11.6f",particle_avg_temp),'\n')
+                  
   end
-
-  -- Check if we have particles (simply to avoid nan printed to screen)
-
-  local particle_avg_temp = 0.0
-  if particles_options.num > 0 then
-    particle_avg_temp = Particles.averageTemperature:get()
-  end
-
-  -- Output the current stats to the console for this iteration
-  
-  io.stdout:write(string.format("%8d",timeStep),
-                  string.format(" %11.6f",TimeIntegrator.simTime:get()),
-                  string.format(" %11.6f",Flow.averagePressure:get()),
-                  string.format(" %11.6f",Flow.averageTemperature:get()),
-                  string.format(" %11.6f",Flow.averageKineticEnergy:get()),
-                  string.format(" %11.6f",particle_avg_temp),'\n')
-
 end
 
 function IO.WriteFlowRestart(timeStep)
@@ -4091,7 +4105,7 @@ function IO.WriteOutput(timeStep)
   -- Write the particle restart files
   
   if particle_mode ~= 'ELASTIC' then
-  IO.WriteParticleRestart(timeStep)
+    IO.WriteParticleRestart(timeStep)
   end
 
   -- Write the volume solution files for visualization
@@ -4100,7 +4114,7 @@ function IO.WriteOutput(timeStep)
     IO.WriteFlowTecplotTerra(timeStep)
     --IO.WriteFlowTecplotLua(timeStep)
     if particle_mode ~= 'ELASTIC' then
-    IO.WriteParticleTecplotTerra(timeStep)
+      IO.WriteParticleTecplotTerra(timeStep)
     end
     --IO.WriteParticleTecplotLua(timeStep)
   else
@@ -4117,7 +4131,7 @@ function IO.WriteOutput(timeStep)
   -- Write a file for the evolution in time of particle i
   
   if particle_mode ~= 'ELASTIC' then
-  IO.WriteParticleEvolution(timeStep)
+    IO.WriteParticleEvolution(timeStep)
   end
 
 end
@@ -4151,7 +4165,9 @@ while ((TimeIntegrator.simTime:get()  < TimeIntegrator.final_time) and
 
     TimeIntegrator.CalculateDeltaTime()
     TimeIntegrator.AdvanceTimeStep()
-    Statistics.ComputeSpatialAverages()
+    if (TimeIntegrator.timeStep:get() % config.consoleFrequency == 0) then
+      Statistics.ComputeSpatialAverages()
+    end
     IO.WriteOutput(TimeIntegrator.timeStep:get())
     
     -- Visualize the simulation with VDB if requested
