@@ -483,6 +483,13 @@ local particles_options = {
     absorptivity = config.absorptivity,
     restartParticleIter = config.restartParticleIter,
 }
+if config.modeParticles == 'OFF' then
+  particles_options.modeParticles = OFF
+elseif config.modeParticles == 'ON' then
+  particles_options.modeParticles = ON
+else
+  error("Particle mode not defined (ON or OFF")
+end
 if config.initParticles == 'Random' then
   particles_options.initParticles = Particles.Random
 elseif config.initParticles == 'Restart' then
@@ -794,74 +801,83 @@ grid.cells:NewField('rhoEnergyFlux', L.double)                :Load(0)
 --[[                       PARTICLE PREPROCESSING                        ]]--
 -----------------------------------------------------------------------------
 
--- Declare and initialize particle relation and fields over the particle
-local INSERT_DELETE = false
-local particle_mode = 'PLAIN'
+-- Check whether particles are even active in order to avoid allocating 
+-- any data for the particles.
 
--- Check for insert and delete on faces
--- WARNING: This is disabled until instertion/deletion is more mature
---[[for i = 0,6 do
-  if (config.insertion_mode[i+1] == 1  or
-      config.deletion_mode[i+1]  == 1) then
-      INSERT_DELETE = true
-      break
+local particles = {}
+local particle_mode
+
+if particles_options.modeParticles == ON then
+
+  -- Declare and initialize particle relation and fields over the particle
+  local INSERT_DELETE = false
+  particle_mode = 'PLAIN'
+
+  -- Check for insert and delete on faces
+  -- WARNING: This is disabled until instertion/deletion is more mature
+  --[[for i = 0,6 do
+    if (config.insertion_mode[i+1] == 1  or
+        config.deletion_mode[i+1]  == 1) then
+        INSERT_DELETE = true
+        break
+    end
   end
+  if INSERT_DELETE then particle_mode = 'ELASTIC' end
+  ]]--
+
+  particles = L.NewRelation {
+    mode = particle_mode,
+    size = particles_options.num,
+    name = 'particles'
+  }
+
+  -----------------------------------------------------------------------------
+  -- Define particle partioning based on command line inputs
+  particles:SetPartitions{pParts}
+  -----------------------------------------------------------------------------
+
+  -- Evenly distribute the particles throughout the cells by default. We will
+  -- adjust the locations for particular initializations later.
+
+  local PARTICLE_LEN_X = grid_options.xnum - (xBCPeriodic and 0 or 1)
+  local PARTICLE_LEN_Y = grid_options.ynum - (yBCPeriodic and 0 or 1)
+  local PARTICLE_LEN_Z = grid_options.znum - (zBCPeriodic and 0 or 1)
+  particles:NewField('cell', grid.cells):Load(function(i)
+      local xid = math.floor(i%PARTICLE_LEN_X)
+      local yid = math.floor(i/PARTICLE_LEN_X)%(PARTICLE_LEN_Y)
+      local zid = math.floor(i/(PARTICLE_LEN_X*PARTICLE_LEN_Y))
+      if not xBCPeriodic then xid = xid+1 end
+      if not yBCPeriodic then yid = yid+1 end
+      if not zBCPeriodic then zid = zid+1 end
+      return {xid,yid,zid}
+      end)
+  particles:NewField('dual_cell', grid.dual_cells):Load({0, 0, 0})
+  particles:NewField('position',    L.vec3d):Load({0, 0, 0})
+  particles:NewField('velocity',    L.vec3d):Load({0, 0, 0})
+  particles:NewField('density', L.double):Load(0)
+  particles:NewField('temperature', L.double)    :Load(0)
+  particles:NewField('diameter',    L.double)    :Load(0)
+
+  particles:NewField('position_ghost', L.vec3d):Load({0, 0, 0})
+  particles:NewField('velocity_ghost', L.vec3d):Load({0, 0, 0})
+  particles:NewField('velocity_t_ghost', L.vec3d):Load({0, 0, 0})
+  particles:NewField('deltaVelocityOverRelaxationTime', L.vec3d):Load({0, 0, 0})
+  particles:NewField('deltaTemperatureTerm', L.double)          :Load(0)
+
+  -- scratch (temporary) fields
+  -- intermediate values and copies
+  particles:NewField('position_old', L.vec3d)                   :Load({0, 0, 0})
+  particles:NewField('velocity_old', L.vec3d)                   :Load({0, 0, 0})
+  particles:NewField('temperature_old', L.double)               :Load(0)
+  particles:NewField('position_new', L.vec3d)                   :Load({0, 0, 0})
+  particles:NewField('velocity_new', L.vec3d)                   :Load({0, 0, 0})
+  particles:NewField('temperature_new', L.double)               :Load(0)
+  -- derivatives
+  particles:NewField('position_t', L.vec3d)                     :Load({0, 0, 0})
+  particles:NewField('velocity_t', L.vec3d)                     :Load({0, 0, 0})
+  particles:NewField('temperature_t', L.double)                 :Load(0)
+
 end
-if INSERT_DELETE then particle_mode = 'ELASTIC' end
-]]--
-
-local particles = L.NewRelation {
-  mode = particle_mode,
-  size = particles_options.num,
-  name = 'particles'
-}
-
------------------------------------------------------------------------------
--- Define particle partioning based on command line inputs
-particles:SetPartitions{pParts}
------------------------------------------------------------------------------
-
--- Evenly distribute the particles throughout the cells by default. We will
--- adjust the locations for particular initializations later.
-
-local PARTICLE_LEN_X = grid_options.xnum - (xBCPeriodic and 0 or 1)
-local PARTICLE_LEN_Y = grid_options.ynum - (yBCPeriodic and 0 or 1)
-local PARTICLE_LEN_Z = grid_options.znum - (zBCPeriodic and 0 or 1)
-particles:NewField('cell', grid.cells):Load(function(i)
-    local xid = math.floor(i%PARTICLE_LEN_X)
-    local yid = math.floor(i/PARTICLE_LEN_X)%(PARTICLE_LEN_Y)
-    local zid = math.floor(i/(PARTICLE_LEN_X*PARTICLE_LEN_Y))
-    if not xBCPeriodic then xid = xid+1 end
-    if not yBCPeriodic then yid = yid+1 end
-    if not zBCPeriodic then zid = zid+1 end
-    return {xid,yid,zid}
-    end)
-particles:NewField('dual_cell', grid.dual_cells):Load({0, 0, 0})
-particles:NewField('position',    L.vec3d):Load({0, 0, 0})
-particles:NewField('velocity',    L.vec3d):Load({0, 0, 0})
-particles:NewField('density', L.double):Load(0)
-particles:NewField('temperature', L.double)    :Load(0)
-particles:NewField('diameter',    L.double)    :Load(0)
-
-particles:NewField('position_ghost', L.vec3d):Load({0, 0, 0})
-particles:NewField('velocity_ghost', L.vec3d):Load({0, 0, 0})
-particles:NewField('velocity_t_ghost', L.vec3d):Load({0, 0, 0})
-particles:NewField('deltaVelocityOverRelaxationTime', L.vec3d):Load({0, 0, 0})
-particles:NewField('deltaTemperatureTerm', L.double)          :Load(0)
-
--- scratch (temporary) fields
--- intermediate values and copies
-particles:NewField('position_old', L.vec3d)                   :Load({0, 0, 0})
-particles:NewField('velocity_old', L.vec3d)                   :Load({0, 0, 0})
-particles:NewField('temperature_old', L.double)               :Load(0)
-particles:NewField('position_new', L.vec3d)                   :Load({0, 0, 0})
-particles:NewField('velocity_new', L.vec3d)                   :Load({0, 0, 0})
-particles:NewField('temperature_new', L.double)               :Load(0)
--- derivatives
-particles:NewField('position_t', L.vec3d)                     :Load({0, 0, 0})
-particles:NewField('velocity_t', L.vec3d)                     :Load({0, 0, 0})
-particles:NewField('temperature_t', L.double)                 :Load(0)
-
 
 -- Statistics quantities
 
@@ -897,7 +913,7 @@ print("|                                                                   |")
 print("---------------------------------------------------------------------")
 print("|                                                                   |")
 print("| Soleil-X Version 0.0.1                                            |")
-print("| Copyright (C) 2013-2015, Dr. Thomas D. Economon,                  |")
+print("| Copyright (C) 2013-2016, Dr. Thomas D. Economon,                  |")
 print("|                          Dr. Ivan Bermejo-Moreno                  |")
 print("|                                                                   |")
 print("| This program is free software; you can redistribute it and/or     |")
@@ -1022,57 +1038,59 @@ io.stdout:write(" Linearly forced isotropic turbulence coefficient: ",
                 string.format(" %f",config.turbForceCoeff), "\n")
 print("")
 print("------------------------- Particle Options --------------------------")
-io.stdout:write(" Particle mode: ", particle_mode, "\n")
-io.stdout:write(" Number of particle partitions: ",
-                string.format(" %d",pParts), "\n")
-io.stdout:write(" Particle init. type: ", config.initParticles, "\n")
-if particles_options.initCase == Particles.Restart then
-  io.stdout:write(" Restarting from iteration: ",
-                  string.format(" %d",config.restartParticleIter), "\n")
-else
-  io.stdout:write(" Initial temperature: ",
-                  string.format(" %f",config.initialTemperature), "\n")
-  io.stdout:write(" Mean particle diameter: ",
-                  string.format(" %f",config.diameter_mean), "\n")
-  io.stdout:write(" Diameter max deviation: ",
-                  string.format(" %f",config.diameter_maxDeviation), "\n")
+io.stdout:write(" Particle mode: ", config.modeParticles, "\n")
+if particles_options.modeParticles == ON then
+  io.stdout:write(" Number of particle partitions: ",
+                  string.format(" %d",pParts), "\n")
+  io.stdout:write(" Particle init. type: ", config.initParticles, "\n")
+  if particles_options.initCase == Particles.Restart then
+    io.stdout:write(" Restarting from iteration: ",
+                    string.format(" %d",config.restartParticleIter), "\n")
+  else
+    io.stdout:write(" Initial temperature: ",
+                    string.format(" %f",config.initialTemperature), "\n")
+    io.stdout:write(" Mean particle diameter: ",
+                    string.format(" %f",config.diameter_mean), "\n")
+    io.stdout:write(" Diameter max deviation: ",
+                    string.format(" %f",config.diameter_maxDeviation), "\n")
+  end
+  io.stdout:write(" Particle type (fixed or free): ", config.particleType, "\n")
+  io.stdout:write(" Two-way coupling: ", config.twoWayCoupling, "\n")
+  io.stdout:write(" Initial number of particles: ",
+                  string.format(" %d",config.num), "\n")
+  io.stdout:write(" Maximum number of particles: ",
+                  string.format(" %d",config.maximum_num), "\n")
+  io.stdout:write(" Particle insertion rate (per face per time step): ",
+                  string.format(" %f",config.insertion_rate), "\n")
+  io.stdout:write(" Particle insertion mode by face (X-,X+,Y-,Y+,Z-,Z+): (",
+                  string.format("%1d",config.insertion_mode[1]), ",",
+                  string.format("%1d",config.insertion_mode[2]), ",",
+                  string.format("%1d",config.insertion_mode[3]), ",",
+                  string.format("%1d",config.insertion_mode[4]), ",",
+                  string.format("%1d",config.insertion_mode[5]), ",",
+                  string.format("%1d",config.insertion_mode[6]), ")\n")
+  io.stdout:write(" Particle deletion mode by face (X-,X+,Y-,Y+,Z-,Z+): (",
+                  string.format("%1d",config.deletion_mode[1]), ",",
+                  string.format("%1d",config.deletion_mode[2]), ",",
+                  string.format("%1d",config.deletion_mode[3]), ",",
+                  string.format("%1d",config.deletion_mode[4]), ",",
+                  string.format("%1d",config.deletion_mode[5]), ",",
+                  string.format("%1d",config.deletion_mode[6]), ")\n")
+  io.stdout:write(" Particle density: ",
+                  string.format(" %f",config.density), "\n")
+  io.stdout:write(" Coefficient of restitution: ",
+                  string.format(" %f",config.restitutionCoefficient), "\n")
+  io.stdout:write(" Convective coefficient: ",
+                  string.format(" %f",config.convectiveCoefficient), "\n")
+  io.stdout:write(" Heat capacity: ",
+                  string.format(" %f",config.heatCapacity), "\n")
+  io.stdout:write(" Absorptivity: ",
+                  string.format(" %f",config.absorptivity), "\n")
+  io.stdout:write(" Particle body force: (",
+                  string.format("%1.3f",config.bodyForceParticles[1]), ",",
+                  string.format("%1.3f",config.bodyForceParticles[2]), ",",
+                  string.format("%1.3f",config.bodyForceParticles[3]), ")\n")
 end
-io.stdout:write(" Particle type (fixed or free): ", config.particleType, "\n")
-io.stdout:write(" Two-way coupling: ", config.twoWayCoupling, "\n")
-io.stdout:write(" Initial number of particles: ",
-                string.format(" %d",config.num), "\n")
-io.stdout:write(" Maximum number of particles: ",
-                string.format(" %d",config.maximum_num), "\n")
-io.stdout:write(" Particle insertion rate (per face per time step): ",
-                string.format(" %f",config.insertion_rate), "\n")
-io.stdout:write(" Particle insertion mode by face (X-,X+,Y-,Y+,Z-,Z+): (",
-                string.format("%1d",config.insertion_mode[1]), ",",
-                string.format("%1d",config.insertion_mode[2]), ",",
-                string.format("%1d",config.insertion_mode[3]), ",",
-                string.format("%1d",config.insertion_mode[4]), ",",
-                string.format("%1d",config.insertion_mode[5]), ",",
-                string.format("%1d",config.insertion_mode[6]), ")\n")
-io.stdout:write(" Particle deletion mode by face (X-,X+,Y-,Y+,Z-,Z+): (",
-                string.format("%1d",config.deletion_mode[1]), ",",
-                string.format("%1d",config.deletion_mode[2]), ",",
-                string.format("%1d",config.deletion_mode[3]), ",",
-                string.format("%1d",config.deletion_mode[4]), ",",
-                string.format("%1d",config.deletion_mode[5]), ",",
-                string.format("%1d",config.deletion_mode[6]), ")\n")
-io.stdout:write(" Particle density: ",
-                string.format(" %f",config.density), "\n")
-io.stdout:write(" Coefficient of restitution: ",
-                string.format(" %f",config.restitutionCoefficient), "\n")
-io.stdout:write(" Convective coefficient: ",
-                string.format(" %f",config.convectiveCoefficient), "\n")
-io.stdout:write(" Heat capacity: ",
-                string.format(" %f",config.heatCapacity), "\n")
-io.stdout:write(" Absorptivity: ",
-                string.format(" %f",config.absorptivity), "\n")
-io.stdout:write(" Particle body force: (",
-                string.format("%1.3f",config.bodyForceParticles[1]), ",",
-                string.format("%1.3f",config.bodyForceParticles[2]), ",",
-                string.format("%1.3f",config.bodyForceParticles[3]), ")\n")
 print("")
 print("------------------------ Radiation Options --------------------------")
 io.stdout:write(" Radiation type: ", config.radiationType, "\n")
@@ -1147,15 +1165,17 @@ end
 
 -- Function to retrieve particle area, volume and mass
 -- These are Ebb user-defined functions that behave like a field
-particles:NewFieldReadFunction('cross_section_area', ebb(p)
-    return pi * L.pow(p.diameter, 2) / 4.0
-end)
-particles:NewFieldReadFunction('volume', ebb(p)
-    return pi * L.pow(p.diameter, 3) / 6.0
-end)
-particles:NewFieldReadFunction('mass', ebb(p)
-    return p.volume * p.density
-end)
+if particles_options.modeParticles == ON then
+  particles:NewFieldReadFunction('cross_section_area', ebb(p)
+      return pi * L.pow(p.diameter, 2) / 4.0
+  end)
+  particles:NewFieldReadFunction('volume', ebb(p)
+      return pi * L.pow(p.diameter, 3) / 6.0
+  end)
+  particles:NewFieldReadFunction('mass', ebb(p)
+      return p.volume * p.density
+  end)
+end
 
 -----------------------------------------------------------------------------
 --[[                              EBB MACROS                             ]]--
@@ -1730,6 +1750,7 @@ end
 -- Particles coupling
 ---------------------
 
+if particles_options.modeParticles == ON then
 ebb Flow.AddParticlesCoupling (p : particles)
 
     -- WARNING: Assumes that deltaVelocityOverRelaxationTime and
@@ -1752,7 +1773,7 @@ ebb Flow.AddParticlesCoupling (p : particles)
     Flow.averageHeatSource += p.deltaTemperatureTerm / cellVolume
 
 end
-
+end
 --------------
 -- Holding avg. temperature fixed in the presence of radiation
 --------------
@@ -2330,628 +2351,634 @@ end
 -- PARTICLES
 ------------
 
--- Locate particles in cells
-function Particles.Locate()
-  grid.locate_in_cells(particles, 'position', 'cell')
-  grid.locate_in_duals(particles, 'position', 'dual_cell')
-end
+-- Put a guard around the entire particles section so that we don't invoke
+-- any of these kernels when the particles are turned off.
+if particles_options.modeParticles == ON then
 
--- Initialize temporaries for time stepper
-ebb Particles.InitializeTemporaries (p : particles)
-    p.position_old    = p.position
-    p.velocity_old    = p.velocity
-    p.temperature_old = p.temperature
-    p.position_new    = p.position
-    p.velocity_new    = p.velocity
-    p.temperature_new = p.temperature
-end
+  -- Locate particles in cells
+  function Particles.Locate()
+    grid.locate_in_cells(particles, 'position', 'cell')
+    grid.locate_in_duals(particles, 'position', 'dual_cell')
+  end
 
-----------------
--- Flow Coupling
-----------------
+  -- Initialize temporaries for time stepper
+  ebb Particles.InitializeTemporaries (p : particles)
+      p.position_old    = p.position
+      p.velocity_old    = p.velocity
+      p.temperature_old = p.temperature
+      p.position_new    = p.position
+      p.velocity_new    = p.velocity
+      p.temperature_new = p.temperature
+  end
 
--- Initialize time derivative for each stage of time stepper
-ebb Particles.InitializeTimeDerivatives (p : particles)
-    p.position_t = L.vec3d({0, 0, 0})
-    p.velocity_t = L.vec3d({0, 0, 0})
-    p.temperature_t = L.double(0)
-end
+  ----------------
+  -- Flow Coupling
+  ----------------
 
--- Update particle fields based on flow fields
-ebb Particles.AddFlowCoupling (p: particles)
+  -- Initialize time derivative for each stage of time stepper
+  ebb Particles.InitializeTimeDerivatives (p : particles)
+      p.position_t = L.vec3d({0, 0, 0})
+      p.velocity_t = L.vec3d({0, 0, 0})
+      p.temperature_t = L.double(0)
+  end
 
-    -- WARNING: assumes we have already located particles
-    
-    var flowDensity     = L.double(0)
-    var flowVelocity    = L.vec3d({0, 0, 0})
-    var flowTemperature = L.double(0)
-    var flowDynamicViscosity = L.double(0)
+  -- Update particle fields based on flow fields
+  ebb Particles.AddFlowCoupling (p: particles)
 
-    -- Trilinear interpolation for the flow quantities
-    flowDensity     = InterpolateTriRho(p.dual_cell, p.position)
-    flowVelocity    = InterpolateTriVelocity(p.dual_cell, p.position)
-    flowTemperature = InterpolateTriTemperature(p.dual_cell, p.position)
-    flowDynamicViscosity = GetDynamicViscosity(flowTemperature)
-    
-    -- Update the particle position using the current velocity
-    if particles_options.particleType == Particles.Fixed then
-      -- Don't move the particle
+      -- WARNING: assumes we have already located particles
+      
+      var flowDensity     = L.double(0)
+      var flowVelocity    = L.vec3d({0, 0, 0})
+      var flowTemperature = L.double(0)
+      var flowDynamicViscosity = L.double(0)
+
+      -- Trilinear interpolation for the flow quantities
+      flowDensity     = InterpolateTriRho(p.dual_cell, p.position)
+      flowVelocity    = InterpolateTriVelocity(p.dual_cell, p.position)
+      flowTemperature = InterpolateTriTemperature(p.dual_cell, p.position)
+      flowDynamicViscosity = GetDynamicViscosity(flowTemperature)
+      
+      -- Update the particle position using the current velocity
+      if particles_options.particleType == Particles.Fixed then
+        -- Don't move the particle
+        elseif particles_options.particleType == Particles.Free then
+        p.position_t    += p.velocity
+      end
+      
+      -- Relaxation time for small particles
+      -- - particles Reynolds number (set to zero for Stokesian)
+      var particleReynoldsNumber = 0.0
+      --(p.density * norm(flowVelocity - p.velocity) * p.diameter) / flowDynamicViscosity
+      var relaxationTime =
+      ( p.density * L.pow(p.diameter,2)/(18.0 * flowDynamicViscosity))/
+      ( 1.0 + 0.15 * L.pow(particleReynoldsNumber,0.687) )
+      
+      p.deltaVelocityOverRelaxationTime = (flowVelocity - p.velocity) / relaxationTime
+      
+      p.deltaTemperatureTerm = pi * L.pow(p.diameter, 2) * particles_options.convective_coefficient * (flowTemperature - p.temperature)
+      
+      -- Update the particle velocity and temperature
+      if particles_options.particleType == Particles.Fixed then
+        p.velocity_t  = {0.0,0.0,0.0} -- Don't move the particle
+        elseif particles_options.particleType == Particles.Free then
+        p.velocity_t += p.deltaVelocityOverRelaxationTime
+      end
+      p.temperature_t += p.deltaTemperatureTerm / (p.mass * particles_options.heat_capacity)
+      
+  end
+
+  --------------
+  -- Body forces
+  --------------
+
+  ebb Particles.AddBodyForces (p : particles)
+      p.velocity_t += particles_options.bodyForce
+  end
+
+  ------------
+  -- Radiation
+  ------------
+
+  ebb Particles.AddRadiation (p : particles)
+
+      -- Calculate absorbed radiation intensity considering optically thin
+      -- particles, for a collimated radiation source with negligible 
+      -- blackbody self radiation
+      var absorbedRadiationIntensity =
+        particles_options.absorptivity *
+        radiation_options.radiationIntensity * p.cross_section_area
+
+      -- Add contribution to particle temperature time evolution
+      p.temperature_t += absorbedRadiationIntensity /
+                         (p.mass * particles_options.heat_capacity)
+  end
+
+  -- Set particle velocities to underlying flow velocity for initialization
+  ebb Particles.SetVelocitiesToFlow (p: particles)
+
+      -- WARNING: assumes we have called dual locate previously
+
+      var flowDensity     = L.double(0)
+      var flowVelocity    = L.vec3d({0, 0, 0})
+      var flowTemperature = L.double(0)
+      var flowDynamicViscosity = L.double(0)
+
+      -- Trilinear interpolation
+      flowDensity     = InterpolateTriRho(p.dual_cell, p.position)
+      flowVelocity    = InterpolateTriVelocity(p.dual_cell, p.position)
+      flowTemperature = InterpolateTriTemperature(p.dual_cell, p.position)
+      flowDynamicViscosity = GetDynamicViscosity(flowTemperature)
+
+      -- Update the particle velocity
+      if (particles_options.particleType == Particles.Fixed) then
+        p.velocity = {0.0,0.0,0.0} -- Don't move the particle
+        elseif (particles_options.initParticles == Particles.Restart) then
+        -- Do nothing, as we loaded the velocity from a restart
       elseif particles_options.particleType == Particles.Free then
-      p.position_t    += p.velocity
-    end
-    
-    -- Relaxation time for small particles
-    -- - particles Reynolds number (set to zero for Stokesian)
-    var particleReynoldsNumber = 0.0
-    --(p.density * norm(flowVelocity - p.velocity) * p.diameter) / flowDynamicViscosity
-    var relaxationTime =
-    ( p.density * L.pow(p.diameter,2)/(18.0 * flowDynamicViscosity))/
-    ( 1.0 + 0.15 * L.pow(particleReynoldsNumber,0.687) )
-    
-    p.deltaVelocityOverRelaxationTime = (flowVelocity - p.velocity) / relaxationTime
-    
-    p.deltaTemperatureTerm = pi * L.pow(p.diameter, 2) * particles_options.convective_coefficient * (flowTemperature - p.temperature)
-    
-    -- Update the particle velocity and temperature
-    if particles_options.particleType == Particles.Fixed then
-      p.velocity_t  = {0.0,0.0,0.0} -- Don't move the particle
-      elseif particles_options.particleType == Particles.Free then
-      p.velocity_t += p.deltaVelocityOverRelaxationTime
-    end
-    p.temperature_t += p.deltaTemperatureTerm / (p.mass * particles_options.heat_capacity)
-    
-end
+        p.velocity = flowVelocity
+      end
 
---------------
--- Body forces
---------------
+  end
 
-ebb Particles.AddBodyForces (p : particles)
-    p.velocity_t += particles_options.bodyForce
-end
-
-------------
--- Radiation
-------------
-
-ebb Particles.AddRadiation (p : particles)
-
-    -- Calculate absorbed radiation intensity considering optically thin
-    -- particles, for a collimated radiation source with negligible 
-    -- blackbody self radiation
-    var absorbedRadiationIntensity =
-      particles_options.absorptivity *
-      radiation_options.radiationIntensity * p.cross_section_area
-
-    -- Add contribution to particle temperature time evolution
-    p.temperature_t += absorbedRadiationIntensity /
-                       (p.mass * particles_options.heat_capacity)
-end
-
--- Set particle velocities to underlying flow velocity for initialization
-ebb Particles.SetVelocitiesToFlow (p: particles)
-
-    -- WARNING: assumes we have called dual locate previously
-
-    var flowDensity     = L.double(0)
-    var flowVelocity    = L.vec3d({0, 0, 0})
-    var flowTemperature = L.double(0)
-    var flowDynamicViscosity = L.double(0)
-
-    -- Trilinear interpolation
-    flowDensity     = InterpolateTriRho(p.dual_cell, p.position)
-    flowVelocity    = InterpolateTriVelocity(p.dual_cell, p.position)
-    flowTemperature = InterpolateTriTemperature(p.dual_cell, p.position)
-    flowDynamicViscosity = GetDynamicViscosity(flowTemperature)
-
-    -- Update the particle velocity
-    if (particles_options.particleType == Particles.Fixed) then
-      p.velocity = {0.0,0.0,0.0} -- Don't move the particle
-      elseif (particles_options.initParticles == Particles.Restart) then
-      -- Do nothing, as we loaded the velocity from a restart
-    elseif particles_options.particleType == Particles.Free then
-      p.velocity = flowVelocity
-    end
-
-end
-
--- Update particle variables using derivatives
-Particles.UpdateFunctions = {}
-function Particles.GenerateUpdateFunctions(relation, stage)
-    local coeff_fun  = TimeIntegrator.coeff_function[stage]
-    local coeff_time = TimeIntegrator.coeff_time[stage]
-    local deltaTime  = TimeIntegrator.deltaTime
-    if stage <= 3 then
-        return ebb(r : relation)
-              r.position_new +=
-                 coeff_fun * deltaTime * r.position_t
-              r.position       = r.position_old +
-                 coeff_time * deltaTime * r.position_t
-              r.velocity_new += 
-                 coeff_fun * deltaTime * r.velocity_t
-              r.velocity       = r.velocity_old +
-                 coeff_time * deltaTime * r.velocity_t
-              r.temperature_new += 
-                 coeff_fun * deltaTime * r.temperature_t
-              r.temperature       = r.temperature_old +
-                 coeff_time * deltaTime * r.temperature_t
-        end
-    elseif stage == 4 then
-        return ebb(r : relation)
-              r.position = r.position_new +
-                 coeff_fun * deltaTime * r.position_t
-              r.velocity = r.velocity_new +
-                 coeff_fun * deltaTime * r.velocity_t
-              r.temperature = r.temperature_new +
-                 coeff_fun * deltaTime * r.temperature_t
-        end
-    end
-end
-for i = 1, 4 do
-    Particles.UpdateFunctions[i] =
-        Particles.GenerateUpdateFunctions(particles, i)
-end
-
-ebb Particles.UpdateAuxiliaryStep1 (p : particles)
-
-        -- Initialize position and velocity before we check for wall collisions
-        
-        p.position_ghost[0]   = p.position[0]
-        p.position_ghost[1]   = p.position[1]
-        p.position_ghost[2]   = p.position[2]
-        p.velocity_ghost[0]   = p.velocity[0]
-        p.velocity_ghost[1]   = p.velocity[1]
-        p.velocity_ghost[2]   = p.velocity[2]
-        p.velocity_t_ghost[0] = p.velocity_t[0]
-        p.velocity_t_ghost[1] = p.velocity_t[1]
-        p.velocity_t_ghost[2] = p.velocity_t[2]
-        
-        -- Check here for particles exiting the domain. For periodic
-        -- boundaries, the particle is transported to the matching periodic
-        -- face. For symmetry or wall boundaries, an elastic collision is
-        -- assumed. To start, the collision is perfectly elastic.
-        
-        -- Left X boundary
-        if p.position[0] < gridOriginInteriorX then
-          if grid_options.xBCLeftParticles == Particles.Permeable then
-            p.position_ghost[0] = p.position[0] + grid_options.xWidth
-          elseif grid_options.xBCLeftParticles == Particles.Solid then
-
-            -- Set the position to be on the wall
-            p.position_ghost[0] = gridOriginInteriorX
-
-            -- Apply an impulse to kick particle away from the wall
-            var impulse = -(1.0+particles_options.restitution_coefficient)*p.velocity[0]
-            if impulse <= 0 then
-              p.velocity_ghost[0] += impulse
-            end
-
-            -- Add a contact force in case particle rests on the wall
-            var contact_force = -1.0*p.velocity_t[0]
-
-            -- To prevent sticky walls, only add contact force if current
-            -- force would push the particle through the wall
-            if contact_force > 0 then
-              p.velocity_t_ghost[0] += contact_force
-            end
-
+  -- Update particle variables using derivatives
+  Particles.UpdateFunctions = {}
+  function Particles.GenerateUpdateFunctions(relation, stage)
+      local coeff_fun  = TimeIntegrator.coeff_function[stage]
+      local coeff_time = TimeIntegrator.coeff_time[stage]
+      local deltaTime  = TimeIntegrator.deltaTime
+      if stage <= 3 then
+          return ebb(r : relation)
+                r.position_new +=
+                   coeff_fun * deltaTime * r.position_t
+                r.position       = r.position_old +
+                   coeff_time * deltaTime * r.position_t
+                r.velocity_new += 
+                   coeff_fun * deltaTime * r.velocity_t
+                r.velocity       = r.velocity_old +
+                   coeff_time * deltaTime * r.velocity_t
+                r.temperature_new += 
+                   coeff_fun * deltaTime * r.temperature_t
+                r.temperature       = r.temperature_old +
+                   coeff_time * deltaTime * r.temperature_t
           end
-        end
-        
-        -- Right X boundary
-        if p.position[0] > gridOriginInteriorX + grid_options.xWidth then
-          if grid_options.xBCRightParticles == Particles.Permeable then
-            p.position_ghost[0] = p.position[0] - grid_options.xWidth
-          elseif grid_options.xBCRightParticles == Particles.Solid then
-
-            -- Set the position to be on the wall
-            p.position_ghost[0] = gridOriginInteriorX + grid_options.xWidth
-
-            -- Apply an impulse to kick particle away from the wall
-            var impulse = -(1.0+particles_options.restitution_coefficient)*p.velocity[0]
-            if impulse >= 0 then
-              p.velocity_ghost[0] += impulse
-            end
-
-            -- Add a contact force in case particle rests on the wall
-            var contact_force = -1.0*p.velocity_t[0]
-
-            -- To prevent sticky walls, only add contact force if current
-            -- force would push the particle through the wall
-            if contact_force < 0 then
-              p.velocity_t_ghost[0] += contact_force
-            end
-    
+      elseif stage == 4 then
+          return ebb(r : relation)
+                r.position = r.position_new +
+                   coeff_fun * deltaTime * r.position_t
+                r.velocity = r.velocity_new +
+                   coeff_fun * deltaTime * r.velocity_t
+                r.temperature = r.temperature_new +
+                   coeff_fun * deltaTime * r.temperature_t
           end
-        end
-        
-        -- Left Y boundary
-        if p.position[1] < gridOriginInteriorY then
-          if grid_options.yBCLeftParticles == Particles.Permeable then
-            p.position_ghost[1] = p.position[1] + grid_options.yWidth
-          elseif grid_options.yBCLeftParticles == Particles.Solid then
+      end
+  end
+  for i = 1, 4 do
+      Particles.UpdateFunctions[i] =
+          Particles.GenerateUpdateFunctions(particles, i)
+  end
+
+  ebb Particles.UpdateAuxiliaryStep1 (p : particles)
+
+          -- Initialize position and velocity before we check for wall collisions
           
-            -- Set the position to be on the wall
-            p.position_ghost[1] = gridOriginInteriorY
-            
-            -- Apply an impulse to kick particle away from the wall
-            var impulse = -(1.0+particles_options.restitution_coefficient)*p.velocity[1]
-            if impulse <= 0 then
-            p.velocity_ghost[1] += impulse
-            end
-            
-            -- Add a contact force in case particle rests on the wall
-            var contact_force = -1.0*p.velocity_t[1]
-            
-            -- To prevent sticky walls, only add contact force if current
-            -- force would push the particle through the wall
-            if contact_force > 0 then
-            p.velocity_t_ghost[1] += contact_force
-            end
+          p.position_ghost[0]   = p.position[0]
+          p.position_ghost[1]   = p.position[1]
+          p.position_ghost[2]   = p.position[2]
+          p.velocity_ghost[0]   = p.velocity[0]
+          p.velocity_ghost[1]   = p.velocity[1]
+          p.velocity_ghost[2]   = p.velocity[2]
+          p.velocity_t_ghost[0] = p.velocity_t[0]
+          p.velocity_t_ghost[1] = p.velocity_t[1]
+          p.velocity_t_ghost[2] = p.velocity_t[2]
           
+          -- Check here for particles exiting the domain. For periodic
+          -- boundaries, the particle is transported to the matching periodic
+          -- face. For symmetry or wall boundaries, an elastic collision is
+          -- assumed. To start, the collision is perfectly elastic.
+          
+          -- Left X boundary
+          if p.position[0] < gridOriginInteriorX then
+            if grid_options.xBCLeftParticles == Particles.Permeable then
+              p.position_ghost[0] = p.position[0] + grid_options.xWidth
+            elseif grid_options.xBCLeftParticles == Particles.Solid then
+
+              -- Set the position to be on the wall
+              p.position_ghost[0] = gridOriginInteriorX
+
+              -- Apply an impulse to kick particle away from the wall
+              var impulse = -(1.0+particles_options.restitution_coefficient)*p.velocity[0]
+              if impulse <= 0 then
+                p.velocity_ghost[0] += impulse
+              end
+
+              -- Add a contact force in case particle rests on the wall
+              var contact_force = -1.0*p.velocity_t[0]
+
+              -- To prevent sticky walls, only add contact force if current
+              -- force would push the particle through the wall
+              if contact_force > 0 then
+                p.velocity_t_ghost[0] += contact_force
+              end
+
+            end
           end
           
-        end
-        
-        -- Right Y boundary
-        if p.position[1] > gridOriginInteriorY + grid_options.yWidth then
-          if grid_options.yBCRightParticles == Particles.Permeable then
-            p.position_ghost[1] = p.position[1] - grid_options.yWidth
-          elseif grid_options.yBCRightParticles == Particles.Solid then
+          -- Right X boundary
+          if p.position[0] > gridOriginInteriorX + grid_options.xWidth then
+            if grid_options.xBCRightParticles == Particles.Permeable then
+              p.position_ghost[0] = p.position[0] - grid_options.xWidth
+            elseif grid_options.xBCRightParticles == Particles.Solid then
 
-            -- Set the position to be on the wall
-            p.position_ghost[1] = gridOriginInteriorY + grid_options.yWidth
+              -- Set the position to be on the wall
+              p.position_ghost[0] = gridOriginInteriorX + grid_options.xWidth
 
-            -- Apply an impulse to kick particle away from the wall
-            var impulse = -(1.0+particles_options.restitution_coefficient)*p.velocity[1]
-            if impulse >= 0 then
+              -- Apply an impulse to kick particle away from the wall
+              var impulse = -(1.0+particles_options.restitution_coefficient)*p.velocity[0]
+              if impulse >= 0 then
+                p.velocity_ghost[0] += impulse
+              end
+
+              -- Add a contact force in case particle rests on the wall
+              var contact_force = -1.0*p.velocity_t[0]
+
+              -- To prevent sticky walls, only add contact force if current
+              -- force would push the particle through the wall
+              if contact_force < 0 then
+                p.velocity_t_ghost[0] += contact_force
+              end
+      
+            end
+          end
+          
+          -- Left Y boundary
+          if p.position[1] < gridOriginInteriorY then
+            if grid_options.yBCLeftParticles == Particles.Permeable then
+              p.position_ghost[1] = p.position[1] + grid_options.yWidth
+            elseif grid_options.yBCLeftParticles == Particles.Solid then
+            
+              -- Set the position to be on the wall
+              p.position_ghost[1] = gridOriginInteriorY
+              
+              -- Apply an impulse to kick particle away from the wall
+              var impulse = -(1.0+particles_options.restitution_coefficient)*p.velocity[1]
+              if impulse <= 0 then
               p.velocity_ghost[1] += impulse
-            end
-
-            -- Add a contact force in case particle rests on the wall
-            var contact_force = -1.0*p.velocity_t[1]
-
-            -- To prevent sticky walls, only add contact force if current
-            -- force would push the particle through the wall
-            if contact_force < 0 then
+              end
+              
+              -- Add a contact force in case particle rests on the wall
+              var contact_force = -1.0*p.velocity_t[1]
+              
+              -- To prevent sticky walls, only add contact force if current
+              -- force would push the particle through the wall
+              if contact_force > 0 then
               p.velocity_t_ghost[1] += contact_force
+              end
+            
             end
-
+            
           end
-        end
-        
-        -- Left Z boundary
-        if p.position[2] < gridOriginInteriorZ then
-          if grid_options.zBCLeftParticles == Particles.Permeable then
-            p.position_ghost[2] = p.position[2] + grid_options.zWidth
-          elseif grid_options.zBCLeftParticles == Particles.Solid then
+          
+          -- Right Y boundary
+          if p.position[1] > gridOriginInteriorY + grid_options.yWidth then
+            if grid_options.yBCRightParticles == Particles.Permeable then
+              p.position_ghost[1] = p.position[1] - grid_options.yWidth
+            elseif grid_options.yBCRightParticles == Particles.Solid then
 
-            -- Set the position to be on the wall
-            p.position_ghost[2] = gridOriginInteriorZ
+              -- Set the position to be on the wall
+              p.position_ghost[1] = gridOriginInteriorY + grid_options.yWidth
 
-            -- Apply an impulse to kick particle away from the wall
-            var impulse = -(1.0+particles_options.restitution_coefficient)*p.velocity[2]
-            if impulse <= 0 then
-              p.velocity_ghost[2] += impulse
+              -- Apply an impulse to kick particle away from the wall
+              var impulse = -(1.0+particles_options.restitution_coefficient)*p.velocity[1]
+              if impulse >= 0 then
+                p.velocity_ghost[1] += impulse
+              end
+
+              -- Add a contact force in case particle rests on the wall
+              var contact_force = -1.0*p.velocity_t[1]
+
+              -- To prevent sticky walls, only add contact force if current
+              -- force would push the particle through the wall
+              if contact_force < 0 then
+                p.velocity_t_ghost[1] += contact_force
+              end
+
             end
-
-            -- Add a contact force in case particle rests on the wall
-            var contact_force = -1.0*p.velocity_t[2]
-
-            -- To prevent sticky walls, only add contact force if current
-            -- force would push the particle through the wall
-            if contact_force > 0 then
-              p.velocity_t_ghost[2] += contact_force
-            end
-
           end
-        end
-        
-        -- Right Z boundary
-        if p.position[2] > gridOriginInteriorZ + grid_options.zWidth then
-          if grid_options.zBCRightParticles == Particles.Permeable then
-            p.position_ghost[2] = p.position[2] - grid_options.zWidth
-          elseif grid_options.zBCRightParticles == Particles.Solid then
+          
+          -- Left Z boundary
+          if p.position[2] < gridOriginInteriorZ then
+            if grid_options.zBCLeftParticles == Particles.Permeable then
+              p.position_ghost[2] = p.position[2] + grid_options.zWidth
+            elseif grid_options.zBCLeftParticles == Particles.Solid then
 
-            -- Set the position to be on the wall
-            p.position_ghost[2] = gridOriginInteriorZ + grid_options.zWidth
+              -- Set the position to be on the wall
+              p.position_ghost[2] = gridOriginInteriorZ
 
-            -- Apply an impulse to kick particle away from the wall
-            var impulse = -(1.0+particles_options.restitution_coefficient)*p.velocity[2]
-            if impulse >= 0 then
-              p.velocity_ghost[2] += impulse
+              -- Apply an impulse to kick particle away from the wall
+              var impulse = -(1.0+particles_options.restitution_coefficient)*p.velocity[2]
+              if impulse <= 0 then
+                p.velocity_ghost[2] += impulse
+              end
+
+              -- Add a contact force in case particle rests on the wall
+              var contact_force = -1.0*p.velocity_t[2]
+
+              -- To prevent sticky walls, only add contact force if current
+              -- force would push the particle through the wall
+              if contact_force > 0 then
+                p.velocity_t_ghost[2] += contact_force
+              end
+
             end
+          end
+          
+          -- Right Z boundary
+          if p.position[2] > gridOriginInteriorZ + grid_options.zWidth then
+            if grid_options.zBCRightParticles == Particles.Permeable then
+              p.position_ghost[2] = p.position[2] - grid_options.zWidth
+            elseif grid_options.zBCRightParticles == Particles.Solid then
 
-            -- Add a contact force in case particle rests on the wall
-            var contact_force = -1.0*p.velocity_t[2]
+              -- Set the position to be on the wall
+              p.position_ghost[2] = gridOriginInteriorZ + grid_options.zWidth
 
-            -- To prevent sticky walls, only add contact force if current
-            -- force would push the particle through the wall
-            if contact_force < 0 then
-              p.velocity_t_ghost[2] += contact_force
+              -- Apply an impulse to kick particle away from the wall
+              var impulse = -(1.0+particles_options.restitution_coefficient)*p.velocity[2]
+              if impulse >= 0 then
+                p.velocity_ghost[2] += impulse
+              end
+
+              -- Add a contact force in case particle rests on the wall
+              var contact_force = -1.0*p.velocity_t[2]
+
+              -- To prevent sticky walls, only add contact force if current
+              -- force would push the particle through the wall
+              if contact_force < 0 then
+                p.velocity_t_ghost[2] += contact_force
+              end
+      
             end
+          end
+          
+  end
+  ebb Particles.UpdateAuxiliaryStep2 (p : particles)
+      p.position   = p.position_ghost
+      p.velocity   = p.velocity_ghost
+      p.velocity_t = p.velocity_t_ghost
+  end
+
+
+  ---------
+  -- Feeder
+  ---------
+
+  ebb Flow.InsertParticle (c : grid.cells)
+
+      -- Insert a particle once we locate the correct cell
+  -- random insertion just for testing
+
+  --[[
+      var create_particle = rand_float() < 0.01
+      if create_particle then
+          var pos = c.center + L.vec3f({
+              grid_dx * (rand_float() - 0.5),
+              grid_dy * (rand_float() - 0.5),
+              grid_dz * (rand_float() - 0.5)
+          })
+          insert {
+              dual_cell = grid.dual_locate(pos),
+              position = pos
+              --next_pos = pos
+          } into particles
+      end
+   ]]--
+  end
+
+  -- Particles feeder
+  function Particles.Feed()
     
-          end
-        end
-        
-end
-ebb Particles.UpdateAuxiliaryStep2 (p : particles)
-    p.position   = p.position_ghost
-    p.velocity   = p.velocity_ghost
-    p.velocity_t = p.velocity_t_ghost
-end
-
----------
--- Feeder
----------
-
-ebb Flow.InsertParticle (c : grid.cells)
-
-    -- Insert a particle once we locate the correct cell
--- random insertion just for testing
-
---[[
-    var create_particle = rand_float() < 0.01
-    if create_particle then
-        var pos = c.center + L.vec3f({
-            grid_dx * (rand_float() - 0.5),
-            grid_dy * (rand_float() - 0.5),
-            grid_dz * (rand_float() - 0.5)
-        })
-        insert {
-            dual_cell = grid.dual_locate(pos),
-            position = pos
-            --next_pos = pos
-        } into particles
+    if particles:Size() < particles_options.maximum_num then
+    grid.cells:foreach(Flow.InsertParticle)
     end
- ]]--
-end
-
--- Particles feeder
-function Particles.Feed()
-  
-  if particles:Size() < particles_options.maximum_num then
-  grid.cells:foreach(Flow.InsertParticle)
+    
   end
-  
-end
 
--- For now, delete anything that leaves the domain
-ebb Particles.DeleteParticle (p: particles)
+  -- For now, delete anything that leaves the domain
+  ebb Particles.DeleteParticle (p: particles)
 
-  var min_x = grid_originX
-  var max_x = grid_originX + grid_widthX
-  var min_y = grid_originY
-  var max_y = grid_originY + grid_widthY
-  var min_z = grid_originZ
-  var max_z = grid_originZ + grid_widthZ
+    var min_x = grid_originX
+    var max_x = grid_originX + grid_widthX
+    var min_y = grid_originY
+    var max_y = grid_originY + grid_widthY
+    var min_z = grid_originZ
+    var max_z = grid_originZ + grid_widthZ
 
-  var pos = p.position
-  if (pos[0] > max_x or pos[0] < min_x  or
-      pos[1] > max_y or pos[1] < min_y  or
-      pos[2] > max_z or pos[2] < min_z) then
+    var pos = p.position
+    if (pos[0] > max_x or pos[0] < min_x  or
+        pos[1] > max_y or pos[1] < min_y  or
+        pos[2] > max_z or pos[2] < min_z) then
+        --L.print(p.position)
+        --delete p
+    end
+
+    -- random delete just for testing
+    --var delete_particle = rand_float() < 0.01
+    --if delete_particle then
       --L.print(p.position)
-      --delete p
+    --  delete p
+    --  end
+
   end
 
-  -- random delete just for testing
-  --var delete_particle = rand_float() < 0.01
-  --if delete_particle then
-    --L.print(p.position)
-  --  delete p
-  --  end
+  -- Particle collector
+  function Particles.Collect()
+    
+    particles:foreach(Particles.DeleteParticle)
 
-end
+  end
 
--- Particle collector
-function Particles.Collect()
-  
-  particles:foreach(Particles.DeleteParticle)
+  --[[
+  ebb Particles.Feed(p: particles)
 
-end
+      if p.state == 0 then
 
---[[
-ebb Particles.Feed(p: particles)
+        p.position[0] = 0
+        p.position[1] = 0
+        p.position[2] = 0
+        p.velocity[0] = 0
+        p.velocity[1] = 0
+        p.velocity[2] = 0
+        p.state = 0
 
-    if p.state == 0 then
+        -- Initialize based on feeder type
+        if particles_options.feederType == 
+             Particles.FeederAtStartTimeInRandomBox then
 
-      p.position[0] = 0
-      p.position[1] = 0
-      p.position[2] = 0
-      p.velocity[0] = 0
-      p.velocity[1] = 0
-      p.velocity[2] = 0
-      p.state = 0
+          -- Particles randomly distributed inside box limits defined 
+          -- by options
+          -- Specialize feederParams from options
+          var centerX   = particles_options.feederParams[0]
+          var centerY   = particles_options.feederParams[1]
+          var centerZ   = particles_options.feederParams[2]
+          var widthX    = particles_options.feederParams[3]
+          var widthY    = particles_options.feederParams[4]
+          var widthZ    = particles_options.feederParams[5]
 
-      -- Initialize based on feeder type
-      if particles_options.feederType == 
-           Particles.FeederAtStartTimeInRandomBox then
+          p.position[0] = centerX + (rand_float()-0.5) * widthX
+          p.position[1] = centerY + (rand_float()-0.5) * widthY
+          p.position[2] = centerZ + (rand_float()-0.5) * widthZ
+          p.state = 1
+                          
+        elseif particles_options.feederType == 
+                 Particles.FeederOverTimeInRandomBox then
 
-        -- Particles randomly distributed inside box limits defined 
-        -- by options
-        -- Specialize feederParams from options
-        var centerX   = particles_options.feederParams[0]
-        var centerY   = particles_options.feederParams[1]
-        var centerZ   = particles_options.feederParams[2]
-        var widthX    = particles_options.feederParams[3]
-        var widthY    = particles_options.feederParams[4]
-        var widthZ    = particles_options.feederParams[5]
+          -- Specialize feederParams from options
+          var injectorBox_centerX   = particles_options.feederParams[0]
+          var injectorBox_centerY   = particles_options.feederParams[1]
+          var injectorBox_centerZ   = particles_options.feederParams[2]
+          var injectorBox_widthX    = particles_options.feederParams[3]
+          var injectorBox_widthY    = particles_options.feederParams[4]
+          var injectorBox_widthZ    = particles_options.feederParams[5]
+          var injectorBox_velocityX = particles_options.feederParams[6]
+          var injectorBox_velocityY = particles_options.feederParams[7]
+          var injectorBox_velocityZ = particles_options.feederParams[8]
+          var injectorBox_particlesPerTimeStep = particles_options.feederParams[9]
+          -- Inject particle if matching timeStep requirements
+          if L.floor(p.id/injectorBox_particlesPerTimeStep) ==
+             TimeIntegrator.timeStep then
+              p.position[0] = injectorBox_centerX +
+                              (rand_float()-0.5) * injectorBox_widthX
+              p.position[1] = injectorBox_centerY +
+                              (rand_float()-0.5) * injectorBox_widthY
+              p.position[2] = injectorBox_centerZ +
+                              (rand_float()-0.5) * injectorBox_widthZ
+              p.velocity[0] = injectorBox_velocityX
+              p.velocity[1] = injectorBox_velocityY
+              p.velocity[2] = injectorBox_velocityZ
+              p.state = 1
+          end
 
-        p.position[0] = centerX + (rand_float()-0.5) * widthX
-        p.position[1] = centerY + (rand_float()-0.5) * widthY
-        p.position[2] = centerZ + (rand_float()-0.5) * widthZ
-        p.state = 1
-                        
-      elseif particles_options.feederType == 
-               Particles.FeederOverTimeInRandomBox then
+        elseif particles_options.feederType == 
+                 Particles.FeederUQCase then
 
-        -- Specialize feederParams from options
-        var injectorBox_centerX   = particles_options.feederParams[0]
-        var injectorBox_centerY   = particles_options.feederParams[1]
-        var injectorBox_centerZ   = particles_options.feederParams[2]
-        var injectorBox_widthX    = particles_options.feederParams[3]
-        var injectorBox_widthY    = particles_options.feederParams[4]
-        var injectorBox_widthZ    = particles_options.feederParams[5]
-        var injectorBox_velocityX = particles_options.feederParams[6]
-        var injectorBox_velocityY = particles_options.feederParams[7]
-        var injectorBox_velocityZ = particles_options.feederParams[8]
-        var injectorBox_particlesPerTimeStep = particles_options.feederParams[9]
-        -- Inject particle if matching timeStep requirements
-        if L.floor(p.id/injectorBox_particlesPerTimeStep) ==
-           TimeIntegrator.timeStep then
-            p.position[0] = injectorBox_centerX +
-                            (rand_float()-0.5) * injectorBox_widthX
-            p.position[1] = injectorBox_centerY +
-                            (rand_float()-0.5) * injectorBox_widthY
-            p.position[2] = injectorBox_centerZ +
-                            (rand_float()-0.5) * injectorBox_widthZ
-            p.velocity[0] = injectorBox_velocityX
-            p.velocity[1] = injectorBox_velocityY
-            p.velocity[2] = injectorBox_velocityZ
-            p.state = 1
-        end
+          -- Specialize feederParams from options
+          -- Injector A
+          var injectorA_centerX   = particles_options.feederParams[0]
+          var injectorA_centerY   = particles_options.feederParams[1]
+          var injectorA_centerZ   = particles_options.feederParams[2]
+          var injectorA_widthX    = particles_options.feederParams[3]
+          var injectorA_widthY    = particles_options.feederParams[4]
+          var injectorA_widthZ    = particles_options.feederParams[5]
+          var injectorA_velocityX = particles_options.feederParams[6]
+          var injectorA_velocityY = particles_options.feederParams[7]
+          var injectorA_velocityZ = particles_options.feederParams[8]
+          var injectorA_particlesPerTimeStep = particles_options.feederParams[9]
+          -- Injector B
+          var injectorB_centerX   = particles_options.feederParams[10]
+          var injectorB_centerY   = particles_options.feederParams[11]
+          var injectorB_centerZ   = particles_options.feederParams[12]
+          var injectorB_widthX    = particles_options.feederParams[13]
+          var injectorB_widthY    = particles_options.feederParams[14]
+          var injectorB_widthZ    = particles_options.feederParams[15]
+          var injectorB_velocityX = particles_options.feederParams[16]
+          var injectorB_velocityY = particles_options.feederParams[17]
+          var injectorB_velocityZ = particles_options.feederParams[18]
+          var injectorB_particlesPerTimeStep = particles_options.feederParams[19]
+          var numberOfParticlesInA = 
+               L.floor(particles_options.num*injectorA_particlesPerTimeStep/
+               (injectorA_particlesPerTimeStep+injectorB_particlesPerTimeStep))
+          var numberOfParticlesInB = 
+               L.ceil(particles_options.num*injectorB_particlesPerTimeStep/
+               (injectorA_particlesPerTimeStep+injectorB_particlesPerTimeStep))
+          -- Inject particles at injectorA if matching timeStep requirements
+          if L.floor(p.id/injectorA_particlesPerTimeStep) ==
+            TimeIntegrator.timeStep then
+              p.position[0] = injectorA_centerX +
+                              (rand_float()-0.5) * injectorA_widthX
+              p.position[1] = injectorA_centerY +
+                              (rand_float()-0.5) * injectorA_widthY
+              p.position[2] = injectorA_centerZ +
+                              (rand_float()-0.5) * injectorA_widthZ
+              p.velocity[0] = injectorA_velocityX
+              p.velocity[1] = injectorA_velocityY
+              p.velocity[2] = injectorA_velocityZ
+              p.state = 1
+          end
+          -- Inject particles at injectorB if matching timeStep requirements
+          -- (if injectorA has injected this particle at this timeStep, it
+          -- will get over-riden by injector B; this can only occur at the same
+          -- timeStep, as otherwise p.state is already set to 1 and the program 
+          -- will not enter this route)
+          if L.floor((p.id-numberOfParticlesInA)/
+                         injectorB_particlesPerTimeStep) ==
+            TimeIntegrator.timeStep then
+              p.position[0] = injectorB_centerX +
+                              (rand_float()-0.5) * injectorB_widthX
+              p.position[1] = injectorB_centerY +
+                              (rand_float()-0.5) * injectorB_widthY
+              p.position[2] = injectorB_centerZ +
+                              (rand_float()-0.5) * injectorB_widthZ
+              p.velocity[0] = injectorB_velocityX
+              p.velocity[1] = injectorB_velocityY
+              p.velocity[2] = injectorB_velocityZ
+              p.state = 1
+          end
 
-      elseif particles_options.feederType == 
-               Particles.FeederUQCase then
-
-        -- Specialize feederParams from options
-        -- Injector A
-        var injectorA_centerX   = particles_options.feederParams[0]
-        var injectorA_centerY   = particles_options.feederParams[1]
-        var injectorA_centerZ   = particles_options.feederParams[2]
-        var injectorA_widthX    = particles_options.feederParams[3]
-        var injectorA_widthY    = particles_options.feederParams[4]
-        var injectorA_widthZ    = particles_options.feederParams[5]
-        var injectorA_velocityX = particles_options.feederParams[6]
-        var injectorA_velocityY = particles_options.feederParams[7]
-        var injectorA_velocityZ = particles_options.feederParams[8]
-        var injectorA_particlesPerTimeStep = particles_options.feederParams[9]
-        -- Injector B
-        var injectorB_centerX   = particles_options.feederParams[10]
-        var injectorB_centerY   = particles_options.feederParams[11]
-        var injectorB_centerZ   = particles_options.feederParams[12]
-        var injectorB_widthX    = particles_options.feederParams[13]
-        var injectorB_widthY    = particles_options.feederParams[14]
-        var injectorB_widthZ    = particles_options.feederParams[15]
-        var injectorB_velocityX = particles_options.feederParams[16]
-        var injectorB_velocityY = particles_options.feederParams[17]
-        var injectorB_velocityZ = particles_options.feederParams[18]
-        var injectorB_particlesPerTimeStep = particles_options.feederParams[19]
-        var numberOfParticlesInA = 
-             L.floor(particles_options.num*injectorA_particlesPerTimeStep/
-             (injectorA_particlesPerTimeStep+injectorB_particlesPerTimeStep))
-        var numberOfParticlesInB = 
-             L.ceil(particles_options.num*injectorB_particlesPerTimeStep/
-             (injectorA_particlesPerTimeStep+injectorB_particlesPerTimeStep))
-        -- Inject particles at injectorA if matching timeStep requirements
-        if L.floor(p.id/injectorA_particlesPerTimeStep) ==
-          TimeIntegrator.timeStep then
-            p.position[0] = injectorA_centerX +
-                            (rand_float()-0.5) * injectorA_widthX
-            p.position[1] = injectorA_centerY +
-                            (rand_float()-0.5) * injectorA_widthY
-            p.position[2] = injectorA_centerZ +
-                            (rand_float()-0.5) * injectorA_widthZ
-            p.velocity[0] = injectorA_velocityX
-            p.velocity[1] = injectorA_velocityY
-            p.velocity[2] = injectorA_velocityZ
-            p.state = 1
-        end
-        -- Inject particles at injectorB if matching timeStep requirements
-        -- (if injectorA has injected this particle at this timeStep, it
-        -- will get over-riden by injector B; this can only occur at the same
-        -- timeStep, as otherwise p.state is already set to 1 and the program 
-        -- will not enter this route)
-        if L.floor((p.id-numberOfParticlesInA)/
-                       injectorB_particlesPerTimeStep) ==
-          TimeIntegrator.timeStep then
-            p.position[0] = injectorB_centerX +
-                            (rand_float()-0.5) * injectorB_widthX
-            p.position[1] = injectorB_centerY +
-                            (rand_float()-0.5) * injectorB_widthY
-            p.position[2] = injectorB_centerZ +
-                            (rand_float()-0.5) * injectorB_widthZ
-            p.velocity[0] = injectorB_velocityX
-            p.velocity[1] = injectorB_velocityY
-            p.velocity[2] = injectorB_velocityZ
-            p.state = 1
         end
 
       end
 
-    end
+  end
+  ]]--
 
-end
-]]--
+  ------------
+  -- Collector 
+  ------------
 
-------------
--- Collector 
-------------
+  -- Particles collector 
+  --[[
+  ebb Particles.Collect (p: particles)
 
--- Particles collector 
---[[
-ebb Particles.Collect (p: particles)
+      if p.state == 1 then
 
-    if p.state == 1 then
+        if particles_options.collectorType == 
+             Particles.CollectorOutOfBox then
 
-      if particles_options.collectorType == 
-           Particles.CollectorOutOfBox then
-
-        -- Specialize collectorParams from options
-        var minX = particles_options.collectorParams[0]
-        var minY = particles_options.collectorParams[1]
-        var minZ = particles_options.collectorParams[2]
-        var maxX = particles_options.collectorParams[3]
-        var maxY = particles_options.collectorParams[4]
-        var maxZ = particles_options.collectorParams[5]
-        if p.position[0] < minX or
-           p.position[0] > maxX or
-           p.position[1] < minY or
-           p.position[1] > maxY or
-           p.position[2] < minZ or
-           p.position[2] > maxZ then
-          p.state = 2
+          -- Specialize collectorParams from options
+          var minX = particles_options.collectorParams[0]
+          var minY = particles_options.collectorParams[1]
+          var minZ = particles_options.collectorParams[2]
+          var maxX = particles_options.collectorParams[3]
+          var maxY = particles_options.collectorParams[4]
+          var maxZ = particles_options.collectorParams[5]
+          if p.position[0] < minX or
+             p.position[0] > maxX or
+             p.position[1] < minY or
+             p.position[1] > maxY or
+             p.position[2] < minZ or
+             p.position[2] > maxZ then
+            p.state = 2
+          end
+                         
         end
-                       
+
       end
 
-    end
+  end
+  ]]--
+
+  -------------
+  -- Statistics
+  -------------
+
+  ebb Particles.IntegrateQuantities (p : particles)
+      Particles.averageTemperature += p.temperature
+  end
+
+
+  ----------------
+  -- Visualization
+  ----------------
+
+  ebb Particles.DrawFunction (p : particles)
+      --var xMax = L.double(grid_options.xWidth)
+      --var yMax = L.double(grid_options.yWidth)
+      --var zMax = L.double(grid_options.zWidth)
+      var xMax = 1.0
+      var yMax = 1.0
+      var zMax = 1.0
+
+      vdb.color(green)
+
+      var pos : L.vec3d = { p.position[0]/xMax,
+                            p.position[1]/yMax,
+                            p.position[2]/zMax }
+      vdb.point(pos)
+      var vel = p.velocity
+      var v = L.vec3d({ vel[0], vel[1], vel[2] })
+      vdb.line(pos, pos+0.1*v)
+  end
 
 end
-]]--
-
--------------
--- Statistics
--------------
-
-ebb Particles.IntegrateQuantities (p : particles)
-    Particles.averageTemperature += p.temperature
-end
-
-
-----------------
--- Visualization
-----------------
-
-ebb Particles.DrawFunction (p : particles)
-    --var xMax = L.double(grid_options.xWidth)
-    --var yMax = L.double(grid_options.yWidth)
-    --var zMax = L.double(grid_options.zWidth)
-    var xMax = 1.0
-    var yMax = 1.0
-    var zMax = 1.0
-
-    vdb.color(green)
-
-    var pos : L.vec3d = { p.position[0]/xMax,
-                          p.position[1]/yMax,
-                          p.position[2]/zMax }
-    vdb.point(pos)
-    var vel = p.velocity
-    var v = L.vec3d({ vel[0], vel[1], vel[2] })
-    vdb.line(pos, pos+0.1*v)
-end
-
 
 -----------------------------------------------------------------------------
 --[[                                MAIN FUNCTIONS                       ]]--
@@ -3033,85 +3060,91 @@ end
 -- PARTICLES
 ------------
 
-ebb Particles.InitializePositionCurrentCell (p : particles)
-    -- init particle position from cell
-    p.position = p.cell.center
-end
+-- put a guard around all particle kernels in case they're inactive
 
-ebb Particles.InitializePositionRandom (p : particles)
-
-  -- Particles randomly distributed within the complete domain
-
-  var centerX   = (grid_originX + grid_widthX)/2.0
-  var centerY   = (grid_originY + grid_widthY)/2.0
-  var centerZ   = (grid_originZ + grid_widthZ)/2.0
-
-  var widthX    = grid_originX + grid_widthX
-  var widthY    = grid_originY + grid_widthY
-  var widthZ    = grid_originZ + grid_widthZ
-
-  p.position[0] = centerX + (rand_float()-0.5) * widthX
-  p.position[1] = centerY + (rand_float()-0.5) * widthY
-  p.position[2] = centerZ + (rand_float()-0.5) * widthZ
-
-end
-
-ebb Particles.InitializeDiameterRandom (p : particles)
-  -- Initialize to random distribution with given mean value and maximum
-  -- deviation from it
-   p.diameter = (rand_float() - 0.5) * particles_options.diameter_maxDeviation +
-                    particles_options.diameter_mean
-end
-
-function Particles.InitializePrimitives()
+if particles_options.modeParticles == ON then
   
-  -- Upon entering this routine, all active particles are unitialized,
-  -- except that they begin uniformly distributed in the cells by default.
-  -- However, the positions still need to be set. We will call the locate
-  -- kernels again after this initialization function.
-  
-  if particles_options.initParticles == Particles.Uniform then
-    particles:foreach(Particles.InitializePositionCurrentCell)
-    particles.temperature   :Load(particles_options.initialTemperature)
-    particles.density:Load(particles_options.density)
-    particles.diameter:Load(particles_options.diameter_mean)
-    Particles.Locate()
-    particles:foreach(Particles.SetVelocitiesToFlow)
-    
-  elseif particles_options.initParticles == Particles.Random then
-    particles:foreach(Particles.InitializePositionRandom)
-    particles.density:Load(particles_options.density)
-    particles.temperature   :Load(particles_options.initialTemperature)
-    particles:foreach(Particles.InitializeDiameterRandom)
-    Particles.Locate()
-    particles:foreach(Particles.SetVelocitiesToFlow)
-  
-  elseif particles_options.initParticles == Particles.Restart then
-    particles.position:Load(CSV.Load, IO.outputFileNamePrefix ..
-                                      'restart_particle_position_' ..
-                                      config.restartParticleIter .. '.csv')
-    particles.velocity:Load(CSV.Load, IO.outputFileNamePrefix ..
-                                      'restart_particle_velocity_' ..
-                                      config.restartParticleIter .. '.csv')
-    particles.temperature:Load(CSV.Load, IO.outputFileNamePrefix ..
-                                         'restart_particle_temperature_' ..
-                                         config.restartParticleIter .. '.csv')
-    particles.diameter:Load(CSV.Load, IO.outputFileNamePrefix ..
-                                      'restart_particle_diameter_' ..
-                                      config.restartParticleIter .. '.csv')
-    particles.density:Load(particles_options.density)
-    Particles.Locate()
+  ebb Particles.InitializePositionCurrentCell (p : particles)
+      -- init particle position from cell
+      p.position = p.cell.center
   end
-  
-end
 
-function Particles.Update(stage)
-    particles:foreach(Particles.UpdateFunctions[stage])
-end
+  ebb Particles.InitializePositionRandom (p : particles)
 
-function Particles.UpdateAuxiliary()
-    particles:foreach(Particles.UpdateAuxiliaryStep1)
-    particles:foreach(Particles.UpdateAuxiliaryStep2)
+    -- Particles randomly distributed within the complete domain
+
+    var centerX   = (grid_originX + grid_widthX)/2.0
+    var centerY   = (grid_originY + grid_widthY)/2.0
+    var centerZ   = (grid_originZ + grid_widthZ)/2.0
+
+    var widthX    = grid_originX + grid_widthX
+    var widthY    = grid_originY + grid_widthY
+    var widthZ    = grid_originZ + grid_widthZ
+
+    p.position[0] = centerX + (rand_float()-0.5) * widthX
+    p.position[1] = centerY + (rand_float()-0.5) * widthY
+    p.position[2] = centerZ + (rand_float()-0.5) * widthZ
+
+  end
+
+  ebb Particles.InitializeDiameterRandom (p : particles)
+    -- Initialize to random distribution with given mean value and maximum
+    -- deviation from it
+     p.diameter = (rand_float() - 0.5) * particles_options.diameter_maxDeviation +
+                      particles_options.diameter_mean
+  end
+
+  function Particles.InitializePrimitives()
+    
+    -- Upon entering this routine, all active particles are unitialized,
+    -- except that they begin uniformly distributed in the cells by default.
+    -- However, the positions still need to be set. We will call the locate
+    -- kernels again after this initialization function.
+    
+    if particles_options.initParticles == Particles.Uniform then
+      particles:foreach(Particles.InitializePositionCurrentCell)
+      particles.temperature   :Load(particles_options.initialTemperature)
+      particles.density:Load(particles_options.density)
+      particles.diameter:Load(particles_options.diameter_mean)
+      Particles.Locate()
+      particles:foreach(Particles.SetVelocitiesToFlow)
+      
+    elseif particles_options.initParticles == Particles.Random then
+      particles:foreach(Particles.InitializePositionRandom)
+      particles.density:Load(particles_options.density)
+      particles.temperature   :Load(particles_options.initialTemperature)
+      particles:foreach(Particles.InitializeDiameterRandom)
+      Particles.Locate()
+      particles:foreach(Particles.SetVelocitiesToFlow)
+    
+    elseif particles_options.initParticles == Particles.Restart then
+      particles.position:Load(CSV.Load, IO.outputFileNamePrefix ..
+                                        'restart_particle_position_' ..
+                                        config.restartParticleIter .. '.csv')
+      particles.velocity:Load(CSV.Load, IO.outputFileNamePrefix ..
+                                        'restart_particle_velocity_' ..
+                                        config.restartParticleIter .. '.csv')
+      particles.temperature:Load(CSV.Load, IO.outputFileNamePrefix ..
+                                           'restart_particle_temperature_' ..
+                                           config.restartParticleIter .. '.csv')
+      particles.diameter:Load(CSV.Load, IO.outputFileNamePrefix ..
+                                        'restart_particle_diameter_' ..
+                                        config.restartParticleIter .. '.csv')
+      particles.density:Load(particles_options.density)
+      Particles.Locate()
+    end
+    
+  end
+
+  function Particles.Update(stage)
+      particles:foreach(Particles.UpdateFunctions[stage])
+  end
+
+  function Particles.UpdateAuxiliary()
+      particles:foreach(Particles.UpdateAuxiliaryStep1)
+      particles:foreach(Particles.UpdateAuxiliaryStep2)
+  end
+
 end
 
 ------------------
@@ -3119,27 +3152,33 @@ end
 ------------------
 
 function TimeIntegrator.SetupTimeStep()
-    if particle_mode == 'ELASTIC' then
-        Particles.Feed()
-    end
     grid.cells:foreach(Flow.InitializeTemporaries)
-    particles:foreach(Particles.InitializeTemporaries)
+    if particles_options.modeParticles == ON then
+      if particle_mode == 'ELASTIC' then
+        Particles.Feed()
+      end
+      particles:foreach(Particles.InitializeTemporaries)
+    end
 end
 
 function TimeIntegrator.ConcludeTimeStep()
-  if particle_mode == 'ELASTIC' then
+  if particles_options.modeParticles == ON and particle_mode == 'ELASTIC' then
     Particles.Collect()
   end
 end
 
 function TimeIntegrator.InitializeTimeDerivatives()
     grid.cells:foreach(Flow.InitializeTimeDerivatives)
-    particles:foreach(Particles.InitializeTimeDerivatives)
+    if particles_options.modeParticles == ON then
+      particles:foreach(Particles.InitializeTimeDerivatives)
+    end
 end
 
 function TimeIntegrator.UpdateAuxiliary()
     Flow.UpdateAuxiliary()
-    Particles.UpdateAuxiliary()
+    if particles_options.modeParticles == ON then
+      Particles.UpdateAuxiliary()
+    end
 end
 
 function TimeIntegrator.UpdateTime(timeOld, stage)
@@ -3163,7 +3202,9 @@ function TimeIntegrator.InitializeVariables()
     Flow.UpdateGhost()
 
     -- Initialize the particles (position, velocity, temp, diameter, locate)
-    Particles.InitializePrimitives()
+    if particles_options.modeParticles == ON then
+      Particles.InitializePrimitives()
+    end
 
 end
 
@@ -3177,20 +3218,24 @@ function TimeIntegrator.ComputeDFunctionDt()
     grid.cells.interior:foreach(Flow.AddBodyForces)
     
     -- Compute residuals for the particles (locate all particles first)
-    Particles.Locate()
-    particles:foreach(Particles.AddFlowCoupling)
+    if particles_options.modeParticles == ON then
+      
+        Particles.Locate()
+        particles:foreach(Particles.AddFlowCoupling)
+      
+      if particles_options.particleType == Particles.Free then
+          particles:foreach(Particles.AddBodyForces)
+      end
+      
+      if radiation_options.radiationType == ON then
+          particles:foreach(Particles.AddRadiation)
+      end
+      
+      -- Compute two-way coupling in momentum and energy
+      if particles_options.twoWayCoupling == ON then
+          particles:foreach(Flow.AddParticlesCoupling)
+      end
     
-    if particles_options.particleType == Particles.Free then
-        particles:foreach(Particles.AddBodyForces)
-    end
-    
-    if radiation_options.radiationType == ON then
-        particles:foreach(Particles.AddRadiation)
-    end
-    
-    -- Compute two-way coupling in momentum and energy
-    if particles_options.twoWayCoupling == ON then
-        particles:foreach(Flow.AddParticlesCoupling)
     end
     
     -- In case we want to hold flow temp fixed with radiation active
@@ -3205,7 +3250,9 @@ end
 
 function TimeIntegrator.UpdateSolution(stage)
     Flow.Update(stage)
-    Particles.Update(stage)
+    if particles_options.modeParticles == ON then
+      Particles.Update(stage)
+    end
 end
 
 function TimeIntegrator.AdvanceTimeStep()
@@ -3286,16 +3333,20 @@ function Statistics.UpdateSpatialAverages(grid, particles)
       Flow.areaInterior:get())
 
     -- Particles
-    Particles.averageTemperature:set(
-      Particles.averageTemperature:get()/
-      particles:Size())
+    if particles_options.modeParticles == ON then
+      Particles.averageTemperature:set(
+        Particles.averageTemperature:get()/
+        particles:Size())
+    end
 
 end
 
 function Statistics.ComputeSpatialAverages()
     Statistics.ResetSpatialAverages()
     Flow.IntegrateQuantities(grid.cells.interior)
-    particles:foreach(Particles.IntegrateQuantities)
+    if particles_options.modeParticles == ON then
+      particles:foreach(Particles.IntegrateQuantities)
+    end
     Statistics.UpdateSpatialAverages(grid, particles)
 end
 
@@ -3315,8 +3366,11 @@ function IO.WriteConsoleOutput(timeStep)
         string.format("%11.6f",Flow.minTemperature:get()), " K.")
       io.stdout:write(" Max Flow Temp: ",
         string.format("%11.6f",Flow.maxTemperature:get()), " K.\n")
-      io.stdout:write(" Current number of particles: ",
-                      string.format(" %d",particles:Size()), ".\n\n")
+      if particles_options.modeParticles == ON then
+        io.stdout:write(" Current number of particles: ",
+                        string.format(" %d",particles:Size()), ".\n")
+      end
+      io.stdout:write("\n")
       io.stdout:write(string.format("%8s",'    Iter'),
         string.format("%12s",'   Time(s)'),
         string.format("%12s",'Avg Press'),
@@ -3711,202 +3765,209 @@ end
 
 end
 
-function IO.WriteParticleRestart(timeStep)
 
-  -- Check if it is time to output a particle restart file
-  if (timeStep % TimeIntegrator.restartEveryTimeSteps == 0 and
-  IO.wrtRestart == ON) then
+-- put guards around the particle kernels in case inactive
+if particles_options.modeParticles == ON then
+  
+  function IO.WriteParticleRestart(timeStep)
 
-    -- Write the restart CSV files for density, pressure, and velocity
+    -- Check if it is time to output a particle restart file
+    if (timeStep % TimeIntegrator.restartEveryTimeSteps == 0 and
+    IO.wrtRestart == ON) then
 
-    local fileName = IO.outputFileNamePrefix .. 'restart_particle_position_' ..
-    tostring(timeStep) .. '.csv'
-    particles.position:Dump(CSV.Dump, fileName, {precision=16})
+      -- Write the restart CSV files for density, pressure, and velocity
 
-    fileName = IO.outputFileNamePrefix .. 'restart_particle_velocity_' ..
-    tostring(timeStep) .. '.csv'
-    particles.velocity:Dump(CSV.Dump, fileName, {precision=16})
+      local fileName = IO.outputFileNamePrefix .. 'restart_particle_position_' ..
+      tostring(timeStep) .. '.csv'
+      particles.position:Dump(CSV.Dump, fileName, {precision=16})
 
-    fileName = IO.outputFileNamePrefix .. 'restart_particle_temperature_' ..
-    tostring(timeStep) .. '.csv'
-    particles.temperature:Dump(CSV.Dump, fileName, {precision=16})
+      fileName = IO.outputFileNamePrefix .. 'restart_particle_velocity_' ..
+      tostring(timeStep) .. '.csv'
+      particles.velocity:Dump(CSV.Dump, fileName, {precision=16})
 
-    fileName = IO.outputFileNamePrefix .. 'restart_particle_diameter_' ..
-    tostring(timeStep) .. '.csv'
-    particles.diameter:Dump(CSV.Dump, fileName, {precision=16})
+      fileName = IO.outputFileNamePrefix .. 'restart_particle_temperature_' ..
+      tostring(timeStep) .. '.csv'
+      particles.temperature:Dump(CSV.Dump, fileName, {precision=16})
 
-  end
+      fileName = IO.outputFileNamePrefix .. 'restart_particle_diameter_' ..
+      tostring(timeStep) .. '.csv'
+      particles.diameter:Dump(CSV.Dump, fileName, {precision=16})
 
-end
-
--- terra callback to jointly dump multiple fields. Here, we use the
--- function to write our Tecplot output (ASCII) for the particle phase.
-local terra ParticleTecplotTerra(
-  dldarray : &dld.C_DLD,
-  filename : &int8,
-  timePhys : double
-)
-  -- Access the density, velocity, pressure, and temperature
-  -- fields and set the appropriate dimensions and strides.
-
-  var position    = dldarray[0]
-  --var stride      = position.dim_stride
-  var size        = position.dim_size[0]
-  var s_vec_p     = position.type_stride
-
-  var velocity    = dldarray[1]
-  var s_vec_v     = velocity.type_stride
-
-  var temperature = dldarray[2]
-
-  var diameter    = dldarray[3]
-
-  -- Get a file pointer and open up the Tecplot file for writing.
-
-  var fp : &C.FILE
-  fp = C.fopen(filename, "w")
-
-  -- Write the Tecplot header for a cell-centered data file.
-
-  C.fprintf(fp,"%s %s",'VARIABLES = "X", "Y", "Z", "X-Velocity",',
-            ' "Y-Velocity", "Z-Velocity", "Temperature", "Diameter"\n')
-  C.fprintf(fp,"%s %f %s",'ZONE SOLUTIONTIME=', timePhys, '\n')
-
-  -- Write the position, velocity, temperature, and diameter for
-  -- each particle on successive lines in order.
-
-  var posptr  = [&double](position.address)
-  var velptr  = [&double](velocity.address)
-  var tempptr = [&double](temperature.address)
-  var diamptr = [&double](diameter.address)
-  for i = 0,size do
-    for i_vec = 0,3 do
-      var posval = posptr[3*i + i_vec]
-      C.fprintf(fp," %.16f ",posval)
     end
-    for i_vec = 0,3 do
-      var velval = velptr[3*i + i_vec]
-      C.fprintf(fp," %.16f ",velval)
+
+  end
+
+  -- terra callback to jointly dump multiple fields. Here, we use the
+  -- function to write our Tecplot output (ASCII) for the particle phase.
+  local terra ParticleTecplotTerra(
+    dldarray : &dld.C_DLD,
+    filename : &int8,
+    timePhys : double
+  )
+    -- Access the density, velocity, pressure, and temperature
+    -- fields and set the appropriate dimensions and strides.
+
+    var position    = dldarray[0]
+    --var stride      = position.dim_stride
+    var size        = position.dim_size[0]
+    var s_vec_p     = position.type_stride
+
+    var velocity    = dldarray[1]
+    var s_vec_v     = velocity.type_stride
+
+    var temperature = dldarray[2]
+
+    var diameter    = dldarray[3]
+
+    -- Get a file pointer and open up the Tecplot file for writing.
+
+    var fp : &C.FILE
+    fp = C.fopen(filename, "w")
+
+    -- Write the Tecplot header for a cell-centered data file.
+
+    C.fprintf(fp,"%s %s",'VARIABLES = "X", "Y", "Z", "X-Velocity",',
+              ' "Y-Velocity", "Z-Velocity", "Temperature", "Diameter"\n')
+    C.fprintf(fp,"%s %f %s",'ZONE SOLUTIONTIME=', timePhys, '\n')
+
+    -- Write the position, velocity, temperature, and diameter for
+    -- each particle on successive lines in order.
+
+    var posptr  = [&double](position.address)
+    var velptr  = [&double](velocity.address)
+    var tempptr = [&double](temperature.address)
+    var diamptr = [&double](diameter.address)
+    for i = 0,size do
+      for i_vec = 0,3 do
+        var posval = posptr[3*i + i_vec]
+        C.fprintf(fp," %.16f ",posval)
+      end
+      for i_vec = 0,3 do
+        var velval = velptr[3*i + i_vec]
+        C.fprintf(fp," %.16f ",velval)
+      end
+      var tempval = tempptr[i]
+      C.fprintf(fp," %.16f ",tempval)
+      var diamval = diamptr[i]
+      C.fprintf(fp," %.16f ",diamval)
+      C.fprintf(fp,"%s","\n")
     end
-    var tempval = tempptr[i]
-    C.fprintf(fp," %.16f ",tempval)
-    var diamval = diamptr[i]
-    C.fprintf(fp," %.16f ",diamval)
-    C.fprintf(fp,"%s","\n")
+
+    -- Close the Tecplot file
+    C.fclose(fp)
+
   end
 
-  -- Close the Tecplot file
-  C.fclose(fp)
-
-end
-
-function IO.WriteParticleTecplotTerra(timeStep)
-  
-  -- Check if it is time to output to file
-  if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-    IO.wrtVolumeSolution == ON) then
+  function IO.WriteParticleTecplotTerra(timeStep)
     
-    -- Write a file for the particle positions
-    local particleFileName = IO.outputFileNamePrefix .. "particles_" ..
-    tostring(timeStep) .. ".dat"
-    
-    -- Use the terra callback to write the file (avoids Lua).
-    particles:Dump(
-      {'position','velocity','temperature','diameter'},
-      ParticleTecplotTerra,
-      particleFileName, TimeIntegrator.simTime:get()
-    )
-  end
-  
-end
-
-function IO.WriteParticleTecplotLua(timeStep)
-  
-  -- Check if it is time to output to file
-  if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
+    -- Check if it is time to output to file
+    if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
       IO.wrtVolumeSolution == ON) then
       
-  -- Write a file for the particle positions
-  -- Tecplot ASCII format
-  local particleFileName = IO.outputFileNamePrefix .. "particles_" ..
-  tostring(timeStep) .. ".dat"
-
-  -- Open file
-  local particleFile = io.output(particleFileName)
-
-  -- Compute the number of vertices to be written
-  -- Write header
-  io.write('VARIABLES = "X", "Y", "Z", "X-Velocity", "Y-Velocity", ',
-           '"Z-Velocity", "Temperature", "Diameter"\n')
-  io.write('ZONE SOLUTIONTIME=', TimeIntegrator.simTime:get(), '\n')
-
-  local veclen = particles.position:Type().N
-  particles:Dump({'position', 'velocity', 'temperature', 'diameter'},
-  function(ids, pos, vel, temp, diam)
-    local s = ''
-    s = s .. ' ' .. value_tostring(pos) .. ''
-    s = s .. ' ' .. value_tostring(vel) .. ''
-    s = s .. ' ' .. value_tostring(temp) ..
-             ' ' .. value_tostring(diam) .. '\n'
-    io.write("", s)
-  end)
-
-  -- Close the file.
-  io.close()
-
-  end
-  
-end
-
-function IO.WriteParticleEvolution(timeStep)
-  
-  if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-      IO.wrtParticleEvolution == ON) then
-    
-    -- Prepare the particle evolution file name
-    
-    local particleEvolutionIndex  = IO.particleEvolutionIndex
-    local outputFileName = IO.outputFileNamePrefix .. "evolution_particle_" ..
-    tostring(particleEvolutionIndex) .. ".csv"
-    
-    -- Check if file already exists
-    
-    local fileDidNotExist = io.open(outputFileName,"r") == nil
-    
-    -- Open file
-    
-    local outputFile = io.open(outputFileName,"a")
-    io.output(outputFile)
-    
-    -- CSV header
-    
-    if fileDidNotExist then
-      io.write('"Time", "X", "Y", "Z", "X-Velocity", "Y-Velocity", "Z-Velocity", "Temperature", "Diameter"\n')
+      -- Write a file for the particle positions
+      local particleFileName = IO.outputFileNamePrefix .. "particles_" ..
+      tostring(timeStep) .. ".dat"
+      
+      -- Use the terra callback to write the file (avoids Lua).
+      particles:Dump(
+        {'position','velocity','temperature','diameter'},
+        ParticleTecplotTerra,
+        particleFileName, TimeIntegrator.simTime:get()
+      )
     end
     
-    -- Check for the particle with 'index=particleIndex' and write its primitive variables
-    
-    local pos  = particles.position:Dump({})
-    local vel  = particles.velocity:Dump({})
-    local temp = particles.temperature:Dump({})
-    local diam = particles.diameter:Dump({})
-    
-    local s =        value_tostring(TimeIntegrator.simTime:get())  .. ''
-    s = s .. ', ' .. value_tostring_comma(pos[particleEvolutionIndex])  .. ''
-    s = s .. ', ' .. value_tostring_comma(vel[particleEvolutionIndex])  .. ''
-    s = s .. ', ' .. value_tostring(temp[particleEvolutionIndex]) .. ''
-    s = s .. ', ' .. value_tostring(diam[particleEvolutionIndex]) .. '\n'
-    
-    io.write("", s)
-    
-    -- Close the file
-    
-    io.close()
-    
-    --end
   end
-  
+
+  function IO.WriteParticleTecplotLua(timeStep)
+    
+    -- Check if it is time to output to file
+    if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
+        IO.wrtVolumeSolution == ON) then
+        
+    -- Write a file for the particle positions
+    -- Tecplot ASCII format
+    local particleFileName = IO.outputFileNamePrefix .. "particles_" ..
+    tostring(timeStep) .. ".dat"
+
+    -- Open file
+    local particleFile = io.output(particleFileName)
+
+    -- Compute the number of vertices to be written
+    -- Write header
+    io.write('VARIABLES = "X", "Y", "Z", "X-Velocity", "Y-Velocity", ',
+             '"Z-Velocity", "Temperature", "Diameter"\n')
+    io.write('ZONE SOLUTIONTIME=', TimeIntegrator.simTime:get(), '\n')
+
+    local veclen = particles.position:Type().N
+    particles:Dump({'position', 'velocity', 'temperature', 'diameter'},
+    function(ids, pos, vel, temp, diam)
+      local s = ''
+      s = s .. ' ' .. value_tostring(pos) .. ''
+      s = s .. ' ' .. value_tostring(vel) .. ''
+      s = s .. ' ' .. value_tostring(temp) ..
+               ' ' .. value_tostring(diam) .. '\n'
+      io.write("", s)
+    end)
+
+    -- Close the file.
+    io.close()
+
+    end
+    
+  end
+
+  function IO.WriteParticleEvolution(timeStep)
+    
+    if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
+        IO.wrtParticleEvolution == ON) then
+      
+      -- Prepare the particle evolution file name
+      
+      local particleEvolutionIndex  = IO.particleEvolutionIndex
+      local outputFileName = IO.outputFileNamePrefix .. "evolution_particle_" ..
+      tostring(particleEvolutionIndex) .. ".csv"
+      
+      -- Check if file already exists
+      
+      local fileDidNotExist = io.open(outputFileName,"r") == nil
+      
+      -- Open file
+      
+      local outputFile = io.open(outputFileName,"a")
+      io.output(outputFile)
+      
+      -- CSV header
+      
+      if fileDidNotExist then
+        io.write('"Time", "X", "Y", "Z", "X-Velocity", "Y-Velocity", "Z-Velocity", "Temperature", "Diameter"\n')
+      end
+      
+      -- Check for the particle with 'index=particleIndex' and write its primitive variables
+      
+      local pos  = particles.position:Dump({})
+      local vel  = particles.velocity:Dump({})
+      local temp = particles.temperature:Dump({})
+      local diam = particles.diameter:Dump({})
+      
+      local s =        value_tostring(TimeIntegrator.simTime:get())  .. ''
+      s = s .. ', ' .. value_tostring_comma(pos[particleEvolutionIndex])  .. ''
+      s = s .. ', ' .. value_tostring_comma(vel[particleEvolutionIndex])  .. ''
+      s = s .. ', ' .. value_tostring(temp[particleEvolutionIndex]) .. ''
+      s = s .. ', ' .. value_tostring(diam[particleEvolutionIndex]) .. '\n'
+      
+      io.write("", s)
+      
+      -- Close the file
+      
+      io.close()
+      
+      --end
+    end
+    
+  end
+
 end
+
 
 function IO.WriteX0SliceVec (timeStep, field, filename)
   
@@ -4104,7 +4165,7 @@ function IO.WriteOutput(timeStep)
   
   -- Write the particle restart files
   
-  if particle_mode ~= 'ELASTIC' then
+  if particles_options.modeParticles == ON and particle_mode ~= 'ELASTIC' then
     IO.WriteParticleRestart(timeStep)
   end
 
@@ -4113,7 +4174,7 @@ function IO.WriteOutput(timeStep)
   if IO.outputFormat == IO.Tecplot then
     IO.WriteFlowTecplotTerra(timeStep)
     --IO.WriteFlowTecplotLua(timeStep)
-    if particle_mode ~= 'ELASTIC' then
+    if particles_options.modeParticles == ON and particle_mode ~= 'ELASTIC' then
       IO.WriteParticleTecplotTerra(timeStep)
     end
     --IO.WriteParticleTecplotLua(timeStep)
@@ -4130,7 +4191,7 @@ function IO.WriteOutput(timeStep)
 
   -- Write a file for the evolution in time of particle i
   
-  if particle_mode ~= 'ELASTIC' then
+  if particles_options.modeParticles == ON and particle_mode ~= 'ELASTIC' then
     IO.WriteParticleEvolution(timeStep)
   end
 
@@ -4144,7 +4205,9 @@ function Visualization.Draw()
     vdb.vbegin()
     vdb.frame()
     grid.cells:foreach(Flow.DrawFunction)
-    particles:foreach(Particles.DrawFunction)
+    if particles_options.modeParticles == ON then
+      particles:foreach(Particles.DrawFunction)
+    end
     vdb.vend()
 end
 

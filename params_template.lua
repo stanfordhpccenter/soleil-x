@@ -64,6 +64,7 @@ return {
   -----------------------------------------------------------------------------
   --[[                       PARTICLE PHASE OPTIONS                        ]]--
   -----------------------------------------------------------------------------
+  modeParticles = 'ON',            -- Activate (ON) or deactivate (OFF) particles
   initParticles = 'Uniform',        -- Part. init: 'Random', 'Restart', or 'Uniform'
   restartParticleIter = 0,         -- Starting iteration for particle restart
   particleType = 'Free',          -- Particle can be 'Fixed' or 'Free' to move

@@ -53,7 +53,7 @@ return {
   outputEveryTimeSteps  = 10000,
   restartEveryTimeSteps = 10000,
   headerFrequency       = 20,
-  consoleFrequency = 101,  -- Iterations between console output of statistics
+  consoleFrequency = 1,  -- Iterations between console output of statistics
   outputFormat = 'Tecplot', -- Only 'Tecplot' is currently available
   
   -- Fluid Options --
@@ -69,6 +69,7 @@ return {
   suth_s_ref = 110.4,           -- Sutherland's Law S constant [K]
   
   -- Particle Options --
+  modeParticles = 'ON',
   initParticles = 'Uniform', -- 'Random' or 'Restart'
   restartParticleIter = 0,
   particleType = 'Free', -- Fixed or Free

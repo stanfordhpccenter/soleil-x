@@ -69,6 +69,7 @@ return {
   suth_s_ref = 110.4,           -- Sutherland's Law S constant [K]
   
   -- Particle Options --
+  modeParticles = 'ON',
   initParticles = 'Random', -- 'Random' or 'Restart'
   restartParticleIter = 0,
   particleType = 'Free', -- Fixed or Free

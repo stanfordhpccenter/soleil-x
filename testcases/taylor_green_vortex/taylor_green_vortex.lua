@@ -35,6 +35,9 @@ return {
   -- the number of specified iterations to avoid reductions/global comms
   -- to compute statistics and other outputs
   consoleFrequency = 100,  -- Iterations between console output of statistics
+  
+  -- completely disable particles, including all data
+  modeParticles = 'OFF',
 
   -----------------------------------------------------------
   -----------------------------------------------------------

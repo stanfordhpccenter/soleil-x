@@ -64,6 +64,7 @@ return {
   -----------------------------------------------------------------------------
   --[[                       PARTICLE PHASE OPTIONS                        ]]--
   -----------------------------------------------------------------------------
+  modeParticles = 'ON',
   initParticles = 'Random',        -- Particle init: 'Random' or 'Restart'
   restartParticleIter = 0,         -- Starting iteration for particle restart
   particleType = 'Free',          -- Particle can be 'Fixed' or 'Free' to move
