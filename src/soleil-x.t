@@ -721,6 +721,7 @@ local grid = Grid.NewGrid3d{
 -----------------------------------------------------------------------------
 -- Define grid partioning based on command line inputs
 grid.cells:SetPartitions{xParts, yParts, zParts}
+grid.vertices:SetPartitions{xParts, yParts, zParts}
 -----------------------------------------------------------------------------
 
 -- Define uniform grid spacing
@@ -795,6 +796,11 @@ grid.cells:NewField('rhoEnergy_t', L.double)                  :Load(0)
 grid.cells:NewField('rhoFlux', L.double)                      :Load(0)
 grid.cells:NewField('rhoVelocityFlux', L.vec3d)               :Load({0, 0, 0})
 grid.cells:NewField('rhoEnergyFlux', L.double)                :Load(0)
+
+
+-- Temporary, to make it work with Legion without blowing up memory
+grid.cells:TEMPORARY_PrepareForSimulation()
+grid.vertices:TEMPORARY_PrepareForSimulation()
 
 
 -----------------------------------------------------------------------------
