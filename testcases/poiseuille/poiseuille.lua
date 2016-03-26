@@ -47,6 +47,7 @@ return {
                                 -- TGV 2D: {density, pressure, vel, null, null}
                                 -- TGV 3D: {density, pressure, vel, null, null}
   bodyForce = {1.2,0.0,0},      -- Body force (acceleration) in x, y, z
+  turbForceCoeff = 0.0,         -- Turbulent linear forcing coefficient (f = A*rho*u)
   gasConstant = 200.0,          -- Ideal gas constant, R = cp - cv [J/kg/K]
   gamma = 1.25,                 -- Ratio of specific heats, gamma = cp/cv
   viscosity_model = 'Constant', -- 'Constant', 'PowerLaw', or 'Sutherland'
@@ -65,7 +66,7 @@ return {
   modeParticles = 'ON',
   initParticles = 'Random',        -- Particle init: 'Random' or 'Restart'
   restartParticleIter = 0,         -- Starting iteration for particle restart
-  particleType = 'Fixed',          -- Particle can be 'Fixed' or 'Free' to move
+  particleType = 'Free',          -- Particle can be 'Fixed' or 'Free' to move
   twoWayCoupling = 'OFF',          -- Enable two-way coupling with fluid.
                                    -- 'ON' is two-way, 'OFF' is fluid->particle
   num = 1000.0,                    -- Prescribe the total number of particles
@@ -112,11 +113,11 @@ return {
   wrtVolumeSolution = 'ON',     -- Enable volume solution output
   outputFormat = 'Tecplot',     -- Volume solution format, 'Tecplot' only
   wrt1DSlice = 'ON',            -- Enable CSV slices at centerlines
-  wrtParticleEvolution = 'OFF', -- Enable tracking of a single particle
+  wrtParticleEvolution = 'ON', -- Enable tracking of a single particle
   particleEvolutionIndex = 0,   -- Index of particle to be tracked
-  outputEveryTimeSteps  = 1000, -- Iterations between writing solutions
-  restartEveryTimeSteps = 1000, -- Iterations between writing restarts
-  consoleFrequency = 101,  -- Iterations between console output of statistics
+  outputEveryTimeSteps  = 100, -- Iterations between writing solutions
+  restartEveryTimeSteps = 100, -- Iterations between writing restarts
+  consoleFrequency = 1,  -- Iterations between console output of statistics
   headerFrequency       = 20   -- Iterations between console output headers
 
 }

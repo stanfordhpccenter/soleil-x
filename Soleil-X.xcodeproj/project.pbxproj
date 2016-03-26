@@ -30,8 +30,8 @@
 		E9519EC01BD70630000851BC /* cavity_64x64.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = cavity_64x64.lua; sourceTree = "<group>"; };
 		E9519EC21BD70630000851BC /* couette.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = couette.lua; sourceTree = "<group>"; };
 		E9519EC41BD70630000851BC /* forced_turbulence.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = forced_turbulence.lua; sourceTree = "<group>"; };
-		E9519EC61BD70630000851BC /* poiseuille.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = poiseuille.lua; sourceTree = "<group>"; };
-		E9519ECC1BD70BFB000851BC /* taylor_green_vortex.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = taylor_green_vortex.lua; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.lua; };
+		E9519EC61BD70630000851BC /* poiseuille.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = poiseuille.lua; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.lua; };
+		E9519ECC1BD70BFB000851BC /* taylor_green_vortex.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = taylor_green_vortex.lua; sourceTree = "<group>"; };
 		E9EC952D1BD70CE300A2308A /* Soleil-X */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "Soleil-X"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 

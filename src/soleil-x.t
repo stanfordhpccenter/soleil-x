@@ -48,6 +48,30 @@ double rand_unity() {
     return r;
 }
 
+double rand_gauss() {
+	static double V1, V2, S;
+	static int phase = 0;
+	double X;
+
+	if(phase == 0) {
+		do {
+			double U1 = (double)rand() / (double)RAND_MAX;
+			double U2 = (double)rand() / (double)RAND_MAX;
+
+			V1 = 2 * U1 - 1;
+			V2 = 2 * U2 - 1;
+			S = V1 * V1 + V2 * V2;
+			} while(S >= 1 || S == 0);
+
+		X = V1 * sqrt(-2 * log(S) / S);
+	} else
+		X = V2 * sqrt(-2 * log(S) / S);
+
+	phase = 1 - phase;
+
+	return X;
+}
+
 ]]
 
 -- Use the built in rand() function from Liszt
@@ -1804,14 +1828,36 @@ ebb Flow.AddBodyForces (c : grid.cells)
     -- Body force contribution to energy equation
     c.rhoEnergy_t += c.rho * L.dot(flow_options.bodyForce,c.velocity)
 
-    -- Add source for forced turbulence (linear in velocity)
-    c.rhoVelocity_t += c.rho * flow_options.turbForceCoeff * c.velocity
-    c.rhoEnergy_t   += c.rho * flow_options.turbForceCoeff * L.dot(c.velocity,
-                                                                   c.velocity)
-
     -- Compute average heat source contribution in case we would
     -- like to subtract this later to recover a steady solution with radiation.
     Flow.averageHeatSource += -c.rho * L.dot(flow_options.bodyForce,c.velocity)
+
+end
+
+ebb Flow.AddTurbulentForcing (c : grid.cells)
+
+  -- Use a forcing based on large-scales (low wavenumber)
+  var force = L.vec3d({0.0, 0.0, 0.0})
+  var deltaTime  = TimeIntegrator.deltaTime
+
+  -- Compute the random (gaussian) forcing matrix entries
+  for i = 0,3 do
+    for j = 0,3 do
+      if i == j then
+       -- force[i] += C.rand_gauss()*flow_options.turbForceCoeff2*2.0/(3.0*deltaTime)*L.sin(c.centerCoordinates[j]) + C.rand_gauss()*flow_options.turbForceCoeff2*2.0/(3.0*deltaTime)*L.cos(c.centerCoordinates[j])
+      else
+        force[i] += C.rand_gauss()*flow_options.turbForceCoeff/(3.0*deltaTime)*L.sin(c.centerCoordinates[j]) + C.rand_gauss()*flow_options.turbForceCoeff/(3.0*deltaTime)*L.cos(c.centerCoordinates[j])
+      end
+    end
+  end
+
+  c.rhoVelocity_t += c.rho * force
+  c.rhoEnergy_t   += c.rho * L.dot(force,c.velocity)
+
+  -- Add source for forced turbulence (linear in velocity)
+  --c.rhoVelocity_t += c.rho * flow_options.turbForceCoeff * c.velocity
+  --c.rhoEnergy_t   += c.rho * flow_options.turbForceCoeff * L.dot(c.velocity,
+  --                                                              c.velocity)
 
 end
 
@@ -3222,6 +3268,7 @@ function TimeIntegrator.ComputeDFunctionDt()
     Flow.AddViscous()
     Flow.averageHeatSource:set(0.0)
     grid.cells.interior:foreach(Flow.AddBodyForces)
+    --grid.cells.interior:foreach(Flow.AddTurbulentForcing)
     
     -- Compute residuals for the particles (locate all particles first)
     if particles_options.modeParticles == ON then
