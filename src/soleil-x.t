@@ -1207,6 +1207,23 @@ if particles_options.modeParticles == ON then
   end)
 end
 
+
+-- Function for returning a Gaussian random variable
+local ebb rand_gauss()
+  
+  var x = L.double(0.0)
+
+  for i = 0,25 do
+    x += rand_float()
+  end
+
+  x -= 25.0 / 2.0
+  x /= L.sqrt(25.0 / 12.0)
+    
+  return x
+end
+
+
 -----------------------------------------------------------------------------
 --[[                              EBB MACROS                             ]]--
 -----------------------------------------------------------------------------
@@ -1846,7 +1863,7 @@ ebb Flow.AddTurbulentForcing (c : grid.cells)
       if i == j then
        -- force[i] += C.rand_gauss()*flow_options.turbForceCoeff2*2.0/(3.0*deltaTime)*L.sin(c.centerCoordinates[j]) + C.rand_gauss()*flow_options.turbForceCoeff2*2.0/(3.0*deltaTime)*L.cos(c.centerCoordinates[j])
       else
-        force[i] += C.rand_gauss()*flow_options.turbForceCoeff/(3.0*deltaTime)*L.sin(c.centerCoordinates[j]) + C.rand_gauss()*flow_options.turbForceCoeff/(3.0*deltaTime)*L.cos(c.centerCoordinates[j])
+        force[i] += rand_gauss()*flow_options.turbForceCoeff/(3.0*deltaTime)*L.sin(c.centerCoordinates[j]) + rand_gauss()*flow_options.turbForceCoeff/(3.0*deltaTime)*L.cos(c.centerCoordinates[j])
       end
     end
   end
@@ -3268,7 +3285,7 @@ function TimeIntegrator.ComputeDFunctionDt()
     Flow.AddViscous()
     Flow.averageHeatSource:set(0.0)
     grid.cells.interior:foreach(Flow.AddBodyForces)
-    --grid.cells.interior:foreach(Flow.AddTurbulentForcing)
+    grid.cells.interior:foreach(Flow.AddTurbulentForcing)
     
     -- Compute residuals for the particles (locate all particles first)
     if particles_options.modeParticles == ON then
