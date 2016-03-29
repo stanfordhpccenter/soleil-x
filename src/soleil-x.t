@@ -3285,7 +3285,7 @@ function TimeIntegrator.ComputeDFunctionDt()
     Flow.AddViscous()
     Flow.averageHeatSource:set(0.0)
     grid.cells.interior:foreach(Flow.AddBodyForces)
-    grid.cells.interior:foreach(Flow.AddTurbulentForcing)
+    --grid.cells.interior:foreach(Flow.AddTurbulentForcing)
     
     -- Compute residuals for the particles (locate all particles first)
     if particles_options.modeParticles == ON then

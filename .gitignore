@@ -1,9 +1,8 @@
 # Files ignored by git
 
-.DS_Store
-
-# Xcode files
-*.xcworkspace
+# Mac files
+*.DS_Store
+Soleil-X.xcodeproj/project.xcworkspace/xcuserdata/economon.xcuserdatad/UserInterfaceState.xcuserstate
 
 # Solution files Tecplot / CSV
 *.dat
