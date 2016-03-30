@@ -9,13 +9,13 @@ return {
   -----------------------------------------------------------------------------
   --[[                            GRID OPTIONS                             ]]--
   -----------------------------------------------------------------------------
-  xnum = 64,                -- Number of internal cells in the x-direction
-  ynum = 64,                -- Number of internal cells in the y-direction
-  znum = 64,                 -- Number of internal cells in the z-direction
+  xnum = 32,                -- Number of internal cells in the x-direction
+  ynum = 32,                -- Number of internal cells in the y-direction
+  znum = 32,                 -- Number of internal cells in the z-direction
   origin = {0.0, 0.0, 0.0}, -- Spatial origin of the computational domain
-  xWidth = 0.04,             -- Physical length of the domain in the x-dir. [m]
-  yWidth = 0.04,             -- Physical length of the domain in the y-dir. [m]
-  zWidth = 0.04,             -- Physical length of the domain in the z-dir. [m]
+  xWidth = 6.283185307179586, -- Physical length of the domain in the x-dir. [m]
+  yWidth = 6.283185307179586, -- Physical length of the domain in the y-dir. [m]
+  zWidth = 6.283185307179586, -- Physical length of the domain in the z-dir. [m]
   xBCLeft  = 'periodic',         -- Boundary conditions on each boundary face.
   xBCLeftVel = {0.0, 0.0, 0.0},  -- Opposite faces must match. Options are
   xBCLeftTemp = 0.0,             -- 'periodic', 'symmetry', 'adiabatic_wall', or
@@ -40,15 +40,15 @@ return {
   -----------------------------------------------------------------------------
   initCase = 'Uniform',         -- 'Uniform', 'Restart', 'TaylorGreen2DVortex',
                                 --  'TaylorGreen3DVortex' or 'Perturbed'
-  restartIter = 0,              -- Starting iteration number for flow restart
-  initParams = {2.52746426132e-06,0.199409347825,0.0,0.0,0.0}, -- Input flow conditions.
+  restartIter = 3042000,              -- Starting iteration number for flow restart
+  initParams = {1.225,101325.0,0.0,0.0,0.0}, -- Input flow conditions.
                                 -- Uniform: {density, pressure, u, v, w}
                                 -- Restart: unused
                                 -- TGV 2D: {density, pressure, vel, null, null}
                                 -- TGV 3D: {density, pressure, vel, null, null}
                                 -- Perturbed {mean density, pressure, u, v, w}
   bodyForce = {0.0,0.0,0},      -- Body force (acceleration) in x, y, z
-  turbForceCoeff = 0.0625,         -- Turbulent linear forcing coefficient (f = A*rho*u)
+  turbForceCoeff = 1e-5,         -- Turbulent linear forcing coefficient (f = A*rho*u)
   gasConstant = 289.0,          -- Ideal gas constant, R = cp - cv [J/kg/K]
   gamma = 1.4,                 -- Ratio of specific heats, gamma = cp/cv
   viscosity_model = 'Sutherland', -- 'Constant', 'PowerLaw', or 'Sutherland'
@@ -58,7 +58,7 @@ return {
   suth_visc_ref = 1.68e-5,      -- Sutherland's Law reference viscosity [kg/m/s]
   suth_temp_ref = 273.0,        -- Sutherland's Law reference temperature [K]
   suth_s_ref = 110.5,           -- Sutherland's Law S constant [K]
-  prandtl = 0.7,                -- Prandtl number, Pr
+  prandtl = 0.72,                -- Prandtl number, Pr
                                 -- Note: thermal conductivity, k = cp*visc/Pr
   
   -----------------------------------------------------------------------------
@@ -100,12 +100,12 @@ return {
   -----------------------------------------------------------------------------
   --[[                      TIME INTEGRATION OPTIONS                       ]]--
   -----------------------------------------------------------------------------
-  final_time = 30.00001, -- Maximum physical time for the simulation [s]
-  max_iter = 300000,         -- Maximum number of iterations
-  cfl = 1.0,               -- CFL condition. Setting this to a negative value
+  final_time = 3000.00001, -- Maximum physical time for the simulation [s]
+  max_iter = 1000000,         -- Maximum number of iterations
+  cfl = 0.5,               -- CFL condition. Setting this to a negative value
                            -- imposes a fixed time step that is given by
                            -- the 'delta_time' config option.
-  delta_time = 0.0025,       -- Fixed time step [s], ignored if CFL > 0.0
+  delta_time = 1e-8,       -- Fixed time step [s], ignored if CFL > 0.0
   
   -----------------------------------------------------------------------------
   --[[                          FILE I/O OPTIONS                           ]]--
@@ -119,6 +119,6 @@ return {
   outputEveryTimeSteps  = 3000, -- Iterations between writing solutions
   restartEveryTimeSteps = 3000, -- Iterations between writing restarts
   consoleFrequency = 1,  -- Iterations between console output of statistics
-  headerFrequency       = 20   -- Iterations between console output headers
+  headerFrequency       = 10000001   -- Iterations between console output headers
 
 }
