@@ -1858,12 +1858,13 @@ ebb Flow.AddTurbulentForcing (c : grid.cells)
   var deltaTime  = TimeIntegrator.deltaTime
 
   -- Compute the random (gaussian) forcing matrix entries
+  -- Methos similar to Kida & Orszag 1990
   for i = 0,3 do
     for j = 0,3 do
       if i == j then
        -- force[i] += C.rand_gauss()*flow_options.turbForceCoeff2*2.0/(3.0*deltaTime)*L.sin(c.centerCoordinates[j]) + C.rand_gauss()*flow_options.turbForceCoeff2*2.0/(3.0*deltaTime)*L.cos(c.centerCoordinates[j])
       else
-        force[i] += rand_gauss()*flow_options.turbForceCoeff/(3.0*deltaTime)*L.sin(c.centerCoordinates[j]) + rand_gauss()*flow_options.turbForceCoeff/(3.0*deltaTime)*L.cos(c.centerCoordinates[j])
+        force[i] += rand_gauss()*flow_options.turbForceCoeff*L.sin(c.centerCoordinates[j]) + rand_gauss()*flow_options.turbForceCoeff*L.cos(c.centerCoordinates[j])
       end
     end
   end
