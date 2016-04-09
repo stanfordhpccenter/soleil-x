@@ -484,6 +484,14 @@ flow_options.initParams     = L.Global(L.vector(L.double,5), config.initParams)
 flow_options.bodyForce      = L.Global(L.vec3d, config.bodyForce)
 flow_options.turbForceCoeff = L.Global(L.double, config.turbForceCoeff)
 
+if config.turbForcing == 'OFF' then
+  flow_options.turbForcing = OFF
+elseif config.turbForcing == 'ON' then
+  flow_options.turbForcing = ON
+else
+  error("Turbulent forcing not defined (ON or OFF")
+end
+
 local particles_options = {
   
     -- Define the initial number of particles and insertion/deletion
@@ -1075,6 +1083,7 @@ io.stdout:write(" Fluid body force: (",
                 string.format("%1.3f",config.bodyForce[1]), ",",
                 string.format("%1.3f",config.bodyForce[2]), ",",
                 string.format("%1.3f",config.bodyForce[3]), ")\n")
+io.stdout:write(" Turbulent forcing mode: ", config.turbForcing, "\n")
 io.stdout:write(" Linearly forced isotropic turbulence coefficient: ",
                 string.format(" %f",config.turbForceCoeff), "\n")
 print("")
@@ -3588,8 +3597,9 @@ function TimeIntegrator.ComputeDFunctionDt()
     Flow.averageHeatSource:set(0.0)
     grid.cells.interior:foreach(Flow.AddBodyForces)
     
-    --grid.cells.interior:foreach(Flow.AddTurbulentForcing)
-    Flow.AddTurbulentForcing(grid.cells.interior)
+    if flow_options.turbForcing == ON then
+      Flow.AddTurbulentForcing(grid.cells.interior)
+    end
     
     -- Compute residuals for the particles (locate all particles first)
     if particles_options.modeParticles == ON then

@@ -47,6 +47,8 @@ return {
                                 -- TGV 2D: {density, pressure, vel, null, null}
                                 -- TGV 3D: {density, pressure, vel, null, null}
   bodyForce = {0.0,0.0,0},      -- Body force (acceleration) in x, y, z
+  turbForceCoeff = 0.0,         -- Turbulent linear forcing coefficient (f = A*rho*u)
+  turbForcing = 'OFF',          -- Turn turbulent forcing on or off
   gasConstant = 287.058,          -- Ideal gas constant, R = cp - cv [J/kg/K]
   gamma = 1.4,                 -- Ratio of specific heats, gamma = cp/cv
   viscosity_model = 'Constant', -- 'Constant', 'PowerLaw', or 'Sutherland'

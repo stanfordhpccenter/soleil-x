@@ -47,6 +47,7 @@ return {
   initCase     = 'TaylorGreen3DVortex', -- Uniform, Restart, TaylorGreen2DVortex, TaylorGreen3DVortex
   initParams = {1,100,2,0.0,0.0}, -- for TGV: first three are density, pressure, velocity
   bodyForce = {0,0.0,0}, -- body force in x, y, z
+  turbForcing = 'OFF',          -- Turn turbulent forcing on or off
   turbForceCoeff = 0.0,         -- Turbulent linear forcing coefficient (f = A*rho*u)
   restartIter = 10000,
   

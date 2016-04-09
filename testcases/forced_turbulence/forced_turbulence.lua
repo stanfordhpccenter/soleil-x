@@ -48,6 +48,7 @@ return {
                                 -- TGV 3D: {density, pressure, vel, null, null}
                                 -- Perturbed {mean density, pressure, u, v, w}
   bodyForce = {0.0,0.0,0},      -- Body force (acceleration) in x, y, z
+  turbForcing = 'ON',           -- Turn turbulent forcing on or off
   turbForceCoeff = 1e-5,         -- Turbulent linear forcing coefficient (f = A*rho*u)
   gasConstant = 289.0,          -- Ideal gas constant, R = cp - cv [J/kg/K]
   gamma = 1.4,                 -- Ratio of specific heats, gamma = cp/cv
@@ -102,7 +103,7 @@ return {
   -----------------------------------------------------------------------------
   final_time = 3000.00001, -- Maximum physical time for the simulation [s]
   max_iter = 500000,         -- Maximum number of iterations
-  cfl = 0.1,               -- CFL condition. Setting this to a negative value
+  cfl = 0.3,               -- CFL condition. Setting this to a negative value
                            -- imposes a fixed time step that is given by
                            -- the 'delta_time' config option.
   delta_time = 1e-8,       -- Fixed time step [s], ignored if CFL > 0.0
