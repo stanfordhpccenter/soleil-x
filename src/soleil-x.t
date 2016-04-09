@@ -924,6 +924,17 @@ Flow.minTemperature          = L.Global(L.double, 0.0)
 Flow.maxTemperature          = L.Global(L.double, 0.0)
 Particles.averageTemperature = L.Global(L.double, 0.0)
 
+
+-- Right hand side of the kinetic energy equation
+grid.cells:NewField('PD', L.double) :Load(0.0)
+grid.cells:NewField('dissipation', L.double) :Load(0.0)
+grid.cells:NewField('dissipationFlux', L.double) :Load(0.0)
+
+Flow.averagePD = L.Global(L.double, 0.0)
+Flow.averageDissipation = L.Global(L.double, 0.0)
+Flow.averageFe    = L.Global(L.double, 0.0)
+Flow.averageK    = L.Global(L.double, 0.0)
+
 -----------------------------------------------------------------------------
 --[[                 CONSOLE OUTPUT AFTER PREPROCESSING                  ]]--
 -----------------------------------------------------------------------------
@@ -1223,6 +1234,21 @@ local ebb rand_gauss()
   return x
 end
 
+-- WARNING: update cellVolume computation for non-uniform grids
+local cellVolume = L.Constant(L.double,
+                              grid_dx:get() * grid_dy:get() * grid_dz:get())
+local ebb numberOfInteriorCells ( c : grid.cells )
+  Flow.numberOfInteriorCells += 1
+end
+local ebb areaInterior ( c : grid.cells )
+  Flow.areaInterior += cellVolume
+end
+function Flow.IntegrateGeometricQuantities(cells)
+  Flow.numberOfInteriorCells:set(0)
+  Flow.areaInterior:set(0)
+  cells:foreach(numberOfInteriorCells)
+  cells:foreach(areaInterior         )
+end
 
 -----------------------------------------------------------------------------
 --[[                              EBB MACROS                             ]]--
@@ -1380,9 +1406,9 @@ ebb Flow.InitializePerturbed (c : grid.cells)
     -- the velocity field used to start up forced turbulence cases
     c.rho         = flow_options.initParams[0]
     c.pressure    = flow_options.initParams[1]
-    c.velocity[0] = flow_options.initParams[2] + ((rand_float()-0.5)*1e-2)
-    c.velocity[1] = flow_options.initParams[3] + ((rand_float()-0.5)*1e-2)
-    c.velocity[2] = flow_options.initParams[4] + ((rand_float()-0.5)*1e-2)
+    c.velocity[0] = flow_options.initParams[2] + ((rand_float()-0.5)*10.0)
+    c.velocity[1] = flow_options.initParams[3] + ((rand_float()-0.5)*10.0)
+    c.velocity[2] = flow_options.initParams[4] + ((rand_float()-0.5)*10.0)
 end
 
 ebb Flow.UpdateConservedFromPrimitive (c : grid.cells)
@@ -1851,32 +1877,318 @@ ebb Flow.AddBodyForces (c : grid.cells)
 
 end
 
-ebb Flow.AddTurbulentForcing (c : grid.cells)
 
-  -- Use a forcing based on large-scales (low wavenumber)
-  var force = L.vec3d({0.0, 0.0, 0.0})
-  var deltaTime  = TimeIntegrator.deltaTime
+ebb Flow.UpdatePD (c : grid.cells)
 
-  -- Compute the random (gaussian) forcing matrix entries
-  -- Methos similar to Kida & Orszag 1990
-  for i = 0,3 do
-    for j = 0,3 do
-      if i == j then
-       -- force[i] += C.rand_gauss()*flow_options.turbForceCoeff2*2.0/(3.0*deltaTime)*L.sin(c.centerCoordinates[j]) + C.rand_gauss()*flow_options.turbForceCoeff2*2.0/(3.0*deltaTime)*L.cos(c.centerCoordinates[j])
-      else
-        force[i] += rand_gauss()*flow_options.turbForceCoeff*L.sin(c.centerCoordinates[j]) + rand_gauss()*flow_options.turbForceCoeff*L.cos(c.centerCoordinates[j])
-      end
+   var divU = L.double(0.0)
+
+   -- compute the divergence of the velocity (trace of the velocity gradient)
+   divU = c.velocityGradientX[0] + c.velocityGradientY[1] + c.velocityGradientZ[2]
+
+   -- Compute pressure dilation by multiplying by pressure (assumes homogeneity)
+   -- PD = - <u_i P,j> = <Ui,i P >
+   c.PD = divU * c.pressure
+
+end
+
+
+-- Compute viscous fluxes in X direction
+ebb Flow.ComputeDissipationX (c : grid.cells)
+    -- Consider first boundary element (c.xneg_depth == 1) to define left flux
+    -- on first interior cell
+    if c.in_interior or c.xneg_depth == 1 then
+        var muFace = 0.5 * (GetDynamicViscosity(c(0,0,0).temperature) +
+                            GetDynamicViscosity(c(1,0,0).temperature))
+        var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
+        var velocityX_YFace = L.double(0)
+        var velocityX_ZFace = L.double(0)
+        var velocityY_YFace = L.double(0)
+        var velocityZ_ZFace = L.double(0)
+
+        -- Interpolate velocity and derivatives to face
+        velocityFace = 0.5 * ( c(0,0,0).velocity + c(1,0,0).velocity )
+        velocityX_YFace = 0.5 * ( c(0,0,0).velocityGradientY[0] +
+                                  c(1,0,0).velocityGradientY[0] )
+        velocityX_ZFace = 0.5 * ( c(0,0,0).velocityGradientZ[0] +
+                                  c(1,0,0).velocityGradientZ[0] )
+        velocityY_YFace = 0.5 * ( c(0,0,0).velocityGradientY[1] +
+                                  c(1,0,0).velocityGradientY[1] )
+        velocityZ_ZFace = 0.5 * ( c(0,0,0).velocityGradientZ[2] +
+                                  c(1,0,0).velocityGradientZ[2] )
+
+        -- Differentiate at face
+        var velocityX_XFace   = L.double(0.0)
+        var velocityY_XFace   = L.double(0.0)
+        var velocityZ_XFace   = L.double(0.0)
+        var temperature_XFace = L.double(0.0)
+
+        velocityX_XFace   = 0.5*( c(1,0,0).velocity[0] - c(0,0,0).velocity[0] )
+        velocityY_XFace   = 0.5*( c(1,0,0).velocity[1] - c(0,0,0).velocity[1] )
+        velocityZ_XFace   = 0.5*( c(1,0,0).velocity[2] - c(0,0,0).velocity[2] )
+        temperature_XFace = 0.5*( c(1,0,0).temperature - c(0,0,0).temperature )
+       
+        -- Half cell size due to the 0.5 above
+        velocityX_XFace   /= (grid_dx*0.5)
+        velocityY_XFace   /= (grid_dx*0.5)
+        velocityZ_XFace   /= (grid_dx*0.5)
+        temperature_XFace /= (grid_dx*0.5)
+
+        -- Tensor components (at face)
+        var sigmaXX = muFace * ( 4.0 * velocityX_XFace -
+                                 2.0 * velocityY_YFace -
+                                 2.0 * velocityZ_ZFace ) / 3.0
+        var sigmaYX = muFace * ( velocityY_XFace + velocityX_YFace )
+        var sigmaZX = muFace * ( velocityZ_XFace + velocityX_ZFace )
+        var usigma  = velocityFace[0] * sigmaXX +
+                      velocityFace[1] * sigmaYX +
+                      velocityFace[2] * sigmaZX
+
+        -- Fluxes
+        c.dissipationFlux = usigma -- possible just x component?
+
     end
-  end
+end
 
-  c.rhoVelocity_t += c.rho * force
-  c.rhoEnergy_t   += c.rho * L.dot(force,c.velocity)
+-- Compute viscous fluxes in Y direction
+ebb Flow.ComputeDissipationY (c : grid.cells)
+    -- Consider first boundary element (c.yneg_depth == 1) to define down flux
+    -- on first interior cell
+    if c.in_interior or c.yneg_depth == 1 then
+        var muFace = 0.5 * (GetDynamicViscosity(c(0,0,0).temperature) +
+                            GetDynamicViscosity(c(0,1,0).temperature))
+        var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
+        var velocityY_XFace = L.double(0)
+        var velocityY_ZFace = L.double(0)
+        var velocityX_XFace = L.double(0)
+        var velocityZ_ZFace = L.double(0)
 
-  -- Add source for forced turbulence (linear in velocity)
-  --c.rhoVelocity_t += c.rho * flow_options.turbForceCoeff * c.velocity
-  --c.rhoEnergy_t   += c.rho * flow_options.turbForceCoeff * L.dot(c.velocity,
-  --                                                              c.velocity)
+        -- Interpolate velocity and derivatives to face
+        velocityFace = 0.5 * ( c(0,0,0).velocity + c(0,1,0).velocity )
+        velocityY_XFace = 0.5 * ( c(0,0,0).velocityGradientX[1] +
+                                  c(0,1,0).velocityGradientX[1] )
+        velocityY_ZFace = 0.5 * ( c(0,0,0).velocityGradientZ[1] +
+                                  c(0,1,0).velocityGradientZ[1] )
+        velocityX_XFace = 0.5 * ( c(0,0,0).velocityGradientX[0] +
+                                  c(0,1,0).velocityGradientX[0] )
+        velocityZ_ZFace = 0.5 * ( c(0,0,0).velocityGradientZ[2] +
+                                  c(0,1,0).velocityGradientZ[2] )
+                             
+        -- Differentiate at face
+        var velocityX_YFace   = L.double(0.0)
+        var velocityY_YFace   = L.double(0.0)
+        var velocityZ_YFace   = L.double(0.0)
+        var temperature_YFace = L.double(0.0)
 
+        velocityX_YFace   = 0.5*( c(0,1,0).velocity[0] - c(0,0,0).velocity[0] )
+        velocityY_YFace   = 0.5*( c(0,1,0).velocity[1] - c(0,0,0).velocity[1] )
+        velocityZ_YFace   = 0.5*( c(0,1,0).velocity[2] - c(0,0,0).velocity[2] )
+        temperature_YFace = 0.5*( c(0,1,0).temperature - c(0,0,0).temperature )
+       
+        -- Half cell size due to the 0.5 above
+        velocityX_YFace   /= (grid_dy*0.5)
+        velocityY_YFace   /= (grid_dy*0.5)
+        velocityZ_YFace   /= (grid_dy*0.5)
+        temperature_YFace /= (grid_dy*0.5)
+
+        -- Tensor components (at face)
+        var sigmaXY = muFace * ( velocityX_YFace + velocityY_XFace )
+        var sigmaYY = muFace * ( 4.0 * velocityY_YFace -
+                                 2.0 * velocityX_XFace -
+                                 2.0 * velocityZ_ZFace ) / 3.0
+        var sigmaZY = muFace * ( velocityZ_YFace + velocityY_ZFace )
+        var usigma  = velocityFace[0] * sigmaXY +
+                      velocityFace[1] * sigmaYY +
+                      velocityFace[2] * sigmaZY
+
+        -- Fluxes
+        c.dissipationFlux = usigma
+
+    end
+end
+
+-- Compute viscous fluxes in Z direction
+ebb Flow.ComputeDissipationZ (c : grid.cells)
+    -- Consider first boundary element (c.zneg_depth == 1) to define down flux
+    -- on first interior cell
+    if c.in_interior or c.zneg_depth == 1 then
+        var muFace = 0.5 * (GetDynamicViscosity(c(0,0,0).temperature) +
+                            GetDynamicViscosity(c(0,0,1).temperature))
+        var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
+        var velocityZ_XFace = L.double(0.0)
+        var velocityZ_YFace = L.double(0.0)
+        var velocityX_XFace = L.double(0.0)
+        var velocityY_YFace = L.double(0.0)
+
+        -- Interpolate velocity and derivatives to face
+        velocityFace = 0.5 * ( c(0,0,0).velocity + c(0,0,1).velocity )
+        velocityZ_XFace = 0.5 * ( c(0,0,0).velocityGradientX[2] +
+                                  c(0,0,1).velocityGradientX[2] )
+        velocityZ_YFace = 0.5 * ( c(0,0,0).velocityGradientY[2] +
+                                  c(0,0,1).velocityGradientY[2] )
+        velocityX_XFace = 0.5 * ( c(0,0,0).velocityGradientX[0] +
+                                  c(0,0,1).velocityGradientX[0] )
+        velocityY_YFace = 0.5 * ( c(0,0,0).velocityGradientY[1] +
+                                  c(0,0,1).velocityGradientY[1] )
+
+        -- Differentiate at face
+        var velocityX_ZFace   = L.double(0.0)
+        var velocityY_ZFace   = L.double(0.0)
+        var velocityZ_ZFace   = L.double(0.0)
+        var temperature_ZFace = L.double(0.0)
+
+        velocityX_ZFace   = 0.5*( c(0,0,1).velocity[0] - c(0,0,0).velocity[0] )
+        velocityY_ZFace   = 0.5*( c(0,0,1).velocity[1] - c(0,0,0).velocity[1] )
+        velocityZ_ZFace   = 0.5*( c(0,0,1).velocity[2] - c(0,0,0).velocity[2] )
+        temperature_ZFace = 0.5*( c(0,0,1).temperature - c(0,0,0).temperature )
+       
+        -- Half cell size due to the 0.5 above
+        velocityX_ZFace   /= (grid_dz*0.5)
+        velocityY_ZFace   /= (grid_dz*0.5)
+        velocityZ_ZFace   /= (grid_dz*0.5)
+        temperature_ZFace /= (grid_dz*0.5)
+
+        -- Tensor components (at face)
+        var sigmaXZ = muFace * ( velocityX_ZFace + velocityZ_XFace )
+        var sigmaYZ = muFace * ( velocityY_ZFace + velocityZ_YFace )
+        var sigmaZZ = muFace * ( 4.0 * velocityZ_ZFace -
+                                 2.0 * velocityX_XFace -
+                                 2.0 * velocityY_YFace ) / 3.0
+        var usigma  = velocityFace[0] * sigmaXZ +
+                      velocityFace[1] * sigmaYZ +
+                      velocityFace[2] * sigmaZZ
+
+        -- Fluxes
+        c.dissipationFlux = usigma
+
+    end
+end
+
+ebb Flow.UpdateDissipationX (c : grid.cells)
+  c.dissipation += (c( 0,0,0).dissipationFlux -
+                    c(-1,0,0).dissipationFlux)/grid_dx
+end
+
+ebb Flow.UpdateDissipationY (c : grid.cells)
+  c.dissipation += (c(0, 0,0).dissipationFlux -
+                    c(0,-1,0).dissipationFlux)/grid_dy
+end
+
+ebb Flow.UpdateDissipationZ (c : grid.cells)
+    c.dissipation += (c(0,0, 0).dissipationFlux -
+                      c(0,0,-1).dissipationFlux)/grid_dz
+end
+
+function Flow.UpdateDissipation (cells)
+  grid.cells:foreach(Flow.ComputeDissipationX)
+  grid.cells.interior:foreach(Flow.UpdateDissipationX)
+  grid.cells:foreach(Flow.ComputeDissipationY)
+  grid.cells.interior:foreach(Flow.UpdateDissipationY)
+  grid.cells:foreach(Flow.ComputeDissipationZ)
+  grid.cells.interior:foreach(Flow.UpdateDissipationZ)
+end
+
+
+-- WARNING: uniform grid assumption
+local ebb averagePD ( c : grid.cells )
+  Flow.averagePD += c.PD * cellVolume
+end
+local ebb averageDissipation ( c : grid.cells )
+  Flow.averageDissipation += c.dissipation * cellVolume
+end
+local ebb averageK ( c : grid.cells )
+  Flow.averageK += 0.5 * c.rho * L.dot(c.velocity,c.velocity) * cellVolume
+end
+function Flow.UpdateTurbulentAverages(cells)
+  
+  cells:foreach(averagePD)
+  Flow.averagePD:set(
+      Flow.averagePD:get()/
+      Flow.areaInterior:get())
+      
+  cells:foreach(averageDissipation)
+  Flow.averageDissipation:set(
+      Flow.averageDissipation:get()/
+      Flow.areaInterior:get())
+      
+  cells:foreach(averageK)
+  Flow.averageK:set(
+      Flow.averageK:get()/
+      Flow.areaInterior:get())
+end
+
+ebb Flow.AddTurbulentSource (c : grid.cells)
+
+  var W   = L.double(0.0)
+  var A   = L.double(0.0)
+  var G   = L.double(0.0)
+  var t_o = L.double(0.0)
+  var K_o = L.double(0.0)
+  var force = L.vec3d({0.0,0.0,0.0})
+
+  -- Compute W (pressure dilatation term and dissipation)
+  W = Flow.averagePD + Flow.averageDissipation
+
+  -- Compute forcing coefficient using gain controller
+  -- Inputs: G, t_o, Ko, where G ~ 300.0, t_o ~ L_o / u_o, L_o is domain length, 
+  -- u_o ~ from Re relationship or sqrt(K_o/rho_o)
+  G   = 500.0
+  t_o = 6.01777E-07
+  K_o = 1656.837
+
+  A =  ( - W - G * ( Flow.averageK - K_o ) / t_o  ) / (2.0 * Flow.averageK)
+
+  -- Compute the turbulent force vector
+  force = c.rho * A * c.velocity
+
+  --L.print(Flow.averagePD, Flow.averageDissipation, Flow.averageK, A)
+
+  -- Add the forcing terms to the momentum and energy equations
+  c.rhoVelocity_t += force
+  c.rhoEnergy_t   += L.dot(force,c.velocity)
+
+  -- Store the increment in the average energy source (to be subtracted later)
+  -- WARNING: Uniform grid assumption
+  var cellVolume = grid_dx * grid_dy * grid_dz
+  Flow.averageFe += L.dot(force,c.velocity) * cellVolume
+
+end
+
+ebb Flow.AdjustTurbulentSource (c : grid.cells)
+
+  -- Remove the average of the forcing term that has been added to the energy
+  -- equation so that the flow can reach a statistical steady state.
+  -- Note that this has been pre-computed before reaching this kernel (above).
+
+  c.rhoEnergy_t -= Flow.averageFe
+
+end
+
+-- One high level routine that runs all steps
+function Flow.AddTurbulentForcing (cells)
+  
+  -- Need to reset these averages somewhere
+  
+  Flow.averagePD:set(0.0)
+  Flow.averageDissipation:set(0.0)
+  Flow.averageFe:set(0.0)
+  Flow.averageK:set(0.0)
+  
+  grid.cells.interior:foreach(Flow.UpdatePD)
+  Flow.UpdateDissipation(cells)
+
+  -- average PD and EPS
+  Flow.UpdateTurbulentAverages(cells)
+  
+  -- Compute A & force, f_i
+  -- Add rho * A * u_i to momentum, f_i*u_i to energy, accumulate f_i*u_i for average
+  grid.cells.interior:foreach(Flow.AddTurbulentSource)
+  
+  -- Update average of the energy source
+  Flow.averageFe:set(Flow.averageFe:get()/Flow.areaInterior:get())
+      
+  -- Subtract <f_e> from energy
+  grid.cells.interior:foreach(Flow.AdjustTurbulentSource)
+  
 end
 
 -------------------
@@ -2269,15 +2581,6 @@ end
 -- Statistics
 -------------
 
--- WARNING: update cellVolume computation for non-uniform grids
-local cellVolume = L.Constant(L.double,
-                              grid_dx:get() * grid_dy:get() * grid_dz:get())
-local ebb numberOfInteriorCells ( c : grid.cells )
-  Flow.numberOfInteriorCells    += 1
-end
-local ebb areaInterior          ( c : grid.cells )
-  Flow.areaInterior             += cellVolume
-end
 local ebb averagePressure       ( c : grid.cells )
   Flow.averagePressure          += c.pressure * cellVolume
 end
@@ -2294,8 +2597,6 @@ local ebb maxTemperature        ( c : grid.cells )
   Flow.maxTemperature         max= c.temperature
 end
 function Flow.IntegrateQuantities(cells)
-  cells:foreach(numberOfInteriorCells)
-  cells:foreach(areaInterior         )
   cells:foreach(averagePressure      )
   cells:foreach(averageTemperature   )
   cells:foreach(averageKineticEnergy )
@@ -3286,7 +3587,9 @@ function TimeIntegrator.ComputeDFunctionDt()
     Flow.AddViscous()
     Flow.averageHeatSource:set(0.0)
     grid.cells.interior:foreach(Flow.AddBodyForces)
+    
     --grid.cells.interior:foreach(Flow.AddTurbulentForcing)
+    Flow.AddTurbulentForcing(grid.cells.interior)
     
     -- Compute residuals for the particles (locate all particles first)
     if particles_options.modeParticles == ON then
@@ -3381,13 +3684,13 @@ end
 -------------
 
 function Statistics.ResetSpatialAverages()
-    Flow.numberOfInteriorCells:set(0)
-    Flow.areaInterior:set(0)
     Flow.averagePressure:set(0.0)
     Flow.averageTemperature:set(0.0)
     Flow.averageKineticEnergy:set(0.0)
     Flow.minTemperature:set(math.huge)
     Flow.maxTemperature:set(-math.huge)
+    Flow.averagePD:set(0.0)
+    Flow.averageDissipation:set(0.0)
     Particles.averageTemperature:set(0.0)
 end
 
@@ -4289,6 +4592,7 @@ end
 -- Initialize all variables
 
 TimeIntegrator.InitializeVariables()
+Flow.IntegrateGeometricQuantities(grid.cells.interior)
 Statistics.ComputeSpatialAverages()
 IO.WriteOutput(TimeIntegrator.timeStep:get())
 

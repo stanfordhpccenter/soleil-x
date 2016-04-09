@@ -9,13 +9,13 @@ return {
   -----------------------------------------------------------------------------
   --[[                            GRID OPTIONS                             ]]--
   -----------------------------------------------------------------------------
-  xnum = 32,                -- Number of internal cells in the x-direction
-  ynum = 32,                -- Number of internal cells in the y-direction
-  znum = 32,                 -- Number of internal cells in the z-direction
+  xnum = 64,                -- Number of internal cells in the x-direction
+  ynum = 64,                -- Number of internal cells in the y-direction
+  znum = 64,                 -- Number of internal cells in the z-direction
   origin = {0.0, 0.0, 0.0}, -- Spatial origin of the computational domain
-  xWidth = 6.283185307179586, -- Physical length of the domain in the x-dir. [m]
-  yWidth = 6.283185307179586, -- Physical length of the domain in the y-dir. [m]
-  zWidth = 6.283185307179586, -- Physical length of the domain in the z-dir. [m]
+  xWidth = 1e-4, -- Physical length of the domain in the x-dir. [m]
+  yWidth = 1e-4, -- Physical length of the domain in the y-dir. [m]
+  zWidth = 1e-4, -- Physical length of the domain in the z-dir. [m]
   xBCLeft  = 'periodic',         -- Boundary conditions on each boundary face.
   xBCLeftVel = {0.0, 0.0, 0.0},  -- Opposite faces must match. Options are
   xBCLeftTemp = 0.0,             -- 'periodic', 'symmetry', 'adiabatic_wall', or
@@ -38,10 +38,10 @@ return {
   -----------------------------------------------------------------------------
   --[[                        FLUID PHASE OPTIONS                          ]]--
   -----------------------------------------------------------------------------
-  initCase = 'Uniform',         -- 'Uniform', 'Restart', 'TaylorGreen2DVortex',
+  initCase = 'Perturbed',         -- 'Uniform', 'Restart', 'TaylorGreen2DVortex',
                                 --  'TaylorGreen3DVortex' or 'Perturbed'
-  restartIter = 3042000,              -- Starting iteration number for flow restart
-  initParams = {1.225,101325.0,0.0,0.0,0.0}, -- Input flow conditions.
+  restartIter = 0,              -- Starting iteration number for flow restart
+  initParams = {1.225,96648.825,0.0,0.0,0.0}, -- Input flow conditions.
                                 -- Uniform: {density, pressure, u, v, w}
                                 -- Restart: unused
                                 -- TGV 2D: {density, pressure, vel, null, null}
@@ -101,8 +101,8 @@ return {
   --[[                      TIME INTEGRATION OPTIONS                       ]]--
   -----------------------------------------------------------------------------
   final_time = 3000.00001, -- Maximum physical time for the simulation [s]
-  max_iter = 1000000,         -- Maximum number of iterations
-  cfl = 0.5,               -- CFL condition. Setting this to a negative value
+  max_iter = 500000,         -- Maximum number of iterations
+  cfl = 0.1,               -- CFL condition. Setting this to a negative value
                            -- imposes a fixed time step that is given by
                            -- the 'delta_time' config option.
   delta_time = 1e-8,       -- Fixed time step [s], ignored if CFL > 0.0
@@ -113,12 +113,12 @@ return {
   wrtRestart = 'ON',            -- Enable restart file output, 'ON' or 'OFF'
   wrtVolumeSolution = 'ON',     -- Enable volume solution output
   outputFormat = 'Tecplot',     -- Volume solution format, 'Tecplot' only
-  wrt1DSlice = 'ON',            -- Enable CSV slices at centerlines
-  wrtParticleEvolution = 'ON', -- Enable tracking of a single particle
+  wrt1DSlice = 'OFF',            -- Enable CSV slices at centerlines
+  wrtParticleEvolution = 'OFF', -- Enable tracking of a single particle
   particleEvolutionIndex = 0,   -- Index of particle to be tracked
-  outputEveryTimeSteps  = 3000, -- Iterations between writing solutions
-  restartEveryTimeSteps = 3000, -- Iterations between writing restarts
+  outputEveryTimeSteps  = 100000, -- Iterations between writing solutions
+  restartEveryTimeSteps = 100000, -- Iterations between writing restarts
   consoleFrequency = 1,  -- Iterations between console output of statistics
-  headerFrequency       = 10000001   -- Iterations between console output headers
+  headerFrequency       = 5000001   -- Iterations between console output headers
 
 }
