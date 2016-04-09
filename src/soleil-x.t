@@ -2087,7 +2087,12 @@ ebb Flow.UpdateDissipationZ (c : grid.cells)
                       c(0,0,-1).dissipationFlux)/grid_dz
 end
 
+ebb Flow.ResetDissipation (c : grid.cells)
+  c.dissipation = 0.0
+end
+
 function Flow.UpdateDissipation (cells)
+  grid.cells:foreach(Flow.ResetDissipation)
   grid.cells:foreach(Flow.ComputeDissipationX)
   grid.cells.interior:foreach(Flow.UpdateDissipationX)
   grid.cells:foreach(Flow.ComputeDissipationY)
@@ -2140,9 +2145,9 @@ ebb Flow.AddTurbulentSource (c : grid.cells)
   -- Compute forcing coefficient using gain controller
   -- Inputs: G, t_o, Ko, where G ~ 300.0, t_o ~ L_o / u_o, L_o is domain length, 
   -- u_o ~ from Re relationship or sqrt(K_o/rho_o)
-  G   = 500.0
-  t_o = 6.01777E-07
-  K_o = 1656.837
+  G   = 300.0
+  t_o = 3.00889E-06
+  K_o = 66.27348
 
   A =  ( - W - G * ( Flow.averageK - K_o ) / t_o  ) / (2.0 * Flow.averageK)
 

@@ -9,9 +9,9 @@ return {
   -----------------------------------------------------------------------------
   --[[                            GRID OPTIONS                             ]]--
   -----------------------------------------------------------------------------
-  xnum = 64,                -- Number of internal cells in the x-direction
-  ynum = 64,                -- Number of internal cells in the y-direction
-  znum = 64,                 -- Number of internal cells in the z-direction
+  xnum = 32,                -- Number of internal cells in the x-direction
+  ynum = 32,                -- Number of internal cells in the y-direction
+  znum = 32,                 -- Number of internal cells in the z-direction
   origin = {0.0, 0.0, 0.0}, -- Spatial origin of the computational domain
   xWidth = 1e-4, -- Physical length of the domain in the x-dir. [m]
   yWidth = 1e-4, -- Physical length of the domain in the y-dir. [m]
@@ -38,7 +38,7 @@ return {
   -----------------------------------------------------------------------------
   --[[                        FLUID PHASE OPTIONS                          ]]--
   -----------------------------------------------------------------------------
-  initCase = 'Perturbed',         -- 'Uniform', 'Restart', 'TaylorGreen2DVortex',
+  initCase = 'Restart',         -- 'Uniform', 'Restart', 'TaylorGreen2DVortex',
                                 --  'TaylorGreen3DVortex' or 'Perturbed'
   restartIter = 0,              -- Starting iteration number for flow restart
   initParams = {1.225,96648.825,0.0,0.0,0.0}, -- Input flow conditions.
@@ -103,7 +103,7 @@ return {
   -----------------------------------------------------------------------------
   final_time = 3000.00001, -- Maximum physical time for the simulation [s]
   max_iter = 500000,         -- Maximum number of iterations
-  cfl = 0.3,               -- CFL condition. Setting this to a negative value
+  cfl = -2.0,               -- CFL condition. Setting this to a negative value
                            -- imposes a fixed time step that is given by
                            -- the 'delta_time' config option.
   delta_time = 1e-8,       -- Fixed time step [s], ignored if CFL > 0.0
@@ -120,6 +120,6 @@ return {
   outputEveryTimeSteps  = 100000, -- Iterations between writing solutions
   restartEveryTimeSteps = 100000, -- Iterations between writing restarts
   consoleFrequency = 1,  -- Iterations between console output of statistics
-  headerFrequency       = 5000001   -- Iterations between console output headers
+  headerFrequency       = 20   -- Iterations between console output headers
 
 }
