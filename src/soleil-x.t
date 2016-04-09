@@ -2248,7 +2248,7 @@ end
 ebb Flow.UpdateAuxiliaryVelocity (c : grid.cells)
     var velocity = c.rhoVelocity / c.rho
     c.velocity = velocity
-    c.kineticEnergy = 0.5 *  L.dot(velocity,velocity)
+    c.kineticEnergy = 0.5 *  c.rho * L.dot(velocity,velocity)
 end
 
 -- Helper function for updating the ghost fields to minimize repeated code
