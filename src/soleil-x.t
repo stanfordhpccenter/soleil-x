@@ -1886,9 +1886,7 @@ ebb Flow.AddBodyForces (c : grid.cells)
 
     -- Compute average heat source contribution in case we would
     -- like to subtract this later to recover a steady solution with radiation.
-    if radiation_options.zeroAvgHeatSource == ON then
-      Flow.averageHeatSource += -c.rho * L.dot(flow_options.bodyForce,c.velocity)
-    end
+    --Flow.averageHeatSource += -c.rho * L.dot(flow_options.bodyForce,c.velocity)
 
 end
 
