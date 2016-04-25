@@ -1852,7 +1852,9 @@ ebb Flow.AddParticlesCoupling (p : particles)
     -- In case we want to hold a fixed temperature by subtracting
     -- a constant heat flux from the fluid, compute the avg. 
     -- deltaTemperatureTerm to be adjusted later (note change in sign)
-    Flow.averageHeatSource += p.deltaTemperatureTerm / cellVolume
+    if radiation_options.zeroAvgHeatSource == ON then
+      Flow.averageHeatSource += p.deltaTemperatureTerm / cellVolume
+    end
 
 end
 end
@@ -1860,12 +1862,14 @@ end
 -- Holding avg. temperature fixed in the presence of radiation
 --------------
 
+if radiation_options.zeroAvgHeatSource == ON then
 ebb Flow.AdjustHeatSource (c : grid.cells)
 
     -- Remove a constant heat flux in all cells to balance with radiation.
     -- Note that this has been pre-computed before reaching this kernel (above).
     c.rhoEnergy_t += Flow.averageHeatSource
 
+end
 end
 
 --------------
@@ -1882,7 +1886,9 @@ ebb Flow.AddBodyForces (c : grid.cells)
 
     -- Compute average heat source contribution in case we would
     -- like to subtract this later to recover a steady solution with radiation.
-    Flow.averageHeatSource += -c.rho * L.dot(flow_options.bodyForce,c.velocity)
+    if radiation_options.zeroAvgHeatSource == ON then
+      Flow.averageHeatSource += -c.rho * L.dot(flow_options.bodyForce,c.velocity)
+    end
 
 end
 
@@ -3599,7 +3605,9 @@ function TimeIntegrator.ComputeDFunctionDt()
     Flow.AddInviscid()
     Flow.UpdateGhostVelocityGradient()
     Flow.AddViscous()
-    Flow.averageHeatSource:set(0.0)
+    if radiation_options.zeroAvgHeatSource == ON then
+      Flow.averageHeatSource:set(0.0)
+    end
     grid.cells.interior:foreach(Flow.AddBodyForces)
     
     if flow_options.turbForcing == ON then
