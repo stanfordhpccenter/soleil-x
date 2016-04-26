@@ -64,7 +64,7 @@ return {
   -----------------------------------------------------------------------------
   --[[                       PARTICLE PHASE OPTIONS                        ]]--
   -----------------------------------------------------------------------------
-  modeParticles = 'ON',
+  modeParticles = 'OFF',
   initParticles = 'Random',        -- Particle init: 'Random' or 'Restart'
   restartParticleIter = 0,         -- Starting iteration for particle restart
   particleType = 'Free',          -- Particle can be 'Fixed' or 'Free' to move
@@ -101,7 +101,7 @@ return {
   --[[                      TIME INTEGRATION OPTIONS                       ]]--
   -----------------------------------------------------------------------------
   final_time = 2000.00001, -- Maximum physical time for the simulation [s]
-  max_iter = 5000,         -- Maximum number of iterations
+  max_iter = 50000,         -- Maximum number of iterations
   cfl = 2.5,               -- CFL condition. Setting this to a negative value
                            -- imposes a fixed time step that is given by
                            -- the 'delta_time' config option.
@@ -116,8 +116,8 @@ return {
   wrt1DSlice = 'ON',            -- Enable CSV slices at centerlines
   wrtParticleEvolution = 'ON', -- Enable tracking of a single particle
   particleEvolutionIndex = 0,   -- Index of particle to be tracked
-  outputEveryTimeSteps  = 100, -- Iterations between writing solutions
-  restartEveryTimeSteps = 100, -- Iterations between writing restarts
+  outputEveryTimeSteps  = 1000, -- Iterations between writing solutions
+  restartEveryTimeSteps = 1000, -- Iterations between writing restarts
   consoleFrequency = 1,  -- Iterations between console output of statistics
   headerFrequency       = 20   -- Iterations between console output headers
 
