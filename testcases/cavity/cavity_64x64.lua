@@ -9,7 +9,7 @@ return {
   bodyForce = {0,0.0,0}, -- body force in x, y, z
   turbForceCoeff = 0.0,         -- Turbulent linear forcing coefficient (f = A*rho*u)
   turbForcing = 'OFF',          -- Turn turbulent forcing on or off
-  restartIter = 20000,
+  restartIter = 50000,
   
   -- Grid Options --
   xnum = 64, -- number of cells in the x-direction
@@ -70,7 +70,7 @@ return {
   suth_s_ref = 110.4,           -- Sutherland's Law S constant [K]
   
   -- Particle Options --
-  modeParticles = 'ON',
+  modeParticles = 'OFF',
   initParticles = 'Uniform', -- 'Random' or 'Restart'
   restartParticleIter = 0,
   particleType = 'Free', -- Fixed or Free

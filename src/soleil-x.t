@@ -4421,7 +4421,7 @@ function IO.WriteY0SliceVec (timeStep, field, filename)
     local outputFile = io.output(IO.outputFileNamePrefix .. filename)
     
     -- CSV header
-    io.write('x, ' .. field .. '\n')
+    io.write('x, ' .. field .. '_1, ' .. field .. '_2, ' .. field .. '_3\n')
     
     -- Check for the vertical center of the domain and write the x-vel
     grid.cells:Dump({ 'centerCoordinates', field },
@@ -4446,7 +4446,7 @@ function IO.WriteY0SliceVec (timeStep, field, filename)
         and z < (gridOriginInteriorZ + grid_options.zWidth)
         and z > (gridOriginInteriorZ)
       then
-        s = tostring(y) .. ', ' .. tostring(field[1]) .. ', '
+        s = tostring(x) .. ', ' .. tostring(field[1]) .. ', '
                                 .. tostring(field[2]) .. ', '
                                 .. tostring(field[3]) .. '\n'
         io.write(s)
