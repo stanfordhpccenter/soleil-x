@@ -3754,7 +3754,7 @@ function IO.WriteConsoleOutput(timeStep)
       end
       io.stdout:write("\n")
       io.stdout:write(
-        string.format("%11s", 'Wall Time'),
+        string.format("%14s", 'Wall Time'),
         string.format("%8s",'    Iter'),
         string.format("%12s",'   Time(s)'),
         string.format("%12s",'Avg Press'),
@@ -3775,7 +3775,7 @@ function IO.WriteConsoleOutput(timeStep)
     local s = ffi.new("char[20]")
     C.localtime_str(s)
 
-    io.stdout:write(ffi.string(s),
+    io.stdout:write("t: ", ffi.string(s),
                     string.format("%8d",timeStep),
                     string.format(" %11.6f",TimeIntegrator.simTime:get()),
                     string.format(" %11.6f",Flow.averagePressure:get()),
