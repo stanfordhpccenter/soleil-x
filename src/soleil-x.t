@@ -2262,6 +2262,7 @@ function Flow.GenerateUpdateFunctions(relation, stage)
 end
 for sdx = 1, 4 do
     Flow.UpdateFunctions[sdx] = Flow.GenerateUpdateFunctions(grid.cells, sdx)
+    Flow.UpdateFunctions[sdx]:setname('FlowUpdate_'..tostring(sdx))
 end
 
 ebb Flow.UpdateAuxiliaryVelocity (c : grid.cells)
