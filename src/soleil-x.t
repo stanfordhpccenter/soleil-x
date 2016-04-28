@@ -1468,6 +1468,10 @@ ebb Flow.InitializeTimeDerivatives (c : grid.cells)
     c.rho_t         = L.double(0.0)
     c.rhoVelocity_t = L.vec3d({0.0, 0.0, 0.0})
     c.rhoEnergy_t   = L.double(0.0)
+
+    -- Also initialize the enthalpy here for the inviscid fluxes
+    c.rhoEnthalpy = c.rhoEnergy + c.pressure
+
 end
 
 -----------
@@ -1475,9 +1479,9 @@ end
 -----------
 
 -- Initialize enthalpy and derivatives
-ebb Flow.AddInviscidInitialize (c : grid.cells)
-    c.rhoEnthalpy = c.rhoEnergy + c.pressure
-end
+--ebb Flow.AddInviscidInitialize (c : grid.cells)
+--    c.rhoEnthalpy = c.rhoEnergy + c.pressure
+--end
 
 -- Routine that computes the inviscid flux through the face of 
 -- any two adjacent cells with a centered scheme. The left cell (c_l),
@@ -1542,7 +1546,7 @@ ebb Flow.CenteredInviscidFlux (c_l, c_r, direction)
 end
 
 -- Compute inviscid fluxes in all directions.
-ebb Flow.AddInviscidGetFlux (c : grid.cells)
+ebb Flow.AddGetFlux (c : grid.cells)
 
     if c.in_interior or c.xneg_depth == 1 then
       
@@ -1585,48 +1589,7 @@ ebb Flow.AddInviscidGetFlux (c : grid.cells)
       c.rhoEnergyFluxZ   =  flux[4]
       
     end
-end
 
--- Update conserved variables using flux values from previous part
--- write conserved variables, read flux variables
--- WARNING_START For non-uniform grids, the metrics used below 
--- (grid_dx, grid_dy, grid_dz) are not appropriate and should be changed
--- to reflect those expressed in the Python prototype code
--- WARNING_END
-ebb Flow.AddInviscidUpdateUsingFlux (c : grid.cells)
-
-    -- X-direction
-    c.rho_t += -(c( 0,0,0).rhoFluxX -
-                 c(-1,0,0).rhoFluxX)/grid_dx
-    c.rhoVelocity_t += -(c( 0,0,0).rhoVelocityFluxX -
-                         c(-1,0,0).rhoVelocityFluxX)/grid_dx
-    c.rhoEnergy_t += -(c( 0,0,0).rhoEnergyFluxX -
-                       c(-1,0,0).rhoEnergyFluxX)/grid_dx
-
-    -- Y-direction
-    c.rho_t += -(c(0, 0,0).rhoFluxY -
-                 c(0,-1,0).rhoFluxY)/grid_dy
-    c.rhoVelocity_t += -(c(0, 0,0).rhoVelocityFluxY -
-                         c(0,-1,0).rhoVelocityFluxY)/grid_dy
-    c.rhoEnergy_t += -(c(0, 0,0).rhoEnergyFluxY -
-                       c(0,-1,0).rhoEnergyFluxY)/grid_dy
-
-    -- Z-direction
-    c.rho_t += -(c(0,0, 0).rhoFluxZ -
-                 c(0,0,-1).rhoFluxZ)/grid_dz
-    c.rhoVelocity_t += -(c(0,0, 0).rhoVelocityFluxZ -
-                         c(0,0,-1).rhoVelocityFluxZ)/grid_dz
-    c.rhoEnergy_t += -(c(0,0, 0).rhoEnergyFluxZ -
-                       c(0,0,-1).rhoEnergyFluxZ)/grid_dz
-
-end
-
-----------
--- Viscous
-----------
-
--- Compute viscous fluxes in all directions
-ebb Flow.AddViscousGetFlux (c : grid.cells)
     -- Consider first boundary element (c.xneg_depth == 1) to define left flux
     -- on first interior cell
     if c.in_interior or c.xneg_depth == 1 then
@@ -1680,10 +1643,10 @@ ebb Flow.AddViscousGetFlux (c : grid.cells)
         var heatFlux = - (cp*muFace/fluid_options.prandtl)*temperature_XFace
 
         -- Fluxes
-        c.rhoVelocityFluxX[0] = sigmaXX
-        c.rhoVelocityFluxX[1] = sigmaYX
-        c.rhoVelocityFluxX[2] = sigmaZX
-        c.rhoEnergyFluxX = usigma - heatFlux
+        c.rhoVelocityFluxX[0] -= sigmaXX
+        c.rhoVelocityFluxX[1] -= sigmaYX
+        c.rhoVelocityFluxX[2] -= sigmaZX
+        c.rhoEnergyFluxX -= usigma - heatFlux
         -- WARNING: Add SGS terms for LES
 
     end
@@ -1741,10 +1704,10 @@ ebb Flow.AddViscousGetFlux (c : grid.cells)
         var heatFlux = - (cp*muFace/fluid_options.prandtl)*temperature_YFace
 
         -- Fluxes
-        c.rhoVelocityFluxY[0] = sigmaXY
-        c.rhoVelocityFluxY[1] = sigmaYY
-        c.rhoVelocityFluxY[2] = sigmaZY
-        c.rhoEnergyFluxY = usigma - heatFlux
+        c.rhoVelocityFluxY[0] -= sigmaXY
+        c.rhoVelocityFluxY[1] -= sigmaYY
+        c.rhoVelocityFluxY[2] -= sigmaZY
+        c.rhoEnergyFluxY -= usigma - heatFlux
         -- WARNING: Add SGS terms for LES
 
     end
@@ -1802,36 +1765,83 @@ ebb Flow.AddViscousGetFlux (c : grid.cells)
         var heatFlux = - (cp*muFace/fluid_options.prandtl)*temperature_ZFace
 
         -- Fluxes
-        c.rhoVelocityFluxZ[0] = sigmaXZ
-        c.rhoVelocityFluxZ[1] = sigmaYZ
-        c.rhoVelocityFluxZ[2] = sigmaZZ
-        c.rhoEnergyFluxZ = usigma - heatFlux
+        c.rhoVelocityFluxZ[0] -= sigmaXZ
+        c.rhoVelocityFluxZ[1] -= sigmaYZ
+        c.rhoVelocityFluxZ[2] -= sigmaZZ
+        c.rhoEnergyFluxZ -= usigma - heatFlux
         -- WARNING: Add SGS terms for LES
 
     end
+
 end
 
-ebb Flow.AddViscousUpdateUsingFlux (c : grid.cells)
+-- Update conserved variables using flux values from previous part
+-- write conserved variables, read flux variables
+-- WARNING_START For non-uniform grids, the metrics used below 
+-- (grid_dx, grid_dy, grid_dz) are not appropriate and should be changed
+-- to reflect those expressed in the Python prototype code
+-- WARNING_END
+ebb Flow.AddUpdateUsingFlux (c : grid.cells)
 
     -- X-direction
-    c.rhoVelocity_t += (c( 0,0,0).rhoVelocityFluxX -
-                        c(-1,0,0).rhoVelocityFluxX)/grid_dx
-    c.rhoEnergy_t   += (c( 0,0,0).rhoEnergyFluxX -
-                        c(-1,0,0).rhoEnergyFluxX)/grid_dx
+    c.rho_t += -(c( 0,0,0).rhoFluxX -
+                 c(-1,0,0).rhoFluxX)/grid_dx
+    c.rhoVelocity_t += -(c( 0,0,0).rhoVelocityFluxX -
+                         c(-1,0,0).rhoVelocityFluxX)/grid_dx
+    c.rhoEnergy_t += -(c( 0,0,0).rhoEnergyFluxX -
+                       c(-1,0,0).rhoEnergyFluxX)/grid_dx
 
     -- Y-direction
-    c.rhoVelocity_t += (c(0, 0,0).rhoVelocityFluxY -
-                        c(0,-1,0).rhoVelocityFluxY)/grid_dy
-    c.rhoEnergy_t   += (c(0, 0,0).rhoEnergyFluxY -
-                        c(0,-1,0).rhoEnergyFluxY)/grid_dy
+    c.rho_t += -(c(0, 0,0).rhoFluxY -
+                 c(0,-1,0).rhoFluxY)/grid_dy
+    c.rhoVelocity_t += -(c(0, 0,0).rhoVelocityFluxY -
+                         c(0,-1,0).rhoVelocityFluxY)/grid_dy
+    c.rhoEnergy_t += -(c(0, 0,0).rhoEnergyFluxY -
+                       c(0,-1,0).rhoEnergyFluxY)/grid_dy
 
     -- Z-direction
-    c.rhoVelocity_t += (c(0,0, 0).rhoVelocityFluxZ -
-                        c(0,0,-1).rhoVelocityFluxZ)/grid_dz
-    c.rhoEnergy_t   += (c(0,0, 0).rhoEnergyFluxZ -
-                        c(0,0,-1).rhoEnergyFluxZ)/grid_dz
+    c.rho_t += -(c(0,0, 0).rhoFluxZ -
+                 c(0,0,-1).rhoFluxZ)/grid_dz
+    c.rhoVelocity_t += -(c(0,0, 0).rhoVelocityFluxZ -
+                         c(0,0,-1).rhoVelocityFluxZ)/grid_dz
+    c.rhoEnergy_t += -(c(0,0, 0).rhoEnergyFluxZ -
+                       c(0,0,-1).rhoEnergyFluxZ)/grid_dz
 
 end
+
+----------
+-- Viscous
+----------
+
+-- Compute viscous fluxes in all directions
+--ebb Flow.AddViscousGetFlux (c : grid.cells)
+--
+--
+--end
+
+--
+--ebb Flow.AddViscousUpdateUsingFlux (c : grid.cells)
+--
+--    -- X-direction
+--    c.rhoVelocity_t += (c( 0,0,0).rhoVelocityFluxX -
+--                        c(-1,0,0).rhoVelocityFluxX)/grid_dx
+--    c.rhoEnergy_t   += (c( 0,0,0).rhoEnergyFluxX -
+--                        c(-1,0,0).rhoEnergyFluxX)/grid_dx
+--
+--    -- Y-direction
+--    c.rhoVelocity_t += (c(0, 0,0).rhoVelocityFluxY -
+--                        c(0,-1,0).rhoVelocityFluxY)/grid_dy
+--    c.rhoEnergy_t   += (c(0, 0,0).rhoEnergyFluxY -
+--                        c(0,-1,0).rhoEnergyFluxY)/grid_dy
+--
+--    -- Z-direction
+--    c.rhoVelocity_t += (c(0,0, 0).rhoVelocityFluxZ -
+--                        c(0,0,-1).rhoVelocityFluxZ)/grid_dz
+--    c.rhoEnergy_t   += (c(0,0, 0).rhoEnergyFluxZ -
+--                        c(0,0,-1).rhoEnergyFluxZ)/grid_dz
+--
+--end
+
 
 ---------------------
 -- Particles coupling
@@ -3395,20 +3405,15 @@ function Flow.InitializePrimitives()
     end
 end
 
-function Flow.AddInviscid()
-    grid.cells:foreach(Flow.AddInviscidInitialize)
-    grid.cells:foreach(Flow.AddInviscidGetFlux)
-    grid.cells.interior:foreach(Flow.AddInviscidUpdateUsingFlux)
-end
-
 function Flow.UpdateGhostVelocityGradient()
-    grid.cells:foreach(Flow.UpdateGhostVelocityGradientStep1)
-    grid.cells:foreach(Flow.UpdateGhostVelocityGradientStep2)
+  grid.cells:foreach(Flow.UpdateGhostVelocityGradientStep1)
+  grid.cells:foreach(Flow.UpdateGhostVelocityGradientStep2)
 end
 
-function Flow.AddViscous()
-    grid.cells:foreach(Flow.AddViscousGetFlux)
-    grid.cells.interior:foreach(Flow.AddViscousUpdateUsingFlux)
+function Flow.AddFluxes()
+    --grid.cells:foreach(Flow.AddInviscidInitialize)
+    grid.cells:foreach(Flow.AddGetFlux)
+    grid.cells.interior:foreach(Flow.AddUpdateUsingFlux)
 end
 
 function Flow.Update(stage)
@@ -3587,9 +3592,10 @@ end
 function TimeIntegrator.ComputeDFunctionDt()
   
     -- Compute flow convective, viscous, and body force residuals
-    Flow.AddInviscid()
     Flow.UpdateGhostVelocityGradient()
-    Flow.AddViscous()
+    
+    Flow.AddFluxes()
+
     if radiation_options.zeroAvgHeatSource == ON then
       Flow.averageHeatSource:set(0.0)
     end
