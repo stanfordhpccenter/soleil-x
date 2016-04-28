@@ -825,10 +825,15 @@ grid.cells:NewField('rho_t', L.double)                        :Load(0)
 grid.cells:NewField('rhoVelocity_t', L.vec3d)                 :Load({0, 0, 0})
 grid.cells:NewField('rhoEnergy_t', L.double)                  :Load(0)
 -- fluxes
-grid.cells:NewField('rhoFlux', L.double)                      :Load(0)
-grid.cells:NewField('rhoVelocityFlux', L.vec3d)               :Load({0, 0, 0})
-grid.cells:NewField('rhoEnergyFlux', L.double)                :Load(0)
-
+grid.cells:NewField('rhoFluxX', L.double)                      :Load(0)
+grid.cells:NewField('rhoVelocityFluxX', L.vec3d)               :Load({0, 0, 0})
+grid.cells:NewField('rhoEnergyFluxX', L.double)                :Load(0)
+grid.cells:NewField('rhoFluxY', L.double)                      :Load(0)
+grid.cells:NewField('rhoVelocityFluxY', L.vec3d)               :Load({0, 0, 0})
+grid.cells:NewField('rhoEnergyFluxY', L.double)                :Load(0)
+grid.cells:NewField('rhoFluxZ', L.double)                      :Load(0)
+grid.cells:NewField('rhoVelocityFluxZ', L.vec3d)               :Load({0, 0, 0})
+grid.cells:NewField('rhoEnergyFluxZ', L.double)                :Load(0)
 
 -- Temporary, to make it work with Legion without blowing up memory
 grid.cells:TEMPORARY_PrepareForSimulation()
@@ -1526,9 +1531,9 @@ ebb Flow.CenteredInviscidFlux (c_l, c_r, direction)
             rhoEnergyFlux_temp}
 end
 
--- Compute inviscid fluxes in X direction. Include the first boundary
--- cell (c.xneg_depth == 1) to define left flux on first interior cell.
-ebb Flow.AddInviscidGetFluxX (c : grid.cells)
+-- Compute inviscid fluxes in all directions.
+ebb Flow.AddInviscidGetFlux (c : grid.cells)
+
     if c.in_interior or c.xneg_depth == 1 then
       
       -- Compute the inviscid flux with a centered scheme.
@@ -1537,16 +1542,12 @@ ebb Flow.AddInviscidGetFluxX (c : grid.cells)
         var flux = Flow.CenteredInviscidFlux(c(0,0,0), c(1,0,0), 0)
         
         -- Store this flux in the cell to the left of the face.
-        c.rhoFlux         =  flux[0]
-        c.rhoVelocityFlux = {flux[1],flux[2],flux[3]}
-        c.rhoEnergyFlux   =  flux[4]
+        c.rhoFluxX         =  flux[0]
+        c.rhoVelocityFluxX = {flux[1],flux[2],flux[3]}
+        c.rhoEnergyFluxX   =  flux[4]
         
     end
-end
 
--- Compute inviscid fluxes in Y direction. Include the first boundary
--- cell (c.yneg_depth == 1) to define left flux on first interior cell.
-ebb Flow.AddInviscidGetFluxY (c : grid.cells)
     if c.in_interior or c.yneg_depth == 1 then
       
       -- Compute the inviscid flux with a centered scheme.
@@ -1555,16 +1556,12 @@ ebb Flow.AddInviscidGetFluxY (c : grid.cells)
       var flux = Flow.CenteredInviscidFlux(c(0,0,0), c(0,1,0), 1)
       
       -- Store this flux in the cell to the left of the face.
-      c.rhoFlux         =  flux[0]
-      c.rhoVelocityFlux = {flux[1],flux[2],flux[3]}
-      c.rhoEnergyFlux   =  flux[4]
+      c.rhoFluxY         =  flux[0]
+      c.rhoVelocityFluxY = {flux[1],flux[2],flux[3]}
+      c.rhoEnergyFluxY   =  flux[4]
       
     end
-end
 
--- Compute inviscid fluxes in Z direction. Include the first boundary
--- cell (c.zneg_depth == 1) to define left flux on first interior cell.
-ebb Flow.AddInviscidGetFluxZ (c : grid.cells)
     if c.in_interior or c.zneg_depth == 1 then
       
       -- Compute the inviscid flux with a centered scheme.
@@ -1573,9 +1570,9 @@ ebb Flow.AddInviscidGetFluxZ (c : grid.cells)
       var flux = Flow.CenteredInviscidFlux(c(0,0,0), c(0,0,1), 2)
       
       -- Store this flux in the cell to the left of the face.
-      c.rhoFlux         =  flux[0]
-      c.rhoVelocityFlux = {flux[1],flux[2],flux[3]}
-      c.rhoEnergyFlux   =  flux[4]
+      c.rhoFluxZ         =  flux[0]
+      c.rhoVelocityFluxZ = {flux[1],flux[2],flux[3]}
+      c.rhoEnergyFluxZ   =  flux[4]
       
     end
 end
@@ -1586,37 +1583,40 @@ end
 -- (grid_dx, grid_dy, grid_dz) are not appropriate and should be changed
 -- to reflect those expressed in the Python prototype code
 -- WARNING_END
-ebb Flow.AddInviscidUpdateUsingFluxX (c : grid.cells)
-    c.rho_t += -(c( 0,0,0).rhoFlux -
-                 c(-1,0,0).rhoFlux)/grid_dx
-    c.rhoVelocity_t += -(c( 0,0,0).rhoVelocityFlux -
-                         c(-1,0,0).rhoVelocityFlux)/grid_dx
-    c.rhoEnergy_t += -(c( 0,0,0).rhoEnergyFlux -
-                       c(-1,0,0).rhoEnergyFlux)/grid_dx
-end
-ebb Flow.AddInviscidUpdateUsingFluxY (c : grid.cells)
-    c.rho_t += -(c(0, 0,0).rhoFlux -
-                 c(0,-1,0).rhoFlux)/grid_dy
-    c.rhoVelocity_t += -(c(0, 0,0).rhoVelocityFlux -
-                         c(0,-1,0).rhoVelocityFlux)/grid_dy
-    c.rhoEnergy_t += -(c(0, 0,0).rhoEnergyFlux -
-                       c(0,-1,0).rhoEnergyFlux)/grid_dy
-end
-ebb Flow.AddInviscidUpdateUsingFluxZ (c : grid.cells)
-    c.rho_t += -(c(0,0, 0).rhoFlux -
-                 c(0,0,-1).rhoFlux)/grid_dz
-    c.rhoVelocity_t += -(c(0,0, 0).rhoVelocityFlux -
-                         c(0,0,-1).rhoVelocityFlux)/grid_dz
-    c.rhoEnergy_t += -(c(0,0, 0).rhoEnergyFlux -
-                       c(0,0,-1).rhoEnergyFlux)/grid_dz
+ebb Flow.AddInviscidUpdateUsingFlux (c : grid.cells)
+
+    -- X-direction
+    c.rho_t += -(c( 0,0,0).rhoFluxX -
+                 c(-1,0,0).rhoFluxX)/grid_dx
+    c.rhoVelocity_t += -(c( 0,0,0).rhoVelocityFluxX -
+                         c(-1,0,0).rhoVelocityFluxX)/grid_dx
+    c.rhoEnergy_t += -(c( 0,0,0).rhoEnergyFluxX -
+                       c(-1,0,0).rhoEnergyFluxX)/grid_dx
+
+    -- Y-direction
+    c.rho_t += -(c(0, 0,0).rhoFluxY -
+                 c(0,-1,0).rhoFluxY)/grid_dy
+    c.rhoVelocity_t += -(c(0, 0,0).rhoVelocityFluxY -
+                         c(0,-1,0).rhoVelocityFluxY)/grid_dy
+    c.rhoEnergy_t += -(c(0, 0,0).rhoEnergyFluxY -
+                       c(0,-1,0).rhoEnergyFluxY)/grid_dy
+
+    -- Z-direction
+    c.rho_t += -(c(0,0, 0).rhoFluxZ -
+                 c(0,0,-1).rhoFluxZ)/grid_dz
+    c.rhoVelocity_t += -(c(0,0, 0).rhoVelocityFluxZ -
+                         c(0,0,-1).rhoVelocityFluxZ)/grid_dz
+    c.rhoEnergy_t += -(c(0,0, 0).rhoEnergyFluxZ -
+                       c(0,0,-1).rhoEnergyFluxZ)/grid_dz
+
 end
 
 ----------
 -- Viscous
 ----------
 
--- Compute viscous fluxes in X direction
-ebb Flow.AddViscousGetFluxX (c : grid.cells)
+-- Compute viscous fluxes in all directions
+ebb Flow.AddViscousGetFlux (c : grid.cells)
     -- Consider first boundary element (c.xneg_depth == 1) to define left flux
     -- on first interior cell
     if c.in_interior or c.xneg_depth == 1 then
@@ -1670,17 +1670,14 @@ ebb Flow.AddViscousGetFluxX (c : grid.cells)
         var heatFlux = - (cp*muFace/fluid_options.prandtl)*temperature_XFace
 
         -- Fluxes
-        c.rhoVelocityFlux[0] = sigmaXX
-        c.rhoVelocityFlux[1] = sigmaYX
-        c.rhoVelocityFlux[2] = sigmaZX
-        c.rhoEnergyFlux = usigma - heatFlux
+        c.rhoVelocityFluxX[0] = sigmaXX
+        c.rhoVelocityFluxX[1] = sigmaYX
+        c.rhoVelocityFluxX[2] = sigmaZX
+        c.rhoEnergyFluxX = usigma - heatFlux
         -- WARNING: Add SGS terms for LES
 
     end
-end
 
--- Compute viscous fluxes in Y direction
-ebb Flow.AddViscousGetFluxY (c : grid.cells)
     -- Consider first boundary element (c.yneg_depth == 1) to define down flux
     -- on first interior cell
     if c.in_interior or c.yneg_depth == 1 then
@@ -1734,17 +1731,14 @@ ebb Flow.AddViscousGetFluxY (c : grid.cells)
         var heatFlux = - (cp*muFace/fluid_options.prandtl)*temperature_YFace
 
         -- Fluxes
-        c.rhoVelocityFlux[0] = sigmaXY
-        c.rhoVelocityFlux[1] = sigmaYY
-        c.rhoVelocityFlux[2] = sigmaZY
-        c.rhoEnergyFlux = usigma - heatFlux
+        c.rhoVelocityFluxY[0] = sigmaXY
+        c.rhoVelocityFluxY[1] = sigmaYY
+        c.rhoVelocityFluxY[2] = sigmaZY
+        c.rhoEnergyFluxY = usigma - heatFlux
         -- WARNING: Add SGS terms for LES
 
     end
-end
 
--- Compute viscous fluxes in Z direction
-ebb Flow.AddViscousGetFluxZ (c : grid.cells)
     -- Consider first boundary element (c.zneg_depth == 1) to define down flux
     -- on first interior cell
     if c.in_interior or c.zneg_depth == 1 then
@@ -1798,34 +1792,35 @@ ebb Flow.AddViscousGetFluxZ (c : grid.cells)
         var heatFlux = - (cp*muFace/fluid_options.prandtl)*temperature_ZFace
 
         -- Fluxes
-        c.rhoVelocityFlux[0] = sigmaXZ
-        c.rhoVelocityFlux[1] = sigmaYZ
-        c.rhoVelocityFlux[2] = sigmaZZ
-        c.rhoEnergyFlux = usigma - heatFlux
+        c.rhoVelocityFluxZ[0] = sigmaXZ
+        c.rhoVelocityFluxZ[1] = sigmaYZ
+        c.rhoVelocityFluxZ[2] = sigmaZZ
+        c.rhoEnergyFluxZ = usigma - heatFlux
         -- WARNING: Add SGS terms for LES
 
     end
 end
 
-ebb Flow.AddViscousUpdateUsingFluxX (c : grid.cells)
-    c.rhoVelocity_t += (c( 0,0,0).rhoVelocityFlux -
-                        c(-1,0,0).rhoVelocityFlux)/grid_dx
-    c.rhoEnergy_t   += (c( 0,0,0).rhoEnergyFlux -
-                        c(-1,0,0).rhoEnergyFlux)/grid_dx
-end
+ebb Flow.AddViscousUpdateUsingFlux (c : grid.cells)
 
-ebb Flow.AddViscousUpdateUsingFluxY (c : grid.cells)
-    c.rhoVelocity_t += (c(0, 0,0).rhoVelocityFlux -
-                        c(0,-1,0).rhoVelocityFlux)/grid_dy
-    c.rhoEnergy_t   += (c(0, 0,0).rhoEnergyFlux -
-                        c(0,-1,0).rhoEnergyFlux)/grid_dy
-end
+    -- X-direction
+    c.rhoVelocity_t += (c( 0,0,0).rhoVelocityFluxX -
+                        c(-1,0,0).rhoVelocityFluxX)/grid_dx
+    c.rhoEnergy_t   += (c( 0,0,0).rhoEnergyFluxX -
+                        c(-1,0,0).rhoEnergyFluxX)/grid_dx
 
-ebb Flow.AddViscousUpdateUsingFluxZ (c : grid.cells)
-    c.rhoVelocity_t += (c(0,0, 0).rhoVelocityFlux -
-                        c(0,0,-1).rhoVelocityFlux)/grid_dz
-    c.rhoEnergy_t   += (c(0,0, 0).rhoEnergyFlux -
-                        c(0,0,-1).rhoEnergyFlux)/grid_dz
+    -- Y-direction
+    c.rhoVelocity_t += (c(0, 0,0).rhoVelocityFluxY -
+                        c(0,-1,0).rhoVelocityFluxY)/grid_dy
+    c.rhoEnergy_t   += (c(0, 0,0).rhoEnergyFluxY -
+                        c(0,-1,0).rhoEnergyFluxY)/grid_dy
+
+    -- Z-direction
+    c.rhoVelocity_t += (c(0,0, 0).rhoVelocityFluxZ -
+                        c(0,0,-1).rhoVelocityFluxZ)/grid_dz
+    c.rhoEnergy_t   += (c(0,0, 0).rhoEnergyFluxZ -
+                        c(0,0,-1).rhoEnergyFluxZ)/grid_dz
+
 end
 
 ---------------------
@@ -2491,17 +2486,9 @@ end
 ---------------------
 
 -- WARNING: non-uniform grid assumption
-ebb Flow.ComputeVelocityGradientX (c : grid.cells)
+ebb Flow.ComputeVelocityGradient (c : grid.cells)
   c.velocityGradientX = 0.5*(c(1,0,0).velocity - c(-1,0,0).velocity)/grid_dx
-end
-
--- WARNING: non-uniform grid assumption
-ebb Flow.ComputeVelocityGradientY (c : grid.cells)
   c.velocityGradientY = 0.5*(c(0,1,0).velocity - c(0,-1,0).velocity)/grid_dy
-end
-
--- WARNING: non-uniform grid assumption
-ebb Flow.ComputeVelocityGradientZ (c : grid.cells)
   c.velocityGradientZ = 0.5*(c(0,0,1).velocity - c(0,0,-1).velocity)/grid_dz
 end
 
@@ -3400,12 +3387,8 @@ end
 
 function Flow.AddInviscid()
     grid.cells:foreach(Flow.AddInviscidInitialize)
-    grid.cells:foreach(Flow.AddInviscidGetFluxX)
-    grid.cells.interior:foreach(Flow.AddInviscidUpdateUsingFluxX)
-    grid.cells:foreach(Flow.AddInviscidGetFluxY)
-    grid.cells.interior:foreach(Flow.AddInviscidUpdateUsingFluxY)
-    grid.cells:foreach(Flow.AddInviscidGetFluxZ)
-    grid.cells.interior:foreach(Flow.AddInviscidUpdateUsingFluxZ)
+    grid.cells:foreach(Flow.AddInviscidGetFlux)
+    grid.cells.interior:foreach(Flow.AddInviscidUpdateUsingFlux)
 end
 
 function Flow.UpdateGhostVelocityGradient()
@@ -3414,12 +3397,8 @@ function Flow.UpdateGhostVelocityGradient()
 end
 
 function Flow.AddViscous()
-    grid.cells:foreach(Flow.AddViscousGetFluxX)
-    grid.cells.interior:foreach(Flow.AddViscousUpdateUsingFluxX)
-    grid.cells:foreach(Flow.AddViscousGetFluxY)
-    grid.cells.interior:foreach(Flow.AddViscousUpdateUsingFluxY)
-    grid.cells:foreach(Flow.AddViscousGetFluxZ)
-    grid.cells.interior:foreach(Flow.AddViscousUpdateUsingFluxZ)
+    grid.cells:foreach(Flow.AddViscousGetFlux)
+    grid.cells.interior:foreach(Flow.AddViscousUpdateUsingFlux)
 end
 
 function Flow.Update(stage)
@@ -3427,9 +3406,7 @@ function Flow.Update(stage)
 end
 
 function Flow.ComputeVelocityGradients()
-    grid.cells.interior:foreach(Flow.ComputeVelocityGradientX)
-    grid.cells.interior:foreach(Flow.ComputeVelocityGradientY)
-    grid.cells.interior:foreach(Flow.ComputeVelocityGradientZ)
+    grid.cells.interior:foreach(Flow.ComputeVelocityGradient)
 end
 
 function Flow.UpdateAuxiliaryVelocityConservedAndGradients()
