@@ -9,7 +9,7 @@ return {
   -- if you increase the cell number and the calculation diverges
   -- right away, decrease the time step on the next line
   
-  delta_time = 1.0e-4,
+  delta_time = 1.0e-3,
 
   -- Control max iterations here. Set to a very high number if
   -- you want to run the full calculation (it will stop once
@@ -71,7 +71,7 @@ return {
   final_time            = 20.00001,
   
   --- File Output Options --
-  headerFrequency       = 200000,
+  headerFrequency       = 2000000,
   outputFormat = 'Tecplot', --Tecplot or Python
   
   -- Fluid Options --
