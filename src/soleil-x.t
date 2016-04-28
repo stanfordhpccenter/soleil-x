@@ -32,11 +32,22 @@ local L = require "ebblib"
 local dld  = require 'ebb.lib.dld'
 
 local Grid  = require 'ebb.domains.grid' 
+local ffi = require 'ffi'
 local C = terralib.includecstring [[
 #include <math.h> 
 #include <stdlib.h> 
 #include <time.h>
 #include <stdio.h>
+#include <sys/time.h>
+
+void localtime_str(char *buffer)
+{
+  struct timeval t;
+  gettimeofday(&t, 0);
+  struct tm tm;
+  localtime_r(&t.tv_sec, &tm);
+  sprintf(buffer, "%02d:%02d:%02d.%02d", tm.tm_hour, tm.tm_min, tm.tm_sec, (int)(t.tv_usec / 10000));
+}
 
 double rand_double() {
       double r = (double)rand();
@@ -1182,7 +1193,6 @@ io.stdout:write(" Output directory: ", outputdir, "\n")
 print("")
 print("--------------------------- Start Solver ----------------------------")
 print("")
-
 
 -----------------------------------------------------------------------------
 --[[                       USER DEFINED FUNCTIONS                        ]]--
@@ -3749,7 +3759,9 @@ function IO.WriteConsoleOutput(timeStep)
                         string.format(" %d",particles:Size()), ".\n")
       end
       io.stdout:write("\n")
-      io.stdout:write(string.format("%8s",'    Iter'),
+      io.stdout:write(
+        string.format("%14s", 'Wall Time'),
+        string.format("%8s",'    Iter'),
         string.format("%12s",'   Time(s)'),
         string.format("%12s",'Avg Press'),
         string.format("%12s",'Avg Temp'),
@@ -3765,8 +3777,12 @@ function IO.WriteConsoleOutput(timeStep)
     end
 
     -- Output the current stats to the console for this iteration
-    
-    io.stdout:write(string.format("%8d",timeStep),
+
+    local s = ffi.new("char[20]")
+    C.localtime_str(s)
+
+    io.stdout:write("t: ", ffi.string(s),
+                    string.format("%8d",timeStep),
                     string.format(" %11.6f",TimeIntegrator.simTime:get()),
                     string.format(" %11.6f",Flow.averagePressure:get()),
                     string.format(" %11.6f",Flow.averageTemperature:get()),
