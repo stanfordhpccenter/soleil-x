@@ -9,25 +9,26 @@ return {
   -- if you increase the cell number and the calculation diverges
   -- right away, decrease the time step on the next line
   
-  delta_time = 1.0e-3,
+  delta_time = 2.0e-3,
 
   -- Control max iterations here. Set to a very high number if
   -- you want to run the full calculation (it will stop once
   -- it hits the 20.0 second max time set below)
 
-  max_iter = 10,
+  max_iter = 2000000,
+  final_time  = 20.00001,
 
   -- Output options. All output is off by default, but we 
   -- will need to turn it on to check results/make visualizations
  
-  consoleFrequency = 5,  -- Iterations between console output of statistics
+  consoleFrequency = 10,  -- Iterations between console output of statistics
   headerFrequency       = 2000000,
   wrtRestart = 'OFF',
-  wrtVolumeSolution = 'OFF',
+  wrtVolumeSolution = 'ON',
   wrt1DSlice = 'OFF',
   wrtParticleEvolution = 'OFF',
   particleEvolutionIndex = 0,
-  outputEveryTimeSteps  = 50,
+  outputEveryTimeSteps  = 5000,
   restartEveryTimeSteps = 50,
 
   -------------------------------------------
@@ -69,7 +70,6 @@ return {
  
   --Time Integration Options --
   cfl                   = -1.0, -- Negative CFL implies that we will used fixed delta T
-  final_time            = 20.00001,
   
   --- File Output Options --
   outputFormat = 'Tecplot', --Tecplot or Python
