@@ -23,25 +23,29 @@ return {
  
   consoleFrequency = 10,  -- Iterations between console output of statistics
   headerFrequency       = 2000000,
-  wrtRestart = 'OFF',
+  wrtRestart = 'ON',
   wrtVolumeSolution = 'ON',
   wrt1DSlice = 'OFF',
   wrtParticleEvolution = 'OFF',
   particleEvolutionIndex = 0,
-  outputEveryTimeSteps  = 5000,
-  restartEveryTimeSteps = 50,
+  outputEveryTimeSteps  = 1000,
+  restartEveryTimeSteps = 1000,
+
+  -- TO RESTART: set the next option to 'Restart' and then put the 
+  -- iteration number in the second option (the same number appended to the restart_* file)
+  initCase     = 'TaylorGreen3DVortex', -- Uniform, Restart, TaylorGreen2DVortex, TaylorGreen3DVortex
+  restartIter = 1000,
+
 
   -------------------------------------------
   --[ SHOULD NOT NEED TO MODIFY BELOW HERE]--
   -------------------------------------------
 
   -- Flow Initialization  Options --
-  initCase     = 'TaylorGreen3DVortex', -- Uniform, Restart, TaylorGreen2DVortex, TaylorGreen3DVortex
   initParams = {1.0,100.0,1.0,0.0,0.0}, -- for TGV: first three are density, pressure, velocity
   bodyForce = {0,0.0,0}, -- body force in x, y, z
   turbForcing = 'OFF',          -- Turn turbulent forcing on or off
   turbForceCoeff = 0.0,         -- Turbulent linear forcing coefficient (f = A*rho*u)
-  restartIter = 10000,
   
   -- Grid Options -- PERIODICITY
   origin = {0.0, 0.0, 0.0}, -- spatial origin of the computational domain
