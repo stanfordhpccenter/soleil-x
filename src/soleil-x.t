@@ -27,9 +27,7 @@ Copyright (C) 2013-2015, Dr. Thomas D. Economon,
 
 import "ebb"
 local L = require "ebblib"
-
--- dld for terra callbacks (Tecplot output)
-local dld  = require 'ebb.lib.dld'
+local A = require "admiral"
 
 local Grid  = require 'ebb.domains.grid'
 local C = terralib.includecstring [[
@@ -78,10 +76,6 @@ double rand_gauss() {
 local rand_float = L.rand
 
 C.srand(C.time(nil));
-local vdb = require 'ebb.lib.vdb'
-
--- Load the CSV IO library
-local CSV = require 'ebb.io.csv'
 
 -- Load the pathname library, which just provides a couple of
 -- convenience functions for manipulating filesystem paths.
@@ -93,7 +87,7 @@ local PN = require 'ebb.lib.pathname'
 
 local function printUsageAndExit()
   print("Usage : ./ebb [ebb options] ~/path/to/soleil-x.t <options>")
-  print("          -f <parameter file with Soleil-X options> (** required **)")
+  print("          -i <parameter file with Soleil-X options> (** required **)")
   print("          -x <number of grid partitions in the x direction. (default: 1)>")
   print("          -y <number of grid partitions in the y direction. (default: 1)>")
   print("          -z <number of grid partitions in the z direction. (default: 1)>")
@@ -113,7 +107,7 @@ if #arg < 2 then
   printUsageAndExit()
   else
   for i=1,#arg,2 do
-    if arg[i] == '-f' then
+    if arg[i] == '-i' then
         configFileName = arg[i+1]
       elseif arg[i] == '-x' then
         xParts = tonumber(arg[i+1])
@@ -158,7 +152,6 @@ local Particles = {};
 local TimeIntegrator = {};
 local Statistics = {};
 local IO = {};
-local Visualization = {};
 
 -----------------------------------------------------------------------------
 --[[      Global variables used for specialization within functions      ]]--
@@ -203,15 +196,6 @@ IO.Tecplot = L.Global(L.int, 0)
 OFF = L.Global(L.bool, false)
 ON  = L.Global(L.bool, true)
 
------------------------------------------------------------------------------
---[[                       COLORS FOR VISUALIZATION                      ]]--
------------------------------------------------------------------------------
-
-local unity = L.Constant(L.vec3f,{1.0,1.0,1.0})
-local red   = L.Constant(L.vec3f,{1.0,0.0,0.0})
-local green = L.Constant(L.vec3f,{0.0,1.0,0.0})
-local blue  = L.Constant(L.vec3f,{0.0,0.0,1.0})
-local white = L.Constant(L.vec3f,{1.0,1.0,1.0})
 
 -----------------------------------------------------------------------------
 --[[                   INITIALIZE OPTIONS FROM CONFIG                    ]]--
@@ -605,10 +589,6 @@ IO.particleEvolutionIndex = config.particleEvolutionIndex
 -- Store the directory for all output files from the config
 IO.outputFileNamePrefix = outputdir .. '/'
 
--- VDB options. For now, disable VDB (can add back in config.visualize later)
-local vdb_options = {}
-vdb_options.visualize = OFF
-
 
 -----------------------------------------------------------------------------
 --[[                       Load Data for a Restart                       ]]--
@@ -749,13 +729,6 @@ local grid = Grid.NewGrid3d{
               boundary_depth = {xBnum, yBnum, zBnum},
               periodic_boundary = {xBCPeriodic, yBCPeriodic, zBCPeriodic} }
 
-
------------------------------------------------------------------------------
--- Define grid partioning based on command line inputs
-grid.cells:SetPartitions{xParts, yParts, zParts}
-grid.vertices:SetPartitions{xParts, yParts, zParts}
------------------------------------------------------------------------------
-
 -- Define uniform grid spacing
 -- WARNING: These are used for uniform grids and should be replaced by different
 -- metrics for non-uniform ones (see other WARNINGS throughout the code)
@@ -830,10 +803,6 @@ grid.cells:NewField('rhoVelocityFlux', L.vec3d)               :Load({0, 0, 0})
 grid.cells:NewField('rhoEnergyFlux', L.double)                :Load(0)
 
 
--- Temporary, to make it work with Legion without blowing up memory
-grid.cells:TEMPORARY_PrepareForSimulation()
-grid.vertices:TEMPORARY_PrepareForSimulation()
-
 
 -----------------------------------------------------------------------------
 --[[                       PARTICLE PREPROCESSING                        ]]--
@@ -868,11 +837,6 @@ if particles_options.modeParticles == ON then
     size = particles_options.num,
     name = 'particles'
   }
-
-  -----------------------------------------------------------------------------
-  -- Define particle partioning based on command line inputs
-  particles:SetPartitions{pParts}
-  -----------------------------------------------------------------------------
 
   -- Evenly distribute the particles throughout the cells by default. We will
   -- adjust the locations for particular initializations later.
@@ -2646,96 +2610,6 @@ local function value_tostring_comma(val)
 end
 
 
-----------------
--- Visualization
-----------------
-
--- functions to draw particles and velocity for debugging purpose
-ebb Flow.DrawFunction (c : grid.cells)
-    --var xMax = L.double(grid_options.xWidth)
-    --var yMax = L.double(grid_options.yWidth)
-    --var zMax = L.double(grid_options.zWidth)
-    var xMax = 1.0
-    var yMax = 1.0
-    var zMax = 1.0
-    if c(0,0,0).center[0] < grid_originX+grid_dx then
-      var posA : L.vec3d = { c(0,0,0).center[0]/xMax,
-                             c(0,0,0).center[1]/yMax,
-                             c(0,0,0).center[2]/zMax }
-      var posB : L.vec3d = { c(0,0,1).center[0]/xMax,
-                             c(0,0,1).center[1]/yMax,
-                             c(0,0,1).center[2]/zMax }
-      var posC : L.vec3d = { c(0,1,1).center[0]/xMax,
-                             c(0,1,1).center[1]/yMax,
-                             c(0,1,1).center[2]/zMax }
-      var posD : L.vec3d = { c(0,1,0).center[0]/xMax,
-                             c(0,1,0).center[1]/yMax,
-                             c(0,1,0).center[2]/zMax }
-      var value =
-        (c(0,0,0).temperature +
-         c(0,1,0).temperature +
-         c(0,0,1).temperature +
-         c(0,1,1).temperature) / 4.0
-      var minValue = Flow.minTemperature
-      var maxValue = Flow.maxTemperature
-      -- compute a display value in the range 0.0 to 1.0 from the value
-      var scale = (value - minValue)/(maxValue - minValue)
-      vdb.color((1.0-scale)*white)
-      vdb.triangle(posA, posB, posC)
-      vdb.triangle(posA, posD, posC)
-    elseif c(0,0,0).center[1] < grid_originY+grid_dy then
-      var posA : L.vec3d = { c(0,0,0).center[0]/xMax,
-                             c(0,0,0).center[1]/yMax,
-                             c(0,0,0).center[2]/zMax }
-      var posB : L.vec3d = { c(0,0,1).center[0]/xMax,
-                             c(0,0,1).center[1]/yMax,
-                             c(0,0,1).center[2]/zMax }
-      var posC : L.vec3d = { c(1,0,1).center[0]/xMax,
-                             c(1,0,1).center[1]/yMax,
-                             c(1,0,1).center[2]/zMax }
-      var posD : L.vec3d = { c(1,0,0).center[0]/xMax,
-                             c(1,0,0).center[1]/yMax,
-                             c(1,0,0).center[2]/zMax }
-      var value =
-        (c(0,0,0).temperature +
-         c(1,0,0).temperature +
-         c(0,0,1).temperature +
-         c(1,0,1).temperature) / 4.0
-      var minValue = Flow.minTemperature
-      var maxValue = Flow.maxTemperature
-      -- compute a display value in the range 0.0 to 1.0 from the value
-      var scale = (value - minValue)/(maxValue - minValue)
-      vdb.color((1.0-scale)*white)
-      vdb.triangle(posA, posB, posC)
-      vdb.triangle(posA, posD, posC)
-    elseif c(0,0,0).center[2] < grid_originZ+grid_dz then
-      var posA : L.vec3d = { c(0,0,0).center[0]/xMax,
-                             c(0,0,0).center[1]/yMax,
-                             c(0,0,0).center[2]/zMax }
-      var posB : L.vec3d = { c(0,1,0).center[0]/xMax,
-                             c(0,1,0).center[1]/yMax,
-                             c(0,1,0).center[2]/zMax }
-      var posC : L.vec3d = { c(1,1,0).center[0]/xMax,
-                             c(1,1,0).center[1]/yMax,
-                             c(1,1,0).center[2]/zMax }
-      var posD : L.vec3d = { c(1,0,0).center[0]/xMax,
-                             c(1,0,0).center[1]/yMax,
-                             c(1,0,0).center[2]/zMax }
-      var value =
-        (c(0,0,0).temperature +
-         c(1,0,0).temperature +
-         c(0,1,0).temperature +
-         c(1,1,0).temperature) / 4.0
-      var minValue = Flow.minTemperature
-      var maxValue = Flow.maxTemperature
-      -- compute a display value in the range 0.0 to 1.0 from the value
-      var scale = (value - minValue)/(maxValue - minValue)
-      vdb.color((1.0-scale)*white)
-      vdb.triangle(posA, posB, posC)
-      vdb.triangle(posA, posC, posD)
-    end
-end
-
 ------------
 -- PARTICLES
 ------------
@@ -3343,30 +3217,6 @@ if particles_options.modeParticles == ON then
       Particles.averageTemperature += p.temperature
   end
 
-
-  ----------------
-  -- Visualization
-  ----------------
-
-  ebb Particles.DrawFunction (p : particles)
-      --var xMax = L.double(grid_options.xWidth)
-      --var yMax = L.double(grid_options.yWidth)
-      --var zMax = L.double(grid_options.zWidth)
-      var xMax = 1.0
-      var yMax = 1.0
-      var zMax = 1.0
-
-      vdb.color(green)
-
-      var pos : L.vec3d = { p.position[0]/xMax,
-                            p.position[1]/yMax,
-                            p.position[2]/zMax }
-      vdb.point(pos)
-      var vel = p.velocity
-      var v = L.vec3d({ vel[0], vel[1], vel[2] })
-      vdb.line(pos, pos+0.1*v)
-  end
-
 end
 
 -----------------------------------------------------------------------------
@@ -3845,149 +3695,6 @@ function IO.WriteFlowRestart(timeStep)
 
 end
 
--- Terra callback function to jointly dump multiple fields. Here, we use
--- it to write our Tecplot output (ASCII) for the flow phase.
--- Callback can dump fields to stdout/ err/ any kind of file.
--- Callback has read only access to requested fields.
-local terra FlowTecplotTerra(
-  dldarray : &dld.C_DLD,
-  filename : &int8,
-  timeStep : uint8, timePhys : double,
-  nX : uint8, nY : uint8, nZ : uint8,
-  originX:double, originY:double, originZ:double,
-  dX : double, dY : double, dZ : double
-)
-
-  -- Access the density, velocity, pressure, and temperature
-  -- fields and set the appropriate dimensions and strides.
-
-  var rho         = dldarray[0]
-  var stride      = rho.dim_stride
-  var dim         = rho.dim_size
-
-  var velocity    = dldarray[1]
-  var s_v         = velocity.type_stride
-
-  var pressure    = dldarray[2]
-
-  var temperature = dldarray[3]
-
-  var halo_layer  = dldarray[4]
-
-  var halo        = [&int](halo_layer.address)
-
-  -- Get a file pointer and open up the Tecplot file for writing.
-
-  var fp : &C.FILE
-  fp = C.fopen(filename, "w")
-
-  -- Write the Tecplot header for a cell-centered data file.
-
-  C.fprintf(fp,"%s",'TITLE = "Soleil-X Flow Solution"\n')
-  C.fprintf(fp,"%s %s",'VARIABLES = "X", "Y", "Z", "Density", "X-Velocity",',
-            ' "Y-Velocity", "Z-Velocity", "Pressure", "Temperature"\n')
-  C.fprintf(fp, "%s %d %s %f %s %d %s %d %s %d %s",
-                'ZONE STRANDID=', timeStep+1,
-                ' SOLUTIONTIME=', timePhys,
-                ' I=', nX+1,
-                ' J=', nY+1,
-                ' K=', nZ+1,
-                ' DATAPACKING=BLOCK VARLOCATION=([4-9]=CELLCENTERED)\n')
-
-  -- First, write the x, y, and z coords for the vertices. Note that
-  -- we are currently computing these on the fly to avoid issues with
-  -- halo layers/periodic boundaries, etc.
-
-  -- X Coordinates
-  for k = 1, nZ+2 do
-    for j = 1, nY+2 do
-      for i = 1, nX+2 do
-        C.fprintf(fp,"%.16f\n", originX + (dX * (i-1)))
-      end
-    end
-  end
-
-  -- Y Coordinates
-  for k = 1, nZ+2 do
-    for j = 1, nY+2 do
-      for i = 1, nX+2 do
-        C.fprintf(fp,"%.16f\n", originY + (dY * (j-1)))
-      end
-    end
-  end
-
-  -- Z Coordinates
-  for k = 1, nZ+2 do
-    for j = 1, nY+2 do
-      for i = 1, nX+2 do
-        C.fprintf(fp,"%.16f\n", originZ + (dZ * (k-1)))
-      end
-    end
-  end
-
-  -- Density
-  var rhoptr = [&double](rho.address)
-  for k = 0, dim[2] do
-    for j = 0, dim[1] do
-      for i = 0, dim[0] do
-        var linidx  = i*stride[0] + j*stride[1] + k*stride[2]
-        if halo[linidx] == 0 then
-          var val   = rhoptr[linidx]
-          C.fprintf(fp,"%.16f\n",val)
-        end
-      end
-    end
-  end
-
-  -- Velocity (i_vec = 0)
-  var velptr = [&double](velocity.address)
-  for i_vec = 0,3 do
-    for k = 0, dim[2] do
-      for j = 0, dim[1] do
-        for i = 0, dim[0] do
-          var linidx  = i*stride[0] + j*stride[1] + k*stride[2]
-          if halo[linidx] == 0 then
-            var val   = velptr[ 3*linidx + i_vec ]
-            C.fprintf(fp,"%.16f\n",val)
-          end
-        end
-      end
-    end
-  end
-
-  -- Pressure
-  var pressptr = [&double](pressure.address)
-  for k = 0, dim[2] do
-    for j = 0, dim[1] do
-      for i = 0, dim[0] do
-        var linidx  = i*stride[0] + j*stride[1] + k*stride[2]
-        if halo[linidx] == 0 then
-          var val = pressptr[linidx]
-          C.fprintf(fp,"%.16f\n",val)
-        end
-      end
-    end
-  end
-
-  -- Temperature
-  var tempptr = [&double](temperature.address)
-  for k = 0, dim[2] do
-    for j = 0, dim[1] do
-      for i = 0, dim[0] do
-        var linidx  = i*stride[0] + j*stride[1] + k*stride[2]
-        if halo[linidx] == 0 then
-          var val = tempptr[linidx]
-          C.fprintf(fp,"%.16f\n",val)
-        end
-      end
-    end
-  end
-
-  -- Close the Tecplot file
-  C.fclose(fp)
-
-end
-
 function IO.WriteFlowTecplotTerra(timeStep)
 
   -- Check if it is time to output to file
@@ -4189,67 +3896,6 @@ if particles_options.modeParticles == ON then
       particles.diameter:Dump(CSV.Dump, fileName, {precision=16})
 
     end
-
-  end
-
-  -- terra callback to jointly dump multiple fields. Here, we use the
-  -- function to write our Tecplot output (ASCII) for the particle phase.
-  local terra ParticleTecplotTerra(
-    dldarray : &dld.C_DLD,
-    filename : &int8,
-    timePhys : double
-  )
-    -- Access the density, velocity, pressure, and temperature
-    -- fields and set the appropriate dimensions and strides.
-
-    var position    = dldarray[0]
-    --var stride      = position.dim_stride
-    var size        = position.dim_size[0]
-    var s_vec_p     = position.type_stride
-
-    var velocity    = dldarray[1]
-    var s_vec_v     = velocity.type_stride
-
-    var temperature = dldarray[2]
-
-    var diameter    = dldarray[3]
-
-    -- Get a file pointer and open up the Tecplot file for writing.
-
-    var fp : &C.FILE
-    fp = C.fopen(filename, "w")
-
-    -- Write the Tecplot header for a cell-centered data file.
-
-    C.fprintf(fp,"%s %s",'VARIABLES = "X", "Y", "Z", "X-Velocity",',
-              ' "Y-Velocity", "Z-Velocity", "Temperature", "Diameter"\n')
-    C.fprintf(fp,"%s %f %s",'ZONE SOLUTIONTIME=', timePhys, '\n')
-
-    -- Write the position, velocity, temperature, and diameter for
-    -- each particle on successive lines in order.
-
-    var posptr  = [&double](position.address)
-    var velptr  = [&double](velocity.address)
-    var tempptr = [&double](temperature.address)
-    var diamptr = [&double](diameter.address)
-    for i = 0,size do
-      for i_vec = 0,3 do
-        var posval = posptr[3*i + i_vec]
-        C.fprintf(fp," %.16f ",posval)
-      end
-      for i_vec = 0,3 do
-        var velval = velptr[3*i + i_vec]
-        C.fprintf(fp," %.16f ",velval)
-      end
-      var tempval = tempptr[i]
-      C.fprintf(fp," %.16f ",tempval)
-      var diamval = diamptr[i]
-      C.fprintf(fp," %.16f ",diamval)
-      C.fprintf(fp,"%s","\n")
-    end
-
-    -- Close the Tecplot file
-    C.fclose(fp)
 
   end
 
@@ -4592,20 +4238,6 @@ function IO.WriteOutput(timeStep)
 
 end
 
-----------------
--- VISUALIZATION
-----------------
-
-function Visualization.Draw()
-    vdb.vbegin()
-    vdb.frame()
-    grid.cells:foreach(Flow.DrawFunction)
-    if particles_options.modeParticles == ON then
-      particles:foreach(Particles.DrawFunction)
-    end
-    vdb.vend()
-end
-
 -----------------------------------------------------------------------------
 --[[                            MAIN EXECUTION                           ]]--
 -----------------------------------------------------------------------------
@@ -4615,7 +4247,6 @@ end
 TimeIntegrator.InitializeVariables()
 Flow.IntegrateGeometricQuantities(grid.cells.interior)
 Statistics.ComputeSpatialAverages()
-IO.WriteOutput(TimeIntegrator.timeStep:get())
 
 -- Main iteration loop
 
@@ -4627,14 +4258,10 @@ while ((TimeIntegrator.simTime:get()  < TimeIntegrator.final_time) and
     if (TimeIntegrator.timeStep:get() % config.consoleFrequency == 0) then
       Statistics.ComputeSpatialAverages()
     end
-    IO.WriteOutput(TimeIntegrator.timeStep:get())
-
-    -- Visualize the simulation with VDB if requested
-    if vdb_options.visualize == ON then
-      Visualization.Draw()
-    end
 end
 
 print("")
 print("--------------------------- Exit Success ----------------------------")
 print("")
+
+A.translateAndRun()
