@@ -192,10 +192,6 @@ Particles.Solid     = L.Global(L.int, 1)
 -- Output formats
 IO.Tecplot = L.Global(L.int, 0)
 
--- General ON/OFF Flags
-OFF = L.Global(L.bool, false)
-ON  = L.Global(L.bool, true)
-
 
 -----------------------------------------------------------------------------
 --[[                   INITIALIZE OPTIONS FROM CONFIG                    ]]--
@@ -469,9 +465,9 @@ flow_options.bodyForce      = L.Global(L.vec3d, config.bodyForce)
 flow_options.turbForceCoeff = L.Global(L.double, config.turbForceCoeff)
 
 if config.turbForcing == 'OFF' then
-  flow_options.turbForcing = OFF
+  flow_options.turbForcing = false
 elseif config.turbForcing == 'ON' then
-  flow_options.turbForcing = ON
+  flow_options.turbForcing = true
 else
   error("Turbulent forcing not defined (ON or OFF")
 end
@@ -500,9 +496,9 @@ local particles_options = {
     restartParticleIter = config.restartParticleIter,
 }
 if config.modeParticles == 'OFF' then
-  particles_options.modeParticles = OFF
+  particles_options.modeParticles = false
 elseif config.modeParticles == 'ON' then
-  particles_options.modeParticles = ON
+  particles_options.modeParticles = true
 else
   error("Particle mode not defined (ON or OFF")
 end
@@ -524,26 +520,26 @@ else
   error("Particle motion type not defined (Fixed or Free)")
 end
 if config.twoWayCoupling == 'ON' then
-  particles_options.twoWayCoupling = ON
+  particles_options.twoWayCoupling = true
 elseif config.twoWayCoupling == 'OFF' then
-  particles_options.twoWayCoupling = OFF
+  particles_options.twoWayCoupling = false
 else
   error("Particle two-way couplding not defined (ON or OFF)")
 end
 
 local radiation_options = {}
 if config.radiationType == 'ON' then
-  radiation_options.radiationType = ON
+  radiation_options.radiationType = true
 elseif config.radiationType == 'OFF' then
-  radiation_options.radiationType = OFF
+  radiation_options.radiationType = false
 else
   error("Radiation type not defined (ON or OFF)")
 end
 radiation_options.radiationIntensity = config.radiationIntensity
 if config.zeroAvgHeatSource == 'ON' then
-  radiation_options.zeroAvgHeatSource = ON
+  radiation_options.zeroAvgHeatSource = true
   elseif config.zeroAvgHeatSource == 'OFF' then
-  radiation_options.zeroAvgHeatSource = OFF
+  radiation_options.zeroAvgHeatSource = false
   else
   error("Fixing average flow temp (fixAvgFlowTemp) not defined (ON or OFF)")
 end
@@ -556,30 +552,30 @@ else
   error("Output format not implemented")
 end
 if config.wrtRestart == 'ON' then
-  IO.wrtRestart = ON
+  IO.wrtRestart = true
   elseif config.wrtRestart == 'OFF' then
-  IO.wrtRestart = OFF
+  IO.wrtRestart = false
   else
   error("Restart writing not defined (wrtRestart ON or OFF)")
 end
 if config.wrtVolumeSolution == 'ON' then
-  IO.wrtVolumeSolution = ON
+  IO.wrtVolumeSolution = true
   elseif config.wrtVolumeSolution == 'OFF' then
-  IO.wrtVolumeSolution = OFF
+  IO.wrtVolumeSolution = false
   else
   error("Volume solution writing not defined (wrtVolumeSolution ON or OFF)")
 end
 if config.wrt1DSlice == 'ON' then
-  IO.wrt1DSlice = ON
+  IO.wrt1DSlice = true
   elseif config.wrt1DSlice == 'OFF' then
-  IO.wrt1DSlice = OFF
+  IO.wrt1DSlice = false
   else
   error("1D slice writing not defined (wrt1DSlice ON or OFF)")
 end
 if config.wrtParticleEvolution == 'ON' then
-  IO.wrtParticleEvolution = ON
+  IO.wrtParticleEvolution = true
   elseif config.wrtParticleEvolution == 'OFF' then
-  IO.wrtParticleEvolution = OFF
+  IO.wrtParticleEvolution = false
   else
   error("Particle evolution writing not defined (wrtParticleEvolution ON or OFF)")
 end
@@ -814,7 +810,7 @@ grid.cells:NewField('rhoEnergyFlux', L.double)                :Load(0)
 local particles = {}
 local particle_mode
 
-if particles_options.modeParticles == ON then
+if particles_options.modeParticles then
 
   -- Declare and initialize particle relation and fields over the particle
   local INSERT_DELETE = false
@@ -1053,7 +1049,7 @@ io.stdout:write(" Linearly forced isotropic turbulence coefficient: ",
 print("")
 print("------------------------- Particle Options --------------------------")
 io.stdout:write(" Particle mode: ", config.modeParticles, "\n")
-if particles_options.modeParticles == ON then
+if particles_options.modeParticles then
   io.stdout:write(" Number of particle partitions: ",
                   string.format(" %d",pParts), "\n")
   io.stdout:write(" Particle init. type: ", config.initParticles, "\n")
@@ -1179,7 +1175,7 @@ end
 
 -- Function to retrieve particle area, volume and mass
 -- These are Ebb user-defined functions that behave like a field
-if particles_options.modeParticles == ON then
+if particles_options.modeParticles then
   particles:NewFieldReadFunction('cross_section_area', ebb(p)
       return pi * L.pow(p.diameter, 2) / 4.0
   end)
@@ -1796,7 +1792,7 @@ end
 -- Particles coupling
 ---------------------
 
-if particles_options.modeParticles == ON then
+if particles_options.modeParticles then
 ebb Flow.AddParticlesCoupling (p : particles)
 
     -- WARNING: Assumes that deltaVelocityOverRelaxationTime and
@@ -1816,7 +1812,7 @@ ebb Flow.AddParticlesCoupling (p : particles)
     -- In case we want to hold a fixed temperature by subtracting
     -- a constant heat flux from the fluid, compute the avg.
     -- deltaTemperatureTerm to be adjusted later (note change in sign)
-    if radiation_options.zeroAvgHeatSource == ON then
+    if radiation_options.zeroAvgHeatSource then
       Flow.averageHeatSource += p.deltaTemperatureTerm / cellVolume
     end
 
@@ -1826,7 +1822,7 @@ end
 -- Holding avg. temperature fixed in the presence of radiation
 --------------
 
-if radiation_options.zeroAvgHeatSource == ON then
+if radiation_options.zeroAvgHeatSource then
 ebb Flow.AdjustHeatSource (c : grid.cells)
 
     -- Remove a constant heat flux in all cells to balance with radiation.
@@ -2616,7 +2612,7 @@ end
 
 -- Put a guard around the entire particles section so that we don't invoke
 -- any of these kernels when the particles are turned off.
-if particles_options.modeParticles == ON then
+if particles_options.modeParticles then
 
   -- Locate particles in cells
   function Particles.Locate()
@@ -3301,7 +3297,7 @@ end
 
 -- put a guard around all particle kernels in case they're inactive
 
-if particles_options.modeParticles == ON then
+if particles_options.modeParticles then
 
   ebb Particles.InitializePositionCurrentCell (p : particles)
       -- init particle position from cell
@@ -3392,7 +3388,7 @@ end
 
 function TimeIntegrator.SetupTimeStep()
     grid.cells:foreach(Flow.InitializeTemporaries)
-    if particles_options.modeParticles == ON then
+    if particles_options.modeParticles then
       if particle_mode == 'ELASTIC' then
         Particles.Feed()
       end
@@ -3401,21 +3397,21 @@ function TimeIntegrator.SetupTimeStep()
 end
 
 function TimeIntegrator.ConcludeTimeStep()
-  if particles_options.modeParticles == ON and particle_mode == 'ELASTIC' then
+  if particles_options.modeParticles and particle_mode == 'ELASTIC' then
     Particles.Collect()
   end
 end
 
 function TimeIntegrator.InitializeTimeDerivatives()
     grid.cells:foreach(Flow.InitializeTimeDerivatives)
-    if particles_options.modeParticles == ON then
+    if particles_options.modeParticles then
       particles:foreach(Particles.InitializeTimeDerivatives)
     end
 end
 
 function TimeIntegrator.UpdateAuxiliary()
     Flow.UpdateAuxiliary()
-    if particles_options.modeParticles == ON then
+    if particles_options.modeParticles then
       Particles.UpdateAuxiliary()
     end
 end
@@ -3441,7 +3437,7 @@ function TimeIntegrator.InitializeVariables()
     Flow.UpdateGhost()
 
     -- Initialize the particles (position, velocity, temp, diameter, locate)
-    if particles_options.modeParticles == ON then
+    if particles_options.modeParticles then
       Particles.InitializePrimitives()
     end
 
@@ -3453,17 +3449,17 @@ function TimeIntegrator.ComputeDFunctionDt()
     Flow.AddInviscid()
     Flow.UpdateGhostVelocityGradient()
     Flow.AddViscous()
-    if radiation_options.zeroAvgHeatSource == ON then
+    if radiation_options.zeroAvgHeatSource then
       Flow.averageHeatSource:set(0.0)
     end
     grid.cells.interior:foreach(Flow.AddBodyForces)
 
-    if flow_options.turbForcing == ON then
+    if flow_options.turbForcing then
       Flow.AddTurbulentForcing(grid.cells.interior)
     end
 
     -- Compute residuals for the particles (locate all particles first)
-    if particles_options.modeParticles == ON then
+    if particles_options.modeParticles then
 
         Particles.Locate()
         particles:foreach(Particles.AddFlowCoupling)
@@ -3472,12 +3468,12 @@ function TimeIntegrator.ComputeDFunctionDt()
           particles:foreach(Particles.AddBodyForces)
       end
 
-      if radiation_options.radiationType == ON then
+      if radiation_options.radiationType then
           particles:foreach(Particles.AddRadiation)
       end
 
       -- Compute two-way coupling in momentum and energy
-      if particles_options.twoWayCoupling == ON then
+      if particles_options.twoWayCoupling then
           particles:foreach(Flow.AddParticlesCoupling)
       end
 
@@ -3486,7 +3482,7 @@ function TimeIntegrator.ComputeDFunctionDt()
     -- In case we want to hold flow temp fixed with radiation active
     --print(Flow.averageHeatSource:get())
 
-    if radiation_options.zeroAvgHeatSource == ON then
+    if radiation_options.zeroAvgHeatSource then
         Flow.averageHeatSource:set(Flow.averageHeatSource:get()/
                                  Flow.numberOfInteriorCells:get())
         grid.cells.interior:foreach(Flow.AdjustHeatSource)
@@ -3495,7 +3491,7 @@ end
 
 function TimeIntegrator.UpdateSolution(stage)
     Flow.Update(stage)
-    if particles_options.modeParticles == ON then
+    if particles_options.modeParticles then
       Particles.Update(stage)
     end
 end
@@ -3578,7 +3574,7 @@ function Statistics.UpdateSpatialAverages(grid, particles)
       Flow.areaInterior:get())
 
     -- Particles
-    if particles_options.modeParticles == ON then
+    if particles_options.modeParticles then
       Particles.averageTemperature:set(
         Particles.averageTemperature:get()/
         particles:Size())
@@ -3589,7 +3585,7 @@ end
 function Statistics.ComputeSpatialAverages()
     Statistics.ResetSpatialAverages()
     Flow.IntegrateQuantities(grid.cells.interior)
-    if particles_options.modeParticles == ON then
+    if particles_options.modeParticles then
       particles:foreach(Particles.IntegrateQuantities)
     end
     Statistics.UpdateSpatialAverages(grid, particles)
@@ -3611,7 +3607,7 @@ function IO.WriteConsoleOutput(timeStep)
         string.format("%11.6f",Flow.minTemperature:get()), " K.")
       io.stdout:write(" Max Flow Temp: ",
         string.format("%11.6f",Flow.maxTemperature:get()), " K.\n")
-      if particles_options.modeParticles == ON then
+      if particles_options.modeParticles then
         io.stdout:write(" Current number of particles: ",
                         string.format(" %d",particles:Size()), ".\n")
       end
@@ -3647,7 +3643,7 @@ function IO.WriteFlowRestart(timeStep)
 
   -- Check if it is time to output a restart file
   if (timeStep % TimeIntegrator.restartEveryTimeSteps == 0 and
-      IO.wrtRestart == ON) then
+      IO.wrtRestart) then
 
       -- Prepare the restart info file (.dat)
 
@@ -3699,7 +3695,7 @@ function IO.WriteFlowTecplotTerra(timeStep)
 
   -- Check if it is time to output to file
   if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-      IO.wrtVolumeSolution == ON) then
+      IO.wrtVolumeSolution) then
 
       -- Tecplot ASCII format
       local outputFileName = IO.outputFileNamePrefix .. "flow_" ..
@@ -3725,7 +3721,7 @@ function IO.WriteFlowTecplotLua(timeStep)
 
 -- Check if it is time to output to file
 if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-    IO.wrtVolumeSolution == ON) then
+    IO.wrtVolumeSolution) then
 
   -- Tecplot ASCII format
   local outputFileName = IO.outputFileNamePrefix .. "flow_" ..
@@ -3869,13 +3865,13 @@ end
 
 
 -- put guards around the particle kernels in case inactive
-if particles_options.modeParticles == ON then
+if particles_options.modeParticles then
 
   function IO.WriteParticleRestart(timeStep)
 
     -- Check if it is time to output a particle restart file
     if (timeStep % TimeIntegrator.restartEveryTimeSteps == 0 and
-    IO.wrtRestart == ON) then
+    IO.wrtRestart) then
 
       -- Write the restart CSV files for density, pressure, and velocity
 
@@ -3903,7 +3899,7 @@ if particles_options.modeParticles == ON then
 
     -- Check if it is time to output to file
     if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-      IO.wrtVolumeSolution == ON) then
+      IO.wrtVolumeSolution) then
 
       -- Write a file for the particle positions
       local particleFileName = IO.outputFileNamePrefix .. "particles_" ..
@@ -3923,7 +3919,7 @@ if particles_options.modeParticles == ON then
 
     -- Check if it is time to output to file
     if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-        IO.wrtVolumeSolution == ON) then
+        IO.wrtVolumeSolution) then
 
     -- Write a file for the particle positions
     -- Tecplot ASCII format
@@ -3960,7 +3956,7 @@ if particles_options.modeParticles == ON then
   function IO.WriteParticleEvolution(timeStep)
 
     if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-        IO.wrtParticleEvolution == ON) then
+        IO.wrtParticleEvolution) then
 
       -- Prepare the particle evolution file name
 
@@ -4013,7 +4009,7 @@ end
 function IO.WriteX0SliceVec (timeStep, field, filename)
 
   if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-      IO.wrt1DSlice == ON)
+      IO.wrt1DSlice)
   then
     -- Open file
     local outputFile = io.output(IO.outputFileNamePrefix .. filename)
@@ -4060,7 +4056,7 @@ end
 function IO.WriteY0SliceVec (timeStep, field, filename)
 
   if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-      IO.wrt1DSlice == ON)
+      IO.wrt1DSlice)
   then
 
     -- Open file
@@ -4108,7 +4104,7 @@ end
 function IO.WriteX0Slice (timeStep, field, filename)
 
   if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-      IO.wrt1DSlice == ON)
+      IO.wrt1DSlice)
   then
     -- Open file
     local outputFile = io.output(IO.outputFileNamePrefix .. filename)
@@ -4153,7 +4149,7 @@ end
 function IO.WriteY0Slice (timeStep, field, filename)
 
   if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-      IO.wrt1DSlice == ON)
+      IO.wrt1DSlice)
   then
       -- Open file
       local outputFile = io.output(IO.outputFileNamePrefix .. filename)
@@ -4206,7 +4202,7 @@ function IO.WriteOutput(timeStep)
 
   -- Write the particle restart files
 
-  if particles_options.modeParticles == ON and particle_mode ~= 'ELASTIC' then
+  if particles_options.modeParticles and particle_mode ~= 'ELASTIC' then
     IO.WriteParticleRestart(timeStep)
   end
 
@@ -4215,7 +4211,7 @@ function IO.WriteOutput(timeStep)
   if IO.outputFormat == IO.Tecplot then
     IO.WriteFlowTecplotTerra(timeStep)
     --IO.WriteFlowTecplotLua(timeStep)
-    if particles_options.modeParticles == ON and particle_mode ~= 'ELASTIC' then
+    if particles_options.modeParticles and particle_mode ~= 'ELASTIC' then
       IO.WriteParticleTecplotTerra(timeStep)
     end
     --IO.WriteParticleTecplotLua(timeStep)
@@ -4232,7 +4228,7 @@ function IO.WriteOutput(timeStep)
 
   -- Write a file for the evolution in time of particle i
 
-  if particles_options.modeParticles == ON and particle_mode ~= 'ELASTIC' then
+  if particles_options.modeParticles and particle_mode ~= 'ELASTIC' then
     IO.WriteParticleEvolution(timeStep)
   end
 
