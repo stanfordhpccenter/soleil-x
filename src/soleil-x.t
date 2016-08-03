@@ -1289,7 +1289,7 @@ local InterpolateTriTemperature = GenerateTrilinearInterpolation('temperature')
 -- module. Similar story with the vertex coordinates (output only).
 ebb Flow.InitializeCenterCoordinates (c : grid.cells)
     var xy = c.center
-    c.centerCoordinates = L.vec3d({xy[0], xy[1], xy[2]})
+    c.centerCoordinates = L.vec3d({L.double(xy[0]), L.double(xy[1]), L.double((xy[2]))})
 end
 
 ebb Flow.InitializeCellRindLayer (c : grid.cells)
@@ -1327,14 +1327,15 @@ ebb Flow.InitializeTaylorGreen2D (c : grid.cells)
     var coorZ = 0
     c.rho = taylorGreenDensity
     c.velocity =
-    taylorGreenVelocity *
-    L.vec3d({L.sin(xy[0]) *
-            L.cos(xy[1]) *
-            L.cos(coorZ),
-            - L.cos(xy[0]) *
-            L.sin(xy[1]) *
-            L.cos(coorZ),
-            0})
+    L.vec3d({taylorGreenVelocity *
+               L.sin(xy[0]) *
+               L.cos(xy[1]) *
+               L.cos(coorZ),
+             taylorGreenVelocity *
+               (- L.cos(xy[0])) *
+               L.sin(xy[1]) *
+               L.cos(coorZ),
+             0})
     var factorA = L.cos(2.0*coorZ) + 2.0
     var factorB = L.cos(2.0*xy[0]) +
     L.cos(2.0*xy[1])
@@ -1353,14 +1354,15 @@ ebb Flow.InitializeTaylorGreen3D (c : grid.cells)
     var xy = c.center
     c.rho = taylorGreenDensity
     c.velocity =
-    taylorGreenVelocity *
-    L.vec3d({L.sin(xy[0]) *
-            L.cos(xy[1]) *
-            L.cos(xy[2]),
-            - L.cos(xy[0]) *
-            L.sin(xy[1]) *
-            L.cos(xy[2]),
-            0})
+    L.vec3d({taylorGreenVelocity *
+               L.sin(xy[0]) *
+               L.cos(xy[1]) *
+               L.cos(xy[2]),
+             taylorGreenVelocity *
+               (- L.cos(xy[0])) *
+               L.sin(xy[1]) *
+               L.cos(xy[2]),
+             0})
     var factorA = L.cos(2.0*xy[2]) + 2.0
     var factorB = L.cos(2.0*xy[0]) +
     L.cos(2.0*xy[1])
@@ -1385,7 +1387,9 @@ ebb Flow.UpdateConservedFromPrimitive (c : grid.cells)
     -- Equation of state: T = p / ( R * rho )
     var tmpTemperature = c.pressure / (fluid_options.gasConstant * c.rho)
     var velocity = c.velocity
-    c.rhoVelocity = c.rho * c.velocity
+    c.rhoVelocity = L.vec3d({c.rho * c.velocity[0],
+                             c.rho * c.velocity[1],
+                             c.rho * c.velocity[2]})
 
     -- rhoE = rhoe (= rho * cv * T) + kineticEnergy + sgsEnergy
     var cv = fluid_options.gasConstant /
@@ -2210,7 +2214,9 @@ for sdx = 1, 4 do
 end
 
 ebb Flow.UpdateAuxiliaryVelocity (c : grid.cells)
-    var velocity = c.rhoVelocity / c.rho
+    var velocity = L.vec3d({c.rhoVelocity[0] / c.rho,
+                            c.rhoVelocity[1] / c.rho,
+                            c.rhoVelocity[2] / c.rho})
     c.velocity = velocity
     c.kineticEnergy = 0.5 *  c.rho * L.dot(velocity,velocity)
 end
