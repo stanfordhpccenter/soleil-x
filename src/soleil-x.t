@@ -28,6 +28,7 @@ Copyright (C) 2013-2015, Dr. Thomas D. Economon,
 import "ebb"
 local L = require "ebblib"
 local A = require "admiral"
+local M = require "ebb.src.main"
 
 local Grid  = require 'ebb.domains.grid'
 local C = terralib.includecstring [[
@@ -3539,14 +3540,18 @@ function TimeIntegrator.CalculateDeltaTime()
 
     -- Calculate diffusive spectral radius as the maximum between
     -- heat conduction and convective spectral radii
-    local maxD = ( maxV > maxH ) and maxV or maxH
-
     -- Calculate global spectral radius as the maximum between the convective
     -- and diffusive spectral radii
-    local spectralRadius = ( maxD > maxC ) and maxD or maxC
-
     -- Delta time using the CFL and max spectral radius for stability
-    TimeIntegrator.deltaTime:set(TimeIntegrator.cfl / spectralRadius)
+    M.IF(M.AND(M.GT(maxC, maxV), M.GT(maxC, maxH)))
+      TimeIntegrator.deltaTime:set(TimeIntegrator.cfl / maxC)
+    M.ELSE()
+      M.IF(M.GT(maxV, maxH))
+        TimeIntegrator.deltaTime:set(TimeIntegrator.cfl / maxV)
+      M.ELSE()
+        TimeIntegrator.deltaTime:set(TimeIntegrator.cfl / maxH)
+      M.END()
+    M.END()
 
   end
 
@@ -4252,15 +4257,14 @@ Statistics.ComputeSpatialAverages()
 
 -- Main iteration loop
 
-while ((TimeIntegrator.simTime:get()  < TimeIntegrator.final_time) and
-       (TimeIntegrator.timeStep:get() < TimeIntegrator.max_iter))  do
-
-    TimeIntegrator.CalculateDeltaTime()
-    TimeIntegrator.AdvanceTimeStep()
-    if (TimeIntegrator.timeStep:get() % config.consoleFrequency == 0) then
-      Statistics.ComputeSpatialAverages()
-    end
-end
+M.WHILE(M.AND(M.LT(TimeIntegrator.simTime:get(), TimeIntegrator.final_time),
+              M.LT(TimeIntegrator.timeStep:get(), TimeIntegrator.max_iter)))
+  TimeIntegrator.CalculateDeltaTime()
+  TimeIntegrator.AdvanceTimeStep()
+  M.IF(M.EQ(TimeIntegrator.timeStep:get() % config.consoleFrequency, 0))
+    Statistics.ComputeSpatialAverages()
+  M.END()
+M.END()
 
 print("")
 print("--------------------------- Exit Success ----------------------------")
