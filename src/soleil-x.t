@@ -159,39 +159,39 @@ local IO = {};
 -----------------------------------------------------------------------------
 
 -- Flow type
-Flow.Uniform             = L.Global(L.int, 0)
-Flow.TaylorGreen2DVortex = L.Global(L.int, 1)
-Flow.TaylorGreen3DVortex = L.Global(L.int, 2)
-Flow.Restart             = L.Global(L.int, 3)
-Flow.Perturbed           = L.Global(L.int, 4)
+Flow.Uniform             = 0
+Flow.TaylorGreen2DVortex = 1
+Flow.TaylorGreen3DVortex = 2
+Flow.Restart             = 3
+Flow.Perturbed           = 4
 
 -- Viscosity Model
-Viscosity.Constant   = L.Global(L.int, 0)
-Viscosity.PowerLaw   = L.Global(L.int, 1)
-Viscosity.Sutherland = L.Global(L.int, 2)
+Viscosity.Constant   = 0
+Viscosity.PowerLaw   = 1
+Viscosity.Sutherland = 2
 
 -- Particles feeder
-Particles.FeederAtStartTimeInRandomBox = L.Global(L.int, 0)
-Particles.FeederOverTimeInRandomBox    = L.Global(L.int, 1)
-Particles.FeederUQCase                 = L.Global(L.int, 2)
-Particles.Random                       = L.Global(L.int, 3)
-Particles.Restart                      = L.Global(L.int, 4)
-Particles.Uniform                      = L.Global(L.int, 5)
+Particles.FeederAtStartTimeInRandomBox = 0
+Particles.FeederOverTimeInRandomBox    = 1
+Particles.FeederUQCase                 = 2
+Particles.Random                       = 3
+Particles.Restart                      = 4
+Particles.Uniform                      = 5
 
 -- Particles collector
-Particles.CollectorNone     = L.Global(L.int, 0)
-Particles.CollectorOutOfBox = L.Global(L.int, 1)
+Particles.CollectorNone     = 0
+Particles.CollectorOutOfBox = 1
 
 -- Particle Type (Fixed or Free)
-Particles.Fixed = L.Global(L.int, 0)
-Particles.Free  = L.Global(L.int, 1)
+Particles.Fixed = 0
+Particles.Free  = 1
 
 -- Particle Boundary
-Particles.Permeable = L.Global(L.int, 0)
-Particles.Solid     = L.Global(L.int, 1)
+Particles.Permeable = 0
+Particles.Solid     = 1
 
 -- Output formats
-IO.Tecplot = L.Global(L.int, 0)
+IO.Tecplot = 0
 
 
 -----------------------------------------------------------------------------
@@ -239,54 +239,54 @@ local grid_options = {
 
 -- Define offsets, signs, and velocities for the x BCs
 
-x_sign = L.Global(L.vec3d,{1.0,1.0,1.0})
-xpos_velocity    = L.Global(L.vec3d,{0.0,0.0,0.0})
-xneg_velocity    = L.Global(L.vec3d,{0.0,0.0,0.0})
-xpos_temperature = L.Global(L.double,-1.0)
-xneg_temperature = L.Global(L.double,-1.0)
+local x_sign
+local xpos_velocity
+local xneg_velocity
+local xpos_temperature
+local xneg_temperature
 
 if grid_options.xBCLeft  == "periodic" and
    grid_options.xBCRight == "periodic" then
-  x_sign:set({1.0,1.0,1.0})
-  xpos_velocity:set({0.0,0.0,0.0})
-  xneg_velocity:set({0.0,0.0,0.0})
-  xpos_temperature:set(-1.0)
-  xneg_temperature:set(-1.0)
+  x_sign = L.Constant(L.vec3d, {1.0,1.0,1.0})
+  xpos_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
+  xneg_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
+  xpos_temperature = L.Constant(L.double, -1.0)
+  xneg_temperature = L.Constant(L.double, -1.0)
   grid_options.xBCLeftParticles  = Particles.Permeable
   grid_options.xBCRightParticles = Particles.Permeable
 elseif grid_options.xBCLeft == "symmetry" and
        grid_options.xBCRight == "symmetry" then
-  x_sign:set({-1.0,1.0,1.0})
-  xpos_velocity:set({0.0,0.0,0.0})
-  xneg_velocity:set({0.0,0.0,0.0})
-  xpos_temperature:set(-1.0)
-  xneg_temperature:set(-1.0)
+  x_sign = L.Constant(L.vec3d, {-1.0,1.0,1.0})
+  xpos_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
+  xneg_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
+  xpos_temperature = L.Constant(L.double, -1.0)
+  xneg_temperature = L.Constant(L.double, -1.0)
   grid_options.xBCLeftParticles  = Particles.Solid
   grid_options.xBCRightParticles = Particles.Solid
 elseif grid_options.xBCLeft  == "adiabatic_wall" and
        grid_options.xBCRight == "adiabatic_wall" then
-  x_sign:set({-1.0,-1.0,-1.0})
-  xpos_velocity:set({2.0*grid_options.xBCRightVel[1],
-                    2.0*grid_options.xBCRightVel[2],
-                    2.0*grid_options.xBCRightVel[3]})
-  xneg_velocity:set({2.0*grid_options.xBCLeftVel[1],
-                    2.0*grid_options.xBCLeftVel[2],
-                    2.0*grid_options.xBCLeftVel[3]})
-  xpos_temperature:set(-1.0)
-  xneg_temperature:set(-1.0)
+  x_sign = L.Constant(L.vec3d, {-1.0,-1.0,-1.0})
+  xpos_velocity = L.Constant(L.vec3d, {2.0*grid_options.xBCRightVel[1],
+                                       2.0*grid_options.xBCRightVel[2],
+                                       2.0*grid_options.xBCRightVel[3]})
+  xneg_velocity = L.Constant(L.vec3d, {2.0*grid_options.xBCLeftVel[1],
+                                       2.0*grid_options.xBCLeftVel[2],
+                                       2.0*grid_options.xBCLeftVel[3]})
+  xpos_temperature = L.Constant(L.double, -1.0)
+  xneg_temperature = L.Constant(L.double, -1.0)
   grid_options.xBCLeftParticles  = Particles.Solid
   grid_options.xBCRightParticles = Particles.Solid
 elseif grid_options.xBCLeft  == "isothermal_wall" and
        grid_options.xBCRight == "isothermal_wall" then
-  x_sign:set({-1.0,-1.0,-1.0})
-  xpos_velocity:set({2.0*grid_options.xBCRightVel[1],
-                    2.0*grid_options.xBCRightVel[2],
-                    2.0*grid_options.xBCRightVel[3]})
-  xneg_velocity:set({2.0*grid_options.xBCLeftVel[1],
-                     2.0*grid_options.xBCLeftVel[2],
-                     2.0*grid_options.xBCLeftVel[3]})
-  xpos_temperature:set(grid_options.xBCRightTemp)
-  xneg_temperature:set(grid_options.xBCLeftTemp)
+  x_sign = L.Constant(L.vec3d, {-1.0,-1.0,-1.0})
+  xpos_velocity = L.Constant(L.vec3d, {2.0*grid_options.xBCRightVel[1],
+                                       2.0*grid_options.xBCRightVel[2],
+                                       2.0*grid_options.xBCRightVel[3]})
+  xneg_velocity = L.Constant(L.vec3d, {2.0*grid_options.xBCLeftVel[1],
+                                       2.0*grid_options.xBCLeftVel[2],
+                                       2.0*grid_options.xBCLeftVel[3]})
+  xpos_temperature = L.Constant(L.double, grid_options.xBCRightTemp)
+  xneg_temperature = L.Constant(L.double, grid_options.xBCLeftTemp)
   grid_options.xBCLeftParticles  = Particles.Solid
   grid_options.xBCRightParticles = Particles.Solid
 else
@@ -295,54 +295,54 @@ end
 
 -- Define offsets, signs, and velocities for the y BCs
 
-y_sign = L.Global(L.vec3d,{1.0,1.0,1.0})
-ypos_velocity    = L.Global(L.vec3d,{0.0,0.0,0.0})
-yneg_velocity    = L.Global(L.vec3d,{0.0,0.0,0.0})
-ypos_temperature = L.Global(L.double,-1.0)
-yneg_temperature = L.Global(L.double,-1.0)
+local y_sign
+local ypos_velocity
+local yneg_velocity
+local ypos_temperature
+local yneg_temperature
 
 if grid_options.yBCLeft  == "periodic" and
    grid_options.yBCRight == "periodic" then
-  y_sign:set({1.0,1.0,1.0})
-  ypos_velocity:set({0.0,0.0,0.0})
-  yneg_velocity:set({0.0,0.0,0.0})
-  ypos_temperature:set(-1.0)
-  yneg_temperature:set(-1.0)
+  y_sign = L.Constant(L.vec3d, {1.0,1.0,1.0})
+  ypos_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
+  yneg_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
+  ypos_temperature = L.Constant(L.double, -1.0)
+  yneg_temperature = L.Constant(L.double, -1.0)
   grid_options.yBCLeftParticles  = Particles.Permeable
   grid_options.yBCRightParticles = Particles.Permeable
 elseif grid_options.yBCLeft  == "symmetry" and
        grid_options.yBCRight == "symmetry" then
-  y_sign:set({1.0,-1.0,1.0})
-  ypos_velocity:set({0.0,0.0,0.0})
-  yneg_velocity:set({0.0,0.0,0.0})
-  ypos_temperature:set(-1.0)
-  yneg_temperature:set(-1.0)
+  y_sign = L.Constant(L.vec3d, {1.0,-1.0,1.0})
+  ypos_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
+  yneg_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
+  ypos_temperature = L.Constant(L.double, -1.0)
+  yneg_temperature = L.Constant(L.double, -1.0)
   grid_options.yBCLeftParticles  = Particles.Solid
   grid_options.yBCRightParticles = Particles.Solid
 elseif grid_options.yBCLeft  == "adiabatic_wall" and
        grid_options.yBCRight == "adiabatic_wall" then
-  y_sign:set({-1.0,-1.0,-1.0})
-  ypos_velocity:set({2.0*grid_options.yBCRightVel[1],
-                    2.0*grid_options.yBCRightVel[2],
-                    2.0*grid_options.yBCRightVel[3]})
-  yneg_velocity:set({2.0*grid_options.yBCLeftVel[1],
-                     2.0*grid_options.yBCLeftVel[2],
-                     2.0*grid_options.yBCLeftVel[3]})
-  ypos_temperature:set(-1.0)
-  yneg_temperature:set(-1.0)
+  y_sign = L.Constant(L.vec3d, {-1.0,-1.0,-1.0})
+  ypos_velocity = L.Constant(L.vec3d, {2.0*grid_options.yBCRightVel[1],
+                                       2.0*grid_options.yBCRightVel[2],
+                                       2.0*grid_options.yBCRightVel[3]})
+  yneg_velocity = L.Constant(L.vec3d, {2.0*grid_options.yBCLeftVel[1],
+                                       2.0*grid_options.yBCLeftVel[2],
+                                       2.0*grid_options.yBCLeftVel[3]})
+  ypos_temperature = L.Constant(L.double, -1.0)
+  yneg_temperature = L.Constant(L.double, -1.0)
   grid_options.yBCLeftParticles  = Particles.Solid
   grid_options.yBCRightParticles = Particles.Solid
 elseif grid_options.yBCLeft  == "isothermal_wall" and
        grid_options.yBCRight == "isothermal_wall" then
-  y_sign:set({-1.0,-1.0,-1.0})
-  ypos_velocity:set({2.0*grid_options.yBCRightVel[1],
-                    2.0*grid_options.yBCRightVel[2],
-                    2.0*grid_options.yBCRightVel[3]})
-  yneg_velocity:set({2.0*grid_options.yBCLeftVel[1],
-                     2.0*grid_options.yBCLeftVel[2],
-                     2.0*grid_options.yBCLeftVel[3]})
-  ypos_temperature:set(grid_options.yBCRightTemp)
-  yneg_temperature:set(grid_options.yBCLeftTemp)
+  y_sign = L.Constant(L.vec3d, {-1.0,-1.0,-1.0})
+  ypos_velocity = L.Constant(L.vec3d, {2.0*grid_options.yBCRightVel[1],
+                                       2.0*grid_options.yBCRightVel[2],
+                                       2.0*grid_options.yBCRightVel[3]})
+  yneg_velocity = L.Constant(L.vec3d, {2.0*grid_options.yBCLeftVel[1],
+                                       2.0*grid_options.yBCLeftVel[2],
+                                       2.0*grid_options.yBCLeftVel[3]})
+  ypos_temperature = L.Constant(L.double, grid_options.yBCRightTemp)
+  yneg_temperature = L.Constant(L.double, grid_options.yBCLeftTemp)
   grid_options.yBCLeftParticles  = Particles.Solid
   grid_options.yBCRightParticles = Particles.Solid
 else
@@ -351,54 +351,54 @@ end
 
 -- Define offsets, signs, and velocities for the z BCs
 
-z_sign = L.Global(L.vec3d,{1.0,1.0,1.0})
-zpos_velocity    = L.Global(L.vec3d,{0.0,0.0,0.0})
-zneg_velocity    = L.Global(L.vec3d,{0.0,0.0,0.0})
-zpos_temperature = L.Global(L.double,-1.0)
-zneg_temperature = L.Global(L.double,-1.0)
+local z_sign
+local zpos_velocity
+local zneg_velocity
+local zpos_temperature
+local zneg_temperature
 
 if grid_options.zBCLeft  == "periodic" and
    grid_options.zBCRight == "periodic" then
-  z_sign:set({1.0,1.0,1.0})
-  zpos_velocity:set({0.0,0.0,0.0})
-  zneg_velocity:set({0.0,0.0,0.0})
-  zpos_temperature:set(-1.0)
-  zneg_temperature:set(-1.0)
+  z_sign = L.Constant(L.vec3d, {1.0,1.0,1.0})
+  zpos_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
+  zneg_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
+  zpos_temperature = L.Constant(L.double, -1.0)
+  zneg_temperature = L.Constant(L.double, -1.0)
   grid_options.zBCLeftParticles  = Particles.Permeable
   grid_options.zBCRightParticles = Particles.Permeable
 elseif grid_options.zBCLeft == "symmetry" and
        grid_options.zBCRight == "symmetry" then
-  z_sign:set({1.0,1.0,-1.0})
-  zpos_velocity:set({0.0,0.0,0.0})
-  zneg_velocity:set({0.0,0.0,0.0})
-  zpos_temperature:set(-1.0)
-  zneg_temperature:set(-1.0)
+  z_sign = L.Constant(L.vec3d, {1.0,1.0,-1.0})
+  zpos_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
+  zneg_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
+  zpos_temperature = L.Constant(L.double, -1.0)
+  zneg_temperature = L.Constant(L.double, -1.0)
   grid_options.zBCLeftParticles  = Particles.Solid
   grid_options.zBCRightParticles = Particles.Solid
 elseif grid_options.zBCLeft  == "adiabatic_wall" and
        grid_options.zBCRight == "adiabatic_wall" then
-  z_sign:set({-1.0,-1.0,-1.0})
-  zpos_velocity:set({2.0*grid_options.zBCRightVel[1],
-                    2.0*grid_options.zBCRightVel[2],
-                    2.0*grid_options.zBCRightVel[3]})
-  zneg_velocity:set({2.0*grid_options.zBCLeftVel[1],
-                     2.0*grid_options.zBCLeftVel[2],
-                     2.0*grid_options.zBCLeftVel[3]})
-  zpos_temperature:set(-1.0)
-  zneg_temperature:set(-1.0)
+  z_sign = L.Constant(L.vec3d, {-1.0,-1.0,-1.0})
+  zpos_velocity = L.Constant(L.vec3d, {2.0*grid_options.zBCRightVel[1],
+                                       2.0*grid_options.zBCRightVel[2],
+                                       2.0*grid_options.zBCRightVel[3]})
+  zneg_velocity = L.Constant(L.vec3d, {2.0*grid_options.zBCLeftVel[1],
+                                       2.0*grid_options.zBCLeftVel[2],
+                                       2.0*grid_options.zBCLeftVel[3]})
+  zpos_temperature = L.Constant(L.double, -1.0)
+  zneg_temperature = L.Constant(L.double, -1.0)
   grid_options.zBCLeftParticles  = Particles.Solid
   grid_options.zBCRightParticles = Particles.Solid
 elseif grid_options.zBCLeft  == "isothermal_wall" and
        grid_options.zBCRight == "isothermal_wall" then
-  z_sign:set({-1.0,-1.0,-1.0})
-  zpos_velocity:set({2.0*grid_options.zBCRightVel[1],
-                    2.0*grid_options.zBCRightVel[2],
-                    2.0*grid_options.zBCRightVel[3]})
-  zneg_velocity:set({2.0*grid_options.zBCLeftVel[1],
-                    2.0*grid_options.zBCLeftVel[2],
-                    2.0*grid_options.zBCLeftVel[3]})
-  zpos_temperature:set(grid_options.zBCRightTemp)
-  zneg_temperature:set(grid_options.zBCLeftTemp)
+  z_sign = L.Constant(L.vec3d, {-1.0,-1.0,-1.0})
+  zpos_velocity = L.Constant(L.vec3d, {2.0*grid_options.zBCRightVel[1],
+                                       2.0*grid_options.zBCRightVel[2],
+                                       2.0*grid_options.zBCRightVel[3]})
+  zneg_velocity = L.Constant(L.vec3d, {2.0*grid_options.zBCLeftVel[1],
+                                       2.0*grid_options.zBCLeftVel[2],
+                                       2.0*grid_options.zBCLeftVel[3]})
+  zpos_temperature = L.Constant(L.double, grid_options.zBCRightTemp)
+  zneg_temperature = L.Constant(L.double, grid_options.zBCLeftTemp)
   grid_options.zBCLeftParticles  = Particles.Solid
   grid_options.zBCRightParticles = Particles.Solid
 else
@@ -461,9 +461,9 @@ elseif config.initCase == 'TaylorGreen3DVortex' then
 else
   error("Flow initialization type not defined")
 end
-flow_options.initParams     = L.Global(L.vector(L.double,5), config.initParams)
-flow_options.bodyForce      = L.Global(L.vec3d, config.bodyForce)
-flow_options.turbForceCoeff = L.Global(L.double, config.turbForceCoeff)
+flow_options.initParams     = L.Constant(L.vector(L.double,5), config.initParams)
+flow_options.bodyForce      = L.Constant(L.vec3d, config.bodyForce)
+flow_options.turbForceCoeff = L.Constant(L.double, config.turbForceCoeff)
 
 if config.turbForcing == 'OFF' then
   flow_options.turbForcing = false
@@ -479,20 +479,20 @@ local particles_options = {
     num = config.num,
     maximum_num = config.maximum_num,
     insertion_rate = config.insertion_rate,
-    insertion_mode = L.Global(L.vector(L.int,6), config.insertion_mode),
-    deletion_mode = L.Global(L.vector(L.int,6), config.deletion_mode),
+    insertion_mode = L.Constant(L.vector(L.int,6), config.insertion_mode),
+    deletion_mode = L.Constant(L.vector(L.int,6), config.deletion_mode),
 
     -- Particle characteristics
-    restitution_coefficient = L.Global(L.double,
+    restitution_coefficient = L.Constant(L.double,
                                           config.restitutionCoefficient),
-    convective_coefficient = L.Global(L.double,
+    convective_coefficient = L.Constant(L.double,
                                          config.convectiveCoefficient),
-    heat_capacity = L.Global(L.double, config.heatCapacity),
+    heat_capacity = L.Constant(L.double, config.heatCapacity),
     initialTemperature = config.initialTemperature,
     density = config.density,
     diameter_mean = config.diameter_mean,
     diameter_maxDeviation = config.diameter_maxDeviation,
-    bodyForce = L.Global(L.vec3d, config.bodyForceParticles),
+    bodyForce = L.Constant(L.vec3d, config.bodyForceParticles),
     absorptivity = config.absorptivity,
     restartParticleIter = config.restartParticleIter,
 }
