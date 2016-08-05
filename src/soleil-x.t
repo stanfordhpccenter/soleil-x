@@ -2229,9 +2229,7 @@ local ebb UpdateGhostFieldsHelper(c_bnd, c_int, sign, bnd_velocity, bnd_temperat
   var cv = fluid_options.gasConstant / (fluid_options.gamma - 1.0)
 
   -- Compute the new velocity (including any wall conditions)
-  for i = 0,3 do
-    velocity[i] = c_int.rhoVelocity[i]/c_int.rho * sign[i] + bnd_velocity[i]
-  end
+  velocity = L.times(c_int.rhoVelocity/c_int.rho, sign) + bnd_velocity
 
   -- Compute the temperature for the halo cell (possibly adiabatic/isothermal)
   temp_wall = c_int.temperature
@@ -2340,9 +2338,7 @@ end
 local ebb UpdateGhostVelocityHelper (c_bnd, c_int, sign, bnd_velocity)
 
   -- Update the boundary cell based on the values in the matching interior cell
-  for i = 0,3 do
-    c_bnd.velocityBoundary[i] = c_int.velocity[i] * sign[i] + bnd_velocity[i]
-  end
+  c_bnd.velocityBoundary = L.times(c_int.velocity, sign) + bnd_velocity
 
 end
 ebb Flow.UpdateGhostVelocityStep1 (c : grid.cells)
@@ -2388,9 +2384,7 @@ local ebb UpdateGhostConservedHelper (c_bnd, c_int, sign, bnd_velocity,
 
   -- Compute the new velocity (including any wall conditions)
   var velocity = L.vec3d({0.0, 0.0, 0.0})
-  for i = 0,3 do
-    velocity[i] = c_int.rhoVelocity[i]/c_int.rho * sign[i] + bnd_velocity[i]
-  end
+  velocity = L.times(c_int.rhoVelocity/c_int.rho, sign) + bnd_velocity
 
   -- Compute the temperature for the halo cell (possibly adiabatic/isothermal)
   temp_wall = c_int.temperature
@@ -2470,11 +2464,9 @@ end
 local ebb UpdateGhostVelocityGradientHelper (c_bnd, c_int, sign)
 
   -- Apply sign change and copy gradients from interior to boundary
-  for i = 0,3 do
-    c_bnd.velocityGradientXBoundary[i] = sign[i] * c_int.velocityGradientX[i]
-    c_bnd.velocityGradientYBoundary[i] = sign[i] * c_int.velocityGradientY[i]
-    c_bnd.velocityGradientZBoundary[i] = sign[i] * c_int.velocityGradientZ[i]
-  end
+  c_bnd.velocityGradientXBoundary = L.times(sign, c_int.velocityGradientX)
+  c_bnd.velocityGradientYBoundary = L.times(sign, c_int.velocityGradientY)
+  c_bnd.velocityGradientZBoundary = L.times(sign, c_int.velocityGradientZ)
 
 end
 ebb Flow.UpdateGhostVelocityGradientStep1 (c : grid.cells)
