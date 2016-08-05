@@ -416,6 +416,7 @@ spatial_stencil = {
 TimeIntegrator.coeff_function        = {1/6, 1/3, 1/3, 1/6}
 TimeIntegrator.coeff_time            = {0.5, 0.5, 1, 1}
 TimeIntegrator.simTime               = L.Global(L.double,0)
+TimeIntegrator.timeOld               = L.Global(L.double,0)
 TimeIntegrator.final_time            = config.final_time
 TimeIntegrator.max_iter              = config.max_iter
 TimeIntegrator.timeStep              = L.Global(L.int,0)
@@ -3415,8 +3416,8 @@ function TimeIntegrator.UpdateAuxiliary()
     end
 end
 
-function TimeIntegrator.UpdateTime(timeOld, stage)
-    TimeIntegrator.simTime:set(timeOld +
+function TimeIntegrator.UpdateTime(stage)
+    TimeIntegrator.simTime:set(TimeIntegrator.timeOld:get() +
                                TimeIntegrator.coeff_time[stage] *
                                TimeIntegrator.deltaTime:get())
 end
@@ -3498,13 +3499,13 @@ end
 function TimeIntegrator.AdvanceTimeStep()
 
     TimeIntegrator.SetupTimeStep()
-    local timeOld = TimeIntegrator.simTime:get()
+    TimeIntegrator.timeOld:set(TimeIntegrator.simTime:get())
     for stage = 1, 4 do
         TimeIntegrator.InitializeTimeDerivatives()
         TimeIntegrator.ComputeDFunctionDt()
         TimeIntegrator.UpdateSolution(stage)
         TimeIntegrator.UpdateAuxiliary()
-        TimeIntegrator.UpdateTime(timeOld, stage)
+        TimeIntegrator.UpdateTime(stage)
     end
     TimeIntegrator.ConcludeTimeStep()
 
