@@ -415,18 +415,18 @@ spatial_stencil = {
 -- Time integrator options
 TimeIntegrator.coeff_function        = {1/6, 1/3, 1/3, 1/6}
 TimeIntegrator.coeff_time            = {0.5, 0.5, 1, 1}
-TimeIntegrator.simTime               = L.Global(L.double,0)
-TimeIntegrator.timeOld               = L.Global(L.double,0)
+TimeIntegrator.simTime               = L.Global('TimeIntegrator.simTime', L.double, 0)
+TimeIntegrator.timeOld               = L.Global('TimeIntegrator.timeOld', L.double, 0)
 TimeIntegrator.final_time            = config.final_time
 TimeIntegrator.max_iter              = config.max_iter
-TimeIntegrator.timeStep              = L.Global(L.int,0)
+TimeIntegrator.timeStep              = L.Global('TimeIntegrator.timeStep', L.int, 0)
 TimeIntegrator.cfl                   = config.cfl
 TimeIntegrator.delta_time            = config.delta_time
 TimeIntegrator.outputEveryTimeSteps  = config.outputEveryTimeSteps
 TimeIntegrator.restartEveryTimeSteps = config.restartEveryTimeSteps
 TimeIntegrator.headerFrequency       = config.headerFrequency
 TimeIntegrator.consoleFrequency      = config.consoleFrequency
-TimeIntegrator.deltaTime             = L.Global(L.double, 0.0001)
+TimeIntegrator.deltaTime             = L.Global('TimeIntegrator.deltaTime', L.double, 0.0001)
 
 local fluid_options = {}
 if config.viscosity_model == 'Constant' then
@@ -884,15 +884,15 @@ end
 -- Note: - numberOfInteriorCells and areaInterior could be defined as variables
 -- from grid instead of Flow. Here Flow is used to avoid adding things to grid
 -- externally
-Flow.numberOfInteriorCells   = L.Global(L.int, 0)
-Flow.areaInterior            = L.Global(L.double, 0.0)
-Flow.averagePressure         = L.Global(L.double, 0.0)
-Flow.averageTemperature      = L.Global(L.double, 0.0)
-Flow.averageHeatSource       = L.Global(L.double, 0.0)
-Flow.averageKineticEnergy    = L.Global(L.double, 0.0)
-Flow.minTemperature          = L.Global(L.double, 0.0)
-Flow.maxTemperature          = L.Global(L.double, 0.0)
-Particles.averageTemperature = L.Global(L.double, 0.0)
+Flow.numberOfInteriorCells   = L.Global('Flow.numberOfInteriorCells', L.int, 0)
+Flow.areaInterior            = L.Global('Flow.areaInterior', L.double, 0.0)
+Flow.averagePressure         = L.Global('Flow.averagePressure', L.double, 0.0)
+Flow.averageTemperature      = L.Global('Flow.averageTemperature', L.double, 0.0)
+Flow.averageHeatSource       = L.Global('Flow.averageHeatSource', L.double, 0.0)
+Flow.averageKineticEnergy    = L.Global('Flow.averageKineticEnergy', L.double, 0.0)
+Flow.minTemperature          = L.Global('Flow.minTemperature', L.double, 0.0)
+Flow.maxTemperature          = L.Global('Flow.maxTemperature', L.double, 0.0)
+Particles.averageTemperature = L.Global('Particles.averageTemperature', L.double, 0.0)
 
 
 -- Right hand side of the kinetic energy equation
@@ -900,10 +900,10 @@ grid.cells:NewField('PD', L.double) :Load(0.0)
 grid.cells:NewField('dissipation', L.double) :Load(0.0)
 grid.cells:NewField('dissipationFlux', L.double) :Load(0.0)
 
-Flow.averagePD = L.Global(L.double, 0.0)
-Flow.averageDissipation = L.Global(L.double, 0.0)
-Flow.averageFe    = L.Global(L.double, 0.0)
-Flow.averageK    = L.Global(L.double, 0.0)
+Flow.averagePD          = L.Global('Flow.averagePD', L.double, 0.0)
+Flow.averageDissipation = L.Global('Flow.averageDissipation', L.double, 0.0)
+Flow.averageFe          = L.Global('Flow.averageFe', L.double, 0.0)
+Flow.averageK           = L.Global('Flow.averageK', L.double, 0.0)
 
 -----------------------------------------------------------------------------
 --[[                 CONSOLE OUTPUT AFTER PREPROCESSING                  ]]--
@@ -2505,9 +2505,9 @@ ebb Flow.UpdateGhostVelocityGradientStep2 (c : grid.cells)
 end
 
 -- Calculation of spectral radii for clf-based delta time
-local maxConvectiveSpectralRadius     = L.Global(L.double, 0.0)
-local maxViscousSpectralRadius        = L.Global(L.double, 0.0)
-local maxHeatConductionSpectralRadius = L.Global(L.double, 0.0)
+local maxConvectiveSpectralRadius     = L.Global('maxC', L.double, 0.0)
+local maxViscousSpectralRadius        = L.Global('maxV', L.double, 0.0)
+local maxHeatConductionSpectralRadius = L.Global('maxH', L.double, 0.0)
 
 -- WARNING: update cellVolume computation for non-uniform grids
 local dXYZInverseSquare = L.Constant(L.double,
