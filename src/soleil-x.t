@@ -1429,7 +1429,8 @@ end
 -- any two adjacent cells with a centered scheme. The left cell (c_l),
 -- right cell (c_r), and coordinate direction (x = 0, y = 1, or z = 2)
 -- are the inputs.
-ebb Flow.CenteredInviscidFlux (c_l, c_r, direction)
+local function mkCenteredInviscidFlux(direction)
+  local ebb CenteredInviscidFlux (c_l, c_r)
 
     -- Diagonal terms of inviscid flux
     var rhoFactorDiagonal         = L.double(0.0)
@@ -1485,7 +1486,12 @@ ebb Flow.CenteredInviscidFlux (c_l, c_r, direction)
             rhoVelocityFlux_temp[1],
             rhoVelocityFlux_temp[2],
             rhoEnergyFlux_temp}
+  end
+  return CenteredInviscidFlux
 end
+Flow.CenteredInviscidFluxX = mkCenteredInviscidFlux(0)
+Flow.CenteredInviscidFluxY = mkCenteredInviscidFlux(1)
+Flow.CenteredInviscidFluxZ = mkCenteredInviscidFlux(2)
 
 -- Compute inviscid fluxes in X direction. Include the first boundary
 -- cell (c.xneg_depth == 1) to define left flux on first interior cell.
@@ -1495,7 +1501,7 @@ ebb Flow.AddInviscidGetFluxX (c : grid.cells)
       -- Compute the inviscid flux with a centered scheme.
       -- Input the left and right cell states for this face and
       -- the direction index for the flux (x = 0, y = 1, or z = 2).
-        var flux = Flow.CenteredInviscidFlux(c(0,0,0), c(1,0,0), 0)
+        var flux = Flow.CenteredInviscidFluxX(c(0,0,0), c(1,0,0))
 
         -- Store this flux in the cell to the left of the face.
         c.rhoFlux         =  flux[0]
@@ -1513,7 +1519,7 @@ ebb Flow.AddInviscidGetFluxY (c : grid.cells)
       -- Compute the inviscid flux with a centered scheme.
       -- Input the left and right cell states for this face and
       -- the direction index for the flux (x = 0, y = 1, or z = 2).
-      var flux = Flow.CenteredInviscidFlux(c(0,0,0), c(0,1,0), 1)
+      var flux = Flow.CenteredInviscidFluxY(c(0,0,0), c(0,1,0))
 
       -- Store this flux in the cell to the left of the face.
       c.rhoFlux         =  flux[0]
@@ -1531,7 +1537,7 @@ ebb Flow.AddInviscidGetFluxZ (c : grid.cells)
       -- Compute the inviscid flux with a centered scheme.
       -- Input the left and right cell states for this face and
       -- the direction index for the flux (x = 0, y = 1, or z = 2).
-      var flux = Flow.CenteredInviscidFlux(c(0,0,0), c(0,0,1), 2)
+      var flux = Flow.CenteredInviscidFluxZ(c(0,0,0), c(0,0,1))
 
       -- Store this flux in the cell to the left of the face.
       c.rhoFlux         =  flux[0]
