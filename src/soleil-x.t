@@ -2259,25 +2259,23 @@ local ebb UpdateGhostFieldsHelper(c_bnd, c_int, sign, bnd_velocity, bnd_temperat
   c_bnd.temperatureBoundary =  temperature
 
 end
-ebb Flow.UpdateGhostFieldsStep1 (c : grid.cells)
-    if c.xneg_depth > 0 then
-        UpdateGhostFieldsHelper(c, c( 1,0,0), x_sign, xneg_velocity, xneg_temperature)
-    end
-    if c.xpos_depth > 0 then
-        UpdateGhostFieldsHelper(c, c(-1,0,0), x_sign, xpos_velocity, xpos_temperature)
-    end
-    if c.yneg_depth > 0 then
-        UpdateGhostFieldsHelper(c, c(0, 1,0), y_sign, yneg_velocity, yneg_temperature)
-    end
-    if c.ypos_depth > 0 then
-        UpdateGhostFieldsHelper(c, c(0,-1,0), y_sign, ypos_velocity, ypos_temperature)
-    end
-    if c.zneg_depth > 0 then
-        UpdateGhostFieldsHelper(c, c(0,0, 1), z_sign, zneg_velocity, zneg_temperature)
-    end
-    if c.zpos_depth > 0 then
-        UpdateGhostFieldsHelper(c, c(0,0,-1), z_sign, zpos_velocity, zpos_temperature)
-    end
+ebb Flow.UpdateGhostFieldsStep1XNeg (c : grid.cells)
+  UpdateGhostFieldsHelper(c, c( 1,0,0), x_sign, xneg_velocity, xneg_temperature)
+end
+ebb Flow.UpdateGhostFieldsStep1XPos (c : grid.cells)
+  UpdateGhostFieldsHelper(c, c(-1,0,0), x_sign, xpos_velocity, xpos_temperature)
+end
+ebb Flow.UpdateGhostFieldsStep1YNeg (c : grid.cells)
+  UpdateGhostFieldsHelper(c, c(0, 1,0), y_sign, yneg_velocity, yneg_temperature)
+end
+ebb Flow.UpdateGhostFieldsStep1YPos (c : grid.cells)
+  UpdateGhostFieldsHelper(c, c(0,-1,0), y_sign, ypos_velocity, ypos_temperature)
+end
+ebb Flow.UpdateGhostFieldsStep1ZNeg (c : grid.cells)
+  UpdateGhostFieldsHelper(c, c(0,0, 1), z_sign, zneg_velocity, zneg_temperature)
+end
+ebb Flow.UpdateGhostFieldsStep1ZPos (c : grid.cells)
+  UpdateGhostFieldsHelper(c, c(0,0,-1), z_sign, zpos_velocity, zpos_temperature)
 end
 ebb Flow.UpdateGhostFieldsStep2 (c : grid.cells)
     c.rho         = c.rhoBoundary
@@ -2287,8 +2285,18 @@ ebb Flow.UpdateGhostFieldsStep2 (c : grid.cells)
     c.temperature = c.temperatureBoundary
 end
 function Flow.UpdateGhost()
-    grid.cells.boundary:foreach(Flow.UpdateGhostFieldsStep1)
-    grid.cells.boundary:foreach(Flow.UpdateGhostFieldsStep2)
+    grid.cells.boundary_xneg:foreach(Flow.UpdateGhostFieldsStep1XNeg)
+    grid.cells.boundary_xpos:foreach(Flow.UpdateGhostFieldsStep1XPos)
+    grid.cells.boundary_yneg:foreach(Flow.UpdateGhostFieldsStep1YNeg)
+    grid.cells.boundary_ypos:foreach(Flow.UpdateGhostFieldsStep1YPos)
+    grid.cells.boundary_zneg:foreach(Flow.UpdateGhostFieldsStep1ZNeg)
+    grid.cells.boundary_zpos:foreach(Flow.UpdateGhostFieldsStep1ZPos)
+    grid.cells.boundary_xneg:foreach(Flow.UpdateGhostFieldsStep2)
+    grid.cells.boundary_xpos:foreach(Flow.UpdateGhostFieldsStep2)
+    grid.cells.boundary_yneg:foreach(Flow.UpdateGhostFieldsStep2)
+    grid.cells.boundary_ypos:foreach(Flow.UpdateGhostFieldsStep2)
+    grid.cells.boundary_zneg:foreach(Flow.UpdateGhostFieldsStep2)
+    grid.cells.boundary_zpos:foreach(Flow.UpdateGhostFieldsStep2)
 end
 
 -- Helper function for updating the ghost fields to minimize repeated code
@@ -2310,35 +2318,41 @@ local ebb UpdateGhostThermodynamicsHelper (c_bnd, c_int, bnd_temperature)
   c_bnd.temperatureBoundary = temperature
 
 end
-ebb Flow.UpdateGhostThermodynamicsStep1 (c : grid.cells)
-  if c.xneg_depth > 0 then
-    UpdateGhostThermodynamicsHelper(c, c( 1,0,0), xneg_temperature)
-  end
-  if c.xpos_depth > 0 then
-    UpdateGhostThermodynamicsHelper(c, c(-1,0,0), xpos_temperature)
-  end
-  if c.yneg_depth > 0 then
-    UpdateGhostThermodynamicsHelper(c, c(0, 1,0), yneg_temperature)
-  end
-  if c.ypos_depth > 0 then
-    UpdateGhostThermodynamicsHelper(c, c(0,-1,0), ypos_temperature)
-  end
-  if c.zneg_depth > 0 then
-    UpdateGhostThermodynamicsHelper(c, c(0,0, 1), zneg_temperature)
-  end
-  if c.zpos_depth > 0 then
-    UpdateGhostThermodynamicsHelper(c, c(0,0,-1), zpos_temperature)
-  end
+ebb Flow.UpdateGhostThermodynamicsStep1XNeg (c : grid.cells)
+  UpdateGhostThermodynamicsHelper(c, c( 1,0,0), xneg_temperature)
+end
+ebb Flow.UpdateGhostThermodynamicsStep1XPos (c : grid.cells)
+  UpdateGhostThermodynamicsHelper(c, c(-1,0,0), xpos_temperature)
+end
+ebb Flow.UpdateGhostThermodynamicsStep1YNeg (c : grid.cells)
+  UpdateGhostThermodynamicsHelper(c, c(0, 1,0), yneg_temperature)
+end
+ebb Flow.UpdateGhostThermodynamicsStep1YPos (c : grid.cells)
+  UpdateGhostThermodynamicsHelper(c, c(0,-1,0), ypos_temperature)
+end
+ebb Flow.UpdateGhostThermodynamicsStep1ZNeg (c : grid.cells)
+  UpdateGhostThermodynamicsHelper(c, c(0,0, 1), zneg_temperature)
+end
+ebb Flow.UpdateGhostThermodynamicsStep1ZPos (c : grid.cells)
+  UpdateGhostThermodynamicsHelper(c, c(0,0,-1), zpos_temperature)
 end
 ebb Flow.UpdateGhostThermodynamicsStep2 (c : grid.cells)
-    if c.in_boundary then
-        c.pressure    = c.pressureBoundary
-        c.temperature = c.temperatureBoundary
-    end
+  c.pressure    = c.pressureBoundary
+  c.temperature = c.temperatureBoundary
 end
 function Flow.UpdateGhostThermodynamics()
-    grid.cells.boundary:foreach(Flow.UpdateGhostThermodynamicsStep1)
-    grid.cells.boundary:foreach(Flow.UpdateGhostThermodynamicsStep2)
+  grid.cells.boundary_xneg:foreach(Flow.UpdateGhostThermodynamicsStep1XNeg)
+  grid.cells.boundary_xpos:foreach(Flow.UpdateGhostThermodynamicsStep1XPos)
+  grid.cells.boundary_yneg:foreach(Flow.UpdateGhostThermodynamicsStep1YNeg)
+  grid.cells.boundary_ypos:foreach(Flow.UpdateGhostThermodynamicsStep1YPos)
+  grid.cells.boundary_zneg:foreach(Flow.UpdateGhostThermodynamicsStep1ZNeg)
+  grid.cells.boundary_zpos:foreach(Flow.UpdateGhostThermodynamicsStep1ZPos)
+  grid.cells.boundary_xneg:foreach(Flow.UpdateGhostThermodynamicsStep2)
+  grid.cells.boundary_xpos:foreach(Flow.UpdateGhostThermodynamicsStep2)
+  grid.cells.boundary_yneg:foreach(Flow.UpdateGhostThermodynamicsStep2)
+  grid.cells.boundary_ypos:foreach(Flow.UpdateGhostThermodynamicsStep2)
+  grid.cells.boundary_zneg:foreach(Flow.UpdateGhostThermodynamicsStep2)
+  grid.cells.boundary_zpos:foreach(Flow.UpdateGhostThermodynamicsStep2)
 end
 
 -- Helper function for updating the ghost fields to minimize repeated code
@@ -2348,32 +2362,40 @@ local ebb UpdateGhostVelocityHelper (c_bnd, c_int, sign, bnd_velocity)
   c_bnd.velocityBoundary = L.times(c_int.velocity, sign) + bnd_velocity
 
 end
-ebb Flow.UpdateGhostVelocityStep1 (c : grid.cells)
-  if c.xneg_depth > 0 then
-    UpdateGhostVelocityHelper(c, c( 1,0,0), x_sign, xneg_velocity)
-  end
-  if c.xpos_depth > 0 then
-    UpdateGhostVelocityHelper(c, c(-1,0,0), x_sign, xpos_velocity)
-  end
-  if c.yneg_depth > 0 then
-    UpdateGhostVelocityHelper(c, c(0, 1,0), y_sign, yneg_velocity)
-  end
-  if c.ypos_depth > 0 then
-    UpdateGhostVelocityHelper(c, c(0,-1,0), y_sign, ypos_velocity)
-  end
-  if c.zneg_depth > 0 then
-    UpdateGhostVelocityHelper(c, c(0,0, 1), z_sign, zneg_velocity)
-  end
-  if c.zpos_depth > 0 then
-    UpdateGhostVelocityHelper(c, c(0,0,-1), z_sign, zpos_velocity)
-  end
+ebb Flow.UpdateGhostVelocityStep1XNeg (c : grid.cells)
+  UpdateGhostVelocityHelper(c, c( 1,0,0), x_sign, xneg_velocity)
+end
+ebb Flow.UpdateGhostVelocityStep1XPos (c : grid.cells)
+  UpdateGhostVelocityHelper(c, c(-1,0,0), x_sign, xpos_velocity)
+end
+ebb Flow.UpdateGhostVelocityStep1YNeg (c : grid.cells)
+  UpdateGhostVelocityHelper(c, c(0, 1,0), y_sign, yneg_velocity)
+end
+ebb Flow.UpdateGhostVelocityStep1YPos (c : grid.cells)
+  UpdateGhostVelocityHelper(c, c(0,-1,0), y_sign, ypos_velocity)
+end
+ebb Flow.UpdateGhostVelocityStep1ZNeg (c : grid.cells)
+  UpdateGhostVelocityHelper(c, c(0,0, 1), z_sign, zneg_velocity)
+end
+ebb Flow.UpdateGhostVelocityStep1ZPos (c : grid.cells)
+  UpdateGhostVelocityHelper(c, c(0,0,-1), z_sign, zpos_velocity)
 end
 ebb Flow.UpdateGhostVelocityStep2 (c : grid.cells)
-    c.velocity = c.velocityBoundary
+  c.velocity = c.velocityBoundary
 end
 function Flow.UpdateGhostVelocity()
-    grid.cells.boundary:foreach(Flow.UpdateGhostVelocityStep1)
-    grid.cells.boundary:foreach(Flow.UpdateGhostVelocityStep2)
+    grid.cells.boundary_xneg:foreach(Flow.UpdateGhostVelocityStep1XNeg)
+    grid.cells.boundary_xpos:foreach(Flow.UpdateGhostVelocityStep1XPos)
+    grid.cells.boundary_yneg:foreach(Flow.UpdateGhostVelocityStep1YNeg)
+    grid.cells.boundary_ypos:foreach(Flow.UpdateGhostVelocityStep1YPos)
+    grid.cells.boundary_zneg:foreach(Flow.UpdateGhostVelocityStep1ZNeg)
+    grid.cells.boundary_zpos:foreach(Flow.UpdateGhostVelocityStep1ZPos)
+    grid.cells.boundary_xneg:foreach(Flow.UpdateGhostVelocityStep2)
+    grid.cells.boundary_xpos:foreach(Flow.UpdateGhostVelocityStep2)
+    grid.cells.boundary_yneg:foreach(Flow.UpdateGhostVelocityStep2)
+    grid.cells.boundary_ypos:foreach(Flow.UpdateGhostVelocityStep2)
+    grid.cells.boundary_zneg:foreach(Flow.UpdateGhostVelocityStep2)
+    grid.cells.boundary_zpos:foreach(Flow.UpdateGhostVelocityStep2)
 end
 
 -- Helper function for updating the conservatives to minimize repeated code
@@ -2411,25 +2433,23 @@ local ebb UpdateGhostConservedHelper (c_bnd, c_int, sign, bnd_velocity,
                                      0.5*L.dot(velocity,velocity))
 
 end
-ebb Flow.UpdateGhostConservedStep1 (c : grid.cells)
-  if c.xneg_depth > 0 then
-    UpdateGhostConservedHelper(c, c( 1,0,0), x_sign, xneg_velocity, xneg_temperature)
-  end
-  if c.xpos_depth > 0 then
-    UpdateGhostConservedHelper(c, c(-1,0,0), x_sign, xpos_velocity, xpos_temperature)
-  end
-  if c.yneg_depth > 0 then
-    UpdateGhostConservedHelper(c, c(0, 1,0), y_sign, yneg_velocity, yneg_temperature)
-  end
-  if c.ypos_depth > 0 then
-    UpdateGhostConservedHelper(c, c(0,-1,0), y_sign, ypos_velocity, ypos_temperature)
-  end
-  if c.zneg_depth > 0 then
-    UpdateGhostConservedHelper(c, c(0,0, 1), z_sign, zneg_velocity, zneg_temperature)
-  end
-  if c.zpos_depth > 0 then
-    UpdateGhostConservedHelper(c, c(0,0,-1), z_sign, zpos_velocity, zpos_temperature)
-  end
+ebb Flow.UpdateGhostConservedStep1XNeg (c : grid.cells)
+  UpdateGhostConservedHelper(c, c( 1,0,0), x_sign, xneg_velocity, xneg_temperature)
+end
+ebb Flow.UpdateGhostConservedStep1XPos (c : grid.cells)
+  UpdateGhostConservedHelper(c, c(-1,0,0), x_sign, xpos_velocity, xpos_temperature)
+end
+ebb Flow.UpdateGhostConservedStep1YNeg (c : grid.cells)
+  UpdateGhostConservedHelper(c, c(0, 1,0), y_sign, yneg_velocity, yneg_temperature)
+end
+ebb Flow.UpdateGhostConservedStep1YPos (c : grid.cells)
+  UpdateGhostConservedHelper(c, c(0,-1,0), y_sign, ypos_velocity, ypos_temperature)
+end
+ebb Flow.UpdateGhostConservedStep1ZNeg (c : grid.cells)
+  UpdateGhostConservedHelper(c, c(0,0, 1), z_sign, zneg_velocity, zneg_temperature)
+end
+ebb Flow.UpdateGhostConservedStep1ZPos (c : grid.cells)
+  UpdateGhostConservedHelper(c, c(0,0,-1), z_sign, zpos_velocity, zpos_temperature)
 end
 ebb Flow.UpdateGhostConservedStep2 (c : grid.cells)
     c.rho         = c.rhoBoundary
@@ -2437,8 +2457,18 @@ ebb Flow.UpdateGhostConservedStep2 (c : grid.cells)
     c.rhoEnergy   = c.rhoEnergyBoundary
 end
 function Flow.UpdateGhostConserved()
-    grid.cells.boundary:foreach(Flow.UpdateGhostConservedStep1)
-    grid.cells.boundary:foreach(Flow.UpdateGhostConservedStep2)
+    grid.cells.boundary_xneg:foreach(Flow.UpdateGhostConservedStep1XNeg)
+    grid.cells.boundary_xpos:foreach(Flow.UpdateGhostConservedStep1XPos)
+    grid.cells.boundary_yneg:foreach(Flow.UpdateGhostConservedStep1YNeg)
+    grid.cells.boundary_ypos:foreach(Flow.UpdateGhostConservedStep1YPos)
+    grid.cells.boundary_zneg:foreach(Flow.UpdateGhostConservedStep1ZNeg)
+    grid.cells.boundary_zpos:foreach(Flow.UpdateGhostConservedStep1ZPos)
+    grid.cells.boundary_xneg:foreach(Flow.UpdateGhostConservedStep2)
+    grid.cells.boundary_xpos:foreach(Flow.UpdateGhostConservedStep2)
+    grid.cells.boundary_yneg:foreach(Flow.UpdateGhostConservedStep2)
+    grid.cells.boundary_ypos:foreach(Flow.UpdateGhostConservedStep2)
+    grid.cells.boundary_zneg:foreach(Flow.UpdateGhostConservedStep2)
+    grid.cells.boundary_zpos:foreach(Flow.UpdateGhostConservedStep2)
 end
 
 ebb Flow.UpdateAuxiliaryThermodynamics (c : grid.cells)
@@ -2476,32 +2506,28 @@ local ebb UpdateGhostVelocityGradientHelper (c_bnd, c_int, sign)
   c_bnd.velocityGradientZBoundary = L.times(sign, c_int.velocityGradientZ)
 
 end
-ebb Flow.UpdateGhostVelocityGradientStep1 (c : grid.cells)
-    if c.xneg_depth > 0 then
-      UpdateGhostVelocityGradientHelper(c, c( 1,0,0), x_sign)
-    end
-    if c.xpos_depth > 0 then
-      UpdateGhostVelocityGradientHelper(c, c(-1,0,0), x_sign)
-    end
-    if c.yneg_depth > 0 then
-      UpdateGhostVelocityGradientHelper(c, c(0, 1,0), y_sign)
-    end
-    if c.ypos_depth > 0 then
-      UpdateGhostVelocityGradientHelper(c, c(0,-1,0), y_sign)
-    end
-    if c.zneg_depth > 0 then
-      UpdateGhostVelocityGradientHelper(c, c(0,0, 1), z_sign)
-    end
-    if c.zpos_depth > 0 then
-      UpdateGhostVelocityGradientHelper(c, c(0,0,-1), z_sign)
-    end
+ebb Flow.UpdateGhostVelocityGradientStep1XNeg (c : grid.cells)
+  UpdateGhostVelocityGradientHelper(c, c( 1,0,0), x_sign)
+end
+ebb Flow.UpdateGhostVelocityGradientStep1XPos (c : grid.cells)
+  UpdateGhostVelocityGradientHelper(c, c(-1,0,0), x_sign)
+end
+ebb Flow.UpdateGhostVelocityGradientStep1YNeg (c : grid.cells)
+  UpdateGhostVelocityGradientHelper(c, c(0, 1,0), y_sign)
+end
+ebb Flow.UpdateGhostVelocityGradientStep1YPos (c : grid.cells)
+  UpdateGhostVelocityGradientHelper(c, c(0,-1,0), y_sign)
+end
+ebb Flow.UpdateGhostVelocityGradientStep1ZNeg (c : grid.cells)
+  UpdateGhostVelocityGradientHelper(c, c(0,0, 1), z_sign)
+end
+ebb Flow.UpdateGhostVelocityGradientStep1ZPos (c : grid.cells)
+  UpdateGhostVelocityGradientHelper(c, c(0,0,-1), z_sign)
 end
 ebb Flow.UpdateGhostVelocityGradientStep2 (c : grid.cells)
-    if c.in_boundary then
-        c.velocityGradientX = c.velocityGradientXBoundary
-        c.velocityGradientY = c.velocityGradientYBoundary
-        c.velocityGradientZ = c.velocityGradientZBoundary
-    end
+  c.velocityGradientX = c.velocityGradientXBoundary
+  c.velocityGradientY = c.velocityGradientYBoundary
+  c.velocityGradientZ = c.velocityGradientZBoundary
 end
 
 -- Calculation of spectral radii for clf-based delta time
@@ -3255,8 +3281,18 @@ function Flow.AddInviscid()
 end
 
 function Flow.UpdateGhostVelocityGradient()
-    grid.cells:foreach(Flow.UpdateGhostVelocityGradientStep1)
-    grid.cells:foreach(Flow.UpdateGhostVelocityGradientStep2)
+    grid.cells.boundary_xneg:foreach(Flow.UpdateGhostVelocityGradientStep1XNeg)
+    grid.cells.boundary_xpos:foreach(Flow.UpdateGhostVelocityGradientStep1XPos)
+    grid.cells.boundary_yneg:foreach(Flow.UpdateGhostVelocityGradientStep1YNeg)
+    grid.cells.boundary_ypos:foreach(Flow.UpdateGhostVelocityGradientStep1YPos)
+    grid.cells.boundary_zneg:foreach(Flow.UpdateGhostVelocityGradientStep1ZNeg)
+    grid.cells.boundary_zpos:foreach(Flow.UpdateGhostVelocityGradientStep1ZPos)
+    grid.cells.boundary_xneg:foreach(Flow.UpdateGhostVelocityGradientStep2)
+    grid.cells.boundary_xpos:foreach(Flow.UpdateGhostVelocityGradientStep2)
+    grid.cells.boundary_yneg:foreach(Flow.UpdateGhostVelocityGradientStep2)
+    grid.cells.boundary_ypos:foreach(Flow.UpdateGhostVelocityGradientStep2)
+    grid.cells.boundary_zneg:foreach(Flow.UpdateGhostVelocityGradientStep2)
+    grid.cells.boundary_zpos:foreach(Flow.UpdateGhostVelocityGradientStep2)
 end
 
 function Flow.AddViscous()
