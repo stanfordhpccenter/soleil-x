@@ -87,7 +87,7 @@ local PN = require 'ebb.lib.pathname'
 -----------------------------------------------------------------------------
 
 local function printUsageAndExit()
-  print("Usage : ./ebb [ebb options] ~/path/to/soleil-x.t <options>")
+  print("Usage : liszt-legion.sh ~/path/to/soleil-x.t <options>")
   print("          -i <parameter file with Soleil-X options> (** required **)")
   print("          -x <number of grid partitions in the x direction. (default: 1)>")
   print("          -y <number of grid partitions in the y direction. (default: 1)>")
@@ -103,29 +103,37 @@ local yParts = 1
 local zParts = 1
 local pParts = 1
 
-
-if #arg < 2 then
-  printUsageAndExit()
-  else
-  for i=1,#arg,2 do
+do
+  local i = 1
+  while i <= #arg do
     if arg[i] == '-i' then
-        configFileName = arg[i+1]
-      elseif arg[i] == '-x' then
-        xParts = tonumber(arg[i+1])
-      elseif arg[i] == '-y' then
-        yParts = tonumber(arg[i+1])
-      elseif arg[i] == '-z' then
-        zParts = tonumber(arg[i+1])
-      elseif arg[i] == '-p' then
-        pParts = tonumber(arg[i+1])
-      else
-        printUsageAndExit()
+      if i == #arg then printUsageAndExit() end
+      configFileName = arg[i+1]
+      i = i + 2
+    elseif arg[i] == '-x' then
+      if i == #arg then printUsageAndExit() end
+      xParts = tonumber(arg[i+1])
+      i = i + 2
+    elseif arg[i] == '-y' then
+      if i == #arg then printUsageAndExit() end
+      yParts = tonumber(arg[i+1])
+      i = i + 2
+    elseif arg[i] == '-z' then
+      if i == #arg then printUsageAndExit() end
+      zParts = tonumber(arg[i+1])
+      i = i + 2
+    elseif arg[i] == '-p' then
+      if i == #arg then printUsageAndExit() end
+      pParts = tonumber(arg[i+1])
+      i = i + 2
+    else
+      i = i + 1
     end
   end
-  if not configFileName then
-    print("Config file name required")
-    printUsageAndExit()
-  end
+end
+if not configFileName then
+  print("Config file name required")
+  printUsageAndExit()
 end
 
 -- Load up the configuration file.
