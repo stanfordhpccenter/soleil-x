@@ -4288,6 +4288,7 @@ Statistics.ComputeSpatialAverages()
 
 M.WHILE(M.AND(M.LT(TimeIntegrator.simTime:get(), TimeIntegrator.final_time),
               M.LT(TimeIntegrator.timeStep:get(), TimeIntegrator.max_iter)))
+  M.PRINT('time is %d\n', TimeIntegrator.timeStep:get())
   TimeIntegrator.CalculateDeltaTime()
   TimeIntegrator.AdvanceTimeStep()
   M.IF(M.EQ(TimeIntegrator.timeStep:get() % config.consoleFrequency, 0))
