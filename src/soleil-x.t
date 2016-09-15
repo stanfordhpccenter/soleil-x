@@ -4273,14 +4273,20 @@ Statistics.ComputeSpatialAverages()
 
 -- Main iteration loop
 
+M.PRINT("    Iter     Time(s)   Avg Press    Avg Temp      Avg KE\n")
 M.WHILE(M.AND(M.LT(TimeIntegrator.simTime:get(), TimeIntegrator.final_time),
               M.LT(TimeIntegrator.timeStep:get(), TimeIntegrator.max_iter)))
-  M.PRINT('time is %d\n', TimeIntegrator.timeStep:get())
   TimeIntegrator.CalculateDeltaTime()
   TimeIntegrator.AdvanceTimeStep()
   M.IF(M.EQ(TimeIntegrator.timeStep:get() % config.consoleFrequency, 0))
     Statistics.ComputeSpatialAverages()
   M.END()
+  M.PRINT("%8d %11.6f %11.6f %11.6f %11.6f\n",
+          TimeIntegrator.timeStep:get(),
+          TimeIntegrator.simTime:get(),
+          Flow.averagePressure:get(),
+          Flow.averageTemperature:get(),
+          Flow.averageKineticEnergy:get())
 M.END()
 
 print("")
