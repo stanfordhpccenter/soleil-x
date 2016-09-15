@@ -2268,35 +2268,37 @@ local ebb UpdateGhostFieldsHelper(c_bnd, c_int, sign, bnd_velocity, bnd_temperat
 
 end
 ebb Flow.UpdateGhostFieldsStep1 (c : grid.cells)
-    if c.xneg_depth > 0 then
-        UpdateGhostFieldsHelper(c, c( 1,0,0), x_sign, xneg_velocity, xneg_temperature)
-    end
-    if c.xpos_depth > 0 then
-        UpdateGhostFieldsHelper(c, c(-1,0,0), x_sign, xpos_velocity, xpos_temperature)
-    end
-    if c.yneg_depth > 0 then
-        UpdateGhostFieldsHelper(c, c(0, 1,0), y_sign, yneg_velocity, yneg_temperature)
-    end
-    if c.ypos_depth > 0 then
-        UpdateGhostFieldsHelper(c, c(0,-1,0), y_sign, ypos_velocity, ypos_temperature)
-    end
-    if c.zneg_depth > 0 then
-        UpdateGhostFieldsHelper(c, c(0,0, 1), z_sign, zneg_velocity, zneg_temperature)
-    end
-    if c.zpos_depth > 0 then
-        UpdateGhostFieldsHelper(c, c(0,0,-1), z_sign, zpos_velocity, zpos_temperature)
-    end
+  if c.xneg_depth > 0 then
+    UpdateGhostFieldsHelper(c, c( 1,0,0), x_sign, xneg_velocity, xneg_temperature)
+  end
+  if c.xpos_depth > 0 then
+    UpdateGhostFieldsHelper(c, c(-1,0,0), x_sign, xpos_velocity, xpos_temperature)
+  end
+  if c.yneg_depth > 0 then
+    UpdateGhostFieldsHelper(c, c(0, 1,0), y_sign, yneg_velocity, yneg_temperature)
+  end
+  if c.ypos_depth > 0 then
+    UpdateGhostFieldsHelper(c, c(0,-1,0), y_sign, ypos_velocity, ypos_temperature)
+  end
+  if c.zneg_depth > 0 then
+    UpdateGhostFieldsHelper(c, c(0,0, 1), z_sign, zneg_velocity, zneg_temperature)
+  end
+  if c.zpos_depth > 0 then
+    UpdateGhostFieldsHelper(c, c(0,0,-1), z_sign, zpos_velocity, zpos_temperature)
+  end
 end
 ebb Flow.UpdateGhostFieldsStep2 (c : grid.cells)
+  if c.in_boundary then
     c.rho         = c.rhoBoundary
     c.rhoVelocity = c.rhoVelocityBoundary
     c.rhoEnergy   = c.rhoEnergyBoundary
     c.pressure    = c.pressureBoundary
     c.temperature = c.temperatureBoundary
+  end
 end
 function Flow.UpdateGhost()
-    grid.cells.boundary:foreach(Flow.UpdateGhostFieldsStep1)
-    grid.cells.boundary:foreach(Flow.UpdateGhostFieldsStep2)
+  grid.cells:foreach(Flow.UpdateGhostFieldsStep1)
+  grid.cells:foreach(Flow.UpdateGhostFieldsStep2)
 end
 
 -- Helper function for updating the ghost fields to minimize repeated code
@@ -2339,14 +2341,14 @@ ebb Flow.UpdateGhostThermodynamicsStep1 (c : grid.cells)
   end
 end
 ebb Flow.UpdateGhostThermodynamicsStep2 (c : grid.cells)
-    if c.in_boundary then
-        c.pressure    = c.pressureBoundary
-        c.temperature = c.temperatureBoundary
-    end
+  if c.in_boundary then
+    c.pressure    = c.pressureBoundary
+    c.temperature = c.temperatureBoundary
+  end
 end
 function Flow.UpdateGhostThermodynamics()
-    grid.cells.boundary:foreach(Flow.UpdateGhostThermodynamicsStep1)
-    grid.cells.boundary:foreach(Flow.UpdateGhostThermodynamicsStep2)
+  grid.cells:foreach(Flow.UpdateGhostThermodynamicsStep1)
+  grid.cells:foreach(Flow.UpdateGhostThermodynamicsStep2)
 end
 
 -- Helper function for updating the ghost fields to minimize repeated code
@@ -2377,11 +2379,13 @@ ebb Flow.UpdateGhostVelocityStep1 (c : grid.cells)
   end
 end
 ebb Flow.UpdateGhostVelocityStep2 (c : grid.cells)
+  if c.in_boundary then
     c.velocity = c.velocityBoundary
+  end
 end
 function Flow.UpdateGhostVelocity()
-    grid.cells.boundary:foreach(Flow.UpdateGhostVelocityStep1)
-    grid.cells.boundary:foreach(Flow.UpdateGhostVelocityStep2)
+  grid.cells:foreach(Flow.UpdateGhostVelocityStep1)
+  grid.cells:foreach(Flow.UpdateGhostVelocityStep2)
 end
 
 -- Helper function for updating the conservatives to minimize repeated code
@@ -2440,13 +2444,15 @@ ebb Flow.UpdateGhostConservedStep1 (c : grid.cells)
   end
 end
 ebb Flow.UpdateGhostConservedStep2 (c : grid.cells)
+  if c.in_boundary then
     c.rho         = c.rhoBoundary
     c.rhoVelocity = c.rhoVelocityBoundary
     c.rhoEnergy   = c.rhoEnergyBoundary
+  end
 end
 function Flow.UpdateGhostConserved()
-    grid.cells.boundary:foreach(Flow.UpdateGhostConservedStep1)
-    grid.cells.boundary:foreach(Flow.UpdateGhostConservedStep2)
+  grid.cells:foreach(Flow.UpdateGhostConservedStep1)
+  grid.cells:foreach(Flow.UpdateGhostConservedStep2)
 end
 
 ebb Flow.UpdateAuxiliaryThermodynamics (c : grid.cells)
