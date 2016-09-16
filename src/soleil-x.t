@@ -421,8 +421,6 @@ spatial_stencil = {
 }
 
 -- Time integrator options
-TimeIntegrator.coeff_function        = {1/6, 1/3, 1/3, 1/6}
-TimeIntegrator.coeff_time            = {0.5, 0.5, 1, 1}
 TimeIntegrator.simTime               = L.Global('TimeIntegrator.simTime', L.double, 0)
 TimeIntegrator.timeOld               = L.Global('TimeIntegrator.timeOld', L.double, 0)
 TimeIntegrator.final_time            = config.final_time
@@ -435,6 +433,7 @@ TimeIntegrator.restartEveryTimeSteps = config.restartEveryTimeSteps
 TimeIntegrator.headerFrequency       = config.headerFrequency
 TimeIntegrator.consoleFrequency      = config.consoleFrequency
 TimeIntegrator.deltaTime             = L.Global('TimeIntegrator.deltaTime', L.double, 0.0001)
+TimeIntegrator.stage                 = L.Global('TimeIntegrator.stage', L.int, 0)
 
 local fluid_options = {}
 if config.viscosity_model == 'Constant' then
@@ -2190,39 +2189,56 @@ end
 -------------------
 
 -- Update flow variables using derivatives
-Flow.UpdateFunctions = {}
-function Flow.GenerateUpdateFunctions(relation, stage)
-    -- Assumes 4th-order Runge-Kutta
-    local coeff_fun  = TimeIntegrator.coeff_function[stage]
-    local coeff_time = TimeIntegrator.coeff_time[stage]
-    local deltaTime  = TimeIntegrator.deltaTime
-    if stage <= 3 then
-        return ebb(r : relation)
-            r.rho_new  += coeff_fun * deltaTime * r.rho_t
-            r.rho       = r.rho_old +
-              coeff_time * deltaTime * r.rho_t
-            r.rhoVelocity_new +=
-              coeff_fun * deltaTime * r.rhoVelocity_t
-            r.rhoVelocity      = r.rhoVelocity_old +
-              coeff_time * deltaTime * r.rhoVelocity_t
-            r.rhoEnergy_new  +=
-              coeff_fun * deltaTime * r.rhoEnergy_t
-            r.rhoEnergy       = r.rhoEnergy_old +
-              coeff_time * deltaTime * r.rhoEnergy_t
-        end
-    elseif stage == 4 then
-        return ebb(r : relation)
-            r.rho = r.rho_new +
-               coeff_fun * deltaTime * r.rho_t
-            r.rhoVelocity = r.rhoVelocity_new +
-               coeff_fun * deltaTime * r.rhoVelocity_t
-            r.rhoEnergy = r.rhoEnergy_new +
-               coeff_fun * deltaTime * r.rhoEnergy_t
-        end
+-- Assumes 4th-order Runge-Kutta
+ebb Flow.UpdateVars(c : grid.cells)
+    var deltaTime = TimeIntegrator.deltaTime
+    if TimeIntegrator.stage == 1 then
+        c.rho_new +=
+            (1.0/6.0) * deltaTime * c.rho_t
+        c.rho = c.rho_old +
+            0.5 * deltaTime * c.rho_t
+        c.rhoVelocity_new +=
+            (1.0/6.0) * deltaTime * c.rhoVelocity_t
+        c.rhoVelocity = c.rhoVelocity_old +
+            0.5 * deltaTime * c.rhoVelocity_t
+        c.rhoEnergy_new +=
+            (1.0/6.0) * deltaTime * c.rhoEnergy_t
+        c.rhoEnergy = c.rhoEnergy_old +
+            0.5 * deltaTime * c.rhoEnergy_t
+    elseif TimeIntegrator.stage == 2 then
+        c.rho_new +=
+            (1.0/3.0) * deltaTime * c.rho_t
+        c.rho = c.rho_old +
+            0.5 * deltaTime * c.rho_t
+        c.rhoVelocity_new +=
+            (1.0/3.0) * deltaTime * c.rhoVelocity_t
+        c.rhoVelocity = c.rhoVelocity_old +
+            0.5 * deltaTime * c.rhoVelocity_t
+        c.rhoEnergy_new +=
+            (1.0/3.0) * deltaTime * c.rhoEnergy_t
+        c.rhoEnergy = c.rhoEnergy_old +
+            0.5 * deltaTime * c.rhoEnergy_t
+    elseif TimeIntegrator.stage == 3 then
+        c.rho_new +=
+            (1.0/3.0) * deltaTime * c.rho_t
+        c.rho = c.rho_old +
+            1.0 * deltaTime * c.rho_t
+        c.rhoVelocity_new +=
+            (1.0/3.0) * deltaTime * c.rhoVelocity_t
+        c.rhoVelocity = c.rhoVelocity_old +
+            1.0 * deltaTime * c.rhoVelocity_t
+        c.rhoEnergy_new +=
+            (1.0/3.0) * deltaTime * c.rhoEnergy_t
+        c.rhoEnergy = c.rhoEnergy_old +
+            1.0 * deltaTime * c.rhoEnergy_t
+    else -- TimeIntegrator.stage == 4
+        c.rho = c.rho_new +
+            (1.0/6.0) * deltaTime * c.rho_t
+        c.rhoVelocity = c.rhoVelocity_new +
+            (1.0/6.0) * deltaTime * c.rhoVelocity_t
+        c.rhoEnergy = c.rhoEnergy_new +
+            (1.0/6.0) * deltaTime * c.rhoEnergy_t
     end
-end
-for sdx = 1, 4 do
-    Flow.UpdateFunctions[sdx] = Flow.GenerateUpdateFunctions(grid.cells, sdx)
 end
 
 ebb Flow.UpdateAuxiliaryVelocity (c : grid.cells)
@@ -2754,40 +2770,55 @@ if particles_options.modeParticles then
   end
 
   -- Update particle variables using derivatives
-  Particles.UpdateFunctions = {}
-  function Particles.GenerateUpdateFunctions(relation, stage)
-      local coeff_fun  = TimeIntegrator.coeff_function[stage]
-      local coeff_time = TimeIntegrator.coeff_time[stage]
-      local deltaTime  = TimeIntegrator.deltaTime
-      if stage <= 3 then
-          return ebb(r : relation)
-                r.position_new +=
-                   coeff_fun * deltaTime * r.position_t
-                r.position       = r.position_old +
-                   coeff_time * deltaTime * r.position_t
-                r.velocity_new +=
-                   coeff_fun * deltaTime * r.velocity_t
-                r.velocity       = r.velocity_old +
-                   coeff_time * deltaTime * r.velocity_t
-                r.temperature_new +=
-                   coeff_fun * deltaTime * r.temperature_t
-                r.temperature       = r.temperature_old +
-                   coeff_time * deltaTime * r.temperature_t
-          end
-      elseif stage == 4 then
-          return ebb(r : relation)
-                r.position = r.position_new +
-                   coeff_fun * deltaTime * r.position_t
-                r.velocity = r.velocity_new +
-                   coeff_fun * deltaTime * r.velocity_t
-                r.temperature = r.temperature_new +
-                   coeff_fun * deltaTime * r.temperature_t
-          end
+  ebb Particles.UpdateVars(p : particles)
+      var deltaTime = TimeIntegrator.deltaTime
+      if TimeIntegrator.stage == 1 then
+          p.position_new +=
+              (1.0/6.0) * deltaTime * p.position_t
+          p.position = p.position_old +
+              0.5 * deltaTime * p.position_t
+          p.velocity_new +=
+              (1.0/6.0) * deltaTime * p.velocity_t
+          p.velocity = p.velocity_old +
+              0.5 * deltaTime * p.velocity_t
+          p.temperature_new +=
+              (1.0/6.0) * deltaTime * p.temperature_t
+          p.temperature = p.temperature_old +
+              0.5 * deltaTime * p.temperature_t
+      elseif TimeIntegrator.stage == 2 then
+          p.position_new +=
+              (1.0/3.0) * deltaTime * p.position_t
+          p.position = p.position_old +
+              0.5 * deltaTime * p.position_t
+          p.velocity_new +=
+              (1.0/3.0) * deltaTime * p.velocity_t
+          p.velocity = p.velocity_old +
+              0.5 * deltaTime * p.velocity_t
+          p.temperature_new +=
+              (1.0/3.0) * deltaTime * p.temperature_t
+          p.temperature = p.temperature_old +
+              0.5 * deltaTime * p.temperature_t
+      elseif TimeIntegrator.stage == 3 then
+          p.position_new +=
+              (1.0/3.0) * deltaTime * p.position_t
+          p.position = p.position_old +
+              1.0 * deltaTime * p.position_t
+          p.velocity_new +=
+              (1.0/3.0) * deltaTime * p.velocity_t
+          p.velocity = p.velocity_old +
+              1.0 * deltaTime * p.velocity_t
+          p.temperature_new +=
+              (1.0/3.0) * deltaTime * p.temperature_t
+          p.temperature = p.temperature_old +
+              1.0 * deltaTime * p.temperature_t
+      else -- TimeIntegrator.stage == 4
+          p.position = p.position_new +
+              (1.0/6.0) * deltaTime * p.position_t
+          p.velocity = p.velocity_new +
+              (1.0/6.0) * deltaTime * p.velocity_t
+          p.temperature = p.temperature_new +
+              (1.0/6.0) * deltaTime * p.temperature_t
       end
-  end
-  for i = 1, 4 do
-      Particles.UpdateFunctions[i] =
-          Particles.GenerateUpdateFunctions(particles, i)
   end
 
   ebb Particles.UpdateAuxiliaryStep1 (p : particles)
@@ -3282,10 +3313,6 @@ function Flow.AddViscous()
     grid.cells.interior:foreach(Flow.AddViscousUpdateUsingFluxZ)
 end
 
-function Flow.Update(stage)
-    grid.cells:foreach(Flow.UpdateFunctions[stage])
-end
-
 function Flow.ComputeVelocityGradients()
     grid.cells.interior:foreach(Flow.ComputeVelocityGradientX)
     grid.cells.interior:foreach(Flow.ComputeVelocityGradientY)
@@ -3385,10 +3412,6 @@ if particles_options.modeParticles then
 
   end
 
-  function Particles.Update(stage)
-      particles:foreach(Particles.UpdateFunctions[stage])
-  end
-
   function Particles.UpdateAuxiliary()
       particles:foreach(Particles.UpdateAuxiliaryStep1)
       particles:foreach(Particles.UpdateAuxiliaryStep2)
@@ -3430,10 +3453,15 @@ function TimeIntegrator.UpdateAuxiliary()
     end
 end
 
-function TimeIntegrator.UpdateTime(stage)
-    TimeIntegrator.simTime:set(TimeIntegrator.timeOld:get() +
-                               TimeIntegrator.coeff_time[stage] *
-                               TimeIntegrator.deltaTime:get())
+function TimeIntegrator.UpdateTime()
+  -- HACK
+  TimeIntegrator.simTime:set(TimeIntegrator.timeOld:get() +
+                             -- stage = 1 => 0.5
+                             -- stage = 2 => 0.5
+                             -- stage = 3 => 1.0
+                             -- stage = 4 => 1.0
+                             0.5 * (1 + TimeIntegrator.stage:get() / 3) *
+                             TimeIntegrator.deltaTime:get())
 end
 
 function TimeIntegrator.InitializeVariables()
@@ -3503,10 +3531,10 @@ function TimeIntegrator.ComputeDFunctionDt()
     end
 end
 
-function TimeIntegrator.UpdateSolution(stage)
-    Flow.Update(stage)
+function TimeIntegrator.UpdateSolution()
+    grid.cells:foreach(Flow.UpdateVars)
     if particles_options.modeParticles then
-      Particles.Update(stage)
+        particles:foreach(Particles.UpdateVars)
     end
 end
 
@@ -3514,13 +3542,16 @@ function TimeIntegrator.AdvanceTimeStep()
 
     TimeIntegrator.SetupTimeStep()
     TimeIntegrator.timeOld:set(TimeIntegrator.simTime:get())
-    for stage = 1, 4 do
+
+    TimeIntegrator.stage:set(1)
+    M.WHILE(M.LT(TimeIntegrator.stage:get(), 5))
         TimeIntegrator.InitializeTimeDerivatives()
         TimeIntegrator.ComputeDFunctionDt()
-        TimeIntegrator.UpdateSolution(stage)
+        TimeIntegrator.UpdateSolution()
         TimeIntegrator.UpdateAuxiliary()
-        TimeIntegrator.UpdateTime(stage)
-    end
+        TimeIntegrator.UpdateTime()
+        TimeIntegrator.stage:set(TimeIntegrator.stage:get() + 1)
+    M.END()
     TimeIntegrator.ConcludeTimeStep()
 
     TimeIntegrator.timeStep:set(TimeIntegrator.timeStep:get() + 1)
