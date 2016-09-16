@@ -435,6 +435,7 @@ TimeIntegrator.restartEveryTimeSteps = config.restartEveryTimeSteps
 TimeIntegrator.headerFrequency       = config.headerFrequency
 TimeIntegrator.consoleFrequency      = config.consoleFrequency
 TimeIntegrator.deltaTime             = L.Global('TimeIntegrator.deltaTime', L.double, 0.0001)
+TimeIntegrator.stage                 = L.Global('TimeIntegrator.stage', L.int, 1)
 
 local fluid_options = {}
 if config.viscosity_model == 'Constant' then
@@ -2500,6 +2501,56 @@ for sdx = 1, 4 do
     Flow.UpdateFunctions[sdx] = Flow.GenerateUpdateFunctions(grid.cells, sdx)
 end
 
+ebb Flow.UpdateVars(c : grid.cells)
+    var deltaTime = TimeIntegrator.deltaTime
+    if TimeIntegrator.stage == 1 then
+        c.rho_new +=
+            (1.0/6.0) * deltaTime * c.rho_t
+        c.rho = c.rho_old +
+            0.5 * deltaTime * c.rho_t
+        c.rhoVelocity_new +=
+            (1.0/6.0) * deltaTime * c.rhoVelocity_t
+        c.rhoVelocity = c.rhoVelocity_old +
+            0.5 * deltaTime * c.rhoVelocity_t
+        c.rhoEnergy_new +=
+            (1.0/6.0) * deltaTime * c.rhoEnergy_t
+        c.rhoEnergy = c.rhoEnergy_old +
+            0.5 * deltaTime * c.rhoEnergy_t
+    elseif TimeIntegrator.stage == 2 then
+        c.rho_new +=
+            (1.0/3.0) * deltaTime * c.rho_t
+        c.rho = c.rho_old +
+            0.5 * deltaTime * c.rho_t
+        c.rhoVelocity_new +=
+            (1.0/3.0) * deltaTime * c.rhoVelocity_t
+        c.rhoVelocity = c.rhoVelocity_old +
+            0.5 * deltaTime * c.rhoVelocity_t
+        c.rhoEnergy_new +=
+            (1.0/3.0) * deltaTime * c.rhoEnergy_t
+        c.rhoEnergy = c.rhoEnergy_old +
+            0.5 * deltaTime * c.rhoEnergy_t
+    elseif TimeIntegrator.stage == 3 then
+        c.rho_new +=
+            (1.0/3.0) * deltaTime * c.rho_t
+        c.rho = c.rho_old +
+            1.0 * deltaTime * c.rho_t
+        c.rhoVelocity_new +=
+            (1.0/3.0) * deltaTime * c.rhoVelocity_t
+        c.rhoVelocity = c.rhoVelocity_old +
+            1.0 * deltaTime * c.rhoVelocity_t
+        c.rhoEnergy_new +=
+            (1.0/3.0) * deltaTime * c.rhoEnergy_t
+        c.rhoEnergy = c.rhoEnergy_old +
+            1.0 * deltaTime * c.rhoEnergy_t
+    else -- TimeIntegrator.stage == 4
+        c.rho = c.rho_new +
+            (1.0/6.0) * deltaTime * c.rho_t
+        c.rhoVelocity = c.rhoVelocity_new +
+            (1.0/6.0) * deltaTime * c.rhoVelocity_t
+        c.rhoEnergy = c.rhoEnergy_new +
+            (1.0/6.0) * deltaTime * c.rhoEnergy_t
+    end
+end
 ebb Flow.UpdateAuxiliaryVelocity (c : grid.cells)
   if c.in_interior then
     var velocity = c.rhoVelocity / c.rho
@@ -3893,11 +3944,21 @@ function TimeIntegrator.UpdateAuxiliary()
     end
 end
 
-function TimeIntegrator.UpdateTime(stage)
-    TimeIntegrator.simTime:set(TimeIntegrator.timeOld:get() +
-                               TimeIntegrator.coeff_time[stage] *
-                               TimeIntegrator.deltaTime:get())
+function TimeIntegrator.UpdateTime()
+  -- HACK
+  TimeIntegrator.simTime:set(TimeIntegrator.timeOld:get() +
+                             -- stage = 1 => 0.5
+                             -- stage = 2 => 0.5
+                             -- stage = 3 => 1.0
+                             -- stage = 4 => 1.0
+                             0.5 * (1 + TimeIntegrator.stage:get() / 3) *
+                             TimeIntegrator.deltaTime:get())
 end
+--function TimeIntegrator.UpdateTime(stage)
+--    TimeIntegrator.simTime:set(TimeIntegrator.timeOld:get() +
+--                               TimeIntegrator.coeff_time[stage] *
+--                               TimeIntegrator.deltaTime:get())
+--end
 
 function TimeIntegrator.InitializeVariables()
 
@@ -3969,23 +4030,26 @@ function TimeIntegrator.ComputeDFunctionDt()
 end
 
 function TimeIntegrator.UpdateSolution(stage)
-    Flow.Update(stage)
-    if particles_options.modeParticles then
-      Particles.Update(stage)
-    end
+    --Flow.Update(stage)
+    grid.cells:foreach(Flow.UpdateVars)
+    --if particles_options.modeParticles then
+    --  Particles.Update(stage)
+    --end
 end
 
 function TimeIntegrator.AdvanceTimeStep()
 
     TimeIntegrator.SetupTimeStep()
     TimeIntegrator.timeOld:set(TimeIntegrator.simTime:get())
-    for stage = 1, 4 do
+    TimeIntegrator.stage:set(1)
+    M.WHILE(M.LT(TimeIntegrator.stage:get(), 5), false)
         TimeIntegrator.InitializeTimeDerivatives()
         TimeIntegrator.ComputeDFunctionDt()
-        TimeIntegrator.UpdateSolution(stage)
+        TimeIntegrator.UpdateSolution()
         TimeIntegrator.UpdateAuxiliary()
-        TimeIntegrator.UpdateTime(stage)
-    end
+        TimeIntegrator.UpdateTime()
+        TimeIntegrator.stage:set(TimeIntegrator.stage:get() + 1)
+    M.END()
     TimeIntegrator.ConcludeTimeStep()
 
     TimeIntegrator.timeStep:set(TimeIntegrator.timeStep:get() + 1)
@@ -4730,7 +4794,8 @@ Statistics.ComputeSpatialAverages()
 -- Main iteration loop
 
 M.WHILE(M.AND(M.LT(TimeIntegrator.simTime:get(), TimeIntegrator.final_time),
-              M.LT(TimeIntegrator.timeStep:get(), TimeIntegrator.max_iter)))
+              M.LT(TimeIntegrator.timeStep:get(), TimeIntegrator.max_iter)),
+        true)
   --M.PRINT('time is %d\n', TimeIntegrator.timeStep:get())
   TimeIntegrator.CalculateDeltaTime()
   TimeIntegrator.AdvanceTimeStep()
