@@ -1562,28 +1562,34 @@ end
 -- to reflect those expressed in the Python prototype code
 -- WARNING_END
 ebb Flow.AddInviscidUpdateUsingFluxX (c : grid.cells)
+  if c.in_interior then
     c.rho_t += -(c( 0,0,0).rhoFlux -
                  c(-1,0,0).rhoFlux)/grid_dx
     c.rhoVelocity_t += -(c( 0,0,0).rhoVelocityFlux -
                          c(-1,0,0).rhoVelocityFlux)/grid_dx
     c.rhoEnergy_t += -(c( 0,0,0).rhoEnergyFlux -
                        c(-1,0,0).rhoEnergyFlux)/grid_dx
+  end
 end
 ebb Flow.AddInviscidUpdateUsingFluxY (c : grid.cells)
+  if c.in_interior then
     c.rho_t += -(c(0, 0,0).rhoFlux -
                  c(0,-1,0).rhoFlux)/grid_dy
     c.rhoVelocity_t += -(c(0, 0,0).rhoVelocityFlux -
                          c(0,-1,0).rhoVelocityFlux)/grid_dy
     c.rhoEnergy_t += -(c(0, 0,0).rhoEnergyFlux -
                        c(0,-1,0).rhoEnergyFlux)/grid_dy
+  end
 end
 ebb Flow.AddInviscidUpdateUsingFluxZ (c : grid.cells)
+  if c.in_interior then
     c.rho_t += -(c(0,0, 0).rhoFlux -
                  c(0,0,-1).rhoFlux)/grid_dz
     c.rhoVelocity_t += -(c(0,0, 0).rhoVelocityFlux -
                          c(0,0,-1).rhoVelocityFlux)/grid_dz
     c.rhoEnergy_t += -(c(0,0, 0).rhoEnergyFlux -
                        c(0,0,-1).rhoEnergyFlux)/grid_dz
+  end
 end
 
 ----------
@@ -1783,24 +1789,30 @@ ebb Flow.AddViscousGetFluxZ (c : grid.cells)
 end
 
 ebb Flow.AddViscousUpdateUsingFluxX (c : grid.cells)
+  if c.in_interior then
     c.rhoVelocity_t += (c( 0,0,0).rhoVelocityFlux -
                         c(-1,0,0).rhoVelocityFlux)/grid_dx
     c.rhoEnergy_t   += (c( 0,0,0).rhoEnergyFlux -
                         c(-1,0,0).rhoEnergyFlux)/grid_dx
+  end
 end
 
 ebb Flow.AddViscousUpdateUsingFluxY (c : grid.cells)
+  if c.in_interior then
     c.rhoVelocity_t += (c(0, 0,0).rhoVelocityFlux -
                         c(0,-1,0).rhoVelocityFlux)/grid_dy
     c.rhoEnergy_t   += (c(0, 0,0).rhoEnergyFlux -
                         c(0,-1,0).rhoEnergyFlux)/grid_dy
+  end
 end
 
 ebb Flow.AddViscousUpdateUsingFluxZ (c : grid.cells)
+  if c.in_interior then
     c.rhoVelocity_t += (c(0,0, 0).rhoVelocityFlux -
                         c(0,0,-1).rhoVelocityFlux)/grid_dz
     c.rhoEnergy_t   += (c(0,0, 0).rhoEnergyFlux -
                         c(0,0,-1).rhoEnergyFlux)/grid_dz
+  end
 end
 
 ---------------------
@@ -1852,7 +1864,7 @@ end
 --------------
 
 ebb Flow.AddBodyForces (c : grid.cells)
-
+  if c.in_interior then
     -- Add body forces (accelerations) to the momentum
     c.rhoVelocity_t += c.rho * flow_options.bodyForce
 
@@ -1862,7 +1874,7 @@ ebb Flow.AddBodyForces (c : grid.cells)
     -- Compute average heat source contribution in case we would
     -- like to subtract this later to recover a steady solution with radiation.
     --Flow.averageHeatSource += -c.rho * L.dot(flow_options.bodyForce,c.velocity)
-
+  end
 end
 
 
@@ -2242,9 +2254,11 @@ ebb Flow.UpdateVars(c : grid.cells)
 end
 
 ebb Flow.UpdateAuxiliaryVelocity (c : grid.cells)
+  if c.in_interior then
     var velocity = c.rhoVelocity / c.rho
     c.velocity = velocity
     c.kineticEnergy = 0.5 *  c.rho * L.dot(velocity,velocity)
+  end
 end
 
 -- Helper function for updating the ghost fields to minimize repeated code
@@ -2472,10 +2486,12 @@ function Flow.UpdateGhostConserved()
 end
 
 ebb Flow.UpdateAuxiliaryThermodynamics (c : grid.cells)
-  var kineticEnergy = 0.5 * c.rho * L.dot(c.velocity,c.velocity)
-  var pressure  = (fluid_options.gamma - 1.0) *( c.rhoEnergy - kineticEnergy )
-  c.pressure    = pressure
-  c.temperature = pressure / ( fluid_options.gasConstant * c.rho )
+  if c.in_interior then
+    var kineticEnergy = 0.5 * c.rho * L.dot(c.velocity,c.velocity)
+    var pressure  = (fluid_options.gamma - 1.0) *( c.rhoEnergy - kineticEnergy )
+    c.pressure    = pressure
+    c.temperature = pressure / ( fluid_options.gasConstant * c.rho )
+  end
 end
 
 ---------------------
@@ -2483,18 +2499,12 @@ end
 ---------------------
 
 -- WARNING: non-uniform grid assumption
-ebb Flow.ComputeVelocityGradientX (c : grid.cells)
-  c.velocityGradientX = 0.5*(c(1,0,0).velocity - c(-1,0,0).velocity)/grid_dx
-end
-
--- WARNING: non-uniform grid assumption
-ebb Flow.ComputeVelocityGradientY (c : grid.cells)
-  c.velocityGradientY = 0.5*(c(0,1,0).velocity - c(0,-1,0).velocity)/grid_dy
-end
-
--- WARNING: non-uniform grid assumption
-ebb Flow.ComputeVelocityGradientZ (c : grid.cells)
-  c.velocityGradientZ = 0.5*(c(0,0,1).velocity - c(0,0,-1).velocity)/grid_dz
+ebb Flow.ComputeVelocityGradientAll (c : grid.cells)
+  if c.in_interior then
+    c.velocityGradientX = 0.5*(c(1,0,0).velocity - c(-1,0,0).velocity)/grid_dx
+    c.velocityGradientY = 0.5*(c(0,1,0).velocity - c(0,-1,0).velocity)/grid_dy
+    c.velocityGradientZ = 0.5*(c(0,0,1).velocity - c(0,0,-1).velocity)/grid_dz
+  end
 end
 
 -- Helper function for updating the boundary gradients to minimize repeated code
@@ -3292,11 +3302,11 @@ end
 function Flow.AddInviscid()
     grid.cells:foreach(Flow.AddInviscidInitialize)
     grid.cells:foreach(Flow.AddInviscidGetFluxX)
-    grid.cells.interior:foreach(Flow.AddInviscidUpdateUsingFluxX)
+    grid.cells:foreach(Flow.AddInviscidUpdateUsingFluxX)
     grid.cells:foreach(Flow.AddInviscidGetFluxY)
-    grid.cells.interior:foreach(Flow.AddInviscidUpdateUsingFluxY)
+    grid.cells:foreach(Flow.AddInviscidUpdateUsingFluxY)
     grid.cells:foreach(Flow.AddInviscidGetFluxZ)
-    grid.cells.interior:foreach(Flow.AddInviscidUpdateUsingFluxZ)
+    grid.cells:foreach(Flow.AddInviscidUpdateUsingFluxZ)
 end
 
 function Flow.UpdateGhostVelocityGradient()
@@ -3306,21 +3316,19 @@ end
 
 function Flow.AddViscous()
     grid.cells:foreach(Flow.AddViscousGetFluxX)
-    grid.cells.interior:foreach(Flow.AddViscousUpdateUsingFluxX)
+    grid.cells:foreach(Flow.AddViscousUpdateUsingFluxX)
     grid.cells:foreach(Flow.AddViscousGetFluxY)
-    grid.cells.interior:foreach(Flow.AddViscousUpdateUsingFluxY)
+    grid.cells:foreach(Flow.AddViscousUpdateUsingFluxY)
     grid.cells:foreach(Flow.AddViscousGetFluxZ)
-    grid.cells.interior:foreach(Flow.AddViscousUpdateUsingFluxZ)
+    grid.cells:foreach(Flow.AddViscousUpdateUsingFluxZ)
 end
 
 function Flow.ComputeVelocityGradients()
-    grid.cells.interior:foreach(Flow.ComputeVelocityGradientX)
-    grid.cells.interior:foreach(Flow.ComputeVelocityGradientY)
-    grid.cells.interior:foreach(Flow.ComputeVelocityGradientZ)
+    grid.cells:foreach(Flow.ComputeVelocityGradientAll)
 end
 
 function Flow.UpdateAuxiliaryVelocityConservedAndGradients()
-    grid.cells.interior:foreach(Flow.UpdateAuxiliaryVelocity)
+    grid.cells:foreach(Flow.UpdateAuxiliaryVelocity)
     Flow.UpdateGhostConserved()
     Flow.UpdateGhostVelocity()
     Flow.ComputeVelocityGradients()
@@ -3328,7 +3336,7 @@ end
 
 function Flow.UpdateAuxiliary()
     Flow.UpdateAuxiliaryVelocityConservedAndGradients()
-    grid.cells.interior:foreach(Flow.UpdateAuxiliaryThermodynamics)
+    grid.cells:foreach(Flow.UpdateAuxiliaryThermodynamics)
     Flow.UpdateGhostThermodynamics()
 end
 
@@ -3494,7 +3502,7 @@ function TimeIntegrator.ComputeDFunctionDt()
     if radiation_options.zeroAvgHeatSource then
       Flow.averageHeatSource:set(0.0)
     end
-    grid.cells.interior:foreach(Flow.AddBodyForces)
+    grid.cells:foreach(Flow.AddBodyForces)
 
     if flow_options.turbForcing then
       Flow.AddTurbulentForcing(grid.cells.interior)
