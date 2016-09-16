@@ -3552,7 +3552,7 @@ function TimeIntegrator.AdvanceTimeStep()
     TimeIntegrator.timeOld:set(TimeIntegrator.simTime:get())
 
     TimeIntegrator.stage:set(1)
-    M.WHILE(M.LT(TimeIntegrator.stage:get(), 5))
+    M.WHILE(M.LT(TimeIntegrator.stage:get(), 5), false)
         TimeIntegrator.InitializeTimeDerivatives()
         TimeIntegrator.ComputeDFunctionDt()
         TimeIntegrator.UpdateSolution()
@@ -4305,7 +4305,8 @@ Statistics.ComputeSpatialAverages()
 
 M.PRINT("    Iter     Time(s)   Avg Press    Avg Temp      Avg KE\n")
 M.WHILE(M.AND(M.LT(TimeIntegrator.simTime:get(), TimeIntegrator.final_time),
-              M.LT(TimeIntegrator.timeStep:get(), TimeIntegrator.max_iter)))
+              M.LT(TimeIntegrator.timeStep:get(), TimeIntegrator.max_iter)),
+        true)
   TimeIntegrator.CalculateDeltaTime()
   TimeIntegrator.AdvanceTimeStep()
   M.IF(M.EQ(TimeIntegrator.timeStep:get() % config.consoleFrequency, 0))
