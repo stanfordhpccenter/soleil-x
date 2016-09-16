@@ -1509,7 +1509,7 @@ ebb Flow.AddInviscidGetFluxX (c : grid.cells)
       -- Compute the inviscid flux with a centered scheme.
       -- Input the left and right cell states for this face and
       -- the direction index for the flux (x = 0, y = 1, or z = 2).
-        var flux = Flow.CenteredInviscidFluxX(c(0,0,0), c(1,0,0))
+        var flux = Flow.CenteredInviscidFluxX(c, c(1,0,0))
 
         -- Store this flux in the cell to the left of the face.
         c.rhoFlux         =  flux[0]
@@ -1527,7 +1527,7 @@ ebb Flow.AddInviscidGetFluxY (c : grid.cells)
       -- Compute the inviscid flux with a centered scheme.
       -- Input the left and right cell states for this face and
       -- the direction index for the flux (x = 0, y = 1, or z = 2).
-      var flux = Flow.CenteredInviscidFluxY(c(0,0,0), c(0,1,0))
+      var flux = Flow.CenteredInviscidFluxY(c, c(0,1,0))
 
       -- Store this flux in the cell to the left of the face.
       c.rhoFlux         =  flux[0]
@@ -1545,7 +1545,7 @@ ebb Flow.AddInviscidGetFluxZ (c : grid.cells)
       -- Compute the inviscid flux with a centered scheme.
       -- Input the left and right cell states for this face and
       -- the direction index for the flux (x = 0, y = 1, or z = 2).
-      var flux = Flow.CenteredInviscidFluxZ(c(0,0,0), c(0,0,1))
+      var flux = Flow.CenteredInviscidFluxZ(c, c(0,0,1))
 
       -- Store this flux in the cell to the left of the face.
       c.rhoFlux         =  flux[0]
@@ -1595,7 +1595,7 @@ ebb Flow.AddViscousGetFluxX (c : grid.cells)
     -- Consider first boundary element (c.xneg_depth == 1) to define left flux
     -- on first interior cell
     if c.in_interior or c.xneg_depth == 1 then
-        var muFace = 0.5 * (GetDynamicViscosity(c(0,0,0).temperature) +
+        var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
                             GetDynamicViscosity(c(1,0,0).temperature))
         var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
         var velocityX_YFace = L.double(0)
@@ -1604,14 +1604,14 @@ ebb Flow.AddViscousGetFluxX (c : grid.cells)
         var velocityZ_ZFace = L.double(0)
 
         -- Interpolate velocity and derivatives to face
-        velocityFace = 0.5 * ( c(0,0,0).velocity + c(1,0,0).velocity )
-        velocityX_YFace = 0.5 * ( c(0,0,0).velocityGradientY[0] +
+        velocityFace = 0.5 * ( c.velocity + c(1,0,0).velocity )
+        velocityX_YFace = 0.5 * ( c.velocityGradientY[0] +
                                   c(1,0,0).velocityGradientY[0] )
-        velocityX_ZFace = 0.5 * ( c(0,0,0).velocityGradientZ[0] +
+        velocityX_ZFace = 0.5 * ( c.velocityGradientZ[0] +
                                   c(1,0,0).velocityGradientZ[0] )
-        velocityY_YFace = 0.5 * ( c(0,0,0).velocityGradientY[1] +
+        velocityY_YFace = 0.5 * ( c.velocityGradientY[1] +
                                   c(1,0,0).velocityGradientY[1] )
-        velocityZ_ZFace = 0.5 * ( c(0,0,0).velocityGradientZ[2] +
+        velocityZ_ZFace = 0.5 * ( c.velocityGradientZ[2] +
                                   c(1,0,0).velocityGradientZ[2] )
 
         -- Differentiate at face
@@ -1620,10 +1620,10 @@ ebb Flow.AddViscousGetFluxX (c : grid.cells)
         var velocityZ_XFace   = L.double(0.0)
         var temperature_XFace = L.double(0.0)
 
-        velocityX_XFace   = 0.5*( c(1,0,0).velocity[0] - c(0,0,0).velocity[0] )
-        velocityY_XFace   = 0.5*( c(1,0,0).velocity[1] - c(0,0,0).velocity[1] )
-        velocityZ_XFace   = 0.5*( c(1,0,0).velocity[2] - c(0,0,0).velocity[2] )
-        temperature_XFace = 0.5*( c(1,0,0).temperature - c(0,0,0).temperature )
+        velocityX_XFace   = 0.5*( c(1,0,0).velocity[0] - c.velocity[0] )
+        velocityY_XFace   = 0.5*( c(1,0,0).velocity[1] - c.velocity[1] )
+        velocityZ_XFace   = 0.5*( c(1,0,0).velocity[2] - c.velocity[2] )
+        temperature_XFace = 0.5*( c(1,0,0).temperature - c.temperature )
 
         -- Half cell size due to the 0.5 above
         velocityX_XFace   /= (grid_dx*0.5)
@@ -1659,7 +1659,7 @@ ebb Flow.AddViscousGetFluxY (c : grid.cells)
     -- Consider first boundary element (c.yneg_depth == 1) to define down flux
     -- on first interior cell
     if c.in_interior or c.yneg_depth == 1 then
-        var muFace = 0.5 * (GetDynamicViscosity(c(0,0,0).temperature) +
+        var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
                             GetDynamicViscosity(c(0,1,0).temperature))
         var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
         var velocityY_XFace = L.double(0)
@@ -1668,14 +1668,14 @@ ebb Flow.AddViscousGetFluxY (c : grid.cells)
         var velocityZ_ZFace = L.double(0)
 
         -- Interpolate velocity and derivatives to face
-        velocityFace = 0.5 * ( c(0,0,0).velocity + c(0,1,0).velocity )
-        velocityY_XFace = 0.5 * ( c(0,0,0).velocityGradientX[1] +
+        velocityFace = 0.5 * ( c.velocity + c(0,1,0).velocity )
+        velocityY_XFace = 0.5 * ( c.velocityGradientX[1] +
                                   c(0,1,0).velocityGradientX[1] )
-        velocityY_ZFace = 0.5 * ( c(0,0,0).velocityGradientZ[1] +
+        velocityY_ZFace = 0.5 * ( c.velocityGradientZ[1] +
                                   c(0,1,0).velocityGradientZ[1] )
-        velocityX_XFace = 0.5 * ( c(0,0,0).velocityGradientX[0] +
+        velocityX_XFace = 0.5 * ( c.velocityGradientX[0] +
                                   c(0,1,0).velocityGradientX[0] )
-        velocityZ_ZFace = 0.5 * ( c(0,0,0).velocityGradientZ[2] +
+        velocityZ_ZFace = 0.5 * ( c.velocityGradientZ[2] +
                                   c(0,1,0).velocityGradientZ[2] )
 
         -- Differentiate at face
@@ -1684,10 +1684,10 @@ ebb Flow.AddViscousGetFluxY (c : grid.cells)
         var velocityZ_YFace   = L.double(0.0)
         var temperature_YFace = L.double(0.0)
 
-        velocityX_YFace   = 0.5*( c(0,1,0).velocity[0] - c(0,0,0).velocity[0] )
-        velocityY_YFace   = 0.5*( c(0,1,0).velocity[1] - c(0,0,0).velocity[1] )
-        velocityZ_YFace   = 0.5*( c(0,1,0).velocity[2] - c(0,0,0).velocity[2] )
-        temperature_YFace = 0.5*( c(0,1,0).temperature - c(0,0,0).temperature )
+        velocityX_YFace   = 0.5*( c(0,1,0).velocity[0] - c.velocity[0] )
+        velocityY_YFace   = 0.5*( c(0,1,0).velocity[1] - c.velocity[1] )
+        velocityZ_YFace   = 0.5*( c(0,1,0).velocity[2] - c.velocity[2] )
+        temperature_YFace = 0.5*( c(0,1,0).temperature - c.temperature )
 
         -- Half cell size due to the 0.5 above
         velocityX_YFace   /= (grid_dy*0.5)
@@ -1723,7 +1723,7 @@ ebb Flow.AddViscousGetFluxZ (c : grid.cells)
     -- Consider first boundary element (c.zneg_depth == 1) to define down flux
     -- on first interior cell
     if c.in_interior or c.zneg_depth == 1 then
-        var muFace = 0.5 * (GetDynamicViscosity(c(0,0,0).temperature) +
+        var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
                             GetDynamicViscosity(c(0,0,1).temperature))
         var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
         var velocityZ_XFace = L.double(0.0)
@@ -1732,14 +1732,14 @@ ebb Flow.AddViscousGetFluxZ (c : grid.cells)
         var velocityY_YFace = L.double(0.0)
 
         -- Interpolate velocity and derivatives to face
-        velocityFace = 0.5 * ( c(0,0,0).velocity + c(0,0,1).velocity )
-        velocityZ_XFace = 0.5 * ( c(0,0,0).velocityGradientX[2] +
+        velocityFace = 0.5 * ( c.velocity + c(0,0,1).velocity )
+        velocityZ_XFace = 0.5 * ( c.velocityGradientX[2] +
                                   c(0,0,1).velocityGradientX[2] )
-        velocityZ_YFace = 0.5 * ( c(0,0,0).velocityGradientY[2] +
+        velocityZ_YFace = 0.5 * ( c.velocityGradientY[2] +
                                   c(0,0,1).velocityGradientY[2] )
-        velocityX_XFace = 0.5 * ( c(0,0,0).velocityGradientX[0] +
+        velocityX_XFace = 0.5 * ( c.velocityGradientX[0] +
                                   c(0,0,1).velocityGradientX[0] )
-        velocityY_YFace = 0.5 * ( c(0,0,0).velocityGradientY[1] +
+        velocityY_YFace = 0.5 * ( c.velocityGradientY[1] +
                                   c(0,0,1).velocityGradientY[1] )
 
         -- Differentiate at face
@@ -1748,10 +1748,10 @@ ebb Flow.AddViscousGetFluxZ (c : grid.cells)
         var velocityZ_ZFace   = L.double(0.0)
         var temperature_ZFace = L.double(0.0)
 
-        velocityX_ZFace   = 0.5*( c(0,0,1).velocity[0] - c(0,0,0).velocity[0] )
-        velocityY_ZFace   = 0.5*( c(0,0,1).velocity[1] - c(0,0,0).velocity[1] )
-        velocityZ_ZFace   = 0.5*( c(0,0,1).velocity[2] - c(0,0,0).velocity[2] )
-        temperature_ZFace = 0.5*( c(0,0,1).temperature - c(0,0,0).temperature )
+        velocityX_ZFace   = 0.5*( c(0,0,1).velocity[0] - c.velocity[0] )
+        velocityY_ZFace   = 0.5*( c(0,0,1).velocity[1] - c.velocity[1] )
+        velocityZ_ZFace   = 0.5*( c(0,0,1).velocity[2] - c.velocity[2] )
+        temperature_ZFace = 0.5*( c(0,0,1).temperature - c.temperature )
 
         -- Half cell size due to the 0.5 above
         velocityX_ZFace   /= (grid_dz*0.5)
@@ -1885,7 +1885,7 @@ ebb Flow.ComputeDissipationX (c : grid.cells)
     -- Consider first boundary element (c.xneg_depth == 1) to define left flux
     -- on first interior cell
     if c.in_interior or c.xneg_depth == 1 then
-        var muFace = 0.5 * (GetDynamicViscosity(c(0,0,0).temperature) +
+        var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
                             GetDynamicViscosity(c(1,0,0).temperature))
         var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
         var velocityX_YFace = L.double(0)
@@ -1894,14 +1894,14 @@ ebb Flow.ComputeDissipationX (c : grid.cells)
         var velocityZ_ZFace = L.double(0)
 
         -- Interpolate velocity and derivatives to face
-        velocityFace = 0.5 * ( c(0,0,0).velocity + c(1,0,0).velocity )
-        velocityX_YFace = 0.5 * ( c(0,0,0).velocityGradientY[0] +
+        velocityFace = 0.5 * ( c.velocity + c(1,0,0).velocity )
+        velocityX_YFace = 0.5 * ( c.velocityGradientY[0] +
                                   c(1,0,0).velocityGradientY[0] )
-        velocityX_ZFace = 0.5 * ( c(0,0,0).velocityGradientZ[0] +
+        velocityX_ZFace = 0.5 * ( c.velocityGradientZ[0] +
                                   c(1,0,0).velocityGradientZ[0] )
-        velocityY_YFace = 0.5 * ( c(0,0,0).velocityGradientY[1] +
+        velocityY_YFace = 0.5 * ( c.velocityGradientY[1] +
                                   c(1,0,0).velocityGradientY[1] )
-        velocityZ_ZFace = 0.5 * ( c(0,0,0).velocityGradientZ[2] +
+        velocityZ_ZFace = 0.5 * ( c.velocityGradientZ[2] +
                                   c(1,0,0).velocityGradientZ[2] )
 
         -- Differentiate at face
@@ -1910,10 +1910,10 @@ ebb Flow.ComputeDissipationX (c : grid.cells)
         var velocityZ_XFace   = L.double(0.0)
         var temperature_XFace = L.double(0.0)
 
-        velocityX_XFace   = 0.5*( c(1,0,0).velocity[0] - c(0,0,0).velocity[0] )
-        velocityY_XFace   = 0.5*( c(1,0,0).velocity[1] - c(0,0,0).velocity[1] )
-        velocityZ_XFace   = 0.5*( c(1,0,0).velocity[2] - c(0,0,0).velocity[2] )
-        temperature_XFace = 0.5*( c(1,0,0).temperature - c(0,0,0).temperature )
+        velocityX_XFace   = 0.5*( c(1,0,0).velocity[0] - c.velocity[0] )
+        velocityY_XFace   = 0.5*( c(1,0,0).velocity[1] - c.velocity[1] )
+        velocityZ_XFace   = 0.5*( c(1,0,0).velocity[2] - c.velocity[2] )
+        temperature_XFace = 0.5*( c(1,0,0).temperature - c.temperature )
 
         -- Half cell size due to the 0.5 above
         velocityX_XFace   /= (grid_dx*0.5)
@@ -1942,7 +1942,7 @@ ebb Flow.ComputeDissipationY (c : grid.cells)
     -- Consider first boundary element (c.yneg_depth == 1) to define down flux
     -- on first interior cell
     if c.in_interior or c.yneg_depth == 1 then
-        var muFace = 0.5 * (GetDynamicViscosity(c(0,0,0).temperature) +
+        var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
                             GetDynamicViscosity(c(0,1,0).temperature))
         var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
         var velocityY_XFace = L.double(0)
@@ -1951,14 +1951,14 @@ ebb Flow.ComputeDissipationY (c : grid.cells)
         var velocityZ_ZFace = L.double(0)
 
         -- Interpolate velocity and derivatives to face
-        velocityFace = 0.5 * ( c(0,0,0).velocity + c(0,1,0).velocity )
-        velocityY_XFace = 0.5 * ( c(0,0,0).velocityGradientX[1] +
+        velocityFace = 0.5 * ( c.velocity + c(0,1,0).velocity )
+        velocityY_XFace = 0.5 * ( c.velocityGradientX[1] +
                                   c(0,1,0).velocityGradientX[1] )
-        velocityY_ZFace = 0.5 * ( c(0,0,0).velocityGradientZ[1] +
+        velocityY_ZFace = 0.5 * ( c.velocityGradientZ[1] +
                                   c(0,1,0).velocityGradientZ[1] )
-        velocityX_XFace = 0.5 * ( c(0,0,0).velocityGradientX[0] +
+        velocityX_XFace = 0.5 * ( c.velocityGradientX[0] +
                                   c(0,1,0).velocityGradientX[0] )
-        velocityZ_ZFace = 0.5 * ( c(0,0,0).velocityGradientZ[2] +
+        velocityZ_ZFace = 0.5 * ( c.velocityGradientZ[2] +
                                   c(0,1,0).velocityGradientZ[2] )
 
         -- Differentiate at face
@@ -1967,10 +1967,10 @@ ebb Flow.ComputeDissipationY (c : grid.cells)
         var velocityZ_YFace   = L.double(0.0)
         var temperature_YFace = L.double(0.0)
 
-        velocityX_YFace   = 0.5*( c(0,1,0).velocity[0] - c(0,0,0).velocity[0] )
-        velocityY_YFace   = 0.5*( c(0,1,0).velocity[1] - c(0,0,0).velocity[1] )
-        velocityZ_YFace   = 0.5*( c(0,1,0).velocity[2] - c(0,0,0).velocity[2] )
-        temperature_YFace = 0.5*( c(0,1,0).temperature - c(0,0,0).temperature )
+        velocityX_YFace   = 0.5*( c(0,1,0).velocity[0] - c.velocity[0] )
+        velocityY_YFace   = 0.5*( c(0,1,0).velocity[1] - c.velocity[1] )
+        velocityZ_YFace   = 0.5*( c(0,1,0).velocity[2] - c.velocity[2] )
+        temperature_YFace = 0.5*( c(0,1,0).temperature - c.temperature )
 
         -- Half cell size due to the 0.5 above
         velocityX_YFace   /= (grid_dy*0.5)
@@ -1999,7 +1999,7 @@ ebb Flow.ComputeDissipationZ (c : grid.cells)
     -- Consider first boundary element (c.zneg_depth == 1) to define down flux
     -- on first interior cell
     if c.in_interior or c.zneg_depth == 1 then
-        var muFace = 0.5 * (GetDynamicViscosity(c(0,0,0).temperature) +
+        var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
                             GetDynamicViscosity(c(0,0,1).temperature))
         var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
         var velocityZ_XFace = L.double(0.0)
@@ -2008,14 +2008,14 @@ ebb Flow.ComputeDissipationZ (c : grid.cells)
         var velocityY_YFace = L.double(0.0)
 
         -- Interpolate velocity and derivatives to face
-        velocityFace = 0.5 * ( c(0,0,0).velocity + c(0,0,1).velocity )
-        velocityZ_XFace = 0.5 * ( c(0,0,0).velocityGradientX[2] +
+        velocityFace = 0.5 * ( c.velocity + c(0,0,1).velocity )
+        velocityZ_XFace = 0.5 * ( c.velocityGradientX[2] +
                                   c(0,0,1).velocityGradientX[2] )
-        velocityZ_YFace = 0.5 * ( c(0,0,0).velocityGradientY[2] +
+        velocityZ_YFace = 0.5 * ( c.velocityGradientY[2] +
                                   c(0,0,1).velocityGradientY[2] )
-        velocityX_XFace = 0.5 * ( c(0,0,0).velocityGradientX[0] +
+        velocityX_XFace = 0.5 * ( c.velocityGradientX[0] +
                                   c(0,0,1).velocityGradientX[0] )
-        velocityY_YFace = 0.5 * ( c(0,0,0).velocityGradientY[1] +
+        velocityY_YFace = 0.5 * ( c.velocityGradientY[1] +
                                   c(0,0,1).velocityGradientY[1] )
 
         -- Differentiate at face
@@ -2024,10 +2024,10 @@ ebb Flow.ComputeDissipationZ (c : grid.cells)
         var velocityZ_ZFace   = L.double(0.0)
         var temperature_ZFace = L.double(0.0)
 
-        velocityX_ZFace   = 0.5*( c(0,0,1).velocity[0] - c(0,0,0).velocity[0] )
-        velocityY_ZFace   = 0.5*( c(0,0,1).velocity[1] - c(0,0,0).velocity[1] )
-        velocityZ_ZFace   = 0.5*( c(0,0,1).velocity[2] - c(0,0,0).velocity[2] )
-        temperature_ZFace = 0.5*( c(0,0,1).temperature - c(0,0,0).temperature )
+        velocityX_ZFace   = 0.5*( c(0,0,1).velocity[0] - c.velocity[0] )
+        velocityY_ZFace   = 0.5*( c(0,0,1).velocity[1] - c.velocity[1] )
+        velocityZ_ZFace   = 0.5*( c(0,0,1).velocity[2] - c.velocity[2] )
+        temperature_ZFace = 0.5*( c(0,0,1).temperature - c.temperature )
 
         -- Half cell size due to the 0.5 above
         velocityX_ZFace   /= (grid_dz*0.5)
