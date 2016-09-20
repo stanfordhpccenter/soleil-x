@@ -435,7 +435,7 @@ TimeIntegrator.restartEveryTimeSteps = config.restartEveryTimeSteps
 TimeIntegrator.headerFrequency       = config.headerFrequency
 TimeIntegrator.consoleFrequency      = config.consoleFrequency
 TimeIntegrator.deltaTime             = L.Global('TimeIntegrator.deltaTime', L.double, 0.0001)
-TimeIntegrator.stage                 = L.Global('TimeIntegrator.stage', L.int, 1)
+TimeIntegrator.stage                 = L.Global('TimeIntegrator.stage', L.int, 0)
 
 local fluid_options = {}
 if config.viscosity_model == 'Constant' then
@@ -1638,23 +1638,24 @@ ebb Flow.AddInviscidUpdateUsingFluxZ (c : grid.cells)
 end
 
 ebb Flow.AddInviscidUpdateAll (c : grid.cells)
-  if c.in_interior or c.xneg_depth == 1 then
+  --if c.in_interior or c.xneg_depth == 1 then
+  if c.in_interior then --or c.xneg_depth == 1 then
     c.rho_t += -(c( 0,0,0).rhoFlux -
                  c(-1,0,0).rhoFlux)/grid_dx
     c.rhoVelocity_t += -(c( 0,0,0).rhoVelocityFlux -
                          c(-1,0,0).rhoVelocityFlux)/grid_dx
     c.rhoEnergy_t += -(c( 0,0,0).rhoEnergyFlux -
                        c(-1,0,0).rhoEnergyFlux)/grid_dx
-  end
-  if c.in_interior or c.zneg_depth == 1 then
+  --end
+  --if c.in_interior or c.zneg_depth == 1 then
     c.rho_t += -(c(0, 0,0).rhoFlux -
                  c(0,-1,0).rhoFlux)/grid_dy
     c.rhoVelocity_t += -(c(0, 0,0).rhoVelocityFlux -
                          c(0,-1,0).rhoVelocityFlux)/grid_dy
     c.rhoEnergy_t += -(c(0, 0,0).rhoEnergyFlux -
                        c(0,-1,0).rhoEnergyFlux)/grid_dy
-  end
-  if c.in_interior or c.zneg_depth == 1 then
+  --end
+  --if c.in_interior or c.zneg_depth == 1 then
     c.rho_t += -(c(0,0, 0).rhoFlux -
                  c(0,0,-1).rhoFlux)/grid_dz
     c.rhoVelocity_t += -(c(0,0, 0).rhoVelocityFlux -
@@ -1928,10 +1929,10 @@ ebb Flow.AddViscousGetFluxAll (c : grid.cells)
     var heatFlux = - (cp*muFace/fluid_options.prandtl)*temperature_XFace
 
     -- Fluxes
-    c.rhoVelocityFlux[0] = sigmaXX
-    c.rhoVelocityFlux[1] = sigmaYX
-    c.rhoVelocityFlux[2] = sigmaZX
-    c.rhoEnergyFlux = usigma - heatFlux
+    c.rhoVelocityFlux[0] += sigmaXX
+    c.rhoVelocityFlux[1] += sigmaYX
+    c.rhoVelocityFlux[2] += sigmaZX
+    c.rhoEnergyFlux += usigma - heatFlux
     -- WARNING: Add SGS terms for LES
   end
   if c.in_interior or c.yneg_depth == 1 then
@@ -1985,10 +1986,10 @@ ebb Flow.AddViscousGetFluxAll (c : grid.cells)
     var heatFlux = - (cp*muFace/fluid_options.prandtl)*temperature_YFace
 
     -- Fluxes
-    c.rhoVelocityFlux[0] = sigmaXY
-    c.rhoVelocityFlux[1] = sigmaYY
-    c.rhoVelocityFlux[2] = sigmaZY
-    c.rhoEnergyFlux = usigma - heatFlux
+    c.rhoVelocityFlux[0] += sigmaXY
+    c.rhoVelocityFlux[1] += sigmaYY
+    c.rhoVelocityFlux[2] += sigmaZY
+    c.rhoEnergyFlux += usigma - heatFlux
     -- WARNING: Add SGS terms for LES
   end
   if c.in_interior or c.zneg_depth == 1 then
@@ -2042,10 +2043,10 @@ ebb Flow.AddViscousGetFluxAll (c : grid.cells)
     var heatFlux = - (cp*muFace/fluid_options.prandtl)*temperature_ZFace
 
     -- Fluxes
-    c.rhoVelocityFlux[0] = sigmaXZ
-    c.rhoVelocityFlux[1] = sigmaYZ
-    c.rhoVelocityFlux[2] = sigmaZZ
-    c.rhoEnergyFlux = usigma - heatFlux
+    c.rhoVelocityFlux[0] += sigmaXZ
+    c.rhoVelocityFlux[1] += sigmaYZ
+    c.rhoVelocityFlux[2] += sigmaZZ
+    c.rhoEnergyFlux += usigma - heatFlux
     -- WARNING: Add SGS terms for LES
   end
   -- HACK: obnoxious workaround to establish strict domninance between tasks
@@ -4029,7 +4030,7 @@ function TimeIntegrator.ComputeDFunctionDt()
     end
 end
 
-function TimeIntegrator.UpdateSolution(stage)
+function TimeIntegrator.UpdateSolution()
     --Flow.Update(stage)
     grid.cells:foreach(Flow.UpdateVars)
     --if particles_options.modeParticles then
@@ -4793,12 +4794,22 @@ Statistics.ComputeSpatialAverages()
 
 -- Main iteration loop
 
+M.PRINT("    Iter     Time(s)   Avg Press    Avg Temp      Avg KE\n")
 M.WHILE(M.AND(M.LT(TimeIntegrator.simTime:get(), TimeIntegrator.final_time),
               M.LT(TimeIntegrator.timeStep:get(), TimeIntegrator.max_iter)),
         true)
   --M.PRINT('time is %d\n', TimeIntegrator.timeStep:get())
   TimeIntegrator.CalculateDeltaTime()
   TimeIntegrator.AdvanceTimeStep()
+  --M.IF(M.EQ(TimeIntegrator.timeStep:get() % config.consoleFrequency, 0))
+  --  Statistics.ComputeSpatialAverages()
+  --M.END()
+  --M.PRINT("%8d %11.6f %11.6f %11.6f %11.6f\n",
+  --        TimeIntegrator.timeStep:get(),
+  --        TimeIntegrator.simTime:get(),
+  --        Flow.averagePressure:get(),
+  --        Flow.averageTemperature:get(),
+  --        Flow.averageKineticEnergy:get())
   --M.IF(M.EQ(TimeIntegrator.timeStep:get() % config.consoleFrequency, 0))
   --  Statistics.ComputeSpatialAverages()
   --M.END()
