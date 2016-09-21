@@ -748,64 +748,64 @@ local grid_dy      = L.Constant(L.double, grid:yCellWidth())
 local grid_dz      = L.Constant(L.double, grid:zCellWidth())
 
 -- Create a field for the center coords of the dual cells (i.e., vertices)
-grid.vertices:NewField('centerCoordinates', L.vec3d)          :Load({0, 0, 0})
+grid.vertices:NewField('centerCoordinates', L.vec3d)          :Fill({0, 0, 0})
 
 -- Create a field to mark the rind layer so it is not written in the output
 -- We need this for both the dual cells (coords) and cells (cell-center data)
-grid.vertices:NewField('vertexRindLayer', L.int)              :Load(1)
-grid.cells:NewField('cellRindLayer', L.int)                   :Load(1)
+grid.vertices:NewField('vertexRindLayer', L.int)              :Fill(1)
+grid.cells:NewField('cellRindLayer', L.int)                   :Fill(1)
 
 -- Primitive variables
-grid.cells:NewField('rho', L.double) :Load(0)
-grid.cells:NewField('pressure', L.double) :Load(0)
-grid.cells:NewField('velocity', L.vec3d) :Load({0, 0, 0})
+grid.cells:NewField('rho', L.double)                          :Fill(0)
+grid.cells:NewField('pressure', L.double)                     :Fill(0)
+grid.cells:NewField('velocity', L.vec3d)                      :Fill({0, 0, 0})
 
 -- Remaining primitive variables
-grid.cells:NewField('centerCoordinates', L.vec3d)             :Load({0, 0, 0})
-grid.cells:NewField('velocityGradientX', L.vec3d)             :Load({0, 0, 0})
-grid.cells:NewField('velocityGradientY', L.vec3d)             :Load({0, 0, 0})
-grid.cells:NewField('velocityGradientZ', L.vec3d)             :Load({0, 0, 0})
-grid.cells:NewField('temperature', L.double)                  :Load(0)
-grid.cells:NewField('rhoEnthalpy', L.double)                  :Load(0)
-grid.cells:NewField('kineticEnergy', L.double)                :Load(0)
-grid.cells:NewField('sgsEnergy', L.double)                    :Load(0)
-grid.cells:NewField('sgsEddyViscosity', L.double)             :Load(0)
-grid.cells:NewField('sgsEddyKappa', L.double)                 :Load(0)
-grid.cells:NewField('convectiveSpectralRadius', L.double)     :Load(0)
-grid.cells:NewField('viscousSpectralRadius', L.double)        :Load(0)
-grid.cells:NewField('heatConductionSpectralRadius', L.double) :Load(0)
+grid.cells:NewField('centerCoordinates', L.vec3d)             :Fill({0, 0, 0})
+grid.cells:NewField('velocityGradientX', L.vec3d)             :Fill({0, 0, 0})
+grid.cells:NewField('velocityGradientY', L.vec3d)             :Fill({0, 0, 0})
+grid.cells:NewField('velocityGradientZ', L.vec3d)             :Fill({0, 0, 0})
+grid.cells:NewField('temperature', L.double)                  :Fill(0)
+grid.cells:NewField('rhoEnthalpy', L.double)                  :Fill(0)
+grid.cells:NewField('kineticEnergy', L.double)                :Fill(0)
+grid.cells:NewField('sgsEnergy', L.double)                    :Fill(0)
+grid.cells:NewField('sgsEddyViscosity', L.double)             :Fill(0)
+grid.cells:NewField('sgsEddyKappa', L.double)                 :Fill(0)
+grid.cells:NewField('convectiveSpectralRadius', L.double)     :Fill(0)
+grid.cells:NewField('viscousSpectralRadius', L.double)        :Fill(0)
+grid.cells:NewField('heatConductionSpectralRadius', L.double) :Fill(0)
 
 -- Conserved variables
-grid.cells:NewField('rhoVelocity', L.vec3d)                   :Load({0, 0, 0})
-grid.cells:NewField('rhoEnergy', L.double)                    :Load(0)
+grid.cells:NewField('rhoVelocity', L.vec3d)                   :Fill({0, 0, 0})
+grid.cells:NewField('rhoEnergy', L.double)                    :Fill(0)
 
 -- Fields for boundary treatment
-grid.cells:NewField('rhoBoundary', L.double)                  :Load(0)
-grid.cells:NewField('rhoVelocityBoundary', L.vec3d)           :Load({0, 0, 0})
-grid.cells:NewField('rhoEnergyBoundary', L.double)            :Load(0)
-grid.cells:NewField('velocityBoundary', L.vec3d)              :Load({0, 0, 0})
-grid.cells:NewField('pressureBoundary', L.double)             :Load(0)
-grid.cells:NewField('temperatureBoundary', L.double)          :Load(0)
-grid.cells:NewField('velocityGradientXBoundary', L.vec3d)     :Load({0, 0, 0})
-grid.cells:NewField('velocityGradientYBoundary', L.vec3d)     :Load({0, 0, 0})
-grid.cells:NewField('velocityGradientZBoundary', L.vec3d)     :Load({0, 0, 0})
+grid.cells:NewField('rhoBoundary', L.double)                  :Fill(0)
+grid.cells:NewField('rhoVelocityBoundary', L.vec3d)           :Fill({0, 0, 0})
+grid.cells:NewField('rhoEnergyBoundary', L.double)            :Fill(0)
+grid.cells:NewField('velocityBoundary', L.vec3d)              :Fill({0, 0, 0})
+grid.cells:NewField('pressureBoundary', L.double)             :Fill(0)
+grid.cells:NewField('temperatureBoundary', L.double)          :Fill(0)
+grid.cells:NewField('velocityGradientXBoundary', L.vec3d)     :Fill({0, 0, 0})
+grid.cells:NewField('velocityGradientYBoundary', L.vec3d)     :Fill({0, 0, 0})
+grid.cells:NewField('velocityGradientZBoundary', L.vec3d)     :Fill({0, 0, 0})
 
 -- scratch (temporary) fields
 -- intermediate value and copies
-grid.cells:NewField('rho_old', L.double)                      :Load(0)
-grid.cells:NewField('rhoVelocity_old', L.vec3d)               :Load({0, 0, 0})
-grid.cells:NewField('rhoEnergy_old', L.double)                :Load(0)
-grid.cells:NewField('rho_new', L.double)                      :Load(0)
-grid.cells:NewField('rhoVelocity_new', L.vec3d)               :Load({0, 0, 0})
-grid.cells:NewField('rhoEnergy_new', L.double)                :Load(0)
+grid.cells:NewField('rho_old', L.double)                      :Fill(0)
+grid.cells:NewField('rhoVelocity_old', L.vec3d)               :Fill({0, 0, 0})
+grid.cells:NewField('rhoEnergy_old', L.double)                :Fill(0)
+grid.cells:NewField('rho_new', L.double)                      :Fill(0)
+grid.cells:NewField('rhoVelocity_new', L.vec3d)               :Fill({0, 0, 0})
+grid.cells:NewField('rhoEnergy_new', L.double)                :Fill(0)
 -- time derivatives
-grid.cells:NewField('rho_t', L.double)                        :Load(0)
-grid.cells:NewField('rhoVelocity_t', L.vec3d)                 :Load({0, 0, 0})
-grid.cells:NewField('rhoEnergy_t', L.double)                  :Load(0)
+grid.cells:NewField('rho_t', L.double)                        :Fill(0)
+grid.cells:NewField('rhoVelocity_t', L.vec3d)                 :Fill({0, 0, 0})
+grid.cells:NewField('rhoEnergy_t', L.double)                  :Fill(0)
 -- fluxes
-grid.cells:NewField('rhoFlux', L.double)                      :Load(0)
-grid.cells:NewField('rhoVelocityFlux', L.vec3d)               :Load({0, 0, 0})
-grid.cells:NewField('rhoEnergyFlux', L.double)                :Load(0)
+grid.cells:NewField('rhoFlux', L.double)                      :Fill(0)
+grid.cells:NewField('rhoVelocityFlux', L.vec3d)               :Fill({0, 0, 0})
+grid.cells:NewField('rhoEnergyFlux', L.double)                :Fill(0)
 
 
 
@@ -849,7 +849,7 @@ if particles_options.modeParticles then
   local PARTICLE_LEN_X = grid_options.xnum - (xBCPeriodic and 0 or 1)
   local PARTICLE_LEN_Y = grid_options.ynum - (yBCPeriodic and 0 or 1)
   local PARTICLE_LEN_Z = grid_options.znum - (zBCPeriodic and 0 or 1)
-  particles:NewField('cell', grid.cells):Load(function(i)
+  particles:NewField('cell', grid.cells):Fill(function(i)
       local xid = math.floor(i%PARTICLE_LEN_X)
       local yid = math.floor(i/PARTICLE_LEN_X)%(PARTICLE_LEN_Y)
       local zid = math.floor(i/(PARTICLE_LEN_X*PARTICLE_LEN_Y))
@@ -858,31 +858,31 @@ if particles_options.modeParticles then
       if not zBCPeriodic then zid = zid+1 end
       return {xid,yid,zid}
       end)
-  particles:NewField('dual_cell', grid.dual_cells):Load({0, 0, 0})
-  particles:NewField('position',    L.vec3d):Load({0, 0, 0})
-  particles:NewField('velocity',    L.vec3d):Load({0, 0, 0})
-  particles:NewField('density', L.double):Load(0)
-  particles:NewField('temperature', L.double)    :Load(0)
-  particles:NewField('diameter',    L.double)    :Load(0)
+  particles:NewField('dual_cell', grid.dual_cells)              :Fill({0, 0, 0})
+  particles:NewField('position',    L.vec3d)                    :Fill({0, 0, 0})
+  particles:NewField('velocity',    L.vec3d)                    :Fill({0, 0, 0})
+  particles:NewField('density', L.double)                       :Fill(0)
+  particles:NewField('temperature', L.double)                   :Fill(0)
+  particles:NewField('diameter',    L.double)                   :Fill(0)
 
-  particles:NewField('position_ghost', L.vec3d):Load({0, 0, 0})
-  particles:NewField('velocity_ghost', L.vec3d):Load({0, 0, 0})
-  particles:NewField('velocity_t_ghost', L.vec3d):Load({0, 0, 0})
-  particles:NewField('deltaVelocityOverRelaxationTime', L.vec3d):Load({0, 0, 0})
-  particles:NewField('deltaTemperatureTerm', L.double)          :Load(0)
+  particles:NewField('position_ghost', L.vec3d)                 :Fill({0, 0, 0})
+  particles:NewField('velocity_ghost', L.vec3d)                 :Fill({0, 0, 0})
+  particles:NewField('velocity_t_ghost', L.vec3d)               :Fill({0, 0, 0})
+  particles:NewField('deltaVelocityOverRelaxationTime', L.vec3d):Fill({0, 0, 0})
+  particles:NewField('deltaTemperatureTerm', L.double)          :Fill(0)
 
   -- scratch (temporary) fields
   -- intermediate values and copies
-  particles:NewField('position_old', L.vec3d)                   :Load({0, 0, 0})
-  particles:NewField('velocity_old', L.vec3d)                   :Load({0, 0, 0})
-  particles:NewField('temperature_old', L.double)               :Load(0)
-  particles:NewField('position_new', L.vec3d)                   :Load({0, 0, 0})
-  particles:NewField('velocity_new', L.vec3d)                   :Load({0, 0, 0})
-  particles:NewField('temperature_new', L.double)               :Load(0)
+  particles:NewField('position_old', L.vec3d)                   :Fill({0, 0, 0})
+  particles:NewField('velocity_old', L.vec3d)                   :Fill({0, 0, 0})
+  particles:NewField('temperature_old', L.double)               :Fill(0)
+  particles:NewField('position_new', L.vec3d)                   :Fill({0, 0, 0})
+  particles:NewField('velocity_new', L.vec3d)                   :Fill({0, 0, 0})
+  particles:NewField('temperature_new', L.double)               :Fill(0)
   -- derivatives
-  particles:NewField('position_t', L.vec3d)                     :Load({0, 0, 0})
-  particles:NewField('velocity_t', L.vec3d)                     :Load({0, 0, 0})
-  particles:NewField('temperature_t', L.double)                 :Load(0)
+  particles:NewField('position_t', L.vec3d)                     :Fill({0, 0, 0})
+  particles:NewField('velocity_t', L.vec3d)                     :Fill({0, 0, 0})
+  particles:NewField('temperature_t', L.double)                 :Fill(0)
 
 end
 
@@ -903,9 +903,9 @@ Particles.averageTemperature = L.Global('Particles.averageTemperature', L.double
 
 
 -- Right hand side of the kinetic energy equation
-grid.cells:NewField('PD', L.double) :Load(0.0)
-grid.cells:NewField('dissipation', L.double) :Load(0.0)
-grid.cells:NewField('dissipationFlux', L.double) :Load(0.0)
+grid.cells:NewField('PD', L.double)                             :Fill(0.0)
+grid.cells:NewField('dissipation', L.double)                    :Fill(0.0)
+grid.cells:NewField('dissipationFlux', L.double)                :Fill(0.0)
 
 Flow.averagePD          = L.Global('Flow.averagePD', L.double, 0.0)
 Flow.averageDissipation = L.Global('Flow.averageDissipation', L.double, 0.0)
@@ -3288,14 +3288,9 @@ function Flow.InitializePrimitives()
     elseif flow_options.initCase == Flow.Perturbed then
         grid.cells:foreach(Flow.InitializePerturbed)
     elseif flow_options.initCase == Flow.Restart then
-        grid.cells.rho:Load(CSV.Load, IO.outputFileNamePrefix .. 'restart_rho_' ..
-                                config.restartIter .. '.csv')
-        grid.cells.pressure:Load(CSV.Load, IO.outputFileNamePrefix ..
-                                     'restart_pressure_' ..
-                                     config.restartIter .. '.csv')
-        grid.cells.velocity:Load(CSV.Load, IO.outputFileNamePrefix ..
-                                     'restart_velocity_'
-                                     .. config.restartIter .. '.csv')
+        grid.cells:Load(IO.outputFileNamePrefix .. 'restart_' ..
+                          config.restartIter .. '.hdf',
+                        {'rho','pressure','velocity'})
     end
 end
 
@@ -3387,34 +3382,25 @@ if particles_options.modeParticles then
 
     if particles_options.initParticles == Particles.Uniform then
       particles:foreach(Particles.InitializePositionCurrentCell)
-      particles.temperature   :Load(particles_options.initialTemperature)
-      particles.density:Load(particles_options.density)
-      particles.diameter:Load(particles_options.diameter_mean)
+      particles.temperature:Fill(particles_options.initialTemperature)
+      particles.density:Fill(particles_options.density)
+      particles.diameter:Fill(particles_options.diameter_mean)
       Particles.Locate()
       particles:foreach(Particles.SetVelocitiesToFlow)
 
     elseif particles_options.initParticles == Particles.Random then
       particles:foreach(Particles.InitializePositionRandom)
-      particles.density:Load(particles_options.density)
-      particles.temperature   :Load(particles_options.initialTemperature)
+      particles.density:Fill(particles_options.density)
+      particles.temperature:Fill(particles_options.initialTemperature)
       particles:foreach(Particles.InitializeDiameterRandom)
       Particles.Locate()
       particles:foreach(Particles.SetVelocitiesToFlow)
 
     elseif particles_options.initParticles == Particles.Restart then
-      particles.position:Load(CSV.Load, IO.outputFileNamePrefix ..
-                                        'restart_particle_position_' ..
-                                        config.restartParticleIter .. '.csv')
-      particles.velocity:Load(CSV.Load, IO.outputFileNamePrefix ..
-                                        'restart_particle_velocity_' ..
-                                        config.restartParticleIter .. '.csv')
-      particles.temperature:Load(CSV.Load, IO.outputFileNamePrefix ..
-                                           'restart_particle_temperature_' ..
-                                           config.restartParticleIter .. '.csv')
-      particles.diameter:Load(CSV.Load, IO.outputFileNamePrefix ..
-                                        'restart_particle_diameter_' ..
-                                        config.restartParticleIter .. '.csv')
-      particles.density:Load(particles_options.density)
+      particles:Load(IO.outputFileNamePrefix .. 'restart_particle_' ..
+                       config.restartParticleIter .. '.hdf',
+                     {'position','velocity','temperature','diameter'})
+      particles.density:Fill(particles_options.density)
       Particles.Locate()
     end
 
@@ -3732,18 +3718,9 @@ function IO.WriteFlowRestart(timeStep)
 
      -- Write the restart CSV files for density, pressure, and velocity
 
-     local fileName = IO.outputFileNamePrefix .. "restart_rho_" ..
-     tostring(timeStep) .. ".csv"
-     grid.cells.rho:Dump(CSV.Dump, fileName, {precision=16})
-
-     fileName = IO.outputFileNamePrefix .. "restart_pressure_" ..
-     tostring(timeStep) .. ".csv"
-     grid.cells.pressure:Dump(CSV.Dump, fileName, {precision=16})
-
-     fileName = IO.outputFileNamePrefix .. "restart_velocity_" ..
-     tostring(timeStep) .. ".csv"
-     grid.cells.velocity:Dump(CSV.Dump, fileName, {precision=16})
-
+     grid.cells:Dump(IO.outputFileNamePrefix .. "restart_" ..
+                       tostring(timeStep) .. ".hdf",
+                     {'rho','pressure','velocity'})
   end
 
 end
@@ -3928,25 +3905,13 @@ if particles_options.modeParticles then
 
     -- Check if it is time to output a particle restart file
     if (timeStep % TimeIntegrator.restartEveryTimeSteps == 0 and
-    IO.wrtRestart) then
+        IO.wrtRestart) then
 
       -- Write the restart CSV files for density, pressure, and velocity
 
-      local fileName = IO.outputFileNamePrefix .. 'restart_particle_position_' ..
-      tostring(timeStep) .. '.csv'
-      particles.position:Dump(CSV.Dump, fileName, {precision=16})
-
-      fileName = IO.outputFileNamePrefix .. 'restart_particle_velocity_' ..
-      tostring(timeStep) .. '.csv'
-      particles.velocity:Dump(CSV.Dump, fileName, {precision=16})
-
-      fileName = IO.outputFileNamePrefix .. 'restart_particle_temperature_' ..
-      tostring(timeStep) .. '.csv'
-      particles.temperature:Dump(CSV.Dump, fileName, {precision=16})
-
-      fileName = IO.outputFileNamePrefix .. 'restart_particle_diameter_' ..
-      tostring(timeStep) .. '.csv'
-      particles.diameter:Dump(CSV.Dump, fileName, {precision=16})
+      particles:Dump(IO.outputFileNamePrefix .. 'restart_particle_' ..
+                       tostring(timeStep) .. '.hdf',
+                     {'position','velocity','temperature','diameter'})
 
     end
 
@@ -4311,13 +4276,13 @@ M.WHILE(M.AND(M.LT(TimeIntegrator.simTime:get(), TimeIntegrator.final_time),
   TimeIntegrator.AdvanceTimeStep()
   M.IF(M.EQ(TimeIntegrator.timeStep:get() % config.consoleFrequency, 0))
     Statistics.ComputeSpatialAverages()
+    M.PRINT("%8d %11.6f %11.6f %11.6f %11.6f\n",
+            TimeIntegrator.timeStep:get(),
+            TimeIntegrator.simTime:get(),
+            Flow.averagePressure:get(),
+            Flow.averageTemperature:get(),
+            Flow.averageKineticEnergy:get())
   M.END()
-  M.PRINT("%8d %11.6f %11.6f %11.6f %11.6f\n",
-          TimeIntegrator.timeStep:get(),
-          TimeIntegrator.simTime:get(),
-          Flow.averagePressure:get(),
-          Flow.averageTemperature:get(),
-          Flow.averageKineticEnergy:get())
 M.END()
 
 print("")
