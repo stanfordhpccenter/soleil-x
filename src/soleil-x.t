@@ -198,9 +198,6 @@ Particles.Free  = 1
 Particles.Permeable = 0
 Particles.Solid     = 1
 
--- Output formats
-IO.Tecplot = 0
-
 
 -----------------------------------------------------------------------------
 --[[                   INITIALIZE OPTIONS FROM CONFIG                    ]]--
@@ -554,12 +551,6 @@ if config.zeroAvgHeatSource == 'ON' then
 end
 
 -- IO options
--- Choose an output format (Only Tecplot at the moment)
-if config.outputFormat == 'Tecplot' then
-  IO.outputFormat = IO.Tecplot
-else
-  error("Output format not implemented")
-end
 if config.wrtRestart == 'ON' then
   IO.wrtRestart = true
   elseif config.wrtRestart == 'OFF' then
@@ -1141,7 +1132,6 @@ io.stdout:write(" Solution output frequency (iterations): ",
                 string.format(" %d",config.outputEveryTimeSteps), "\n")
 io.stdout:write(" Header frequency (iterations): ",
                 string.format(" %d",config.headerFrequency), "\n")
-io.stdout:write(" Output format: ", config.outputFormat, "\n")
 io.stdout:write(" Output directory: ", outputdir, "\n")
 print("")
 print("--------------------------- Start Solver ----------------------------")
@@ -3725,179 +3715,6 @@ function IO.WriteFlowRestart(timeStep)
 
 end
 
-function IO.WriteFlowTecplotTerra(timeStep)
-
-  -- Check if it is time to output to file
-  if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-      IO.wrtVolumeSolution) then
-
-      -- Tecplot ASCII format
-      local outputFileName = IO.outputFileNamePrefix .. "flow_" ..
-      tostring(timeStep) .. ".dat"
-
-      -- Use the terra callback to write the file (avoids Lua).
-      grid.cells:Dump(
-        {'rho','velocity','pressure','temperature','cellRindLayer'},
-        FlowTecplotTerra,
-        outputFileName,
-        timeStep, TimeIntegrator.simTime:get(),
-        grid_options.xnum, grid_options.ynum, grid_options.znum,
-        gridOriginInteriorX, gridOriginInteriorY, gridOriginInteriorZ,
-        grid_options.xWidth / grid_options.xnum,
-        grid_options.yWidth / grid_options.ynum,
-        grid_options.zWidth / grid_options.znum
-      )
-  end
-
-end
-
-function IO.WriteFlowTecplotLua(timeStep)
-
--- Check if it is time to output to file
-if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-    IO.wrtVolumeSolution) then
-
-  -- Tecplot ASCII format
-  local outputFileName = IO.outputFileNamePrefix .. "flow_" ..
-  tostring(timeStep) .. ".dat"
-
-  -- Open file
-  local outputFile = io.output(outputFileName)
-
-  -- Write header
-  io.write('TITLE = "Data"\n')
-  io.write('VARIABLES = "X", "Y", "Z", "Density", "X-Velocity", "Y-Velocity",',
-           '"Z-Velocity", "Pressure", "Temperature"\n')
-  io.write('ZONE STRANDID=', timeStep+1, ' SOLUTIONTIME=',
-           TimeIntegrator.simTime:get(), ' I=', grid_options.xnum+1, ' J=',
-           grid_options.ynum+1, ' K=', grid_options.znum+1,
-           ' DATAPACKING=BLOCK VARLOCATION=([4-9]=CELLCENTERED)\n')
-
-  local s = ''
-  local k = 0 -- Add a counter in order to remove space (hack for now)
-
-  -- Here, we will recompute the coordinates just for output.
-  -- This is being done as a workaround for the difference in
-  -- vertex handling between periodic and wall cases.
-  local xCoord = {}          -- create the matrix
-  local yCoord = {}          -- create the matrix
-  local zCoord = {}          -- create the matrix
-  local iVertex = 1
-  for k =1,grid_options.znum+1 do
-    for j=1,grid_options.ynum+1 do
-      for i=1,grid_options.xnum+1 do
-        xCoord[iVertex] = gridOriginInteriorX + (grid_options.xWidth /
-                                                 grid_options.xnum * (i-1))
-        yCoord[iVertex] = gridOriginInteriorY + (grid_options.yWidth /
-                                                 grid_options.ynum  * (j-1))
-        zCoord[iVertex] = gridOriginInteriorZ + (grid_options.zWidth /
-                                                 grid_options.znum  * (k-1))
-        iVertex = iVertex+1
-      end
-    end
-  end
-  local nVertex = iVertex-1
-
-  -- Write the x-coordinates
-  s = ''
-  k = 1
-  for i=1,nVertex do
-    local t = tostring(xCoord[i])
-    s = s .. ' ' .. t .. ''
-    k = k + 1
-    if k % 5 == 0 then
-      s = s .. '\n'
-      io.write("", s)
-      s = ''
-    end
-  end
-  io.write("", s)
-
-  -- Write the y-coordinates
-  s = ''
-  k = 1
-  for i=1,nVertex do
-    local t = tostring(yCoord[i])
-    s = s .. ' ' .. t .. ''
-    k = k + 1
-    if k % 5 == 0 then
-      s = s .. '\n'
-      io.write("", s)
-      s = ''
-    end
-  end
-  io.write("", s)
-
-  -- Write the z-coordinates
-  s = ''
-  k = 1
-  for i=1,nVertex do
-    local t = tostring(zCoord[i])
-    s = s .. ' ' .. t .. ''
-    k = k + 1
-    if k % 5 == 0 then
-      s = s .. '\n'
-      io.write("", s)
-      s = ''
-    end
-  end
-  io.write("", s)
-
-  -- Now write density, velocity, pressure, temperature
-
-  local function dump_with_cell_rind(field_name)
-    s = ''
-    k = 1
-    grid.cells:Dump({'cellRindLayer', field_name},
-    function(ids, cell_rind, field_val)
-      if cell_rind == 0 then
-        s = s .. ' ' .. value_tostring(field_val) .. ''
-        k = k + 1
-      end
-      if k % 5 == 0 then
-        s = s .. '\n'
-        io.write("", s)
-        s = ''
-      end
-    end)
-    io.write("", s)
-  end
-  local function dump_vec_component_with_cell_rind(field_name, dim_idx)
-    s = ''
-    k = 1
-    grid.cells:Dump({'cellRindLayer', field_name},
-    function(ids, cell_rind, field_val)
-      if cell_rind == 0 then
-        s = s .. ' ' .. value_tostring(field_val[dim_idx]) .. ''
-        k = k + 1
-      end
-      if k % 5 == 0 then
-        s = s .. '\n'
-        io.write("", s)
-        s = ''
-      end
-    end)
-    io.write("", s)
-  end
-
-  -- Now write density, velocity, pressure, and temperature
-
-  dump_with_cell_rind('rho')
-  local veclen = grid.cells.velocity:Type().N
-  for j = 1,veclen do
-    dump_vec_component_with_cell_rind('velocity', j)
-  end
-  dump_with_cell_rind('pressure')
-  dump_with_cell_rind('temperature')
-
-  -- close the file
-  io.close()
-
-end
-
-end
-
-
 -- put guards around the particle kernels in case inactive
 if particles_options.modeParticles then
 
@@ -3912,64 +3729,6 @@ if particles_options.modeParticles then
       particles:Dump(IO.outputFileNamePrefix .. 'restart_particle_' ..
                        tostring(timeStep) .. '.hdf',
                      {'position','velocity','temperature','diameter'})
-
-    end
-
-  end
-
-  function IO.WriteParticleTecplotTerra(timeStep)
-
-    -- Check if it is time to output to file
-    if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-      IO.wrtVolumeSolution) then
-
-      -- Write a file for the particle positions
-      local particleFileName = IO.outputFileNamePrefix .. "particles_" ..
-      tostring(timeStep) .. ".dat"
-
-      -- Use the terra callback to write the file (avoids Lua).
-      particles:Dump(
-        {'position','velocity','temperature','diameter'},
-        ParticleTecplotTerra,
-        particleFileName, TimeIntegrator.simTime:get()
-      )
-    end
-
-  end
-
-  function IO.WriteParticleTecplotLua(timeStep)
-
-    -- Check if it is time to output to file
-    if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-        IO.wrtVolumeSolution) then
-
-    -- Write a file for the particle positions
-    -- Tecplot ASCII format
-    local particleFileName = IO.outputFileNamePrefix .. "particles_" ..
-    tostring(timeStep) .. ".dat"
-
-    -- Open file
-    local particleFile = io.output(particleFileName)
-
-    -- Compute the number of vertices to be written
-    -- Write header
-    io.write('VARIABLES = "X", "Y", "Z", "X-Velocity", "Y-Velocity", ',
-             '"Z-Velocity", "Temperature", "Diameter"\n')
-    io.write('ZONE SOLUTIONTIME=', TimeIntegrator.simTime:get(), '\n')
-
-    local veclen = particles.position:Type().N
-    particles:Dump({'position', 'velocity', 'temperature', 'diameter'},
-    function(ids, pos, vel, temp, diam)
-      local s = ''
-      s = s .. ' ' .. value_tostring(pos) .. ''
-      s = s .. ' ' .. value_tostring(vel) .. ''
-      s = s .. ' ' .. value_tostring(temp) ..
-               ' ' .. value_tostring(diam) .. '\n'
-      io.write("", s)
-    end)
-
-    -- Close the file.
-    io.close()
 
     end
 
@@ -4226,19 +3985,6 @@ function IO.WriteOutput(timeStep)
 
   if particles_options.modeParticles and particle_mode ~= 'ELASTIC' then
     IO.WriteParticleRestart(timeStep)
-  end
-
-  -- Write the volume solution files for visualization
-
-  if IO.outputFormat == IO.Tecplot then
-    IO.WriteFlowTecplotTerra(timeStep)
-    --IO.WriteFlowTecplotLua(timeStep)
-    if particles_options.modeParticles and particle_mode ~= 'ELASTIC' then
-      IO.WriteParticleTecplotTerra(timeStep)
-    end
-    --IO.WriteParticleTecplotLua(timeStep)
-  else
-    print("Output format not defined. No output written to disk.")
   end
 
   -- Write center line profiles to CSV files
