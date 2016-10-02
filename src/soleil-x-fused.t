@@ -750,12 +750,12 @@ local grid_dy      = L.Constant(L.double, grid:yCellWidth())
 local grid_dz      = L.Constant(L.double, grid:zCellWidth())
 
 -- Create a field for the center coords of the dual cells (i.e., vertices)
-grid.vertices:NewField('centerCoordinates', L.vec3d)          :Fill({0, 0, 0})
+--grid.vertices:NewField('centerCoordinates', L.vec3d)          :Fill({0, 0, 0})
 
 -- Create a field to mark the rind layer so it is not written in the output
 -- We need this for both the dual cells (coords) and cells (cell-center data)
-grid.vertices:NewField('vertexRindLayer', L.int)              :Fill(1)
-grid.cells:NewField('cellRindLayer', L.int)                   :Fill(1)
+--grid.vertices:NewField('vertexRindLayer', L.int)              :Fill(1)
+--grid.cells:NewField('cellRindLayer', L.int)                   :Fill(1)
 
 -- Primitive variables
 grid.cells:NewField('rho', L.double)                          :Fill(0)
@@ -1224,10 +1224,14 @@ end
 local cellVolume = L.Constant(L.double,
                               grid_dx:get() * grid_dy:get() * grid_dz:get())
 local ebb numberOfInteriorCells ( c : grid.cells )
-  Flow.numberOfInteriorCells += 1
+  if c.in_interior then
+    Flow.numberOfInteriorCells += 1
+  end
 end
 local ebb areaInterior ( c : grid.cells )
-  Flow.areaInterior += cellVolume
+  if c.in_interior then
+    Flow.areaInterior += cellVolume
+  end
 end
 function Flow.IntegrateGeometricQuantities(cells)
   Flow.numberOfInteriorCells:set(0)
@@ -1398,7 +1402,7 @@ ebb Flow.InitializePerturbed (c : grid.cells)
 end
 
 ebb Flow.UpdateConservedFromPrimitive (c : grid.cells)
-
+  if c.in_interior then
     -- Equation of state: T = p / ( R * rho )
     var tmpTemperature = c.pressure / (fluid_options.gasConstant * c.rho)
     var velocity = c.velocity
@@ -1412,7 +1416,7 @@ ebb Flow.UpdateConservedFromPrimitive (c : grid.cells)
       ( cv * tmpTemperature
         + 0.5 * L.dot(velocity,velocity) )
       + c.sgsEnergy
-
+  end
 end
 
 -- Initialize temporaries
@@ -2234,26 +2238,36 @@ end
 -------------
 
 local ebb averagePressure       ( c : grid.cells )
-  Flow.averagePressure          += c.pressure * cellVolume
+  if c.in_interior then
+    Flow.averagePressure          += c.pressure * cellVolume
+  end
 end
 local ebb averageTemperature    ( c : grid.cells )
-  Flow.averageTemperature       += c.temperature * cellVolume
+  if c.in_interior then
+    Flow.averageTemperature       += c.temperature * cellVolume
+  end
 end
 local ebb averageKineticEnergy  ( c : grid.cells )
-  Flow.averageKineticEnergy     += c.kineticEnergy * cellVolume
+  if c.in_interior then
+    Flow.averageKineticEnergy     += c.kineticEnergy * cellVolume
+  end
 end
 local ebb minTemperature        ( c : grid.cells )
-  Flow.minTemperature         min= c.temperature
+  if c.in_interior then
+    Flow.minTemperature         min= c.temperature
+  end
 end
 local ebb maxTemperature        ( c : grid.cells )
-  Flow.maxTemperature         max= c.temperature
+  if c.in_interior then
+    Flow.maxTemperature         max= c.temperature
+  end
 end
 function Flow.IntegrateQuantities(cells)
   cells:foreach(averagePressure      )
   cells:foreach(averageTemperature   )
   cells:foreach(averageKineticEnergy )
-  cells:foreach(minTemperature       )
-  cells:foreach(maxTemperature       )
+  --cells:foreach(minTemperature       )
+  --cells:foreach(maxTemperature       )
 end
 
 
@@ -3269,14 +3283,10 @@ end
 
 function Flow.ComputeVelocityGradients()
   grid.cells:foreach(Flow.ComputeVelocityGradientAll)
-  --grid.cells.interior:foreach(Flow.ComputeVelocityGradientX)
-  --grid.cells.interior:foreach(Flow.ComputeVelocityGradientY)
-  --grid.cells.interior:foreach(Flow.ComputeVelocityGradientZ)
 end
 
 function Flow.UpdateAuxiliaryVelocityConservedAndGradients()
   grid.cells:foreach(Flow.UpdateAuxiliaryVelocity)
-  --grid.cells.interior:foreach(Flow.UpdateAuxiliaryVelocity)
   Flow.UpdateGhostConserved()
   Flow.UpdateGhostVelocity()
   Flow.ComputeVelocityGradients()
@@ -3285,7 +3295,6 @@ end
 function Flow.UpdateAuxiliary()
   Flow.UpdateAuxiliaryVelocityConservedAndGradients()
   grid.cells:foreach(Flow.UpdateAuxiliaryThermodynamics)
-  ----grid.cells.interior:foreach(Flow.UpdateAuxiliaryThermodynamics)
   Flow.UpdateGhostThermodynamics()
 end
 
@@ -3434,13 +3443,13 @@ function TimeIntegrator.InitializeVariables()
 
     -- Initialize several grid related entitities
     grid.cells:foreach(Flow.InitializeCenterCoordinates)
-    grid.cells.interior:foreach(Flow.InitializeCellRindLayer)
-    grid.vertices:foreach(Flow.InitializeVertexCoordinates)
-    grid.vertices.interior:foreach(Flow.InitializeVertexRindLayer)
+    --grid.cells.interior:foreach(Flow.InitializeCellRindLayer)
+    --grid.vertices:foreach(Flow.InitializeVertexCoordinates)
+    --grid.vertices.interior:foreach(Flow.InitializeVertexRindLayer)
 
     -- Set initial condition for the flow and all auxiliary flow variables
     Flow.InitializePrimitives()
-    grid.cells.interior:foreach(Flow.UpdateConservedFromPrimitive)
+    grid.cells:foreach(Flow.UpdateConservedFromPrimitive)
     Flow.UpdateAuxiliary()
     Flow.UpdateGhost()
 
@@ -3600,7 +3609,7 @@ end
 
 function Statistics.ComputeSpatialAverages()
     Statistics.ResetSpatialAverages()
-    Flow.IntegrateQuantities(grid.cells.interior)
+    Flow.IntegrateQuantities(grid.cells)
     if particles_options.modeParticles then
       particles:foreach(Particles.IntegrateQuantities)
     end
@@ -4257,12 +4266,11 @@ end
 -- Initialize all variables
 
 TimeIntegrator.InitializeVariables()
-Flow.IntegrateGeometricQuantities(grid.cells.interior)
-Statistics.ComputeSpatialAverages()
+Flow.IntegrateGeometricQuantities(grid.cells)
+--Statistics.ComputeSpatialAverages()
 
 -- Main iteration loop
 
-M.PRINT("    Iter     Time(s)   Avg Press    Avg Temp      Avg KE\n")
 M.WHILE(M.AND(M.LT(TimeIntegrator.simTime:get(), TimeIntegrator.final_time),
               M.LT(TimeIntegrator.timeStep:get(), TimeIntegrator.max_iter)),
         true)
@@ -4283,6 +4291,7 @@ M.WHILE(M.AND(M.LT(TimeIntegrator.simTime:get(), TimeIntegrator.final_time),
   --M.END()
 M.END()
 Statistics.ComputeSpatialAverages()
+M.PRINT("    Iter     Time(s)   Avg Press    Avg Temp      Avg KE\n")
 M.PRINT("%8d %11.6f %11.6f %11.6f %11.6f\n",
         TimeIntegrator.timeStep:get(),
         TimeIntegrator.simTime:get(),
