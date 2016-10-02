@@ -2,25 +2,25 @@
 
 return {
   
-  xnum = 128, -- number of cells in the x-direction
-  ynum = 128, -- number of cells in the y-direction
-  znum = 128, -- number of cells in the z-direction
+  xnum = 1024, -- number of cells in the x-direction
+  ynum = 512, -- number of cells in the y-direction
+  znum = 512, -- number of cells in the z-direction
 
   -- if you increase the cell number and the calculation diverges
   -- right away, decrease the time step on the next line
   
-  delta_time = 2.0e-3,
+  delta_time = 1.0e-4,
 
   -- Control max iterations here. Set to a very high number if
   -- you want to run the full calculation (it will stop once
   -- it hits the 20.0 second max time set below)
 
-  max_iter = 20,
+  max_iter = 10,
 
   -- Output options. All output is off by default, but we 
   -- will need to turn it on to check results/make visualizations
  
-  consoleFrequency = 1,  -- Iterations between console output of statistics
+  consoleFrequency = 5,  -- Iterations between console output of statistics
   wrtRestart = 'OFF',
   wrtVolumeSolution = 'OFF',
   wrt1DSlice = 'OFF',

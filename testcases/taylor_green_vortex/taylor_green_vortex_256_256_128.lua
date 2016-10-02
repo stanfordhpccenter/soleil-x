@@ -2,8 +2,8 @@
 
 return {
   
-  xnum = 128, -- number of cells in the x-direction
-  ynum = 128, -- number of cells in the y-direction
+  xnum = 256, -- number of cells in the x-direction
+  ynum = 256, -- number of cells in the y-direction
   znum = 128, -- number of cells in the z-direction
 
   -- if you increase the cell number and the calculation diverges
