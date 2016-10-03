@@ -1869,7 +1869,6 @@ end
 
 
 ebb Flow.UpdatePD (c : grid.cells)
-
    var divU = L.double(0.0)
 
    -- compute the divergence of the velocity (trace of the velocity gradient)
@@ -1878,15 +1877,14 @@ ebb Flow.UpdatePD (c : grid.cells)
    -- Compute pressure dilation by multiplying by pressure (assumes homogeneity)
    -- PD = - <u_i P,j> = <Ui,i P >
    c.PD = divU * c.pressure
-
 end
 
 
 -- Compute viscous fluxes in X direction
 ebb Flow.ComputeDissipationX (c : grid.cells)
-    -- Consider first boundary element (c.xneg_depth == 1) to define left flux
-    -- on first interior cell
     if c.in_interior or c.xneg_depth == 1 then
+        -- Consider first boundary element (c.xneg_depth == 1) to define left flux
+        -- on first interior cell
         var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
                             GetDynamicViscosity(c(1,0,0).temperature))
         var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
@@ -1935,15 +1933,14 @@ ebb Flow.ComputeDissipationX (c : grid.cells)
 
         -- Fluxes
         c.dissipationFlux = usigma -- possible just x component?
-
     end
 end
 
 -- Compute viscous fluxes in Y direction
 ebb Flow.ComputeDissipationY (c : grid.cells)
-    -- Consider first boundary element (c.yneg_depth == 1) to define down flux
-    -- on first interior cell
     if c.in_interior or c.yneg_depth == 1 then
+        -- Consider first boundary element (c.yneg_depth == 1) to define down flux
+        -- on first interior cell
         var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
                             GetDynamicViscosity(c(0,1,0).temperature))
         var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
@@ -1992,15 +1989,14 @@ ebb Flow.ComputeDissipationY (c : grid.cells)
 
         -- Fluxes
         c.dissipationFlux = usigma
-
     end
 end
 
 -- Compute viscous fluxes in Z direction
 ebb Flow.ComputeDissipationZ (c : grid.cells)
-    -- Consider first boundary element (c.zneg_depth == 1) to define down flux
-    -- on first interior cell
     if c.in_interior or c.zneg_depth == 1 then
+        -- Consider first boundary element (c.zneg_depth == 1) to define down flux
+        -- on first interior cell
         var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
                             GetDynamicViscosity(c(0,0,1).temperature))
         var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
@@ -2049,7 +2045,6 @@ ebb Flow.ComputeDissipationZ (c : grid.cells)
 
         -- Fluxes
         c.dissipationFlux = usigma
-
     end
 end
 
@@ -2253,7 +2248,6 @@ end
 
 -- Helper function for updating the ghost fields to minimize repeated code
 local ebb UpdateGhostFieldsHelper(c_bnd, c_int, sign, bnd_velocity, bnd_temperature)
-
   -- Temporary variables for computing new halo state
   var rho         = L.double(0.0)
   var temp_wall   = L.double(0.0)
@@ -2285,8 +2279,8 @@ local ebb UpdateGhostFieldsHelper(c_bnd, c_int, sign, bnd_velocity, bnd_temperat
   c_bnd.velocityBoundary    =  velocity
   c_bnd.pressureBoundary    =  c_int.pressure
   c_bnd.temperatureBoundary =  temperature
-
 end
+
 ebb Flow.UpdateGhostFieldsStep1 (c : grid.cells)
   if c.xneg_depth > 0 then
     UpdateGhostFieldsHelper(c, c( 1,0,0), x_sign, xneg_velocity, xneg_temperature)
@@ -2307,6 +2301,7 @@ ebb Flow.UpdateGhostFieldsStep1 (c : grid.cells)
     UpdateGhostFieldsHelper(c, c(0,0,-1), z_sign, zpos_velocity, zpos_temperature)
   end
 end
+
 ebb Flow.UpdateGhostFieldsStep2 (c : grid.cells)
   if c.in_boundary then
     c.rho         = c.rhoBoundary
@@ -2323,7 +2318,6 @@ end
 
 -- Helper function for updating the ghost fields to minimize repeated code
 local ebb UpdateGhostThermodynamicsHelper (c_bnd, c_int, bnd_temperature)
-
   -- Temporary variables for computing new halo state
   var temp_wall   = L.double(0.0)
   var temperature = L.double(0.0)
@@ -2338,8 +2332,8 @@ local ebb UpdateGhostThermodynamicsHelper (c_bnd, c_int, bnd_temperature)
   -- Update the boundary cell based on the values in the matching interior cell
   c_bnd.pressureBoundary    = c_int.pressure
   c_bnd.temperatureBoundary = temperature
-
 end
+
 ebb Flow.UpdateGhostThermodynamicsStep1 (c : grid.cells)
   if c.xneg_depth > 0 then
     UpdateGhostThermodynamicsHelper(c, c( 1,0,0), xneg_temperature)
@@ -2360,12 +2354,14 @@ ebb Flow.UpdateGhostThermodynamicsStep1 (c : grid.cells)
     UpdateGhostThermodynamicsHelper(c, c(0,0,-1), zpos_temperature)
   end
 end
+
 ebb Flow.UpdateGhostThermodynamicsStep2 (c : grid.cells)
   if c.in_boundary then
     c.pressure    = c.pressureBoundary
     c.temperature = c.temperatureBoundary
   end
 end
+
 function Flow.UpdateGhostThermodynamics()
   grid.cells:foreach(Flow.UpdateGhostThermodynamicsStep1)
   grid.cells:foreach(Flow.UpdateGhostThermodynamicsStep2)
@@ -2398,11 +2394,13 @@ ebb Flow.UpdateGhostVelocityStep1 (c : grid.cells)
     UpdateGhostVelocityHelper(c, c(0,0,-1), z_sign, zpos_velocity)
   end
 end
+
 ebb Flow.UpdateGhostVelocityStep2 (c : grid.cells)
   if c.in_boundary then
     c.velocity = c.velocityBoundary
   end
 end
+
 function Flow.UpdateGhostVelocity()
   grid.cells:foreach(Flow.UpdateGhostVelocityStep1)
   grid.cells:foreach(Flow.UpdateGhostVelocityStep2)
@@ -2463,6 +2461,7 @@ ebb Flow.UpdateGhostConservedStep1 (c : grid.cells)
     UpdateGhostConservedHelper(c, c(0,0,-1), z_sign, zpos_velocity, zpos_temperature)
   end
 end
+
 ebb Flow.UpdateGhostConservedStep2 (c : grid.cells)
   if c.in_boundary then
     c.rho         = c.rhoBoundary
@@ -2470,6 +2469,7 @@ ebb Flow.UpdateGhostConservedStep2 (c : grid.cells)
     c.rhoEnergy   = c.rhoEnergyBoundary
   end
 end
+
 function Flow.UpdateGhostConserved()
   grid.cells:foreach(Flow.UpdateGhostConservedStep1)
   grid.cells:foreach(Flow.UpdateGhostConservedStep2)
@@ -2499,13 +2499,12 @@ end
 
 -- Helper function for updating the boundary gradients to minimize repeated code
 local ebb UpdateGhostVelocityGradientHelper (c_bnd, c_int, sign)
-
   -- Apply sign change and copy gradients from interior to boundary
   c_bnd.velocityGradientXBoundary = L.times(sign, c_int.velocityGradientX)
   c_bnd.velocityGradientYBoundary = L.times(sign, c_int.velocityGradientY)
   c_bnd.velocityGradientZBoundary = L.times(sign, c_int.velocityGradientZ)
-
 end
+
 ebb Flow.UpdateGhostVelocityGradientStep1 (c : grid.cells)
     if c.xneg_depth > 0 then
       UpdateGhostVelocityGradientHelper(c, c( 1,0,0), x_sign)
@@ -2526,6 +2525,7 @@ ebb Flow.UpdateGhostVelocityGradientStep1 (c : grid.cells)
       UpdateGhostVelocityGradientHelper(c, c(0,0,-1), z_sign)
     end
 end
+
 ebb Flow.UpdateGhostVelocityGradientStep2 (c : grid.cells)
     if c.in_boundary then
         c.velocityGradientX = c.velocityGradientXBoundary
@@ -3480,6 +3480,7 @@ function TimeIntegrator.ComputeDFunctionDt()
     end
     grid.cells:foreach(Flow.AddBodyForces)
 
+    -- FIXME: turbulent-related tasks should be revised
     if flow_options.turbForcing then
       Flow.AddTurbulentForcing(grid.cells.interior)
     end

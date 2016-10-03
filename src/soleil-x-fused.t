@@ -198,10 +198,6 @@ Particles.Free  = 1
 Particles.Permeable = 0
 Particles.Solid     = 1
 
--- Output formats
-IO.Tecplot = 0
-
-
 -----------------------------------------------------------------------------
 --[[                   INITIALIZE OPTIONS FROM CONFIG                    ]]--
 -----------------------------------------------------------------------------
@@ -421,8 +417,6 @@ spatial_stencil = {
 }
 
 -- Time integrator options
-TimeIntegrator.coeff_function        = {1/6, 1/3, 1/3, 1/6}
-TimeIntegrator.coeff_time            = {0.5, 0.5, 1, 1}
 TimeIntegrator.simTime               = L.Global('TimeIntegrator.simTime', L.double, 0)
 TimeIntegrator.timeOld               = L.Global('TimeIntegrator.timeOld', L.double, 0)
 TimeIntegrator.final_time            = config.final_time
@@ -556,12 +550,6 @@ if config.zeroAvgHeatSource == 'ON' then
 end
 
 -- IO options
--- Choose an output format (Only Tecplot at the moment)
-if config.outputFormat == 'Tecplot' then
-  IO.outputFormat = IO.Tecplot
-else
-  error("Output format not implemented")
-end
 if config.wrtRestart == 'ON' then
   IO.wrtRestart = true
   elseif config.wrtRestart == 'OFF' then
@@ -1149,7 +1137,6 @@ io.stdout:write(" Solution output frequency (iterations): ",
                 string.format(" %d",config.outputEveryTimeSteps), "\n")
 io.stdout:write(" Header frequency (iterations): ",
                 string.format(" %d",config.headerFrequency), "\n")
-io.stdout:write(" Output format: ", config.outputFormat, "\n")
 io.stdout:write(" Output directory: ", outputdir, "\n")
 print("")
 print("--------------------------- Start Solver ----------------------------")
@@ -1489,7 +1476,6 @@ end
 
 ebb Flow.AddBodyForces (c : grid.cells)
   if c.in_interior then
-
     -- Add body forces (accelerations) to the momentum
     c.rhoVelocity_t += c.rho * flow_options.bodyForce
 
@@ -1820,6 +1806,8 @@ end
 -- Update functions
 -------------------
 
+-- Update flow variables using derivatives
+-- Assumes 4th-order Runge-Kutta
 ebb Flow.UpdateVars(c : grid.cells)
     var deltaTime = TimeIntegrator.deltaTime
     if TimeIntegrator.stage == 1 then
@@ -2122,20 +2110,6 @@ end
 ---------------------
 
 -- WARNING: non-uniform grid assumption
-ebb Flow.ComputeVelocityGradientX (c : grid.cells)
-  c.velocityGradientX = 0.5*(c(1,0,0).velocity - c(-1,0,0).velocity)/grid_dx
-end
-
--- WARNING: non-uniform grid assumption
-ebb Flow.ComputeVelocityGradientY (c : grid.cells)
-  c.velocityGradientY = 0.5*(c(0,1,0).velocity - c(0,-1,0).velocity)/grid_dy
-end
-
--- WARNING: non-uniform grid assumption
-ebb Flow.ComputeVelocityGradientZ (c : grid.cells)
-  c.velocityGradientZ = 0.5*(c(0,0,1).velocity - c(0,0,-1).velocity)/grid_dz
-end
-
 ebb Flow.ComputeVelocityGradientAll (c : grid.cells)
   if c.in_interior then
     c.velocityGradientX = 0.5*(c(1,0,0).velocity - c(-1,0,0).velocity)/grid_dx
@@ -2150,7 +2124,6 @@ local ebb UpdateGhostVelocityGradientHelper (c_bnd, c_int, sign)
   c_bnd.velocityGradientXBoundary = L.times(sign, c_int.velocityGradientX)
   c_bnd.velocityGradientYBoundary = L.times(sign, c_int.velocityGradientY)
   c_bnd.velocityGradientZBoundary = L.times(sign, c_int.velocityGradientZ)
-
 end
 
 ebb Flow.UpdateGhostVelocityGradientStep1 (c : grid.cells)
@@ -2428,40 +2401,55 @@ if particles_options.modeParticles then
   end
 
   -- Update particle variables using derivatives
-  Particles.UpdateFunctions = {}
-  function Particles.GenerateUpdateFunctions(relation, stage)
-      local coeff_fun  = TimeIntegrator.coeff_function[stage]
-      local coeff_time = TimeIntegrator.coeff_time[stage]
-      local deltaTime  = TimeIntegrator.deltaTime
-      if stage <= 3 then
-          return ebb(r : relation)
-                r.position_new +=
-                   coeff_fun * deltaTime * r.position_t
-                r.position       = r.position_old +
-                   coeff_time * deltaTime * r.position_t
-                r.velocity_new +=
-                   coeff_fun * deltaTime * r.velocity_t
-                r.velocity       = r.velocity_old +
-                   coeff_time * deltaTime * r.velocity_t
-                r.temperature_new +=
-                   coeff_fun * deltaTime * r.temperature_t
-                r.temperature       = r.temperature_old +
-                   coeff_time * deltaTime * r.temperature_t
-          end
-      elseif stage == 4 then
-          return ebb(r : relation)
-                r.position = r.position_new +
-                   coeff_fun * deltaTime * r.position_t
-                r.velocity = r.velocity_new +
-                   coeff_fun * deltaTime * r.velocity_t
-                r.temperature = r.temperature_new +
-                   coeff_fun * deltaTime * r.temperature_t
-          end
+  ebb Particles.UpdateVars(p : particles)
+      var deltaTime = TimeIntegrator.deltaTime
+      if TimeIntegrator.stage == 1 then
+          p.position_new +=
+              (1.0/6.0) * deltaTime * p.position_t
+          p.position = p.position_old +
+              0.5 * deltaTime * p.position_t
+          p.velocity_new +=
+              (1.0/6.0) * deltaTime * p.velocity_t
+          p.velocity = p.velocity_old +
+              0.5 * deltaTime * p.velocity_t
+          p.temperature_new +=
+              (1.0/6.0) * deltaTime * p.temperature_t
+          p.temperature = p.temperature_old +
+              0.5 * deltaTime * p.temperature_t
+      elseif TimeIntegrator.stage == 2 then
+          p.position_new +=
+              (1.0/3.0) * deltaTime * p.position_t
+          p.position = p.position_old +
+              0.5 * deltaTime * p.position_t
+          p.velocity_new +=
+              (1.0/3.0) * deltaTime * p.velocity_t
+          p.velocity = p.velocity_old +
+              0.5 * deltaTime * p.velocity_t
+          p.temperature_new +=
+              (1.0/3.0) * deltaTime * p.temperature_t
+          p.temperature = p.temperature_old +
+              0.5 * deltaTime * p.temperature_t
+      elseif TimeIntegrator.stage == 3 then
+          p.position_new +=
+              (1.0/3.0) * deltaTime * p.position_t
+          p.position = p.position_old +
+              1.0 * deltaTime * p.position_t
+          p.velocity_new +=
+              (1.0/3.0) * deltaTime * p.velocity_t
+          p.velocity = p.velocity_old +
+              1.0 * deltaTime * p.velocity_t
+          p.temperature_new +=
+              (1.0/3.0) * deltaTime * p.temperature_t
+          p.temperature = p.temperature_old +
+              1.0 * deltaTime * p.temperature_t
+      else -- TimeIntegrator.stage == 4
+          p.position = p.position_new +
+              (1.0/6.0) * deltaTime * p.position_t
+          p.velocity = p.velocity_new +
+              (1.0/6.0) * deltaTime * p.velocity_t
+          p.temperature = p.temperature_new +
+              (1.0/6.0) * deltaTime * p.temperature_t
       end
-  end
-  for i = 1, 4 do
-      Particles.UpdateFunctions[i] =
-          Particles.GenerateUpdateFunctions(particles, i)
   end
 
   ebb Particles.UpdateAuxiliaryStep1 (p : particles)
@@ -2921,14 +2909,9 @@ function Flow.InitializePrimitives()
     elseif flow_options.initCase == Flow.Perturbed then
         grid.cells:foreach(Flow.InitializePerturbed)
     elseif flow_options.initCase == Flow.Restart then
-        grid.cells.rho:Load(CSV.Load, IO.outputFileNamePrefix .. 'restart_rho_' ..
-                                config.restartIter .. '.csv')
-        grid.cells.pressure:Load(CSV.Load, IO.outputFileNamePrefix ..
-                                     'restart_pressure_' ..
-                                     config.restartIter .. '.csv')
-        grid.cells.velocity:Load(CSV.Load, IO.outputFileNamePrefix ..
-                                     'restart_velocity_'
-                                     .. config.restartIter .. '.csv')
+        grid.cells:Load(IO.outputFileNamePrefix .. 'restart_' ..
+                          config.restartIter .. '.hdf',
+                        {'rho','pressure','velocity'})
     end
 end
 
@@ -3277,10 +3260,6 @@ function Flow.AddFluxes()
     grid.cells:foreach(Flow.AddUpdateUsingFlux)
 end
 
-function Flow.Update(stage)
-    grid.cells:foreach(Flow.UpdateFunctions[stage])
-end
-
 function Flow.ComputeVelocityGradients()
   grid.cells:foreach(Flow.ComputeVelocityGradientAll)
 end
@@ -3345,41 +3324,28 @@ if particles_options.modeParticles then
 
     if particles_options.initParticles == Particles.Uniform then
       particles:foreach(Particles.InitializePositionCurrentCell)
-      particles.temperature   :Load(particles_options.initialTemperature)
-      particles.density:Load(particles_options.density)
-      particles.diameter:Load(particles_options.diameter_mean)
+      particles.temperature:Fill(particles_options.initialTemperature)
+      particles.density:Fill(particles_options.density)
+      particles.diameter:Fill(particles_options.diameter_mean)
       Particles.Locate()
       particles:foreach(Particles.SetVelocitiesToFlow)
 
     elseif particles_options.initParticles == Particles.Random then
       particles:foreach(Particles.InitializePositionRandom)
-      particles.density:Load(particles_options.density)
-      particles.temperature   :Load(particles_options.initialTemperature)
+      particles.density:Fill(particles_options.density)
+      particles.temperature:Fill(particles_options.initialTemperature)
       particles:foreach(Particles.InitializeDiameterRandom)
       Particles.Locate()
       particles:foreach(Particles.SetVelocitiesToFlow)
 
     elseif particles_options.initParticles == Particles.Restart then
-      particles.position:Load(CSV.Load, IO.outputFileNamePrefix ..
-                                        'restart_particle_position_' ..
-                                        config.restartParticleIter .. '.csv')
-      particles.velocity:Load(CSV.Load, IO.outputFileNamePrefix ..
-                                        'restart_particle_velocity_' ..
-                                        config.restartParticleIter .. '.csv')
-      particles.temperature:Load(CSV.Load, IO.outputFileNamePrefix ..
-                                           'restart_particle_temperature_' ..
-                                           config.restartParticleIter .. '.csv')
-      particles.diameter:Load(CSV.Load, IO.outputFileNamePrefix ..
-                                        'restart_particle_diameter_' ..
-                                        config.restartParticleIter .. '.csv')
-      particles.density:Load(particles_options.density)
+      particles:Load(IO.outputFileNamePrefix .. 'restart_particle_' ..
+                       config.restartParticleIter .. '.hdf',
+                     {'position','velocity','temperature','diameter'})
+      particles.density:Fill(particles_options.density)
       Particles.Locate()
     end
 
-  end
-
-  function Particles.Update(stage)
-      particles:foreach(Particles.UpdateFunctions[stage])
   end
 
   function Particles.UpdateAuxiliary()
@@ -3433,11 +3399,6 @@ function TimeIntegrator.UpdateTime()
                              0.5 * (1 + TimeIntegrator.stage:get() / 3) *
                              TimeIntegrator.deltaTime:get())
 end
---function TimeIntegrator.UpdateTime(stage)
---    TimeIntegrator.simTime:set(TimeIntegrator.timeOld:get() +
---                               TimeIntegrator.coeff_time[stage] *
---                               TimeIntegrator.deltaTime:get())
---end
 
 function TimeIntegrator.InitializeVariables()
 
@@ -3468,7 +3429,6 @@ function TimeIntegrator.ComputeDFunctionDt()
     if radiation_options.zeroAvgHeatSource then
       Flow.averageHeatSource:set(0.0)
     end
-    --grid.cells.interior:foreach(Flow.AddBodyForces)
     grid.cells:foreach(Flow.AddBodyForces)
 
     -- FIXME: turbulent-related tasks should be revised
@@ -3508,17 +3468,17 @@ function TimeIntegrator.ComputeDFunctionDt()
 end
 
 function TimeIntegrator.UpdateSolution()
-    --Flow.Update(stage)
     grid.cells:foreach(Flow.UpdateVars)
-    --if particles_options.modeParticles then
-    --  Particles.Update(stage)
-    --end
+    if particles_options.modeParticles then
+        particles:foreach(Particles.UpdateVars)
+    end
 end
 
 function TimeIntegrator.AdvanceTimeStep()
 
     TimeIntegrator.SetupTimeStep()
     TimeIntegrator.timeOld:set(TimeIntegrator.simTime:get())
+
     TimeIntegrator.stage:set(1)
     M.WHILE(M.LT(TimeIntegrator.stage:get(), 5), false)
         TimeIntegrator.InitializeTimeDerivatives()
@@ -3700,194 +3660,12 @@ function IO.WriteFlowRestart(timeStep)
 
      -- Write the restart CSV files for density, pressure, and velocity
 
-     local fileName = IO.outputFileNamePrefix .. "restart_rho_" ..
-     tostring(timeStep) .. ".csv"
-     grid.cells.rho:Dump(CSV.Dump, fileName, {precision=16})
-
-     fileName = IO.outputFileNamePrefix .. "restart_pressure_" ..
-     tostring(timeStep) .. ".csv"
-     grid.cells.pressure:Dump(CSV.Dump, fileName, {precision=16})
-
-     fileName = IO.outputFileNamePrefix .. "restart_velocity_" ..
-     tostring(timeStep) .. ".csv"
-     grid.cells.velocity:Dump(CSV.Dump, fileName, {precision=16})
-
+     grid.cells:Dump(IO.outputFileNamePrefix .. "restart_" ..
+                       tostring(timeStep) .. ".hdf",
+                     {'rho','pressure','velocity'})
   end
 
 end
-
-function IO.WriteFlowTecplotTerra(timeStep)
-
-  -- Check if it is time to output to file
-  if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-      IO.wrtVolumeSolution) then
-
-      -- Tecplot ASCII format
-      local outputFileName = IO.outputFileNamePrefix .. "flow_" ..
-      tostring(timeStep) .. ".dat"
-
-      -- Use the terra callback to write the file (avoids Lua).
-      grid.cells:Dump(
-        {'rho','velocity','pressure','temperature','cellRindLayer'},
-        FlowTecplotTerra,
-        outputFileName,
-        timeStep, TimeIntegrator.simTime:get(),
-        grid_options.xnum, grid_options.ynum, grid_options.znum,
-        gridOriginInteriorX, gridOriginInteriorY, gridOriginInteriorZ,
-        grid_options.xWidth / grid_options.xnum,
-        grid_options.yWidth / grid_options.ynum,
-        grid_options.zWidth / grid_options.znum
-      )
-  end
-
-end
-
-function IO.WriteFlowTecplotLua(timeStep)
-
--- Check if it is time to output to file
-if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-    IO.wrtVolumeSolution) then
-
-  -- Tecplot ASCII format
-  local outputFileName = IO.outputFileNamePrefix .. "flow_" ..
-  tostring(timeStep) .. ".dat"
-
-  -- Open file
-  local outputFile = io.output(outputFileName)
-
-  -- Write header
-  io.write('TITLE = "Data"\n')
-  io.write('VARIABLES = "X", "Y", "Z", "Density", "X-Velocity", "Y-Velocity",',
-           '"Z-Velocity", "Pressure", "Temperature"\n')
-  io.write('ZONE STRANDID=', timeStep+1, ' SOLUTIONTIME=',
-           TimeIntegrator.simTime:get(), ' I=', grid_options.xnum+1, ' J=',
-           grid_options.ynum+1, ' K=', grid_options.znum+1,
-           ' DATAPACKING=BLOCK VARLOCATION=([4-9]=CELLCENTERED)\n')
-
-  local s = ''
-  local k = 0 -- Add a counter in order to remove space (hack for now)
-
-  -- Here, we will recompute the coordinates just for output.
-  -- This is being done as a workaround for the difference in
-  -- vertex handling between periodic and wall cases.
-  local xCoord = {}          -- create the matrix
-  local yCoord = {}          -- create the matrix
-  local zCoord = {}          -- create the matrix
-  local iVertex = 1
-  for k =1,grid_options.znum+1 do
-    for j=1,grid_options.ynum+1 do
-      for i=1,grid_options.xnum+1 do
-        xCoord[iVertex] = gridOriginInteriorX + (grid_options.xWidth /
-                                                 grid_options.xnum * (i-1))
-        yCoord[iVertex] = gridOriginInteriorY + (grid_options.yWidth /
-                                                 grid_options.ynum  * (j-1))
-        zCoord[iVertex] = gridOriginInteriorZ + (grid_options.zWidth /
-                                                 grid_options.znum  * (k-1))
-        iVertex = iVertex+1
-      end
-    end
-  end
-  local nVertex = iVertex-1
-
-  -- Write the x-coordinates
-  s = ''
-  k = 1
-  for i=1,nVertex do
-    local t = tostring(xCoord[i])
-    s = s .. ' ' .. t .. ''
-    k = k + 1
-    if k % 5 == 0 then
-      s = s .. '\n'
-      io.write("", s)
-      s = ''
-    end
-  end
-  io.write("", s)
-
-  -- Write the y-coordinates
-  s = ''
-  k = 1
-  for i=1,nVertex do
-    local t = tostring(yCoord[i])
-    s = s .. ' ' .. t .. ''
-    k = k + 1
-    if k % 5 == 0 then
-      s = s .. '\n'
-      io.write("", s)
-      s = ''
-    end
-  end
-  io.write("", s)
-
-  -- Write the z-coordinates
-  s = ''
-  k = 1
-  for i=1,nVertex do
-    local t = tostring(zCoord[i])
-    s = s .. ' ' .. t .. ''
-    k = k + 1
-    if k % 5 == 0 then
-      s = s .. '\n'
-      io.write("", s)
-      s = ''
-    end
-  end
-  io.write("", s)
-
-  -- Now write density, velocity, pressure, temperature
-
-  local function dump_with_cell_rind(field_name)
-    s = ''
-    k = 1
-    grid.cells:Dump({'cellRindLayer', field_name},
-    function(ids, cell_rind, field_val)
-      if cell_rind == 0 then
-        s = s .. ' ' .. value_tostring(field_val) .. ''
-        k = k + 1
-      end
-      if k % 5 == 0 then
-        s = s .. '\n'
-        io.write("", s)
-        s = ''
-      end
-    end)
-    io.write("", s)
-  end
-  local function dump_vec_component_with_cell_rind(field_name, dim_idx)
-    s = ''
-    k = 1
-    grid.cells:Dump({'cellRindLayer', field_name},
-    function(ids, cell_rind, field_val)
-      if cell_rind == 0 then
-        s = s .. ' ' .. value_tostring(field_val[dim_idx]) .. ''
-        k = k + 1
-      end
-      if k % 5 == 0 then
-        s = s .. '\n'
-        io.write("", s)
-        s = ''
-      end
-    end)
-    io.write("", s)
-  end
-
-  -- Now write density, velocity, pressure, and temperature
-
-  dump_with_cell_rind('rho')
-  local veclen = grid.cells.velocity:Type().N
-  for j = 1,veclen do
-    dump_vec_component_with_cell_rind('velocity', j)
-  end
-  dump_with_cell_rind('pressure')
-  dump_with_cell_rind('temperature')
-
-  -- close the file
-  io.close()
-
-end
-
-end
-
 
 -- put guards around the particle kernels in case inactive
 if particles_options.modeParticles then
@@ -3900,79 +3678,9 @@ if particles_options.modeParticles then
 
       -- Write the restart CSV files for density, pressure, and velocity
 
-      local fileName = IO.outputFileNamePrefix .. 'restart_particle_position_' ..
-      tostring(timeStep) .. '.csv'
-      particles.position:Dump(CSV.Dump, fileName, {precision=16})
-
-      fileName = IO.outputFileNamePrefix .. 'restart_particle_velocity_' ..
-      tostring(timeStep) .. '.csv'
-      particles.velocity:Dump(CSV.Dump, fileName, {precision=16})
-
-      fileName = IO.outputFileNamePrefix .. 'restart_particle_temperature_' ..
-      tostring(timeStep) .. '.csv'
-      particles.temperature:Dump(CSV.Dump, fileName, {precision=16})
-
-      fileName = IO.outputFileNamePrefix .. 'restart_particle_diameter_' ..
-      tostring(timeStep) .. '.csv'
-      particles.diameter:Dump(CSV.Dump, fileName, {precision=16})
-
-    end
-
-  end
-
-  function IO.WriteParticleTecplotTerra(timeStep)
-
-    -- Check if it is time to output to file
-    if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-      IO.wrtVolumeSolution) then
-
-      -- Write a file for the particle positions
-      local particleFileName = IO.outputFileNamePrefix .. "particles_" ..
-      tostring(timeStep) .. ".dat"
-
-      -- Use the terra callback to write the file (avoids Lua).
-      particles:Dump(
-        {'position','velocity','temperature','diameter'},
-        ParticleTecplotTerra,
-        particleFileName, TimeIntegrator.simTime:get()
-      )
-    end
-
-  end
-
-  function IO.WriteParticleTecplotLua(timeStep)
-
-    -- Check if it is time to output to file
-    if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-        IO.wrtVolumeSolution) then
-
-    -- Write a file for the particle positions
-    -- Tecplot ASCII format
-    local particleFileName = IO.outputFileNamePrefix .. "particles_" ..
-    tostring(timeStep) .. ".dat"
-
-    -- Open file
-    local particleFile = io.output(particleFileName)
-
-    -- Compute the number of vertices to be written
-    -- Write header
-    io.write('VARIABLES = "X", "Y", "Z", "X-Velocity", "Y-Velocity", ',
-             '"Z-Velocity", "Temperature", "Diameter"\n')
-    io.write('ZONE SOLUTIONTIME=', TimeIntegrator.simTime:get(), '\n')
-
-    local veclen = particles.position:Type().N
-    particles:Dump({'position', 'velocity', 'temperature', 'diameter'},
-    function(ids, pos, vel, temp, diam)
-      local s = ''
-      s = s .. ' ' .. value_tostring(pos) .. ''
-      s = s .. ' ' .. value_tostring(vel) .. ''
-      s = s .. ' ' .. value_tostring(temp) ..
-               ' ' .. value_tostring(diam) .. '\n'
-      io.write("", s)
-    end)
-
-    -- Close the file.
-    io.close()
+      particles:Dump(IO.outputFileNamePrefix .. 'restart_particle_' ..
+                       tostring(timeStep) .. '.hdf',
+                     {'position','velocity','temperature','diameter'})
 
     end
 
@@ -4231,19 +3939,6 @@ function IO.WriteOutput(timeStep)
     IO.WriteParticleRestart(timeStep)
   end
 
-  -- Write the volume solution files for visualization
-
-  if IO.outputFormat == IO.Tecplot then
-    IO.WriteFlowTecplotTerra(timeStep)
-    --IO.WriteFlowTecplotLua(timeStep)
-    if particles_options.modeParticles and particle_mode ~= 'ELASTIC' then
-      IO.WriteParticleTecplotTerra(timeStep)
-    end
-    --IO.WriteParticleTecplotLua(timeStep)
-  else
-    print("Output format not defined. No output written to disk.")
-  end
-
   -- Write center line profiles to CSV files
 
   IO.WriteX0SliceVec (timeStep, 'velocity',    'velocity_x0.csv')
@@ -4271,6 +3966,7 @@ Flow.IntegrateGeometricQuantities(grid.cells)
 
 -- Main iteration loop
 
+M.PRINT("    Iter     Time(s)   Avg Press    Avg Temp      Avg KE\n")
 M.WHILE(M.AND(M.LT(TimeIntegrator.simTime:get(), TimeIntegrator.final_time),
               M.LT(TimeIntegrator.timeStep:get(), TimeIntegrator.max_iter)),
         true)
@@ -4291,7 +3987,6 @@ M.WHILE(M.AND(M.LT(TimeIntegrator.simTime:get(), TimeIntegrator.final_time),
   --M.END()
 M.END()
 Statistics.ComputeSpatialAverages()
-M.PRINT("    Iter     Time(s)   Avg Press    Avg Temp      Avg KE\n")
 M.PRINT("%8d %11.6f %11.6f %11.6f %11.6f\n",
         TimeIntegrator.timeStep:get(),
         TimeIntegrator.simTime:get(),
