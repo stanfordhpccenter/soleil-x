@@ -4034,15 +4034,17 @@ M.WHILE(M.AND(M.LT(TimeIntegrator.simTime:get(), TimeIntegrator.final_time),
         true)
   TimeIntegrator.CalculateDeltaTime()
   TimeIntegrator.AdvanceTimeStep()
-  M.IF(M.EQ(TimeIntegrator.timeStep:get() % config.consoleFrequency, 0))
-    Statistics.ComputeSpatialAverages()
-    M.PRINT("%8d %11.6f %11.6f %11.6f %11.6f\n",
-            TimeIntegrator.timeStep:get(),
-            TimeIntegrator.simTime:get(),
-            Flow.averagePressure:get(),
-            Flow.averageTemperature:get(),
-            Flow.averageKineticEnergy:get())
-  M.END()
+  if not regentlib.config['flow-spmd'] then
+    M.IF(M.EQ(TimeIntegrator.timeStep:get() % config.consoleFrequency, 0))
+      Statistics.ComputeSpatialAverages()
+      M.PRINT("%8d %11.6f %11.6f %11.6f %11.6f\n",
+              TimeIntegrator.timeStep:get(),
+              TimeIntegrator.simTime:get(),
+              Flow.averagePressure:get(),
+              Flow.averageTemperature:get(),
+              Flow.averageKineticEnergy:get())
+    M.END()
+  end
 M.END()
 
 print("")
