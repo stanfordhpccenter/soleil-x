@@ -793,9 +793,15 @@ grid.cells:NewField('rho_t', L.double)                        :Fill(0)
 grid.cells:NewField('rhoVelocity_t', L.vec3d)                 :Fill({0, 0, 0})
 grid.cells:NewField('rhoEnergy_t', L.double)                  :Fill(0)
 -- fluxes
-grid.cells:NewField('rhoFlux', L.double)                      :Fill(0)
-grid.cells:NewField('rhoVelocityFlux', L.vec3d)               :Fill({0, 0, 0})
-grid.cells:NewField('rhoEnergyFlux', L.double)                :Fill(0)
+grid.cells:NewField('rhoFluxX', L.double)                     :Fill(0)
+grid.cells:NewField('rhoVelocityFluxX', L.vec3d)              :Fill({0, 0, 0})
+grid.cells:NewField('rhoEnergyFluxX', L.double)               :Fill(0)
+grid.cells:NewField('rhoFluxY', L.double)                     :Fill(0)
+grid.cells:NewField('rhoVelocityFluxY', L.vec3d)              :Fill({0, 0, 0})
+grid.cells:NewField('rhoEnergyFluxY', L.double)               :Fill(0)
+grid.cells:NewField('rhoFluxZ', L.double)                     :Fill(0)
+grid.cells:NewField('rhoVelocityFluxZ', L.vec3d)              :Fill({0, 0, 0})
+grid.cells:NewField('rhoEnergyFluxZ', L.double)               :Fill(0)
 
 
 
@@ -1415,397 +1421,9 @@ ebb Flow.InitializeTimeDerivatives (c : grid.cells)
     c.rho_t         = L.double(0.0)
     c.rhoVelocity_t = L.vec3d({0.0, 0.0, 0.0})
     c.rhoEnergy_t   = L.double(0.0)
-end
 
------------
--- Inviscid
------------
-
--- Initialize enthalpy and derivatives
-ebb Flow.AddInviscidInitialize (c : grid.cells)
+    -- Initialize enthalpy
     c.rhoEnthalpy = c.rhoEnergy + c.pressure
-end
-
--- Routine that computes the inviscid flux through the face of
--- any two adjacent cells with a centered scheme. The left cell (c_l),
--- right cell (c_r), and coordinate direction (x = 0, y = 1, or z = 2)
--- are the inputs.
-local function mkCenteredInviscidFlux(direction)
-  local ebb CenteredInviscidFlux (c_l, c_r)
-
-    -- Diagonal terms of inviscid flux
-    var rhoFactorDiagonal         = L.double(0.0)
-    var rhoVelocityFactorDiagonal = L.vec3d({0.0, 0.0, 0.0})
-    var rhoEnergyFactorDiagonal   = L.double(0.0)
-    var fpdiag                    = L.double(0.0)
-
-    rhoFactorDiagonal = 0.5 * ( c_l.rho * c_l.velocity[direction] +
-                                c_r.rho * c_r.velocity[direction] )
-    rhoVelocityFactorDiagonal = 0.5 *
-                              ( c_l.rhoVelocity *
-                                c_l.velocity[direction] +
-                                c_r.rhoVelocity *
-                                c_r.velocity[direction] )
-    rhoEnergyFactorDiagonal = 0.5 *
-                            ( c_l.rhoEnthalpy *
-                              c_l.velocity[direction] +
-                              c_r.rhoEnthalpy *
-                              c_r.velocity[direction] )
-    fpdiag += 0.5 * ( c_l.pressure + c_r.pressure )
-
-    -- Skewed terms
-    var rhoFactorSkew         = L.double(0.0)
-    var rhoVelocityFactorSkew = L.vec3d({0.0, 0.0, 0.0})
-    var rhoEnergyFactorSkew   = L.double(0.0)
-    var tmp                   = L.double(0.0)
-
-    tmp = 0.5 * c_r.velocity[direction]
-
-    rhoFactorSkew         += c_l.rho * tmp
-    rhoVelocityFactorSkew += c_l.rhoVelocity * tmp
-    rhoEnergyFactorSkew   += c_l.rhoEnthalpy * tmp
-
-    tmp = 0.5 * c_l.velocity[direction]
-
-    rhoFactorSkew         += c_r.rho * tmp
-    rhoVelocityFactorSkew += c_r.rhoVelocity * tmp
-    rhoEnergyFactorSkew   += c_r.rhoEnthalpy * tmp
-
-    -- Compute fluxes with prescribed splitting
-    var s = spatial_stencil.split
-    var rhoFlux_temp         = s * rhoFactorDiagonal +
-                              (1-s) * rhoFactorSkew
-    var rhoVelocityFlux_temp = s * rhoVelocityFactorDiagonal +
-                              (1-s) * rhoVelocityFactorSkew
-    var rhoEnergyFlux_temp   = s * rhoEnergyFactorDiagonal +
-                              (1-s) * rhoEnergyFactorSkew
-    rhoVelocityFlux_temp[direction] += fpdiag
-
-    -- Return the fluxes in a 5D array
-    return {rhoFlux_temp,
-            rhoVelocityFlux_temp[0],
-            rhoVelocityFlux_temp[1],
-            rhoVelocityFlux_temp[2],
-            rhoEnergyFlux_temp}
-  end
-  return CenteredInviscidFlux
-end
-Flow.CenteredInviscidFluxX = mkCenteredInviscidFlux(0)
-Flow.CenteredInviscidFluxY = mkCenteredInviscidFlux(1)
-Flow.CenteredInviscidFluxZ = mkCenteredInviscidFlux(2)
-
--- Compute inviscid fluxes in X direction. Include the first boundary
--- cell (c.xneg_depth == 1) to define left flux on first interior cell.
-ebb Flow.AddInviscidGetFluxX (c : grid.cells)
-    if c.in_interior or c.xneg_depth == 1 then
-
-      -- Compute the inviscid flux with a centered scheme.
-      -- Input the left and right cell states for this face and
-      -- the direction index for the flux (x = 0, y = 1, or z = 2).
-        var flux = Flow.CenteredInviscidFluxX(c, c(1,0,0))
-
-        -- Store this flux in the cell to the left of the face.
-        c.rhoFlux         =  flux[0]
-        c.rhoVelocityFlux = {flux[1],flux[2],flux[3]}
-        c.rhoEnergyFlux   =  flux[4]
-
-    end
-end
-
--- Compute inviscid fluxes in Y direction. Include the first boundary
--- cell (c.yneg_depth == 1) to define left flux on first interior cell.
-ebb Flow.AddInviscidGetFluxY (c : grid.cells)
-    if c.in_interior or c.yneg_depth == 1 then
-
-      -- Compute the inviscid flux with a centered scheme.
-      -- Input the left and right cell states for this face and
-      -- the direction index for the flux (x = 0, y = 1, or z = 2).
-      var flux = Flow.CenteredInviscidFluxY(c, c(0,1,0))
-
-      -- Store this flux in the cell to the left of the face.
-      c.rhoFlux         =  flux[0]
-      c.rhoVelocityFlux = {flux[1],flux[2],flux[3]}
-      c.rhoEnergyFlux   =  flux[4]
-
-    end
-end
-
--- Compute inviscid fluxes in Z direction. Include the first boundary
--- cell (c.zneg_depth == 1) to define left flux on first interior cell.
-ebb Flow.AddInviscidGetFluxZ (c : grid.cells)
-    if c.in_interior or c.zneg_depth == 1 then
-
-      -- Compute the inviscid flux with a centered scheme.
-      -- Input the left and right cell states for this face and
-      -- the direction index for the flux (x = 0, y = 1, or z = 2).
-      var flux = Flow.CenteredInviscidFluxZ(c, c(0,0,1))
-
-      -- Store this flux in the cell to the left of the face.
-      c.rhoFlux         =  flux[0]
-      c.rhoVelocityFlux = {flux[1],flux[2],flux[3]}
-      c.rhoEnergyFlux   =  flux[4]
-
-    end
-end
-
--- Update conserved variables using flux values from previous part
--- write conserved variables, read flux variables
--- WARNING_START For non-uniform grids, the metrics used below
--- (grid_dx, grid_dy, grid_dz) are not appropriate and should be changed
--- to reflect those expressed in the Python prototype code
--- WARNING_END
-ebb Flow.AddInviscidUpdateUsingFluxX (c : grid.cells)
-  if c.in_interior then
-    c.rho_t += -(c( 0,0,0).rhoFlux -
-                 c(-1,0,0).rhoFlux)/grid_dx
-    c.rhoVelocity_t += -(c( 0,0,0).rhoVelocityFlux -
-                         c(-1,0,0).rhoVelocityFlux)/grid_dx
-    c.rhoEnergy_t += -(c( 0,0,0).rhoEnergyFlux -
-                       c(-1,0,0).rhoEnergyFlux)/grid_dx
-  end
-end
-ebb Flow.AddInviscidUpdateUsingFluxY (c : grid.cells)
-  if c.in_interior then
-    c.rho_t += -(c(0, 0,0).rhoFlux -
-                 c(0,-1,0).rhoFlux)/grid_dy
-    c.rhoVelocity_t += -(c(0, 0,0).rhoVelocityFlux -
-                         c(0,-1,0).rhoVelocityFlux)/grid_dy
-    c.rhoEnergy_t += -(c(0, 0,0).rhoEnergyFlux -
-                       c(0,-1,0).rhoEnergyFlux)/grid_dy
-  end
-end
-ebb Flow.AddInviscidUpdateUsingFluxZ (c : grid.cells)
-  if c.in_interior then
-    c.rho_t += -(c(0,0, 0).rhoFlux -
-                 c(0,0,-1).rhoFlux)/grid_dz
-    c.rhoVelocity_t += -(c(0,0, 0).rhoVelocityFlux -
-                         c(0,0,-1).rhoVelocityFlux)/grid_dz
-    c.rhoEnergy_t += -(c(0,0, 0).rhoEnergyFlux -
-                       c(0,0,-1).rhoEnergyFlux)/grid_dz
-  end
-end
-
-----------
--- Viscous
-----------
-
--- Compute viscous fluxes in X direction
-ebb Flow.AddViscousGetFluxX (c : grid.cells)
-    -- Consider first boundary element (c.xneg_depth == 1) to define left flux
-    -- on first interior cell
-    if c.in_interior or c.xneg_depth == 1 then
-        var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
-                            GetDynamicViscosity(c(1,0,0).temperature))
-        var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
-        var velocityX_YFace = L.double(0)
-        var velocityX_ZFace = L.double(0)
-        var velocityY_YFace = L.double(0)
-        var velocityZ_ZFace = L.double(0)
-
-        -- Interpolate velocity and derivatives to face
-        velocityFace = 0.5 * ( c.velocity + c(1,0,0).velocity )
-        velocityX_YFace = 0.5 * ( c.velocityGradientY[0] +
-                                  c(1,0,0).velocityGradientY[0] )
-        velocityX_ZFace = 0.5 * ( c.velocityGradientZ[0] +
-                                  c(1,0,0).velocityGradientZ[0] )
-        velocityY_YFace = 0.5 * ( c.velocityGradientY[1] +
-                                  c(1,0,0).velocityGradientY[1] )
-        velocityZ_ZFace = 0.5 * ( c.velocityGradientZ[2] +
-                                  c(1,0,0).velocityGradientZ[2] )
-
-        -- Differentiate at face
-        var velocityX_XFace   = L.double(0.0)
-        var velocityY_XFace   = L.double(0.0)
-        var velocityZ_XFace   = L.double(0.0)
-        var temperature_XFace = L.double(0.0)
-
-        velocityX_XFace   = 0.5*( c(1,0,0).velocity[0] - c.velocity[0] )
-        velocityY_XFace   = 0.5*( c(1,0,0).velocity[1] - c.velocity[1] )
-        velocityZ_XFace   = 0.5*( c(1,0,0).velocity[2] - c.velocity[2] )
-        temperature_XFace = 0.5*( c(1,0,0).temperature - c.temperature )
-
-        -- Half cell size due to the 0.5 above
-        velocityX_XFace   /= (grid_dx*0.5)
-        velocityY_XFace   /= (grid_dx*0.5)
-        velocityZ_XFace   /= (grid_dx*0.5)
-        temperature_XFace /= (grid_dx*0.5)
-
-        -- Tensor components (at face)
-        var sigmaXX = muFace * ( 4.0 * velocityX_XFace -
-                                 2.0 * velocityY_YFace -
-                                 2.0 * velocityZ_ZFace ) / 3.0
-        var sigmaYX = muFace * ( velocityY_XFace + velocityX_YFace )
-        var sigmaZX = muFace * ( velocityZ_XFace + velocityX_ZFace )
-        var usigma  = velocityFace[0] * sigmaXX +
-                      velocityFace[1] * sigmaYX +
-                      velocityFace[2] * sigmaZX
-        var cp = fluid_options.gamma * fluid_options.gasConstant /
-                 (fluid_options.gamma - 1.0)
-        var heatFlux = - (cp*muFace/fluid_options.prandtl)*temperature_XFace
-
-        -- Fluxes
-        c.rhoVelocityFlux[0] = sigmaXX
-        c.rhoVelocityFlux[1] = sigmaYX
-        c.rhoVelocityFlux[2] = sigmaZX
-        c.rhoEnergyFlux = usigma - heatFlux
-        -- WARNING: Add SGS terms for LES
-
-    end
-end
-
--- Compute viscous fluxes in Y direction
-ebb Flow.AddViscousGetFluxY (c : grid.cells)
-    -- Consider first boundary element (c.yneg_depth == 1) to define down flux
-    -- on first interior cell
-    if c.in_interior or c.yneg_depth == 1 then
-        var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
-                            GetDynamicViscosity(c(0,1,0).temperature))
-        var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
-        var velocityY_XFace = L.double(0)
-        var velocityY_ZFace = L.double(0)
-        var velocityX_XFace = L.double(0)
-        var velocityZ_ZFace = L.double(0)
-
-        -- Interpolate velocity and derivatives to face
-        velocityFace = 0.5 * ( c.velocity + c(0,1,0).velocity )
-        velocityY_XFace = 0.5 * ( c.velocityGradientX[1] +
-                                  c(0,1,0).velocityGradientX[1] )
-        velocityY_ZFace = 0.5 * ( c.velocityGradientZ[1] +
-                                  c(0,1,0).velocityGradientZ[1] )
-        velocityX_XFace = 0.5 * ( c.velocityGradientX[0] +
-                                  c(0,1,0).velocityGradientX[0] )
-        velocityZ_ZFace = 0.5 * ( c.velocityGradientZ[2] +
-                                  c(0,1,0).velocityGradientZ[2] )
-
-        -- Differentiate at face
-        var velocityX_YFace   = L.double(0.0)
-        var velocityY_YFace   = L.double(0.0)
-        var velocityZ_YFace   = L.double(0.0)
-        var temperature_YFace = L.double(0.0)
-
-        velocityX_YFace   = 0.5*( c(0,1,0).velocity[0] - c.velocity[0] )
-        velocityY_YFace   = 0.5*( c(0,1,0).velocity[1] - c.velocity[1] )
-        velocityZ_YFace   = 0.5*( c(0,1,0).velocity[2] - c.velocity[2] )
-        temperature_YFace = 0.5*( c(0,1,0).temperature - c.temperature )
-
-        -- Half cell size due to the 0.5 above
-        velocityX_YFace   /= (grid_dy*0.5)
-        velocityY_YFace   /= (grid_dy*0.5)
-        velocityZ_YFace   /= (grid_dy*0.5)
-        temperature_YFace /= (grid_dy*0.5)
-
-        -- Tensor components (at face)
-        var sigmaXY = muFace * ( velocityX_YFace + velocityY_XFace )
-        var sigmaYY = muFace * ( 4.0 * velocityY_YFace -
-                                 2.0 * velocityX_XFace -
-                                 2.0 * velocityZ_ZFace ) / 3.0
-        var sigmaZY = muFace * ( velocityZ_YFace + velocityY_ZFace )
-        var usigma  = velocityFace[0] * sigmaXY +
-                      velocityFace[1] * sigmaYY +
-                      velocityFace[2] * sigmaZY
-        var cp = fluid_options.gamma * fluid_options.gasConstant /
-                 (fluid_options.gamma - 1.0)
-        var heatFlux = - (cp*muFace/fluid_options.prandtl)*temperature_YFace
-
-        -- Fluxes
-        c.rhoVelocityFlux[0] = sigmaXY
-        c.rhoVelocityFlux[1] = sigmaYY
-        c.rhoVelocityFlux[2] = sigmaZY
-        c.rhoEnergyFlux = usigma - heatFlux
-        -- WARNING: Add SGS terms for LES
-
-    end
-end
-
--- Compute viscous fluxes in Z direction
-ebb Flow.AddViscousGetFluxZ (c : grid.cells)
-    -- Consider first boundary element (c.zneg_depth == 1) to define down flux
-    -- on first interior cell
-    if c.in_interior or c.zneg_depth == 1 then
-        var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
-                            GetDynamicViscosity(c(0,0,1).temperature))
-        var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
-        var velocityZ_XFace = L.double(0.0)
-        var velocityZ_YFace = L.double(0.0)
-        var velocityX_XFace = L.double(0.0)
-        var velocityY_YFace = L.double(0.0)
-
-        -- Interpolate velocity and derivatives to face
-        velocityFace = 0.5 * ( c.velocity + c(0,0,1).velocity )
-        velocityZ_XFace = 0.5 * ( c.velocityGradientX[2] +
-                                  c(0,0,1).velocityGradientX[2] )
-        velocityZ_YFace = 0.5 * ( c.velocityGradientY[2] +
-                                  c(0,0,1).velocityGradientY[2] )
-        velocityX_XFace = 0.5 * ( c.velocityGradientX[0] +
-                                  c(0,0,1).velocityGradientX[0] )
-        velocityY_YFace = 0.5 * ( c.velocityGradientY[1] +
-                                  c(0,0,1).velocityGradientY[1] )
-
-        -- Differentiate at face
-        var velocityX_ZFace   = L.double(0.0)
-        var velocityY_ZFace   = L.double(0.0)
-        var velocityZ_ZFace   = L.double(0.0)
-        var temperature_ZFace = L.double(0.0)
-
-        velocityX_ZFace   = 0.5*( c(0,0,1).velocity[0] - c.velocity[0] )
-        velocityY_ZFace   = 0.5*( c(0,0,1).velocity[1] - c.velocity[1] )
-        velocityZ_ZFace   = 0.5*( c(0,0,1).velocity[2] - c.velocity[2] )
-        temperature_ZFace = 0.5*( c(0,0,1).temperature - c.temperature )
-
-        -- Half cell size due to the 0.5 above
-        velocityX_ZFace   /= (grid_dz*0.5)
-        velocityY_ZFace   /= (grid_dz*0.5)
-        velocityZ_ZFace   /= (grid_dz*0.5)
-        temperature_ZFace /= (grid_dz*0.5)
-
-        -- Tensor components (at face)
-        var sigmaXZ = muFace * ( velocityX_ZFace + velocityZ_XFace )
-        var sigmaYZ = muFace * ( velocityY_ZFace + velocityZ_YFace )
-        var sigmaZZ = muFace * ( 4.0 * velocityZ_ZFace -
-                                 2.0 * velocityX_XFace -
-                                 2.0 * velocityY_YFace ) / 3.0
-        var usigma  = velocityFace[0] * sigmaXZ +
-                      velocityFace[1] * sigmaYZ +
-                      velocityFace[2] * sigmaZZ
-        var cp = fluid_options.gamma * fluid_options.gasConstant /
-                 (fluid_options.gamma - 1.0)
-        var heatFlux = - (cp*muFace/fluid_options.prandtl)*temperature_ZFace
-
-        -- Fluxes
-        c.rhoVelocityFlux[0] = sigmaXZ
-        c.rhoVelocityFlux[1] = sigmaYZ
-        c.rhoVelocityFlux[2] = sigmaZZ
-        c.rhoEnergyFlux = usigma - heatFlux
-        -- WARNING: Add SGS terms for LES
-
-    end
-end
-
-ebb Flow.AddViscousUpdateUsingFluxX (c : grid.cells)
-  if c.in_interior then
-    c.rhoVelocity_t += (c( 0,0,0).rhoVelocityFlux -
-                        c(-1,0,0).rhoVelocityFlux)/grid_dx
-    c.rhoEnergy_t   += (c( 0,0,0).rhoEnergyFlux -
-                        c(-1,0,0).rhoEnergyFlux)/grid_dx
-  end
-end
-
-ebb Flow.AddViscousUpdateUsingFluxY (c : grid.cells)
-  if c.in_interior then
-    c.rhoVelocity_t += (c(0, 0,0).rhoVelocityFlux -
-                        c(0,-1,0).rhoVelocityFlux)/grid_dy
-    c.rhoEnergy_t   += (c(0, 0,0).rhoEnergyFlux -
-                        c(0,-1,0).rhoEnergyFlux)/grid_dy
-  end
-end
-
-ebb Flow.AddViscousUpdateUsingFluxZ (c : grid.cells)
-  if c.in_interior then
-    c.rhoVelocity_t += (c(0,0, 0).rhoVelocityFlux -
-                        c(0,0,-1).rhoVelocityFlux)/grid_dz
-    c.rhoEnergy_t   += (c(0,0, 0).rhoEnergyFlux -
-                        c(0,0,-1).rhoEnergyFlux)/grid_dz
-  end
 end
 
 ---------------------
@@ -3297,28 +2915,349 @@ function Flow.InitializePrimitives()
     end
 end
 
-function Flow.AddInviscid()
-    grid.cells:foreach(Flow.AddInviscidInitialize)
-    grid.cells:foreach(Flow.AddInviscidGetFluxX)
-    grid.cells:foreach(Flow.AddInviscidUpdateUsingFluxX)
-    grid.cells:foreach(Flow.AddInviscidGetFluxY)
-    grid.cells:foreach(Flow.AddInviscidUpdateUsingFluxY)
-    grid.cells:foreach(Flow.AddInviscidGetFluxZ)
-    grid.cells:foreach(Flow.AddInviscidUpdateUsingFluxZ)
-end
-
 function Flow.UpdateGhostVelocityGradient()
     grid.cells:foreach(Flow.UpdateGhostVelocityGradientStep1)
     grid.cells:foreach(Flow.UpdateGhostVelocityGradientStep2)
 end
 
-function Flow.AddViscous()
-    grid.cells:foreach(Flow.AddViscousGetFluxX)
-    grid.cells:foreach(Flow.AddViscousUpdateUsingFluxX)
-    grid.cells:foreach(Flow.AddViscousGetFluxY)
-    grid.cells:foreach(Flow.AddViscousUpdateUsingFluxY)
-    grid.cells:foreach(Flow.AddViscousGetFluxZ)
-    grid.cells:foreach(Flow.AddViscousUpdateUsingFluxZ)
+-- Routine that computes the inviscid flux through the face of
+-- any two adjacent cells with a centered scheme. The left cell (c_l),
+-- right cell (c_r), and coordinate direction (x = 0, y = 1, or z = 2)
+-- are the inputs.
+local function mkCenteredInviscidFlux(direction)
+  local ebb CenteredInviscidFlux (c_l, c_r)
+
+    -- Diagonal terms of inviscid flux
+    var rhoFactorDiagonal         = L.double(0.0)
+    var rhoVelocityFactorDiagonal = L.vec3d({0.0, 0.0, 0.0})
+    var rhoEnergyFactorDiagonal   = L.double(0.0)
+    var fpdiag                    = L.double(0.0)
+
+    rhoFactorDiagonal = 0.5 * ( c_l.rho * c_l.velocity[direction] +
+                                c_r.rho * c_r.velocity[direction] )
+    rhoVelocityFactorDiagonal = 0.5 *
+                              ( c_l.rhoVelocity *
+                                c_l.velocity[direction] +
+                                c_r.rhoVelocity *
+                                c_r.velocity[direction] )
+    rhoEnergyFactorDiagonal = 0.5 *
+                            ( c_l.rhoEnthalpy *
+                              c_l.velocity[direction] +
+                              c_r.rhoEnthalpy *
+                              c_r.velocity[direction] )
+    fpdiag += 0.5 * ( c_l.pressure + c_r.pressure )
+
+    -- Skewed terms
+    var rhoFactorSkew         = L.double(0.0)
+    var rhoVelocityFactorSkew = L.vec3d({0.0, 0.0, 0.0})
+    var rhoEnergyFactorSkew   = L.double(0.0)
+    var tmp                   = L.double(0.0)
+
+    tmp = 0.5 * c_r.velocity[direction]
+
+    rhoFactorSkew         += c_l.rho * tmp
+    rhoVelocityFactorSkew += c_l.rhoVelocity * tmp
+    rhoEnergyFactorSkew   += c_l.rhoEnthalpy * tmp
+
+    tmp = 0.5 * c_l.velocity[direction]
+
+    rhoFactorSkew         += c_r.rho * tmp
+    rhoVelocityFactorSkew += c_r.rhoVelocity * tmp
+    rhoEnergyFactorSkew   += c_r.rhoEnthalpy * tmp
+
+    -- Compute fluxes with prescribed splitting
+    var s = spatial_stencil.split
+    var rhoFlux_temp         = s * rhoFactorDiagonal +
+                              (1-s) * rhoFactorSkew
+    var rhoVelocityFlux_temp = s * rhoVelocityFactorDiagonal +
+                              (1-s) * rhoVelocityFactorSkew
+    var rhoEnergyFlux_temp   = s * rhoEnergyFactorDiagonal +
+                              (1-s) * rhoEnergyFactorSkew
+    rhoVelocityFlux_temp[direction] += fpdiag
+
+    -- Return the fluxes in a 5D array
+    return {rhoFlux_temp,
+            rhoVelocityFlux_temp[0],
+            rhoVelocityFlux_temp[1],
+            rhoVelocityFlux_temp[2],
+            rhoEnergyFlux_temp}
+  end
+  return CenteredInviscidFlux
+end
+Flow.CenteredInviscidFluxX = mkCenteredInviscidFlux(0)
+Flow.CenteredInviscidFluxY = mkCenteredInviscidFlux(1)
+Flow.CenteredInviscidFluxZ = mkCenteredInviscidFlux(2)
+
+-- Compute inviscid and viscous fluxes in all directions.
+ebb Flow.AddGetFlux (c : grid.cells)
+  if c.in_interior or c.xneg_depth == 1 then
+    ------------
+    --- Inviscid
+    ------------
+    -- Compute the inviscid flux with a centered scheme.
+    -- Input the left and right cell states for this face and
+    -- the direction index for the flux (x = 0, y = 1, or z = 2).
+    var flux = Flow.CenteredInviscidFluxX(c, c(1,0,0))
+
+    -- Store this flux in the cell to the left of the face.
+    c.rhoFluxX         =  flux[0]
+    c.rhoVelocityFluxX = {flux[1],flux[2],flux[3]}
+    c.rhoEnergyFluxX   =  flux[4]
+
+    ------------
+    --- Viscous
+    ------------
+    -- Consider first boundary element (c.xneg_depth == 1) to define left flux
+    -- on first interior cell
+    var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
+                        GetDynamicViscosity(c(1,0,0).temperature))
+    var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
+    var velocityX_YFace = L.double(0)
+    var velocityX_ZFace = L.double(0)
+    var velocityY_YFace = L.double(0)
+    var velocityZ_ZFace = L.double(0)
+
+    -- Interpolate velocity and derivatives to face
+    velocityFace = 0.5 * ( c.velocity + c(1,0,0).velocity )
+    velocityX_YFace = 0.5 * ( c.velocityGradientY[0] +
+                              c(1,0,0).velocityGradientY[0] )
+    velocityX_ZFace = 0.5 * ( c.velocityGradientZ[0] +
+                              c(1,0,0).velocityGradientZ[0] )
+    velocityY_YFace = 0.5 * ( c.velocityGradientY[1] +
+                              c(1,0,0).velocityGradientY[1] )
+    velocityZ_ZFace = 0.5 * ( c.velocityGradientZ[2] +
+                              c(1,0,0).velocityGradientZ[2] )
+
+    -- Differentiate at face
+    var velocityX_XFace   = L.double(0.0)
+    var velocityY_XFace   = L.double(0.0)
+    var velocityZ_XFace   = L.double(0.0)
+    var temperature_XFace = L.double(0.0)
+
+    velocityX_XFace   = 0.5*( c(1,0,0).velocity[0] - c.velocity[0] )
+    velocityY_XFace   = 0.5*( c(1,0,0).velocity[1] - c.velocity[1] )
+    velocityZ_XFace   = 0.5*( c(1,0,0).velocity[2] - c.velocity[2] )
+    temperature_XFace = 0.5*( c(1,0,0).temperature - c.temperature )
+
+    -- Half cell size due to the 0.5 above
+    velocityX_XFace   /= (grid_dx*0.5)
+    velocityY_XFace   /= (grid_dx*0.5)
+    velocityZ_XFace   /= (grid_dx*0.5)
+    temperature_XFace /= (grid_dx*0.5)
+
+    -- Tensor components (at face)
+    var sigmaXX = muFace * ( 4.0 * velocityX_XFace -
+                             2.0 * velocityY_YFace -
+                             2.0 * velocityZ_ZFace ) / 3.0
+    var sigmaYX = muFace * ( velocityY_XFace + velocityX_YFace )
+    var sigmaZX = muFace * ( velocityZ_XFace + velocityX_ZFace )
+    var usigma  = velocityFace[0] * sigmaXX +
+                  velocityFace[1] * sigmaYX +
+                  velocityFace[2] * sigmaZX
+    var cp = fluid_options.gamma * fluid_options.gasConstant /
+             (fluid_options.gamma - 1.0)
+    var heatFlux = - (cp*muFace/fluid_options.prandtl)*temperature_XFace
+
+    -- Fluxes
+    c.rhoVelocityFluxX[0] -= sigmaXX
+    c.rhoVelocityFluxX[1] -= sigmaYX
+    c.rhoVelocityFluxX[2] -= sigmaZX
+    c.rhoEnergyFluxX -= usigma - heatFlux
+    -- WARNING: Add SGS terms for LES
+  end
+
+  if c.in_interior or c.yneg_depth == 1 then
+    ------------
+    --- Inviscid
+    ------------
+    -- Compute the inviscid flux with a centered scheme.
+    -- Input the left and right cell states for this face and
+    -- the direction index for the flux (x = 0, y = 1, or z = 2).
+    var flux = Flow.CenteredInviscidFluxY(c, c(0,1,0))
+
+    -- Store this flux in the cell to the left of the face.
+    c.rhoFluxY         =  flux[0]
+    c.rhoVelocityFluxY = {flux[1],flux[2],flux[3]}
+    c.rhoEnergyFluxY   =  flux[4]
+
+    ------------
+    --- Viscous
+    ------------
+    -- Consider first boundary element (c.yneg_depth == 1) to define down flux
+    -- on first interior cell
+    var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
+                        GetDynamicViscosity(c(0,1,0).temperature))
+    var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
+    var velocityY_XFace = L.double(0)
+    var velocityY_ZFace = L.double(0)
+    var velocityX_XFace = L.double(0)
+    var velocityZ_ZFace = L.double(0)
+
+    -- Interpolate velocity and derivatives to face
+    velocityFace = 0.5 * ( c.velocity + c(0,1,0).velocity )
+    velocityY_XFace = 0.5 * ( c.velocityGradientX[1] +
+                              c(0,1,0).velocityGradientX[1] )
+    velocityY_ZFace = 0.5 * ( c.velocityGradientZ[1] +
+                              c(0,1,0).velocityGradientZ[1] )
+    velocityX_XFace = 0.5 * ( c.velocityGradientX[0] +
+                              c(0,1,0).velocityGradientX[0] )
+    velocityZ_ZFace = 0.5 * ( c.velocityGradientZ[2] +
+                              c(0,1,0).velocityGradientZ[2] )
+
+    -- Differentiate at face
+    var velocityX_YFace   = L.double(0.0)
+    var velocityY_YFace   = L.double(0.0)
+    var velocityZ_YFace   = L.double(0.0)
+    var temperature_YFace = L.double(0.0)
+
+    velocityX_YFace   = 0.5*( c(0,1,0).velocity[0] - c.velocity[0] )
+    velocityY_YFace   = 0.5*( c(0,1,0).velocity[1] - c.velocity[1] )
+    velocityZ_YFace   = 0.5*( c(0,1,0).velocity[2] - c.velocity[2] )
+    temperature_YFace = 0.5*( c(0,1,0).temperature - c.temperature )
+
+    -- Half cell size due to the 0.5 above
+    velocityX_YFace   /= (grid_dy*0.5)
+    velocityY_YFace   /= (grid_dy*0.5)
+    velocityZ_YFace   /= (grid_dy*0.5)
+    temperature_YFace /= (grid_dy*0.5)
+
+    -- Tensor components (at face)
+    var sigmaXY = muFace * ( velocityX_YFace + velocityY_XFace )
+    var sigmaYY = muFace * ( 4.0 * velocityY_YFace -
+                             2.0 * velocityX_XFace -
+                             2.0 * velocityZ_ZFace ) / 3.0
+    var sigmaZY = muFace * ( velocityZ_YFace + velocityY_ZFace )
+    var usigma  = velocityFace[0] * sigmaXY +
+                  velocityFace[1] * sigmaYY +
+                  velocityFace[2] * sigmaZY
+    var cp = fluid_options.gamma * fluid_options.gasConstant /
+             (fluid_options.gamma - 1.0)
+    var heatFlux = - (cp*muFace/fluid_options.prandtl)*temperature_YFace
+
+    -- Fluxes
+    c.rhoVelocityFluxY[0] -= sigmaXY
+    c.rhoVelocityFluxY[1] -= sigmaYY
+    c.rhoVelocityFluxY[2] -= sigmaZY
+    c.rhoEnergyFluxY -= usigma - heatFlux
+    -- WARNING: Add SGS terms for LES
+  end
+
+  if c.in_interior or c.zneg_depth == 1 then
+    ------------
+    --- Inviscid
+    ------------
+    -- Compute the inviscid flux with a centered scheme.
+    -- Input the left and right cell states for this face and
+    -- the direction index for the flux (x = 0, y = 1, or z = 2).
+    var flux = Flow.CenteredInviscidFluxZ(c, c(0,0,1))
+
+    -- Store this flux in the cell to the left of the face.
+    c.rhoFluxZ         =  flux[0]
+    c.rhoVelocityFluxZ = {flux[1],flux[2],flux[3]}
+    c.rhoEnergyFluxZ   =  flux[4]
+
+    ------------
+    --- Viscous
+    ------------
+    -- Consider first boundary element (c.zneg_depth == 1) to define down flux
+    -- on first interior cell
+    var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
+                        GetDynamicViscosity(c(0,0,1).temperature))
+    var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
+    var velocityZ_XFace = L.double(0.0)
+    var velocityZ_YFace = L.double(0.0)
+    var velocityX_XFace = L.double(0.0)
+    var velocityY_YFace = L.double(0.0)
+
+    -- Interpolate velocity and derivatives to face
+    velocityFace = 0.5 * ( c.velocity + c(0,0,1).velocity )
+    velocityZ_XFace = 0.5 * ( c.velocityGradientX[2] +
+                              c(0,0,1).velocityGradientX[2] )
+    velocityZ_YFace = 0.5 * ( c.velocityGradientY[2] +
+                              c(0,0,1).velocityGradientY[2] )
+    velocityX_XFace = 0.5 * ( c.velocityGradientX[0] +
+                              c(0,0,1).velocityGradientX[0] )
+    velocityY_YFace = 0.5 * ( c.velocityGradientY[1] +
+                              c(0,0,1).velocityGradientY[1] )
+
+    -- Differentiate at face
+    var velocityX_ZFace   = L.double(0.0)
+    var velocityY_ZFace   = L.double(0.0)
+    var velocityZ_ZFace   = L.double(0.0)
+    var temperature_ZFace = L.double(0.0)
+
+    velocityX_ZFace   = 0.5*( c(0,0,1).velocity[0] - c.velocity[0] )
+    velocityY_ZFace   = 0.5*( c(0,0,1).velocity[1] - c.velocity[1] )
+    velocityZ_ZFace   = 0.5*( c(0,0,1).velocity[2] - c.velocity[2] )
+    temperature_ZFace = 0.5*( c(0,0,1).temperature - c.temperature )
+
+    -- Half cell size due to the 0.5 above
+    velocityX_ZFace   /= (grid_dz*0.5)
+    velocityY_ZFace   /= (grid_dz*0.5)
+    velocityZ_ZFace   /= (grid_dz*0.5)
+    temperature_ZFace /= (grid_dz*0.5)
+
+    -- Tensor components (at face)
+    var sigmaXZ = muFace * ( velocityX_ZFace + velocityZ_XFace )
+    var sigmaYZ = muFace * ( velocityY_ZFace + velocityZ_YFace )
+    var sigmaZZ = muFace * ( 4.0 * velocityZ_ZFace -
+                             2.0 * velocityX_XFace -
+                             2.0 * velocityY_YFace ) / 3.0
+    var usigma  = velocityFace[0] * sigmaXZ +
+                  velocityFace[1] * sigmaYZ +
+                  velocityFace[2] * sigmaZZ
+    var cp = fluid_options.gamma * fluid_options.gasConstant /
+             (fluid_options.gamma - 1.0)
+    var heatFlux = - (cp*muFace/fluid_options.prandtl)*temperature_ZFace
+
+    -- Fluxes
+    c.rhoVelocityFluxZ[0] -= sigmaXZ
+    c.rhoVelocityFluxZ[1] -= sigmaYZ
+    c.rhoVelocityFluxZ[2] -= sigmaZZ
+    c.rhoEnergyFluxZ -= usigma - heatFlux
+    -- WARNING: Add SGS terms for LES
+  end
+
+  -- HACK: obnoxious workaround to establish strict domninance between tasks
+  var v = 0
+  if v == 1 then
+    var tmp1 = c(-1,0,0).velocity[0]
+    var tmp2 = c(0,-1,0).velocity[1]
+    var tmp3 = c(0,0,-1).velocity[2]
+  end
+end
+
+ebb Flow.AddUpdateUsingFlux(c : grid.cells)
+  --if c.in_interior or c.xneg_depth == 1 then
+  if c.in_interior then --or c.xneg_depth == 1 then
+    c.rho_t += -(c( 0,0,0).rhoFluxX -
+                 c(-1,0,0).rhoFluxX)/grid_dx
+    c.rhoVelocity_t += -(c( 0,0,0).rhoVelocityFluxX -
+                         c(-1,0,0).rhoVelocityFluxX)/grid_dx
+    c.rhoEnergy_t += -(c( 0,0,0).rhoEnergyFluxX -
+                       c(-1,0,0).rhoEnergyFluxX)/grid_dx
+  --end
+  --if c.in_interior or c.zneg_depth == 1 then
+    c.rho_t += -(c(0, 0,0).rhoFluxY -
+                 c(0,-1,0).rhoFluxY)/grid_dy
+    c.rhoVelocity_t += -(c(0, 0,0).rhoVelocityFluxY -
+                         c(0,-1,0).rhoVelocityFluxY)/grid_dy
+    c.rhoEnergy_t += -(c(0, 0,0).rhoEnergyFluxY -
+                       c(0,-1,0).rhoEnergyFluxY)/grid_dy
+  --end
+  --if c.in_interior or c.zneg_depth == 1 then
+    c.rho_t += -(c(0,0, 0).rhoFluxZ -
+                 c(0,0,-1).rhoFluxZ)/grid_dz
+    c.rhoVelocity_t += -(c(0,0, 0).rhoVelocityFluxZ -
+                         c(0,0,-1).rhoVelocityFluxZ)/grid_dz
+    c.rhoEnergy_t += -(c(0,0, 0).rhoEnergyFluxZ -
+                       c(0,0,-1).rhoEnergyFluxZ)/grid_dz
+  end
+end
+
+function Flow.AddFluxes()
+    grid.cells:foreach(Flow.AddGetFlux)
+    grid.cells:foreach(Flow.AddUpdateUsingFlux)
 end
 
 function Flow.ComputeVelocityGradients()
@@ -3485,9 +3424,8 @@ end
 function TimeIntegrator.ComputeDFunctionDt()
 
     -- Compute flow convective, viscous, and body force residuals
-    Flow.AddInviscid()
     Flow.UpdateGhostVelocityGradient()
-    Flow.AddViscous()
+    Flow.AddFluxes()
     if radiation_options.zeroAvgHeatSource then
       Flow.averageHeatSource:set(0.0)
     end
@@ -4046,6 +3984,16 @@ M.WHILE(M.AND(M.LT(TimeIntegrator.simTime:get(), TimeIntegrator.final_time),
     M.END()
   end
 M.END()
+
+-- Final stats printing
+
+Statistics.ComputeSpatialAverages()
+M.PRINT("%8d %11.6f %11.6f %11.6f %11.6f\n",
+        TimeIntegrator.timeStep:get(),
+        TimeIntegrator.simTime:get(),
+        Flow.averagePressure:get(),
+        Flow.averageTemperature:get(),
+        Flow.averageKineticEnergy:get())
 
 print("")
 print("--------------------------- Exit Success ----------------------------")
