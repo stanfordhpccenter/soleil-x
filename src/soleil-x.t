@@ -198,7 +198,6 @@ Particles.Free  = 1
 Particles.Permeable = 0
 Particles.Solid     = 1
 
-
 -----------------------------------------------------------------------------
 --[[                   INITIALIZE OPTIONS FROM CONFIG                    ]]--
 -----------------------------------------------------------------------------
@@ -1206,10 +1205,14 @@ end
 local cellVolume = L.Constant(L.double,
                               grid_dx:get() * grid_dy:get() * grid_dz:get())
 local ebb numberOfInteriorCells ( c : grid.cells )
-  Flow.numberOfInteriorCells += 1
+  if c.in_interior then
+    Flow.numberOfInteriorCells += 1
+  end
 end
 local ebb areaInterior ( c : grid.cells )
-  Flow.areaInterior += cellVolume
+  if c.in_interior then
+    Flow.areaInterior += cellVolume
+  end
 end
 function Flow.IntegrateGeometricQuantities(cells)
   Flow.numberOfInteriorCells:set(0)
@@ -1380,7 +1383,7 @@ ebb Flow.InitializePerturbed (c : grid.cells)
 end
 
 ebb Flow.UpdateConservedFromPrimitive (c : grid.cells)
-
+  if c.in_interior then
     -- Equation of state: T = p / ( R * rho )
     var tmpTemperature = c.pressure / (fluid_options.gasConstant * c.rho)
     var velocity = c.velocity
@@ -1394,7 +1397,7 @@ ebb Flow.UpdateConservedFromPrimitive (c : grid.cells)
       ( cv * tmpTemperature
         + 0.5 * L.dot(velocity,velocity) )
       + c.sgsEnergy
-
+  end
 end
 
 -- Initialize temporaries
@@ -2590,19 +2593,29 @@ end
 -------------
 
 local ebb averagePressure       ( c : grid.cells )
-  Flow.averagePressure          += c.pressure * cellVolume
+  if c.in_interior then
+    Flow.averagePressure          += c.pressure * cellVolume
+  end
 end
 local ebb averageTemperature    ( c : grid.cells )
-  Flow.averageTemperature       += c.temperature * cellVolume
+  if c.in_interior then
+    Flow.averageTemperature       += c.temperature * cellVolume
+  end
 end
 local ebb averageKineticEnergy  ( c : grid.cells )
-  Flow.averageKineticEnergy     += c.kineticEnergy * cellVolume
+  if c.in_interior then
+    Flow.averageKineticEnergy     += c.kineticEnergy * cellVolume
+  end
 end
 local ebb minTemperature        ( c : grid.cells )
-  Flow.minTemperature         min= c.temperature
+  if c.in_interior then
+    Flow.minTemperature         min= c.temperature
+  end
 end
 local ebb maxTemperature        ( c : grid.cells )
-  Flow.maxTemperature         max= c.temperature
+  if c.in_interior then
+    Flow.maxTemperature         max= c.temperature
+  end
 end
 function Flow.IntegrateQuantities(cells)
   cells:foreach(averagePressure      )
@@ -3458,7 +3471,7 @@ function TimeIntegrator.InitializeVariables()
 
     -- Set initial condition for the flow and all auxiliary flow variables
     Flow.InitializePrimitives()
-    grid.cells.interior:foreach(Flow.UpdateConservedFromPrimitive)
+    grid.cells:foreach(Flow.UpdateConservedFromPrimitive)
     Flow.UpdateAuxiliary()
     Flow.UpdateGhost()
 
@@ -3618,7 +3631,7 @@ end
 
 function Statistics.ComputeSpatialAverages()
     Statistics.ResetSpatialAverages()
-    Flow.IntegrateQuantities(grid.cells.interior)
+    Flow.IntegrateQuantities(grid.cells)
     if particles_options.modeParticles then
       particles:foreach(Particles.IntegrateQuantities)
     end
@@ -4010,7 +4023,7 @@ end
 -- Initialize all variables
 
 TimeIntegrator.InitializeVariables()
-Flow.IntegrateGeometricQuantities(grid.cells.interior)
+Flow.IntegrateGeometricQuantities(grid.cells)
 Statistics.ComputeSpatialAverages()
 
 -- Main iteration loop
