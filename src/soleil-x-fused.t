@@ -73,6 +73,46 @@ double rand_gauss() {
 
 ]]
 
+local cmapper
+local link_flags
+do
+  local root_dir = arg[0]:match(".*/") or "./"
+  assert(os.getenv('LG_RT_DIR'), "LG_RT_DIR should be set!")
+  local runtime_dir = os.getenv('LG_RT_DIR') .. "/"
+  local legion_dir = runtime_dir .. "legion/"
+  local mapper_dir = runtime_dir .. "mappers/"
+  local realm_dir = runtime_dir .. "realm/"
+  local mapper_cc = root_dir .. "soleil_mapper.cc"
+  if os.getenv('SAVEOBJ') == '1' then
+    mapper_so = root_dir .. "libsoleil_mapper.so"
+    link_flags = {"-L" .. root_dir, "-lsoleil_mapper"}
+  else
+    mapper_so = os.tmpname() .. ".so"
+  end
+  local cxx = os.getenv('CXX') or 'c++'
+
+  local cxx_flags = "-O2 -Wall -Werror"
+  if os.execute('test "$(uname)" = Darwin') == 0 then
+    cxx_flags =
+      (cxx_flags ..
+         " -dynamiclib -single_module -undefined dynamic_lookup -fPIC")
+  else
+    cxx_flags = cxx_flags .. " -shared -fPIC"
+  end
+
+  local cmd = (cxx .. " " .. cxx_flags .. " -I " .. runtime_dir .. " " ..
+                 " -I " .. mapper_dir .. " " .. " -I " .. legion_dir .. " " ..
+                 " -I " .. realm_dir .. " " .. mapper_cc .. " -o " .. mapper_so)
+  if os.execute(cmd) ~= 0 then
+    print("Error: failed to compile " .. mapper_cc)
+    assert(false)
+  end
+  terralib.linklibrary(mapper_so)
+  cmapper = terralib.includec("soleil_mapper.h", {"-I", root_dir, "-I", runtime_dir,
+                                                  "-I", mapper_dir, "-I", legion_dir,
+                                                  "-I", realm_dir})
+end
+
 -- Use the built in rand() function from Liszt
 local rand_float = L.rand
 
@@ -3999,4 +4039,4 @@ print("")
 print("--------------------------- Exit Success ----------------------------")
 print("")
 
-A.translateAndRun()
+A.translateAndRun(cmapper.register_mappers, link_flags)
