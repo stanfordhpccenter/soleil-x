@@ -2909,9 +2909,9 @@ function Flow.InitializePrimitives()
     elseif flow_options.initCase == Flow.Perturbed then
         grid.cells:foreach(Flow.InitializePerturbed)
     elseif flow_options.initCase == Flow.Restart then
-        grid.cells:Load(IO.outputFileNamePrefix .. 'restart_' ..
-                          config.restartIter .. '.hdf',
-                        {'rho','pressure','velocity'})
+        grid.cells:Load({'rho','pressure','velocity'},
+                        IO.outputFileNamePrefix .. 'restart_' ..
+                          config.restartIter .. '.hdf')
     end
 end
 
@@ -3339,9 +3339,9 @@ if particles_options.modeParticles then
       particles:foreach(Particles.SetVelocitiesToFlow)
 
     elseif particles_options.initParticles == Particles.Restart then
-      particles:Load(IO.outputFileNamePrefix .. 'restart_particle_' ..
-                       config.restartParticleIter .. '.hdf',
-                     {'position','velocity','temperature','diameter'})
+      particles:Load({'position','velocity','temperature','diameter'},
+                     IO.outputFileNamePrefix .. 'restart_particle_' ..
+                       config.restartParticleIter .. '.hdf')
       particles.density:Fill(particles_options.density)
       Particles.Locate()
     end
@@ -3660,9 +3660,9 @@ function IO.WriteFlowRestart(timeStep)
 
      -- Write the restart CSV files for density, pressure, and velocity
 
-     grid.cells:Dump(IO.outputFileNamePrefix .. "restart_" ..
-                       tostring(timeStep) .. ".hdf",
-                     {'rho','pressure','velocity'})
+     grid.cells:Dump({'rho','pressure','velocity'},
+                     IO.outputFileNamePrefix .. "restart_" ..
+                       tostring(timeStep) .. ".hdf")
   end
 
 end
@@ -3678,9 +3678,9 @@ if particles_options.modeParticles then
 
       -- Write the restart CSV files for density, pressure, and velocity
 
-      particles:Dump(IO.outputFileNamePrefix .. 'restart_particle_' ..
-                       tostring(timeStep) .. '.hdf',
-                     {'position','velocity','temperature','diameter'})
+      particles:Dump({'position','velocity','temperature','diameter'},
+                     IO.outputFileNamePrefix .. 'restart_particle_' ..
+                       tostring(timeStep) .. '.hdf')
 
     end
 
