@@ -41,7 +41,7 @@ return {
   
   --Time Integration Options --
   final_time            = 2000.00001,
-  max_iter              = 50000,
+  max_iter              = 2,
   cfl                   = -2.0, -- Negative CFL implies that we will used fixed delta T
   delta_time            = 1e-3,
   

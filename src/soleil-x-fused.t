@@ -73,6 +73,46 @@ double rand_gauss() {
 
 ]]
 
+local cmapper
+local link_flags
+do
+  local root_dir = arg[0]:match(".*/") or "./"
+  assert(os.getenv('LG_RT_DIR'), "LG_RT_DIR should be set!")
+  local runtime_dir = os.getenv('LG_RT_DIR') .. "/"
+  local legion_dir = runtime_dir .. "legion/"
+  local mapper_dir = runtime_dir .. "mappers/"
+  local realm_dir = runtime_dir .. "realm/"
+  local mapper_cc = root_dir .. "soleil_mapper.cc"
+  if os.getenv('SAVEOBJ') == '1' then
+    mapper_so = root_dir .. "libsoleil_mapper.so"
+    link_flags = {"-L" .. root_dir, "-lsoleil_mapper"}
+  else
+    mapper_so = os.tmpname() .. ".so"
+  end
+  local cxx = os.getenv('CXX') or 'c++'
+
+  local cxx_flags = "-O2 -Wall -Werror"
+  if os.execute('test "$(uname)" = Darwin') == 0 then
+    cxx_flags =
+      (cxx_flags ..
+         " -dynamiclib -single_module -undefined dynamic_lookup -fPIC")
+  else
+    cxx_flags = cxx_flags .. " -shared -fPIC"
+  end
+
+  local cmd = (cxx .. " " .. cxx_flags .. " -I " .. runtime_dir .. " " ..
+                 " -I " .. mapper_dir .. " " .. " -I " .. legion_dir .. " " ..
+                 " -I " .. realm_dir .. " " .. mapper_cc .. " -o " .. mapper_so)
+  if os.execute(cmd) ~= 0 then
+    print("Error: failed to compile " .. mapper_cc)
+    assert(false)
+  end
+  terralib.linklibrary(mapper_so)
+  cmapper = terralib.includec("soleil_mapper.h", {"-I", root_dir, "-I", runtime_dir,
+                                                  "-I", mapper_dir, "-I", legion_dir,
+                                                  "-I", realm_dir})
+end
+
 -- Use the built in rand() function from Liszt
 local rand_float = L.rand
 
@@ -738,12 +778,12 @@ local grid_dy      = L.Constant(L.double, grid:yCellWidth())
 local grid_dz      = L.Constant(L.double, grid:zCellWidth())
 
 -- Create a field for the center coords of the dual cells (i.e., vertices)
-grid.vertices:NewField('centerCoordinates', L.vec3d)          :Fill({0, 0, 0})
+--grid.vertices:NewField('centerCoordinates', L.vec3d)          :Fill({0, 0, 0})
 
 -- Create a field to mark the rind layer so it is not written in the output
 -- We need this for both the dual cells (coords) and cells (cell-center data)
-grid.vertices:NewField('vertexRindLayer', L.int)              :Fill(1)
-grid.cells:NewField('cellRindLayer', L.int)                   :Fill(1)
+--grid.vertices:NewField('vertexRindLayer', L.int)              :Fill(1)
+--grid.cells:NewField('cellRindLayer', L.int)                   :Fill(1)
 
 -- Primitive variables
 grid.cells:NewField('rho', L.double)                          :Fill(0)
@@ -1503,170 +1543,170 @@ end
 
 -- Compute viscous fluxes in X direction
 ebb Flow.ComputeDissipationX (c : grid.cells)
-    if c.in_interior or c.xneg_depth == 1 then
-        -- Consider first boundary element (c.xneg_depth == 1) to define left flux
-        -- on first interior cell
-        var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
-                            GetDynamicViscosity(c(1,0,0).temperature))
-        var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
-        var velocityX_YFace = L.double(0)
-        var velocityX_ZFace = L.double(0)
-        var velocityY_YFace = L.double(0)
-        var velocityZ_ZFace = L.double(0)
+  if c.in_interior or c.xneg_depth == 1 then
+  -- Consider first boundary element (c.xneg_depth == 1) to define left flux
+  -- on first interior cell
+  var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
+                        GetDynamicViscosity(c(1,0,0).temperature))
+  var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
+  var velocityX_YFace = L.double(0)
+  var velocityX_ZFace = L.double(0)
+  var velocityY_YFace = L.double(0)
+  var velocityZ_ZFace = L.double(0)
 
-        -- Interpolate velocity and derivatives to face
-        velocityFace = 0.5 * ( c.velocity + c(1,0,0).velocity )
-        velocityX_YFace = 0.5 * ( c.velocityGradientY[0] +
-                                  c(1,0,0).velocityGradientY[0] )
-        velocityX_ZFace = 0.5 * ( c.velocityGradientZ[0] +
-                                  c(1,0,0).velocityGradientZ[0] )
-        velocityY_YFace = 0.5 * ( c.velocityGradientY[1] +
-                                  c(1,0,0).velocityGradientY[1] )
-        velocityZ_ZFace = 0.5 * ( c.velocityGradientZ[2] +
-                                  c(1,0,0).velocityGradientZ[2] )
+  -- Interpolate velocity and derivatives to face
+  velocityFace = 0.5 * ( c.velocity + c(1,0,0).velocity )
+  velocityX_YFace = 0.5 * ( c.velocityGradientY[0] +
+                              c(1,0,0).velocityGradientY[0] )
+  velocityX_ZFace = 0.5 * ( c.velocityGradientZ[0] +
+                              c(1,0,0).velocityGradientZ[0] )
+  velocityY_YFace = 0.5 * ( c.velocityGradientY[1] +
+                              c(1,0,0).velocityGradientY[1] )
+  velocityZ_ZFace = 0.5 * ( c.velocityGradientZ[2] +
+                              c(1,0,0).velocityGradientZ[2] )
 
-        -- Differentiate at face
-        var velocityX_XFace   = L.double(0.0)
-        var velocityY_XFace   = L.double(0.0)
-        var velocityZ_XFace   = L.double(0.0)
-        var temperature_XFace = L.double(0.0)
+  -- Differentiate at face
+  var velocityX_XFace   = L.double(0.0)
+  var velocityY_XFace   = L.double(0.0)
+  var velocityZ_XFace   = L.double(0.0)
+  var temperature_XFace = L.double(0.0)
 
-        velocityX_XFace   = 0.5*( c(1,0,0).velocity[0] - c.velocity[0] )
-        velocityY_XFace   = 0.5*( c(1,0,0).velocity[1] - c.velocity[1] )
-        velocityZ_XFace   = 0.5*( c(1,0,0).velocity[2] - c.velocity[2] )
-        temperature_XFace = 0.5*( c(1,0,0).temperature - c.temperature )
+  velocityX_XFace   = 0.5*( c(1,0,0).velocity[0] - c.velocity[0] )
+  velocityY_XFace   = 0.5*( c(1,0,0).velocity[1] - c.velocity[1] )
+  velocityZ_XFace   = 0.5*( c(1,0,0).velocity[2] - c.velocity[2] )
+  temperature_XFace = 0.5*( c(1,0,0).temperature - c.temperature )
 
-        -- Half cell size due to the 0.5 above
-        velocityX_XFace   /= (grid_dx*0.5)
-        velocityY_XFace   /= (grid_dx*0.5)
-        velocityZ_XFace   /= (grid_dx*0.5)
-        temperature_XFace /= (grid_dx*0.5)
+  -- Half cell size due to the 0.5 above
+  velocityX_XFace   /= (grid_dx*0.5)
+  velocityY_XFace   /= (grid_dx*0.5)
+  velocityZ_XFace   /= (grid_dx*0.5)
+  temperature_XFace /= (grid_dx*0.5)
 
-        -- Tensor components (at face)
-        var sigmaXX = muFace * ( 4.0 * velocityX_XFace -
-                                 2.0 * velocityY_YFace -
-                                 2.0 * velocityZ_ZFace ) / 3.0
-        var sigmaYX = muFace * ( velocityY_XFace + velocityX_YFace )
-        var sigmaZX = muFace * ( velocityZ_XFace + velocityX_ZFace )
-        var usigma  = velocityFace[0] * sigmaXX +
-                      velocityFace[1] * sigmaYX +
-                      velocityFace[2] * sigmaZX
+  -- Tensor components (at face)
+  var sigmaXX = muFace * ( 4.0 * velocityX_XFace -
+                             2.0 * velocityY_YFace -
+                             2.0 * velocityZ_ZFace ) / 3.0
+  var sigmaYX = muFace * ( velocityY_XFace + velocityX_YFace )
+  var sigmaZX = muFace * ( velocityZ_XFace + velocityX_ZFace )
+  var usigma  = velocityFace[0] * sigmaXX +
+    velocityFace[1] * sigmaYX +
+    velocityFace[2] * sigmaZX
 
-        -- Fluxes
-        c.dissipationFlux = usigma -- possible just x component?
-    end
+  -- Fluxes
+  c.dissipationFlux = usigma -- possible just x component?
+  end
 end
 
 -- Compute viscous fluxes in Y direction
 ebb Flow.ComputeDissipationY (c : grid.cells)
-    if c.in_interior or c.yneg_depth == 1 then
-        -- Consider first boundary element (c.yneg_depth == 1) to define down flux
-        -- on first interior cell
-        var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
-                            GetDynamicViscosity(c(0,1,0).temperature))
-        var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
-        var velocityY_XFace = L.double(0)
-        var velocityY_ZFace = L.double(0)
-        var velocityX_XFace = L.double(0)
-        var velocityZ_ZFace = L.double(0)
+  if c.in_interior or c.yneg_depth == 1 then
+  -- Consider first boundary element (c.yneg_depth == 1) to define down flux
+  -- on first interior cell
+  var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
+                        GetDynamicViscosity(c(0,1,0).temperature))
+  var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
+  var velocityY_XFace = L.double(0)
+  var velocityY_ZFace = L.double(0)
+  var velocityX_XFace = L.double(0)
+  var velocityZ_ZFace = L.double(0)
 
-        -- Interpolate velocity and derivatives to face
-        velocityFace = 0.5 * ( c.velocity + c(0,1,0).velocity )
-        velocityY_XFace = 0.5 * ( c.velocityGradientX[1] +
-                                  c(0,1,0).velocityGradientX[1] )
-        velocityY_ZFace = 0.5 * ( c.velocityGradientZ[1] +
-                                  c(0,1,0).velocityGradientZ[1] )
-        velocityX_XFace = 0.5 * ( c.velocityGradientX[0] +
-                                  c(0,1,0).velocityGradientX[0] )
-        velocityZ_ZFace = 0.5 * ( c.velocityGradientZ[2] +
-                                  c(0,1,0).velocityGradientZ[2] )
+  -- Interpolate velocity and derivatives to face
+  velocityFace = 0.5 * ( c.velocity + c(0,1,0).velocity )
+  velocityY_XFace = 0.5 * ( c.velocityGradientX[1] +
+                              c(0,1,0).velocityGradientX[1] )
+  velocityY_ZFace = 0.5 * ( c.velocityGradientZ[1] +
+                              c(0,1,0).velocityGradientZ[1] )
+  velocityX_XFace = 0.5 * ( c.velocityGradientX[0] +
+                              c(0,1,0).velocityGradientX[0] )
+  velocityZ_ZFace = 0.5 * ( c.velocityGradientZ[2] +
+                              c(0,1,0).velocityGradientZ[2] )
 
-        -- Differentiate at face
-        var velocityX_YFace   = L.double(0.0)
-        var velocityY_YFace   = L.double(0.0)
-        var velocityZ_YFace   = L.double(0.0)
-        var temperature_YFace = L.double(0.0)
+  -- Differentiate at face
+  var velocityX_YFace   = L.double(0.0)
+  var velocityY_YFace   = L.double(0.0)
+  var velocityZ_YFace   = L.double(0.0)
+  var temperature_YFace = L.double(0.0)
 
-        velocityX_YFace   = 0.5*( c(0,1,0).velocity[0] - c.velocity[0] )
-        velocityY_YFace   = 0.5*( c(0,1,0).velocity[1] - c.velocity[1] )
-        velocityZ_YFace   = 0.5*( c(0,1,0).velocity[2] - c.velocity[2] )
-        temperature_YFace = 0.5*( c(0,1,0).temperature - c.temperature )
+  velocityX_YFace   = 0.5*( c(0,1,0).velocity[0] - c.velocity[0] )
+  velocityY_YFace   = 0.5*( c(0,1,0).velocity[1] - c.velocity[1] )
+  velocityZ_YFace   = 0.5*( c(0,1,0).velocity[2] - c.velocity[2] )
+  temperature_YFace = 0.5*( c(0,1,0).temperature - c.temperature )
 
-        -- Half cell size due to the 0.5 above
-        velocityX_YFace   /= (grid_dy*0.5)
-        velocityY_YFace   /= (grid_dy*0.5)
-        velocityZ_YFace   /= (grid_dy*0.5)
-        temperature_YFace /= (grid_dy*0.5)
+  -- Half cell size due to the 0.5 above
+  velocityX_YFace   /= (grid_dy*0.5)
+  velocityY_YFace   /= (grid_dy*0.5)
+  velocityZ_YFace   /= (grid_dy*0.5)
+  temperature_YFace /= (grid_dy*0.5)
 
-        -- Tensor components (at face)
-        var sigmaXY = muFace * ( velocityX_YFace + velocityY_XFace )
-        var sigmaYY = muFace * ( 4.0 * velocityY_YFace -
-                                 2.0 * velocityX_XFace -
-                                 2.0 * velocityZ_ZFace ) / 3.0
-        var sigmaZY = muFace * ( velocityZ_YFace + velocityY_ZFace )
-        var usigma  = velocityFace[0] * sigmaXY +
-                      velocityFace[1] * sigmaYY +
-                      velocityFace[2] * sigmaZY
+  -- Tensor components (at face)
+  var sigmaXY = muFace * ( velocityX_YFace + velocityY_XFace )
+  var sigmaYY = muFace * ( 4.0 * velocityY_YFace -
+                             2.0 * velocityX_XFace -
+                             2.0 * velocityZ_ZFace ) / 3.0
+  var sigmaZY = muFace * ( velocityZ_YFace + velocityY_ZFace )
+  var usigma  = velocityFace[0] * sigmaXY +
+    velocityFace[1] * sigmaYY +
+    velocityFace[2] * sigmaZY
 
-        -- Fluxes
-        c.dissipationFlux = usigma
-    end
+  -- Fluxes
+  c.dissipationFlux = usigma
+  end
 end
 
 -- Compute viscous fluxes in Z direction
 ebb Flow.ComputeDissipationZ (c : grid.cells)
-    if c.in_interior or c.zneg_depth == 1 then
-        -- Consider first boundary element (c.zneg_depth == 1) to define down flux
-        -- on first interior cell
-        var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
-                            GetDynamicViscosity(c(0,0,1).temperature))
-        var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
-        var velocityZ_XFace = L.double(0.0)
-        var velocityZ_YFace = L.double(0.0)
-        var velocityX_XFace = L.double(0.0)
-        var velocityY_YFace = L.double(0.0)
+  if c.in_interior or c.zneg_depth == 1 then
+  -- Consider first boundary element (c.zneg_depth == 1) to define down flux
+  -- on first interior cell
+  var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
+                        GetDynamicViscosity(c(0,0,1).temperature))
+  var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
+  var velocityZ_XFace = L.double(0.0)
+  var velocityZ_YFace = L.double(0.0)
+  var velocityX_XFace = L.double(0.0)
+  var velocityY_YFace = L.double(0.0)
 
-        -- Interpolate velocity and derivatives to face
-        velocityFace = 0.5 * ( c.velocity + c(0,0,1).velocity )
-        velocityZ_XFace = 0.5 * ( c.velocityGradientX[2] +
-                                  c(0,0,1).velocityGradientX[2] )
-        velocityZ_YFace = 0.5 * ( c.velocityGradientY[2] +
-                                  c(0,0,1).velocityGradientY[2] )
-        velocityX_XFace = 0.5 * ( c.velocityGradientX[0] +
-                                  c(0,0,1).velocityGradientX[0] )
-        velocityY_YFace = 0.5 * ( c.velocityGradientY[1] +
-                                  c(0,0,1).velocityGradientY[1] )
+  -- Interpolate velocity and derivatives to face
+  velocityFace = 0.5 * ( c.velocity + c(0,0,1).velocity )
+  velocityZ_XFace = 0.5 * ( c.velocityGradientX[2] +
+                              c(0,0,1).velocityGradientX[2] )
+  velocityZ_YFace = 0.5 * ( c.velocityGradientY[2] +
+                              c(0,0,1).velocityGradientY[2] )
+  velocityX_XFace = 0.5 * ( c.velocityGradientX[0] +
+                              c(0,0,1).velocityGradientX[0] )
+  velocityY_YFace = 0.5 * ( c.velocityGradientY[1] +
+                              c(0,0,1).velocityGradientY[1] )
 
-        -- Differentiate at face
-        var velocityX_ZFace   = L.double(0.0)
-        var velocityY_ZFace   = L.double(0.0)
-        var velocityZ_ZFace   = L.double(0.0)
-        var temperature_ZFace = L.double(0.0)
+  -- Differentiate at face
+  var velocityX_ZFace   = L.double(0.0)
+  var velocityY_ZFace   = L.double(0.0)
+  var velocityZ_ZFace   = L.double(0.0)
+  var temperature_ZFace = L.double(0.0)
 
-        velocityX_ZFace   = 0.5*( c(0,0,1).velocity[0] - c.velocity[0] )
-        velocityY_ZFace   = 0.5*( c(0,0,1).velocity[1] - c.velocity[1] )
-        velocityZ_ZFace   = 0.5*( c(0,0,1).velocity[2] - c.velocity[2] )
-        temperature_ZFace = 0.5*( c(0,0,1).temperature - c.temperature )
+  velocityX_ZFace   = 0.5*( c(0,0,1).velocity[0] - c.velocity[0] )
+  velocityY_ZFace   = 0.5*( c(0,0,1).velocity[1] - c.velocity[1] )
+  velocityZ_ZFace   = 0.5*( c(0,0,1).velocity[2] - c.velocity[2] )
+  temperature_ZFace = 0.5*( c(0,0,1).temperature - c.temperature )
 
-        -- Half cell size due to the 0.5 above
-        velocityX_ZFace   /= (grid_dz*0.5)
-        velocityY_ZFace   /= (grid_dz*0.5)
-        velocityZ_ZFace   /= (grid_dz*0.5)
-        temperature_ZFace /= (grid_dz*0.5)
+  -- Half cell size due to the 0.5 above
+  velocityX_ZFace   /= (grid_dz*0.5)
+  velocityY_ZFace   /= (grid_dz*0.5)
+  velocityZ_ZFace   /= (grid_dz*0.5)
+  temperature_ZFace /= (grid_dz*0.5)
 
-        -- Tensor components (at face)
-        var sigmaXZ = muFace * ( velocityX_ZFace + velocityZ_XFace )
-        var sigmaYZ = muFace * ( velocityY_ZFace + velocityZ_YFace )
-        var sigmaZZ = muFace * ( 4.0 * velocityZ_ZFace -
-                                 2.0 * velocityX_XFace -
-                                 2.0 * velocityY_YFace ) / 3.0
-        var usigma  = velocityFace[0] * sigmaXZ +
-                      velocityFace[1] * sigmaYZ +
-                      velocityFace[2] * sigmaZZ
+  -- Tensor components (at face)
+  var sigmaXZ = muFace * ( velocityX_ZFace + velocityZ_XFace )
+  var sigmaYZ = muFace * ( velocityY_ZFace + velocityZ_YFace )
+  var sigmaZZ = muFace * ( 4.0 * velocityZ_ZFace -
+                             2.0 * velocityX_XFace -
+                             2.0 * velocityY_YFace ) / 3.0
+  var usigma  = velocityFace[0] * sigmaXZ +
+    velocityFace[1] * sigmaYZ +
+    velocityFace[2] * sigmaZZ
 
-        -- Fluxes
-        c.dissipationFlux = usigma
-    end
+  -- Fluxes
+  c.dissipationFlux = usigma
+  end
 end
 
 ebb Flow.UpdateDissipationX (c : grid.cells)
@@ -1904,22 +1944,22 @@ end
 
 ebb Flow.UpdateGhostFieldsStep1 (c : grid.cells)
   if c.xneg_depth > 0 then
-    UpdateGhostFieldsHelper(c, c( 1,0,0), x_sign, xneg_velocity, xneg_temperature)
+      UpdateGhostFieldsHelper(c, c( 1,0,0), x_sign, xneg_velocity, xneg_temperature)
   end
   if c.xpos_depth > 0 then
-    UpdateGhostFieldsHelper(c, c(-1,0,0), x_sign, xpos_velocity, xpos_temperature)
+      UpdateGhostFieldsHelper(c, c(-1,0,0), x_sign, xpos_velocity, xpos_temperature)
   end
   if c.yneg_depth > 0 then
-    UpdateGhostFieldsHelper(c, c(0, 1,0), y_sign, yneg_velocity, yneg_temperature)
+      UpdateGhostFieldsHelper(c, c(0, 1,0), y_sign, yneg_velocity, yneg_temperature)
   end
   if c.ypos_depth > 0 then
-    UpdateGhostFieldsHelper(c, c(0,-1,0), y_sign, ypos_velocity, ypos_temperature)
+      UpdateGhostFieldsHelper(c, c(0,-1,0), y_sign, ypos_velocity, ypos_temperature)
   end
   if c.zneg_depth > 0 then
-    UpdateGhostFieldsHelper(c, c(0,0, 1), z_sign, zneg_velocity, zneg_temperature)
+      UpdateGhostFieldsHelper(c, c(0,0, 1), z_sign, zneg_velocity, zneg_temperature)
   end
   if c.zpos_depth > 0 then
-    UpdateGhostFieldsHelper(c, c(0,0,-1), z_sign, zpos_velocity, zpos_temperature)
+      UpdateGhostFieldsHelper(c, c(0,0,-1), z_sign, zpos_velocity, zpos_temperature)
   end
 end
 
@@ -2127,32 +2167,32 @@ local ebb UpdateGhostVelocityGradientHelper (c_bnd, c_int, sign)
 end
 
 ebb Flow.UpdateGhostVelocityGradientStep1 (c : grid.cells)
-    if c.xneg_depth > 0 then
-      UpdateGhostVelocityGradientHelper(c, c( 1,0,0), x_sign)
-    end
-    if c.xpos_depth > 0 then
-      UpdateGhostVelocityGradientHelper(c, c(-1,0,0), x_sign)
-    end
-    if c.yneg_depth > 0 then
-      UpdateGhostVelocityGradientHelper(c, c(0, 1,0), y_sign)
-    end
-    if c.ypos_depth > 0 then
-      UpdateGhostVelocityGradientHelper(c, c(0,-1,0), y_sign)
-    end
-    if c.zneg_depth > 0 then
-      UpdateGhostVelocityGradientHelper(c, c(0,0, 1), z_sign)
-    end
-    if c.zpos_depth > 0 then
-      UpdateGhostVelocityGradientHelper(c, c(0,0,-1), z_sign)
-    end
+  if c.xneg_depth > 0 then
+    UpdateGhostVelocityGradientHelper(c, c( 1,0,0), x_sign)
+  end
+  if c.xpos_depth > 0 then
+    UpdateGhostVelocityGradientHelper(c, c(-1,0,0), x_sign)
+  end
+  if c.yneg_depth > 0 then
+    UpdateGhostVelocityGradientHelper(c, c(0, 1,0), y_sign)
+  end
+  if c.ypos_depth > 0 then
+    UpdateGhostVelocityGradientHelper(c, c(0,-1,0), y_sign)
+  end
+  if c.zneg_depth > 0 then
+    UpdateGhostVelocityGradientHelper(c, c(0,0, 1), z_sign)
+  end
+  if c.zpos_depth > 0 then
+    UpdateGhostVelocityGradientHelper(c, c(0,0,-1), z_sign)
+  end
 end
 
 ebb Flow.UpdateGhostVelocityGradientStep2 (c : grid.cells)
-    if c.in_boundary then
-        c.velocityGradientX = c.velocityGradientXBoundary
-        c.velocityGradientY = c.velocityGradientYBoundary
-        c.velocityGradientZ = c.velocityGradientZBoundary
-    end
+  if c.in_boundary then
+    c.velocityGradientX = c.velocityGradientXBoundary
+    c.velocityGradientY = c.velocityGradientYBoundary
+    c.velocityGradientZ = c.velocityGradientZBoundary
+  end
 end
 
 -- Calculation of spectral radii for clf-based delta time
@@ -2239,8 +2279,8 @@ function Flow.IntegrateQuantities(cells)
   cells:foreach(averagePressure      )
   cells:foreach(averageTemperature   )
   cells:foreach(averageKineticEnergy )
-  cells:foreach(minTemperature       )
-  cells:foreach(maxTemperature       )
+  --cells:foreach(minTemperature       )
+  --cells:foreach(maxTemperature       )
 end
 
 
@@ -2909,15 +2949,15 @@ function Flow.InitializePrimitives()
     elseif flow_options.initCase == Flow.Perturbed then
         grid.cells:foreach(Flow.InitializePerturbed)
     elseif flow_options.initCase == Flow.Restart then
-        grid.cells:Load({'rho','pressure','velocity'},
-                        IO.outputFileNamePrefix .. 'restart_' ..
-                          config.restartIter .. '.hdf')
+        grid.cells:Load(IO.outputFileNamePrefix .. 'restart_' ..
+                          config.restartIter .. '.hdf',
+                        {'rho','pressure','velocity'})
     end
 end
 
 function Flow.UpdateGhostVelocityGradient()
-    grid.cells:foreach(Flow.UpdateGhostVelocityGradientStep1)
-    grid.cells:foreach(Flow.UpdateGhostVelocityGradientStep2)
+  grid.cells:foreach(Flow.UpdateGhostVelocityGradientStep1)
+  grid.cells:foreach(Flow.UpdateGhostVelocityGradientStep2)
 end
 
 -- Routine that computes the inviscid flux through the face of
@@ -3261,20 +3301,20 @@ function Flow.AddFluxes()
 end
 
 function Flow.ComputeVelocityGradients()
-    grid.cells:foreach(Flow.ComputeVelocityGradientAll)
+  grid.cells:foreach(Flow.ComputeVelocityGradientAll)
 end
 
 function Flow.UpdateAuxiliaryVelocityConservedAndGradients()
-    grid.cells:foreach(Flow.UpdateAuxiliaryVelocity)
-    Flow.UpdateGhostConserved()
-    Flow.UpdateGhostVelocity()
-    Flow.ComputeVelocityGradients()
+  grid.cells:foreach(Flow.UpdateAuxiliaryVelocity)
+  Flow.UpdateGhostConserved()
+  Flow.UpdateGhostVelocity()
+  Flow.ComputeVelocityGradients()
 end
 
 function Flow.UpdateAuxiliary()
-    Flow.UpdateAuxiliaryVelocityConservedAndGradients()
-    grid.cells:foreach(Flow.UpdateAuxiliaryThermodynamics)
-    Flow.UpdateGhostThermodynamics()
+  Flow.UpdateAuxiliaryVelocityConservedAndGradients()
+  grid.cells:foreach(Flow.UpdateAuxiliaryThermodynamics)
+  Flow.UpdateGhostThermodynamics()
 end
 
 ------------
@@ -3339,9 +3379,9 @@ if particles_options.modeParticles then
       particles:foreach(Particles.SetVelocitiesToFlow)
 
     elseif particles_options.initParticles == Particles.Restart then
-      particles:Load({'position','velocity','temperature','diameter'},
-                     IO.outputFileNamePrefix .. 'restart_particle_' ..
-                       config.restartParticleIter .. '.hdf')
+      particles:Load(IO.outputFileNamePrefix .. 'restart_particle_' ..
+                       config.restartParticleIter .. '.hdf',
+                     {'position','velocity','temperature','diameter'})
       particles.density:Fill(particles_options.density)
       Particles.Locate()
     end
@@ -3404,9 +3444,9 @@ function TimeIntegrator.InitializeVariables()
 
     -- Initialize several grid related entitities
     grid.cells:foreach(Flow.InitializeCenterCoordinates)
-    grid.cells.interior:foreach(Flow.InitializeCellRindLayer)
-    grid.vertices:foreach(Flow.InitializeVertexCoordinates)
-    grid.vertices.interior:foreach(Flow.InitializeVertexRindLayer)
+    --grid.cells.interior:foreach(Flow.InitializeCellRindLayer)
+    --grid.vertices:foreach(Flow.InitializeVertexCoordinates)
+    --grid.vertices.interior:foreach(Flow.InitializeVertexRindLayer)
 
     -- Set initial condition for the flow and all auxiliary flow variables
     Flow.InitializePrimitives()
@@ -3660,9 +3700,9 @@ function IO.WriteFlowRestart(timeStep)
 
      -- Write the restart CSV files for density, pressure, and velocity
 
-     grid.cells:Dump({'rho','pressure','velocity'},
-                     IO.outputFileNamePrefix .. "restart_" ..
-                       tostring(timeStep) .. ".hdf")
+     grid.cells:Dump(IO.outputFileNamePrefix .. "restart_" ..
+                       tostring(timeStep) .. ".hdf",
+                     {'rho','pressure','velocity'})
   end
 
 end
@@ -3674,13 +3714,13 @@ if particles_options.modeParticles then
 
     -- Check if it is time to output a particle restart file
     if (timeStep % TimeIntegrator.restartEveryTimeSteps == 0 and
-        IO.wrtRestart) then
+    IO.wrtRestart) then
 
       -- Write the restart CSV files for density, pressure, and velocity
 
-      particles:Dump({'position','velocity','temperature','diameter'},
-                     IO.outputFileNamePrefix .. 'restart_particle_' ..
-                       tostring(timeStep) .. '.hdf')
+      particles:Dump(IO.outputFileNamePrefix .. 'restart_particle_' ..
+                       tostring(timeStep) .. '.hdf',
+                     {'position','velocity','temperature','diameter'})
 
     end
 
@@ -3962,7 +4002,7 @@ end
 
 TimeIntegrator.InitializeVariables()
 Flow.IntegrateGeometricQuantities(grid.cells)
-Statistics.ComputeSpatialAverages()
+--Statistics.ComputeSpatialAverages()
 
 -- Main iteration loop
 
@@ -3999,4 +4039,4 @@ print("")
 print("--------------------------- Exit Success ----------------------------")
 print("")
 
-A.translateAndRun()
+A.translateAndRun(cmapper.register_mappers, link_flags)

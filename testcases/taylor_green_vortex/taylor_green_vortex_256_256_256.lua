@@ -2,9 +2,9 @@
 
 return {
   
-  xnum = 128, -- number of cells in the x-direction
-  ynum = 128, -- number of cells in the y-direction
-  znum = 128, -- number of cells in the z-direction
+  xnum = 256, -- number of cells in the x-direction
+  ynum = 256, -- number of cells in the y-direction
+  znum = 256, -- number of cells in the z-direction
 
   -- if you increase the cell number and the calculation diverges
   -- right away, decrease the time step on the next line
@@ -16,30 +16,36 @@ return {
   -- it hits the 20.0 second max time set below)
 
   max_iter = 20,
+  final_time  = 20.00001,
 
   -- Output options. All output is off by default, but we 
   -- will need to turn it on to check results/make visualizations
  
-  consoleFrequency = 1,  -- Iterations between console output of statistics
-  wrtRestart = 'OFF',
-  wrtVolumeSolution = 'OFF',
+  consoleFrequency = 10,  -- Iterations between console output of statistics
+  headerFrequency       = 2000000,
+  wrtRestart = 'ON',
+  wrtVolumeSolution = 'ON',
   wrt1DSlice = 'OFF',
   wrtParticleEvolution = 'OFF',
   particleEvolutionIndex = 0,
-  outputEveryTimeSteps  = 50,
-  restartEveryTimeSteps = 50,
+  outputEveryTimeSteps  = 1000,
+  restartEveryTimeSteps = 1000,
+
+  -- TO RESTART: set the next option to 'Restart' and then put the 
+  -- iteration number in the second option (the same number appended to the restart_* file)
+  initCase     = 'TaylorGreen3DVortex', -- Uniform, Restart, TaylorGreen2DVortex, TaylorGreen3DVortex
+  restartIter = 1000,
+
 
   -------------------------------------------
   --[ SHOULD NOT NEED TO MODIFY BELOW HERE]--
   -------------------------------------------
 
   -- Flow Initialization  Options --
-  initCase     = 'TaylorGreen3DVortex', -- Uniform, Restart, TaylorGreen2DVortex, TaylorGreen3DVortex
   initParams = {1.0,100.0,1.0,0.0,0.0}, -- for TGV: first three are density, pressure, velocity
   bodyForce = {0,0.0,0}, -- body force in x, y, z
   turbForcing = 'OFF',          -- Turn turbulent forcing on or off
   turbForceCoeff = 0.0,         -- Turbulent linear forcing coefficient (f = A*rho*u)
-  restartIter = 10000,
   
   -- Grid Options -- PERIODICITY
   origin = {0.0, 0.0, 0.0}, -- spatial origin of the computational domain
@@ -68,10 +74,8 @@ return {
  
   --Time Integration Options --
   cfl                   = -1.0, -- Negative CFL implies that we will used fixed delta T
-  final_time            = 20.00001,
   
   --- File Output Options --
-  headerFrequency       = 200000,
   outputFormat = 'Tecplot', --Tecplot or Python
   
   -- Fluid Options --

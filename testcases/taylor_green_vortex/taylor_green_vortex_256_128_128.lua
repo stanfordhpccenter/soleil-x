@@ -2,7 +2,7 @@
 
 return {
   
-  xnum = 128, -- number of cells in the x-direction
+  xnum = 256, -- number of cells in the x-direction
   ynum = 128, -- number of cells in the y-direction
   znum = 128, -- number of cells in the z-direction
 
