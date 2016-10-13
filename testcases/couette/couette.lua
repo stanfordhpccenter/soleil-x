@@ -105,7 +105,10 @@ return {
                            -- imposes a fixed time step that is given by
                            -- the 'delta_time' config option.
   delta_time = 1e-4,       -- Fixed time step [s], ignored if CFL > 0.0
-  
+
+  delta_time_unst = 0.1,    -- Fixed physical time step (dual time for incomp.)
+  internalIter = 1000,      -- Number of internal iterations for dual time
+
   -----------------------------------------------------------------------------
   --[[                          FILE I/O OPTIONS                           ]]--
   -----------------------------------------------------------------------------

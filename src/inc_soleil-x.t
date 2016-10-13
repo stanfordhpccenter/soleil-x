@@ -449,9 +449,9 @@ TimeIntegrator.coeff_time            = {0.5, 0.5, 1, 1}
 TimeIntegrator.simTime               = L.Global(L.double,0)
 
 TimeIntegrator.physicalTime          = L.Global(L.double,0)
-TimeIntegrator.delta_time_unst       = L.Global(L.double,100.0)
+TimeIntegrator.delta_time_unst       = config.delta_time_unst
 TimeIntegrator.physicalTimeStep      = L.Global(L.int,0)
-TimeIntegrator.internalIter          = 1000
+TimeIntegrator.internalIter          = config.internalIter
 
 TimeIntegrator.final_time            = config.final_time
 TimeIntegrator.max_iter              = config.max_iter
@@ -1223,6 +1223,10 @@ else
 io.stdout:write(" Fixed time step: ",
                 string.format(" %f",config.delta_time), "\n")
 end
+io.stdout:write(" Unsteady time step (dual time only: ",
+                string.format(" %f",config.delta_time_unst), "\n")
+io.stdout:write(" Maximum number of internal iterations (dual time only): ",
+                string.format(" %d",config.internalIter), "\n")
 print("")
 print("-------------------------- Output Options ---------------------------")
 io.stdout:write(" Restart files: ", config.wrtRestart, "\n")
@@ -4050,7 +4054,7 @@ function TimeIntegrator.AdvanceDualTime()
 
 -- update the physical time 
 
-TimeIntegrator.physicalTime:set(TimeIntegrator.physicalTime:get() + TimeIntegrator.delta_time_unst:get())
+TimeIntegrator.physicalTime:set(TimeIntegrator.physicalTime:get() + TimeIntegrator.delta_time_unst)
 TimeIntegrator.physicalTimeStep:set(TimeIntegrator.physicalTimeStep:get() + 1)
 
       io.stdout:write("\n Physical time step: ",
@@ -4058,7 +4062,7 @@ TimeIntegrator.physicalTimeStep:set(TimeIntegrator.physicalTimeStep:get() + 1)
       io.stdout:write(" Physical time: ",
         string.format(" %10e",TimeIntegrator.physicalTime:get()), " s.")
       io.stdout:write(" Physical delta time: ",
-        string.format(" %10e",TimeIntegrator.delta_time_unst:get()), " s.\n\n")
+        string.format(" %10e",TimeIntegrator.delta_time_unst), " s.\n\n")
 end
 
 -------------

@@ -44,7 +44,10 @@ return {
   final_time            = 20.00001,
   max_iter              = 50000,
   cfl                   = 2.0,
-  
+
+  delta_time_unst = 0.1,    -- Fixed physical time step (dual time for incomp.)
+  internalIter = 1000,      -- Number of internal iterations for dual time
+
   --- File Output Options --
   wrtRestart = 'ON',
   wrtVolumeSolution = 'ON',

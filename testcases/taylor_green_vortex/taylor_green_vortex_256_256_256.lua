@@ -74,7 +74,9 @@ return {
  
   --Time Integration Options --
   cfl                   = -1.0, -- Negative CFL implies that we will used fixed delta T
-  
+delta_time_unst = 0.1,    -- Fixed physical time step (dual time for incomp.)
+internalIter = 1000,     -- Number of internal iterations for dual time
+
   --- File Output Options --
   outputFormat = 'Tecplot', --Tecplot or Python
   

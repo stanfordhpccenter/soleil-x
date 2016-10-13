@@ -1176,6 +1176,10 @@ else
 io.stdout:write(" Fixed time step: ",
                 string.format(" %f",config.delta_time), "\n")
 end
+io.stdout:write(" Unsteady time step (dual time only: ",
+                string.format(" %f",config.delta_time_unst), "\n")
+io.stdout:write(" Maximum number of internal iterations (dual time only): ",
+                string.format(" %d",config.internalIter), "\n")
 print("")
 print("-------------------------- Output Options ---------------------------")
 io.stdout:write(" Restart files: ", config.wrtRestart, "\n")

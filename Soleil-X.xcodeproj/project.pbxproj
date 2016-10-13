@@ -32,6 +32,21 @@
 		E9519EC41BD70630000851BC /* forced_turbulence.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = forced_turbulence.lua; sourceTree = "<group>"; };
 		E9519EC61BD70630000851BC /* poiseuille.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = poiseuille.lua; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.lua; };
 		E9519ECC1BD70BFB000851BC /* taylor_green_vortex.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = taylor_green_vortex.lua; sourceTree = "<group>"; };
+		E9E122241DAF315200FA50A3 /* inc_soleil-x.t */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "inc_soleil-x.t"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.lua; };
+		E9E122251DAF32B300FA50A3 /* taylor_green_vortex_128.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = taylor_green_vortex_128.lua; sourceTree = "<group>"; };
+		E9E122261DAF32B300FA50A3 /* taylor_green_vortex_256_256_256.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = taylor_green_vortex_256_256_256.lua; sourceTree = "<group>"; };
+		E9E122271DAF32B300FA50A3 /* taylor_green_vortex_384_384_192.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = taylor_green_vortex_384_384_192.lua; sourceTree = "<group>"; };
+		E9E122281DAF32B300FA50A3 /* taylor_green_vortex_384_384_384.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = taylor_green_vortex_384_384_384.lua; sourceTree = "<group>"; };
+		E9E122291DAF32B300FA50A3 /* taylor_green_vortex_512_256_256.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = taylor_green_vortex_512_256_256.lua; sourceTree = "<group>"; };
+		E9E1222A1DAF32B300FA50A3 /* taylor_green_vortex_512_512_256.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = taylor_green_vortex_512_512_256.lua; sourceTree = "<group>"; };
+		E9E1222B1DAF32B300FA50A3 /* taylor_green_vortex_512_512_512.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = taylor_green_vortex_512_512_512.lua; sourceTree = "<group>"; };
+		E9E1222C1DAF32B300FA50A3 /* taylor_green_vortex_768_384_384.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = taylor_green_vortex_768_384_384.lua; sourceTree = "<group>"; };
+		E9E1222D1DAF32B300FA50A3 /* taylor_green_vortex_768_768_384.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = taylor_green_vortex_768_768_384.lua; sourceTree = "<group>"; };
+		E9E1222E1DAF32B300FA50A3 /* taylor_green_vortex_768_768_768.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = taylor_green_vortex_768_768_768.lua; sourceTree = "<group>"; };
+		E9E1222F1DAF32B300FA50A3 /* taylor_green_vortex_1024_512_512.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = taylor_green_vortex_1024_512_512.lua; sourceTree = "<group>"; };
+		E9E122301DAF32B300FA50A3 /* taylor_green_vortex_1024_1024_512.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = taylor_green_vortex_1024_1024_512.lua; sourceTree = "<group>"; };
+		E9E122311DAF32B300FA50A3 /* taylor_green_vortex_1024_1024_1024.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = taylor_green_vortex_1024_1024_1024.lua; sourceTree = "<group>"; };
+		E9E122321DAF32B300FA50A3 /* taylor_green_vortex_particles.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = taylor_green_vortex_particles.lua; sourceTree = "<group>"; };
 		E9EC952D1BD70CE300A2308A /* Soleil-X */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "Soleil-X"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -60,6 +75,7 @@
 		E9519EBA1BD70630000851BC /* src */ = {
 			isa = PBXGroup;
 			children = (
+				E9E122241DAF315200FA50A3 /* inc_soleil-x.t */,
 				E9519EBC1BD70630000851BC /* soleil-x.t */,
 			);
 			path = src;
@@ -113,6 +129,20 @@
 		E9519ECB1BD70BFB000851BC /* taylor_green_vortex */ = {
 			isa = PBXGroup;
 			children = (
+				E9E122251DAF32B300FA50A3 /* taylor_green_vortex_128.lua */,
+				E9E122261DAF32B300FA50A3 /* taylor_green_vortex_256_256_256.lua */,
+				E9E122271DAF32B300FA50A3 /* taylor_green_vortex_384_384_192.lua */,
+				E9E122281DAF32B300FA50A3 /* taylor_green_vortex_384_384_384.lua */,
+				E9E122291DAF32B300FA50A3 /* taylor_green_vortex_512_256_256.lua */,
+				E9E1222A1DAF32B300FA50A3 /* taylor_green_vortex_512_512_256.lua */,
+				E9E1222B1DAF32B300FA50A3 /* taylor_green_vortex_512_512_512.lua */,
+				E9E1222C1DAF32B300FA50A3 /* taylor_green_vortex_768_384_384.lua */,
+				E9E1222D1DAF32B300FA50A3 /* taylor_green_vortex_768_768_384.lua */,
+				E9E1222E1DAF32B300FA50A3 /* taylor_green_vortex_768_768_768.lua */,
+				E9E1222F1DAF32B300FA50A3 /* taylor_green_vortex_1024_512_512.lua */,
+				E9E122301DAF32B300FA50A3 /* taylor_green_vortex_1024_1024_512.lua */,
+				E9E122311DAF32B300FA50A3 /* taylor_green_vortex_1024_1024_1024.lua */,
+				E9E122321DAF32B300FA50A3 /* taylor_green_vortex_particles.lua */,
 				E9519ECC1BD70BFB000851BC /* taylor_green_vortex.lua */,
 			);
 			path = taylor_green_vortex;
