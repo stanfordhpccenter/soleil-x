@@ -2568,11 +2568,11 @@ var cellVolume = grid_dx * grid_dy * grid_dz
 
 -- Only the momentum terms need the dual time source (pressure always satisfies divergence free)
 
-   --c.velocity_t -= ( 3.0*c.velocity - 4.0*c.velocity_n +1.0*c.velocity_nm1)*cellVolume / (2.0*TimeStep)
-
---c.pressure_t -= ( 3.0*c.pressure - 4.0*c.pressure_n +1.0*c.pressure_nm1) / (2.0*TimeStep)
+if TimeIntegrator.physicalTimeStep == 0 then
+c.velocity_t -= ( c.velocity - c.velocity_n) / (TimeStep)
+else
 c.velocity_t -= ( 3.0*c.velocity - 4.0*c.velocity_n +1.0*c.velocity_nm1) / (2.0*TimeStep)
-
+end
 
 
 end
@@ -5107,7 +5107,7 @@ grid.cells:foreach(Flow.PushBackSolution)
 -- Main iteration loop
 
 while ((TimeIntegrator.simTime:get()  < TimeIntegrator.final_time) and
-       (TimeIntegrator.timeStep:get() < TimeIntegrator.max_iter))  do
+       (TimeIntegrator.physicalTimeStep:get() < TimeIntegrator.max_iter))  do
 
     for iter = 0,TimeIntegrator.internalIter do
     TimeIntegrator.CalculateDeltaTime()
