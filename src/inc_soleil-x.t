@@ -2078,6 +2078,93 @@ end
 -- through the face of any two adjacent cells with a second-order upwind 
 -- scheme. The left cell (c_l), right cell (c_r), and coordinate direction 
 -- (x = 0, y = 1, or z = 2) are the inputs.
+ebb Flow.CenteredInviscidFluxInc (c_l, c_r, direction)
+
+    -- Prepare some geometric quantities that we need for computing the flux.
+    -- Note the eps here, since we divide by the unit normal components when
+    -- creating the P and invP matrices for computing the dissipation.
+    var unitNormal = L.vec3d({1.0e-16, 1.0e-16, 1.0e-16})
+    unitNormal[direction] = 1.0
+
+    -- WARNING: uniform grid assumption
+    var areaVec = L.vec3d({grid_dy*grid_dz, grid_dx*grid_dz, grid_dx*grid_dy})
+
+    var Normal = L.vec3d({0.0, 0.0, 0.0})
+    for iDim = 0,3 do
+      Normal[iDim] = areaVec[iDim] * unitNormal[iDim]
+    end
+    var Area = L.sqrt(L.dot(Normal,Normal))
+
+    -- Reconstruct left state
+    var densityL  = c_l.rho
+    var pressureL = c_l.pressure
+    var velocityL = L.vec3d({0.0, 0.0, 0.0})
+    for iDim = 0,3 do
+      velocityL[iDim] = c_l.velocity[iDim]
+    end
+
+    -- Reconstruct right state
+    var densityR  = c_r.rho
+    var pressureR = c_r.pressure
+    var velocityR = L.vec3d({0.0, 0.0, 0.0})
+    for iDim = 0,3 do
+      velocityR[iDim] = c_r.velocity[iDim]
+    end
+
+    -- Compute mean variables at the face
+    var meanVelocity = L.vec3d({0.0, 0.0, 0.0})
+    meanVelocity = 0.5 * (velocityL + velocityR)
+
+    var projVelocity = L.dot(meanVelocity,Normal)
+
+    var meanDensity = L.double(0.0)
+    meanDensity = 0.5 * (densityL + densityR)
+
+    var meanPressure = L.double(0.0)
+    meanPressure = 0.5 * (pressureL + pressureR)
+
+    var meanBetaInc2 = L.double(0.0)
+    meanBetaInc2 = 0.5 * (beta + beta)
+
+    var meanSoundSpeed = L.double(0.0)
+    meanSoundSpeed = L.sqrt(projVelocity*projVelocity +
+                            (meanBetaInc2/meanDensity) * Area * Area)
+
+    -- Inviscid flux
+    var ProjFlux = Flow.GetInvisicdProjFlux (meanDensity,
+                                               meanVelocity,
+                                               meanPressure,
+                                               beta,
+                                               Normal)
+
+  -- Include only the high-order diss from JST
+  var Diss = L.vec4d({0.0,0.0,0.0,0.0})
+
+  var eps = L.double(0.0)
+
+  eps = 0.004 * Area
+
+  Diss[0] = eps * c_l.pDiss[direction]
+  Diss[1] = eps * c_l.uDiss[direction]
+  Diss[2] = eps * c_l.vDiss[direction]
+  Diss[3] = eps * c_l.wDiss[direction]
+
+  -- Compute total convective residual
+  var val_residual = L.vec4d({0.0,0.0,0.0,0.0})
+  for iVar = 0,4 do
+    val_residual[iVar] = ProjFlux[iVar] + Diss[iVar]
+  end
+
+    -- Return the fluxes in a 4D array
+    return val_residual
+
+end
+
+
+-- Routine that computes the inviscid flux (artificial compressibility) 
+-- through the face of any two adjacent cells with a second-order upwind 
+-- scheme. The left cell (c_l), right cell (c_r), and coordinate direction 
+-- (x = 0, y = 1, or z = 2) are the inputs.
 ebb Flow.UwpindInviscidFluxInc (c_l, c_r, direction)
 
 
@@ -2116,7 +2203,7 @@ ebb Flow.UwpindInviscidFluxInc (c_l, c_r, direction)
 
     -- Reconstruct right state
     var densityR  = c_r.rho
-    var pressureR = c_r.pressure + L.dot(c_r.pressureGradient,r)
+    var pressureR = c_r.pressure - L.dot(c_r.pressureGradient,r)
     var velocityR = L.vec3d({0.0, 0.0, 0.0})
     for iDim = 0,3 do
       velocityR[iDim] = c_r.velocity[iDim] - c_r.velocityGradientX[iDim]*r[0] - c_r.velocityGradientY[iDim]*r[1] - c_r.velocityGradientZ[iDim]*r[2]
@@ -2195,8 +2282,11 @@ ebb Flow.AddGetFluxInc (c : grid.cells)
       -- Compute the inviscid flux with an upwind scheme.
       -- Input the left and right cell states for this face and
       -- the direction index for the flux (x = 0, y = 1, or z = 2).
-        var flux = Flow.UwpindInviscidFluxInc(c(0,0,0), c(1,0,0), 0)
+      
+        --var flux = Flow.UwpindInviscidFluxInc(c(0,0,0), c(1,0,0), 0)
 
+        var flux = Flow.CenteredInviscidFluxInc(c(0,0,0), c(1,0,0), 0)
+        
         -- Store this flux in the cell to the left of the face.
         c.pressureFluxX =  flux[0]
         c.velocityFluxX = {flux[1],flux[2],flux[3]}
@@ -2209,9 +2299,10 @@ ebb Flow.AddGetFluxInc (c : grid.cells)
       -- Input the left and right cell states for this face and
       -- the direction index for the flux (x = 0, y = 1, or z = 2).
       
-      var flux = Flow.UwpindInviscidFluxInc(c(0,0,0), c(0,1,0), 1)
+      --var flux = Flow.UwpindInviscidFluxInc(c(0,0,0), c(0,1,0), 1)
 
-
+      var flux = Flow.CenteredInviscidFluxInc(c(0,0,0), c(0,1,0), 1)
+      
       -- Store this flux in the cell to the left of the face.
       c.pressureFluxY =  flux[0]
       c.velocityFluxY = {flux[1],flux[2],flux[3]}
@@ -2223,7 +2314,10 @@ ebb Flow.AddGetFluxInc (c : grid.cells)
       -- Compute the inviscid flux with an upwind scheme.
       -- Input the left and right cell states for this face and
       -- the direction index for the flux (x = 0, y = 1, or z = 2).
-      var flux = Flow.UwpindInviscidFluxInc(c(0,0,0), c(0,0,1), 2)
+      
+      --var flux = Flow.UwpindInviscidFluxInc(c(0,0,0), c(0,0,1), 2)
+      
+      var flux = Flow.CenteredInviscidFluxInc(c(0,0,0), c(0,0,1), 2)
       
       -- Store this flux in the cell to the left of the face.
       c.pressureFluxZ =  flux[0]
@@ -2246,9 +2340,13 @@ ebb Flow.AddGetFluxInc (c : grid.cells)
         var velocityY_XFace   = L.double(0.0)
         var velocityZ_XFace   = L.double(0.0)
 
-        velocityX_XFace   = 0.5*( c(1,0,0).velocityGradientX[0] + c(0,0,0).velocityGradientX[0] )
-        velocityY_XFace   = 0.5*( c(1,0,0).velocityGradientX[1] + c(0,0,0).velocityGradientX[1] )
-        velocityZ_XFace   = 0.5*( c(1,0,0).velocityGradientX[2] + c(0,0,0).velocityGradientX[2] )
+        --velocityX_XFace   = 0.5*( c(1,0,0).velocityGradientX[0] + c(0,0,0).velocityGradientX[0] )
+        --velocityY_XFace   = 0.5*( c(1,0,0).velocityGradientX[1] + c(0,0,0).velocityGradientX[1] )
+        --velocityZ_XFace   = 0.5*( c(1,0,0).velocityGradientX[2] + c(0,0,0).velocityGradientX[2] )
+        
+        velocityX_XFace   = ( c(1,0,0).velocity[0] - c(0,0,0).velocity[0] ) / grid_dx
+        velocityY_XFace   = ( c(1,0,0).velocity[1] - c(0,0,0).velocity[1] ) / grid_dx
+        velocityZ_XFace   = ( c(1,0,0).velocity[2] - c(0,0,0).velocity[2] ) / grid_dx
 
         -- Tensor components (at face)
         var tauXX = muFace * velocityX_XFace * area
@@ -2275,9 +2373,13 @@ ebb Flow.AddGetFluxInc (c : grid.cells)
         var velocityY_YFace   = L.double(0.0)
         var velocityZ_YFace   = L.double(0.0)
 
-        velocityX_YFace   = 0.5*( c(0,1,0).velocityGradientY[0] + c(0,0,0).velocityGradientY[0] )
-        velocityY_YFace   = 0.5*( c(0,1,0).velocityGradientY[1] + c(0,0,0).velocityGradientY[1] )
-        velocityZ_YFace   = 0.5*( c(0,1,0).velocityGradientY[2] + c(0,0,0).velocityGradientY[2] )
+        --velocityX_YFace   = 0.5*( c(0,1,0).velocityGradientY[0] + c(0,0,0).velocityGradientY[0] )
+        --velocityY_YFace   = 0.5*( c(0,1,0).velocityGradientY[1] + c(0,0,0).velocityGradientY[1] )
+        --velocityZ_YFace   = 0.5*( c(0,1,0).velocityGradientY[2] + c(0,0,0).velocityGradientY[2] )
+
+        velocityX_YFace   = ( c(0,1,0).velocity[0] - c(0,0,0).velocity[0] ) / grid_dy
+        velocityY_YFace   = ( c(0,1,0).velocity[1] - c(0,0,0).velocity[1] ) / grid_dy
+        velocityZ_YFace   = ( c(0,1,0).velocity[2] - c(0,0,0).velocity[2] ) / grid_dy
 
         -- Viscous flux components (at face)
         var tauXY = muFace * velocityX_YFace * area
@@ -2304,9 +2406,13 @@ ebb Flow.AddGetFluxInc (c : grid.cells)
         var velocityY_ZFace   = L.double(0.0)
         var velocityZ_ZFace   = L.double(0.0)
 
-        velocityX_ZFace   = 0.5*( c(0,0,1).velocityGradientZ[0] + c(0,0,0).velocityGradientZ[0] )
-        velocityY_ZFace   = 0.5*( c(0,0,1).velocityGradientZ[1] + c(0,0,0).velocityGradientZ[1] )
-        velocityZ_ZFace   = 0.5*( c(0,0,1).velocityGradientZ[2] + c(0,0,0).velocityGradientZ[2] )
+        --velocityX_ZFace   = 0.5*( c(0,0,1).velocityGradientZ[0] + c(0,0,0).velocityGradientZ[0] )
+        --velocityY_ZFace   = 0.5*( c(0,0,1).velocityGradientZ[1] + c(0,0,0).velocityGradientZ[1] )
+        --velocityZ_ZFace   = 0.5*( c(0,0,1).velocityGradientZ[2] + c(0,0,0).velocityGradientZ[2] )
+
+        velocityX_ZFace   = ( c(0,0,1).velocity[0] - c(0,0,0).velocity[0] ) / grid_dz
+        velocityY_ZFace   = ( c(0,0,1).velocity[1] - c(0,0,0).velocity[1] ) / grid_dz
+        velocityZ_ZFace   = ( c(0,0,1).velocity[2] - c(0,0,0).velocity[2] ) / grid_dz
 
         -- Viscous flux components (at face)
         var tauXZ = muFace * velocityX_ZFace * area
@@ -2780,19 +2886,20 @@ end
 -- Velocity gradients
 ---------------------
 
--- WARNING: non-uniform grid assumption
+-- WARNING: uniform grid assumption
 ebb Flow.ComputeVelocityGradient (c : grid.cells)
   c.velocityGradientX = 0.5*(c(1,0,0).velocity - c(-1,0,0).velocity)/grid_dx
   c.velocityGradientY = 0.5*(c(0,1,0).velocity - c(0,-1,0).velocity)/grid_dy
   c.velocityGradientZ = 0.5*(c(0,0,1).velocity - c(0,0,-1).velocity)/grid_dz
 end
 
--- WARNING: non-uniform grid assumption
+-- WARNING: uniform grid assumption
 ebb Flow.ComputePressureGradient (c : grid.cells)
   c.pressureGradient[0] = 0.5*(c(1,0,0).pressure - c(-1,0,0).pressure)/grid_dx
   c.pressureGradient[1] = 0.5*(c(0,1,0).pressure - c(0,-1,0).pressure)/grid_dy
   c.pressureGradient[2] = 0.5*(c(0,0,1).pressure - c(0,0,-1).pressure)/grid_dz
 end
+
 
 
 -- Helper function for updating the boundary gradients to minimize repeated code
@@ -2811,23 +2918,24 @@ local ebb UpdateGhostVelocityGradientHelper (c_bnd, c_int, sign)
 
 end
 
---[[
 
+--[[
 local ebb UpdateGhostVelocityGradientHelper (c_bnd, c_int, sign)
 
-c.velocityGradientX = sign*(c_int.velocity - c_bnd.velocity)/grid_dx
-c.velocityGradientY = sign*(c_int.velocity - c_bnd.velocity)/grid_dy
-c.velocityGradientZ = sign*(c_int.velocity - c_bnd.velocity)/grid_dz
+  for i = 0,3 do
+c_bnd.velocityGradientXBoundary[i] = sign[i]*(c_int.velocity[i] - c_bnd.velocity[i])/grid_dx
+c_bnd.velocityGradientYBoundary[i] = sign[i]*(c_int.velocity[i] - c_bnd.velocity[i])/grid_dy
+c_bnd.velocityGradientZBoundary[i] = sign[i]*(c_int.velocity[i] - c_bnd.velocity[i])/grid_dz
+end
 
-c.pressureGradient[0] = sign*(c_int.pressure - c_bnd.pressure)/grid_dx
-c.pressureGradient[1] = sign*(c_int.pressure - c_bnd.pressure)/grid_dy
-c.pressureGradient[2] = sign*(c_int.pressure - c_bnd.pressure)/grid_dz
+c_bnd.pressureGradientBoundary[0] = sign[0]*(c_int.pressure - c_bnd.pressure)/grid_dx
+c_bnd.pressureGradientBoundary[1] = sign[1]*(c_int.pressure - c_bnd.pressure)/grid_dy
+c_bnd.pressureGradientBoundary[2] = sign[2]*(c_int.pressure - c_bnd.pressure)/grid_dz
 
 
 
 end
- 
- ]]--
+]]--
 
 ebb Flow.UpdateGhostVelocityGradientStep1 (c : grid.cells)
     if c.xneg_depth > 0 then
@@ -4991,6 +5099,7 @@ end
 TimeIntegrator.InitializeVariables()
 Flow.IntegrateGeometricQuantities(grid.cells.interior)
 Statistics.ComputeSpatialAverages()
+IO.WriteConsoleOutput(TimeIntegrator.timeStep:get())
 IO.WriteOutput(TimeIntegrator.physicalTimeStep:get())
 
 grid.cells:foreach(Flow.PushBackSolution)
