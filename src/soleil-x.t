@@ -542,22 +542,6 @@ if config.wrtVolumeSolution == 'ON' then
   else
   error("Volume solution writing not defined (wrtVolumeSolution ON or OFF)")
 end
-if config.wrt1DSlice == 'ON' then
-  IO.wrt1DSlice = true
-  elseif config.wrt1DSlice == 'OFF' then
-  IO.wrt1DSlice = false
-  else
-  error("1D slice writing not defined (wrt1DSlice ON or OFF)")
-end
-if config.wrtParticleEvolution == 'ON' then
-  IO.wrtParticleEvolution = true
-  elseif config.wrtParticleEvolution == 'OFF' then
-  IO.wrtParticleEvolution = false
-  else
-  error("Particle evolution writing not defined (wrtParticleEvolution ON or OFF)")
-end
--- Store the index of the particle that we would like to track
-IO.particleEvolutionIndex = config.particleEvolutionIndex
 
 -- Store the directory for all output files from the config
 IO.outputFileNamePrefix = outputdir .. '/'
@@ -567,56 +551,13 @@ IO.outputFileNamePrefix = outputdir .. '/'
 --[[                       Load Data for a Restart                       ]]--
 -----------------------------------------------------------------------------
 
--- Create empty arrays for storing the restart info
-
-local restartNX, restartNY, restartNZ, restartIter, restartTime
-
 if flow_options.initCase == Flow.Restart then
-
-  -- here's the path object for our soleil restart info file. note that
-  -- this file only contains auxiliary info we need, and that the fields
-  -- are contained in CSVs to be read in below
-  local restart_filename = IO.outputFileNamePrefix .. 'restart_' ..
-                           config.restartIter .. '.dat'
-
-  -- Restart info files have the following format
-  --[[
-   Soleil Flow Restart
-   #cells currentTimeStep currentPhysicalTime
-  ]]--
-
-  -- In Lua, we can open files just like in C
-  local soleil_in = io.open(tostring(restart_filename), "r")
-  if not soleil_in then
-    error('Error: failed to open '..tostring(restart_filename))
-  end
-
-  -- we can read a line like so
-  local SOLEIL_SIG = soleil_in:read('*line')
-
-  if SOLEIL_SIG ~= 'Soleil Flow Restart' then
-    error('Restart file must begin with the first line "Soleil Flow Restart"')
-  end
-
-  -- read the counts of cells, iterations, and the time
-  restartNX   = soleil_in:read('*number')
-  restartNY   = soleil_in:read('*number')
-  restartNZ   = soleil_in:read('*number')
-  restartIter = soleil_in:read('*number')
-  restartTime = soleil_in:read('*number')
-
-  -- don't forget to close the file when done
-  soleil_in:close()
-
-  -- Before exiting, increment the time step and physical time so
-  -- the simulation doesn't repeat from 0. Also, increased the max number
-  -- of iterations so the solver doesn't immediately exit.
-
-  TimeIntegrator.timeStep:set(restartIter)
-  TimeIntegrator.simTime:set(restartTime)
-  TimeIntegrator.max_iter = TimeIntegrator.max_iter + restartIter
-
-
+  -- Increment the time step and physical time so the simulation doesn't
+  -- repeat from 0. Also, increase the max number of iterations so the solve
+  -- doesn't immediately exit.
+  TimeIntegrator.timeStep:set(config.restartIter)
+  -- TODO: No way to pass TimeIntegrator.simTime for the restart
+  TimeIntegrator.max_iter = TimeIntegrator.max_iter + config.restartIter
 end
 
 
@@ -1101,8 +1042,6 @@ io.stdout:write(" Restart files: ", config.wrtRestart, "\n")
 io.stdout:write(" Restart output frequency (iterations): ",
                 string.format(" %d",config.restartEveryTimeSteps), "\n")
 io.stdout:write(" Volume solution files: ", config.wrtVolumeSolution, "\n")
-io.stdout:write(" 1D slice output: ", config.wrt1DSlice, "\n")
-io.stdout:write(" Particle tracking output ", config.wrtParticleEvolution, "\n")
 io.stdout:write(" Solution output frequency (iterations): ",
                 string.format(" %d",config.outputEveryTimeSteps), "\n")
 io.stdout:write(" Header frequency (iterations): ",
@@ -3680,8 +3619,8 @@ if particles_options.modeParticles then
 
     elseif particles_options.initParticles == Particles.Restart then
       particles:Load({'position','velocity','temperature','diameter'},
-                     IO.outputFileNamePrefix .. 'restart_particle_' ..
-                       config.restartParticleIter .. '.hdf')
+                     IO.outputFileNamePrefix .. 'restart_particle_%d.hdf',
+                     config.restartParticleIter)
       particles.density:Fill(particles_options.density)
       Particles.Locate()
     end
@@ -3923,378 +3862,69 @@ end
 -- IO
 -----
 
-function IO.WriteConsoleOutput(timeStep)
-
-  -- Output log headers at a specified frequency
-  if (timeStep % TimeIntegrator.consoleFrequency == 0) then
-
-    if timeStep % TimeIntegrator.headerFrequency == 0 then
-      io.stdout:write("\n Current time step: ",
-        string.format(" %2.6e",TimeIntegrator.deltaTime:get()), " s.\n")
-      io.stdout:write(" Min Flow Temp: ",
-        string.format("%11.6f",Flow.minTemperature:get()), " K.")
-      io.stdout:write(" Max Flow Temp: ",
-        string.format("%11.6f",Flow.maxTemperature:get()), " K.\n")
+function IO.WriteConsoleOutput()
+  M.IF(M.EQ(TimeIntegrator.timeStep:get() % TimeIntegrator.consoleFrequency, 0))
+    -- Output log headers at a specified frequency
+    M.IF(M.EQ(TimeIntegrator.timeStep:get() % TimeIntegrator.headerFrequency, 0))
+      M.PRINT("\n Current time step: %2.6e s.\n",
+              TimeIntegrator.deltaTime:get())
+      M.PRINT(" Min Flow Temp: %11.6f K. Max Flow Temp: %11.6f K.\n",
+              Flow.minTemperature:get(), Flow.maxTemperature:get())
       if particles_options.modeParticles then
-        io.stdout:write(" Current number of particles: ",
-                        string.format(" %d",particles:Size()), ".\n")
+        M.PRINT(" Current number of particles: %d.\n",
+                Particles.numParticles:get())
       end
-      io.stdout:write("\n")
-      io.stdout:write(string.format("%8s",'    Iter'),
-        string.format("%12s",'   Time(s)'),
-        string.format("%12s",'Avg Press'),
-        string.format("%12s",'Avg Temp'),
-        string.format("%12s",'Avg KE'),
-        string.format("%12s",'Particle T'),'\n')
-    end
-
-    -- Check if we have particles (simply to avoid nan printed to screen)
-
-    local particle_avg_temp = 0.0
-    if particles_options.num > 0 then
-      particle_avg_temp = Particles.averageTemperature:get()
-    end
-
+      M.PRINT("\n")
+      M.PRINT("    Iter     Time(s)   Avg Press    Avg Temp      Avg KE  Particle T\n")
+    M.END()
     -- Output the current stats to the console for this iteration
-
-    io.stdout:write(string.format("%8d",timeStep),
-                    string.format(" %11.6f",TimeIntegrator.simTime:get()),
-                    string.format(" %11.6f",Flow.averagePressure:get()),
-                    string.format(" %11.6f",Flow.averageTemperature:get()),
-                    string.format(" %11.6f",Flow.averageKineticEnergy:get()),
-                    string.format(" %11.6f",particle_avg_temp),'\n')
-
-  end
+    M.PRINT("%8d %11.6f %11.6f %11.6f %11.6f %11.6f\n",
+            TimeIntegrator.timeStep:get(),
+            TimeIntegrator.simTime:get(),
+            Flow.averagePressure:get(),
+            Flow.averageTemperature:get(),
+            Flow.averageKineticEnergy:get(),
+            Particles.averageTemperature:get())
+  M.END()
 end
 
-function IO.WriteFlowRestart(timeStep)
-
-  -- Check if it is time to output a restart file
-  if (timeStep % TimeIntegrator.restartEveryTimeSteps == 0 and
-      IO.wrtRestart) then
-
-      -- Prepare the restart info file (.dat)
-
-      local outputFileName = IO.outputFileNamePrefix .. "restart_" ..
-      tostring(timeStep) .. ".dat"
-
-      -- Open file
-
-      local outputFile = io.output(outputFileName)
-
-      -- We only need to write a few things to this info file (not fields)
-
-      local nCells = grid.cells.velocity:Size()
-      local nX = grid_options.xnum + 2*xBnum
-      local nY = grid_options.ynum + 2*yBnum
-      local nZ = grid_options.znum + 2*zBnum
-
-      io.write('Soleil Flow Restart\n')
-      local s = '' .. tostring(nX)
-      s = s .. ' ' .. tostring(nY)
-      s = s .. ' ' .. tostring(nZ)
-      s = s .. ' ' .. tostring(timeStep)
-      s = s .. ' ' .. tostring(TimeIntegrator.simTime:get()) .. '\n'
-      io.write(s)
-
-     -- Close the restart file
-
-     io.close()
-
-     -- Write the restart CSV files for density, pressure, and velocity
-
-     grid.cells:Dump({'rho','pressure','velocity'},
-                     IO.outputFileNamePrefix .. "restart_" ..
-                       tostring(timeStep) .. ".hdf")
-  end
-
+function IO.WriteFlowRestart()
+  -- Check if it is time to output a flow restart file
+  M.IF(M.EQ(TimeIntegrator.timeStep:get() % TimeIntegrator.restartEveryTimeSteps, 0))
+    -- Write the restart files for density, pressure, and velocity
+    grid.cells:Dump({'rho','pressure','velocity'},
+                    IO.outputFileNamePrefix .. "restart_%d.hdf",
+                    TimeIntegrator.timeStep:get())
+  M.END()
 end
 
 -- put guards around the particle kernels in case inactive
 if particles_options.modeParticles then
 
-  function IO.WriteParticleRestart(timeStep)
-
+  function IO.WriteParticleRestart()
     -- Check if it is time to output a particle restart file
-    if (timeStep % TimeIntegrator.restartEveryTimeSteps == 0 and
-        IO.wrtRestart) then
-
-      -- Write the restart CSV files for density, pressure, and velocity
-
+    M.IF(M.EQ(TimeIntegrator.timeStep:get() % TimeIntegrator.restartEveryTimeSteps, 0))
+      -- Write the restart files for position, velocity, temperature and diameter
       particles:Dump({'position','velocity','temperature','diameter'},
-                     IO.outputFileNamePrefix .. 'restart_particle_' ..
-                       tostring(timeStep) .. '.hdf')
-
-    end
-
-  end
-
-  function IO.WriteParticleEvolution(timeStep)
-
-    if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-        IO.wrtParticleEvolution) then
-
-      -- Prepare the particle evolution file name
-
-      local particleEvolutionIndex  = IO.particleEvolutionIndex
-      local outputFileName = IO.outputFileNamePrefix .. "evolution_particle_" ..
-      tostring(particleEvolutionIndex) .. ".csv"
-
-      -- Check if file already exists
-
-      local fileDidNotExist = io.open(outputFileName,"r") == nil
-
-      -- Open file
-
-      local outputFile = io.open(outputFileName,"a")
-      io.output(outputFile)
-
-      -- CSV header
-
-      if fileDidNotExist then
-        io.write('"Time", "X", "Y", "Z", "X-Velocity", "Y-Velocity", "Z-Velocity", "Temperature", "Diameter"\n')
-      end
-
-      -- Check for the particle with 'index=particleIndex' and write its primitive variables
-
-      local pos  = particles.position:Dump({})
-      local vel  = particles.velocity:Dump({})
-      local temp = particles.temperature:Dump({})
-      local diam = particles.diameter:Dump({})
-
-      local s =        value_tostring(TimeIntegrator.simTime:get())  .. ''
-      s = s .. ', ' .. value_tostring_comma(pos[particleEvolutionIndex])  .. ''
-      s = s .. ', ' .. value_tostring_comma(vel[particleEvolutionIndex])  .. ''
-      s = s .. ', ' .. value_tostring(temp[particleEvolutionIndex]) .. ''
-      s = s .. ', ' .. value_tostring(diam[particleEvolutionIndex]) .. '\n'
-
-      io.write("", s)
-
-      -- Close the file
-
-      io.close()
-
-      --end
-    end
-
+                     IO.outputFileNamePrefix .. "restart_particle_%d.hdf",
+                     TimeIntegrator.timeStep:get())
+    M.END()
   end
 
 end
 
-
-function IO.WriteX0SliceVec (timeStep, field, filename)
-
-  if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-      IO.wrt1DSlice)
-  then
-    -- Open file
-    local outputFile = io.output(IO.outputFileNamePrefix .. filename)
-
-    -- CSV header
-    io.write('y, ' .. field .. '_1, ' .. field .. '_2, ' .. field .. '_3\n')
-
-    -- Check for the vertical center of the domain and write the x-vel
-    grid.cells:Dump({ 'centerCoordinates', field },
-    function(ids, cellCenter, field)
-      local s = ''
-      local x = cellCenter[1]
-      local y = cellCenter[2]
-      local z = cellCenter[3]
-      if    x < (gridOriginInteriorX
-                 --               + grid_options.xWidth/2.0
-                 -- Modification in order to avoid not finding cells
-                 -- when grid_options.xnum is a pair number.
-                 -- A tolerance of "x-gridSize/1000.0" is added.
-                 + grid_options.xWidth/2.0 + (grid_options.xWidth /
-                                              grid_options.xnum) / 1000.0
-                 + grid_options.xWidth / (2.0*grid_options.xnum))
-        and x > (gridOriginInteriorX
-                 + grid_options.xWidth/2.0
-                 - grid_options.xWidth / (2.0*grid_options.xnum))
-        and y < (gridOriginInteriorY + grid_options.yWidth)
-        and y > (gridOriginInteriorY)
-        and z < (gridOriginInteriorZ + grid_options.zWidth)
-        and z > (gridOriginInteriorZ)
-      then
-        s = tostring(y) .. ', ' .. tostring(field[1]) .. ', '
-                                .. tostring(field[2]) .. ', '
-                                .. tostring(field[3]) .. '\n'
-        io.write(s)
-      end
-    end)
-
-    -- Close the file
-    io.close()
-  end
-
-end
-
-function IO.WriteY0SliceVec (timeStep, field, filename)
-
-  if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-      IO.wrt1DSlice)
-  then
-
-    -- Open file
-    local outputFile = io.output(IO.outputFileNamePrefix .. filename)
-
-    -- CSV header
-    io.write('x, ' .. field .. '_1, ' .. field .. '_2, ' .. field .. '_3\n')
-
-    -- Check for the vertical center of the domain and write the x-vel
-    grid.cells:Dump({ 'centerCoordinates', field },
-    function(ids, cellCenter, field)
-      local s = ''
-      local x = cellCenter[1]
-      local y = cellCenter[2]
-      local z = cellCenter[3]
-      if    y < (gridOriginInteriorY
-                 --               + grid_options.yWidth/2.0
-                 -- Modification in order to avoid not finding cells
-                 -- when grid_options.ynum is a pair number.
-                 -- A tolerance of "y-gridSize/1000.0" is added.
-                 + grid_options.yWidth/2.0 + (grid_options.yWidth /
-                                              grid_options.ynum) / 1000.0
-                 + grid_options.yWidth / (2.0*grid_options.ynum))
-        and y > (gridOriginInteriorY
-                 + grid_options.yWidth/2.0
-                 - grid_options.yWidth / (2.0*grid_options.ynum))
-        and x < (gridOriginInteriorX + grid_options.xWidth)
-        and x > (gridOriginInteriorX)
-        and z < (gridOriginInteriorZ + grid_options.zWidth)
-        and z > (gridOriginInteriorZ)
-      then
-        s = tostring(x) .. ', ' .. tostring(field[1]) .. ', '
-                                .. tostring(field[2]) .. ', '
-                                .. tostring(field[3]) .. '\n'
-        io.write(s)
-      end
-    end)
-
-    -- Close the file
-    io.close()
-  end
-
-end
-
-function IO.WriteX0Slice (timeStep, field, filename)
-
-  if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-      IO.wrt1DSlice)
-  then
-    -- Open file
-    local outputFile = io.output(IO.outputFileNamePrefix .. filename)
-
-    -- CSV header
-    io.write('y, ' .. field .. '\n')
-
-    -- Check for the vertical center of the domain and write the x-vel
-    grid.cells:Dump({ 'centerCoordinates', field },
-    function(ids, cellCenter, field)
-      local s = ''
-      local x = cellCenter[1]
-      local y = cellCenter[2]
-      local z = cellCenter[3]
-      if    x < (gridOriginInteriorX
-                 --               + grid_options.xWidth/2.0
-                 -- Modification in order to avoid not finding cells
-                 -- when grid_options.xnum is a pair number.
-                 -- A tolerance of "x-gridSize/1000.0" is added.
-                 + grid_options.xWidth/2.0 + (grid_options.xWidth /
-                                              grid_options.xnum) / 1000.0
-                 + grid_options.xWidth / (2.0*grid_options.xnum))
-        and x > (gridOriginInteriorX
-                 + grid_options.xWidth/2.0
-                 - grid_options.xWidth / (2.0*grid_options.xnum))
-        and y < (gridOriginInteriorY + grid_options.yWidth)
-        and y > (gridOriginInteriorY)
-        and z < (gridOriginInteriorZ + grid_options.zWidth)
-        and z > (gridOriginInteriorZ)
-      then
-        s = tostring(y) .. ', ' .. tostring(field) .. '\n'
-        io.write(s)
-      end
-    end)
-
-    -- Close the file
-    io.close()
-  end
-
-end
-
-function IO.WriteY0Slice (timeStep, field, filename)
-
-  if (timeStep % TimeIntegrator.outputEveryTimeSteps == 0 and
-      IO.wrt1DSlice)
-  then
-      -- Open file
-      local outputFile = io.output(IO.outputFileNamePrefix .. filename)
-
-      -- CSV header
-      io.write('x, ' .. field .. '\n')
-
-    -- Check for the vertical center of the domain and write the x-vel
-    grid.cells:Dump({ 'centerCoordinates', field },
-    function(ids, cellCenter, field)
-      local s = ''
-      local x = cellCenter[1]
-      local y = cellCenter[2]
-      local z = cellCenter[3]
-      if    y < (gridOriginInteriorY
-                 --               + grid_options.yWidth/2.0
-                 -- Modification in order to avoid not finding cells
-                 -- when grid_options.ynum is a pair number.
-                 -- A tolerance of "y-gridSize/1000.0" is added.
-                 + grid_options.yWidth/2.0 + (grid_options.yWidth / grid_options.ynum) / 1000.0
-                 + grid_options.yWidth / (2.0*grid_options.ynum))
-        and y > (gridOriginInteriorY
-                 + grid_options.yWidth/2.0
-                 - grid_options.yWidth / (2.0*grid_options.ynum))
-        and x < (gridOriginInteriorX + grid_options.xWidth)
-        and x > (gridOriginInteriorX)
-        and z < (gridOriginInteriorZ + grid_options.zWidth)
-        and z > (gridOriginInteriorZ)
-      then
-        s = tostring(x) .. ', ' .. tostring(field) .. '\n'
-        io.write(s)
-      end
-    end)
-
-    -- Close the file
-    io.close()
-  end
-
-end
-
-function IO.WriteOutput(timeStep)
-
+function IO.WriteOutput()
   -- Write the console output to the screen
-
-  IO.WriteConsoleOutput(timeStep)
-
-  -- Write the flow restart files
-
-  IO.WriteFlowRestart(timeStep)
-
-  -- Write the particle restart files
-
-  if particles_options.modeParticles and particle_mode ~= 'ELASTIC' then
-    IO.WriteParticleRestart(timeStep)
+  IO.WriteConsoleOutput()
+  -- Write the restart files
+  if IO.wrtRestart then
+    -- Write the flow restart files
+    IO.WriteFlowRestart()
+    -- Write the particle restart files
+    if particles_options.modeParticles and particle_mode ~= 'ELASTIC' then
+      IO.WriteParticleRestart()
+    end
   end
-
-  -- Write center line profiles to CSV files
-
-  IO.WriteX0SliceVec (timeStep, 'velocity',    'velocity_x0.csv')
-  IO.WriteY0SliceVec (timeStep, 'velocity',    'velocity_y0.csv')
-  IO.WriteX0Slice (timeStep, 'temperature', 'temperature_x0.csv')
-  IO.WriteY0Slice (timeStep, 'temperature', 'temperature_y0.csv')
-
-  -- Write a file for the evolution in time of particle i
-
-  if particles_options.modeParticles and particle_mode ~= 'ELASTIC' then
-    IO.WriteParticleEvolution(timeStep)
-  end
-
 end
 
 
@@ -4307,10 +3937,10 @@ end
 TimeIntegrator.InitializeVariables()
 Flow.IntegrateGeometricQuantities(grid.cells)
 Statistics.ComputeSpatialAverages()
+IO.WriteOutput()
 
 -- Main iteration loop
 
-M.PRINT("    Iter     Time(s)   Avg Press    Avg Temp      Avg KE\n")
 M.WHILE(M.AND(M.LT(TimeIntegrator.simTime:get(), TimeIntegrator.final_time),
               M.LT(TimeIntegrator.timeStep:get(), TimeIntegrator.max_iter)),
         true)
@@ -4319,25 +3949,14 @@ M.WHILE(M.AND(M.LT(TimeIntegrator.simTime:get(), TimeIntegrator.final_time),
   if not regentlib.config['flow-spmd'] then
     M.IF(M.EQ(TimeIntegrator.timeStep:get() % config.consoleFrequency, 0))
       Statistics.ComputeSpatialAverages()
-      M.PRINT("%8d %11.6f %11.6f %11.6f %11.6f\n",
-              TimeIntegrator.timeStep:get(),
-              TimeIntegrator.simTime:get(),
-              Flow.averagePressure:get(),
-              Flow.averageTemperature:get(),
-              Flow.averageKineticEnergy:get())
+      IO.WriteOutput()
     M.END()
   end
 M.END()
 
 -- Final stats printing
 
-Statistics.ComputeSpatialAverages()
-M.PRINT("%8d %11.6f %11.6f %11.6f %11.6f\n",
-        TimeIntegrator.timeStep:get(),
-        TimeIntegrator.simTime:get(),
-        Flow.averagePressure:get(),
-        Flow.averageTemperature:get(),
-        Flow.averageKineticEnergy:get())
+IO.WriteConsoleOutput()
 
 print("")
 print("--------------------------- Exit Success ----------------------------")
