@@ -89,19 +89,11 @@ local PN = require 'ebb.lib.pathname'
 local function printUsageAndExit()
   print("Usage : liszt-legion.sh ~/path/to/soleil-x.t <options>")
   print("          -i <parameter file with Soleil-X options> (** required **)")
-  print("          -x <number of grid partitions in the x direction. (default: 1)>")
-  print("          -y <number of grid partitions in the y direction. (default: 1)>")
-  print("          -z <number of grid partitions in the z direction. (default: 1)>")
-  print("          -p <number of partitions for particles. (default: 1)>")
   os.exit(1)
 end
 
 -- default values for options
 local configFileName = nil
-local xParts = 1
-local yParts = 1
-local zParts = 1
-local pParts = 1
 
 do
   local i = 1
@@ -109,22 +101,6 @@ do
     if arg[i] == '-i' then
       if i == #arg then printUsageAndExit() end
       configFileName = arg[i+1]
-      i = i + 2
-    elseif arg[i] == '-x' then
-      if i == #arg then printUsageAndExit() end
-      xParts = tonumber(arg[i+1])
-      i = i + 2
-    elseif arg[i] == '-y' then
-      if i == #arg then printUsageAndExit() end
-      yParts = tonumber(arg[i+1])
-      i = i + 2
-    elseif arg[i] == '-z' then
-      if i == #arg then printUsageAndExit() end
-      zParts = tonumber(arg[i+1])
-      i = i + 2
-    elseif arg[i] == '-p' then
-      if i == #arg then printUsageAndExit() end
-      pParts = tonumber(arg[i+1])
       i = i + 2
     else
       i = i + 1
@@ -973,10 +949,6 @@ io.stdout:write(" Total grid cells (w/ halo): ",
                 string.format(" %d",(grid_options.xnum+2*grid:xBoundaryDepth())
                 *(grid_options.ynum+2*grid:yBoundaryDepth())
                 *(grid_options.znum+2*grid:zBoundaryDepth())), "\n")
-io.stdout:write(" Grid partitions in x, y, and z directions: ",
-                string.format(" %d",xParts), " x",
-                string.format(" %d",yParts), " x",
-                string.format(" %d",zParts), "\n")
 print("")
 print("----------------------- Boundary Conditions -------------------------")
 io.stdout:write(" X- : ", grid_options.xBCLeft, ", V = (",
@@ -1055,8 +1027,6 @@ print("")
 print("------------------------- Particle Options --------------------------")
 io.stdout:write(" Particle mode: ", config.modeParticles, "\n")
 if particles_options.modeParticles then
-  io.stdout:write(" Number of particle partitions: ",
-                  string.format(" %d",pParts), "\n")
   io.stdout:write(" Particle init. type: ", config.initParticles, "\n")
   if particles_options.initCase == Particles.Restart then
     io.stdout:write(" Restarting from iteration: ",
@@ -2629,29 +2599,6 @@ function Flow.IntegrateQuantities(cells)
   cells:foreach(averageKineticEnergy )
   cells:foreach(minTemperature       )
   cells:foreach(maxTemperature       )
-end
-
-
----------
--- Output
----------
-
-local function value_tostring(val)
-  if type(val) == 'table' then
-    local s = tostring(val[1])
-    for i=2,#val do s = s..' '..tostring(val[i]) end
-    return s
-  end
-  return tostring(val)
-end
-
-local function value_tostring_comma(val)
-  if type(val) == 'table' then
-    local s = tostring(val[1])
-    for i=2,#val do s = s..', '..tostring(val[i]) end
-    return s
-  end
-  return tostring(val)
 end
 
 
