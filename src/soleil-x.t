@@ -164,7 +164,6 @@ Particles.FeederOverTimeInRandomBox    = 1
 Particles.FeederUQCase                 = 2
 Particles.Random                       = 3
 Particles.Restart                      = 4
-Particles.Uniform                      = 5
 
 -- Particles collector
 Particles.CollectorNone     = 0
@@ -489,8 +488,6 @@ if config.initParticles == 'Random' then
   particles_options.initParticles = Particles.Random
 elseif config.initParticles == 'Restart' then
   particles_options.initParticles = Particles.Restart
-elseif config.initParticles == 'Uniform' then
-  particles_options.initParticles = Particles.Uniform
 else
   error("Particle initialization type not defined")
 end
@@ -763,15 +760,7 @@ if particles_options.modeParticles then
   local PARTICLE_LEN_X = grid_options.xnum - (xBCPeriodic and 0 or 1)
   local PARTICLE_LEN_Y = grid_options.ynum - (yBCPeriodic and 0 or 1)
   local PARTICLE_LEN_Z = grid_options.znum - (zBCPeriodic and 0 or 1)
-  particles:NewField('cell', grid.cells):Fill(function(i)
-      local xid = math.floor(i%PARTICLE_LEN_X)
-      local yid = math.floor(i/PARTICLE_LEN_X)%(PARTICLE_LEN_Y)
-      local zid = math.floor(i/(PARTICLE_LEN_X*PARTICLE_LEN_Y))
-      if not xBCPeriodic then xid = xid+1 end
-      if not yBCPeriodic then yid = yid+1 end
-      if not zBCPeriodic then zid = zid+1 end
-      return {xid,yid,zid}
-      end)
+  particles:NewField('cell', grid.cells)                        :Fill({0, 0, 0})
   particles:NewField('position', L.vec3d)                       :Fill({0, 0, 0})
   particles:NewField('velocity', L.vec3d)                       :Fill({0, 0, 0})
   particles:NewField('density', L.double)                       :Fill(0)
@@ -2553,7 +2542,8 @@ if particles_options.modeParticles then
 
   -- Locate particles in cells
   function Particles.Locate()
-    grid.locate_in_cells(particles, 'position', 'cell')
+    -- TODO: Re-enable this once we can handle the LetBlock in locate macro
+    -- grid.locate_in_cells(particles, 'position', 'cell')
   end
 
   -- Initialize temporaries for time stepper
@@ -3563,12 +3553,6 @@ end
 
 if particles_options.modeParticles then
 
-  ebb Particles.InitializePositionCurrentCell (p : particles)
-      -- init particle position from cell (plus a tiny offset to
-      -- help the interpolation verification checks
-      p.position = p.cell.center + {1e-10,1e-10,1e-10}
-  end
-
   ebb Particles.InitializePositionRandom (p : particles)
 
     -- Particles randomly distributed within the complete domain
@@ -3596,20 +3580,10 @@ if particles_options.modeParticles then
 
   function Particles.InitializePrimitives()
 
-    -- Upon entering this routine, all active particles are unitialized,
-    -- except that they begin uniformly distributed in the cells by default.
-    -- However, the positions still need to be set. We will call the locate
-    -- kernels again after this initialization function.
+    -- Upon entering this routine, all active particles are unitialized. We
+    -- will call the locate kernels again after this initialization function.
 
-    if particles_options.initParticles == Particles.Uniform then
-      particles:foreach(Particles.InitializePositionCurrentCell)
-      particles.temperature:Fill(particles_options.initialTemperature)
-      particles.density:Fill(particles_options.density)
-      particles.diameter:Fill(particles_options.diameter_mean)
-      Particles.Locate()
-      particles:foreach(Particles.SetVelocitiesToFlow)
-
-    elseif particles_options.initParticles == Particles.Random then
+    if particles_options.initParticles == Particles.Random then
       particles:foreach(Particles.InitializePositionRandom)
       particles.density:Fill(particles_options.density)
       particles.temperature:Fill(particles_options.initialTemperature)
