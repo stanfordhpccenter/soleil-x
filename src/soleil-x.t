@@ -871,6 +871,7 @@ Flow.averageKineticEnergy    = L.Global('Flow.averageKineticEnergy', L.double, 0
 Flow.minTemperature          = L.Global('Flow.minTemperature', L.double, 0.0)
 Flow.maxTemperature          = L.Global('Flow.maxTemperature', L.double, 0.0)
 Particles.averageTemperature = L.Global('Particles.averageTemperature', L.double, 0.0)
+Particles.numParticles       = L.Global('Particles.numParticles', L.double, particles_options.num)
 
 -- Right hand side of the kinetic energy equation
 grid.cells:NewField('PD', L.double)                             :Fill(0.0)
@@ -3006,9 +3007,10 @@ if particles_options.modeParticles then
   -- Particles feeder
   function Particles.Feed()
 
-    if particles:Size() < particles_options.maximum_num then
-    grid.cells:foreach(Flow.InsertParticle)
-    end
+    M.IF(M.LT(Particles.numParticles:get(), particles_options.maximum_num))
+      grid.cells:foreach(Flow.InsertParticle)
+      -- TODO: Also update Particles.numParticles global.
+    M.END()
 
   end
 
@@ -3043,6 +3045,7 @@ if particles_options.modeParticles then
   function Particles.Collect()
 
     particles:foreach(Particles.DeleteParticle)
+    -- TODO: Also update Particles.numParticles global.
 
   end
 
@@ -3901,7 +3904,7 @@ function Statistics.UpdateSpatialAverages(grid, particles)
     if particles_options.modeParticles then
       Particles.averageTemperature:set(
         Particles.averageTemperature:get()/
-        particles:Size())
+        Particles.numParticles:get())
     end
 
 end
