@@ -82,6 +82,7 @@ C.srand(C.time(nil));
 -- convenience functions for manipulating filesystem paths.
 local PN = require 'ebb.lib.pathname'
 
+
 -----------------------------------------------------------------------------
 --[[                       COMMAND LINE OPTIONS                          ]]--
 -----------------------------------------------------------------------------
@@ -120,12 +121,14 @@ local config = loadfile(configFileName)()
 
 local outputdir = PN.pwd_str()
 
+
 -----------------------------------------------------------------------------
 --[[                            CONSTANT VARIABLES                       ]]--
 -----------------------------------------------------------------------------
 
 local pi = 2.0*L.acos(0)
 local twoPi = 2.0*pi
+
 
 -----------------------------------------------------------------------------
 --[[                            NAMESPACES                               ]]--
@@ -137,6 +140,7 @@ local Particles = {};
 local TimeIntegrator = {};
 local Statistics = {};
 local IO = {};
+
 
 -----------------------------------------------------------------------------
 --[[      Global variables used for specialization within functions      ]]--
@@ -173,6 +177,7 @@ Particles.Free  = 1
 -- Particle Boundary
 Particles.Permeable = 0
 Particles.Solid     = 1
+
 
 -----------------------------------------------------------------------------
 --[[                   INITIALIZE OPTIONS FROM CONFIG                    ]]--
@@ -444,7 +449,6 @@ end
 flow_options.initParams     = L.Constant(L.vector(L.double,5), config.initParams)
 flow_options.bodyForce      = L.Constant(L.vec3d, config.bodyForce)
 flow_options.turbForceCoeff = L.Constant(L.double, config.turbForceCoeff)
-
 if config.turbForcing == 'OFF' then
   flow_options.turbForcing = false
 elseif config.turbForcing == 'ON' then
@@ -463,10 +467,8 @@ local particles_options = {
     deletion_mode = L.Constant(L.vector(L.int,6), config.deletion_mode),
 
     -- Particle characteristics
-    restitution_coefficient = L.Constant(L.double,
-                                          config.restitutionCoefficient),
-    convective_coefficient = L.Constant(L.double,
-                                         config.convectiveCoefficient),
+    restitution_coefficient = L.Constant(L.double, config.restitutionCoefficient),
+    convective_coefficient = L.Constant(L.double, config.convectiveCoefficient),
     heat_capacity = L.Constant(L.double, config.heatCapacity),
     initialTemperature = config.initialTemperature,
     density = config.density,
@@ -519,9 +521,9 @@ end
 radiation_options.radiationIntensity = config.radiationIntensity
 if config.zeroAvgHeatSource == 'ON' then
   radiation_options.zeroAvgHeatSource = true
-  elseif config.zeroAvgHeatSource == 'OFF' then
+elseif config.zeroAvgHeatSource == 'OFF' then
   radiation_options.zeroAvgHeatSource = false
-  else
+else
   error("Fixing average flow temp (fixAvgFlowTemp) not defined (ON or OFF)")
 end
 
@@ -780,7 +782,6 @@ grid.cells:NewField('rhoVelocityFluxZ', L.vec3d)              :Fill({0, 0, 0})
 grid.cells:NewField('rhoEnergyFluxZ', L.double)               :Fill(0)
 
 
-
 -----------------------------------------------------------------------------
 --[[                       PARTICLE PREPROCESSING                        ]]--
 -----------------------------------------------------------------------------
@@ -830,13 +831,11 @@ if particles_options.modeParticles then
       if not zBCPeriodic then zid = zid+1 end
       return {xid,yid,zid}
       end)
-  particles:NewField('dual_cell', grid.dual_cells)              :Fill({0, 0, 0})
-  particles:NewField('position',    L.vec3d)                    :Fill({0, 0, 0})
-  particles:NewField('velocity',    L.vec3d)                    :Fill({0, 0, 0})
+  particles:NewField('position', L.vec3d)                       :Fill({0, 0, 0})
+  particles:NewField('velocity', L.vec3d)                       :Fill({0, 0, 0})
   particles:NewField('density', L.double)                       :Fill(0)
   particles:NewField('temperature', L.double)                   :Fill(0)
-  particles:NewField('diameter',    L.double)                   :Fill(0)
-
+  particles:NewField('diameter', L.double)                      :Fill(0)
   particles:NewField('position_ghost', L.vec3d)                 :Fill({0, 0, 0})
   particles:NewField('velocity_ghost', L.vec3d)                 :Fill({0, 0, 0})
   particles:NewField('velocity_t_ghost', L.vec3d)               :Fill({0, 0, 0})
@@ -873,7 +872,6 @@ Flow.minTemperature          = L.Global('Flow.minTemperature', L.double, 0.0)
 Flow.maxTemperature          = L.Global('Flow.maxTemperature', L.double, 0.0)
 Particles.averageTemperature = L.Global('Particles.averageTemperature', L.double, 0.0)
 
-
 -- Right hand side of the kinetic energy equation
 grid.cells:NewField('PD', L.double)                             :Fill(0.0)
 grid.cells:NewField('dissipation', L.double)                    :Fill(0.0)
@@ -883,6 +881,7 @@ Flow.averagePD          = L.Global('Flow.averagePD', L.double, 0.0)
 Flow.averageDissipation = L.Global('Flow.averageDissipation', L.double, 0.0)
 Flow.averageFe          = L.Global('Flow.averageFe', L.double, 0.0)
 Flow.averageK           = L.Global('Flow.averageK', L.double, 0.0)
+
 
 -----------------------------------------------------------------------------
 --[[                 CONSOLE OUTPUT AFTER PREPROCESSING                  ]]--
@@ -1196,6 +1195,7 @@ function Flow.IntegrateGeometricQuantities(cells)
   cells:foreach(numberOfInteriorCells)
   cells:foreach(areaInterior         )
 end
+
 
 -----------------------------------------------------------------------------
 --[[                              EBB MACROS                             ]]--
@@ -1640,6 +1640,7 @@ ebb InterpolateTriTemperature (c, xyz)
 
 end
 
+
 -----------------------------------------------------------------------------
 --[[                            EBB FUNCTIONS                            ]]--
 -----------------------------------------------------------------------------
@@ -1789,7 +1790,7 @@ end
 ---------------------
 
 if particles_options.modeParticles then
-ebb Flow.AddParticlesCoupling (p : particles)
+  ebb Flow.AddParticlesCoupling (p : particles)
 
     -- WARNING: Assumes that deltaVelocityOverRelaxationTime and
     -- deltaTemperatureTerm have been computed previously, and that
@@ -1812,20 +1813,21 @@ ebb Flow.AddParticlesCoupling (p : particles)
       Flow.averageHeatSource += p.deltaTemperatureTerm / cellVolume
     end
 
+  end
 end
-end
+
 --------------
 -- Holding avg. temperature fixed in the presence of radiation
 --------------
 
 if radiation_options.zeroAvgHeatSource then
-ebb Flow.AdjustHeatSource (c : grid.cells)
+  ebb Flow.AdjustHeatSource (c : grid.cells)
 
     -- Remove a constant heat flux in all cells to balance with radiation.
     -- Note that this has been pre-computed before reaching this kernel (above).
     c.rhoEnergy_t += Flow.averageHeatSource
 
-end
+  end
 end
 
 --------------
@@ -1867,10 +1869,10 @@ ebb Flow.ComputeDissipationX (c : grid.cells)
         var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
                             GetDynamicViscosity(c(1,0,0).temperature))
         var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
-        var velocityX_YFace = L.double(0)
-        var velocityX_ZFace = L.double(0)
-        var velocityY_YFace = L.double(0)
-        var velocityZ_ZFace = L.double(0)
+        var velocityX_YFace = L.double(0.0)
+        var velocityX_ZFace = L.double(0.0)
+        var velocityY_YFace = L.double(0.0)
+        var velocityZ_ZFace = L.double(0.0)
 
         -- Interpolate velocity and derivatives to face
         velocityFace = 0.5 * ( c.velocity + c(1,0,0).velocity )
@@ -1923,10 +1925,10 @@ ebb Flow.ComputeDissipationY (c : grid.cells)
         var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
                             GetDynamicViscosity(c(0,1,0).temperature))
         var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
-        var velocityY_XFace = L.double(0)
-        var velocityY_ZFace = L.double(0)
-        var velocityX_XFace = L.double(0)
-        var velocityZ_ZFace = L.double(0)
+        var velocityY_XFace = L.double(0.0)
+        var velocityY_ZFace = L.double(0.0)
+        var velocityX_XFace = L.double(0.0)
+        var velocityZ_ZFace = L.double(0.0)
 
         -- Interpolate velocity and derivatives to face
         velocityFace = 0.5 * ( c.velocity + c(0,1,0).velocity )
@@ -2563,7 +2565,6 @@ function Flow.CalculateSpectralRadii(cells)
   cells:foreach(calculateHeatConductionSpectralRadius)
 end
 
-
 -------------
 -- Statistics
 -------------
@@ -2613,7 +2614,6 @@ if particles_options.modeParticles then
   -- Locate particles in cells
   function Particles.Locate()
     grid.locate_in_cells(particles, 'position', 'cell')
-    --grid.locate_in_duals(particles, 'position', 'dual_cell')
   end
 
   -- Initialize temporaries for time stepper
@@ -2632,8 +2632,8 @@ if particles_options.modeParticles then
 
   -- Initialize time derivative for each stage of time stepper
   ebb Particles.InitializeTimeDerivatives (p : particles)
-      p.position_t = L.vec3d({0, 0, 0})
-      p.velocity_t = L.vec3d({0, 0, 0})
+      p.position_t = L.vec3d({0.0, 0.0, 0.0})
+      p.velocity_t = L.vec3d({0.0, 0.0, 0.0})
       p.temperature_t = L.double(0)
   end
 
@@ -2643,7 +2643,7 @@ if particles_options.modeParticles then
       -- WARNING: assumes we have already located particles
 
       var flowDensity     = L.double(0)
-      var flowVelocity    = L.vec3d({0, 0, 0})
+      var flowVelocity    = L.vec3d({0.0, 0.0, 0.0})
       var flowTemperature = L.double(0)
       var flowDynamicViscosity = L.double(0)
 
@@ -2656,7 +2656,7 @@ if particles_options.modeParticles then
       -- Update the particle position using the current velocity
       if particles_options.particleType == Particles.Fixed then
         -- Don't move the particle
-        elseif particles_options.particleType == Particles.Free then
+      elseif particles_options.particleType == Particles.Free then
         p.position_t    += p.velocity
       end
 
@@ -2714,7 +2714,7 @@ if particles_options.modeParticles then
       -- WARNING: assumes we have called dual locate previously
 
       var flowDensity     = L.double(0)
-      var flowVelocity    = L.vec3d({0, 0, 0})
+      var flowVelocity    = L.vec3d({0.0, 0.0, 0.0})
       var flowTemperature = L.double(0)
       var flowDynamicViscosity = L.double(0)
 
@@ -3347,10 +3347,10 @@ ebb Flow.AddGetFlux (c : grid.cells)
     var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
                         GetDynamicViscosity(c(1,0,0).temperature))
     var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
-    var velocityX_YFace = L.double(0)
-    var velocityX_ZFace = L.double(0)
-    var velocityY_YFace = L.double(0)
-    var velocityZ_ZFace = L.double(0)
+    var velocityX_YFace = L.double(0.0)
+    var velocityX_ZFace = L.double(0.0)
+    var velocityY_YFace = L.double(0.0)
+    var velocityZ_ZFace = L.double(0.0)
 
     -- Interpolate velocity and derivatives to face
     velocityFace = 0.5 * ( c.velocity + c(1,0,0).velocity )
@@ -3423,10 +3423,10 @@ ebb Flow.AddGetFlux (c : grid.cells)
     var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
                         GetDynamicViscosity(c(0,1,0).temperature))
     var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
-    var velocityY_XFace = L.double(0)
-    var velocityY_ZFace = L.double(0)
-    var velocityX_XFace = L.double(0)
-    var velocityZ_ZFace = L.double(0)
+    var velocityY_XFace = L.double(0.0)
+    var velocityY_ZFace = L.double(0.0)
+    var velocityX_XFace = L.double(0.0)
+    var velocityZ_ZFace = L.double(0.0)
 
     -- Interpolate velocity and derivatives to face
     velocityFace = 0.5 * ( c.velocity + c(0,1,0).velocity )
@@ -3612,6 +3612,7 @@ function Flow.UpdateAuxiliary()
     Flow.UpdateGhostThermodynamics()
 end
 
+
 ------------
 -- PARTICLES
 ------------
@@ -3690,6 +3691,7 @@ if particles_options.modeParticles then
   end
 
 end
+
 
 ------------------
 -- TIME INTEGRATOR
@@ -3775,8 +3777,8 @@ function TimeIntegrator.ComputeDFunctionDt()
     -- Compute residuals for the particles (locate all particles first)
     if particles_options.modeParticles then
 
-        Particles.Locate()
-        particles:foreach(Particles.AddFlowCoupling)
+      Particles.Locate()
+      particles:foreach(Particles.AddFlowCoupling)
 
       if particles_options.particleType == Particles.Free then
           particles:foreach(Particles.AddBodyForces)
@@ -3867,6 +3869,7 @@ function TimeIntegrator.CalculateDeltaTime()
 
 end
 
+
 -------------
 -- STATISTICS
 -------------
@@ -3911,6 +3914,7 @@ function Statistics.ComputeSpatialAverages()
     end
     Statistics.UpdateSpatialAverages(grid, particles)
 end
+
 
 -----
 -- IO
@@ -4289,6 +4293,7 @@ function IO.WriteOutput(timeStep)
   end
 
 end
+
 
 -----------------------------------------------------------------------------
 --[[                            MAIN EXECUTION                           ]]--
