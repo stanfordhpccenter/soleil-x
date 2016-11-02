@@ -46,7 +46,7 @@ return {
   cfl                   = 2.0,
   
   --- File Output Options --
-  wrtRestart = 'ON',
+  wrtRestart = 'OFF',
   wrtVolumeSolution = 'ON',
   wrt1DSlice = 'ON',
   wrtParticleEvolution = 'OFF',
