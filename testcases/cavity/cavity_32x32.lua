@@ -73,7 +73,7 @@ return {
   modeParticles = 'ON',
   initParticles = 'Random', -- 'Random' or 'Restart'
   restartParticleIter = 0,
-  particleType = 'Free', -- Fixed or Free
+  particleType = 'Fixed', -- Fixed or Free
   twoWayCoupling = 'OFF',
   num = 100.0,
   maximum_num = 1000.0, -- upper bound on particles with insertion
