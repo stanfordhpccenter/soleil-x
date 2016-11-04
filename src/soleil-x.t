@@ -1185,390 +1185,524 @@ ebb TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c01
     return weight0 * oneMinusdZ + weight1 * dZ
 end
 
-ebb InterpolateTriRho (c, xyz)
+--ebb InterpolateTriRho (c, xyz)
+--
+--  var rho = L.double(0.0)
+--
+--  if xyz[0] < c.centerCoordinates[0] and
+--     xyz[1] < c.centerCoordinates[1] and
+--     xyz[2] < c.centerCoordinates[2] then
+--
+--    var c000 = c(-1, -1, -1)
+--    var c100 = c( 0, -1, -1)
+--    var c010 = c(-1,  0, -1)
+--    var c110 = c( 0,  0, -1)
+--    var c001 = c(-1, -1,  0)
+--    var c101 = c( 0, -1,  0)
+--    var c011 = c(-1,  0,  0)
+--    var c111 = c( 0,  0,  0)
+--
+--    rho =  TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  elseif xyz[0] > c.centerCoordinates[0] and
+--         xyz[1] < c.centerCoordinates[1] and
+--         xyz[2] < c.centerCoordinates[2] then
+--
+--    var c000 = c( 0, -1, -1)
+--    var c100 = c( 1, -1, -1)
+--    var c010 = c( 0,  0, -1)
+--    var c110 = c( 1,  0, -1)
+--    var c001 = c( 0, -1,  0)
+--    var c101 = c( 1, -1,  0)
+--    var c011 = c( 0,  0,  0)
+--    var c111 = c( 1,  0,  0)
+--
+--    rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  elseif xyz[0] > c.centerCoordinates[0] and
+--         xyz[1] > c.centerCoordinates[1] and
+--         xyz[2] < c.centerCoordinates[2] then
+--
+--    var c000 = c( 0,  0, -1)
+--    var c100 = c( 1,  0, -1)
+--    var c010 = c( 0,  1, -1)
+--    var c110 = c( 1,  1, -1)
+--    var c001 = c( 0,  0,  0)
+--    var c101 = c( 1,  0,  0)
+--    var c011 = c( 0,  1,  0)
+--    var c111 = c( 1,  1,  0)
+--
+--    rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  elseif xyz[0] > c.centerCoordinates[0] and
+--         xyz[1] > c.centerCoordinates[1] and
+--         xyz[2] > c.centerCoordinates[2] then
+--
+--    var c000 = c( 0,  0,  0)
+--    var c100 = c( 1,  0,  0)
+--    var c010 = c( 0,  1,  0)
+--    var c110 = c( 1,  1,  0)
+--    var c001 = c( 0,  0,  1)
+--    var c101 = c( 1,  0,  1)
+--    var c011 = c( 0,  1,  1)
+--    var c111 = c( 1,  1,  1)
+--
+--    rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  elseif xyz[0] < c.centerCoordinates[0] and
+--         xyz[1] > c.centerCoordinates[1] and
+--         xyz[2] > c.centerCoordinates[2] then
+--
+--    var c000 = c(-1,  0,  0)
+--    var c100 = c( 0,  0,  0)
+--    var c010 = c(-1,  1,  0)
+--    var c110 = c( 0,  1,  0)
+--    var c001 = c(-1,  0,  1)
+--    var c101 = c( 0,  0,  1)
+--    var c011 = c(-1,  1,  1)
+--    var c111 = c( 0,  1,  1)
+--
+--    rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  elseif xyz[0] < c.centerCoordinates[0] and
+--         xyz[1] < c.centerCoordinates[1] and
+--         xyz[2] > c.centerCoordinates[2] then
+--
+--    var c000 = c(-1, -1,  0)
+--    var c100 = c( 0, -1,  0)
+--    var c010 = c(-1,  0,  0)
+--    var c110 = c( 0,  0,  0)
+--    var c001 = c(-1, -1,  1)
+--    var c101 = c( 0, -1,  1)
+--    var c011 = c(-1,  0,  1)
+--    var c111 = c( 0,  0,  1)
+--
+--    rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  elseif xyz[0] > c.centerCoordinates[0] and
+--         xyz[1] < c.centerCoordinates[1] and
+--         xyz[2] > c.centerCoordinates[2] then
+--
+--    var c000 = c( 0, -1,  0)
+--    var c100 = c( 1, -1,  0)
+--    var c010 = c( 0,  0,  0)
+--    var c110 = c( 1,  0,  0)
+--    var c001 = c( 0, -1,  1)
+--    var c101 = c( 1, -1,  1)
+--    var c011 = c( 0,  0,  1)
+--    var c111 = c( 1,  0,  1)
+--
+--    rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  else
+--
+--    var c000 = c(-1,  0, -1)
+--    var c100 = c( 0,  0, -1)
+--    var c010 = c(-1,  1, -1)
+--    var c110 = c( 0,  1, -1)
+--    var c001 = c(-1,  0,  0)
+--    var c101 = c( 0,  0,  0)
+--    var c011 = c(-1,  1,  0)
+--    var c111 = c( 0,  1,  0)
+--
+--    rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  end
+--
+--  return rho
+--
+--end
+--
+--ebb InterpolateTriVelocity (c, xyz)
+--
+--  var velocity = L.vec3d({0.0,0.0,0.0})
+--
+--  if xyz[0] < c.centerCoordinates[0] and
+--     xyz[1] < c.centerCoordinates[1] and
+--     xyz[2] < c.centerCoordinates[2] then
+--
+--    var c000 = c(-1, -1, -1)
+--    var c100 = c( 0, -1, -1)
+--    var c010 = c(-1,  0, -1)
+--    var c110 = c( 0,  0, -1)
+--    var c001 = c(-1, -1,  0)
+--    var c101 = c( 0, -1,  0)
+--    var c011 = c(-1,  0,  0)
+--    var c111 = c( 0,  0,  0)
+--
+--    velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  elseif xyz[0] > c.centerCoordinates[0] and
+--         xyz[1] < c.centerCoordinates[1] and
+--         xyz[2] < c.centerCoordinates[2] then
+--
+--    var c000 = c( 0, -1, -1)
+--    var c100 = c( 1, -1, -1)
+--    var c010 = c( 0,  0, -1)
+--    var c110 = c( 1,  0, -1)
+--    var c001 = c( 0, -1,  0)
+--    var c101 = c( 1, -1,  0)
+--    var c011 = c( 0,  0,  0)
+--    var c111 = c( 1,  0,  0)
+--
+--    velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  elseif xyz[0] > c.centerCoordinates[0] and
+--         xyz[1] > c.centerCoordinates[1] and
+--         xyz[2] < c.centerCoordinates[2] then
+--
+--    var c000 = c( 0,  0, -1)
+--    var c100 = c( 1,  0, -1)
+--    var c010 = c( 0,  1, -1)
+--    var c110 = c( 1,  1, -1)
+--    var c001 = c( 0,  0,  0)
+--    var c101 = c( 1,  0,  0)
+--    var c011 = c( 0,  1,  0)
+--    var c111 = c( 1,  1,  0)
+--
+--    velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  elseif xyz[0] > c.centerCoordinates[0] and
+--         xyz[1] > c.centerCoordinates[1] and
+--         xyz[2] > c.centerCoordinates[2] then
+--
+--    var c000 = c( 0,  0,  0)
+--    var c100 = c( 1,  0,  0)
+--    var c010 = c( 0,  1,  0)
+--    var c110 = c( 1,  1,  0)
+--    var c001 = c( 0,  0,  1)
+--    var c101 = c( 1,  0,  1)
+--    var c011 = c( 0,  1,  1)
+--    var c111 = c( 1,  1,  1)
+--
+--    velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  elseif xyz[0] < c.centerCoordinates[0] and
+--         xyz[1] > c.centerCoordinates[1] and
+--         xyz[2] > c.centerCoordinates[2] then
+--
+--    var c000 = c(-1,  0,  0)
+--    var c100 = c( 0,  0,  0)
+--    var c010 = c(-1,  1,  0)
+--    var c110 = c( 0,  1,  0)
+--    var c001 = c(-1,  0,  1)
+--    var c101 = c( 0,  0,  1)
+--    var c011 = c(-1,  1,  1)
+--    var c111 = c( 0,  1,  1)
+--
+--    velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  elseif xyz[0] < c.centerCoordinates[0] and
+--         xyz[1] < c.centerCoordinates[1] and
+--         xyz[2] > c.centerCoordinates[2] then
+--
+--    var c000 = c(-1, -1,  0)
+--    var c100 = c( 0, -1,  0)
+--    var c010 = c(-1,  0,  0)
+--    var c110 = c( 0,  0,  0)
+--    var c001 = c(-1, -1,  1)
+--    var c101 = c( 0, -1,  1)
+--    var c011 = c(-1,  0,  1)
+--    var c111 = c( 0,  0,  1)
+--
+--    velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  elseif xyz[0] > c.centerCoordinates[0] and
+--         xyz[1] < c.centerCoordinates[1] and
+--         xyz[2] > c.centerCoordinates[2] then
+--
+--    var c000 = c( 0, -1,  0)
+--    var c100 = c( 1, -1,  0)
+--    var c010 = c( 0,  0,  0)
+--    var c110 = c( 1,  0,  0)
+--    var c001 = c( 0, -1,  1)
+--    var c101 = c( 1, -1,  1)
+--    var c011 = c( 0,  0,  1)
+--    var c111 = c( 1,  0,  1)
+--
+--    velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  else
+--
+--    var c000 = c(-1,  0, -1)
+--    var c100 = c( 0,  0, -1)
+--    var c010 = c(-1,  1, -1)
+--    var c110 = c( 0,  1, -1)
+--    var c001 = c(-1,  0,  0)
+--    var c101 = c( 0,  0,  0)
+--    var c011 = c(-1,  1,  0)
+--    var c111 = c( 0,  1,  0)
+--
+--    velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  end
+--
+--  return velocity
+--
+--end
+--
+--ebb InterpolateTriTemperature (c, xyz)
+--
+--  var temp = L.double(0.0)
+--
+--  if xyz[0] < c.centerCoordinates[0] and
+--     xyz[1] < c.centerCoordinates[1] and
+--     xyz[2] < c.centerCoordinates[2] then
+--
+--    var c000 = c(-1, -1, -1)
+--    var c100 = c( 0, -1, -1)
+--    var c010 = c(-1,  0, -1)
+--    var c110 = c( 0,  0, -1)
+--    var c001 = c(-1, -1,  0)
+--    var c101 = c( 0, -1,  0)
+--    var c011 = c(-1,  0,  0)
+--    var c111 = c( 0,  0,  0)
+--
+--    temp = TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  elseif xyz[0] > c.centerCoordinates[0] and
+--         xyz[1] < c.centerCoordinates[1] and
+--         xyz[2] < c.centerCoordinates[2] then
+--
+--    var c000 = c( 0, -1, -1)
+--    var c100 = c( 1, -1, -1)
+--    var c010 = c( 0,  0, -1)
+--    var c110 = c( 1,  0, -1)
+--    var c001 = c( 0, -1,  0)
+--    var c101 = c( 1, -1,  0)
+--    var c011 = c( 0,  0,  0)
+--    var c111 = c( 1,  0,  0)
+--
+--    temp =  TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  elseif xyz[0] > c.centerCoordinates[0] and
+--         xyz[1] > c.centerCoordinates[1] and
+--         xyz[2] < c.centerCoordinates[2] then
+--
+--    var c000 = c( 0,  0, -1)
+--    var c100 = c( 1,  0, -1)
+--    var c010 = c( 0,  1, -1)
+--    var c110 = c( 1,  1, -1)
+--    var c001 = c( 0,  0,  0)
+--    var c101 = c( 1,  0,  0)
+--    var c011 = c( 0,  1,  0)
+--    var c111 = c( 1,  1,  0)
+--
+--    temp =  TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  elseif xyz[0] > c.centerCoordinates[0] and
+--         xyz[1] > c.centerCoordinates[1] and
+--         xyz[2] > c.centerCoordinates[2] then
+--
+--    var c000 = c( 0,  0,  0)
+--    var c100 = c( 1,  0,  0)
+--    var c010 = c( 0,  1,  0)
+--    var c110 = c( 1,  1,  0)
+--    var c001 = c( 0,  0,  1)
+--    var c101 = c( 1,  0,  1)
+--    var c011 = c( 0,  1,  1)
+--    var c111 = c( 1,  1,  1)
+--
+--    temp = TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  elseif xyz[0] < c.centerCoordinates[0] and
+--         xyz[1] > c.centerCoordinates[1] and
+--         xyz[2] > c.centerCoordinates[2] then
+--
+--    var c000 = c(-1,  0,  0)
+--    var c100 = c( 0,  0,  0)
+--    var c010 = c(-1,  1,  0)
+--    var c110 = c( 0,  1,  0)
+--    var c001 = c(-1,  0,  1)
+--    var c101 = c( 0,  0,  1)
+--    var c011 = c(-1,  1,  1)
+--    var c111 = c( 0,  1,  1)
+--
+--    temp = TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  elseif xyz[0] < c.centerCoordinates[0] and
+--         xyz[1] < c.centerCoordinates[1] and
+--         xyz[2] > c.centerCoordinates[2] then
+--
+--    var c000 = c(-1, -1,  0)
+--    var c100 = c( 0, -1,  0)
+--    var c010 = c(-1,  0,  0)
+--    var c110 = c( 0,  0,  0)
+--    var c001 = c(-1, -1,  1)
+--    var c101 = c( 0, -1,  1)
+--    var c011 = c(-1,  0,  1)
+--    var c111 = c( 0,  0,  1)
+--
+--    temp =  TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  elseif xyz[0] > c.centerCoordinates[0] and
+--         xyz[1] < c.centerCoordinates[1] and
+--         xyz[2] > c.centerCoordinates[2] then
+--
+--    var c000 = c( 0, -1,  0)
+--    var c100 = c( 1, -1,  0)
+--    var c010 = c( 0,  0,  0)
+--    var c110 = c( 1,  0,  0)
+--    var c001 = c( 0, -1,  1)
+--    var c101 = c( 1, -1,  1)
+--    var c011 = c( 0,  0,  1)
+--    var c111 = c( 1,  0,  1)
+--
+--    temp = TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  else
+--
+--    var c000 = c(-1,  0, -1)
+--    var c100 = c( 0,  0, -1)
+--    var c010 = c(-1,  1, -1)
+--    var c110 = c( 0,  1, -1)
+--    var c001 = c(-1,  0,  0)
+--    var c101 = c( 0,  0,  0)
+--    var c011 = c(-1,  1,  0)
+--    var c111 = c( 0,  1,  0)
+--
+--    temp = TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+--
+--  end
+--
+--  return temp
+--
+--end
+
+ebb InterpolateTriAll (c, xyz)
 
   var rho = L.double(0.0)
-
-  if xyz[0] < c.centerCoordinates[0] and
-     xyz[1] < c.centerCoordinates[1] and
-     xyz[2] < c.centerCoordinates[2] then
-
-    var c000 = c(-1, -1, -1)
-    var c100 = c( 0, -1, -1)
-    var c010 = c(-1,  0, -1)
-    var c110 = c( 0,  0, -1)
-    var c001 = c(-1, -1,  0)
-    var c101 = c( 0, -1,  0)
-    var c011 = c(-1,  0,  0)
-    var c111 = c( 0,  0,  0)
-
-    rho =  TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-
-  elseif xyz[0] > c.centerCoordinates[0] and
-         xyz[1] < c.centerCoordinates[1] and
-         xyz[2] < c.centerCoordinates[2] then
-
-    var c000 = c( 0, -1, -1)
-    var c100 = c( 1, -1, -1)
-    var c010 = c( 0,  0, -1)
-    var c110 = c( 1,  0, -1)
-    var c001 = c( 0, -1,  0)
-    var c101 = c( 1, -1,  0)
-    var c011 = c( 0,  0,  0)
-    var c111 = c( 1,  0,  0)
-
-    rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-
-  elseif xyz[0] > c.centerCoordinates[0] and
-         xyz[1] > c.centerCoordinates[1] and
-         xyz[2] < c.centerCoordinates[2] then
-
-    var c000 = c( 0,  0, -1)
-    var c100 = c( 1,  0, -1)
-    var c010 = c( 0,  1, -1)
-    var c110 = c( 1,  1, -1)
-    var c001 = c( 0,  0,  0)
-    var c101 = c( 1,  0,  0)
-    var c011 = c( 0,  1,  0)
-    var c111 = c( 1,  1,  0)
-
-    rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-
-  elseif xyz[0] > c.centerCoordinates[0] and
-         xyz[1] > c.centerCoordinates[1] and
-         xyz[2] > c.centerCoordinates[2] then
-
-    var c000 = c( 0,  0,  0)
-    var c100 = c( 1,  0,  0)
-    var c010 = c( 0,  1,  0)
-    var c110 = c( 1,  1,  0)
-    var c001 = c( 0,  0,  1)
-    var c101 = c( 1,  0,  1)
-    var c011 = c( 0,  1,  1)
-    var c111 = c( 1,  1,  1)
-
-    rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-
-  elseif xyz[0] < c.centerCoordinates[0] and
-         xyz[1] > c.centerCoordinates[1] and
-         xyz[2] > c.centerCoordinates[2] then
-
-    var c000 = c(-1,  0,  0)
-    var c100 = c( 0,  0,  0)
-    var c010 = c(-1,  1,  0)
-    var c110 = c( 0,  1,  0)
-    var c001 = c(-1,  0,  1)
-    var c101 = c( 0,  0,  1)
-    var c011 = c(-1,  1,  1)
-    var c111 = c( 0,  1,  1)
-
-    rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-
-  elseif xyz[0] < c.centerCoordinates[0] and
-         xyz[1] < c.centerCoordinates[1] and
-         xyz[2] > c.centerCoordinates[2] then
-
-    var c000 = c(-1, -1,  0)
-    var c100 = c( 0, -1,  0)
-    var c010 = c(-1,  0,  0)
-    var c110 = c( 0,  0,  0)
-    var c001 = c(-1, -1,  1)
-    var c101 = c( 0, -1,  1)
-    var c011 = c(-1,  0,  1)
-    var c111 = c( 0,  0,  1)
-
-    rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-
-  elseif xyz[0] > c.centerCoordinates[0] and
-         xyz[1] < c.centerCoordinates[1] and
-         xyz[2] > c.centerCoordinates[2] then
-
-    var c000 = c( 0, -1,  0)
-    var c100 = c( 1, -1,  0)
-    var c010 = c( 0,  0,  0)
-    var c110 = c( 1,  0,  0)
-    var c001 = c( 0, -1,  1)
-    var c101 = c( 1, -1,  1)
-    var c011 = c( 0,  0,  1)
-    var c111 = c( 1,  0,  1)
-
-    rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-
-  else
-
-    var c000 = c(-1,  0, -1)
-    var c100 = c( 0,  0, -1)
-    var c010 = c(-1,  1, -1)
-    var c110 = c( 0,  1, -1)
-    var c001 = c(-1,  0,  0)
-    var c101 = c( 0,  0,  0)
-    var c011 = c(-1,  1,  0)
-    var c111 = c( 0,  1,  0)
-
-    rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-
-  end
-
-  return rho
-
-end
-
-ebb InterpolateTriVelocity (c, xyz)
-
   var velocity = L.vec3d({0.0,0.0,0.0})
-
-  if xyz[0] < c.centerCoordinates[0] and
-     xyz[1] < c.centerCoordinates[1] and
-     xyz[2] < c.centerCoordinates[2] then
-
-    var c000 = c(-1, -1, -1)
-    var c100 = c( 0, -1, -1)
-    var c010 = c(-1,  0, -1)
-    var c110 = c( 0,  0, -1)
-    var c001 = c(-1, -1,  0)
-    var c101 = c( 0, -1,  0)
-    var c011 = c(-1,  0,  0)
-    var c111 = c( 0,  0,  0)
-
-    velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-
-  elseif xyz[0] > c.centerCoordinates[0] and
-         xyz[1] < c.centerCoordinates[1] and
-         xyz[2] < c.centerCoordinates[2] then
-
-    var c000 = c( 0, -1, -1)
-    var c100 = c( 1, -1, -1)
-    var c010 = c( 0,  0, -1)
-    var c110 = c( 1,  0, -1)
-    var c001 = c( 0, -1,  0)
-    var c101 = c( 1, -1,  0)
-    var c011 = c( 0,  0,  0)
-    var c111 = c( 1,  0,  0)
-
-    velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-
-  elseif xyz[0] > c.centerCoordinates[0] and
-         xyz[1] > c.centerCoordinates[1] and
-         xyz[2] < c.centerCoordinates[2] then
-
-    var c000 = c( 0,  0, -1)
-    var c100 = c( 1,  0, -1)
-    var c010 = c( 0,  1, -1)
-    var c110 = c( 1,  1, -1)
-    var c001 = c( 0,  0,  0)
-    var c101 = c( 1,  0,  0)
-    var c011 = c( 0,  1,  0)
-    var c111 = c( 1,  1,  0)
-
-    velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-
-  elseif xyz[0] > c.centerCoordinates[0] and
-         xyz[1] > c.centerCoordinates[1] and
-         xyz[2] > c.centerCoordinates[2] then
-
-    var c000 = c( 0,  0,  0)
-    var c100 = c( 1,  0,  0)
-    var c010 = c( 0,  1,  0)
-    var c110 = c( 1,  1,  0)
-    var c001 = c( 0,  0,  1)
-    var c101 = c( 1,  0,  1)
-    var c011 = c( 0,  1,  1)
-    var c111 = c( 1,  1,  1)
-
-    velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-
-  elseif xyz[0] < c.centerCoordinates[0] and
-         xyz[1] > c.centerCoordinates[1] and
-         xyz[2] > c.centerCoordinates[2] then
-
-    var c000 = c(-1,  0,  0)
-    var c100 = c( 0,  0,  0)
-    var c010 = c(-1,  1,  0)
-    var c110 = c( 0,  1,  0)
-    var c001 = c(-1,  0,  1)
-    var c101 = c( 0,  0,  1)
-    var c011 = c(-1,  1,  1)
-    var c111 = c( 0,  1,  1)
-
-    velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-
-  elseif xyz[0] < c.centerCoordinates[0] and
-         xyz[1] < c.centerCoordinates[1] and
-         xyz[2] > c.centerCoordinates[2] then
-
-    var c000 = c(-1, -1,  0)
-    var c100 = c( 0, -1,  0)
-    var c010 = c(-1,  0,  0)
-    var c110 = c( 0,  0,  0)
-    var c001 = c(-1, -1,  1)
-    var c101 = c( 0, -1,  1)
-    var c011 = c(-1,  0,  1)
-    var c111 = c( 0,  0,  1)
-
-    velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-
-  elseif xyz[0] > c.centerCoordinates[0] and
-         xyz[1] < c.centerCoordinates[1] and
-         xyz[2] > c.centerCoordinates[2] then
-
-    var c000 = c( 0, -1,  0)
-    var c100 = c( 1, -1,  0)
-    var c010 = c( 0,  0,  0)
-    var c110 = c( 1,  0,  0)
-    var c001 = c( 0, -1,  1)
-    var c101 = c( 1, -1,  1)
-    var c011 = c( 0,  0,  1)
-    var c111 = c( 1,  0,  1)
-
-    velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-
-  else
-
-    var c000 = c(-1,  0, -1)
-    var c100 = c( 0,  0, -1)
-    var c010 = c(-1,  1, -1)
-    var c110 = c( 0,  1, -1)
-    var c001 = c(-1,  0,  0)
-    var c101 = c( 0,  0,  0)
-    var c011 = c(-1,  1,  0)
-    var c111 = c( 0,  1,  0)
-
-    velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-
-  end
-
-  return velocity
-
-end
-
-ebb InterpolateTriTemperature (c, xyz)
-
   var temp = L.double(0.0)
 
-  if xyz[0] < c.centerCoordinates[0] and
-     xyz[1] < c.centerCoordinates[1] and
-     xyz[2] < c.centerCoordinates[2] then
+  if xyz[0] > c.centerCoordinates[0] then
+    if xyz[1] > c.centerCoordinates[1] then
+      if xyz[2] > c.centerCoordinates[2] then
+        var c000 = c( 0,  0,  0)
+        var c100 = c( 1,  0,  0)
+        var c010 = c( 0,  1,  0)
+        var c110 = c( 1,  1,  0)
+        var c001 = c( 0,  0,  1)
+        var c101 = c( 1,  0,  1)
+        var c011 = c( 0,  1,  1)
+        var c111 = c( 1,  1,  1)
 
-    var c000 = c(-1, -1, -1)
-    var c100 = c( 0, -1, -1)
-    var c010 = c(-1,  0, -1)
-    var c110 = c( 0,  0, -1)
-    var c001 = c(-1, -1,  0)
-    var c101 = c( 0, -1,  0)
-    var c011 = c(-1,  0,  0)
-    var c111 = c( 0,  0,  0)
+        rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+        velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+        temp = TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
 
-    temp = TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+      else -- xyz[2] <= c.centerCoordinates[2]
+        var c000 = c( 0,  0, -1)
+        var c100 = c( 1,  0, -1)
+        var c010 = c( 0,  1, -1)
+        var c110 = c( 1,  1, -1)
+        var c001 = c( 0,  0,  0)
+        var c101 = c( 1,  0,  0)
+        var c011 = c( 0,  1,  0)
+        var c111 = c( 1,  1,  0)
 
-  elseif xyz[0] > c.centerCoordinates[0] and
-         xyz[1] < c.centerCoordinates[1] and
-         xyz[2] < c.centerCoordinates[2] then
+        rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+        velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+        temp =  TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+      end
 
-    var c000 = c( 0, -1, -1)
-    var c100 = c( 1, -1, -1)
-    var c010 = c( 0,  0, -1)
-    var c110 = c( 1,  0, -1)
-    var c001 = c( 0, -1,  0)
-    var c101 = c( 1, -1,  0)
-    var c011 = c( 0,  0,  0)
-    var c111 = c( 1,  0,  0)
+    else -- xyz[1] <= c.centerCoordinates[1]
+      if xyz[2] > c.centerCoordinates[2] then
+        var c000 = c( 0, -1,  0)
+        var c100 = c( 1, -1,  0)
+        var c010 = c( 0,  0,  0)
+        var c110 = c( 1,  0,  0)
+        var c001 = c( 0, -1,  1)
+        var c101 = c( 1, -1,  1)
+        var c011 = c( 0,  0,  1)
+        var c111 = c( 1,  0,  1)
 
-    temp =  TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+        rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+        velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+        temp = TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
 
-  elseif xyz[0] > c.centerCoordinates[0] and
-         xyz[1] > c.centerCoordinates[1] and
-         xyz[2] < c.centerCoordinates[2] then
+      else -- xyz[2] <= c.centerCoordinates[2]
+        var c000 = c( 0, -1, -1)
+        var c100 = c( 1, -1, -1)
+        var c010 = c( 0,  0, -1)
+        var c110 = c( 1,  0, -1)
+        var c001 = c( 0, -1,  0)
+        var c101 = c( 1, -1,  0)
+        var c011 = c( 0,  0,  0)
+        var c111 = c( 1,  0,  0)
 
-    var c000 = c( 0,  0, -1)
-    var c100 = c( 1,  0, -1)
-    var c010 = c( 0,  1, -1)
-    var c110 = c( 1,  1, -1)
-    var c001 = c( 0,  0,  0)
-    var c101 = c( 1,  0,  0)
-    var c011 = c( 0,  1,  0)
-    var c111 = c( 1,  1,  0)
+        rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+        velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+        temp =  TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+      end
+    end
 
-    temp =  TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+  else -- xyz[0] <= c.centerCoordinates[0]
+    if xyz[1] > c.centerCoordinates[1] then
+      if xyz[2] > c.centerCoordinates[2] then
+        var c000 = c(-1,  0,  0)
+        var c100 = c( 0,  0,  0)
+        var c010 = c(-1,  1,  0)
+        var c110 = c( 0,  1,  0)
+        var c001 = c(-1,  0,  1)
+        var c101 = c( 0,  0,  1)
+        var c011 = c(-1,  1,  1)
+        var c111 = c( 0,  1,  1)
 
-  elseif xyz[0] > c.centerCoordinates[0] and
-         xyz[1] > c.centerCoordinates[1] and
-         xyz[2] > c.centerCoordinates[2] then
+        rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+        velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+        temp = TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
 
-    var c000 = c( 0,  0,  0)
-    var c100 = c( 1,  0,  0)
-    var c010 = c( 0,  1,  0)
-    var c110 = c( 1,  1,  0)
-    var c001 = c( 0,  0,  1)
-    var c101 = c( 1,  0,  1)
-    var c011 = c( 0,  1,  1)
-    var c111 = c( 1,  1,  1)
+      else -- xyz[2] <= c.centerCoordinates[2]
+        var c000 = c(-1,  0, -1)
+        var c100 = c( 0,  0, -1)
+        var c010 = c(-1,  1, -1)
+        var c110 = c( 0,  1, -1)
+        var c001 = c(-1,  0,  0)
+        var c101 = c( 0,  0,  0)
+        var c011 = c(-1,  1,  0)
+        var c111 = c( 0,  1,  0)
 
-    temp = TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+        rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+        velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+        temp = TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+      end
 
-  elseif xyz[0] < c.centerCoordinates[0] and
-         xyz[1] > c.centerCoordinates[1] and
-         xyz[2] > c.centerCoordinates[2] then
+    else -- xyz[1] <= c.centerCoordinates[1]
+      if xyz[2] > c.centerCoordinates[2] then
+        var c000 = c(-1, -1,  0)
+        var c100 = c( 0, -1,  0)
+        var c010 = c(-1,  0,  0)
+        var c110 = c( 0,  0,  0)
+        var c001 = c(-1, -1,  1)
+        var c101 = c( 0, -1,  1)
+        var c011 = c(-1,  0,  1)
+        var c111 = c( 0,  0,  1)
 
-    var c000 = c(-1,  0,  0)
-    var c100 = c( 0,  0,  0)
-    var c010 = c(-1,  1,  0)
-    var c110 = c( 0,  1,  0)
-    var c001 = c(-1,  0,  1)
-    var c101 = c( 0,  0,  1)
-    var c011 = c(-1,  1,  1)
-    var c111 = c( 0,  1,  1)
+        rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+        velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+        temp =  TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
 
-    temp = TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+      else -- xyz[2] <= c.centerCoordinates[2]
+        var c000 = c(-1, -1, -1)
+        var c100 = c( 0, -1, -1)
+        var c010 = c(-1,  0, -1)
+        var c110 = c( 0,  0, -1)
+        var c001 = c(-1, -1,  0)
+        var c101 = c( 0, -1,  0)
+        var c011 = c(-1,  0,  0)
+        var c111 = c( 0,  0,  0)
 
-  elseif xyz[0] < c.centerCoordinates[0] and
-         xyz[1] < c.centerCoordinates[1] and
-         xyz[2] > c.centerCoordinates[2] then
-
-    var c000 = c(-1, -1,  0)
-    var c100 = c( 0, -1,  0)
-    var c010 = c(-1,  0,  0)
-    var c110 = c( 0,  0,  0)
-    var c001 = c(-1, -1,  1)
-    var c101 = c( 0, -1,  1)
-    var c011 = c(-1,  0,  1)
-    var c111 = c( 0,  0,  1)
-
-    temp =  TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-
-  elseif xyz[0] > c.centerCoordinates[0] and
-         xyz[1] < c.centerCoordinates[1] and
-         xyz[2] > c.centerCoordinates[2] then
-
-    var c000 = c( 0, -1,  0)
-    var c100 = c( 1, -1,  0)
-    var c010 = c( 0,  0,  0)
-    var c110 = c( 1,  0,  0)
-    var c001 = c( 0, -1,  1)
-    var c101 = c( 1, -1,  1)
-    var c011 = c( 0,  0,  1)
-    var c111 = c( 1,  0,  1)
-
-    temp = TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-
-  else
-
-    var c000 = c(-1,  0, -1)
-    var c100 = c( 0,  0, -1)
-    var c010 = c(-1,  1, -1)
-    var c110 = c( 0,  1, -1)
-    var c001 = c(-1,  0,  0)
-    var c101 = c( 0,  0,  0)
-    var c011 = c(-1,  1,  0)
-    var c111 = c( 0,  1,  0)
-
-    temp = TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-
+        rho =  TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+        velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+        temp = TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+      end
+    end
   end
 
-  return temp
+  return {rho, velocity[0], velocity[1], velocity[2], temp}
 
 end
-
 
 -----------------------------------------------------------------------------
 --[[                            EBB FUNCTIONS                            ]]--
@@ -2578,9 +2712,13 @@ if particles_options.modeParticles then
       var flowDynamicViscosity = L.double(0)
 
       -- Trilinear interpolation for the flow quantities
-      flowDensity     = InterpolateTriRho(p.cell, p.position)
-      flowVelocity    = InterpolateTriVelocity(p.cell, p.position)
-      flowTemperature = InterpolateTriTemperature(p.cell, p.position)
+      var result      = InterpolateTriAll(p.cell, p.position)
+      flowDensity     = result[0]
+      flowVelocity    = {result[1], result[2], result[3]}
+      flowTemperature = result[4]
+      --flowDensity     = InterpolateTriRho(p.cell, p.position)
+      --flowVelocity    = InterpolateTriVelocity(p.cell, p.position)
+      --flowTemperature = InterpolateTriTemperature(p.cell, p.position)
       flowDynamicViscosity = GetDynamicViscosity(flowTemperature)
 
       -- Update the particle position using the current velocity
@@ -2649,9 +2787,13 @@ if particles_options.modeParticles then
       var flowDynamicViscosity = L.double(0)
 
       -- Trilinear interpolation
-      flowDensity     = InterpolateTriRho(p.cell, p.position)
-      flowVelocity    = InterpolateTriVelocity(p.cell, p.position)
-      flowTemperature = InterpolateTriTemperature(p.cell, p.position)
+      var result      = InterpolateTriAll(p.cell, p.position)
+      flowDensity     = result[0]
+      flowVelocity    = {result[1], result[2], result[3]}
+      flowTemperature = result[4]
+      --flowDensity     = InterpolateTriRho(p.cell, p.position)
+      --flowVelocity    = InterpolateTriVelocity(p.cell, p.position)
+      --flowTemperature = InterpolateTriTemperature(p.cell, p.position)
       flowDynamicViscosity = GetDynamicViscosity(flowTemperature)
 
       -- Update the particle velocity
