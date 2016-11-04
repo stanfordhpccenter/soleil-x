@@ -31,7 +31,8 @@ public:
                 std::vector<Memory>* sysmems_list,
                 std::map<Memory, std::vector<Processor> >* sysmem_local_procs,
                 std::map<Processor, Memory>* proc_sysmems,
-                std::map<Processor, Memory>* proc_regmems);
+                std::map<Processor, Memory>* proc_fbmems,
+                std::map<Processor, Memory>* proc_zcmems);
   virtual Processor default_policy_select_initial_processor(
                                     MapperContext ctx, const Task &task);
   virtual void default_policy_select_target_processors(
@@ -60,10 +61,11 @@ protected:
                                    std::vector<PhysicalInstance> &instances);
 private:
   std::vector<Processor>& procs_list;
-  // std::vector<Memory>& sysmems_list;
-  // std::map<Memory, std::vector<Processor> >& sysmem_local_procs;
-  // std::map<Processor, Memory>& proc_sysmems;
-  // std::map<Processor, Memory>& proc_regmems;
+  std::vector<Memory>& sysmems_list;
+  std::map<Memory, std::vector<Processor> >& sysmem_local_procs;
+  std::map<Processor, Memory>& proc_sysmems;
+  std::map<Processor, Memory>& proc_fbmems;
+  std::map<Processor, Memory>& proc_zcmems;
 };
 
 //--------------------------------------------------------------------------
@@ -73,14 +75,16 @@ SoleilMapper::SoleilMapper(MapperRuntime *rt, Machine machine, Processor local,
                              std::vector<Memory>* _sysmems_list,
                              std::map<Memory, std::vector<Processor> >* _sysmem_local_procs,
                              std::map<Processor, Memory>* _proc_sysmems,
-                             std::map<Processor, Memory>* _proc_regmems)
+                             std::map<Processor, Memory>* _proc_fbmems,
+                             std::map<Processor, Memory>* _proc_zcmems)
 //--------------------------------------------------------------------------
   : DefaultMapper(rt, machine, local, mapper_name),
-    procs_list(*_procs_list)// ,
-    // sysmems_list(*_sysmems_list),
-    // sysmem_local_procs(*_sysmem_local_procs),
-    // proc_sysmems(*_proc_sysmems),
-    // proc_regmems(*_proc_regmems)
+    procs_list(*_procs_list),
+    sysmems_list(*_sysmems_list),
+    sysmem_local_procs(*_sysmem_local_procs),
+    proc_sysmems(*_proc_sysmems),
+    proc_fbmems(*_proc_fbmems),
+    proc_zcmems(*_proc_zcmems)
 {
 }
 
@@ -185,8 +189,16 @@ void SoleilMapper::map_task(const MapperContext      ctx,
   // possibly because a new field was allocated in a region, so our old
   // cached physical instance(s) is(are) no longer valid
   bool needs_field_constraint_check = false;
-  Memory target_memory = default_policy_select_target_memory(ctx,
-                                                     task.target_proc);
+  //Memory target_memory = default_policy_select_target_memory(ctx,
+  //                                                   task.target_proc);
+  Memory target_memory;
+  if (task.target_proc.kind() == Processor::LOC_PROC)
+    target_memory = proc_sysmems[task.target_proc];
+  else if (task.target_proc.kind() == Processor::TOC_PROC)
+    target_memory = proc_fbmems[task.target_proc];
+  else
+    assert(false);
+
   if (finder != cached_task_mappings.end())
   {
     bool found = false;
@@ -275,6 +287,11 @@ void SoleilMapper::map_task(const MapperContext      ctx,
         (task.regions[idx].privilege_fields.empty()) ||
         missing_fields[idx].empty())
       continue;
+
+    if (task.target_proc.kind() == Processor::TOC_PROC &&
+        task.regions.size() > 3 && idx >= 3)
+      target_memory = proc_zcmems[task.target_proc];
+
     // See if this is a reduction
     if (task.regions[idx].privilege == REDUCE)
     {
@@ -537,8 +554,8 @@ static void create_mappers(Machine machine,
   std::map<Memory, std::vector<Processor> >* sysmem_local_procs =
     new std::map<Memory, std::vector<Processor> >();
   std::map<Processor, Memory>* proc_sysmems = new std::map<Processor, Memory>();
-  std::map<Processor, Memory>* proc_regmems = new std::map<Processor, Memory>();
-
+  std::map<Processor, Memory>* proc_fbmems = new std::map<Processor, Memory>();
+  std::map<Processor, Memory>* proc_zcmems = new std::map<Processor, Memory>();
 
   std::vector<Machine::ProcessorMemoryAffinity> proc_mem_affinities;
   machine.get_proc_mem_affinity(proc_mem_affinities);
@@ -548,11 +565,15 @@ static void create_mappers(Machine machine,
     if (affinity.p.kind() == Processor::LOC_PROC) {
       if (affinity.m.kind() == Memory::SYSTEM_MEM) {
         (*proc_sysmems)[affinity.p] = affinity.m;
-        if (proc_regmems->find(affinity.p) == proc_regmems->end())
-          (*proc_regmems)[affinity.p] = affinity.m;
       }
-      else if (affinity.m.kind() == Memory::REGDMA_MEM)
-        (*proc_regmems)[affinity.p] = affinity.m;
+    }
+    else if (affinity.p.kind() == Processor::TOC_PROC) {
+      if (affinity.m.kind() == Memory::GPU_FB_MEM) {
+        (*proc_fbmems)[affinity.p] = affinity.m;
+      }
+      else if (affinity.m.kind() == Memory::Z_COPY_MEM) {
+        (*proc_zcmems)[affinity.p] = affinity.m;
+      }
     }
   }
 
@@ -575,7 +596,8 @@ static void create_mappers(Machine machine,
                                             sysmems_list,
                                             sysmem_local_procs,
                                             proc_sysmems,
-                                            proc_regmems);
+                                            proc_fbmems,
+                                            proc_zcmems);
     runtime->replace_default_mapper(mapper, *it);
   }
 }
