@@ -506,16 +506,10 @@ void SoleilMapper::soleil_create_copy_instance(MapperContext ctx,
   Color color = point.point_data[0] +
                 point.point_data[1] * size_x +
                 point.point_data[2] * size_x * size_y;
-  Memory target_memory = default_policy_select_target_memory(ctx,
-                           procs_list[color % procs_list.size()]);
+  Memory target_memory = proc_sysmems[procs_list[color % procs_list.size()]];
   bool force_new_instances = false;
-  LayoutConstraintID our_layout_id =
-   default_policy_select_layout_constraints(ctx, target_memory,
-                                            req, COPY_MAPPING,
-                                            true/*needs check*/,
-                                            force_new_instances);
-  LayoutConstraintSet creation_constraints =
-              runtime->find_layout_constraints(ctx, our_layout_id);
+  LayoutConstraintSet creation_constraints;
+  default_policy_select_constraints(ctx, creation_constraints, target_memory, req);
   creation_constraints.add_constraint(
       FieldConstraint(missing_fields,
                       false/*contig*/, false/*inorder*/));
