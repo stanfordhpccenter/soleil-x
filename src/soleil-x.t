@@ -2292,8 +2292,7 @@ if particles_options.modeParticles then
 
   -- Locate particles in cells
   function Particles.Locate()
-    -- TODO: Re-enable this once we can handle the LetBlock in locate macro
-    -- grid.locate_in_cells(particles, 'position', 'cell')
+    grid.locate_in_cells(particles, 'position', 'cell')
   end
 
   -- Initialize temporaries for time stepper
