@@ -761,6 +761,7 @@ if particles_options.modeParticles then
   local PARTICLE_LEN_Y = grid_options.ynum - (yBCPeriodic and 0 or 1)
   local PARTICLE_LEN_Z = grid_options.znum - (zBCPeriodic and 0 or 1)
   particles:NewField('cell', grid.cells)                        :Fill({0, 0, 0})
+  particles.cell:autoPartitionByPreimage()
   particles:NewField('position', L.vec3d)                       :Fill({0, 0, 0})
   particles:NewField('velocity', L.vec3d)                       :Fill({0, 0, 0})
   particles:NewField('density', L.double)                       :Fill(0)
