@@ -73,6 +73,7 @@ double rand_gauss() {
 
 ]]
 
+local SAVE_MAPPER_ONLY = os.getenv('SAVE_MAPPER_ONLY') == '1'
 local cmapper
 local link_flags
 do
@@ -107,6 +108,7 @@ do
     print("Error: failed to compile " .. mapper_cc)
     assert(false)
   end
+  if SAVE_MAPPER_ONLY then os.exit(0) end
   terralib.linklibrary(mapper_so)
   cmapper = terralib.includec("soleil_mapper.h", {"-I", root_dir, "-I", runtime_dir,
                                                   "-I", mapper_dir, "-I", legion_dir,
