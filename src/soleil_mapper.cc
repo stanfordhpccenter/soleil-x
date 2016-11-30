@@ -183,12 +183,12 @@ void SoleilMapper::map_task(const MapperContext      ctx,
       return;
     }
   }
-  // First, let's see if we've cached a result of this task mapping
-  const unsigned long long task_hash = compute_task_hash(task);
-  std::pair<TaskID,Processor> cache_key(task.task_id, task.target_proc);
-  std::map<std::pair<TaskID,Processor>,
-           std::list<CachedTaskMapping> >::const_iterator
-    finder = cached_task_mappings.find(cache_key);
+  //// First, let's see if we've cached a result of this task mapping
+  //const unsigned long long task_hash = compute_task_hash(task);
+  //std::pair<TaskID,Processor> cache_key(task.task_id, task.target_proc);
+  //std::map<std::pair<TaskID,Processor>,
+  //         std::list<CachedTaskMapping> >::const_iterator
+  //  finder = cached_task_mappings.find(cache_key);
   // This flag says whether we need to recheck the field constraints,
   // possibly because a new field was allocated in a region, so our old
   // cached physical instance(s) is(are) no longer valid
@@ -203,105 +203,106 @@ void SoleilMapper::map_task(const MapperContext      ctx,
   else
     assert(false);
 
-  if (finder != cached_task_mappings.end())
-  {
-    bool found = false;
-    bool has_reductions = false;
-    // Iterate through and see if we can find one with our variant and hash
-    for (std::list<CachedTaskMapping>::const_iterator it =
-          finder->second.begin(); it != finder->second.end(); it++)
-    {
-      if ((it->variant == output.chosen_variant) &&
-          (it->task_hash == task_hash))
-      {
-        // Have to copy it before we do the external call which
-        // might invalidate our iterator
-        output.chosen_instances = it->mapping;
-        has_reductions = it->has_reductions;
-        found = true;
-        break;
-      }
-    }
-    if (found)
-    {
-      // If we have reductions, make those instances now since we
-      // never cache the reduction instances
-      if (has_reductions)
-      {
-        const TaskLayoutConstraintSet &layout_constraints =
-          runtime->find_task_layout_constraints(ctx,
-                              task.task_id, output.chosen_variant);
-        for (unsigned idx = 0; idx < task.regions.size(); idx++)
-        {
-          if (task.regions[idx].privilege == REDUCE)
-          {
-            std::set<FieldID> copy = task.regions[idx].privilege_fields;
-            if (!soleil_create_custom_instances(ctx, task.target_proc,
-                target_memory, task.regions[idx], idx, copy,
-                layout_constraints, needs_field_constraint_check,
-                output.chosen_instances[idx]))
-            {
-              default_report_failed_instance_creation(task, idx,
-                                          task.target_proc, target_memory);
-            }
-          }
-        }
-      }
-      // See if we can acquire these instances still
-      if (runtime->acquire_and_filter_instances(ctx,
-                                                 output.chosen_instances))
-        return;
-      // We need to check the constraints here because we had a
-      // prior mapping and it failed, which may be the result
-      // of a change in the allocated fields of a field space
-      needs_field_constraint_check = true;
-      // If some of them were deleted, go back and remove this entry
-      // Have to renew our iterators since they might have been
-      // invalidated during the 'acquire_and_filter_instances' call
-      default_remove_cached_task(ctx, output.chosen_variant,
-                    task_hash, cache_key, output.chosen_instances);
-    }
-  }
+  //if (finder != cached_task_mappings.end())
+  //{
+  //  bool found = false;
+  //  bool has_reductions = false;
+  //  // Iterate through and see if we can find one with our variant and hash
+  //  for (std::list<CachedTaskMapping>::const_iterator it =
+  //        finder->second.begin(); it != finder->second.end(); it++)
+  //  {
+  //    if ((it->variant == output.chosen_variant) &&
+  //        (it->task_hash == task_hash))
+  //    {
+  //      // Have to copy it before we do the external call which
+  //      // might invalidate our iterator
+  //      output.chosen_instances = it->mapping;
+  //      has_reductions = it->has_reductions;
+  //      found = true;
+  //      break;
+  //    }
+  //  }
+  //  if (found)
+  //  {
+  //    // If we have reductions, make those instances now since we
+  //    // never cache the reduction instances
+  //    if (has_reductions)
+  //    {
+  //      const TaskLayoutConstraintSet &layout_constraints =
+  //        runtime->find_task_layout_constraints(ctx,
+  //                            task.task_id, output.chosen_variant);
+  //      for (unsigned idx = 0; idx < task.regions.size(); idx++)
+  //      {
+  //        if (task.regions[idx].privilege == REDUCE)
+  //        {
+  //          std::set<FieldID> copy = task.regions[idx].privilege_fields;
+  //          if (!soleil_create_custom_instances(ctx, task.target_proc,
+  //              target_memory, task.regions[idx], idx, copy,
+  //              layout_constraints, needs_field_constraint_check,
+  //              output.chosen_instances[idx]))
+  //          {
+  //            default_report_failed_instance_creation(task, idx,
+  //                                        task.target_proc, target_memory);
+  //          }
+  //        }
+  //      }
+  //    }
+  //    // See if we can acquire these instances still
+  //    if (runtime->acquire_and_filter_instances(ctx,
+  //                                               output.chosen_instances))
+  //      return;
+  //    // We need to check the constraints here because we had a
+  //    // prior mapping and it failed, which may be the result
+  //    // of a change in the allocated fields of a field space
+  //    needs_field_constraint_check = true;
+  //    // If some of them were deleted, go back and remove this entry
+  //    // Have to renew our iterators since they might have been
+  //    // invalidated during the 'acquire_and_filter_instances' call
+  //    default_remove_cached_task(ctx, output.chosen_variant,
+  //                  task_hash, cache_key, output.chosen_instances);
+  //  }
+  //}
   // We didn't find a cached version of the mapping so we need to
   // do a full mapping, we already know what variant we want to use
   // so let's use one of the acceleration functions to figure out
   // which instances still need to be mapped.
-  std::vector<std::set<FieldID> > missing_fields(task.regions.size());
-  runtime->filter_instances(ctx, task, output.chosen_variant,
-                             output.chosen_instances, missing_fields);
-  // Track which regions have already been mapped
-  std::vector<bool> done_regions(task.regions.size(), false);
-  if (!input.premapped_regions.empty())
-    for (std::vector<unsigned>::const_iterator it =
-          input.premapped_regions.begin(); it !=
-          input.premapped_regions.end(); it++)
-      done_regions[*it] = true;
+  //std::vector<std::set<FieldID> > missing_fields(task.regions.size());
+  //runtime->filter_instances(ctx, task, output.chosen_variant,
+  //                           output.chosen_instances, missing_fields);
+  //// Track which regions have already been mapped
+  //std::vector<bool> done_regions(task.regions.size(), false);
+  //if (!input.premapped_regions.empty())
+  //  for (std::vector<unsigned>::const_iterator it =
+  //        input.premapped_regions.begin(); it !=
+  //        input.premapped_regions.end(); it++)
+  //    done_regions[*it] = true;
   const TaskLayoutConstraintSet &layout_constraints =
     runtime->find_task_layout_constraints(ctx,
                           task.task_id, output.chosen_variant);
   // Now we need to go through and make instances for any of our
   // regions which do not have space for certain fields
-  bool has_reductions = false;
+  //bool has_reductions = false;
   for (unsigned idx = 0; idx < task.regions.size(); idx++)
   {
-    if (done_regions[idx])
-      continue;
+    //if (done_regions[idx])
+    //  continue;
     // Skip any empty regions
     if ((task.regions[idx].privilege == NO_ACCESS) ||
-        (task.regions[idx].privilege_fields.empty()) ||
-        missing_fields[idx].empty())
+        (task.regions[idx].privilege_fields.empty())) // ||
+        //missing_fields[idx].empty())
       continue;
 
     if (task.target_proc.kind() == Processor::TOC_PROC &&
         task.regions.size() > 3 && idx >= 3)
       target_memory = proc_zcmems[task.target_proc];
 
+    std::set<FieldID> missing_fields(task.regions[idx].privilege_fields);
     // See if this is a reduction
     if (task.regions[idx].privilege == REDUCE)
     {
-      has_reductions = true;
+      //has_reductions = true;
       if (!soleil_create_custom_instances(ctx, task.target_proc,
-              target_memory, task.regions[idx], idx, missing_fields[idx],
+              target_memory, task.regions[idx], idx, missing_fields,
               layout_constraints, needs_field_constraint_check,
               output.chosen_instances[idx]))
       {
@@ -319,7 +320,7 @@ void SoleilMapper::map_task(const MapperContext      ctx,
     }
     // Otherwise make normal instances for the given region
     if (!soleil_create_custom_instances(ctx, task.target_proc,
-            target_memory, task.regions[idx], idx, missing_fields[idx],
+            target_memory, task.regions[idx], idx, missing_fields,
             layout_constraints, needs_field_constraint_check,
             output.chosen_instances[idx]))
     {
@@ -328,21 +329,21 @@ void SoleilMapper::map_task(const MapperContext      ctx,
     }
   }
   // Now that we are done, let's cache the result so we can use it later
-  std::list<CachedTaskMapping> &map_list = cached_task_mappings[cache_key];
-  map_list.push_back(CachedTaskMapping());
-  CachedTaskMapping &cached_result = map_list.back();
-  cached_result.task_hash = task_hash;
-  cached_result.variant = output.chosen_variant;
-  cached_result.mapping = output.chosen_instances;
-  cached_result.has_reductions = has_reductions;
-  // We don't ever save reduction instances in our cache
-  if (has_reductions) {
-    for (unsigned idx = 0; idx < task.regions.size(); idx++) {
-      if (task.regions[idx].privilege != REDUCE)
-        continue;
-      cached_result.mapping[idx].clear();
-    }
-  }
+  //std::list<CachedTaskMapping> &map_list = cached_task_mappings[cache_key];
+  //map_list.push_back(CachedTaskMapping());
+  //CachedTaskMapping &cached_result = map_list.back();
+  //cached_result.task_hash = task_hash;
+  //cached_result.variant = output.chosen_variant;
+  //cached_result.mapping = output.chosen_instances;
+  //cached_result.has_reductions = has_reductions;
+  //// We don't ever save reduction instances in our cache
+  //if (has_reductions) {
+  //  for (unsigned idx = 0; idx < task.regions.size(); idx++) {
+  //    if (task.regions[idx].privilege != REDUCE)
+  //      continue;
+  //    cached_result.mapping[idx].clear();
+  //  }
+  //}
 }
 
 //--------------------------------------------------------------------------
@@ -397,72 +398,72 @@ bool SoleilMapper::soleil_create_custom_instances(MapperContext ctx,
            TASK_MAPPING, needs_field_constraint_check, force_new_instances);
   const LayoutConstraintSet &our_constraints =
                 runtime->find_layout_constraints(ctx, our_layout_id);
-  for (std::multimap<unsigned,LayoutConstraintID>::const_iterator lay_it =
-        layout_constraints.layouts.lower_bound(index); lay_it !=
-        layout_constraints.layouts.upper_bound(index); lay_it++)
-  {
-    // Get the constraints
-    const LayoutConstraintSet &index_constraints =
-              runtime->find_layout_constraints(ctx, lay_it->second);
-    std::vector<FieldID> overlaping_fields;
-    const std::vector<FieldID> &constraint_fields =
-      index_constraints.field_constraint.get_field_set();
-    for (unsigned idx = 0; idx < constraint_fields.size(); idx++)
-    {
-      FieldID fid = constraint_fields[idx];
-      std::set<FieldID>::iterator finder = needed_fields.find(fid);
-      if (finder != needed_fields.end())
-      {
-        overlaping_fields.push_back(fid);
-        // Remove from the needed fields since we're going to handle it
-        needed_fields.erase(finder);
-      }
-    }
-    // If we don't have any overlapping fields, then keep going
-    if (overlaping_fields.empty())
-      continue;
-    // Now figure out how to make an instance
-    instances.resize(instances.size()+1);
-    // Check to see if these constraints conflict with our constraints
-    if (runtime->do_constraints_conflict(ctx,
-                                          our_layout_id, lay_it->second))
-    {
-      // They conflict, so we're just going to make an instance
-      // using these constraints
-      if (!default_make_instance(ctx, target_memory, index_constraints,
-                 instances.back(), TASK_MAPPING, force_new_instances,
-                 false/*meets*/, req))
-        return false;
-    }
-    else if (runtime->do_constraints_entail(ctx,
-                                             lay_it->second, our_layout_id))
-    {
-      // These constraints do everything we want to do and maybe more
-      // so we can just use them directly
-      if (!default_make_instance(ctx, target_memory, index_constraints,
-                  instances.back(), TASK_MAPPING, force_new_instances,
-                  true/*meets*/, req))
-        return false;
-    }
-    else
-    {
-      // These constraints don't do as much as we want but don't
-      // conflict so make an instance with them and our constraints
-      LayoutConstraintSet creation_constraints = index_constraints;
-      default_policy_select_constraints(ctx, creation_constraints,
-                                        target_memory, req);
-      creation_constraints.add_constraint(
-          FieldConstraint(overlaping_fields,
-            false/*contig*/, false/*inorder*/));
-      if (!default_make_instance(ctx, target_memory, creation_constraints,
-                     instances.back(), TASK_MAPPING, force_new_instances,
-                     true/*meets*/, req))
-        return false;
-    }
-  }
-  // If we don't have anymore needed fields, we are done
-  if (needed_fields.empty())
-    return true;
+  //for (std::multimap<unsigned,LayoutConstraintID>::const_iterator lay_it =
+  //      layout_constraints.layouts.lower_bound(index); lay_it !=
+  //      layout_constraints.layouts.upper_bound(index); lay_it++)
+  //{
+  //  // Get the constraints
+  //  const LayoutConstraintSet &index_constraints =
+  //            runtime->find_layout_constraints(ctx, lay_it->second);
+  //  std::vector<FieldID> overlaping_fields;
+  //  const std::vector<FieldID> &constraint_fields =
+  //    index_constraints.field_constraint.get_field_set();
+  //  for (unsigned idx = 0; idx < constraint_fields.size(); idx++)
+  //  {
+  //    FieldID fid = constraint_fields[idx];
+  //    std::set<FieldID>::iterator finder = needed_fields.find(fid);
+  //    if (finder != needed_fields.end())
+  //    {
+  //      overlaping_fields.push_back(fid);
+  //      // Remove from the needed fields since we're going to handle it
+  //      needed_fields.erase(finder);
+  //    }
+  //  }
+  //  // If we don't have any overlapping fields, then keep going
+  //  if (overlaping_fields.empty())
+  //    continue;
+  //  // Now figure out how to make an instance
+  //  instances.resize(instances.size()+1);
+  //  // Check to see if these constraints conflict with our constraints
+  //  if (runtime->do_constraints_conflict(ctx,
+  //                                        our_layout_id, lay_it->second))
+  //  {
+  //    // They conflict, so we're just going to make an instance
+  //    // using these constraints
+  //    if (!default_make_instance(ctx, target_memory, index_constraints,
+  //               instances.back(), TASK_MAPPING, force_new_instances,
+  //               false/*meets*/, req))
+  //      return false;
+  //  }
+  //  else if (runtime->do_constraints_entail(ctx,
+  //                                           lay_it->second, our_layout_id))
+  //  {
+  //    // These constraints do everything we want to do and maybe more
+  //    // so we can just use them directly
+  //    if (!default_make_instance(ctx, target_memory, index_constraints,
+  //                instances.back(), TASK_MAPPING, force_new_instances,
+  //                true/*meets*/, req))
+  //      return false;
+  //  }
+  //  else
+  //  {
+  //    // These constraints don't do as much as we want but don't
+  //    // conflict so make an instance with them and our constraints
+  //    LayoutConstraintSet creation_constraints = index_constraints;
+  //    default_policy_select_constraints(ctx, creation_constraints,
+  //                                      target_memory, req);
+  //    creation_constraints.add_constraint(
+  //        FieldConstraint(overlaping_fields,
+  //          false/*contig*/, false/*inorder*/));
+  //    if (!default_make_instance(ctx, target_memory, creation_constraints,
+  //                   instances.back(), TASK_MAPPING, force_new_instances,
+  //                   true/*meets*/, req))
+  //      return false;
+  //  }
+  //}
+  //// If we don't have anymore needed fields, we are done
+  //if (needed_fields.empty())
+  //  return true;
   // There are no constraints for these fields so we get to do what we want
   instances.resize(instances.size()+1);
   LayoutConstraintSet creation_constraints = our_constraints;
