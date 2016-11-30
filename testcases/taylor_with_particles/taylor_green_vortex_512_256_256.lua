@@ -93,7 +93,7 @@ return {
   restartParticleIter = 0,
   particleType = 'Free', -- Fixed or Free
   twoWayCoupling = 'OFF', -- ON or OFF
-  num = 4000000.0,
+  num = 16000000.0,
   restitutionCoefficient = 1.0,
   convectiveCoefficient = 0.7, -- W m^-2 K^-1
   heatCapacity = 0.7, -- J Kg^-1 K^-1
@@ -103,7 +103,7 @@ return {
   diameter_maxDeviation = 1e-3, -- m, for statistical distribution
   bodyForceParticles = {0.0,0.0,0.0},
   absorptivity = 0.5, -- Equal to emissivity in thermal equilibrium
-  maximum_num = 4000000.0, -- upper bound on particles with insertion
+  maximum_num = 16000000.0, -- upper bound on particles with insertion
   insertion_rate = 0, -- per face and per time step
   insertion_mode = {0,0,0,0,0,0}, --bool, MinX MaxX MinY MaxY MinZ MaxZ
   deletion_mode = {0,0,0,0,0,0}, --bool, MinX MaxX MinY MaxY MinZ MaxZ
