@@ -1,14 +1,14 @@
 -- This is a Lua config file for the Soleil code.
 
 return {
-  
+
   xnum = 384, -- number of cells in the x-direction
   ynum = 384, -- number of cells in the y-direction
   znum = 192, -- number of cells in the z-direction
 
   -- if you increase the cell number and the calculation diverges
   -- right away, decrease the time step on the next line
-  
+
   delta_time = 1.0e-3,
 
   -- Control max iterations here. Set to a very high number if
@@ -17,9 +17,9 @@ return {
 
   max_iter = 10,
 
-  -- Output options. All output is off by default, but we 
+  -- Output options. All output is off by default, but we
   -- will need to turn it on to check results/make visualizations
- 
+
   consoleFrequency = 5,  -- Iterations between console output of statistics
   wrtRestart = 'OFF',
   wrtVolumeSolution = 'OFF',
@@ -40,7 +40,7 @@ return {
   turbForcing = 'OFF',          -- Turn turbulent forcing on or off
   turbForceCoeff = 0.0,         -- Turbulent linear forcing coefficient (f = A*rho*u)
   restartIter = 10000,
-  
+
   -- Grid Options -- PERIODICITY
   origin = {0.0, 0.0, 0.0}, -- spatial origin of the computational domain
   xWidth = 6.283185307179586,
@@ -65,15 +65,15 @@ return {
   zBCRight = 'periodic',
   zBCRightVel = {0.0, 0.0, 0.0},
   zBCRightTemp = 0.0,
- 
+
   --Time Integration Options --
   cfl                   = -1.0, -- Negative CFL implies that we will used fixed delta T
   final_time            = 20.00001,
-  
+
   --- File Output Options --
   headerFrequency       = 20000000,
   outputFormat = 'Tecplot', --Tecplot or Python
-  
+
   -- Fluid Options --
   gasConstant = 0.3333333333333333,
   gamma = 1.4,
@@ -93,7 +93,7 @@ return {
   restartParticleIter = 0,
   particleType = 'Free', -- Fixed or Free
   twoWayCoupling = 'OFF', -- ON or OFF
-  num = 0.0,
+  num = 0,
   restitutionCoefficient = 1.0,
   convectiveCoefficient = 0.7, -- W m^-2 K^-1
   heatCapacity = 0.7, -- J Kg^-1 K^-1
@@ -103,15 +103,15 @@ return {
   diameter_maxDeviation = 1e-3, -- m, for statistical distribution
   bodyForceParticles = {0.0,0.0,0.0},
   absorptivity = 0.5, -- Equal to emissivity in thermal equilibrium
-  maximum_num = 10000.0, -- upper bound on particles with insertion
+  maximum_num = 10000, -- upper bound on particles with insertion
   insertion_rate = 0, -- per face and per time step
   insertion_mode = {0,0,0,0,0,0}, --bool, MinX MaxX MinY MaxY MinZ MaxZ
   deletion_mode = {0,0,0,0,0,0}, --bool, MinX MaxX MinY MaxY MinZ MaxZ
   -- (Kirchhoff law of thermal radiation)
-  
+
   -- Radiation Options --
   radiationType = 'OFF', -- ON or OFF
   radiationIntensity = 1e3,
   zeroAvgHeatSource = 'OFF'
-  
+
 }

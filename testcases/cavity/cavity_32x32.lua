@@ -2,7 +2,7 @@
 
 -- This case defines the 32x32 lid-driven cavity problem
 return {
-  
+
   -- Flow Initialization  Options --
   initCase    = 'Uniform', -- Uniform, Restart, TaylorGreen2DVortex, TaylorGreen3DVortex
   initParams  = {0.000525805,43.4923,0.0,0.0,0.0}, -- necessary input conditions
@@ -11,7 +11,7 @@ return {
   turbForcing = 'OFF',          -- Turn turbulent forcing on or off
 
   restartIter = 110000,
-  
+
   -- Grid Options --
   xnum = 32, -- number of cells in the x-direction
   ynum = 32, -- number of cells in the y-direction
@@ -39,12 +39,12 @@ return {
   zBCRight = 'symmetry',
   zBCRightVel = {0.0, 0.0, 0.0},
   zBCRightTemp = 0.0,
-  
+
   --Time Integration Options --
   final_time            = 20.00001,
   max_iter              = 50000,
   cfl                   = 2.0,
-  
+
   --- File Output Options --
   wrtRestart = 'OFF',
   wrtVolumeSolution = 'ON',
@@ -56,7 +56,7 @@ return {
   consoleFrequency = 101,  -- Iterations between console output of statistics
   headerFrequency       = 20,
   outputFormat = 'Tecplot', -- Only 'Tecplot' is currently available
-  
+
   -- Fluid Options --
   gasConstant = 287.058,
   gamma = 1.4,
@@ -68,15 +68,15 @@ return {
   suth_visc_ref = 1.716E-5,     -- Sutherland's Law reference viscosity [kg/m/s]
   suth_temp_ref = 273.15,       -- Sutherland's Law referene temperature [K]
   suth_s_ref = 110.4,           -- Sutherland's Law S constant [K]
-  
+
   -- Particle Options --
   modeParticles = 'ON',
   initParticles = 'Random', -- 'Random' or 'Restart'
   restartParticleIter = 0,
   particleType = 'Fixed', -- Fixed or Free
   twoWayCoupling = 'OFF',
-  num = 100.0,
-  maximum_num = 1000.0, -- upper bound on particles with insertion
+  num = 100,
+  maximum_num = 1000, -- upper bound on particles with insertion
   insertion_rate = 0, -- per face and per time step
   insertion_mode = {0,0,0,0,0,0}, --bool, MinX MaxX MinY MaxY MinZ MaxZ
   deletion_mode = {0,0,0,0,0,0}, --bool, MinX MaxX MinY MaxY MinZ MaxZ
@@ -90,10 +90,10 @@ return {
   bodyForceParticles = {0,-0.0,0}, -- {0,-1.1,0}
   absorptivity = 1.0, -- Equal to emissivity in thermal equilibrium
   -- (Kirchhoff law of thermal radiation)
-  
+
   -- Radiation Options --
   radiationType = 'ON',
   radiationIntensity = 10.0,
   zeroAvgHeatSource = 'OFF'
-  
+
 }

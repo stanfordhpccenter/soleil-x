@@ -2,31 +2,31 @@
 
 -- This defines the 64^3 TaylorGreen Vortex problem w/out particles or radiation
 return {
-  
-  
+
+
   -----------------------------------------------------------
   -----------------------------------------------------------
   -- Options of interest for Liszt/Legion tests
-  
+
   -- Number of particles (initially distributed one per cell), 0 turns off
   num = 0,
-  --num = 10000.0,
-  
+  --num = 10000,
+
   -- grid size control to add compute load
   xnum = 64, -- number of cells in the x-direction
   ynum = 64, -- number of cells in the y-direction
   znum = 64,  -- number of cells in the z-direction
-  
+
   -- I/O control (OFF/ON). Set all to 'OFF' to completely disable I/O.
   -- frequency/output location is controlled below
   wrtRestart = 'OFF',
   wrtVolumeSolution = 'OFF',
   wrt1DSlice = 'OFF',
   wrtParticleEvolution = 'OFF',
-  
+
   -- set a fixed number of iterations
   max_iter = 100,
-    
+
   -- force a fixed time step to avoid global comms.
   -- decrease if calculation diverges right away
   delta_time  = 1e-4,
@@ -35,14 +35,14 @@ return {
   -- the number of specified iterations to avoid reductions/global comms
   -- to compute statistics and other outputs
   consoleFrequency = 100,  -- Iterations between console output of statistics
-  
+
   -- completely disable particles, including all data
   modeParticles = 'OFF',
 
   -----------------------------------------------------------
   -----------------------------------------------------------
 
-  
+
   -- Flow Initialization  Options --
   initCase     = 'TaylorGreen3DVortex', -- Uniform, Restart, TaylorGreen2DVortex, TaylorGreen3DVortex
   initParams = {1,100,2,0.0,0.0}, -- for TGV: first three are density, pressure, velocity
@@ -50,7 +50,7 @@ return {
   turbForcing = 'OFF',          -- Turn turbulent forcing on or off
   turbForceCoeff = 0.0,         -- Turbulent linear forcing coefficient (f = A*rho*u)
   restartIter = 10000,
-  
+
   -- Grid Options -- PERIODICITY
   origin = {0.0, 0.0, 0.0}, -- spatial origin of the computational domain
   xWidth = 6.283185307179586,
@@ -75,19 +75,19 @@ return {
   zBCRight = 'periodic',
   zBCRightVel = {0.0, 0.0, 0.0},
   zBCRightTemp = 0.0,
-  
+
   --Time Integration Options --
   final_time            = 20.00001,
 
   cfl                   = -1.0, -- Negative CFL implies that we will used fixed delta T
-  
+
   --- File Output Options --
   particleEvolutionIndex = 0,
   outputEveryTimeSteps  = 50,
   restartEveryTimeSteps = 50,
   headerFrequency       = 20,
   outputFormat = 'Tecplot', -- Only 'Tecplot' is currently available
-  
+
   -- Fluid Options --
   gasConstant = 20.4128,
   gamma = 1.4,
@@ -99,13 +99,13 @@ return {
   suth_visc_ref = 1.716E-5,     -- Sutherland's Law reference viscosity [kg/m/s]
   suth_temp_ref = 273.15,       -- Sutherland's Law reference temperature [K]
   suth_s_ref = 110.4,           -- Sutherland's Law S constant [K]
-  
+
   -- Particle Options --
   initParticles = 'Uniform', -- 'Uniform', 'Random', or 'Restart'
   restartParticleIter = 0,
   particleType = 'Free', -- Fixed or Free
   twoWayCoupling = 'OFF', -- ON or OFF
-  maximum_num = 10000.0, -- upper bound on particles with insertion
+  maximum_num = 10000, -- upper bound on particles with insertion
   insertion_rate = 0, -- per face and per time step
   insertion_mode = {0,0,0,0,0,0}, --bool, MinX MaxX MinY MaxY MinZ MaxZ
   deletion_mode = {0,0,0,0,0,0}, --bool, MinX MaxX MinY MaxY MinZ MaxZ
@@ -119,10 +119,10 @@ return {
   bodyForceParticles = {0.0,0.0,0.0},
   absorptivity = 1.0, -- Equal to emissivity in thermal equilibrium
   -- (Kirchhoff law of thermal radiation)
-  
+
   -- Radiation Options --
   radiationType = 'OFF', -- ON or OFF
   radiationIntensity = 1e3,
   zeroAvgHeatSource = 'OFF'
-  
+
 }

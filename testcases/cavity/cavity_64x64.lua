@@ -2,7 +2,7 @@
 
 -- This case defines the 64x64 lid-driven cavity problem
 return {
-  
+
   -- Flow Initialization  Options --
   initCase     = 'Uniform', -- Uniform, Restart, TaylorGreen2DVortex, TaylorGreen3DVortex
   initParams = {1.0,71.42857142857143,0.0,0.0,0.0}, -- necessary input conditions
@@ -10,7 +10,7 @@ return {
   turbForceCoeff = 0.0,         -- Turbulent linear forcing coefficient (f = A*rho*u)
   turbForcing = 'OFF',          -- Turn turbulent forcing on or off
   restartIter = 50000,
-  
+
   -- Grid Options --
   xnum = 64, -- number of cells in the x-direction
   ynum = 64, -- number of cells in the y-direction
@@ -38,13 +38,13 @@ return {
   zBCRight = 'symmetry',
   zBCRightVel = {0.0, 0.0, 0.0},
   zBCRightTemp = 0.0,
-  
+
   --Time Integration Options --
   final_time            = 2000.00001,
   max_iter              = 2,
   cfl                   = -2.0, -- Negative CFL implies that we will used fixed delta T
   delta_time            = 1e-3,
-  
+
   --- File Output Options --
   wrtRestart = 'ON',
   wrtVolumeSolution = 'ON',
@@ -56,7 +56,7 @@ return {
   headerFrequency       = 20,
   consoleFrequency = 1,  -- Iterations between console output of statistics
   outputFormat = 'Tecplot', -- Only 'Tecplot' is currently available
-  
+
   -- Fluid Options --
   gasConstant = 287.058,
   gamma = 1.4,
@@ -68,15 +68,15 @@ return {
   suth_visc_ref = 1.716E-5,     -- Sutherland's Law reference viscosity [kg/m/s]
   suth_temp_ref = 273.15,       -- Sutherland's Law referene temperature [K]
   suth_s_ref = 110.4,           -- Sutherland's Law S constant [K]
-  
+
   -- Particle Options --
   modeParticles = 'OFF',
   initParticles = 'Uniform', -- 'Random' or 'Restart'
   restartParticleIter = 0,
   particleType = 'Free', -- Fixed or Free
   twoWayCoupling = 'OFF', -- ON or OFF
-  num = 1000.0,
-  maximum_num = 1000.0, -- upper bound on particles with insertion
+  num = 1000,
+  maximum_num = 1000, -- upper bound on particles with insertion
   insertion_rate = 0, -- per face and per time step
   insertion_mode = {0,0,0,0,0,0}, --bool, MinX MaxX MinY MaxY MinZ MaxZ
   deletion_mode = {0,0,0,0,0,0}, --bool, MinX MaxX MinY MaxY MinZ MaxZ
@@ -90,10 +90,10 @@ return {
   bodyForceParticles = {0,0,0}, -- {0,-1.1,0}
   absorptivity = 1.0, -- Equal to emissivity in thermal equilibrium
   -- (Kirchhoff law of thermal radiation)
-  
+
   -- Radiation Options --
   radiationType = 'OFF', -- ON or OFF
   radiationIntensity = 1e1,
   zeroAvgHeatSource = 'OFF'
-  
+
 }

@@ -5,7 +5,7 @@
 -- always be kept up to date with the latest version of the code.
 
 return {
-  
+
   -----------------------------------------------------------------------------
   --[[                            GRID OPTIONS                             ]]--
   -----------------------------------------------------------------------------
@@ -34,7 +34,7 @@ return {
   zBCRight = 'symmetry',
   zBCRightVel = {0.0, 0.0, 0.0},
   zBCRightTemp = 0.0,
-  
+
   -----------------------------------------------------------------------------
   --[[                        FLUID PHASE OPTIONS                          ]]--
   -----------------------------------------------------------------------------
@@ -60,7 +60,7 @@ return {
   suth_s_ref = 110.5,           -- Sutherland's Law S constant [K]
   prandtl = 0.72,                -- Prandtl number, Pr
                                 -- Note: thermal conductivity, k = cp*visc/Pr
-  
+
   -----------------------------------------------------------------------------
   --[[                       PARTICLE PHASE OPTIONS                        ]]--
   -----------------------------------------------------------------------------
@@ -70,8 +70,8 @@ return {
   particleType = 'Fixed',          -- Particle can be 'Fixed' or 'Free' to move
   twoWayCoupling = 'OFF',          -- Enable two-way coupling with fluid.
                                    -- 'ON' is two-way, 'OFF' is fluid->particle
-  num = 1000.0,                    -- Prescribe the total number of particles
-  maximum_num = 1000.0, -- upper bound on particles with insertion
+  num = 1000,                    -- Prescribe the total number of particles
+  maximum_num = 1000, -- upper bound on particles with insertion
   insertion_rate = 0, -- per face and per time step
   insertion_mode = {0,0,0,0,0,0}, --bool, MinX MaxX MinY MaxY MinZ MaxZ
   deletion_mode = {0,0,0,0,0,0}, --bool, MinX MaxX MinY MaxY MinZ MaxZ
@@ -86,7 +86,7 @@ return {
   diameter_maxDeviation = 0.0,     -- Maximum deviation for stochastic diameter
   bodyForceParticles = {0.0,0.0,0}, -- Constant body force (acceleration)
                                    -- on particles in the {x,y,z} directions
-  
+
   -----------------------------------------------------------------------------
   --[[                         RADIATION OPTIONS                           ]]--
   -----------------------------------------------------------------------------
@@ -95,7 +95,7 @@ return {
   zeroAvgHeatSource = 'OFF', -- Subtract the average heat addition due to
                              -- from all cells to enable a steady problem
                              -- when radiation is applied.
-  
+
   -----------------------------------------------------------------------------
   --[[                      TIME INTEGRATION OPTIONS                       ]]--
   -----------------------------------------------------------------------------
@@ -105,7 +105,7 @@ return {
                            -- imposes a fixed time step that is given by
                            -- the 'delta_time' config option.
   delta_time = 1e-4,       -- Fixed time step [s], ignored if CFL > 0.0
-  
+
   -----------------------------------------------------------------------------
   --[[                          FILE I/O OPTIONS                           ]]--
   -----------------------------------------------------------------------------
