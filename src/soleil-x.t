@@ -73,6 +73,48 @@ double rand_gauss() {
 
 ]]
 
+local SAVE_MAPPER_ONLY = os.getenv('SAVE_MAPPER_ONLY') == '1'
+local cmapper
+local link_flags
+do
+  local root_dir = arg[0]:match(".*/") or "./"
+  assert(os.getenv('LG_RT_DIR'), "LG_RT_DIR should be set!")
+  local runtime_dir = os.getenv('LG_RT_DIR') .. "/"
+  local legion_dir = runtime_dir .. "legion/"
+  local mapper_dir = runtime_dir .. "mappers/"
+  local realm_dir = runtime_dir .. "realm/"
+  local mapper_cc = root_dir .. "soleil_mapper.cc"
+  if os.getenv('SAVEOBJ') == '1' then
+    mapper_so = root_dir .. "libsoleil_mapper.so"
+    link_flags = {"-L" .. root_dir, "-lsoleil_mapper"}
+  else
+    mapper_so = os.tmpname() .. ".so"
+  end
+  local cxx = os.getenv('CXX') or 'c++'
+
+  local cxx_flags = "-O2 -Wall -Werror"
+  if os.execute('test "$(uname)" = Darwin') == 0 then
+    cxx_flags =
+      (cxx_flags ..
+         " -dynamiclib -single_module -undefined dynamic_lookup -fPIC")
+  else
+    cxx_flags = cxx_flags .. " -shared -fPIC"
+  end
+
+  local cmd = (cxx .. " " .. cxx_flags .. " -I " .. runtime_dir .. " " ..
+                 " -I " .. mapper_dir .. " " .. " -I " .. legion_dir .. " " ..
+                 " -I " .. realm_dir .. " " .. mapper_cc .. " -o " .. mapper_so)
+  if os.execute(cmd) ~= 0 then
+    print("Error: failed to compile " .. mapper_cc)
+    assert(false)
+  end
+  if SAVE_MAPPER_ONLY then os.exit(0) end
+  terralib.linklibrary(mapper_so)
+  cmapper = terralib.includec("soleil_mapper.h", {"-I", root_dir, "-I", runtime_dir,
+                                                  "-I", mapper_dir, "-I", legion_dir,
+                                                  "-I", realm_dir})
+end
+
 -- Use the built in rand() function from Liszt
 local rand_float = L.rand
 
@@ -1129,7 +1171,7 @@ end
 -----------------------------------------------------------------------------
 
 
-ebb TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+ebb TrilinearInterpolateRho (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
     var dX   = L.fmod((xyz[0] - grid_originX)/grid_dx + 0.5, 1.0)
     var dY   = L.fmod((xyz[1] - grid_originY)/grid_dy + 0.5, 1.0)
     var dZ   = L.fmod((xyz[2] - grid_originZ)/grid_dz + 0.5, 1.0)
@@ -1137,17 +1179,17 @@ ebb TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011
     var oneMinusdX = 1.0 - dX
     var oneMinusdY = 1.0 - dY
     var oneMinusdZ = 1.0 - dZ
-    var weight00 = c000.rho * oneMinusdX + c100.rho * dX
-    var weight10 = c010.rho * oneMinusdX + c110.rho * dX
-    var weight01 = c001.rho * oneMinusdX + c101.rho * dX
-    var weight11 = c011.rho * oneMinusdX + c111.rho * dX
+    var weight00 = c000 * oneMinusdX + c100 * dX
+    var weight10 = c010 * oneMinusdX + c110 * dX
+    var weight01 = c001 * oneMinusdX + c101 * dX
+    var weight11 = c011 * oneMinusdX + c111 * dX
     var weight0  = weight00 * oneMinusdY + weight10 * dY
     var weight1  = weight01 * oneMinusdY + weight11 * dY
 
     return weight0 * oneMinusdZ + weight1 * dZ
 end
 
-ebb TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+ebb TrilinearInterpolateVelocity (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
     var dX   = L.fmod((xyz[0] - grid_originX)/grid_dx + 0.5, 1.0)
     var dY   = L.fmod((xyz[1] - grid_originY)/grid_dy + 0.5, 1.0)
     var dZ   = L.fmod((xyz[2] - grid_originZ)/grid_dz + 0.5, 1.0)
@@ -1155,17 +1197,17 @@ ebb TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011
     var oneMinusdX = 1.0 - dX
     var oneMinusdY = 1.0 - dY
     var oneMinusdZ = 1.0 - dZ
-    var weight00 = c000.velocity * oneMinusdX + c100.velocity * dX
-    var weight10 = c010.velocity * oneMinusdX + c110.velocity * dX
-    var weight01 = c001.velocity * oneMinusdX + c101.velocity * dX
-    var weight11 = c011.velocity * oneMinusdX + c111.velocity * dX
+    var weight00 = c000 * oneMinusdX + c100 * dX
+    var weight10 = c010 * oneMinusdX + c110 * dX
+    var weight01 = c001 * oneMinusdX + c101 * dX
+    var weight11 = c011 * oneMinusdX + c111 * dX
     var weight0  = weight00 * oneMinusdY + weight10 * dY
     var weight1  = weight01 * oneMinusdY + weight11 * dY
 
     return weight0 * oneMinusdZ + weight1 * dZ
 end
 
-ebb TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+ebb TrilinearInterpolateTemp (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
     var dX   = L.fmod((xyz[0] - grid_originX)/grid_dx + 0.5, 1.0)
     var dY   = L.fmod((xyz[1] - grid_originY)/grid_dy + 0.5, 1.0)
     var dZ   = L.fmod((xyz[2] - grid_originZ)/grid_dz + 0.5, 1.0)
@@ -1173,149 +1215,270 @@ ebb TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c01
     var oneMinusdX = 1.0 - dX
     var oneMinusdY = 1.0 - dY
     var oneMinusdZ = 1.0 - dZ
-    var weight00 = c000.temperature * oneMinusdX + c100.temperature * dX
-    var weight10 = c010.temperature * oneMinusdX + c110.temperature * dX
-    var weight01 = c001.temperature * oneMinusdX + c101.temperature * dX
-    var weight11 = c011.temperature * oneMinusdX + c111.temperature * dX
+    var weight00 = c000 * oneMinusdX + c100 * dX
+    var weight10 = c010 * oneMinusdX + c110 * dX
+    var weight01 = c001 * oneMinusdX + c101 * dX
+    var weight11 = c011 * oneMinusdX + c111 * dX
     var weight0  = weight00 * oneMinusdY + weight10 * dY
     var weight1  = weight01 * oneMinusdY + weight11 * dY
 
     return weight0 * oneMinusdZ + weight1 * dZ
 end
 
-ebb InterpolateTriAll (c, xyz)
+ebb InterpolateTriVelocity (c, xyz)
+  var velocity000 = L.vec3d({0.0,0.0,0.0})
+  var velocity100 = L.vec3d({0.0,0.0,0.0})
+  var velocity010 = L.vec3d({0.0,0.0,0.0})
+  var velocity110 = L.vec3d({0.0,0.0,0.0})
+  var velocity001 = L.vec3d({0.0,0.0,0.0})
+  var velocity101 = L.vec3d({0.0,0.0,0.0})
+  var velocity011 = L.vec3d({0.0,0.0,0.0})
+  var velocity111 = L.vec3d({0.0,0.0,0.0})
 
-  var rho = L.double(0.0)
-  var velocity = L.vec3d({0.0,0.0,0.0})
-  var temp = L.double(0.0)
+  var velocity0 = c.velocity
 
   if xyz[0] > c.centerCoordinates[0] then
+    var velocityb = c( 1,  0,  0).velocity
     if xyz[1] > c.centerCoordinates[1] then
+      var velocityaa = c( 0,  1,  0).velocity
+      var velocityab = c( 1,  1,  0).velocity
       if xyz[2] > c.centerCoordinates[2] then
-        var c000 = c( 0,  0,  0)
-        var c100 = c( 1,  0,  0)
-        var c010 = c( 0,  1,  0)
-        var c110 = c( 1,  1,  0)
-        var c001 = c( 0,  0,  1)
-        var c101 = c( 1,  0,  1)
-        var c011 = c( 0,  1,  1)
-        var c111 = c( 1,  1,  1)
-
-        rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-        velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-        temp = TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+        velocity000 = velocity0
+        velocity100 = velocityb
+        velocity010 = velocityaa
+        velocity110 = velocityab
+        velocity001 = c( 0,  0,  1).velocity
+        velocity101 = c( 1,  0,  1).velocity
+        velocity011 = c( 0,  1,  1).velocity
+        velocity111 = c( 1,  1,  1).velocity
 
       else -- xyz[2] <= c.centerCoordinates[2]
-        var c000 = c( 0,  0, -1)
-        var c100 = c( 1,  0, -1)
-        var c010 = c( 0,  1, -1)
-        var c110 = c( 1,  1, -1)
-        var c001 = c( 0,  0,  0)
-        var c101 = c( 1,  0,  0)
-        var c011 = c( 0,  1,  0)
-        var c111 = c( 1,  1,  0)
+        velocity000 = c( 0,  0, -1).velocity
+        velocity100 = c( 1,  0, -1).velocity
+        velocity010 = c( 0,  1, -1).velocity
+        velocity110 = c( 1,  1, -1).velocity
+        velocity001 = velocity0
+        velocity101 = velocityb
+        velocity011 = velocityaa
+        velocity111 = velocityab
 
-        rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-        velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-        temp =  TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
       end
 
     else -- xyz[1] <= c.centerCoordinates[1]
-      if xyz[2] > c.centerCoordinates[2] then
-        var c000 = c( 0, -1,  0)
-        var c100 = c( 1, -1,  0)
-        var c010 = c( 0,  0,  0)
-        var c110 = c( 1,  0,  0)
-        var c001 = c( 0, -1,  1)
-        var c101 = c( 1, -1,  1)
-        var c011 = c( 0,  0,  1)
-        var c111 = c( 1,  0,  1)
+      var velocityaa = c( 0, -1,  0).velocity
+      var velocityab = c( 1, -1,  0).velocity
 
-        rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-        velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-        temp = TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+      if xyz[2] > c.centerCoordinates[2] then
+        velocity000 = velocityaa
+        velocity100 = velocityab
+        velocity010 = velocity0
+        velocity110 = velocityb
+        velocity001 = c( 0, -1,  1).velocity
+        velocity101 = c( 1, -1,  1).velocity
+        velocity011 = c( 0,  0,  1).velocity
+        velocity111 = c( 1,  0,  1).velocity
 
       else -- xyz[2] <= c.centerCoordinates[2]
-        var c000 = c( 0, -1, -1)
-        var c100 = c( 1, -1, -1)
-        var c010 = c( 0,  0, -1)
-        var c110 = c( 1,  0, -1)
-        var c001 = c( 0, -1,  0)
-        var c101 = c( 1, -1,  0)
-        var c011 = c( 0,  0,  0)
-        var c111 = c( 1,  0,  0)
+        velocity000 = c( 0, -1, -1).velocity
+        velocity100 = c( 1, -1, -1).velocity
+        velocity010 = c( 0,  0, -1).velocity
+        velocity110 = c( 1,  0, -1).velocity
+        velocity001 = velocityaa
+        velocity101 = velocityab
+        velocity011 = velocity0
+        velocity111 = velocityb
 
-        rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-        velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-        temp =  TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
       end
     end
 
   else -- xyz[0] <= c.centerCoordinates[0]
+    var velocitya = c(-1,  0,  0).velocity
     if xyz[1] > c.centerCoordinates[1] then
-      if xyz[2] > c.centerCoordinates[2] then
-        var c000 = c(-1,  0,  0)
-        var c100 = c( 0,  0,  0)
-        var c010 = c(-1,  1,  0)
-        var c110 = c( 0,  1,  0)
-        var c001 = c(-1,  0,  1)
-        var c101 = c( 0,  0,  1)
-        var c011 = c(-1,  1,  1)
-        var c111 = c( 0,  1,  1)
+      var velocityaa = c(-1,  1,  0).velocity
+      var velocityab = c( 0,  1,  0).velocity
 
-        rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-        velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-        temp = TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+      if xyz[2] > c.centerCoordinates[2] then
+        velocity000 = velocitya
+        velocity100 = velocity0
+        velocity010 = velocityaa
+        velocity110 = velocityab
+        velocity001 = c(-1,  0,  1).velocity
+        velocity101 = c( 0,  0,  1).velocity
+        velocity011 = c(-1,  1,  1).velocity
+        velocity111 = c( 0,  1,  1).velocity
 
       else -- xyz[2] <= c.centerCoordinates[2]
-        var c000 = c(-1,  0, -1)
-        var c100 = c( 0,  0, -1)
-        var c010 = c(-1,  1, -1)
-        var c110 = c( 0,  1, -1)
-        var c001 = c(-1,  0,  0)
-        var c101 = c( 0,  0,  0)
-        var c011 = c(-1,  1,  0)
-        var c111 = c( 0,  1,  0)
+        velocity000 = c(-1,  0, -1).velocity
+        velocity100 = c( 0,  0, -1).velocity
+        velocity010 = c(-1,  1, -1).velocity
+        velocity110 = c( 0,  1, -1).velocity
+        velocity001 = velocitya
+        velocity101 = velocity0
+        velocity011 = velocityaa
+        velocity111 = velocityab
 
-        rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-        velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-        temp = TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
       end
 
     else -- xyz[1] <= c.centerCoordinates[1]
-      if xyz[2] > c.centerCoordinates[2] then
-        var c000 = c(-1, -1,  0)
-        var c100 = c( 0, -1,  0)
-        var c010 = c(-1,  0,  0)
-        var c110 = c( 0,  0,  0)
-        var c001 = c(-1, -1,  1)
-        var c101 = c( 0, -1,  1)
-        var c011 = c(-1,  0,  1)
-        var c111 = c( 0,  0,  1)
+      var velocityaa = c(-1, -1,  0).velocity
+      var velocityab = c( 0, -1,  0).velocity
 
-        rho = TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-        velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-        temp =  TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
+      if xyz[2] > c.centerCoordinates[2] then
+        velocity000 = velocityaa
+        velocity100 = velocityab
+        velocity010 = velocitya
+        velocity110 = velocity0
+        velocity001 = c(-1, -1,  1).velocity
+        velocity101 = c( 0, -1,  1).velocity
+        velocity011 = c(-1,  0,  1).velocity
+        velocity111 = c( 0,  0,  1).velocity
 
       else -- xyz[2] <= c.centerCoordinates[2]
-        var c000 = c(-1, -1, -1)
-        var c100 = c( 0, -1, -1)
-        var c010 = c(-1,  0, -1)
-        var c110 = c( 0,  0, -1)
-        var c001 = c(-1, -1,  0)
-        var c101 = c( 0, -1,  0)
-        var c011 = c(-1,  0,  0)
-        var c111 = c( 0,  0,  0)
+        velocity000 = c(-1, -1, -1).velocity
+        velocity100 = c( 0, -1, -1).velocity
+        velocity010 = c(-1,  0, -1).velocity
+        velocity110 = c( 0,  0, -1).velocity
+        velocity001 = velocityaa
+        velocity101 = velocityab
+        velocity011 = velocitya
+        velocity111 = velocity0
 
-        rho =  TrilinearInterpolateRhoHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-        velocity = TrilinearInterpolateVelHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-        temp = TrilinearInterpolateTempHelper (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
       end
     end
   end
 
-  return {rho, velocity[0], velocity[1], velocity[2], temp}
+  return TrilinearInterpolateVelocity (xyz, velocity000, velocity100,
+                                            velocity010, velocity110,
+                                            velocity001, velocity101,
+                                            velocity011, velocity111 )
+end
 
+ebb InterpolateTriTemp (c, xyz)
+  var temp000 = L.double(0.0)
+  var temp100 = L.double(0.0)
+  var temp010 = L.double(0.0)
+  var temp110 = L.double(0.0)
+  var temp001 = L.double(0.0)
+  var temp101 = L.double(0.0)
+  var temp011 = L.double(0.0)
+  var temp111 = L.double(0.0)
+
+  var temp0     = c.temperature
+
+  if xyz[0] > c.centerCoordinates[0] then
+    var tempb     = c( 1,  0,  0).temperature
+    if xyz[1] > c.centerCoordinates[1] then
+      var tempaa = c( 0,  1,  0).temperature
+      var tempab = c( 1,  1,  0).temperature
+      if xyz[2] > c.centerCoordinates[2] then
+        temp000 = temp0
+        temp100 = tempb
+        temp010 = tempaa
+        temp110 = tempab
+        temp001 = c( 0,  0,  1).temperature
+        temp101 = c( 1,  0,  1).temperature
+        temp011 = c( 0,  1,  1).temperature
+        temp111 = c( 1,  1,  1).temperature
+
+      else -- xyz[2] <= c.centerCoordinates[2]
+        temp000 = c( 0,  0, -1).temperature
+        temp100 = c( 1,  0, -1).temperature
+        temp010 = c( 0,  1, -1).temperature
+        temp110 = c( 1,  1, -1).temperature
+        temp001 = temp0
+        temp101 = tempb
+        temp011 = tempaa
+        temp111 = tempab
+
+      end
+
+    else -- xyz[1] <= c.centerCoordinates[1]
+      var tempaa = c( 0, -1,  0).temperature
+      var tempab = c( 1, -1,  0).temperature
+
+      if xyz[2] > c.centerCoordinates[2] then
+        temp000 = tempaa
+        temp100 = tempab
+        temp010 = temp0
+        temp110 = tempb
+        temp001 = c( 0, -1,  1).temperature
+        temp101 = c( 1, -1,  1).temperature
+        temp011 = c( 0,  0,  1).temperature
+        temp111 = c( 1,  0,  1).temperature
+
+      else -- xyz[2] <= c.centerCoordinates[2]
+        temp000 = c( 0, -1, -1).temperature
+        temp100 = c( 1, -1, -1).temperature
+        temp010 = c( 0,  0, -1).temperature
+        temp110 = c( 1,  0, -1).temperature
+        temp001 = tempaa
+        temp101 = tempab
+        temp011 = temp0
+        temp111 = tempb
+
+      end
+    end
+
+  else -- xyz[0] <= c.centerCoordinates[0]
+    var tempa = c(-1,  0,  0).temperature
+    if xyz[1] > c.centerCoordinates[1] then
+      var tempaa = c(-1,  1,  0).temperature
+      var tempab = c( 0,  1,  0).temperature
+
+      if xyz[2] > c.centerCoordinates[2] then
+        temp000 = tempa
+        temp100 = temp0
+        temp010 = tempaa
+        temp110 = tempab
+        temp001 = c(-1,  0,  1).temperature
+        temp101 = c( 0,  0,  1).temperature
+        temp011 = c(-1,  1,  1).temperature
+        temp111 = c( 0,  1,  1).temperature
+
+      else -- xyz[2] <= c.centerCoordinates[2]
+        temp000 = c(-1,  0, -1).temperature
+        temp100 = c( 0,  0, -1).temperature
+        temp010 = c(-1,  1, -1).temperature
+        temp110 = c( 0,  1, -1).temperature
+        temp001 = tempa
+        temp101 = temp0
+        temp011 = tempaa
+        temp111 = tempab
+
+      end
+
+    else -- xyz[1] <= c.centerCoordinates[1]
+      var tempaa = c(-1, -1,  0).temperature
+      var tempab = c( 0, -1,  0).temperature
+
+      if xyz[2] > c.centerCoordinates[2] then
+        temp000 = tempaa
+        temp100 = tempab
+        temp010 = tempa
+        temp110 = temp0
+        temp001 = c(-1, -1,  1).temperature
+        temp101 = c( 0, -1,  1).temperature
+        temp011 = c(-1,  0,  1).temperature
+        temp111 = c( 0,  0,  1).temperature
+
+      else -- xyz[2] <= c.centerCoordinates[2]
+        temp000 = c(-1, -1, -1).temperature
+        temp100 = c( 0, -1, -1).temperature
+        temp010 = c(-1,  0, -1).temperature
+        temp110 = c( 0,  0, -1).temperature
+        temp001 = tempaa
+        temp101 = tempab
+        temp011 = tempa
+        temp111 = temp0
+
+      end
+    end
+  end
+
+  return TrilinearInterpolateTemp (xyz, temp000, temp100,
+                                        temp010, temp110,
+                                        temp001, temp101,
+                                        temp011, temp111 )
 end
 
 -----------------------------------------------------------------------------
@@ -2323,17 +2486,10 @@ if particles_options.modeParticles then
 
       -- WARNING: assumes we have already located particles
 
-      var flowDensity     = L.double(0)
-      var flowVelocity    = L.vec3d({0.0, 0.0, 0.0})
-      var flowTemperature = L.double(0)
-      var flowDynamicViscosity = L.double(0)
-
       -- Trilinear interpolation for the flow quantities
-      var result      = InterpolateTriAll(p.cell, p.position)
-      flowDensity     = result[0]
-      flowVelocity    = {result[1], result[2], result[3]}
-      flowTemperature = result[4]
-      flowDynamicViscosity = GetDynamicViscosity(flowTemperature)
+      var flowVelocity    = InterpolateTriVelocity(p.cell, p.position)
+      var flowTemperature = InterpolateTriTemp(p.cell, p.position)
+      var flowDynamicViscosity = GetDynamicViscosity(flowTemperature)
 
       -- Update the particle position using the current velocity
       if particles_options.particleType == Particles.Fixed then
@@ -2663,8 +2819,7 @@ if particles_options.modeParticles then
     end
   elseif particles_options.particleType == Particles.Free then
     ebb Particles.VelocityFromFlow(cell, position)
-      var result = InterpolateTriAll(cell, position)
-      return {result[1], result[2], result[3]}
+      return InterpolateTriVelocity(cell, position)
     end
   else assert(false) end
 
@@ -3656,4 +3811,4 @@ print("")
 print("--------------------------- Exit Success ----------------------------")
 print("")
 
-A.translateAndRun()
+A.translateAndRun(cmapper.register_mappers, link_flags)
