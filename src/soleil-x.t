@@ -164,6 +164,7 @@ Particles.FeederOverTimeInRandomBox    = 1
 Particles.FeederUQCase                 = 2
 Particles.Random                       = 3
 Particles.Restart                      = 4
+Particles.Uniform                      = 5
 
 -- Particles collector
 Particles.CollectorNone     = 0
@@ -488,6 +489,8 @@ if config.initParticles == 'Random' then
   particles_options.initParticles = Particles.Random
 elseif config.initParticles == 'Restart' then
   particles_options.initParticles = Particles.Restart
+elseif config.initParticles == 'Uniform' then
+  particles_options.initParticles = Particles.Uniform
 else
   error("Particle initialization type not defined")
 end
@@ -732,59 +735,52 @@ local particle_mode
 
 if particles_options.modeParticles then
 
-  -- Declare and initialize particle relation and fields over the particle
-  local INSERT_DELETE = false
-  particle_mode = 'PLAIN'
-
-  -- Check for insert and delete on faces
-  -- WARNING: This is disabled until instertion/deletion is more mature
-  --[[for i = 0,6 do
-    if (config.insertion_mode[i+1] == 1  or
-        config.deletion_mode[i+1]  == 1) then
-        INSERT_DELETE = true
-        break
-    end
-  end
-  if INSERT_DELETE then particle_mode = 'ELASTIC' end
-  ]]--
+  -- Declare particle relation and fields over the particles.
+  -- This is a flexible relation, and thus starts as empty, so we don't
+  -- initialize the fields here.
 
   particles = L.NewRelation {
-    mode = particle_mode,
-    size = particles_options.num,
-    name = 'particles'
+    name = 'particles',
+    mode = 'FLEXIBLE',
+    size = particles_options.maximum_num,
+    max_skew = 3.0,
+    max_xfer_rate = 0.1,
+    xfer_stencil = {            { 0, 0, 1}, { 0, 0,-1},
+                    { 0, 1, 0}, { 0, 1, 1}, { 0, 1,-1},
+                    { 0,-1, 0}, { 0,-1, 1}, { 0,-1,-1},
+                    { 1, 0, 0}, { 1, 0, 1}, { 1, 0,-1},
+                    { 1, 1, 0}, { 1, 1, 1}, { 1, 1,-1},
+                    { 1,-1, 0}, { 1,-1, 1}, { 1,-1,-1},
+                    {-1, 0, 0}, {-1, 0, 1}, {-1, 0,-1},
+                    {-1, 1, 0}, {-1, 1, 1}, {-1, 1,-1},
+                    {-1,-1, 0}, {-1,-1, 1}, {-1,-1,-1}}
   }
 
-  -- Evenly distribute the particles throughout the cells by default. We will
-  -- adjust the locations for particular initializations later.
-
-  local PARTICLE_LEN_X = grid_options.xnum - (xBCPeriodic and 0 or 1)
-  local PARTICLE_LEN_Y = grid_options.ynum - (yBCPeriodic and 0 or 1)
-  local PARTICLE_LEN_Z = grid_options.znum - (zBCPeriodic and 0 or 1)
-  particles:NewField('cell', grid.cells)                        :Fill({0, 0, 0})
-  particles.cell:autoPartitionByPreimage()
-  particles:NewField('position', L.vec3d)                       :Fill({0, 0, 0})
-  particles:NewField('velocity', L.vec3d)                       :Fill({0, 0, 0})
-  particles:NewField('density', L.double)                       :Fill(0)
-  particles:NewField('temperature', L.double)                   :Fill(0)
-  particles:NewField('diameter', L.double)                      :Fill(0)
-  particles:NewField('position_ghost', L.vec3d)                 :Fill({0, 0, 0})
-  particles:NewField('velocity_ghost', L.vec3d)                 :Fill({0, 0, 0})
-  particles:NewField('velocity_t_ghost', L.vec3d)               :Fill({0, 0, 0})
-  particles:NewField('deltaVelocityOverRelaxationTime', L.vec3d):Fill({0, 0, 0})
-  particles:NewField('deltaTemperatureTerm', L.double)          :Fill(0)
+  particles:NewField('cell', grid.cells)
+  particles.cell:AutoPartitionByPreimage()
+  particles:NewField('position', L.vec3d)
+  particles:NewField('velocity', L.vec3d)
+  particles:NewField('density', L.double)
+  particles:NewField('temperature', L.double)
+  particles:NewField('diameter', L.double)
+  particles:NewField('position_ghost', L.vec3d)
+  particles:NewField('velocity_ghost', L.vec3d)
+  particles:NewField('velocity_t_ghost', L.vec3d)
+  particles:NewField('deltaVelocityOverRelaxationTime', L.vec3d)
+  particles:NewField('deltaTemperatureTerm', L.double)
 
   -- scratch (temporary) fields
   -- intermediate values and copies
-  particles:NewField('position_old', L.vec3d)                   :Fill({0, 0, 0})
-  particles:NewField('velocity_old', L.vec3d)                   :Fill({0, 0, 0})
-  particles:NewField('temperature_old', L.double)               :Fill(0)
-  particles:NewField('position_new', L.vec3d)                   :Fill({0, 0, 0})
-  particles:NewField('velocity_new', L.vec3d)                   :Fill({0, 0, 0})
-  particles:NewField('temperature_new', L.double)               :Fill(0)
+  particles:NewField('position_old', L.vec3d)
+  particles:NewField('velocity_old', L.vec3d)
+  particles:NewField('temperature_old', L.double)
+  particles:NewField('position_new', L.vec3d)
+  particles:NewField('velocity_new', L.vec3d)
+  particles:NewField('temperature_new', L.double)
   -- derivatives
-  particles:NewField('position_t', L.vec3d)                     :Fill({0, 0, 0})
-  particles:NewField('velocity_t', L.vec3d)                     :Fill({0, 0, 0})
-  particles:NewField('temperature_t', L.double)                 :Fill(0)
+  particles:NewField('position_t', L.vec3d)
+  particles:NewField('velocity_t', L.vec3d)
+  particles:NewField('temperature_t', L.double)
 
 end
 
@@ -802,7 +798,8 @@ Flow.averageKineticEnergy    = L.Global('Flow.averageKineticEnergy', L.double, 0
 Flow.minTemperature          = L.Global('Flow.minTemperature', L.double, 0.0)
 Flow.maxTemperature          = L.Global('Flow.maxTemperature', L.double, 0.0)
 Particles.averageTemperature = L.Global('Particles.averageTemperature', L.double, 0.0)
-Particles.numParticles       = L.Global('Particles.numParticles', L.double, particles_options.num)
+Particles.number             = L.Global('Particles.number', L.int, particles_options.num)
+Particles.limit              = L.Global('Particles.limit', L.int, 0)
 
 -- Right hand side of the kinetic energy equation
 grid.cells:NewField('PD', L.double)                             :Fill(0.0)
@@ -2291,9 +2288,13 @@ end
 -- any of these kernels when the particles are turned off.
 if particles_options.modeParticles then
 
+  ebb Particles.LocateInCells( p : particles )
+    p.cell = grid.cells.locate(p.position)
+  end
+
   -- Locate particles in cells
   function Particles.Locate()
-    grid.locate_in_cells(particles, 'position', 'cell')
+    particles:foreach(Particles.LocateInCells)
   end
 
   -- Initialize temporaries for time stepper
@@ -2356,7 +2357,7 @@ if particles_options.modeParticles then
       -- Update the particle velocity and temperature
       if particles_options.particleType == Particles.Fixed then
         p.velocity_t  = {0.0,0.0,0.0} -- Don't move the particle
-        elseif particles_options.particleType == Particles.Free then
+      elseif particles_options.particleType == Particles.Free then
         p.velocity_t += p.deltaVelocityOverRelaxationTime
       end
       p.temperature_t += p.deltaTemperatureTerm / (p.mass * particles_options.heat_capacity)
@@ -2387,34 +2388,6 @@ if particles_options.modeParticles then
       -- Add contribution to particle temperature time evolution
       p.temperature_t += absorbedRadiationIntensity /
                          (p.mass * particles_options.heat_capacity)
-  end
-
-  -- Set particle velocities to underlying flow velocity for initialization
-  ebb Particles.SetVelocitiesToFlow (p: particles)
-
-      -- WARNING: assumes we have called dual locate previously
-
-      var flowDensity     = L.double(0)
-      var flowVelocity    = L.vec3d({0.0, 0.0, 0.0})
-      var flowTemperature = L.double(0)
-      var flowDynamicViscosity = L.double(0)
-
-      -- Trilinear interpolation
-      var result      = InterpolateTriAll(p.cell, p.position)
-      flowDensity     = result[0]
-      flowVelocity    = {result[1], result[2], result[3]}
-      flowTemperature = result[4]
-      flowDynamicViscosity = GetDynamicViscosity(flowTemperature)
-
-      -- Update the particle velocity
-      if (particles_options.particleType == Particles.Fixed) then
-        p.velocity = {0.0,0.0,0.0} -- Don't move the particle
-        elseif (particles_options.initParticles == Particles.Restart) then
-        -- Do nothing, as we loaded the velocity from a restart
-      elseif particles_options.particleType == Particles.Free then
-        p.velocity = flowVelocity
-      end
-
   end
 
   -- Update particle variables using derivatives
@@ -2663,71 +2636,83 @@ if particles_options.modeParticles then
   -- Feeder
   ---------
 
-  ebb Flow.InsertParticle (c : grid.cells)
-
-      -- Insert a particle once we locate the correct cell
-  -- random insertion just for testing
-
-  --[[
-      var create_particle = rand_float() < 0.01
-      if create_particle then
-          var pos = c.center + L.vec3f({
-              grid_dx * (rand_float() - 0.5),
-              grid_dy * (rand_float() - 0.5),
-              grid_dz * (rand_float() - 0.5)
-          })
-          insert {
-              dual_cell = grid.dual_locate(pos),
-              position = pos
-              --next_pos = pos
-          } into particles
-      end
-   ]]--
+  -- Convert the cell coordinates to a number in 0..size(interior)-1
+  ebb Flow.InteriorCellNumber(c)
+    var xid = L.xid(c)
+    var yid = L.yid(c)
+    var zid = L.zid(c)
+    if not xBCPeriodic then xid = xid-1 end
+    if not yBCPeriodic then yid = yid-1 end
+    if not zBCPeriodic then zid = zid-1 end
+    return (xid * grid_options.ynum * grid_options.znum +
+            yid * grid_options.znum +
+            zid)
   end
 
-  -- Particles feeder
+  -- Pick a diameter value according to a random distribution,
+  -- with given mean value and maximum deviation.
+  ebb Particles.RandomDiameter()
+     return (rand_float() - 0.5) * particles_options.diameter_maxDeviation +
+       particles_options.diameter_mean
+  end
+
+  -- Calculate particle velocity from underlying flow velocity.
+  if particles_options.particleType == Particles.Fixed then
+    ebb Particles.VelocityFromFlow(cell, position)
+      return {0.0, 0.0, 0.0} -- Don't move the particle
+    end
+  elseif particles_options.particleType == Particles.Free then
+    ebb Particles.VelocityFromFlow(cell, position)
+      var result = InterpolateTriAll(cell, position)
+      return {result[1], result[2], result[3]}
+    end
+  else assert(false) end
+
+  -- Insert one particle on each cell, with a small probability.
+  -- TODO: Inserting exactly at the center, to avoid the need for stencils.
+  ebb Flow.InsertParticlesAtRandom(c : grid.cells)
+    if c.in_interior and
+       Flow.InteriorCellNumber(c) < Particles.limit and
+       rand_float() < 0.01 then
+      insert {
+        cell = c,
+        position = c.center,
+        velocity = c.velocity,
+        density = particles_options.density,
+        temperature = particles_options.initialTemperature,
+        diameter = Particles.RandomDiameter()
+      } into particles
+      Particles.number += 1
+    end
+  end
+
+  -- Particle feeder
   function Particles.Feed()
-
-    M.IF(M.LT(Particles.numParticles:get(), particles_options.maximum_num))
-      grid.cells:foreach(Flow.InsertParticle)
-      -- TODO: Also update Particles.numParticles global.
-    M.END()
-
+    -- For now, insert at random just for testing.
+    Particles.limit:set(particles_options.maximum_num - Particles.number:get())
+    grid.cells:foreach(Flow.InsertParticlesAtRandom)
   end
 
-  -- For now, delete anything that leaves the domain
-  ebb Particles.DeleteParticle (p: particles)
-
+  ebb Particles.DeleteEscapingParticles(p: particles)
     var min_x = grid_originX
     var max_x = grid_originX + grid_widthX
     var min_y = grid_originY
     var max_y = grid_originY + grid_widthY
     var min_z = grid_originZ
     var max_z = grid_originZ + grid_widthZ
-
     var pos = p.position
     if (pos[0] > max_x or pos[0] < min_x  or
         pos[1] > max_y or pos[1] < min_y  or
         pos[2] > max_z or pos[2] < min_z) then
-        --L.print(p.position)
-        --delete p
+      delete(p)
+      Particles.number -= 1
     end
-
-    -- random delete just for testing
-    --var delete_particle = rand_float() < 0.01
-    --if delete_particle then
-      --L.print(p.position)
-    --  delete p
-    --  end
-
   end
 
   -- Particle collector
   function Particles.Collect()
-
-    particles:foreach(Particles.DeleteParticle)
-    -- TODO: Also update Particles.numParticles global.
-
+    -- For now, delete anything that leaves the domain.
+    particles:foreach(Particles.DeleteEscapingParticles)
   end
 
   --[[
@@ -3301,64 +3286,50 @@ end
 -- PARTICLES
 ------------
 
--- put a guard around all particle kernels in case they're inactive
+-- Put a guard around all particle kernels in case they're inactive.
 
 if particles_options.modeParticles then
 
-  ebb Particles.InitializePositionRandom (p : particles)
-
-    -- Particles randomly distributed within the complete domain
-
-    var centerX   = (grid_originX + grid_widthX)/2.0
-    var centerY   = (grid_originY + grid_widthY)/2.0
-    var centerZ   = (grid_originZ + grid_widthZ)/2.0
-
-    var widthX    = grid_originX + grid_widthX
-    var widthY    = grid_originY + grid_widthY
-    var widthZ    = grid_originZ + grid_widthZ
-
-    p.position[0] = centerX + (rand_float()-0.5) * widthX
-    p.position[1] = centerY + (rand_float()-0.5) * widthY
-    p.position[2] = centerZ + (rand_float()-0.5) * widthZ
-
-  end
-
-  ebb Particles.InitializeDiameterRandom (p : particles)
-    -- Initialize to random distribution with given mean value and maximum
-    -- deviation from it
-     p.diameter = (rand_float() - 0.5) * particles_options.diameter_maxDeviation +
-                      particles_options.diameter_mean
+  -- Insert one particle at the center of each cell (plus a tiny offset to help
+  -- the interpolation verification checks).
+  ebb Flow.InsertParticlesUniform(c : grid.cells)
+    if c.in_interior and
+       Flow.InteriorCellNumber(c) < Particles.limit then
+      insert {
+        cell = c,
+        position = c.center,
+        velocity = c.velocity,
+        density = particles_options.density,
+        temperature = particles_options.initialTemperature,
+        diameter = particles_options.diameter_mean
+      } into particles
+      Particles.number += 1
+    end
   end
 
   function Particles.InitializePrimitives()
-
-    -- Upon entering this routine, all active particles are unitialized. We
-    -- will call the locate kernels again after this initialization function.
-
     if particles_options.initParticles == Particles.Random then
-      particles:foreach(Particles.InitializePositionRandom)
-      particles.density:Fill(particles_options.density)
-      particles.temperature:Fill(particles_options.initialTemperature)
-      particles:foreach(Particles.InitializeDiameterRandom)
-      Particles.Locate()
-      particles:foreach(Particles.SetVelocitiesToFlow)
-
+      error("Random particle initialization is disabled")
     elseif particles_options.initParticles == Particles.Restart then
-      particles:Load({'position','velocity','temperature','diameter'},
-                     IO.outputFileNamePrefix .. 'restart_particle_%d.hdf',
-                     config.restartParticleIter)
+      particles:Load(
+        {'cell','position','velocity','temperature','diameter'},
+        IO.outputFileNamePrefix .. 'restart_particle_' ..
+          tostring(config.restartParticleIter) .. '.hdf')
       particles.density:Fill(particles_options.density)
-      Particles.Locate()
-    end
-
+    elseif particles_options.initParticles == Particles.Uniform then
+      M.WHILE(M.LT(Particles.number:get(), particles_options.num))
+        Particles.limit:set(particles_options.num -  Particles.number:get())
+        grid.cells:foreach(Flow.InsertParticlesUniform)
+      M.END()
+    else assert(false) end
   end
 
   function Particles.UpdateAuxiliary()
-      particles:foreach(Particles.UpdateAuxiliaryStep1)
-      particles:foreach(Particles.UpdateAuxiliaryStep2)
+    particles:foreach(Particles.UpdateAuxiliaryStep1)
+    particles:foreach(Particles.UpdateAuxiliaryStep2)
   end
 
-end
+end -- particles_options.modeParticles
 
 
 ------------------
@@ -3368,15 +3339,13 @@ end
 function TimeIntegrator.SetupTimeStep()
     grid.cells:foreach(Flow.InitializeTemporaries)
     if particles_options.modeParticles then
-      if particle_mode == 'ELASTIC' then
-        Particles.Feed()
-      end
+      Particles.Feed()
       particles:foreach(Particles.InitializeTemporaries)
     end
 end
 
 function TimeIntegrator.ConcludeTimeStep()
-  if particles_options.modeParticles and particle_mode == 'ELASTIC' then
+  if particles_options.modeParticles then
     Particles.Collect()
   end
 end
@@ -3486,7 +3455,7 @@ function TimeIntegrator.AdvanceTimeStep()
     TimeIntegrator.timeOld:set(TimeIntegrator.simTime:get())
 
     TimeIntegrator.stage:set(1)
-    M.WHILE(M.LT(TimeIntegrator.stage:get(), 5), false)
+    M.WHILE(M.LT(TimeIntegrator.stage:get(), 5))
         TimeIntegrator.InitializeTimeDerivatives()
         TimeIntegrator.ComputeDFunctionDt()
         TimeIntegrator.UpdateSolution()
@@ -3569,7 +3538,7 @@ function Statistics.UpdateSpatialAverages(grid, particles)
     if particles_options.modeParticles then
       Particles.averageTemperature:set(
         Particles.averageTemperature:get()/
-        Particles.numParticles:get())
+        Particles.number:get())
     end
 
 end
@@ -3597,8 +3566,7 @@ function IO.WriteConsoleOutput()
       M.PRINT(" Min Flow Temp: %11.6f K. Max Flow Temp: %11.6f K.\n",
               Flow.minTemperature:get(), Flow.maxTemperature:get())
       if particles_options.modeParticles then
-        M.PRINT(" Current number of particles: %d.\n",
-                Particles.numParticles:get())
+        M.PRINT(" Current number of particles: %d.\n", Particles.number:get())
       end
       M.PRINT("\n")
       M.PRINT("    Iter     Time(s)   Avg Press    Avg Temp      Avg KE  Particle T\n")
@@ -3647,7 +3615,7 @@ function IO.WriteOutput()
     -- Write the flow restart files
     IO.WriteFlowRestart()
     -- Write the particle restart files
-    if particles_options.modeParticles and particle_mode ~= 'ELASTIC' then
+    if particles_options.modeParticles then
       IO.WriteParticleRestart()
     end
   end
