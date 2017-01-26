@@ -89,7 +89,7 @@ return {
   -- Particle Options --
   -- completely disable particles, including all data
   modeParticles = 'ON',
-  initParticles = 'Random', -- 'Random' or 'Restart'
+  initParticles = 'Uniform', -- 'Random' or 'Restart'
   restartParticleIter = 0,
   particleType = 'Free', -- Fixed or Free
   twoWayCoupling = 'OFF', -- ON or OFF

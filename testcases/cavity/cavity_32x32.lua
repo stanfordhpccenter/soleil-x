@@ -53,8 +53,8 @@ return {
   particleEvolutionIndex = 0,
   outputEveryTimeSteps  = 100,
   restartEveryTimeSteps = 100,
-  consoleFrequency = 101,  -- Iterations between console output of statistics
-  headerFrequency       = 20,
+  consoleFrequency = 10,  -- Iterations between console output of statistics
+  headerFrequency       = 100,
   outputFormat = 'Tecplot', -- Only 'Tecplot' is currently available
 
   -- Fluid Options --
