@@ -1500,7 +1500,9 @@ ebb Flow.InitializeCenterCoordinates (c : grid.cells)
 end
 
 ebb Flow.InitializeCellRindLayer (c : grid.cells)
+  if c.in_interior then
     c.cellRindLayer = 0
+  end
 end
 
 -- Hard coding the vertices until we have access in grid.t
@@ -1513,7 +1515,9 @@ ebb Flow.InitializeVertexCoordinates (v : grid.vertices)
 end
 
 ebb Flow.InitializeVertexRindLayer (v : grid.vertices)
+  if v.in_interior then
     v.vertexRindLayer = 0
+  end
 end
 
 ebb Flow.InitializeUniform (c : grid.cells)
@@ -3534,9 +3538,9 @@ function TimeIntegrator.InitializeVariables()
 
     -- Initialize several grid related entitities
     grid.cells:foreach(Flow.InitializeCenterCoordinates)
-    grid.cells.interior:foreach(Flow.InitializeCellRindLayer)
+    grid.cells:foreach(Flow.InitializeCellRindLayer)
     grid.vertices:foreach(Flow.InitializeVertexCoordinates)
-    grid.vertices.interior:foreach(Flow.InitializeVertexRindLayer)
+    grid.vertices:foreach(Flow.InitializeVertexRindLayer)
 
     -- Set initial condition for the flow and all auxiliary flow variables
     Flow.InitializePrimitives()
