@@ -840,7 +840,7 @@ Flow.averageKineticEnergy    = L.Global('Flow.averageKineticEnergy', L.double, 0
 Flow.minTemperature          = L.Global('Flow.minTemperature', L.double, 0.0)
 Flow.maxTemperature          = L.Global('Flow.maxTemperature', L.double, 0.0)
 Particles.averageTemperature = L.Global('Particles.averageTemperature', L.double, 0.0)
-Particles.number             = L.Global('Particles.number', L.int, particles_options.num)
+Particles.number             = L.Global('Particles.number', L.int, 0)
 Particles.limit              = L.Global('Particles.limit', L.int, 0)
 
 -- Right hand side of the kinetic energy equation
