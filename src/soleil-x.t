@@ -2804,9 +2804,9 @@ if particles_options.modeParticles then
     if not xBCPeriodic then xid = xid-1 end
     if not yBCPeriodic then yid = yid-1 end
     if not zBCPeriodic then zid = zid-1 end
-    return (xid * grid_options.ynum * grid_options.znum +
-            yid * grid_options.znum +
-            zid)
+    return (zid * grid_options.xnum * grid_options.ynum +
+            yid * grid_options.xnum +
+            xid)
   end
 
   -- Pick a diameter value according to a random distribution,
