@@ -699,12 +699,12 @@ local grid_dy      = L.Constant(L.double, grid:yCellWidth())
 local grid_dz      = L.Constant(L.double, grid:zCellWidth())
 
 -- Create a field for the center coords of the dual cells (i.e., vertices)
-grid.vertices:NewField('centerCoordinates', L.vec3d)          :Fill({0, 0, 0})
+--grid.vertices:NewField('centerCoordinates', L.vec3d)          :Fill({0, 0, 0})
 
 -- Create a field to mark the rind layer so it is not written in the output
 -- We need this for both the dual cells (coords) and cells (cell-center data)
-grid.vertices:NewField('vertexRindLayer', L.int)              :Fill(1)
-grid.cells:NewField('cellRindLayer', L.int)                   :Fill(1)
+--grid.vertices:NewField('vertexRindLayer', L.int)              :Fill(1)
+--grid.cells:NewField('cellRindLayer', L.int)                   :Fill(1)
 
 -- Primitive variables
 grid.cells:NewField('rho', L.double)                          :Fill(0)
@@ -801,9 +801,9 @@ if particles_options.modeParticles then
   particles:NewField('cell', grid.cells)
   particles.cell:AutoPartitionByPreimage()
   particles:NewField('position', L.vec3d)
-  particles:NewField('velocity', L.vec3d)
+  particles:NewField('particle_velocity', L.vec3d)
   particles:NewField('density', L.double)
-  particles:NewField('temperature', L.double)
+  particles:NewField('particle_temperature', L.double)
   particles:NewField('diameter', L.double)
   particles:NewField('position_ghost', L.vec3d)
   particles:NewField('velocity_ghost', L.vec3d)
@@ -2467,11 +2467,11 @@ if particles_options.modeParticles then
   -- Initialize temporaries for time stepper
   ebb Particles.InitializeTemporaries (p : particles)
       p.position_old    = p.position
-      p.velocity_old    = p.velocity
-      p.temperature_old = p.temperature
+      p.velocity_old    = p.particle_velocity
+      p.temperature_old = p.particle_temperature
       p.position_new    = p.position
-      p.velocity_new    = p.velocity
-      p.temperature_new = p.temperature
+      p.velocity_new    = p.particle_velocity
+      p.temperature_new = p.particle_temperature
   end
 
   ----------------
@@ -2499,7 +2499,7 @@ if particles_options.modeParticles then
       if particles_options.particleType == Particles.Fixed then
         -- Don't move the particle
       elseif particles_options.particleType == Particles.Free then
-        p.position_t    += p.velocity
+        p.position_t    += p.particle_velocity
       end
 
       -- Relaxation time for small particles
@@ -2510,9 +2510,9 @@ if particles_options.modeParticles then
       ( p.density * L.pow(p.diameter,2)/(18.0 * flowDynamicViscosity))/
       ( 1.0 + 0.15 * L.pow(particleReynoldsNumber,0.687) )
 
-      p.deltaVelocityOverRelaxationTime = (flowVelocity - p.velocity) / relaxationTime
+      p.deltaVelocityOverRelaxationTime = (flowVelocity - p.particle_velocity) / relaxationTime
 
-      p.deltaTemperatureTerm = pi * L.pow(p.diameter, 2) * particles_options.convective_coefficient * (flowTemperature - p.temperature)
+      p.deltaTemperatureTerm = pi * L.pow(p.diameter, 2) * particles_options.convective_coefficient * (flowTemperature - p.particle_temperature)
 
       -- Update the particle velocity and temperature
       if particles_options.particleType == Particles.Fixed then
@@ -2560,11 +2560,11 @@ if particles_options.modeParticles then
               0.5 * deltaTime * p.position_t
           p.velocity_new +=
               (1.0/6.0) * deltaTime * p.velocity_t
-          p.velocity = p.velocity_old +
+          p.particle_velocity = p.velocity_old +
               0.5 * deltaTime * p.velocity_t
           p.temperature_new +=
               (1.0/6.0) * deltaTime * p.temperature_t
-          p.temperature = p.temperature_old +
+          p.particle_temperature = p.temperature_old +
               0.5 * deltaTime * p.temperature_t
       elseif TimeIntegrator.stage == 2 then
           p.position_new +=
@@ -2573,11 +2573,11 @@ if particles_options.modeParticles then
               0.5 * deltaTime * p.position_t
           p.velocity_new +=
               (1.0/3.0) * deltaTime * p.velocity_t
-          p.velocity = p.velocity_old +
+          p.particle_velocity = p.velocity_old +
               0.5 * deltaTime * p.velocity_t
           p.temperature_new +=
               (1.0/3.0) * deltaTime * p.temperature_t
-          p.temperature = p.temperature_old +
+          p.particle_temperature = p.temperature_old +
               0.5 * deltaTime * p.temperature_t
       elseif TimeIntegrator.stage == 3 then
           p.position_new +=
@@ -2586,18 +2586,18 @@ if particles_options.modeParticles then
               1.0 * deltaTime * p.position_t
           p.velocity_new +=
               (1.0/3.0) * deltaTime * p.velocity_t
-          p.velocity = p.velocity_old +
+          p.particle_velocity = p.velocity_old +
               1.0 * deltaTime * p.velocity_t
           p.temperature_new +=
               (1.0/3.0) * deltaTime * p.temperature_t
-          p.temperature = p.temperature_old +
+          p.particle_temperature = p.temperature_old +
               1.0 * deltaTime * p.temperature_t
       else -- TimeIntegrator.stage == 4
           p.position = p.position_new +
               (1.0/6.0) * deltaTime * p.position_t
-          p.velocity = p.velocity_new +
+          p.particle_velocity = p.velocity_new +
               (1.0/6.0) * deltaTime * p.velocity_t
-          p.temperature = p.temperature_new +
+          p.particle_temperature = p.temperature_new +
               (1.0/6.0) * deltaTime * p.temperature_t
       end
   end
@@ -2609,9 +2609,9 @@ if particles_options.modeParticles then
           p.position_ghost[0]   = p.position[0]
           p.position_ghost[1]   = p.position[1]
           p.position_ghost[2]   = p.position[2]
-          p.velocity_ghost[0]   = p.velocity[0]
-          p.velocity_ghost[1]   = p.velocity[1]
-          p.velocity_ghost[2]   = p.velocity[2]
+          p.velocity_ghost[0]   = p.particle_velocity[0]
+          p.velocity_ghost[1]   = p.particle_velocity[1]
+          p.velocity_ghost[2]   = p.particle_velocity[2]
           p.velocity_t_ghost[0] = p.velocity_t[0]
           p.velocity_t_ghost[1] = p.velocity_t[1]
           p.velocity_t_ghost[2] = p.velocity_t[2]
@@ -2631,7 +2631,7 @@ if particles_options.modeParticles then
               p.position_ghost[0] = gridOriginInteriorX
 
               -- Apply an impulse to kick particle away from the wall
-              var impulse = -(1.0+particles_options.restitution_coefficient)*p.velocity[0]
+              var impulse = -(1.0+particles_options.restitution_coefficient)*p.particle_velocity[0]
               if impulse <= 0 then
                 p.velocity_ghost[0] += impulse
               end
@@ -2658,7 +2658,7 @@ if particles_options.modeParticles then
               p.position_ghost[0] = gridOriginInteriorX + grid_options.xWidth
 
               -- Apply an impulse to kick particle away from the wall
-              var impulse = -(1.0+particles_options.restitution_coefficient)*p.velocity[0]
+              var impulse = -(1.0+particles_options.restitution_coefficient)*p.particle_velocity[0]
               if impulse >= 0 then
                 p.velocity_ghost[0] += impulse
               end
@@ -2685,7 +2685,7 @@ if particles_options.modeParticles then
               p.position_ghost[1] = gridOriginInteriorY
 
               -- Apply an impulse to kick particle away from the wall
-              var impulse = -(1.0+particles_options.restitution_coefficient)*p.velocity[1]
+              var impulse = -(1.0+particles_options.restitution_coefficient)*p.particle_velocity[1]
               if impulse <= 0 then
               p.velocity_ghost[1] += impulse
               end
@@ -2713,7 +2713,7 @@ if particles_options.modeParticles then
               p.position_ghost[1] = gridOriginInteriorY + grid_options.yWidth
 
               -- Apply an impulse to kick particle away from the wall
-              var impulse = -(1.0+particles_options.restitution_coefficient)*p.velocity[1]
+              var impulse = -(1.0+particles_options.restitution_coefficient)*p.particle_velocity[1]
               if impulse >= 0 then
                 p.velocity_ghost[1] += impulse
               end
@@ -2740,7 +2740,7 @@ if particles_options.modeParticles then
               p.position_ghost[2] = gridOriginInteriorZ
 
               -- Apply an impulse to kick particle away from the wall
-              var impulse = -(1.0+particles_options.restitution_coefficient)*p.velocity[2]
+              var impulse = -(1.0+particles_options.restitution_coefficient)*p.particle_velocity[2]
               if impulse <= 0 then
                 p.velocity_ghost[2] += impulse
               end
@@ -2767,7 +2767,7 @@ if particles_options.modeParticles then
               p.position_ghost[2] = gridOriginInteriorZ + grid_options.zWidth
 
               -- Apply an impulse to kick particle away from the wall
-              var impulse = -(1.0+particles_options.restitution_coefficient)*p.velocity[2]
+              var impulse = -(1.0+particles_options.restitution_coefficient)*p.particle_velocity[2]
               if impulse >= 0 then
                 p.velocity_ghost[2] += impulse
               end
@@ -2787,7 +2787,7 @@ if particles_options.modeParticles then
   end
   ebb Particles.UpdateAuxiliaryStep2 (p : particles)
       p.position   = p.position_ghost
-      p.velocity   = p.velocity_ghost
+      p.particle_velocity   = p.velocity_ghost
       p.velocity_t = p.velocity_t_ghost
   end
 
@@ -2836,9 +2836,9 @@ if particles_options.modeParticles then
       insert {
         cell = c,
         position = c.center,
-        velocity = c.velocity,
+        particle_velocity = c.velocity,
         density = particles_options.density,
-        temperature = particles_options.initialTemperature,
+        particle_temperature = particles_options.initialTemperature,
         diameter = Particles.RandomDiameter()
       } into particles
       Particles.number += 1
@@ -3049,7 +3049,7 @@ if particles_options.modeParticles then
   -------------
 
   ebb Particles.IntegrateQuantities (p : particles)
-      Particles.averageTemperature += p.temperature
+      Particles.averageTemperature += p.particle_temperature
   end
 
 end
@@ -3457,9 +3457,9 @@ if particles_options.modeParticles then
       insert {
         cell = c,
         position = c.center,
-        velocity = c.velocity,
+        particle_velocity = c.velocity,
         density = particles_options.density,
-        temperature = particles_options.initialTemperature,
+        particle_temperature = particles_options.initialTemperature,
         diameter = particles_options.diameter_mean
       } into particles
       Particles.number += 1
@@ -3538,9 +3538,9 @@ function TimeIntegrator.InitializeVariables()
 
     -- Initialize several grid related entitities
     grid.cells:foreach(Flow.InitializeCenterCoordinates)
-    grid.cells:foreach(Flow.InitializeCellRindLayer)
-    grid.vertices:foreach(Flow.InitializeVertexCoordinates)
-    grid.vertices:foreach(Flow.InitializeVertexRindLayer)
+    --grid.cells:foreach(Flow.InitializeCellRindLayer)
+    --grid.vertices:foreach(Flow.InitializeVertexCoordinates)
+    --grid.vertices:foreach(Flow.InitializeVertexRindLayer)
 
     -- Set initial condition for the flow and all auxiliary flow variables
     Flow.InitializePrimitives()
