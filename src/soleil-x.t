@@ -3498,7 +3498,7 @@ end -- particles_options.modeParticles
 function TimeIntegrator.SetupTimeStep()
     grid.cells:foreach(Flow.InitializeTemporaries)
     if particles_options.modeParticles then
-      Particles.Feed()
+      -- Particles.Feed()
       particles:foreach(Particles.InitializeTemporaries)
     end
 end
