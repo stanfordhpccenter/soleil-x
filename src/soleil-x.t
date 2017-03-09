@@ -3653,16 +3653,8 @@ function TimeIntegrator.CalculateDeltaTime()
     -- Calculate global spectral radius as the maximum between the convective
     -- and diffusive spectral radii
     -- Delta time using the CFL and max spectral radius for stability
-    M.IF(M.AND(M.GT(maxC, maxV), M.GT(maxC, maxH)))
-      TimeIntegrator.deltaTime:set(TimeIntegrator.cfl / maxC)
-    M.ELSE()
-      M.IF(M.GT(maxV, maxH))
-        TimeIntegrator.deltaTime:set(TimeIntegrator.cfl / maxV)
-      M.ELSE()
-        TimeIntegrator.deltaTime:set(TimeIntegrator.cfl / maxH)
-      M.END()
-    M.END()
-
+    TimeIntegrator.deltaTime:set(TimeIntegrator.cfl /
+                                 M.MAX(maxC,M.MAX(maxV,maxH)))
   end
 
 end
