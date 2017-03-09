@@ -3621,8 +3621,10 @@ function TimeIntegrator.AdvanceTimeStep()
         TimeIntegrator.UpdateAuxiliary()
         TimeIntegrator.UpdateTime()
         TimeIntegrator.stage:set(TimeIntegrator.stage:get() + 1)
+        -- HACK: Move escaping particle deletion here, to appease the SPMD
+        -- transformation. It should be fine to do this multiple times.
+        TimeIntegrator.ConcludeTimeStep()
     M.END()
-    TimeIntegrator.ConcludeTimeStep()
 
     TimeIntegrator.timeStep:set(TimeIntegrator.timeStep:get() + 1)
 
