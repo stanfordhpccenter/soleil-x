@@ -3801,6 +3801,9 @@ M.WHILE(M.AND(M.LT(TimeIntegrator.simTime:get(), TimeIntegrator.final_time),
   end
 M.END()
 
+if regentlib.config['flow-spmd'] then
+  Statistics.ComputeSpatialAverages()
+end
 -- Final stats printing
 
 IO.WriteConsoleOutput()
