@@ -3452,17 +3452,22 @@ if particles_options.modeParticles then
   -- Insert one particle at the center of each cell (plus a tiny offset to help
   -- the interpolation verification checks).
   ebb Flow.InsertParticlesUniform(c : grid.cells)
-    if c.in_interior and
-       Flow.InteriorCellNumber(c) < Particles.limit then
-      insert {
-        cell = c,
-        position = c.center,
-        particle_velocity = c.velocity,
-        density = particles_options.density,
-        particle_temperature = particles_options.initialTemperature,
-        diameter = particles_options.diameter_mean
-      } into particles
-      Particles.number += 1
+    if c.in_interior then
+      var cellId = Flow.InteriorCellNumber(c)
+      var numCells = grid_options.xnum * grid_options.ynum * grid_options.znum
+      if cellId == 0 or
+         (cellId-1) * (Particles.limit-1) / (numCells-1) <
+           cellId * (Particles.limit-1) / (numCells-1) then
+        insert {
+          cell = c,
+          position = c.center,
+          particle_velocity = c.velocity,
+          density = particles_options.density,
+          particle_temperature = particles_options.initialTemperature,
+          diameter = particles_options.diameter_mean
+        } into particles
+        Particles.number += 1
+      end
     end
   end
 
@@ -3477,7 +3482,7 @@ if particles_options.modeParticles then
       particles.density:Fill(particles_options.density)
     elseif particles_options.initParticles == Particles.Uniform then
       M.WHILE(M.LT(Particles.number:get(), particles_options.num))
-        Particles.limit:set(particles_options.num -  Particles.number:get())
+        Particles.limit:set(particles_options.num - Particles.number:get())
         grid.cells:foreach(Flow.InsertParticlesUniform)
       M.END()
     else assert(false) end
