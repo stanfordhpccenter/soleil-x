@@ -564,31 +564,31 @@ void SoleilMapper::map_must_epoch(const MapperContext           ctx,
 
   for (size_t idx = 0; idx < input.constraints.size(); ++idx) {
     const MappingConstraint& constraint = input.constraints[idx];
+    int owner_id = -1;
 
-    const Task* task1 = constraint.constrained_tasks[0];
-    const RegionRequirement& req1 =
-      task1->regions[constraint.requirement_indexes[0]];
-    const Task* task2 = constraint.constrained_tasks[1];
-    const RegionRequirement& req2 =
-      task2->regions[constraint.requirement_indexes[1]];
+    for (unsigned i = 0; i < constraint.constrained_tasks.size(); ++i) {
+      const RegionRequirement& req =
+        constraint.constrained_tasks[i]->regions[
+          constraint.requirement_indexes[i]];
+      if (req.is_no_access()) continue;
+      assert(owner_id == -1);
+      owner_id = static_cast<int>(i);
+    }
+    assert(owner_id != -1);
 
-    assert(req1.region == req2.region);
-    Memory target_memory;
-    if (req2.is_no_access())
-      target_memory = sysmems_list[task_indices[task1]];
-    else
-      target_memory = sysmems_list[task_indices[task2]];
-
+    const Task* task = constraint.constrained_tasks[owner_id];
+    const RegionRequirement& req =
+      task->regions[constraint.requirement_indexes[owner_id]];
+    Memory target_memory = sysmems_list[task_indices[task]];
     LayoutConstraintSet layout_constraints;
     layout_constraints.add_constraint(
-      FieldConstraint(req1.privilege_fields, false /*!contiguous*/));
+      FieldConstraint(req.privilege_fields, false /*!contiguous*/));
 
 	  PhysicalInstance inst;
     bool created;
     bool ok = runtime->find_or_create_physical_instance(ctx, target_memory,
-        layout_constraints, std::vector<LogicalRegion>(1, req1.region),
+        layout_constraints, std::vector<LogicalRegion>(1, req.region),
         inst, created, true /*acquire*/);
-    assert(ok);
     if(!ok) {
       log_soleil.fatal("Soleil mapper error. Unable to make instance(s) "
           "in memory " IDFMT " for index %d of constrained "
