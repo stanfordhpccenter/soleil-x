@@ -30,6 +30,7 @@ public:
                 std::vector<Processor>* procs_list,
                 std::vector<Memory>* sysmems_list,
                 std::map<Memory, std::vector<Processor> >* sysmem_local_procs,
+                std::map<Memory, std::vector<Processor> >* sysmem_local_io_procs,
                 std::map<Processor, Memory>* proc_sysmems,
                 std::map<Processor, Memory>* proc_fbmems,
                 std::map<Processor, Memory>* proc_zcmems);
@@ -67,6 +68,7 @@ private:
   std::vector<Processor>& procs_list;
   std::vector<Memory>& sysmems_list;
   std::map<Memory, std::vector<Processor> >& sysmem_local_procs;
+  std::map<Memory, std::vector<Processor> >& sysmem_local_io_procs;
   std::map<Processor, Memory>& proc_sysmems;
   std::map<Processor, Memory>& proc_fbmems;
   std::map<Processor, Memory>& proc_zcmems;
@@ -78,6 +80,7 @@ SoleilMapper::SoleilMapper(MapperRuntime *rt, Machine machine, Processor local,
                              std::vector<Processor>* _procs_list,
                              std::vector<Memory>* _sysmems_list,
                              std::map<Memory, std::vector<Processor> >* _sysmem_local_procs,
+                             std::map<Memory, std::vector<Processor> >* _sysmem_local_io_procs,
                              std::map<Processor, Memory>* _proc_sysmems,
                              std::map<Processor, Memory>* _proc_fbmems,
                              std::map<Processor, Memory>* _proc_zcmems)
@@ -86,6 +89,7 @@ SoleilMapper::SoleilMapper(MapperRuntime *rt, Machine machine, Processor local,
     procs_list(*_procs_list),
     sysmems_list(*_sysmems_list),
     sysmem_local_procs(*_sysmem_local_procs),
+    sysmem_local_io_procs(*_sysmem_local_io_procs),
     proc_sysmems(*_proc_sysmems),
     proc_fbmems(*_proc_fbmems),
     proc_zcmems(*_proc_zcmems)
@@ -97,6 +101,24 @@ Processor SoleilMapper::default_policy_select_initial_processor(
                                     MapperContext ctx, const Task &task)
 //--------------------------------------------------------------------------
 {
+  if (!task.regions.empty()) {
+    if (task.regions[0].handle_type == SINGULAR) {
+      const LogicalRegion& region = task.regions[0].region;
+      IndexPartition ip =
+        runtime->get_parent_index_partition(ctx, region.get_index_space());
+      Domain domain =
+        runtime->get_index_partition_color_space(ctx, ip);
+      DomainPoint point =
+        runtime->get_logical_region_color_point(ctx, region);
+      coord_t size_x = domain.rect_data[3] - domain.rect_data[0] + 1;
+      coord_t size_y = domain.rect_data[4] - domain.rect_data[1] + 1;
+      Color color = point.point_data[0] +
+                    point.point_data[1] * size_x +
+                    point.point_data[2] * size_x * size_y;
+      return procs_list[color % procs_list.size()];
+    }
+  }
+
   return DefaultMapper::default_policy_select_initial_processor(ctx, task);
 }
 
@@ -196,7 +218,8 @@ void SoleilMapper::map_task(const MapperContext      ctx,
   //Memory target_memory = default_policy_select_target_memory(ctx,
   //                                                   task.target_proc);
   Memory target_memory;
-  if (task.target_proc.kind() == Processor::LOC_PROC)
+  if (task.target_proc.kind() == Processor::LOC_PROC ||
+      task.target_proc.kind() == Processor::IO_PROC)
     target_memory = proc_sysmems[task.target_proc];
   else if (task.target_proc.kind() == Processor::TOC_PROC)
     target_memory = proc_fbmems[task.target_proc];
@@ -550,15 +573,19 @@ void SoleilMapper::map_must_epoch(const MapperContext           ctx,
                                         MapMustEpochOutput&     output)
 //--------------------------------------------------------------------------
 {
-  if (input.tasks.size() > sysmems_list.size()) {
-    log_soleil.error("Soleil mapper currently allows only one shard per node. "
-                     "Please launch more must epoch tasks to satisfy this.");
-    assert(false);
-  }
-
+  size_t num_nodes = sysmems_list.size();
+  size_t num_tasks = input.tasks.size();
+  size_t num_shards_per_node =
+    num_nodes < input.tasks.size() ? (num_tasks + num_nodes - 1) / num_nodes : 1;
+  bool use_io_procs = sysmem_local_io_procs.size() > 0;
   std::map<const Task*, size_t> task_indices;
   for (size_t idx = 0; idx < input.tasks.size(); ++idx) {
-    output.task_processors[idx] = sysmem_local_procs[sysmems_list[idx]][0];
+    size_t node_idx = idx / num_shards_per_node;
+    size_t proc_idx = idx % num_shards_per_node;
+    if (use_io_procs)
+      output.task_processors[idx] = sysmem_local_io_procs[sysmems_list[node_idx]][proc_idx];
+    else
+      output.task_processors[idx] = sysmem_local_procs[sysmems_list[node_idx]][proc_idx];
     task_indices[input.tasks[idx]] = idx;
   }
 
@@ -610,6 +637,8 @@ static void create_mappers(Machine machine,
   std::vector<Memory>* sysmems_list = new std::vector<Memory>();
   std::map<Memory, std::vector<Processor> >* sysmem_local_procs =
     new std::map<Memory, std::vector<Processor> >();
+  std::map<Memory, std::vector<Processor> >* sysmem_local_io_procs =
+    new std::map<Memory, std::vector<Processor> >();
   std::map<Processor, Memory>* proc_sysmems = new std::map<Processor, Memory>();
   std::map<Processor, Memory>* proc_fbmems = new std::map<Processor, Memory>();
   std::map<Processor, Memory>* proc_zcmems = new std::map<Processor, Memory>();
@@ -619,7 +648,8 @@ static void create_mappers(Machine machine,
 
   for (unsigned idx = 0; idx < proc_mem_affinities.size(); ++idx) {
     Machine::ProcessorMemoryAffinity& affinity = proc_mem_affinities[idx];
-    if (affinity.p.kind() == Processor::LOC_PROC) {
+    if (affinity.p.kind() == Processor::LOC_PROC ||
+       affinity.p.kind() == Processor::IO_PROC) {
       if (affinity.m.kind() == Memory::SYSTEM_MEM) {
         (*proc_sysmems)[affinity.p] = affinity.m;
       }
@@ -636,8 +666,13 @@ static void create_mappers(Machine machine,
 
   for (std::map<Processor, Memory>::iterator it = proc_sysmems->begin();
        it != proc_sysmems->end(); ++it) {
-    procs_list->push_back(it->first);
-    (*sysmem_local_procs)[it->second].push_back(it->first);
+    if (it->first.kind() == Processor::LOC_PROC) {
+      procs_list->push_back(it->first);
+      (*sysmem_local_procs)[it->second].push_back(it->first);
+    }
+    else if (it->first.kind() == Processor::IO_PROC) {
+      (*sysmem_local_io_procs)[it->second].push_back(it->first);
+    }
   }
 
   for (std::map<Memory, std::vector<Processor> >::iterator it =
@@ -652,6 +687,7 @@ static void create_mappers(Machine machine,
                                             procs_list,
                                             sysmems_list,
                                             sysmem_local_procs,
+                                            sysmem_local_io_procs,
                                             proc_sysmems,
                                             proc_fbmems,
                                             proc_zcmems);
