@@ -40,6 +40,12 @@ public:
                                     MapperContext ctx,
                                     const Task &task,
                                     std::vector<Processor> &target_procs);
+  virtual LogicalRegion default_policy_select_instance_region(
+                                     MapperContext ctx, Memory target_memory,
+                                     const RegionRequirement &req,
+                                     const LayoutConstraintSet &constraints,
+                                     bool force_new_instances,
+                                     bool meets_constraints);
   virtual void map_task(const MapperContext      ctx,
                         const Task&              task,
                         const MapTaskInput&      input,
@@ -130,6 +136,16 @@ void SoleilMapper::default_policy_select_target_processors(
 //--------------------------------------------------------------------------
 {
   target_procs.push_back(task.target_proc);
+}
+
+LogicalRegion SoleilMapper::default_policy_select_instance_region(
+                             MapperContext ctx, Memory target_memory,
+                             const RegionRequirement &req,
+                             const LayoutConstraintSet &layout_constraints,
+                             bool force_new_instances,
+                             bool meets_constraints)
+{
+  return req.region;
 }
 
 //--------------------------------------------------------------------------
