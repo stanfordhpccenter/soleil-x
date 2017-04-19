@@ -3857,9 +3857,9 @@ end
 -- Initialize all variables
 M.DO(true)
   TimeIntegrator.InitializeVariables()
-  Flow.IntegrateGeometricQuantities(grid.cells)
-  Statistics.ComputeSpatialAverages()
   if not regentlib.config['flow-spmd'] then
+    Flow.IntegrateGeometricQuantities(grid.cells)
+    Statistics.ComputeSpatialAverages()
     IO.WriteOutput()
   end
 M.END()
