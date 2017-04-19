@@ -721,62 +721,62 @@ local grid_dz      = L.Constant(L.double, grid:zCellWidth())
 --grid.cells:NewField('cellRindLayer', L.int)                   :Fill(1)
 
 -- Primitive variables
-grid.cells:NewField('rho', L.double)                          :Fill(0)
-grid.cells:NewField('pressure', L.double)                     :Fill(0)
-grid.cells:NewField('velocity', L.vec3d)                      :Fill({0, 0, 0})
+grid.cells:NewField('rho', L.double)
+grid.cells:NewField('pressure', L.double)
+grid.cells:NewField('velocity', L.vec3d)
 
 -- Remaining primitive variables
-grid.cells:NewField('centerCoordinates', L.vec3d)             :Fill({0, 0, 0})
-grid.cells:NewField('velocityGradientX', L.vec3d)             :Fill({0, 0, 0})
-grid.cells:NewField('velocityGradientY', L.vec3d)             :Fill({0, 0, 0})
-grid.cells:NewField('velocityGradientZ', L.vec3d)             :Fill({0, 0, 0})
-grid.cells:NewField('temperature', L.double)                  :Fill(0)
-grid.cells:NewField('rhoEnthalpy', L.double)                  :Fill(0)
-grid.cells:NewField('kineticEnergy', L.double)                :Fill(0)
-grid.cells:NewField('sgsEnergy', L.double)                    :Fill(0)
-grid.cells:NewField('sgsEddyViscosity', L.double)             :Fill(0)
-grid.cells:NewField('sgsEddyKappa', L.double)                 :Fill(0)
-grid.cells:NewField('convectiveSpectralRadius', L.double)     :Fill(0)
-grid.cells:NewField('viscousSpectralRadius', L.double)        :Fill(0)
-grid.cells:NewField('heatConductionSpectralRadius', L.double) :Fill(0)
+grid.cells:NewField('centerCoordinates', L.vec3d)
+grid.cells:NewField('velocityGradientX', L.vec3d)
+grid.cells:NewField('velocityGradientY', L.vec3d)
+grid.cells:NewField('velocityGradientZ', L.vec3d)
+grid.cells:NewField('temperature', L.double)
+grid.cells:NewField('rhoEnthalpy', L.double)
+grid.cells:NewField('kineticEnergy', L.double)
+grid.cells:NewField('sgsEnergy', L.double)
+grid.cells:NewField('sgsEddyViscosity', L.double)
+grid.cells:NewField('sgsEddyKappa', L.double)
+grid.cells:NewField('convectiveSpectralRadius', L.double)
+grid.cells:NewField('viscousSpectralRadius', L.double)
+grid.cells:NewField('heatConductionSpectralRadius', L.double)
 
 -- Conserved variables
-grid.cells:NewField('rhoVelocity', L.vec3d)                   :Fill({0, 0, 0})
-grid.cells:NewField('rhoEnergy', L.double)                    :Fill(0)
+grid.cells:NewField('rhoVelocity', L.vec3d)
+grid.cells:NewField('rhoEnergy', L.double)
 
 -- Fields for boundary treatment
-grid.cells:NewField('rhoBoundary', L.double)                  :Fill(0)
-grid.cells:NewField('rhoVelocityBoundary', L.vec3d)           :Fill({0, 0, 0})
-grid.cells:NewField('rhoEnergyBoundary', L.double)            :Fill(0)
-grid.cells:NewField('velocityBoundary', L.vec3d)              :Fill({0, 0, 0})
-grid.cells:NewField('pressureBoundary', L.double)             :Fill(0)
-grid.cells:NewField('temperatureBoundary', L.double)          :Fill(0)
-grid.cells:NewField('velocityGradientXBoundary', L.vec3d)     :Fill({0, 0, 0})
-grid.cells:NewField('velocityGradientYBoundary', L.vec3d)     :Fill({0, 0, 0})
-grid.cells:NewField('velocityGradientZBoundary', L.vec3d)     :Fill({0, 0, 0})
+grid.cells:NewField('rhoBoundary', L.double)
+grid.cells:NewField('rhoVelocityBoundary', L.vec3d)
+grid.cells:NewField('rhoEnergyBoundary', L.double)
+grid.cells:NewField('velocityBoundary', L.vec3d)
+grid.cells:NewField('pressureBoundary', L.double)
+grid.cells:NewField('temperatureBoundary', L.double)
+grid.cells:NewField('velocityGradientXBoundary', L.vec3d)
+grid.cells:NewField('velocityGradientYBoundary', L.vec3d)
+grid.cells:NewField('velocityGradientZBoundary', L.vec3d)
 
 -- scratch (temporary) fields
 -- intermediate value and copies
-grid.cells:NewField('rho_old', L.double)                      :Fill(0)
-grid.cells:NewField('rhoVelocity_old', L.vec3d)               :Fill({0, 0, 0})
-grid.cells:NewField('rhoEnergy_old', L.double)                :Fill(0)
-grid.cells:NewField('rho_new', L.double)                      :Fill(0)
-grid.cells:NewField('rhoVelocity_new', L.vec3d)               :Fill({0, 0, 0})
-grid.cells:NewField('rhoEnergy_new', L.double)                :Fill(0)
+grid.cells:NewField('rho_old', L.double)
+grid.cells:NewField('rhoVelocity_old', L.vec3d)
+grid.cells:NewField('rhoEnergy_old', L.double)
+grid.cells:NewField('rho_new', L.double)
+grid.cells:NewField('rhoVelocity_new', L.vec3d)
+grid.cells:NewField('rhoEnergy_new', L.double)
 -- time derivatives
-grid.cells:NewField('rho_t', L.double)                        :Fill(0)
-grid.cells:NewField('rhoVelocity_t', L.vec3d)                 :Fill({0, 0, 0})
-grid.cells:NewField('rhoEnergy_t', L.double)                  :Fill(0)
+grid.cells:NewField('rho_t', L.double)
+grid.cells:NewField('rhoVelocity_t', L.vec3d)
+grid.cells:NewField('rhoEnergy_t', L.double)
 -- fluxes
-grid.cells:NewField('rhoFluxX', L.double)                     :Fill(0)
-grid.cells:NewField('rhoVelocityFluxX', L.vec3d)              :Fill({0, 0, 0})
-grid.cells:NewField('rhoEnergyFluxX', L.double)               :Fill(0)
-grid.cells:NewField('rhoFluxY', L.double)                     :Fill(0)
-grid.cells:NewField('rhoVelocityFluxY', L.vec3d)              :Fill({0, 0, 0})
-grid.cells:NewField('rhoEnergyFluxY', L.double)               :Fill(0)
-grid.cells:NewField('rhoFluxZ', L.double)                     :Fill(0)
-grid.cells:NewField('rhoVelocityFluxZ', L.vec3d)              :Fill({0, 0, 0})
-grid.cells:NewField('rhoEnergyFluxZ', L.double)               :Fill(0)
+grid.cells:NewField('rhoFluxX', L.double)
+grid.cells:NewField('rhoVelocityFluxX', L.vec3d)
+grid.cells:NewField('rhoEnergyFluxX', L.double)
+grid.cells:NewField('rhoFluxY', L.double)
+grid.cells:NewField('rhoVelocityFluxY', L.vec3d)
+grid.cells:NewField('rhoEnergyFluxY', L.double)
+grid.cells:NewField('rhoFluxZ', L.double)
+grid.cells:NewField('rhoVelocityFluxZ', L.vec3d)
+grid.cells:NewField('rhoEnergyFluxZ', L.double)
 
 
 -----------------------------------------------------------------------------
@@ -858,9 +858,9 @@ Particles.number             = L.Global('Particles.number', L.int, 0)
 Particles.limit              = L.Global('Particles.limit', L.int, 0)
 
 -- Right hand side of the kinetic energy equation
-grid.cells:NewField('PD', L.double)                             :Fill(0.0)
-grid.cells:NewField('dissipation', L.double)                    :Fill(0.0)
-grid.cells:NewField('dissipationFlux', L.double)                :Fill(0.0)
+grid.cells:NewField('PD', L.double)
+grid.cells:NewField('dissipation', L.double)
+grid.cells:NewField('dissipationFlux', L.double)
 
 Flow.averagePD          = L.Global('Flow.averagePD', L.double, 0.0)
 Flow.averageDissipation = L.Global('Flow.averageDissipation', L.double, 0.0)
@@ -1502,6 +1502,57 @@ end
 -------
 -- FLOW
 -------
+
+ebb Flow.InitializeCell (c : grid.cells)
+  c.rho = 0.0
+  c.pressure = 0.0
+  c.velocity = L.vec3d({0.0, 0.0, 0.0})
+  c.centerCoordinates = L.vec3d({0.0, 0.0, 0.0})
+  c.velocityGradientX = L.vec3d({0.0, 0.0, 0.0})
+  c.velocityGradientY = L.vec3d({0.0, 0.0, 0.0})
+  c.velocityGradientZ = L.vec3d({0.0, 0.0, 0.0})
+  c.temperature = 0.0
+  c.rhoEnthalpy = 0.0
+  c.kineticEnergy = 0.0
+  c.sgsEnergy = 0.0
+  c.sgsEddyViscosity = 0.0
+  c.sgsEddyKappa = 0.0
+  c.convectiveSpectralRadius = 0.0
+  c.viscousSpectralRadius = 0.0
+  c.heatConductionSpectralRadius = 0.0
+  c.rhoVelocity = L.vec3d({0.0, 0.0, 0.0})
+  c.rhoEnergy = 0.0
+  c.rhoBoundary = 0.0
+  c.rhoVelocityBoundary = L.vec3d({0.0, 0.0, 0.0})
+  c.rhoEnergyBoundary = 0.0
+  c.velocityBoundary = L.vec3d({0.0, 0.0, 0.0})
+  c.pressureBoundary = 0.0
+  c.temperatureBoundary = 0.0
+  c.velocityGradientXBoundary = L.vec3d({0.0, 0.0, 0.0})
+  c.velocityGradientYBoundary = L.vec3d({0.0, 0.0, 0.0})
+  c.velocityGradientZBoundary = L.vec3d({0.0, 0.0, 0.0})
+  c.rho_old = 0.0
+  c.rhoVelocity_old = L.vec3d({0.0, 0.0, 0.0})
+  c.rhoEnergy_old = 0.0
+  c.rho_new = 0.0
+  c.rhoVelocity_new = L.vec3d({0.0, 0.0, 0.0})
+  c.rhoEnergy_new = 0.0
+  c.rho_t = 0.0
+  c.rhoVelocity_t = L.vec3d({0.0, 0.0, 0.0})
+  c.rhoEnergy_t = 0.0
+  c.rhoFluxX = 0.0
+  c.rhoVelocityFluxX = L.vec3d({0.0, 0.0, 0.0})
+  c.rhoEnergyFluxX = 0.0
+  c.rhoFluxY = 0.0
+  c.rhoVelocityFluxY = L.vec3d({0.0, 0.0, 0.0})
+  c.rhoEnergyFluxY = 0.0
+  c.rhoFluxZ = 0.0
+  c.rhoVelocityFluxZ = L.vec3d({0.0, 0.0, 0.0})
+  c.rhoEnergyFluxZ = 0.0
+  c.PD = 0.0
+  c.dissipation = 0.0
+  c.dissipationFlux = 0.0
+end
 
 -- Initialize flow variables
 -- Cell center coordinates are stored in the grid field macro 'center'.
@@ -3555,6 +3606,8 @@ end
 
 function TimeIntegrator.InitializeVariables()
 
+    grid.cells:foreach(Flow.InitializeCell)
+
     -- Initialize several grid related entitities
     grid.cells:foreach(Flow.InitializeCenterCoordinates)
     --grid.cells:foreach(Flow.InitializeCellRindLayer)
@@ -3799,11 +3852,14 @@ end
 -----------------------------------------------------------------------------
 
 -- Initialize all variables
-
-TimeIntegrator.InitializeVariables()
-Flow.IntegrateGeometricQuantities(grid.cells)
-Statistics.ComputeSpatialAverages()
-IO.WriteOutput()
+M.DO(true)
+  TimeIntegrator.InitializeVariables()
+  Flow.IntegrateGeometricQuantities(grid.cells)
+  Statistics.ComputeSpatialAverages()
+  if not regentlib.config['flow-spmd'] then
+    IO.WriteOutput()
+  end
+M.END()
 
 -- Main iteration loop
 
