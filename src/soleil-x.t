@@ -3117,6 +3117,9 @@ if particles_options.modeParticles then
       Particles.averageTemperature += p.particle_temperature
   end
 
+  ebb Particles.numberOfParticles (p : particles)
+      Particles.number += 1
+  end
 end
 
 -----------------------------------------------------------------------------
@@ -3877,6 +3880,9 @@ M.WHILE(M.AND(M.LT(TimeIntegrator.simTime:get(), TimeIntegrator.final_time),
 M.END()
 
 if regentlib.config['flow-spmd'] then
+  Flow.IntegrateGeometricQuantities(grid.cells)
+  Particles.number:set(0)
+  particles:foreach(Particles.numberOfParticles)
   Statistics.ComputeSpatialAverages()
 end
 -- Final stats printing
