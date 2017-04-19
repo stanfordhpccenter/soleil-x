@@ -110,17 +110,20 @@ Processor SoleilMapper::default_policy_select_initial_processor(
   if (!task.regions.empty()) {
     if (task.regions[0].handle_type == SINGULAR) {
       const LogicalRegion& region = task.regions[0].region;
-      IndexPartition ip =
-        runtime->get_parent_index_partition(ctx, region.get_index_space());
-      Domain domain =
-        runtime->get_index_partition_color_space(ctx, ip);
-      DomainPoint point =
-        runtime->get_logical_region_color_point(ctx, region);
-      coord_t size_x = domain.rect_data[3] - domain.rect_data[0] + 1;
-      coord_t size_y = domain.rect_data[4] - domain.rect_data[1] + 1;
-      Color color = point.point_data[0] +
-                    point.point_data[1] * size_x +
-                    point.point_data[2] * size_x * size_y;
+      Color color = 0;
+      if (runtime->has_parent_index_partition(ctx, region.get_index_space())) {
+        IndexPartition ip =
+          runtime->get_parent_index_partition(ctx, region.get_index_space());
+        Domain domain =
+          runtime->get_index_partition_color_space(ctx, ip);
+        DomainPoint point =
+          runtime->get_logical_region_color_point(ctx, region);
+        coord_t size_x = domain.rect_data[3] - domain.rect_data[0] + 1;
+        coord_t size_y = domain.rect_data[4] - domain.rect_data[1] + 1;
+        color = point.point_data[0] +
+                point.point_data[1] * size_x +
+                point.point_data[2] * size_x * size_y;
+      }
       return procs_list[color % procs_list.size()];
     }
   }
