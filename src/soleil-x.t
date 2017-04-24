@@ -3864,6 +3864,10 @@ M.DO(true)
   end
 M.END()
 
+if regentlib.config['flow-spmd'] and particles_options.modeParticles then
+  Particles.number:set(particles_options.num)
+end
+
 -- Main iteration loop
 
 M.WHILE(M.AND(M.LT(TimeIntegrator.simTime:get(), TimeIntegrator.final_time),
@@ -3881,8 +3885,10 @@ M.END()
 
 if regentlib.config['flow-spmd'] then
   Flow.IntegrateGeometricQuantities(grid.cells)
-  Particles.number:set(0)
-  particles:foreach(Particles.numberOfParticles)
+  if particles_options.modeParticles then
+    Particles.number:set(0)
+    particles:foreach(Particles.numberOfParticles)
+  end
   Statistics.ComputeSpatialAverages()
 end
 -- Final stats printing
