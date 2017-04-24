@@ -3118,7 +3118,7 @@ if particles_options.modeParticles then
   end
 
   ebb Particles.numberOfParticles (p : particles)
-      Particles.number += 1
+      Particles.number += L.int64(1)
   end
 end
 
