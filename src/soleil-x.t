@@ -854,8 +854,8 @@ Flow.averageKineticEnergy    = L.Global('Flow.averageKineticEnergy', L.double, 0
 Flow.minTemperature          = L.Global('Flow.minTemperature', L.double, 0.0)
 Flow.maxTemperature          = L.Global('Flow.maxTemperature', L.double, 0.0)
 Particles.averageTemperature = L.Global('Particles.averageTemperature', L.double, 0.0)
-Particles.number             = L.Global('Particles.number', L.int, 0)
-Particles.limit              = L.Global('Particles.limit', L.int, 0)
+Particles.number             = L.Global('Particles.number', L.uint64, 0)
+Particles.limit              = L.Global('Particles.limit', L.uint64, 0)
 
 -- Right hand side of the kinetic energy equation
 grid.cells:NewField('PD', L.double)
@@ -2863,9 +2863,9 @@ if particles_options.modeParticles then
 
   -- Convert the cell coordinates to a number in 0..size(interior)-1
   ebb Flow.InteriorCellNumber(c)
-    var xid = L.xid(c)
-    var yid = L.yid(c)
-    var zid = L.zid(c)
+    var xid = L.uint64(L.xid(c))
+    var yid = L.uint64(L.yid(c))
+    var zid = L.uint64(L.zid(c))
     if not xBCPeriodic then xid = xid-1 end
     if not yBCPeriodic then yid = yid-1 end
     if not zBCPeriodic then zid = zid-1 end
@@ -3522,7 +3522,7 @@ if particles_options.modeParticles then
   ebb Flow.InsertParticlesUniform(c : grid.cells)
     if c.in_interior then
       var cellId = Flow.InteriorCellNumber(c)
-      var numCells = grid_options.xnum * grid_options.ynum * grid_options.znum
+      var numCells = L.uint64(grid_options.xnum * grid_options.ynum * grid_options.znum)
       if cellId == 0 or
          (cellId-1) * (Particles.limit-1) / (numCells-1) <
            cellId * (Particles.limit-1) / (numCells-1) then
