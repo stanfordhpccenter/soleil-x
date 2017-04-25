@@ -1,10 +1,19 @@
--------------------------------------------------------------------------------
--- Intro
--------------------------------------------------------------------------------
-
 import 'regent'
 
-return function(particles_columns)
+-------------------------------------------------------------------------------
+-- Local types
+-------------------------------------------------------------------------------
+
+struct Foo {
+  x : double,
+  y : double,
+}
+
+-------------------------------------------------------------------------------
+-- Module parameters
+-------------------------------------------------------------------------------
+
+return function(particlesRegion, particlesType)
 
 -------------------------------------------------------------------------------
 -- Compile-time computation
@@ -33,24 +42,11 @@ local radiationIntensity = config.radiationIntensity
 local heatCapacity = config.heatCapacity
 
 -------------------------------------------------------------------------------
--- Types & local tasks
+-- Local tasks
 -------------------------------------------------------------------------------
 
--------------------------------------------------------------------------------
--- Exported symbols & initialization
--------------------------------------------------------------------------------
-
-local symbols = terralib.newlist()
-
-local inits = rquote end
-
--------------------------------------------------------------------------------
--- Exported tasks
--------------------------------------------------------------------------------
-
-local tasks = {}
-
-task tasks.AddRadiation(particles : region(particles_columns))
+local __demand(__parallel) task AddRadiation
+  (particles : particlesType, r : region(ispace(int3d),Foo))
 where
   reads(particles.density), reads(particles.diameter),
   reads writes(particles.temperature_t)
@@ -66,8 +62,24 @@ do
 end
 
 -------------------------------------------------------------------------------
--- Outro
+-- Exported quotes
 -------------------------------------------------------------------------------
 
-return symbols, inits, tasks
+local r = regentlib.newsymbol(nil, 'r')
+
+local exports = {}
+
+exports.Init = rquote
+  var [r] = region(ispace(int3d,{2,2,2}),Foo)
+end
+
+exports.AddRadiation = rquote
+  AddRadiation(particlesRegion, r)
+end
+
+-------------------------------------------------------------------------------
+-- Module exports
+-------------------------------------------------------------------------------
+
+return exports
 end

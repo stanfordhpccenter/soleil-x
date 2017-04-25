@@ -3555,7 +3555,7 @@ function TimeIntegrator.ComputeDFunctionDt()
       end
 
       if radiation_options.radiationType then
-          radiation.AddRadiation(particles)
+          M.INLINE(radiation.AddRadiation)
       end
 
       -- Compute two-way coupling in momentum and energy
@@ -3755,6 +3755,7 @@ end
 
 -- Initialize all variables
 
+M.INLINE(radiation.Init)
 TimeIntegrator.InitializeVariables()
 Flow.IntegrateGeometricQuantities(grid.cells)
 Statistics.ComputeSpatialAverages()
