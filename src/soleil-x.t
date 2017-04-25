@@ -132,8 +132,6 @@ end
 -- Use the built in rand() function from Liszt
 local rand_float = L.rand
 
-C.srand(C.time(nil));
-
 -- Load the pathname library, which just provides a couple of
 -- convenience functions for manipulating filesystem paths.
 local PN = require 'ebb.lib.pathname'
@@ -712,14 +710,6 @@ local grid_dx      = L.Constant(L.double, grid:xCellWidth())
 local grid_dy      = L.Constant(L.double, grid:yCellWidth())
 local grid_dz      = L.Constant(L.double, grid:zCellWidth())
 
--- Create a field for the center coords of the dual cells (i.e., vertices)
---grid.vertices:NewField('centerCoordinates', L.vec3d)          :Fill({0, 0, 0})
-
--- Create a field to mark the rind layer so it is not written in the output
--- We need this for both the dual cells (coords) and cells (cell-center data)
---grid.vertices:NewField('vertexRindLayer', L.int)              :Fill(1)
---grid.cells:NewField('cellRindLayer', L.int)                   :Fill(1)
-
 -- Primitive variables
 grid.cells:NewField('rho', L.double)                          :Fill(0)
 grid.cells:NewField('pressure', L.double)                     :Fill(0)
@@ -787,7 +777,6 @@ grid.cells:NewField('rhoEnergyFluxZ', L.double)               :Fill(0)
 -- any data for the particles.
 
 local particles = {}
-local particle_mode
 
 if particles_options.modeParticles then
 
@@ -1511,27 +1500,6 @@ end
 ebb Flow.InitializeCenterCoordinates (c : grid.cells)
     var xy = c.center
     c.centerCoordinates = L.vec3d({L.double(xy[0]), L.double(xy[1]), L.double((xy[2]))})
-end
-
-ebb Flow.InitializeCellRindLayer (c : grid.cells)
-  if c.in_interior then
-    c.cellRindLayer = 0
-  end
-end
-
--- Hard coding the vertices until we have access in grid.t
--- WARNING: Here, I am using the id numbers, but this is unsafe!
-ebb Flow.InitializeVertexCoordinates (v : grid.vertices)
-    var x = grid_originX + grid_dx * (L.double(L.xid(v)))
-    var y = grid_originY + grid_dy * (L.double(L.yid(v)))
-    var z = grid_originZ + grid_dz * (L.double(L.zid(v)))
-    v.centerCoordinates = L.vec3d({x, y, z})
-end
-
-ebb Flow.InitializeVertexRindLayer (v : grid.vertices)
-  if v.in_interior then
-    v.vertexRindLayer = 0
-  end
 end
 
 ebb Flow.InitializeUniform (c : grid.cells)
@@ -3557,9 +3525,6 @@ function TimeIntegrator.InitializeVariables()
 
     -- Initialize several grid related entitities
     grid.cells:foreach(Flow.InitializeCenterCoordinates)
-    --grid.cells:foreach(Flow.InitializeCellRindLayer)
-    --grid.vertices:foreach(Flow.InitializeVertexCoordinates)
-    --grid.vertices:foreach(Flow.InitializeVertexRindLayer)
 
     -- Set initial condition for the flow and all auxiliary flow variables
     Flow.InitializePrimitives()
