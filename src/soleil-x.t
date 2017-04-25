@@ -777,6 +777,7 @@ grid.cells:NewField('rhoEnergyFluxZ', L.double)               :Fill(0)
 -- any data for the particles.
 
 local particles = {}
+local radiation
 
 if particles_options.modeParticles then
 
@@ -827,6 +828,9 @@ if particles_options.modeParticles then
   particles:NewField('velocity_t', L.vec3d)
   particles:NewField('temperature_t', L.double)
 
+  if radiation_options.radiationType then
+    radiation = M.IMPORT('simple_radiation', particles)
+  end
 end
 
 -- Statistics quantities
@@ -2518,20 +2522,6 @@ if particles_options.modeParticles then
   -- Radiation
   ------------
 
-  ebb Particles.AddRadiation (p : particles)
-
-      -- Calculate absorbed radiation intensity considering optically thin
-      -- particles, for a collimated radiation source with negligible
-      -- blackbody self radiation
-      var absorbedRadiationIntensity =
-        particles_options.absorptivity *
-        radiation_options.radiationIntensity * p.cross_section_area
-
-      -- Add contribution to particle temperature time evolution
-      p.temperature_t += absorbedRadiationIntensity /
-                         (p.mass * particles_options.heat_capacity)
-  end
-
   -- Update particle variables using derivatives
   ebb Particles.UpdateVars(p : particles)
       var deltaTime = TimeIntegrator.deltaTime
@@ -3565,7 +3555,7 @@ function TimeIntegrator.ComputeDFunctionDt()
       end
 
       if radiation_options.radiationType then
-          particles:foreach(Particles.AddRadiation)
+          radiation.AddRadiation(particles)
       end
 
       -- Compute two-way coupling in momentum and energy
