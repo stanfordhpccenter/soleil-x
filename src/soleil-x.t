@@ -845,7 +845,7 @@ end
 -- Note: - numberOfInteriorCells and areaInterior could be defined as variables
 -- from grid instead of Flow. Here Flow is used to avoid adding things to grid
 -- externally
-Flow.numberOfInteriorCells   = L.Global('Flow.numberOfInteriorCells', L.int, 0)
+Flow.numberOfInteriorCells   = L.Global('Flow.numberOfInteriorCells', L.int64, 0)
 Flow.areaInterior            = L.Global('Flow.areaInterior', L.double, 0.0)
 Flow.averagePressure         = L.Global('Flow.averagePressure', L.double, 0.0)
 Flow.averageTemperature      = L.Global('Flow.averageTemperature', L.double, 0.0)
@@ -1164,7 +1164,7 @@ local cellVolume = L.Constant(L.double,
                               grid_dx:get() * grid_dy:get() * grid_dz:get())
 local ebb numberOfInteriorCells ( c : grid.cells )
   if c.in_interior then
-    Flow.numberOfInteriorCells += 1
+    Flow.numberOfInteriorCells += L.int64(1)
   end
 end
 local ebb areaInterior ( c : grid.cells )
@@ -3522,7 +3522,9 @@ if particles_options.modeParticles then
   ebb Flow.InsertParticlesUniform(c : grid.cells)
     if c.in_interior then
       var cellId = Flow.InteriorCellNumber(c)
-      var numCells = L.int64(grid_options.xnum * grid_options.ynum * grid_options.znum)
+      var numCells = L.int64(grid_options.xnum) *
+                     L.int64(grid_options.ynum) *
+                     L.int64(grid_options.znum)
       if cellId == L.int64(0) or
          (cellId-L.int64(1)) * (Particles.limit-L.int64(1)) / (numCells-L.int64(1)) <
            cellId * (Particles.limit-L.int64(1)) / (numCells-L.int64(1)) then
@@ -3855,18 +3857,10 @@ end
 -----------------------------------------------------------------------------
 
 -- Initialize all variables
-M.DO(true)
-  TimeIntegrator.InitializeVariables()
-  if not regentlib.config['flow-spmd'] then
-    Flow.IntegrateGeometricQuantities(grid.cells)
-    Statistics.ComputeSpatialAverages()
-    IO.WriteOutput()
-  end
-M.END()
-
-if regentlib.config['flow-spmd'] and particles_options.modeParticles then
-  Particles.number:set(particles_options.num)
-end
+TimeIntegrator.InitializeVariables()
+Flow.IntegrateGeometricQuantities(grid.cells)
+Statistics.ComputeSpatialAverages()
+IO.WriteOutput()
 
 -- Main iteration loop
 
@@ -3884,11 +3878,6 @@ M.WHILE(M.AND(M.LT(TimeIntegrator.simTime:get(), TimeIntegrator.final_time),
 M.END()
 
 if regentlib.config['flow-spmd'] then
-  Flow.IntegrateGeometricQuantities(grid.cells)
-  if particles_options.modeParticles then
-    Particles.number:set(0)
-    particles:foreach(Particles.numberOfParticles)
-  end
   Statistics.ComputeSpatialAverages()
 end
 -- Final stats printing
