@@ -9,7 +9,7 @@ return {
   -- if you increase the cell number and the calculation diverges
   -- right away, decrease the time step on the next line
 
-  delta_time = 2.0e-3,
+  delta_time = 1.0e-4,
 
   -- Control max iterations here. Set to a very high number if
   -- you want to run the full calculation (it will stop once
@@ -23,7 +23,7 @@ return {
 
   consoleFrequency = 10,  -- Iterations between console output of statistics
   headerFrequency       = 2000000,
-  wrtRestart = 'ON',
+  wrtRestart = 'OFF',
   wrtVolumeSolution = 'ON',
   wrt1DSlice = 'OFF',
   wrtParticleEvolution = 'OFF',
