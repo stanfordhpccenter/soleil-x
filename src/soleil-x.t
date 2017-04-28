@@ -3813,7 +3813,6 @@ end
 
 -- Initialize all variables
 
-M.INLINE(radiation.Init)
 TimeIntegrator.InitializeVariables()
 Flow.IntegrateGeometricQuantities(grid.cells)
 Statistics.ComputeSpatialAverages()

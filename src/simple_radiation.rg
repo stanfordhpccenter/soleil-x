@@ -1,15 +1,6 @@
 import 'regent'
 
 -------------------------------------------------------------------------------
--- Local types
--------------------------------------------------------------------------------
-
-struct Foo {
-  x : double,
-  y : double,
-}
-
--------------------------------------------------------------------------------
 -- Module parameters
 -------------------------------------------------------------------------------
 
@@ -46,7 +37,7 @@ local heatCapacity = config.heatCapacity
 -------------------------------------------------------------------------------
 
 local __demand(__parallel) task AddRadiation
-  (particles : particlesType, r : region(ispace(int3d),Foo))
+  (particles : particlesType)
 where
   reads(particles.density), reads(particles.diameter),
   reads writes(particles.temperature_t)
@@ -65,16 +56,10 @@ end
 -- Exported quotes
 -------------------------------------------------------------------------------
 
-local r = regentlib.newsymbol(nil, 'r')
-
 local exports = {}
 
-exports.Init = rquote
-  var [r] = region(ispace(int3d,{2,2,2}),Foo)
-end
-
 exports.AddRadiation = rquote
-  AddRadiation(particlesRegion, r)
+  AddRadiation(particlesRegion)
 end
 
 -------------------------------------------------------------------------------
