@@ -711,62 +711,62 @@ local grid_dy      = L.Constant(L.double, grid:yCellWidth())
 local grid_dz      = L.Constant(L.double, grid:zCellWidth())
 
 -- Primitive variables
-grid.cells:NewField('rho', L.double)                          :Fill(0)
-grid.cells:NewField('pressure', L.double)                     :Fill(0)
-grid.cells:NewField('velocity', L.vec3d)                      :Fill({0, 0, 0})
+grid.cells:NewField('rho', L.double)
+grid.cells:NewField('pressure', L.double)
+grid.cells:NewField('velocity', L.vec3d)
 
 -- Remaining primitive variables
-grid.cells:NewField('centerCoordinates', L.vec3d)             :Fill({0, 0, 0})
-grid.cells:NewField('velocityGradientX', L.vec3d)             :Fill({0, 0, 0})
-grid.cells:NewField('velocityGradientY', L.vec3d)             :Fill({0, 0, 0})
-grid.cells:NewField('velocityGradientZ', L.vec3d)             :Fill({0, 0, 0})
-grid.cells:NewField('temperature', L.double)                  :Fill(0)
-grid.cells:NewField('rhoEnthalpy', L.double)                  :Fill(0)
-grid.cells:NewField('kineticEnergy', L.double)                :Fill(0)
-grid.cells:NewField('sgsEnergy', L.double)                    :Fill(0)
-grid.cells:NewField('sgsEddyViscosity', L.double)             :Fill(0)
-grid.cells:NewField('sgsEddyKappa', L.double)                 :Fill(0)
-grid.cells:NewField('convectiveSpectralRadius', L.double)     :Fill(0)
-grid.cells:NewField('viscousSpectralRadius', L.double)        :Fill(0)
-grid.cells:NewField('heatConductionSpectralRadius', L.double) :Fill(0)
+grid.cells:NewField('centerCoordinates', L.vec3d)
+grid.cells:NewField('velocityGradientX', L.vec3d)
+grid.cells:NewField('velocityGradientY', L.vec3d)
+grid.cells:NewField('velocityGradientZ', L.vec3d)
+grid.cells:NewField('temperature', L.double)
+grid.cells:NewField('rhoEnthalpy', L.double)
+grid.cells:NewField('kineticEnergy', L.double)
+grid.cells:NewField('sgsEnergy', L.double)
+grid.cells:NewField('sgsEddyViscosity', L.double)
+grid.cells:NewField('sgsEddyKappa', L.double)
+grid.cells:NewField('convectiveSpectralRadius', L.double)
+grid.cells:NewField('viscousSpectralRadius', L.double)
+grid.cells:NewField('heatConductionSpectralRadius', L.double)
 
 -- Conserved variables
-grid.cells:NewField('rhoVelocity', L.vec3d)                   :Fill({0, 0, 0})
-grid.cells:NewField('rhoEnergy', L.double)                    :Fill(0)
+grid.cells:NewField('rhoVelocity', L.vec3d)
+grid.cells:NewField('rhoEnergy', L.double)
 
 -- Fields for boundary treatment
-grid.cells:NewField('rhoBoundary', L.double)                  :Fill(0)
-grid.cells:NewField('rhoVelocityBoundary', L.vec3d)           :Fill({0, 0, 0})
-grid.cells:NewField('rhoEnergyBoundary', L.double)            :Fill(0)
-grid.cells:NewField('velocityBoundary', L.vec3d)              :Fill({0, 0, 0})
-grid.cells:NewField('pressureBoundary', L.double)             :Fill(0)
-grid.cells:NewField('temperatureBoundary', L.double)          :Fill(0)
-grid.cells:NewField('velocityGradientXBoundary', L.vec3d)     :Fill({0, 0, 0})
-grid.cells:NewField('velocityGradientYBoundary', L.vec3d)     :Fill({0, 0, 0})
-grid.cells:NewField('velocityGradientZBoundary', L.vec3d)     :Fill({0, 0, 0})
+grid.cells:NewField('rhoBoundary', L.double)
+grid.cells:NewField('rhoVelocityBoundary', L.vec3d)
+grid.cells:NewField('rhoEnergyBoundary', L.double)
+grid.cells:NewField('velocityBoundary', L.vec3d)
+grid.cells:NewField('pressureBoundary', L.double)
+grid.cells:NewField('temperatureBoundary', L.double)
+grid.cells:NewField('velocityGradientXBoundary', L.vec3d)
+grid.cells:NewField('velocityGradientYBoundary', L.vec3d)
+grid.cells:NewField('velocityGradientZBoundary', L.vec3d)
 
 -- scratch (temporary) fields
 -- intermediate value and copies
-grid.cells:NewField('rho_old', L.double)                      :Fill(0)
-grid.cells:NewField('rhoVelocity_old', L.vec3d)               :Fill({0, 0, 0})
-grid.cells:NewField('rhoEnergy_old', L.double)                :Fill(0)
-grid.cells:NewField('rho_new', L.double)                      :Fill(0)
-grid.cells:NewField('rhoVelocity_new', L.vec3d)               :Fill({0, 0, 0})
-grid.cells:NewField('rhoEnergy_new', L.double)                :Fill(0)
+grid.cells:NewField('rho_old', L.double)
+grid.cells:NewField('rhoVelocity_old', L.vec3d)
+grid.cells:NewField('rhoEnergy_old', L.double)
+grid.cells:NewField('rho_new', L.double)
+grid.cells:NewField('rhoVelocity_new', L.vec3d)
+grid.cells:NewField('rhoEnergy_new', L.double)
 -- time derivatives
-grid.cells:NewField('rho_t', L.double)                        :Fill(0)
-grid.cells:NewField('rhoVelocity_t', L.vec3d)                 :Fill({0, 0, 0})
-grid.cells:NewField('rhoEnergy_t', L.double)                  :Fill(0)
+grid.cells:NewField('rho_t', L.double)
+grid.cells:NewField('rhoVelocity_t', L.vec3d)
+grid.cells:NewField('rhoEnergy_t', L.double)
 -- fluxes
-grid.cells:NewField('rhoFluxX', L.double)                     :Fill(0)
-grid.cells:NewField('rhoVelocityFluxX', L.vec3d)              :Fill({0, 0, 0})
-grid.cells:NewField('rhoEnergyFluxX', L.double)               :Fill(0)
-grid.cells:NewField('rhoFluxY', L.double)                     :Fill(0)
-grid.cells:NewField('rhoVelocityFluxY', L.vec3d)              :Fill({0, 0, 0})
-grid.cells:NewField('rhoEnergyFluxY', L.double)               :Fill(0)
-grid.cells:NewField('rhoFluxZ', L.double)                     :Fill(0)
-grid.cells:NewField('rhoVelocityFluxZ', L.vec3d)              :Fill({0, 0, 0})
-grid.cells:NewField('rhoEnergyFluxZ', L.double)               :Fill(0)
+grid.cells:NewField('rhoFluxX', L.double)
+grid.cells:NewField('rhoVelocityFluxX', L.vec3d)
+grid.cells:NewField('rhoEnergyFluxX', L.double)
+grid.cells:NewField('rhoFluxY', L.double)
+grid.cells:NewField('rhoVelocityFluxY', L.vec3d)
+grid.cells:NewField('rhoEnergyFluxY', L.double)
+grid.cells:NewField('rhoFluxZ', L.double)
+grid.cells:NewField('rhoVelocityFluxZ', L.vec3d)
+grid.cells:NewField('rhoEnergyFluxZ', L.double)
 
 
 -----------------------------------------------------------------------------
@@ -838,7 +838,7 @@ end
 -- Note: - numberOfInteriorCells and areaInterior could be defined as variables
 -- from grid instead of Flow. Here Flow is used to avoid adding things to grid
 -- externally
-Flow.numberOfInteriorCells   = L.Global('Flow.numberOfInteriorCells', L.int, 0)
+Flow.numberOfInteriorCells   = L.Global('Flow.numberOfInteriorCells', L.int64, 0)
 Flow.areaInterior            = L.Global('Flow.areaInterior', L.double, 0.0)
 Flow.averagePressure         = L.Global('Flow.averagePressure', L.double, 0.0)
 Flow.averageTemperature      = L.Global('Flow.averageTemperature', L.double, 0.0)
@@ -847,13 +847,13 @@ Flow.averageKineticEnergy    = L.Global('Flow.averageKineticEnergy', L.double, 0
 Flow.minTemperature          = L.Global('Flow.minTemperature', L.double, 0.0)
 Flow.maxTemperature          = L.Global('Flow.maxTemperature', L.double, 0.0)
 Particles.averageTemperature = L.Global('Particles.averageTemperature', L.double, 0.0)
-Particles.number             = L.Global('Particles.number', L.int, 0)
-Particles.limit              = L.Global('Particles.limit', L.int, 0)
+Particles.number             = L.Global('Particles.number', L.int64, 0)
+Particles.limit              = L.Global('Particles.limit', L.int64, 0)
 
 -- Right hand side of the kinetic energy equation
-grid.cells:NewField('PD', L.double)                             :Fill(0.0)
-grid.cells:NewField('dissipation', L.double)                    :Fill(0.0)
-grid.cells:NewField('dissipationFlux', L.double)                :Fill(0.0)
+grid.cells:NewField('PD', L.double)
+grid.cells:NewField('dissipation', L.double)
+grid.cells:NewField('dissipationFlux', L.double)
 
 Flow.averagePD          = L.Global('Flow.averagePD', L.double, 0.0)
 Flow.averageDissipation = L.Global('Flow.averageDissipation', L.double, 0.0)
@@ -1157,7 +1157,7 @@ local cellVolume = L.Constant(L.double,
                               grid_dx:get() * grid_dy:get() * grid_dz:get())
 local ebb numberOfInteriorCells ( c : grid.cells )
   if c.in_interior then
-    Flow.numberOfInteriorCells += 1
+    Flow.numberOfInteriorCells += L.int64(1)
   end
 end
 local ebb areaInterior ( c : grid.cells )
@@ -1495,6 +1495,57 @@ end
 -------
 -- FLOW
 -------
+
+ebb Flow.InitializeCell (c : grid.cells)
+  c.rho = 0.0
+  c.pressure = 0.0
+  c.velocity = L.vec3d({0.0, 0.0, 0.0})
+  c.centerCoordinates = L.vec3d({0.0, 0.0, 0.0})
+  c.velocityGradientX = L.vec3d({0.0, 0.0, 0.0})
+  c.velocityGradientY = L.vec3d({0.0, 0.0, 0.0})
+  c.velocityGradientZ = L.vec3d({0.0, 0.0, 0.0})
+  c.temperature = 0.0
+  c.rhoEnthalpy = 0.0
+  c.kineticEnergy = 0.0
+  c.sgsEnergy = 0.0
+  c.sgsEddyViscosity = 0.0
+  c.sgsEddyKappa = 0.0
+  c.convectiveSpectralRadius = 0.0
+  c.viscousSpectralRadius = 0.0
+  c.heatConductionSpectralRadius = 0.0
+  c.rhoVelocity = L.vec3d({0.0, 0.0, 0.0})
+  c.rhoEnergy = 0.0
+  c.rhoBoundary = 0.0
+  c.rhoVelocityBoundary = L.vec3d({0.0, 0.0, 0.0})
+  c.rhoEnergyBoundary = 0.0
+  c.velocityBoundary = L.vec3d({0.0, 0.0, 0.0})
+  c.pressureBoundary = 0.0
+  c.temperatureBoundary = 0.0
+  c.velocityGradientXBoundary = L.vec3d({0.0, 0.0, 0.0})
+  c.velocityGradientYBoundary = L.vec3d({0.0, 0.0, 0.0})
+  c.velocityGradientZBoundary = L.vec3d({0.0, 0.0, 0.0})
+  c.rho_old = 0.0
+  c.rhoVelocity_old = L.vec3d({0.0, 0.0, 0.0})
+  c.rhoEnergy_old = 0.0
+  c.rho_new = 0.0
+  c.rhoVelocity_new = L.vec3d({0.0, 0.0, 0.0})
+  c.rhoEnergy_new = 0.0
+  c.rho_t = 0.0
+  c.rhoVelocity_t = L.vec3d({0.0, 0.0, 0.0})
+  c.rhoEnergy_t = 0.0
+  c.rhoFluxX = 0.0
+  c.rhoVelocityFluxX = L.vec3d({0.0, 0.0, 0.0})
+  c.rhoEnergyFluxX = 0.0
+  c.rhoFluxY = 0.0
+  c.rhoVelocityFluxY = L.vec3d({0.0, 0.0, 0.0})
+  c.rhoEnergyFluxY = 0.0
+  c.rhoFluxZ = 0.0
+  c.rhoVelocityFluxZ = L.vec3d({0.0, 0.0, 0.0})
+  c.rhoEnergyFluxZ = 0.0
+  c.PD = 0.0
+  c.dissipation = 0.0
+  c.dissipationFlux = 0.0
+end
 
 -- Initialize flow variables
 -- Cell center coordinates are stored in the grid field macro 'center'.
@@ -2770,14 +2821,14 @@ if particles_options.modeParticles then
 
   -- Convert the cell coordinates to a number in 0..size(interior)-1
   ebb Flow.InteriorCellNumber(c)
-    var xid = L.xid(c)
-    var yid = L.yid(c)
-    var zid = L.zid(c)
-    if not xBCPeriodic then xid = xid-1 end
-    if not yBCPeriodic then yid = yid-1 end
-    if not zBCPeriodic then zid = zid-1 end
-    return (zid * grid_options.xnum * grid_options.ynum +
-            yid * grid_options.xnum +
+    var xid = L.int64(L.xid(c))
+    var yid = L.int64(L.yid(c))
+    var zid = L.int64(L.zid(c))
+    if not xBCPeriodic then xid = xid-L.int64(1) end
+    if not yBCPeriodic then yid = yid-L.int64(1) end
+    if not zBCPeriodic then zid = zid-L.int64(1) end
+    return (zid * L.int64(grid_options.xnum) * L.int64(grid_options.ynum) +
+            yid * L.int64(grid_options.xnum) +
             xid)
   end
 
@@ -2836,7 +2887,7 @@ if particles_options.modeParticles then
         pos[1] > max_y or pos[1] < min_y  or
         pos[2] > max_z or pos[2] < min_z) then
       delete(p)
-      Particles.number -= 1
+      Particles.number -= L.int64(1)
     end
   end
 
@@ -3024,6 +3075,9 @@ if particles_options.modeParticles then
       Particles.averageTemperature += p.particle_temperature
   end
 
+  ebb Particles.numberOfParticles (p : particles)
+      Particles.number += L.int64(1)
+  end
 end
 
 -----------------------------------------------------------------------------
@@ -3426,10 +3480,12 @@ if particles_options.modeParticles then
   ebb Flow.InsertParticlesUniform(c : grid.cells)
     if c.in_interior then
       var cellId = Flow.InteriorCellNumber(c)
-      var numCells = grid_options.xnum * grid_options.ynum * grid_options.znum
-      if cellId == 0 or
-         (cellId-1) * (Particles.limit-1) / (numCells-1) <
-           cellId * (Particles.limit-1) / (numCells-1) then
+      var numCells = L.int64(grid_options.xnum) *
+                     L.int64(grid_options.ynum) *
+                     L.int64(grid_options.znum)
+      if cellId == L.int64(0) or
+         (cellId-L.int64(1)) * (Particles.limit-L.int64(1)) / (numCells-L.int64(1)) <
+           cellId * (Particles.limit-L.int64(1)) / (numCells-L.int64(1)) then
         insert {
           cell = c,
           position = c.center,
@@ -3438,7 +3494,7 @@ if particles_options.modeParticles then
           particle_temperature = particles_options.initialTemperature,
           diameter = particles_options.diameter_mean
         } into particles
-        Particles.number += 1
+        Particles.number += L.int64(1)
       end
     end
   end
@@ -3512,6 +3568,8 @@ function TimeIntegrator.UpdateTime()
 end
 
 function TimeIntegrator.InitializeVariables()
+
+    grid.cells:foreach(Flow.InitializeCell)
 
     -- Initialize several grid related entitities
     grid.cells:foreach(Flow.InitializeCenterCoordinates)

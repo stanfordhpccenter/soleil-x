@@ -2,9 +2,9 @@
 
 return {
 
-  xnum = 1024, -- number of cells in the x-direction
-  ynum = 1024, -- number of cells in the y-direction
-  znum = 512, -- number of cells in the z-direction
+  xnum = 2048, -- number of cells in the x-direction
+  ynum = 2048, -- number of cells in the y-direction
+  znum = 1024, -- number of cells in the z-direction
 
   -- if you increase the cell number and the calculation diverges
   -- right away, decrease the time step on the next line
