@@ -264,7 +264,7 @@ void SoleilMapper::map_task(const MapperContext      ctx,
     Memory target_memory = Memory::NO_MEMORY;
     bool is_pull_task = strcmp(task.get_task_name(), "particles_pullAll") == 0;
 
-    if (task.must_epoch_task || (!is_pull_task && task.regions[idx].handle_type == SINGULAR))
+    if (task.must_epoch_task || (!task.is_index_space && !is_pull_task))
     {
       if (task.target_proc.kind() == Processor::IO_PROC || task.target_proc.kind() == Processor::LOC_PROC)
       {
@@ -286,7 +286,6 @@ void SoleilMapper::map_task(const MapperContext      ctx,
       else {
         assert(false);
       }
-      //fprintf(stderr, "  region %u/%lu --> mapped to %llx\n", idx, task.regions.size(), target_memory.id);
     }
     else if (is_pull_task)
     {

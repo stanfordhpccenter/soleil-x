@@ -35,7 +35,7 @@ return {
 
   -- Flow Initialization  Options --
   initCase     = 'TaylorGreen3DVortex', -- Uniform, Restart, TaylorGreen2DVortex, TaylorGreen3DVortex
-  initParams = {1.0,100.0,1.0,0.0,0.0}, -- for TGV: first three are density, pressure, velocity
+  initParams = {1.0,100.0,2.0,0.0,0.0}, -- for TGV: first three are density, pressure, velocity
   bodyForce = {0,0.0,0}, -- body force in x, y, z
   turbForcing = 'OFF',          -- Turn turbulent forcing on or off
   turbForceCoeff = 0.0,         -- Turbulent linear forcing coefficient (f = A*rho*u)
@@ -75,12 +75,12 @@ return {
   outputFormat = 'Tecplot', --Tecplot or Python
 
   -- Fluid Options --
-  gasConstant = 0.3333333333333333,
+  gasConstant = 20.4128,
   gamma = 1.4,
   viscosity_model = 'PowerLaw', -- Constant, PowerLaw, Sutherland
   constant_visc = 0.004491,          -- Value for a constant viscosity [kg/m/s]
-  powerlaw_visc_ref = 0.000625,
-  powerlaw_temp_ref = 300.0,
+  powerlaw_visc_ref = 0.00044,
+  powerlaw_temp_ref = 1.0,
   prandtl = 0.7,
   suth_visc_ref = 1.716E-5,     -- Sutherland's Law reference viscosity [kg/m/s]
   suth_temp_ref = 273.15,       -- Sutherland's Law reference temperature [K]
@@ -92,7 +92,7 @@ return {
   initParticles = 'Uniform', -- 'Random' or 'Restart'
   restartParticleIter = 0,
   particleType = 'Free', -- Fixed or Free
-  twoWayCoupling = 'OFF', -- ON or OFF
+  twoWayCoupling = 'ON', -- ON or OFF
   num = 64000000,
   restitutionCoefficient = 1.0,
   convectiveCoefficient = 0.7, -- W m^-2 K^-1
@@ -102,7 +102,7 @@ return {
   diameter_mean = 5e-3, -- m
   diameter_maxDeviation = 1e-3, -- m, for statistical distribution
   bodyForceParticles = {0.0,0.0,0.0},
-  absorptivity = 0.5, -- Equal to emissivity in thermal equilibrium
+  absorptivity = 1.0, -- Equal to emissivity in thermal equilibrium
   maximum_num = 64000000, -- upper bound on particles with insertion
   insertion_rate = 0, -- per face and per time step
   insertion_mode = {0,0,0,0,0,0}, --bool, MinX MaxX MinY MaxY MinZ MaxZ
