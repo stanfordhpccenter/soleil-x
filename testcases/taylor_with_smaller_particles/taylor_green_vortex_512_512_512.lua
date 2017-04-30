@@ -4,7 +4,7 @@ return {
 
   xnum = 512, -- number of cells in the x-direction
   ynum = 512, -- number of cells in the y-direction
-  znum = 256, -- number of cells in the z-direction
+  znum = 512, -- number of cells in the z-direction
 
   -- if you increase the cell number and the calculation diverges
   -- right away, decrease the time step on the next line
@@ -20,7 +20,7 @@ return {
   -- Output options. All output is off by default, but we
   -- will need to turn it on to check results/make visualizations
 
-  consoleFrequency = 21,  -- Iterations between console output of statistics
+  consoleFrequency = 5,  -- Iterations between console output of statistics
   wrtRestart = 'OFF',
   wrtVolumeSolution = 'OFF',
   wrt1DSlice = 'OFF',
@@ -67,7 +67,7 @@ return {
   zBCRightTemp = 0.0,
 
   --Time Integration Options --
-  cfl                   = -1.0, -- Negative CFL implies that we will used fixed delta T
+  cfl                   = 1.0, -- Negative CFL implies that we will used fixed delta T
   final_time            = 20.00001,
 
   --- File Output Options --
@@ -88,12 +88,12 @@ return {
 
   -- Particle Options --
   -- completely disable particles, including all data
-  modeParticles = 'OFF',
+  modeParticles = 'ON',
   initParticles = 'Uniform', -- 'Random' or 'Restart'
   restartParticleIter = 0,
   particleType = 'Free', -- Fixed or Free
   twoWayCoupling = 'OFF', -- ON or OFF
-  num = 0,
+  num = 8000000,
   restitutionCoefficient = 1.0,
   convectiveCoefficient = 0.7, -- W m^-2 K^-1
   heatCapacity = 0.7, -- J Kg^-1 K^-1
@@ -103,14 +103,14 @@ return {
   diameter_maxDeviation = 1e-3, -- m, for statistical distribution
   bodyForceParticles = {0.0,0.0,0.0},
   absorptivity = 0.5, -- Equal to emissivity in thermal equilibrium
-  maximum_num = 10000, -- upper bound on particles with insertion
+  maximum_num = 8000000, -- upper bound on particles with insertion
   insertion_rate = 0, -- per face and per time step
   insertion_mode = {0,0,0,0,0,0}, --bool, MinX MaxX MinY MaxY MinZ MaxZ
   deletion_mode = {0,0,0,0,0,0}, --bool, MinX MaxX MinY MaxY MinZ MaxZ
   -- (Kirchhoff law of thermal radiation)
 
   -- Radiation Options --
-  radiationType = 'OFF', -- ON or OFF
+  radiationType = 'ON', -- ON or OFF
   radiationIntensity = 1e3,
   zeroAvgHeatSource = 'OFF'
 

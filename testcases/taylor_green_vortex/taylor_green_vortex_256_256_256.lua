@@ -21,7 +21,7 @@ return {
   -- Output options. All output is off by default, but we
   -- will need to turn it on to check results/make visualizations
 
-  consoleFrequency = 10,  -- Iterations between console output of statistics
+  consoleFrequency = 21,  -- Iterations between console output of statistics
   headerFrequency       = 2000000,
   wrtRestart = 'OFF',
   wrtVolumeSolution = 'ON',

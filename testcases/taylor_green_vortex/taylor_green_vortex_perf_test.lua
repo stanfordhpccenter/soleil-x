@@ -15,7 +15,7 @@ return {
   -- you want to run the full calculation (it will stop once
   -- it hits the 20.0 second max time set below)
 
-  max_iter = 3,
+  max_iter = 2,
   final_time  = 20.00001,
 
   -- Output options. All output is off by default, but we
