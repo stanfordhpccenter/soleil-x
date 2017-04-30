@@ -27,10 +27,13 @@ class SoleilMapper : public DefaultMapper
 public:
   SoleilMapper(MapperRuntime *rt, Machine machine, Processor local,
                 const char *mapper_name,
-                std::vector<Processor>* procs_list,
+                std::vector<Processor>* loc_procs_list,
+                std::vector<Processor>* toc_procs_list,
                 std::vector<Memory>* sysmems_list,
+                std::vector<Memory>* fbmems_list,
                 std::map<Memory, std::vector<Processor> >* sysmem_local_procs,
                 std::map<Memory, std::vector<Processor> >* sysmem_local_io_procs,
+                std::map<Memory, std::vector<Processor> >* fbmem_local_procs,
                 std::map<Processor, Memory>* proc_sysmems,
                 std::map<Processor, Memory>* proc_regmems,
                 std::map<Processor, Memory>* proc_fbmems,
@@ -72,10 +75,14 @@ protected:
                                    const RegionRequirement &req, unsigned index,
                                    std::vector<PhysicalInstance> &instances);
 private:
-  std::vector<Processor>& procs_list;
+  bool use_gpu;
+  std::vector<Processor>& loc_procs_list;
+  std::vector<Processor>& toc_procs_list;
   std::vector<Memory>& sysmems_list;
+  std::vector<Memory>& fbmems_list;
   std::map<Memory, std::vector<Processor> >& sysmem_local_procs;
   std::map<Memory, std::vector<Processor> >& sysmem_local_io_procs;
+  std::map<Memory, std::vector<Processor> >& fbmem_local_procs;
   std::map<Processor, Memory>& proc_sysmems;
   std::map<Processor, Memory>& proc_regmems;
   std::map<Processor, Memory>& proc_fbmems;
@@ -85,25 +92,33 @@ private:
 //--------------------------------------------------------------------------
 SoleilMapper::SoleilMapper(MapperRuntime *rt, Machine machine, Processor local,
                              const char *mapper_name,
-                             std::vector<Processor>* _procs_list,
+                             std::vector<Processor>* _loc_procs_list,
+                             std::vector<Processor>* _toc_procs_list,
                              std::vector<Memory>* _sysmems_list,
+                             std::vector<Memory>* _fbmems_list,
                              std::map<Memory, std::vector<Processor> >* _sysmem_local_procs,
                              std::map<Memory, std::vector<Processor> >* _sysmem_local_io_procs,
+                             std::map<Memory, std::vector<Processor> >* _fbmem_local_procs,
                              std::map<Processor, Memory>* _proc_sysmems,
                              std::map<Processor, Memory>* _proc_regmems,
                              std::map<Processor, Memory>* _proc_fbmems,
                              std::map<Processor, Memory>* _proc_zcmems)
 //--------------------------------------------------------------------------
   : DefaultMapper(rt, machine, local, mapper_name),
-    procs_list(*_procs_list),
+    use_gpu(false),
+    loc_procs_list(*_loc_procs_list),
+    toc_procs_list(*_toc_procs_list),
     sysmems_list(*_sysmems_list),
+    fbmems_list(*_fbmems_list),
     sysmem_local_procs(*_sysmem_local_procs),
     sysmem_local_io_procs(*_sysmem_local_io_procs),
+    fbmem_local_procs(*_fbmem_local_procs),
     proc_sysmems(*_proc_sysmems),
     proc_regmems(*_proc_regmems),
     proc_fbmems(*_proc_fbmems),
     proc_zcmems(*_proc_zcmems)
 {
+  use_gpu = toc_procs_list.size() > 0;
 }
 
 //--------------------------------------------------------------------------
@@ -128,7 +143,8 @@ Processor SoleilMapper::default_policy_select_initial_processor(
                 point.point_data[1] * size_x +
                 point.point_data[2] * size_x * size_y;
       }
-      return procs_list[color % procs_list.size()];
+      return use_gpu ? toc_procs_list[color % toc_procs_list.size()]
+                     : loc_procs_list[color % loc_procs_list.size()];
     }
   }
 
@@ -454,7 +470,21 @@ void SoleilMapper::soleil_create_copy_instance(MapperContext ctx,
   Color color = point.point_data[0] +
                 point.point_data[1] * size_x +
                 point.point_data[2] * size_x * size_y;
-  Memory target_memory = proc_sysmems[procs_list[color % procs_list.size()]];
+  Memory target_memory = Memory::NO_MEMORY;
+  if (!use_gpu) {
+    Processor proc = loc_procs_list[color % loc_procs_list.size()];
+    target_memory = proc_sysmems[proc];
+    std::map<Processor, Memory>::iterator finder = proc_regmems.find(proc);
+    if (finder != proc_regmems.end()) target_memory = finder->second;
+  }
+  else {
+    Processor proc = toc_procs_list[color % toc_procs_list.size()];
+    target_memory = proc_fbmems[proc];
+    std::map<Processor, Memory>::iterator finder = proc_zcmems.find(proc);
+    if (finder != proc_zcmems.end()) target_memory = finder->second;
+  }
+  assert(target_memory.exists());
+
   bool force_new_instances = false;
   LayoutConstraintSet creation_constraints;
   default_policy_select_constraints(ctx, creation_constraints, target_memory, req);
@@ -493,16 +523,18 @@ void SoleilMapper::map_must_epoch(const MapperContext           ctx,
                                         MapMustEpochOutput&     output)
 //--------------------------------------------------------------------------
 {
-  size_t num_nodes = sysmems_list.size();
+  size_t num_nodes = use_gpu ? fbmems_list.size() : sysmems_list.size();
   size_t num_tasks = input.tasks.size();
   size_t num_shards_per_node =
     num_nodes < input.tasks.size() ? (num_tasks + num_nodes - 1) / num_nodes : 1;
-  bool use_io_procs = sysmem_local_io_procs.size() > 0;
+  bool use_io_procs = not use_gpu && sysmem_local_io_procs.size() > 0;
   std::map<const Task*, size_t> task_indices;
   for (size_t idx = 0; idx < input.tasks.size(); ++idx) {
     size_t node_idx = idx / num_shards_per_node;
     size_t proc_idx = idx % num_shards_per_node;
-    if (use_io_procs)
+    if (use_gpu)
+      output.task_processors[idx] = fbmem_local_procs[fbmems_list[node_idx]][proc_idx];
+    else if (use_io_procs)
       output.task_processors[idx] = sysmem_local_io_procs[sysmems_list[node_idx]][proc_idx];
     else
       output.task_processors[idx] = sysmem_local_procs[sysmems_list[node_idx]][proc_idx];
@@ -526,9 +558,19 @@ void SoleilMapper::map_must_epoch(const MapperContext           ctx,
     const Task* task = constraint.constrained_tasks[owner_id];
     const RegionRequirement& req =
       task->regions[constraint.requirement_indexes[owner_id]];
-    Memory target_memory = sysmems_list[task_indices[task]];
-    if (!runtime->has_parent_logical_partition(ctx, req.region))
-      target_memory = proc_regmems[output.task_processors[task_indices[task]]];
+    Memory target_memory = use_gpu ? fbmems_list[task_indices[task]]
+                                   : sysmems_list[task_indices[task]];
+    if (!runtime->has_parent_logical_partition(ctx, req.region)) {
+      Processor task_proc = output.task_processors[task_indices[task]];
+      if (!use_gpu) {
+        std::map<Processor, Memory>::iterator finder = proc_regmems.find(task_proc);
+        if (finder != proc_regmems.end()) target_memory = finder->second;
+      }
+      else {
+        std::map<Processor, Memory>::iterator finder = proc_zcmems.find(task_proc);
+        if (finder != proc_zcmems.end()) target_memory = finder->second;
+      }
+    }
     LayoutConstraintSet layout_constraints;
     default_policy_select_constraints(ctx, layout_constraints, target_memory, req);
     layout_constraints.add_constraint(
@@ -556,11 +598,15 @@ static void create_mappers(Machine machine,
                            HighLevelRuntime *runtime,
                            const std::set<Processor> &local_procs)
 {
-  std::vector<Processor>* procs_list = new std::vector<Processor>();
+  std::vector<Processor>* loc_procs_list = new std::vector<Processor>();
+  std::vector<Processor>* toc_procs_list = new std::vector<Processor>();
   std::vector<Memory>* sysmems_list = new std::vector<Memory>();
+  std::vector<Memory>* fbmems_list = new std::vector<Memory>();
   std::map<Memory, std::vector<Processor> >* sysmem_local_procs =
     new std::map<Memory, std::vector<Processor> >();
   std::map<Memory, std::vector<Processor> >* sysmem_local_io_procs =
+    new std::map<Memory, std::vector<Processor> >();
+  std::map<Memory, std::vector<Processor> >* fbmem_local_procs =
     new std::map<Memory, std::vector<Processor> >();
   std::map<Processor, Memory>* proc_sysmems = new std::map<Processor, Memory>();
   std::map<Processor, Memory>* proc_regmems = new std::map<Processor, Memory>();
@@ -594,7 +640,7 @@ static void create_mappers(Machine machine,
   for (std::map<Processor, Memory>::iterator it = proc_sysmems->begin();
        it != proc_sysmems->end(); ++it) {
     if (it->first.kind() == Processor::LOC_PROC) {
-      procs_list->push_back(it->first);
+      loc_procs_list->push_back(it->first);
       (*sysmem_local_procs)[it->second].push_back(it->first);
     }
     else if (it->first.kind() == Processor::IO_PROC) {
@@ -606,15 +652,30 @@ static void create_mappers(Machine machine,
         sysmem_local_procs->begin(); it != sysmem_local_procs->end(); ++it)
     sysmems_list->push_back(it->first);
 
+  for (std::map<Processor, Memory>::iterator it = proc_fbmems->begin();
+       it != proc_fbmems->end(); ++it) {
+    if (it->first.kind() == Processor::TOC_PROC) {
+      toc_procs_list->push_back(it->first);
+      (*fbmem_local_procs)[it->second].push_back(it->first);
+    }
+  }
+
+  for (std::map<Memory, std::vector<Processor> >::iterator it =
+        fbmem_local_procs->begin(); it != fbmem_local_procs->end(); ++it)
+    fbmems_list->push_back(it->first);
+
   for (std::set<Processor>::const_iterator it = local_procs.begin();
         it != local_procs.end(); it++)
   {
     SoleilMapper* mapper = new SoleilMapper(runtime->get_mapper_runtime(),
                                             machine, *it, "soleil_mapper",
-                                            procs_list,
+                                            loc_procs_list,
+                                            toc_procs_list,
                                             sysmems_list,
+                                            fbmems_list,
                                             sysmem_local_procs,
                                             sysmem_local_io_procs,
+                                            fbmem_local_procs,
                                             proc_sysmems,
                                             proc_regmems,
                                             proc_fbmems,
