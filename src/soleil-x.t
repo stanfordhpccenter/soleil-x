@@ -778,6 +778,7 @@ grid.cells:NewField('rhoEnergyFluxZ', L.double)
 
 local particles = {}
 local radiation
+local particles_init_uniform
 
 if particles_options.modeParticles then
 
@@ -828,6 +829,7 @@ if particles_options.modeParticles then
   particles:NewField('velocity_t', L.vec3d)
   particles:NewField('temperature_t', L.double)
 
+  particles_init_uniform = M.IMPORT('particles_init_uniform', particles, grid.cells)
   if radiation_options.radiationType then
     radiation = M.IMPORT('simple_radiation', particles)
   end
@@ -3509,10 +3511,8 @@ if particles_options.modeParticles then
           tostring(config.restartParticleIter) .. '.hdf')
       particles.density:Fill(particles_options.density)
     elseif particles_options.initParticles == Particles.Uniform then
-      M.WHILE(M.LT(Particles.number:get(), particles_options.num))
-        Particles.limit:set(particles_options.num - Particles.number:get())
-        grid.cells:foreach(Flow.InsertParticlesUniform)
-      M.END()
+      Particles.number:set(particles_options.num)
+      M.INLINE(particles_init_uniform.InitParticlesUniform)
     else assert(false) end
   end
 
