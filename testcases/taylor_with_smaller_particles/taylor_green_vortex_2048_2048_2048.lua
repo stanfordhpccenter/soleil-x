@@ -92,7 +92,7 @@ return {
   initParticles = 'Uniform', -- 'Random' or 'Restart'
   restartParticleIter = 0,
   particleType = 'Free', -- Fixed or Free
-  twoWayCoupling = 'ON', -- ON or OFF
+  twoWayCoupling = 'OFF', -- ON or OFF
   num = 512000000,
   restitutionCoefficient = 1.0,
   convectiveCoefficient = 0.7, -- W m^-2 K^-1
