@@ -92,7 +92,7 @@ return {
   -- (Kirchhoff law of thermal radiation)
 
   -- Radiation Options --
-  radiationType = 'ON',
+  radiationType = 'Algebraic',
   radiationIntensity = 10.0,
   zeroAvgHeatSource = 'OFF'
 

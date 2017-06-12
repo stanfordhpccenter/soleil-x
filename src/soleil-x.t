@@ -189,7 +189,6 @@ local twoPi = 2.0*pi
 -----------------------------------------------------------------------------
 
 local Flow = {};
-local Viscosity = {};
 local Particles = {};
 local TimeIntegrator = {};
 local Statistics = {};
@@ -197,45 +196,51 @@ local IO = {};
 
 
 -----------------------------------------------------------------------------
---[[      Global variables used for specialization within functions      ]]--
------------------------------------------------------------------------------
-
--- Flow type
-Flow.Uniform             = 0
-Flow.TaylorGreen2DVortex = 1
-Flow.TaylorGreen3DVortex = 2
-Flow.Restart             = 3
-Flow.Perturbed           = 4
-
--- Viscosity Model
-Viscosity.Constant   = 0
-Viscosity.PowerLaw   = 1
-Viscosity.Sutherland = 2
-
--- Particles feeder
-Particles.FeederAtStartTimeInRandomBox = 0
-Particles.FeederOverTimeInRandomBox    = 1
-Particles.FeederUQCase                 = 2
-Particles.Random                       = 3
-Particles.Restart                      = 4
-Particles.Uniform                      = 5
-
--- Particles collector
-Particles.CollectorNone     = 0
-Particles.CollectorOutOfBox = 1
-
--- Particle Type (Fixed or Free)
-Particles.Fixed = 0
-Particles.Free  = 1
-
--- Particle Boundary
-Particles.Permeable = 0
-Particles.Solid     = 1
-
-
------------------------------------------------------------------------------
 --[[                   INITIALIZE OPTIONS FROM CONFIG                    ]]--
 -----------------------------------------------------------------------------
+
+local function joinList(list, sep)
+  sep = sep or ' '
+  local res = ''
+  for i,elem in ipairs(list) do
+    if i > 1 then
+      res = res..sep
+    end
+    res = res..tostring(elem)
+  end
+  return res
+end
+
+local function Enum(...)
+  local enum = {}
+  enum.__values = {...}
+  for i,val in ipairs({...}) do
+    enum[val] = i
+  end
+  return enum
+end
+
+local function parseEnum(name, enum)
+  for i,val in ipairs(enum.__values) do
+    if config[name] == val then
+      return i
+    end
+  end
+  valuesStr = joinList(enum.__values, ', ')
+  error('Configuration value "'..name..'" not defined ('..valuesStr..')')
+end
+
+local function parseBool(name)
+  if config[name] == 'ON' then
+    return true
+  elseif config[name] == 'OFF' then
+    return false
+  end
+  error('Configuration value "'..name..'" not defined (ON,OFF)')
+end
+
+local FlowBC = Enum('periodic','symmetry','adiabatic_wall','isothermal_wall')
+local ParticleBC = Enum('Permeable','Solid')
 
 local grid_options = {
   -- Number of cells in the x, y, & z directions
@@ -250,22 +255,22 @@ local grid_options = {
   zWidth      = config.zWidth,
   -- Boundary condition type for each face of the block and possible
   -- wall velocity, if no-slip.
-  xBCLeft      = config.xBCLeft,
+  xBCLeft      = parseEnum('xBCLeft', FlowBC),
   xBCLeftVel   = config.xBCLeftVel,
   xBCLeftTemp  = config.xBCLeftTemp,
-  xBCRight     = config.xBCRight,
+  xBCRight     = parseEnum('xBCRight', FlowBC),
   xBCRightVel  = config.xBCRightVel,
   xBCRightTemp = config.xBCRightTemp,
-  yBCLeft      = config.yBCLeft,
+  yBCLeft      = parseEnum('yBCLeft', FlowBC),
   yBCLeftVel   = config.yBCLeftVel,
   yBCLeftTemp  = config.yBCLeftTemp,
-  yBCRight     = config.yBCRight,
+  yBCRight     = parseEnum('yBCRight', FlowBC),
   yBCRightVel  = config.yBCRightVel,
   yBCRightTemp = config.yBCRightTemp,
-  zBCLeft      = config.zBCLeft,
+  zBCLeft      = parseEnum('zBCLeft', FlowBC),
   zBCLeftVel   = config.zBCLeftVel,
   zBCLeftTemp  = config.zBCLeftTemp,
-  zBCRight     = config.zBCRight,
+  zBCRight     = parseEnum('zBCRight', FlowBC),
   zBCRightVel  = config.zBCRightVel,
   zBCRightTemp = config.zBCRightTemp,
 }
@@ -284,26 +289,26 @@ local xneg_velocity
 local xpos_temperature
 local xneg_temperature
 
-if grid_options.xBCLeft  == "periodic" and
-   grid_options.xBCRight == "periodic" then
+if grid_options.xBCLeft  == FlowBC.periodic and
+   grid_options.xBCRight == FlowBC.periodic then
   x_sign = L.Constant(L.vec3d, {1.0,1.0,1.0})
   xpos_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
   xneg_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
   xpos_temperature = L.Constant(L.double, -1.0)
   xneg_temperature = L.Constant(L.double, -1.0)
-  grid_options.xBCLeftParticles  = Particles.Permeable
-  grid_options.xBCRightParticles = Particles.Permeable
-elseif grid_options.xBCLeft == "symmetry" and
-       grid_options.xBCRight == "symmetry" then
+  grid_options.xBCLeftParticles  = ParticleBC.Permeable
+  grid_options.xBCRightParticles = ParticleBC.Permeable
+elseif grid_options.xBCLeft == FlowBC.symmetry and
+       grid_options.xBCRight == FlowBC.symmetry then
   x_sign = L.Constant(L.vec3d, {-1.0,1.0,1.0})
   xpos_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
   xneg_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
   xpos_temperature = L.Constant(L.double, -1.0)
   xneg_temperature = L.Constant(L.double, -1.0)
-  grid_options.xBCLeftParticles  = Particles.Solid
-  grid_options.xBCRightParticles = Particles.Solid
-elseif grid_options.xBCLeft  == "adiabatic_wall" and
-       grid_options.xBCRight == "adiabatic_wall" then
+  grid_options.xBCLeftParticles  = ParticleBC.Solid
+  grid_options.xBCRightParticles = ParticleBC.Solid
+elseif grid_options.xBCLeft  == FlowBC.adiabatic_wall and
+       grid_options.xBCRight == FlowBC.adiabatic_wall then
   x_sign = L.Constant(L.vec3d, {-1.0,-1.0,-1.0})
   xpos_velocity = L.Constant(L.vec3d, {2.0*grid_options.xBCRightVel[1],
                                        2.0*grid_options.xBCRightVel[2],
@@ -313,10 +318,10 @@ elseif grid_options.xBCLeft  == "adiabatic_wall" and
                                        2.0*grid_options.xBCLeftVel[3]})
   xpos_temperature = L.Constant(L.double, -1.0)
   xneg_temperature = L.Constant(L.double, -1.0)
-  grid_options.xBCLeftParticles  = Particles.Solid
-  grid_options.xBCRightParticles = Particles.Solid
-elseif grid_options.xBCLeft  == "isothermal_wall" and
-       grid_options.xBCRight == "isothermal_wall" then
+  grid_options.xBCLeftParticles  = ParticleBC.Solid
+  grid_options.xBCRightParticles = ParticleBC.Solid
+elseif grid_options.xBCLeft  == FlowBC.isothermal_wall and
+       grid_options.xBCRight == FlowBC.isothermal_wall then
   x_sign = L.Constant(L.vec3d, {-1.0,-1.0,-1.0})
   xpos_velocity = L.Constant(L.vec3d, {2.0*grid_options.xBCRightVel[1],
                                        2.0*grid_options.xBCRightVel[2],
@@ -326,8 +331,8 @@ elseif grid_options.xBCLeft  == "isothermal_wall" and
                                        2.0*grid_options.xBCLeftVel[3]})
   xpos_temperature = L.Constant(L.double, grid_options.xBCRightTemp)
   xneg_temperature = L.Constant(L.double, grid_options.xBCLeftTemp)
-  grid_options.xBCLeftParticles  = Particles.Solid
-  grid_options.xBCRightParticles = Particles.Solid
+  grid_options.xBCLeftParticles  = ParticleBC.Solid
+  grid_options.xBCRightParticles = ParticleBC.Solid
 else
   error("Boundary conditions in x not implemented")
 end
@@ -340,26 +345,26 @@ local yneg_velocity
 local ypos_temperature
 local yneg_temperature
 
-if grid_options.yBCLeft  == "periodic" and
-   grid_options.yBCRight == "periodic" then
+if grid_options.yBCLeft  == FlowBC.periodic and
+   grid_options.yBCRight == FlowBC.periodic then
   y_sign = L.Constant(L.vec3d, {1.0,1.0,1.0})
   ypos_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
   yneg_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
   ypos_temperature = L.Constant(L.double, -1.0)
   yneg_temperature = L.Constant(L.double, -1.0)
-  grid_options.yBCLeftParticles  = Particles.Permeable
-  grid_options.yBCRightParticles = Particles.Permeable
-elseif grid_options.yBCLeft  == "symmetry" and
-       grid_options.yBCRight == "symmetry" then
+  grid_options.yBCLeftParticles  = ParticleBC.Permeable
+  grid_options.yBCRightParticles = ParticleBC.Permeable
+elseif grid_options.yBCLeft  == FlowBC.symmetry and
+       grid_options.yBCRight == FlowBC.symmetry then
   y_sign = L.Constant(L.vec3d, {1.0,-1.0,1.0})
   ypos_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
   yneg_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
   ypos_temperature = L.Constant(L.double, -1.0)
   yneg_temperature = L.Constant(L.double, -1.0)
-  grid_options.yBCLeftParticles  = Particles.Solid
-  grid_options.yBCRightParticles = Particles.Solid
-elseif grid_options.yBCLeft  == "adiabatic_wall" and
-       grid_options.yBCRight == "adiabatic_wall" then
+  grid_options.yBCLeftParticles  = ParticleBC.Solid
+  grid_options.yBCRightParticles = ParticleBC.Solid
+elseif grid_options.yBCLeft  == FlowBC.adiabatic_wall and
+       grid_options.yBCRight == FlowBC.adiabatic_wall then
   y_sign = L.Constant(L.vec3d, {-1.0,-1.0,-1.0})
   ypos_velocity = L.Constant(L.vec3d, {2.0*grid_options.yBCRightVel[1],
                                        2.0*grid_options.yBCRightVel[2],
@@ -369,10 +374,10 @@ elseif grid_options.yBCLeft  == "adiabatic_wall" and
                                        2.0*grid_options.yBCLeftVel[3]})
   ypos_temperature = L.Constant(L.double, -1.0)
   yneg_temperature = L.Constant(L.double, -1.0)
-  grid_options.yBCLeftParticles  = Particles.Solid
-  grid_options.yBCRightParticles = Particles.Solid
-elseif grid_options.yBCLeft  == "isothermal_wall" and
-       grid_options.yBCRight == "isothermal_wall" then
+  grid_options.yBCLeftParticles  = ParticleBC.Solid
+  grid_options.yBCRightParticles = ParticleBC.Solid
+elseif grid_options.yBCLeft  == FlowBC.isothermal_wall and
+       grid_options.yBCRight == FlowBC.isothermal_wall then
   y_sign = L.Constant(L.vec3d, {-1.0,-1.0,-1.0})
   ypos_velocity = L.Constant(L.vec3d, {2.0*grid_options.yBCRightVel[1],
                                        2.0*grid_options.yBCRightVel[2],
@@ -382,8 +387,8 @@ elseif grid_options.yBCLeft  == "isothermal_wall" and
                                        2.0*grid_options.yBCLeftVel[3]})
   ypos_temperature = L.Constant(L.double, grid_options.yBCRightTemp)
   yneg_temperature = L.Constant(L.double, grid_options.yBCLeftTemp)
-  grid_options.yBCLeftParticles  = Particles.Solid
-  grid_options.yBCRightParticles = Particles.Solid
+  grid_options.yBCLeftParticles  = ParticleBC.Solid
+  grid_options.yBCRightParticles = ParticleBC.Solid
 else
   error("Boundary conditions in y not implemented")
 end
@@ -396,26 +401,26 @@ local zneg_velocity
 local zpos_temperature
 local zneg_temperature
 
-if grid_options.zBCLeft  == "periodic" and
-   grid_options.zBCRight == "periodic" then
+if grid_options.zBCLeft  == FlowBC.periodic and
+   grid_options.zBCRight == FlowBC.periodic then
   z_sign = L.Constant(L.vec3d, {1.0,1.0,1.0})
   zpos_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
   zneg_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
   zpos_temperature = L.Constant(L.double, -1.0)
   zneg_temperature = L.Constant(L.double, -1.0)
-  grid_options.zBCLeftParticles  = Particles.Permeable
-  grid_options.zBCRightParticles = Particles.Permeable
-elseif grid_options.zBCLeft == "symmetry" and
-       grid_options.zBCRight == "symmetry" then
+  grid_options.zBCLeftParticles  = ParticleBC.Permeable
+  grid_options.zBCRightParticles = ParticleBC.Permeable
+elseif grid_options.zBCLeft == FlowBC.symmetry and
+       grid_options.zBCRight == FlowBC.symmetry then
   z_sign = L.Constant(L.vec3d, {1.0,1.0,-1.0})
   zpos_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
   zneg_velocity = L.Constant(L.vec3d, {0.0,0.0,0.0})
   zpos_temperature = L.Constant(L.double, -1.0)
   zneg_temperature = L.Constant(L.double, -1.0)
-  grid_options.zBCLeftParticles  = Particles.Solid
-  grid_options.zBCRightParticles = Particles.Solid
-elseif grid_options.zBCLeft  == "adiabatic_wall" and
-       grid_options.zBCRight == "adiabatic_wall" then
+  grid_options.zBCLeftParticles  = ParticleBC.Solid
+  grid_options.zBCRightParticles = ParticleBC.Solid
+elseif grid_options.zBCLeft  == FlowBC.adiabatic_wall and
+       grid_options.zBCRight == FlowBC.adiabatic_wall then
   z_sign = L.Constant(L.vec3d, {-1.0,-1.0,-1.0})
   zpos_velocity = L.Constant(L.vec3d, {2.0*grid_options.zBCRightVel[1],
                                        2.0*grid_options.zBCRightVel[2],
@@ -425,10 +430,10 @@ elseif grid_options.zBCLeft  == "adiabatic_wall" and
                                        2.0*grid_options.zBCLeftVel[3]})
   zpos_temperature = L.Constant(L.double, -1.0)
   zneg_temperature = L.Constant(L.double, -1.0)
-  grid_options.zBCLeftParticles  = Particles.Solid
-  grid_options.zBCRightParticles = Particles.Solid
-elseif grid_options.zBCLeft  == "isothermal_wall" and
-       grid_options.zBCRight == "isothermal_wall" then
+  grid_options.zBCLeftParticles  = ParticleBC.Solid
+  grid_options.zBCRightParticles = ParticleBC.Solid
+elseif grid_options.zBCLeft  == FlowBC.isothermal_wall and
+       grid_options.zBCRight == FlowBC.isothermal_wall then
   z_sign = L.Constant(L.vec3d, {-1.0,-1.0,-1.0})
   zpos_velocity = L.Constant(L.vec3d, {2.0*grid_options.zBCRightVel[1],
                                        2.0*grid_options.zBCRightVel[2],
@@ -438,180 +443,106 @@ elseif grid_options.zBCLeft  == "isothermal_wall" and
                                        2.0*grid_options.zBCLeftVel[3]})
   zpos_temperature = L.Constant(L.double, grid_options.zBCRightTemp)
   zneg_temperature = L.Constant(L.double, grid_options.zBCLeftTemp)
-  grid_options.zBCLeftParticles  = Particles.Solid
-  grid_options.zBCRightParticles = Particles.Solid
+  grid_options.zBCLeftParticles  = ParticleBC.Solid
+  grid_options.zBCRightParticles = ParticleBC.Solid
 else
   error("Boundary conditions in z not implemented")
 end
 
 -- Spatial integration options
-local spatial_stencil = {}
-spatial_stencil = {
-  --  Splitting parameter
-  split = 0.5
+local spatial_options = {
+  split = 0.5  --  Splitting parameter
 }
 
--- Time integrator options
-TimeIntegrator.simTime               = L.Global('TimeIntegrator.simTime', L.double, 0)
-TimeIntegrator.timeOld               = L.Global('TimeIntegrator.timeOld', L.double, 0)
-TimeIntegrator.final_time            = config.final_time
-TimeIntegrator.max_iter              = config.max_iter
-TimeIntegrator.timeStep              = L.Global('TimeIntegrator.timeStep', L.int, 0)
-TimeIntegrator.cfl                   = config.cfl
-TimeIntegrator.delta_time            = config.delta_time
-TimeIntegrator.outputEveryTimeSteps  = config.outputEveryTimeSteps
-TimeIntegrator.restartEveryTimeSteps = config.restartEveryTimeSteps
-TimeIntegrator.headerFrequency       = config.headerFrequency
-TimeIntegrator.consoleFrequency      = config.consoleFrequency
-TimeIntegrator.deltaTime             = L.Global('TimeIntegrator.deltaTime', L.double, 0.0001)
-TimeIntegrator.stage                 = L.Global('TimeIntegrator.stage', L.int, 0)
+-- Time integration options
+local time_options = {
+  final_time            = config.final_time,
+  restartIter           = config.restartIter,
+  max_iter              = config.max_iter,
+  cfl                   = config.cfl,
+  delta_time            = config.delta_time,
+  outputEveryTimeSteps  = config.outputEveryTimeSteps,
+  restartEveryTimeSteps = config.restartEveryTimeSteps,
+  headerFrequency       = config.headerFrequency,
+  consoleFrequency      = config.consoleFrequency,
+}
 
-local fluid_options = {}
-if config.viscosity_model == 'Constant' then
-  fluid_options.viscosity_model = Viscosity.Constant
-elseif config.viscosity_model  == 'PowerLaw' then
-  fluid_options.viscosity_model = Viscosity.PowerLaw
-elseif config.viscosity_model  == 'Sutherland' then
-  fluid_options.viscosity_model = Viscosity.Sutherland
-else
-  error("Viscosity model not defined")
-end
-fluid_options.gasConstant        = config.gasConstant
-fluid_options.gamma              = config.gamma
-fluid_options.prandtl            = config.prandtl
-fluid_options.constant_visc      = config.constant_visc
-fluid_options.powerlaw_visc_ref  = config.powerlaw_visc_ref
-fluid_options.powerlaw_temp_ref  = config.powerlaw_temp_ref
-fluid_options.suth_visc_ref      = config.suth_visc_ref
-fluid_options.suth_temp_ref      = config.suth_temp_ref
-fluid_options.suth_s_ref         = config.suth_s_ref
+local ViscosityModel = Enum('Constant','PowerLaw','Sutherland')
+local fluid_options = {
+  viscosity_model    = parseEnum('viscosity_model', ViscosityModel),
+  gasConstant        = config.gasConstant,
+  gamma              = config.gamma,
+  prandtl            = config.prandtl,
+  constant_visc      = config.constant_visc,
+  powerlaw_visc_ref  = config.powerlaw_visc_ref,
+  powerlaw_temp_ref  = config.powerlaw_temp_ref,
+  suth_visc_ref      = config.suth_visc_ref,
+  suth_temp_ref      = config.suth_temp_ref,
+  suth_s_ref         = config.suth_s_ref,
+}
 
-local flow_options = {}
-if config.initCase == 'Uniform' then
-  flow_options.initCase = Flow.Uniform
-elseif config.initCase == 'Restart' then
-  flow_options.initCase = Flow.Restart
-elseif config.initCase == 'Perturbed' then
-  flow_options.initCase = Flow.Perturbed
-elseif config.initCase == 'TaylorGreen2DVortex' then
-  flow_options.initCase = Flow.TaylorGreen2DVortex
-elseif config.initCase == 'TaylorGreen3DVortex' then
-  flow_options.initCase = Flow.TaylorGreen3DVortex
-else
-  error("Flow initialization type not defined")
-end
-flow_options.initParams     = L.Constant(L.vector(L.double,5), config.initParams)
-flow_options.bodyForce      = L.Constant(L.vec3d, config.bodyForce)
-flow_options.turbForceCoeff = L.Constant(L.double, config.turbForceCoeff)
-if config.turbForcing == 'OFF' then
-  flow_options.turbForcing = false
-elseif config.turbForcing == 'ON' then
-  flow_options.turbForcing = true
-else
-  error("Turbulent forcing not defined (ON or OFF")
-end
+local InitCase = Enum('Uniform','Restart','Perturbed','TaylorGreen2DVortex','TaylorGreen3DVortex')
+local flow_options = {
+  initCase       = parseEnum('initCase', InitCase),
+  initParams     = L.Constant(L.vector(L.double,5), config.initParams),
+  bodyForce      = L.Constant(L.vec3d, config.bodyForce),
+  turbForceCoeff = L.Constant(L.double, config.turbForceCoeff),
+  turbForcing    = parseBool('turbForcing'),
+}
 
+local InitParticles = Enum('Random','Restart','Uniform')
+local ParticleType = Enum('Fixed','Free')
 local particles_options = {
+  -- Define the initial number of particles and insertion/deletion
+  num = config.num,
+  maximum_num = config.maximum_num,
+  insertion_rate = config.insertion_rate,
+  insertion_mode = L.Constant(L.vector(L.int,6), config.insertion_mode),
+  deletion_mode = L.Constant(L.vector(L.int,6), config.deletion_mode),
 
-    -- Define the initial number of particles and insertion/deletion
-    num = config.num,
-    maximum_num = config.maximum_num,
-    insertion_rate = config.insertion_rate,
-    insertion_mode = L.Constant(L.vector(L.int,6), config.insertion_mode),
-    deletion_mode = L.Constant(L.vector(L.int,6), config.deletion_mode),
+  -- Particle characteristics
+  restitution_coefficient = L.Constant(L.double, config.restitutionCoefficient),
+  convective_coefficient = L.Constant(L.double, config.convectiveCoefficient),
+  heat_capacity = L.Constant(L.double, config.heatCapacity),
+  initialTemperature = config.initialTemperature,
+  density = config.density,
+  diameter_mean = config.diameter_mean,
+  diameter_maxDeviation = config.diameter_maxDeviation,
+  bodyForce = L.Constant(L.vec3d, config.bodyForceParticles),
+  absorptivity = config.absorptivity,
+  restartParticleIter = config.restartParticleIter,
 
-    -- Particle characteristics
-    restitution_coefficient = L.Constant(L.double, config.restitutionCoefficient),
-    convective_coefficient = L.Constant(L.double, config.convectiveCoefficient),
-    heat_capacity = L.Constant(L.double, config.heatCapacity),
-    initialTemperature = config.initialTemperature,
-    density = config.density,
-    diameter_mean = config.diameter_mean,
-    diameter_maxDeviation = config.diameter_maxDeviation,
-    bodyForce = L.Constant(L.vec3d, config.bodyForceParticles),
-    absorptivity = config.absorptivity,
-    restartParticleIter = config.restartParticleIter,
+  -- Particles mode
+  modeParticles  = parseBool('modeParticles'),
+  initParticles  = parseEnum('initParticles', InitParticles),
+  particleType   = parseEnum('particleType', ParticleType),
+  twoWayCoupling = parseBool('twoWayCoupling'),
 }
-if config.modeParticles == 'OFF' then
-  particles_options.modeParticles = false
-elseif config.modeParticles == 'ON' then
-  particles_options.modeParticles = true
-else
-  error("Particle mode not defined (ON or OFF")
-end
-if config.initParticles == 'Random' then
-  particles_options.initParticles = Particles.Random
-elseif config.initParticles == 'Restart' then
-  particles_options.initParticles = Particles.Restart
-elseif config.initParticles == 'Uniform' then
-  particles_options.initParticles = Particles.Uniform
-else
-  error("Particle initialization type not defined")
-end
--- Lastly, check whether the particles are fixed or free
-if config.particleType == 'Fixed' then
-  particles_options.particleType = Particles.Fixed
-elseif config.particleType == 'Free' then
-  particles_options.particleType = Particles.Free
-else
-  error("Particle motion type not defined (Fixed or Free)")
-end
-if config.twoWayCoupling == 'ON' then
-  particles_options.twoWayCoupling = true
-elseif config.twoWayCoupling == 'OFF' then
-  particles_options.twoWayCoupling = false
-else
-  error("Particle two-way couplding not defined (ON or OFF)")
-end
 
-local radiation_options = {}
-if config.radiationType == 'ON' then
-  radiation_options.radiationType = true
-elseif config.radiationType == 'OFF' then
-  radiation_options.radiationType = false
-else
-  error("Radiation type not defined (ON or OFF)")
-end
-radiation_options.radiationIntensity = config.radiationIntensity
-if config.zeroAvgHeatSource == 'ON' then
-  radiation_options.zeroAvgHeatSource = true
-elseif config.zeroAvgHeatSource == 'OFF' then
-  radiation_options.zeroAvgHeatSource = false
-else
-  error("Fixing average flow temp (fixAvgFlowTemp) not defined (ON or OFF)")
-end
+local RadiationType = Enum('Algebraic','DOM','MCRT','OFF')
+local radiation_options = {
+  radiationType      = parseEnum('radiationType', RadiationType),
+  zeroAvgHeatSource  = parseBool('zeroAvgHeatSource'),
+}
 
 -- IO options
-if config.wrtRestart == 'ON' then
-  IO.wrtRestart = true
-  elseif config.wrtRestart == 'OFF' then
-  IO.wrtRestart = false
-  else
-  error("Restart writing not defined (wrtRestart ON or OFF)")
-end
-if config.wrtVolumeSolution == 'ON' then
-  IO.wrtVolumeSolution = true
-  elseif config.wrtVolumeSolution == 'OFF' then
-  IO.wrtVolumeSolution = false
-  else
-  error("Volume solution writing not defined (wrtVolumeSolution ON or OFF)")
-end
-
--- Store the directory for all output files from the config
-IO.outputFileNamePrefix = outputdir .. '/'
+local io_options = {
+  wrtRestart           = parseBool('wrtRestart'),
+  outputFileNamePrefix = outputdir .. '/',
+}
 
 
 -----------------------------------------------------------------------------
 --[[                       Load Data for a Restart                       ]]--
 -----------------------------------------------------------------------------
 
-if flow_options.initCase == Flow.Restart then
+if flow_options.initCase == InitCase.Restart then
   -- Increment the time step and physical time so the simulation doesn't
   -- repeat from 0. Also, increase the max number of iterations so the solve
   -- doesn't immediately exit.
-  TimeIntegrator.timeStep:set(config.restartIter)
+  TimeIntegrator.timeStep:set(time_options.restartIter)
   -- TODO: No way to pass TimeIntegrator.simTime for the restart
-  TimeIntegrator.max_iter = TimeIntegrator.max_iter + config.restartIter
+  time_options.max_iter = time_options.max_iter + time_options.restartIter
 end
 
 
@@ -621,38 +552,38 @@ end
 
 -- Check boundary type consistency for the periodic BCs
 
-if ( grid_options.xBCLeft  == 'periodic' and
-     grid_options.xBCRight ~= 'periodic' ) or
-   ( grid_options.xBCLeft  ~= 'periodic' and
-     grid_options.xBCRight == 'periodic' ) then
+if ( grid_options.xBCLeft  == FlowBC.periodic and
+     grid_options.xBCRight ~= FlowBC.periodic ) or
+   ( grid_options.xBCLeft  ~= FlowBC.periodic and
+     grid_options.xBCRight == FlowBC.periodic ) then
     error("Boundary conditions in x should match for periodicity")
 end
-if ( grid_options.yBCLeft  == 'periodic' and
-     grid_options.yBCRight ~= 'periodic' ) or
-   ( grid_options.yBCLeft  ~= 'periodic' and
-     grid_options.yBCRight == 'periodic' ) then
+if ( grid_options.yBCLeft  == FlowBC.periodic and
+     grid_options.yBCRight ~= FlowBC.periodic ) or
+   ( grid_options.yBCLeft  ~= FlowBC.periodic and
+     grid_options.yBCRight == FlowBC.periodic ) then
     error("Boundary conditions in y should match for periodicity")
 end
-if ( grid_options.zBCLeft  == 'periodic' and
-     grid_options.zBCRight ~= 'periodic' ) or
-   ( grid_options.zBCLeft  ~= 'periodic' and
-     grid_options.zBCRight == 'periodic' ) then
+if ( grid_options.zBCLeft  == FlowBC.periodic and
+     grid_options.zBCRight ~= FlowBC.periodic ) or
+   ( grid_options.zBCLeft  ~= FlowBC.periodic and
+     grid_options.zBCRight == FlowBC.periodic ) then
     error("Boundary conditions in z should match for periodicity")
 end
-if ( grid_options.xBCLeft  == 'periodic' and
-     grid_options.xBCRight == 'periodic' ) then
+if ( grid_options.xBCLeft  == FlowBC.periodic and
+     grid_options.xBCRight == FlowBC.periodic ) then
   xBCPeriodic = true
 else
   xBCPeriodic = false
 end
-if ( grid_options.yBCLeft  == 'periodic' and
-     grid_options.yBCRight == 'periodic' ) then
+if ( grid_options.yBCLeft  == FlowBC.periodic and
+     grid_options.yBCRight == FlowBC.periodic ) then
   yBCPeriodic = true
 else
   yBCPeriodic = false
 end
-if ( grid_options.zBCLeft  == 'periodic' and
-     grid_options.zBCRight == 'periodic' ) then
+if ( grid_options.zBCLeft  == FlowBC.periodic and
+     grid_options.zBCRight == FlowBC.periodic ) then
   zBCPeriodic = true
 else
   zBCPeriodic = false
@@ -830,10 +761,24 @@ if particles_options.modeParticles then
   particles:NewField('temperature_t', L.double)
 
   particles_init_uniform = M.IMPORT('particles_init_uniform', particles, grid.cells)
-  if radiation_options.radiationType then
-    radiation = M.IMPORT('simple_radiation', particles)
-  end
+  if radiation_options.radiationType == RadiationType.Algebraic then
+    radiation = M.IMPORT('algebraic', particles)
+  elseif radiation_options.radiationType == RadiationType.DOM then
+    radiation = M.IMPORT('dom', particles)
+  elseif radiation_options.radiationType == RadiationType.MCRT then
+    radiation = M.IMPORT('mcrt', particles)
+  elseif radiation_options.radiationType == RadiationType.OFF then
+    -- do nothing
+  else assert(false) end
 end
+
+-- Integration quantities
+
+TimeIntegrator.simTime               = L.Global('TimeIntegrator.simTime', L.double, 0)
+TimeIntegrator.timeOld               = L.Global('TimeIntegrator.timeOld', L.double, 0)
+TimeIntegrator.timeStep              = L.Global('TimeIntegrator.timeStep', L.int, 0)
+TimeIntegrator.deltaTime             = L.Global('TimeIntegrator.deltaTime', L.double, 0.0001)
+TimeIntegrator.stage                 = L.Global('TimeIntegrator.stage', L.int, 0)
 
 -- Statistics quantities
 
@@ -875,20 +820,17 @@ end
 -- Compute fluid dynamic viscosity from fluid temperature
 local ebb GetDynamicViscosity (temperature)
   var viscosity = L.double(0.0)
-  if fluid_options.viscosity_model == Viscosity.Constant then
-    -- Constant
+  if fluid_options.viscosity_model == ViscosityModel.Constant then
     viscosity = fluid_options.constant_visc
-  elseif fluid_options.viscosity_model == Viscosity.PowerLaw then
-    -- Power Law
+  elseif fluid_options.viscosity_model == ViscosityModel.PowerLaw then
     viscosity = fluid_options.powerlaw_visc_ref *
-        L.pow(temperature/fluid_options.powerlaw_temp_ref, 0.75)
-  elseif fluid_options.viscosity_model == Viscosity.Sutherland then
-    -- Sutherland's Law
+      L.pow(temperature/fluid_options.powerlaw_temp_ref, 0.75)
+  elseif fluid_options.viscosity_model == ViscosityModel.Sutherland then
     viscosity = fluid_options.suth_visc_ref *
-    L.pow((temperature/fluid_options.suth_temp_ref),(3.0/2.0))*
-    ((fluid_options.suth_temp_ref + fluid_options.suth_s_ref)/
-     (temperature + fluid_options.suth_s_ref))
-  end
+      L.pow((temperature/fluid_options.suth_temp_ref),(3.0/2.0))*
+      ((fluid_options.suth_temp_ref + fluid_options.suth_s_ref)/
+         (temperature + fluid_options.suth_s_ref))
+  else L.assert(false) end
   return viscosity
 end
 
@@ -2308,11 +2250,11 @@ if particles_options.modeParticles then
       var flowDynamicViscosity = GetDynamicViscosity(flowTemperature)
 
       -- Update the particle position using the current velocity
-      if particles_options.particleType == Particles.Fixed then
+      if particles_options.particleType == ParticleType.Fixed then
         -- Don't move the particle
-      elseif particles_options.particleType == Particles.Free then
+      elseif particles_options.particleType == ParticleType.Free then
         p.position_t    += p.particle_velocity
-      end
+      else L.assert(false) end
 
       -- Relaxation time for small particles
       -- - particles Reynolds number (set to zero for Stokesian)
@@ -2327,11 +2269,11 @@ if particles_options.modeParticles then
       p.deltaTemperatureTerm = pi * L.pow(p.diameter, 2) * particles_options.convective_coefficient * (flowTemperature - p.particle_temperature)
 
       -- Update the particle velocity and temperature
-      if particles_options.particleType == Particles.Fixed then
+      if particles_options.particleType == ParticleType.Fixed then
         p.velocity_t  = {0.0,0.0,0.0} -- Don't move the particle
-      elseif particles_options.particleType == Particles.Free then
+      elseif particles_options.particleType == ParticleType.Free then
         p.velocity_t += p.deltaVelocityOverRelaxationTime
-      end
+      else L.assert(false) end
       p.temperature_t += p.deltaTemperatureTerm / (p.mass * particles_options.heat_capacity)
 
   end
@@ -2421,9 +2363,9 @@ if particles_options.modeParticles then
 
           -- Left X boundary
           if p.position[0] < gridOriginInteriorX then
-            if grid_options.xBCLeftParticles == Particles.Permeable then
+            if grid_options.xBCLeftParticles == ParticleBC.Permeable then
               p.position_ghost[0] = p.position[0] + grid_options.xWidth
-            elseif grid_options.xBCLeftParticles == Particles.Solid then
+            elseif grid_options.xBCLeftParticles == ParticleBC.Solid then
 
               -- Set the position to be on the wall
               p.position_ghost[0] = gridOriginInteriorX
@@ -2443,14 +2385,14 @@ if particles_options.modeParticles then
                 p.velocity_t_ghost[0] += contact_force
               end
 
-            end
+            else L.assert(false) end
           end
 
           -- Right X boundary
           if p.position[0] > gridOriginInteriorX + grid_options.xWidth then
-            if grid_options.xBCRightParticles == Particles.Permeable then
+            if grid_options.xBCRightParticles == ParticleBC.Permeable then
               p.position_ghost[0] = p.position[0] - grid_options.xWidth
-            elseif grid_options.xBCRightParticles == Particles.Solid then
+            elseif grid_options.xBCRightParticles == ParticleBC.Solid then
 
               -- Set the position to be on the wall
               p.position_ghost[0] = gridOriginInteriorX + grid_options.xWidth
@@ -2470,14 +2412,14 @@ if particles_options.modeParticles then
                 p.velocity_t_ghost[0] += contact_force
               end
 
-            end
+            else L.assert(false) end
           end
 
           -- Left Y boundary
           if p.position[1] < gridOriginInteriorY then
-            if grid_options.yBCLeftParticles == Particles.Permeable then
+            if grid_options.yBCLeftParticles == ParticleBC.Permeable then
               p.position_ghost[1] = p.position[1] + grid_options.yWidth
-            elseif grid_options.yBCLeftParticles == Particles.Solid then
+            elseif grid_options.yBCLeftParticles == ParticleBC.Solid then
 
               -- Set the position to be on the wall
               p.position_ghost[1] = gridOriginInteriorY
@@ -2497,15 +2439,14 @@ if particles_options.modeParticles then
               p.velocity_t_ghost[1] += contact_force
               end
 
-            end
-
+            else L.assert(false) end
           end
 
           -- Right Y boundary
           if p.position[1] > gridOriginInteriorY + grid_options.yWidth then
-            if grid_options.yBCRightParticles == Particles.Permeable then
+            if grid_options.yBCRightParticles == ParticleBC.Permeable then
               p.position_ghost[1] = p.position[1] - grid_options.yWidth
-            elseif grid_options.yBCRightParticles == Particles.Solid then
+            elseif grid_options.yBCRightParticles == ParticleBC.Solid then
 
               -- Set the position to be on the wall
               p.position_ghost[1] = gridOriginInteriorY + grid_options.yWidth
@@ -2525,14 +2466,14 @@ if particles_options.modeParticles then
                 p.velocity_t_ghost[1] += contact_force
               end
 
-            end
+            else L.assert(false) end
           end
 
           -- Left Z boundary
           if p.position[2] < gridOriginInteriorZ then
-            if grid_options.zBCLeftParticles == Particles.Permeable then
+            if grid_options.zBCLeftParticles == ParticleBC.Permeable then
               p.position_ghost[2] = p.position[2] + grid_options.zWidth
-            elseif grid_options.zBCLeftParticles == Particles.Solid then
+            elseif grid_options.zBCLeftParticles == ParticleBC.Solid then
 
               -- Set the position to be on the wall
               p.position_ghost[2] = gridOriginInteriorZ
@@ -2552,14 +2493,14 @@ if particles_options.modeParticles then
                 p.velocity_t_ghost[2] += contact_force
               end
 
-            end
+            else L.assert(false) end
           end
 
           -- Right Z boundary
           if p.position[2] > gridOriginInteriorZ + grid_options.zWidth then
-            if grid_options.zBCRightParticles == Particles.Permeable then
+            if grid_options.zBCRightParticles == ParticleBC.Permeable then
               p.position_ghost[2] = p.position[2] - grid_options.zWidth
-            elseif grid_options.zBCRightParticles == Particles.Solid then
+            elseif grid_options.zBCRightParticles == ParticleBC.Solid then
 
               -- Set the position to be on the wall
               p.position_ghost[2] = gridOriginInteriorZ + grid_options.zWidth
@@ -2579,7 +2520,7 @@ if particles_options.modeParticles then
                 p.velocity_t_ghost[2] += contact_force
               end
 
-            end
+            else L.assert(false) end
           end
 
   end
@@ -2615,11 +2556,11 @@ if particles_options.modeParticles then
   end
 
   -- Calculate particle velocity from underlying flow velocity.
-  if particles_options.particleType == Particles.Fixed then
+  if particles_options.particleType == ParticleType.Fixed then
     ebb Particles.VelocityFromFlow(cell, position)
       return {0.0, 0.0, 0.0} -- Don't move the particle
     end
-  elseif particles_options.particleType == Particles.Free then
+  elseif particles_options.particleType == ParticleType.Free then
     ebb Particles.VelocityFromFlow(cell, position)
       return InterpolateTriVelocity(cell, position)
     end
@@ -2694,19 +2635,19 @@ end
 -------
 
 function Flow.InitializePrimitives()
-    if flow_options.initCase == Flow.Uniform then
+    if flow_options.initCase == InitCase.Uniform then
         grid.cells:foreach(Flow.InitializeUniform)
-    elseif flow_options.initCase == Flow.TaylorGreen2DVortex then
+    elseif flow_options.initCase == InitCase.TaylorGreen2DVortex then
         grid.cells:foreach(Flow.InitializeTaylorGreen2D)
-    elseif flow_options.initCase == Flow.TaylorGreen3DVortex then
+    elseif flow_options.initCase == InitCase.TaylorGreen3DVortex then
         grid.cells:foreach(Flow.InitializeTaylorGreen3D)
-    elseif flow_options.initCase == Flow.Perturbed then
+    elseif flow_options.initCase == InitCase.Perturbed then
         grid.cells:foreach(Flow.InitializePerturbed)
-    elseif flow_options.initCase == Flow.Restart then
+    elseif flow_options.initCase == InitCase.Restart then
         grid.cells:Load({'rho','pressure','velocity'},
-                        IO.outputFileNamePrefix .. 'restart_' ..
-                          config.restartIter .. '.hdf')
-    end
+                        io_options.outputFileNamePrefix .. 'restart_' ..
+                          time_options.restartIter .. '.hdf')
+    else assert(false) end
 end
 
 function Flow.UpdateGhostVelocityGradient()
@@ -2760,7 +2701,7 @@ local function mkCenteredInviscidFlux(direction)
     rhoEnergyFactorSkew   += c_r.rhoEnthalpy * tmp
 
     -- Compute fluxes with prescribed splitting
-    var s = spatial_stencil.split
+    var s = spatial_options.split
     var rhoFlux_temp         = s * rhoFactorDiagonal +
                               (1-s) * rhoFactorSkew
     var rhoVelocityFlux_temp = s * rhoVelocityFactorDiagonal +
@@ -3105,15 +3046,15 @@ if particles_options.modeParticles then
   end
 
   function Particles.InitializePrimitives()
-    if particles_options.initParticles == Particles.Random then
+    if particles_options.initParticles == InitParticles.Random then
       error("Random particle initialization is disabled")
-    elseif particles_options.initParticles == Particles.Restart then
+    elseif particles_options.initParticles == InitParticles.Restart then
       particles:Load(
         {'cell','position','velocity','temperature','diameter'},
-        IO.outputFileNamePrefix .. 'restart_particle_' ..
-          tostring(config.restartParticleIter) .. '.hdf')
+        io_options.outputFileNamePrefix .. 'restart_particle_' ..
+          tostring(particles_options.restartParticleIter) .. '.hdf')
       particles.density:Fill(particles_options.density)
-    elseif particles_options.initParticles == Particles.Uniform then
+    elseif particles_options.initParticles == InitParticles.Uniform then
       Particles.number:set(particles_options.num)
       M.INLINE(particles_init_uniform.InitParticlesUniform)
     else assert(false) end
@@ -3211,11 +3152,11 @@ function TimeIntegrator.ComputeDFunctionDt()
       Particles.Locate()
       particles:foreach(Particles.AddFlowCoupling)
 
-      if particles_options.particleType == Particles.Free then
+      if particles_options.particleType == ParticleType.Free then
           particles:foreach(Particles.AddBodyForces)
       end
 
-      if radiation_options.radiationType then
+      if radiation_options.radiationType ~= RadiationType.OFF then
           M.INLINE(radiation.AddRadiation)
       end
 
@@ -3269,10 +3210,10 @@ function TimeIntegrator.CalculateDeltaTime()
 
   -- Check whether we are imposing a delta time or basing it on the CFL,
   -- i.e. a negative CFL was imposed in the config
-  if TimeIntegrator.cfl < 0 then
+  if time_options.cfl < 0 then
 
     -- Impose a fixed time step from the config
-    TimeIntegrator.deltaTime:set(TimeIntegrator.delta_time)
+    TimeIntegrator.deltaTime:set(time_options.delta_time)
 
   else
 
@@ -3288,7 +3229,7 @@ function TimeIntegrator.CalculateDeltaTime()
     -- Calculate global spectral radius as the maximum between the convective
     -- and diffusive spectral radii
     -- Delta time using the CFL and max spectral radius for stability
-    TimeIntegrator.deltaTime:set(TimeIntegrator.cfl /
+    TimeIntegrator.deltaTime:set(time_options.cfl /
                                  M.MAX(maxC,M.MAX(maxV,maxH)))
   end
 
@@ -3346,9 +3287,9 @@ end
 -----
 
 function IO.WriteConsoleOutput()
-  M.IF(M.EQ(TimeIntegrator.timeStep:get() % TimeIntegrator.consoleFrequency, 0))
+  M.IF(M.EQ(TimeIntegrator.timeStep:get() % time_options.consoleFrequency, 0))
     -- Output log headers at a specified frequency
-    M.IF(M.EQ(TimeIntegrator.timeStep:get() % TimeIntegrator.headerFrequency, 0))
+    M.IF(M.EQ(TimeIntegrator.timeStep:get() % time_options.headerFrequency, 0))
       M.PRINT("\n Current time step: %2.6e s.\n",
               TimeIntegrator.deltaTime:get())
       M.PRINT(" Min Flow Temp: %11.6f K. Max Flow Temp: %11.6f K.\n",
@@ -3372,10 +3313,10 @@ end
 
 function IO.WriteFlowRestart()
   -- Check if it is time to output a flow restart file
-  M.IF(M.EQ(TimeIntegrator.timeStep:get() % TimeIntegrator.restartEveryTimeSteps, 0))
+  M.IF(M.EQ(TimeIntegrator.timeStep:get() % time_options.restartEveryTimeSteps, 0))
     -- Write the restart files for density, pressure, and velocity
     grid.cells:Dump({'rho','pressure','velocity'},
-                    IO.outputFileNamePrefix .. "restart_%d.hdf",
+                    io_options.outputFileNamePrefix .. "restart_%d.hdf",
                     TimeIntegrator.timeStep:get())
   M.END()
 end
@@ -3385,10 +3326,10 @@ if particles_options.modeParticles then
 
   function IO.WriteParticleRestart()
     -- Check if it is time to output a particle restart file
-    M.IF(M.EQ(TimeIntegrator.timeStep:get() % TimeIntegrator.restartEveryTimeSteps, 0))
+    M.IF(M.EQ(TimeIntegrator.timeStep:get() % time_options.restartEveryTimeSteps, 0))
       -- Write the restart files for position, velocity, temperature and diameter
       particles:Dump({'position','velocity','temperature','diameter'},
-                     IO.outputFileNamePrefix .. "restart_particle_%d.hdf",
+                     io_options.outputFileNamePrefix .. "restart_particle_%d.hdf",
                      TimeIntegrator.timeStep:get())
     M.END()
   end
@@ -3399,7 +3340,7 @@ function IO.WriteOutput()
   -- Write the console output to the screen
   IO.WriteConsoleOutput()
   -- Write the restart files
-  if IO.wrtRestart then
+  if io_options.wrtRestart then
     -- Write the flow restart files
     IO.WriteFlowRestart()
     -- Write the particle restart files
@@ -3423,13 +3364,13 @@ IO.WriteOutput()
 
 -- Main iteration loop
 
-M.WHILE(M.AND(M.LT(TimeIntegrator.simTime:get(), TimeIntegrator.final_time),
-              M.LT(TimeIntegrator.timeStep:get(), TimeIntegrator.max_iter)),
+M.WHILE(M.AND(M.LT(TimeIntegrator.simTime:get(), time_options.final_time),
+              M.LT(TimeIntegrator.timeStep:get(), time_options.max_iter)),
         true)
   TimeIntegrator.CalculateDeltaTime()
   TimeIntegrator.AdvanceTimeStep()
   if not regentlib.config['flow-spmd'] then
-    M.IF(M.EQ(TimeIntegrator.timeStep:get() % config.consoleFrequency, 0))
+    M.IF(M.EQ(TimeIntegrator.timeStep:get() % time_options.consoleFrequency, 0))
       Statistics.ComputeSpatialAverages()
       IO.WriteOutput()
     M.END()
