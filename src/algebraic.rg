@@ -39,7 +39,7 @@ local heatCapacity = config.heatCapacity
 local __demand(__parallel) task AddRadiation
   (particles : particlesType)
 where
-  reads(particles.density), reads(particles.diameter),
+  reads(particles.{density, diameter}),
   reads writes(particles.temperature_t)
 do
   for p in particles do
@@ -57,6 +57,8 @@ end
 -------------------------------------------------------------------------------
 
 local exports = {}
+
+exports.InitRadiation = rquote end
 
 exports.AddRadiation = rquote
   AddRadiation(particlesRegion)

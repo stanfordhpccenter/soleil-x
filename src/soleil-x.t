@@ -169,7 +169,13 @@ end
 
 -- Load up the configuration file.
 
-local config = loadfile(configFileName)()
+local config,errorMsg = loadfile(configFileName)
+if not config then
+  print('Error when reading configuration file:')
+  print(errorMsg)
+  os.exit(1)
+end
+local config = config()
 
 -- Set the output directory to the current working directory
 
@@ -494,23 +500,23 @@ local InitParticles = Enum('Random','Restart','Uniform')
 local ParticleType = Enum('Fixed','Free')
 local particles_options = {
   -- Define the initial number of particles and insertion/deletion
-  num = config.num,
-  maximum_num = config.maximum_num,
+  num            = config.num,
+  maximum_num    = config.maximum_num,
   insertion_rate = config.insertion_rate,
   insertion_mode = L.Constant(L.vector(L.int,6), config.insertion_mode),
-  deletion_mode = L.Constant(L.vector(L.int,6), config.deletion_mode),
+  deletion_mode  = L.Constant(L.vector(L.int,6), config.deletion_mode),
 
   -- Particle characteristics
   restitution_coefficient = L.Constant(L.double, config.restitutionCoefficient),
-  convective_coefficient = L.Constant(L.double, config.convectiveCoefficient),
-  heat_capacity = L.Constant(L.double, config.heatCapacity),
-  initialTemperature = config.initialTemperature,
-  density = config.density,
-  diameter_mean = config.diameter_mean,
-  diameter_maxDeviation = config.diameter_maxDeviation,
-  bodyForce = L.Constant(L.vec3d, config.bodyForceParticles),
-  absorptivity = config.absorptivity,
-  restartParticleIter = config.restartParticleIter,
+  convective_coefficient  = L.Constant(L.double, config.convectiveCoefficient),
+  heat_capacity           = L.Constant(L.double, config.heatCapacity),
+  initialTemperature      = config.initialTemperature,
+  density                 = config.density,
+  diameter_mean           = config.diameter_mean,
+  diameter_maxDeviation   = config.diameter_maxDeviation,
+  bodyForce               = L.Constant(L.vec3d, config.bodyForceParticles),
+  absorptivity            = config.absorptivity,
+  restartParticleIter     = config.restartParticleIter,
 
   -- Particles mode
   modeParticles  = parseBool('modeParticles'),
@@ -613,15 +619,13 @@ local gridWidthY = grid_options.yWidth
 local gridWidthZ = grid_options.zWidth
 
 local grid = Grid.NewGrid3d{
+              name           = 'Fluid',
               size           = {grid_options.xnum + 2*xBnum,
                                 grid_options.ynum + 2*yBnum,
                                 grid_options.znum + 2*zBnum},
-              origin         = {grid_options.origin[1] -
-                                xBnum * grid_options.xWidth/grid_options.xnum,
-                                grid_options.origin[2] -
-                                yBnum * grid_options.yWidth/grid_options.ynum,
-                                grid_options.origin[3] -
-                                zBnum * grid_options.zWidth/grid_options.znum},
+              origin         = {grid_options.origin[1] - xBw,
+                                grid_options.origin[2] - yBw,
+                                grid_options.origin[3] - zBw},
               width          = {grid_options.xWidth + 2*xBw,
                                 grid_options.yWidth + 2*yBw,
                                 grid_options.zWidth + 2*zBw},
@@ -699,7 +703,6 @@ grid.cells:NewField('rhoFluxZ', L.double)
 grid.cells:NewField('rhoVelocityFluxZ', L.vec3d)
 grid.cells:NewField('rhoEnergyFluxZ', L.double)
 
-
 -----------------------------------------------------------------------------
 --[[                       PARTICLE PREPROCESSING                        ]]--
 -----------------------------------------------------------------------------
@@ -774,11 +777,11 @@ end
 
 -- Integration quantities
 
-TimeIntegrator.simTime               = L.Global('TimeIntegrator.simTime', L.double, 0)
-TimeIntegrator.timeOld               = L.Global('TimeIntegrator.timeOld', L.double, 0)
-TimeIntegrator.timeStep              = L.Global('TimeIntegrator.timeStep', L.int, 0)
-TimeIntegrator.deltaTime             = L.Global('TimeIntegrator.deltaTime', L.double, 0.0001)
-TimeIntegrator.stage                 = L.Global('TimeIntegrator.stage', L.int, 0)
+TimeIntegrator.simTime   = L.Global('TimeIntegrator.simTime', L.double, 0)
+TimeIntegrator.timeOld   = L.Global('TimeIntegrator.timeOld', L.double, 0)
+TimeIntegrator.timeStep  = L.Global('TimeIntegrator.timeStep', L.int, 0)
+TimeIntegrator.deltaTime = L.Global('TimeIntegrator.deltaTime', L.double, 0.0001)
+TimeIntegrator.stage     = L.Global('TimeIntegrator.stage', L.int, 0)
 
 -- Statistics quantities
 
@@ -843,13 +846,13 @@ end
 -- These are Ebb user-defined functions that behave like a field
 if particles_options.modeParticles then
   particles:NewFieldReadFunction('cross_section_area', ebb(p)
-      return pi * L.pow(p.diameter, 2) / 4.0
+    return pi * L.pow(p.diameter, 2) / 4.0
   end)
   particles:NewFieldReadFunction('volume', ebb(p)
-      return pi * L.pow(p.diameter, 3) / 6.0
+    return pi * L.pow(p.diameter, 3) / 6.0
   end)
   particles:NewFieldReadFunction('mass', ebb(p)
-      return p.volume * p.density
+    return p.volume * p.density
   end)
 end
 
@@ -3360,6 +3363,9 @@ end
 TimeIntegrator.InitializeVariables()
 Flow.IntegrateGeometricQuantities(grid.cells)
 Statistics.ComputeSpatialAverages()
+if radiation_options.radiationType ~= RadiationType.OFF then
+  M.INLINE(radiation.InitRadiation)
+end
 IO.WriteOutput()
 
 -- Main iteration loop
