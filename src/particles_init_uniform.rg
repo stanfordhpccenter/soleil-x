@@ -4,7 +4,7 @@ import 'regent'
 -- Module parameters
 -------------------------------------------------------------------------------
 
-return function(particlesRegion, particlesType, cellRegion, cellType)
+return function(particlesRel, cellsRel)
 
 -------------------------------------------------------------------------------
 -- Compile-time computation
@@ -53,7 +53,7 @@ local zInteriorWidth = config.znum
 -------------------------------------------------------------------------------
 
 local __demand(__parallel) task InitParticlesUniform
-  (particles : particlesType, cells : cellType)
+  (particles : particlesRel:regionType(), cells : cellsRel:regionType())
 where
   reads writes(particles),
   reads(cells.{velocity, centerCoordinates})
@@ -98,7 +98,8 @@ end
 local exports = {}
 
 exports.InitParticlesUniform = rquote
-  InitParticlesUniform(particlesRegion, cellRegion)
+  InitParticlesUniform([particlesRel:regionSymbol()],
+                       [cellsRel:regionSymbol()])
 end
 
 -------------------------------------------------------------------------------

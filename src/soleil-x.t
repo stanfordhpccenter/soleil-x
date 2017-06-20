@@ -711,8 +711,6 @@ grid.cells:NewField('rhoEnergyFluxZ', L.double)
 -- any data for the particles.
 
 local particles = {}
-local radiation
-local particles_init_uniform
 
 if particles_options.modeParticles then
 
@@ -763,16 +761,6 @@ if particles_options.modeParticles then
   particles:NewField('velocity_t', L.vec3d)
   particles:NewField('temperature_t', L.double)
 
-  particles_init_uniform = M.IMPORT('particles_init_uniform', particles, grid.cells)
-  if radiation_options.radiationType == RadiationType.Algebraic then
-    radiation = M.IMPORT('algebraic', particles)
-  elseif radiation_options.radiationType == RadiationType.DOM then
-    radiation = M.IMPORT('dom', particles)
-  elseif radiation_options.radiationType == RadiationType.MCRT then
-    radiation = M.IMPORT('mcrt', particles)
-  elseif radiation_options.radiationType == RadiationType.OFF then
-    -- do nothing
-  else assert(false) end
 end
 
 -- Integration quantities
@@ -810,6 +798,27 @@ Flow.averageDissipation = L.Global('Flow.averageDissipation', L.double, 0.0)
 Flow.averageFe          = L.Global('Flow.averageFe', L.double, 0.0)
 Flow.averageK           = L.Global('Flow.averageK', L.double, 0.0)
 
+
+-----------------------------------------------------------------------------
+--[[                       EXTERNAL REGENT MODULES                       ]]--
+-----------------------------------------------------------------------------
+
+local particles_init_uniform
+if particles_options.modeParticles then
+  particles_init_uniform =
+    (require 'particles_init_uniform')(particles, grid.cells)
+end
+
+local radiation
+if radiation_options.radiationType == RadiationType.Algebraic then
+  radiation = (require 'algebraic')(particles)
+elseif radiation_options.radiationType == RadiationType.DOM then
+  radiation = (require 'dom')(grid.cells, particles)
+elseif radiation_options.radiationType == RadiationType.MCRT then
+  radiation = (require 'mcrt')(particles)
+elseif radiation_options.radiationType == RadiationType.OFF then
+  -- do nothing
+else assert(false) end
 
 -----------------------------------------------------------------------------
 --[[                       USER DEFINED FUNCTIONS                        ]]--

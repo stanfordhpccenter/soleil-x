@@ -4,7 +4,7 @@ import 'regent'
 -- Module parameters
 -------------------------------------------------------------------------------
 
-return function(particlesRegion, particlesType)
+return function(particlesRel)
 
 -------------------------------------------------------------------------------
 -- Compile-time computation
@@ -37,7 +37,7 @@ local heatCapacity = config.heatCapacity
 -------------------------------------------------------------------------------
 
 local __demand(__parallel) task AddRadiation
-  (particles : particlesType)
+  (particles : particlesRel:regionType())
 where
   reads(particles.{density, diameter}),
   reads writes(particles.temperature_t)
@@ -61,7 +61,7 @@ local exports = {}
 exports.InitRadiation = rquote end
 
 exports.AddRadiation = rquote
-  AddRadiation(particlesRegion)
+  AddRadiation([particlesRel:regionSymbol()])
 end
 
 -------------------------------------------------------------------------------
