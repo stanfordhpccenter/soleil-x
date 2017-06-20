@@ -41,6 +41,13 @@ local density = config.density
 local initialTemperature = config.initialTemperature
 local diameter_mean = config.diameter_mean
 
+local xBoundaryWidth = (config.xBCLeft == 'periodic') and 0 or 1
+local yBoundaryWidth = (config.yBCLeft == 'periodic') and 0 or 1
+local zBoundaryWidth = (config.zBCLeft == 'periodic') and 0 or 1
+local xInteriorWidth = config.xnum
+local yInteriorWidth = config.ynum
+local zInteriorWidth = config.znum
+
 -------------------------------------------------------------------------------
 -- Local tasks
 -------------------------------------------------------------------------------
@@ -56,10 +63,16 @@ do
     pBase = __raw(p).value
     break
   end
-  var boundary = cells.bounds
-  var xSize = boundary:size().x
-  var ySize = boundary:size().y
-  var lo = boundary.lo
+  var lo : int3d = cells.bounds.lo
+  lo.x = max(lo.x, xBoundaryWidth)
+  lo.y = max(lo.y, yBoundaryWidth)
+  lo.z = max(lo.z, zBoundaryWidth)
+  var hi : int3d = cells.bounds.hi
+  hi.x = min(hi.x, xInteriorWidth + xBoundaryWidth - 1)
+  hi.y = min(hi.y, yInteriorWidth + yBoundaryWidth - 1)
+  hi.z = min(hi.z, zInteriorWidth + zBoundaryWidth - 1)
+  var xSize = hi.x - lo.x + 1
+  var ySize = hi.y - lo.y + 1
   --__demand(__openmp)
   for p in particles do
     if __raw(p).value - pBase < particlesPerTask then
