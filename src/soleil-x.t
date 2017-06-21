@@ -6,31 +6,37 @@ Soleil-X Version 0.0.1
 Copyright (C) 2013-2015, Dr. Thomas D. Economon,
                          Dr. Ivan Bermejo-Moreno
 
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public
- License as published by the Free Software Foundation; either
- version 2 of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public
+License as published by the Free Software Foundation; either
+version 2 of the License, or (at your option) any later version.
 
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- General Public License for more details.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
- You should have received a copy of the GNU General Public
- License along with this program; if not, write to the Free
- Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- Boston, MA 02110-1301 USA.
+You should have received a copy of the GNU General Public
+License along with this program; if not, write to the Free
+Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301 USA.
 
- -----------------------------------------------------------------------------
- ]]--
- -----------------------------------------------------------------------------
+-----------------------------------------------------------------------------
+]]--
+-----------------------------------------------------------------------------
 
-import "ebb"
-local L = require "ebblib"
-local A = require "admiral"
-local M = require "ebb.src.main"
+import 'ebb'
 
-local Grid  = require 'ebb.domains.grid'
+local A    = require 'admiral'
+local Grid = require 'ebb.domains.grid'
+local L    = require 'ebblib'
+local M    = require 'ebb.src.main'
+local PN   = require 'ebb.lib.pathname'
+
+-----------------------------------------------------------------------------
+--[[                          MATH IMPORTS                               ]]--
+-----------------------------------------------------------------------------
+
 local C = terralib.includecstring [[
 #include <math.h>
 #include <stdlib.h>
@@ -70,8 +76,14 @@ double rand_gauss() {
 
 	return X;
 }
-
 ]]
+
+-- Use the built in rand() function from Liszt
+local rand_float = L.rand
+
+-----------------------------------------------------------------------------
+--[[                       MAPPER CONFIGURATION                          ]]--
+-----------------------------------------------------------------------------
 
 local SAVE_MAPPER_ONLY = os.getenv('SAVE_MAPPER_ONLY') == '1'
 local cmapper
@@ -129,14 +141,6 @@ if os.getenv('SAVEOBJ') == '1' and os.getenv('CRAYPE_VERSION') then
   link_flags = new_flags
 end
 
--- Use the built in rand() function from Liszt
-local rand_float = L.rand
-
--- Load the pathname library, which just provides a couple of
--- convenience functions for manipulating filesystem paths.
-local PN = require 'ebb.lib.pathname'
-
-
 -----------------------------------------------------------------------------
 --[[                       COMMAND LINE OPTIONS                          ]]--
 -----------------------------------------------------------------------------
@@ -181,14 +185,12 @@ local config = config()
 
 local outputdir = PN.pwd_str()
 
-
 -----------------------------------------------------------------------------
---[[                            CONSTANT VARIABLES                       ]]--
+--[[                            CONSTANTS                                ]]--
 -----------------------------------------------------------------------------
 
 local pi = 2.0*L.acos(0)
 local twoPi = 2.0*pi
-
 
 -----------------------------------------------------------------------------
 --[[                            NAMESPACES                               ]]--
@@ -199,7 +201,6 @@ local Particles = {};
 local TimeIntegrator = {};
 local Statistics = {};
 local IO = {};
-
 
 -----------------------------------------------------------------------------
 --[[                   INITIALIZE OPTIONS FROM CONFIG                    ]]--
@@ -531,50 +532,33 @@ local radiation_options = {
   zeroAvgHeatSource  = parseBool('zeroAvgHeatSource'),
 }
 
--- IO options
 local io_options = {
   wrtRestart           = parseBool('wrtRestart'),
   outputFileNamePrefix = outputdir .. '/',
 }
 
-
 -----------------------------------------------------------------------------
---[[                       Load Data for a Restart                       ]]--
------------------------------------------------------------------------------
-
-if flow_options.initCase == InitCase.Restart then
-  -- Increment the time step and physical time so the simulation doesn't
-  -- repeat from 0. Also, increase the max number of iterations so the solve
-  -- doesn't immediately exit.
-  TimeIntegrator.timeStep:set(time_options.restartIter)
-  -- TODO: No way to pass TimeIntegrator.simTime for the restart
-  time_options.max_iter = time_options.max_iter + time_options.restartIter
-end
-
-
------------------------------------------------------------------------------
---[[                       GRID/PARTICLES RELATIONS                      ]]--
+--[[                      BOUNDARY CONFIG CHECK                          ]]--
 -----------------------------------------------------------------------------
 
 -- Check boundary type consistency for the periodic BCs
-
 if ( grid_options.xBCLeft  == FlowBC.periodic and
      grid_options.xBCRight ~= FlowBC.periodic ) or
    ( grid_options.xBCLeft  ~= FlowBC.periodic and
      grid_options.xBCRight == FlowBC.periodic ) then
-    error("Boundary conditions in x should match for periodicity")
+  error("Boundary conditions in x should match for periodicity")
 end
 if ( grid_options.yBCLeft  == FlowBC.periodic and
      grid_options.yBCRight ~= FlowBC.periodic ) or
    ( grid_options.yBCLeft  ~= FlowBC.periodic and
      grid_options.yBCRight == FlowBC.periodic ) then
-    error("Boundary conditions in y should match for periodicity")
+  error("Boundary conditions in y should match for periodicity")
 end
 if ( grid_options.zBCLeft  == FlowBC.periodic and
      grid_options.zBCRight ~= FlowBC.periodic ) or
    ( grid_options.zBCLeft  ~= FlowBC.periodic and
      grid_options.zBCRight == FlowBC.periodic ) then
-    error("Boundary conditions in z should match for periodicity")
+  error("Boundary conditions in z should match for periodicity")
 end
 if ( grid_options.xBCLeft  == FlowBC.periodic and
      grid_options.xBCRight == FlowBC.periodic ) then
@@ -594,7 +578,6 @@ if ( grid_options.zBCLeft  == FlowBC.periodic and
 else
   zBCPeriodic = false
 end
-
 
 -----------------------------------------------------------------------------
 --[[                         GRID PREPROCESSING                          ]]--
@@ -619,18 +602,19 @@ local gridWidthY = grid_options.yWidth
 local gridWidthZ = grid_options.zWidth
 
 local grid = Grid.NewGrid3d{
-              name           = 'Fluid',
-              size           = {grid_options.xnum + 2*xBnum,
-                                grid_options.ynum + 2*yBnum,
-                                grid_options.znum + 2*zBnum},
-              origin         = {grid_options.origin[1] - xBw,
-                                grid_options.origin[2] - yBw,
-                                grid_options.origin[3] - zBw},
-              width          = {grid_options.xWidth + 2*xBw,
-                                grid_options.yWidth + 2*yBw,
-                                grid_options.zWidth + 2*zBw},
-              boundary_depth = {xBnum, yBnum, zBnum},
-              periodic_boundary = {xBCPeriodic, yBCPeriodic, zBCPeriodic} }
+  name              = 'Fluid',
+  size              = {grid_options.xnum + 2*xBnum,
+                       grid_options.ynum + 2*yBnum,
+                       grid_options.znum + 2*zBnum},
+  origin            = {grid_options.origin[1] - xBw,
+                       grid_options.origin[2] - yBw,
+                       grid_options.origin[3] - zBw},
+  width             = {grid_options.xWidth + 2*xBw,
+                       grid_options.yWidth + 2*yBw,
+                       grid_options.zWidth + 2*zBw},
+  boundary_depth    = {xBnum, yBnum, zBnum},
+  periodic_boundary = {xBCPeriodic, yBCPeriodic, zBCPeriodic}
+}
 
 -- Define uniform grid spacing
 -- WARNING: These are used for uniform grids and should be replaced by different
@@ -703,6 +687,11 @@ grid.cells:NewField('rhoFluxZ', L.double)
 grid.cells:NewField('rhoVelocityFluxZ', L.vec3d)
 grid.cells:NewField('rhoEnergyFluxZ', L.double)
 
+-- Right hand side of the kinetic energy equation
+grid.cells:NewField('PD', L.double)
+grid.cells:NewField('dissipation', L.double)
+grid.cells:NewField('dissipationFlux', L.double)
+
 -----------------------------------------------------------------------------
 --[[                       PARTICLE PREPROCESSING                        ]]--
 -----------------------------------------------------------------------------
@@ -710,7 +699,7 @@ grid.cells:NewField('rhoEnergyFluxZ', L.double)
 -- Check whether particles are even active in order to avoid allocating
 -- any data for the particles.
 
-local particles = {}
+local particles
 
 if particles_options.modeParticles then
 
@@ -763,6 +752,10 @@ if particles_options.modeParticles then
 
 end
 
+-----------------------------------------------------------------------------
+--[[                           GLOBAL VARIABLES                          ]]--
+-----------------------------------------------------------------------------
+
 -- Integration quantities
 
 TimeIntegrator.simTime   = L.Global('TimeIntegrator.simTime', L.double, 0)
@@ -788,16 +781,10 @@ Particles.averageTemperature = L.Global('Particles.averageTemperature', L.double
 Particles.number             = L.Global('Particles.number', L.int64, 0)
 Particles.limit              = L.Global('Particles.limit', L.int64, 0)
 
--- Right hand side of the kinetic energy equation
-grid.cells:NewField('PD', L.double)
-grid.cells:NewField('dissipation', L.double)
-grid.cells:NewField('dissipationFlux', L.double)
-
 Flow.averagePD          = L.Global('Flow.averagePD', L.double, 0.0)
 Flow.averageDissipation = L.Global('Flow.averageDissipation', L.double, 0.0)
 Flow.averageFe          = L.Global('Flow.averageFe', L.double, 0.0)
 Flow.averageK           = L.Global('Flow.averageK', L.double, 0.0)
-
 
 -----------------------------------------------------------------------------
 --[[                       EXTERNAL REGENT MODULES                       ]]--
@@ -821,12 +808,25 @@ elseif radiation_options.radiationType == RadiationType.OFF then
 else assert(false) end
 
 -----------------------------------------------------------------------------
---[[                       USER DEFINED FUNCTIONS                        ]]--
+--[[                       LOAD DATA FOR RESTART                         ]]--
+-----------------------------------------------------------------------------
+
+if flow_options.initCase == InitCase.Restart then
+  -- Increment the time step and physical time so the simulation doesn't
+  -- repeat from 0. Also, increase the max number of iterations so the solve
+  -- doesn't immediately exit.
+  TimeIntegrator.timeStep:set(time_options.restartIter)
+  -- TODO: No way to pass TimeIntegrator.simTime for the restart
+  time_options.max_iter = time_options.max_iter + time_options.restartIter
+end
+
+-----------------------------------------------------------------------------
+--[[                       USER-DEFINED FUNCTIONS                        ]]--
 -----------------------------------------------------------------------------
 
 -- Norm of a vector
 local ebb norm (v)
-    return L.sqrt(L.dot(v, v))
+  return L.sqrt(L.dot(v, v))
 end
 
 -- Compute fluid dynamic viscosity from fluid temperature
@@ -848,7 +848,7 @@ end
 
 -- Compute fluid flow sound speed based on temperature (a = sqrt(gamma*R*T))
 local ebb GetSoundSpeed (temperature)
-    return L.sqrt(fluid_options.gamma * fluid_options.gasConstant * temperature)
+  return L.sqrt(fluid_options.gamma * fluid_options.gasConstant * temperature)
 end
 
 -- Function to retrieve particle area, volume and mass
@@ -865,19 +865,14 @@ if particles_options.modeParticles then
   end)
 end
 
-
 -- Function for returning a Gaussian random variable
 local ebb rand_gauss()
-
   var x = L.double(0.0)
-
   for i = 0,25 do
     x += rand_float()
   end
-
   x -= 25.0 / 2.0
   x /= L.sqrt(25.0 / 12.0)
-
   return x
 end
 
@@ -901,64 +896,62 @@ function Flow.IntegrateGeometricQuantities(cells)
   cells:foreach(areaInterior         )
 end
 
-
 -----------------------------------------------------------------------------
 --[[                              EBB MACROS                             ]]--
 -----------------------------------------------------------------------------
 
-
 ebb TrilinearInterpolateRho (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-    var dX   = L.fmod((xyz[0] - grid_originX)/grid_dx + 0.5, 1.0)
-    var dY   = L.fmod((xyz[1] - grid_originY)/grid_dy + 0.5, 1.0)
-    var dZ   = L.fmod((xyz[2] - grid_originZ)/grid_dz + 0.5, 1.0)
+  var dX   = L.fmod((xyz[0] - grid_originX)/grid_dx + 0.5, 1.0)
+  var dY   = L.fmod((xyz[1] - grid_originY)/grid_dy + 0.5, 1.0)
+  var dZ   = L.fmod((xyz[2] - grid_originZ)/grid_dz + 0.5, 1.0)
 
-    var oneMinusdX = 1.0 - dX
-    var oneMinusdY = 1.0 - dY
-    var oneMinusdZ = 1.0 - dZ
-    var weight00 = c000 * oneMinusdX + c100 * dX
-    var weight10 = c010 * oneMinusdX + c110 * dX
-    var weight01 = c001 * oneMinusdX + c101 * dX
-    var weight11 = c011 * oneMinusdX + c111 * dX
-    var weight0  = weight00 * oneMinusdY + weight10 * dY
-    var weight1  = weight01 * oneMinusdY + weight11 * dY
+  var oneMinusdX = 1.0 - dX
+  var oneMinusdY = 1.0 - dY
+  var oneMinusdZ = 1.0 - dZ
+  var weight00 = c000 * oneMinusdX + c100 * dX
+  var weight10 = c010 * oneMinusdX + c110 * dX
+  var weight01 = c001 * oneMinusdX + c101 * dX
+  var weight11 = c011 * oneMinusdX + c111 * dX
+  var weight0  = weight00 * oneMinusdY + weight10 * dY
+  var weight1  = weight01 * oneMinusdY + weight11 * dY
 
-    return weight0 * oneMinusdZ + weight1 * dZ
+  return weight0 * oneMinusdZ + weight1 * dZ
 end
 
 ebb TrilinearInterpolateVelocity (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-    var dX   = L.fmod((xyz[0] - grid_originX)/grid_dx + 0.5, 1.0)
-    var dY   = L.fmod((xyz[1] - grid_originY)/grid_dy + 0.5, 1.0)
-    var dZ   = L.fmod((xyz[2] - grid_originZ)/grid_dz + 0.5, 1.0)
+  var dX   = L.fmod((xyz[0] - grid_originX)/grid_dx + 0.5, 1.0)
+  var dY   = L.fmod((xyz[1] - grid_originY)/grid_dy + 0.5, 1.0)
+  var dZ   = L.fmod((xyz[2] - grid_originZ)/grid_dz + 0.5, 1.0)
 
-    var oneMinusdX = 1.0 - dX
-    var oneMinusdY = 1.0 - dY
-    var oneMinusdZ = 1.0 - dZ
-    var weight00 = c000 * oneMinusdX + c100 * dX
-    var weight10 = c010 * oneMinusdX + c110 * dX
-    var weight01 = c001 * oneMinusdX + c101 * dX
-    var weight11 = c011 * oneMinusdX + c111 * dX
-    var weight0  = weight00 * oneMinusdY + weight10 * dY
-    var weight1  = weight01 * oneMinusdY + weight11 * dY
+  var oneMinusdX = 1.0 - dX
+  var oneMinusdY = 1.0 - dY
+  var oneMinusdZ = 1.0 - dZ
+  var weight00 = c000 * oneMinusdX + c100 * dX
+  var weight10 = c010 * oneMinusdX + c110 * dX
+  var weight01 = c001 * oneMinusdX + c101 * dX
+  var weight11 = c011 * oneMinusdX + c111 * dX
+  var weight0  = weight00 * oneMinusdY + weight10 * dY
+  var weight1  = weight01 * oneMinusdY + weight11 * dY
 
-    return weight0 * oneMinusdZ + weight1 * dZ
+  return weight0 * oneMinusdZ + weight1 * dZ
 end
 
 ebb TrilinearInterpolateTemp (xyz, c000, c100, c010, c110, c001, c101, c011, c111 )
-    var dX   = L.fmod((xyz[0] - grid_originX)/grid_dx + 0.5, 1.0)
-    var dY   = L.fmod((xyz[1] - grid_originY)/grid_dy + 0.5, 1.0)
-    var dZ   = L.fmod((xyz[2] - grid_originZ)/grid_dz + 0.5, 1.0)
+  var dX   = L.fmod((xyz[0] - grid_originX)/grid_dx + 0.5, 1.0)
+  var dY   = L.fmod((xyz[1] - grid_originY)/grid_dy + 0.5, 1.0)
+  var dZ   = L.fmod((xyz[2] - grid_originZ)/grid_dz + 0.5, 1.0)
 
-    var oneMinusdX = 1.0 - dX
-    var oneMinusdY = 1.0 - dY
-    var oneMinusdZ = 1.0 - dZ
-    var weight00 = c000 * oneMinusdX + c100 * dX
-    var weight10 = c010 * oneMinusdX + c110 * dX
-    var weight01 = c001 * oneMinusdX + c101 * dX
-    var weight11 = c011 * oneMinusdX + c111 * dX
-    var weight0  = weight00 * oneMinusdY + weight10 * dY
-    var weight1  = weight01 * oneMinusdY + weight11 * dY
+  var oneMinusdX = 1.0 - dX
+  var oneMinusdY = 1.0 - dY
+  var oneMinusdZ = 1.0 - dZ
+  var weight00 = c000 * oneMinusdX + c100 * dX
+  var weight10 = c010 * oneMinusdX + c110 * dX
+  var weight01 = c001 * oneMinusdX + c101 * dX
+  var weight11 = c011 * oneMinusdX + c111 * dX
+  var weight0  = weight00 * oneMinusdY + weight10 * dY
+  var weight1  = weight01 * oneMinusdY + weight11 * dY
 
-    return weight0 * oneMinusdZ + weight1 * dZ
+  return weight0 * oneMinusdZ + weight1 * dZ
 end
 
 ebb InterpolateTriVelocity (c, xyz)
@@ -1282,79 +1275,69 @@ end
 -- to be removed after grid outputing is well defined from within the grid.t
 -- module. Similar story with the vertex coordinates (output only).
 ebb Flow.InitializeCenterCoordinates (c : grid.cells)
-    var xy = c.center
-    c.centerCoordinates = L.vec3d({L.double(xy[0]), L.double(xy[1]), L.double((xy[2]))})
+  var xy = c.center
+  c.centerCoordinates = L.vec3d({L.double(xy[0]), L.double(xy[1]), L.double((xy[2]))})
 end
 
 ebb Flow.InitializeUniform (c : grid.cells)
-    c.rho         = flow_options.initParams[0]
-    c.pressure    = flow_options.initParams[1]
-    c.velocity[0] = flow_options.initParams[2]
-    c.velocity[1] = flow_options.initParams[3]
-    c.velocity[2] = flow_options.initParams[4]
+  c.rho         = flow_options.initParams[0]
+  c.pressure    = flow_options.initParams[1]
+  c.velocity[0] = flow_options.initParams[2]
+  c.velocity[1] = flow_options.initParams[3]
+  c.velocity[2] = flow_options.initParams[4]
 end
 
 ebb Flow.InitializeTaylorGreen2D (c : grid.cells)
-    -- Define Taylor Green Vortex
-    var taylorGreenDensity  = flow_options.initParams[0]
-    var taylorGreenPressure = flow_options.initParams[1]
-    var taylorGreenVelocity = flow_options.initParams[2]
-    -- Initialize
-    var xy = c.center
-    var coorZ = 0
-    c.rho = taylorGreenDensity
-    c.velocity =
+  -- Define Taylor Green Vortex
+  var taylorGreenDensity  = flow_options.initParams[0]
+  var taylorGreenPressure = flow_options.initParams[1]
+  var taylorGreenVelocity = flow_options.initParams[2]
+  -- Initialize
+  var xy = c.center
+  var coorZ = 0
+  c.rho = taylorGreenDensity
+  c.velocity =
     taylorGreenVelocity *
-    L.vec3d({L.sin(xy[0]) *
-            L.cos(xy[1]) *
-            L.cos(coorZ),
-            - L.cos(xy[0]) *
-            L.sin(xy[1]) *
-            L.cos(coorZ),
-            0})
-    var factorA = L.cos(2.0*coorZ) + 2.0
-    var factorB = L.cos(2.0*xy[0]) +
-    L.cos(2.0*xy[1])
-    c.pressure =
+    L.vec3d({L.sin(xy[0]) * L.cos(xy[1]) * L.cos(coorZ),
+             - L.cos(xy[0]) * L.sin(xy[1]) * L.cos(coorZ),
+             0})
+  var factorA = L.cos(2.0*coorZ) + 2.0
+  var factorB = L.cos(2.0*xy[0]) + L.cos(2.0*xy[1])
+  c.pressure =
     taylorGreenPressure +
     taylorGreenDensity * L.pow(taylorGreenVelocity,2) / 16 *
     factorA * factorB
 end
 
 ebb Flow.InitializeTaylorGreen3D (c : grid.cells)
-    -- Define Taylor Green Vortex
-    var taylorGreenDensity  = flow_options.initParams[0]
-    var taylorGreenPressure = flow_options.initParams[1]
-    var taylorGreenVelocity = flow_options.initParams[2]
-    -- Initialize
-    var xy = c.center
-    c.rho = taylorGreenDensity
-    c.velocity =
+  -- Define Taylor Green Vortex
+  var taylorGreenDensity  = flow_options.initParams[0]
+  var taylorGreenPressure = flow_options.initParams[1]
+  var taylorGreenVelocity = flow_options.initParams[2]
+  -- Initialize
+  var xy = c.center
+  c.rho = taylorGreenDensity
+  c.velocity =
     taylorGreenVelocity *
-    L.vec3d({L.sin(xy[0]) *
-            L.cos(xy[1]) *
-            L.cos(xy[2]),
-            - L.cos(xy[0]) *
-            L.sin(xy[1]) *
-            L.cos(xy[2]),
-            0})
-    var factorA = L.cos(2.0*xy[2]) + 2.0
-    var factorB = L.cos(2.0*xy[0]) +
-    L.cos(2.0*xy[1])
-    c.pressure =
+    L.vec3d({L.sin(xy[0]) * L.cos(xy[1]) * L.cos(xy[2]),
+             - L.cos(xy[0]) * L.sin(xy[1]) * L.cos(xy[2]),
+             0})
+  var factorA = L.cos(2.0*xy[2]) + 2.0
+  var factorB = L.cos(2.0*xy[0]) + L.cos(2.0*xy[1])
+  c.pressure =
     taylorGreenPressure +
     taylorGreenDensity * L.pow(taylorGreenVelocity,2) / 16 *
     factorA * factorB
 end
 
 ebb Flow.InitializePerturbed (c : grid.cells)
-    -- This initialization imposes a small random perturbation in
-    -- the velocity field used to start up forced turbulence cases
-    c.rho         = flow_options.initParams[0]
-    c.pressure    = flow_options.initParams[1]
-    c.velocity[0] = flow_options.initParams[2] + ((rand_float()-0.5)*10.0)
-    c.velocity[1] = flow_options.initParams[3] + ((rand_float()-0.5)*10.0)
-    c.velocity[2] = flow_options.initParams[4] + ((rand_float()-0.5)*10.0)
+  -- This initialization imposes a small random perturbation in
+  -- the velocity field used to start up forced turbulence cases
+  c.rho         = flow_options.initParams[0]
+  c.pressure    = flow_options.initParams[1]
+  c.velocity[0] = flow_options.initParams[2] + ((rand_float()-0.5)*10.0)
+  c.velocity[1] = flow_options.initParams[3] + ((rand_float()-0.5)*10.0)
+  c.velocity[2] = flow_options.initParams[4] + ((rand_float()-0.5)*10.0)
 end
 
 ebb Flow.UpdateConservedFromPrimitive (c : grid.cells)
@@ -1365,34 +1348,30 @@ ebb Flow.UpdateConservedFromPrimitive (c : grid.cells)
     c.rhoVelocity = c.rho * c.velocity
 
     -- rhoE = rhoe (= rho * cv * T) + kineticEnergy + sgsEnergy
-    var cv = fluid_options.gasConstant /
-             (fluid_options.gamma - 1.0)
+    var cv = fluid_options.gasConstant / (fluid_options.gamma - 1.0)
     c.rhoEnergy =
-      c.rho *
-      ( cv * tmpTemperature
-        + 0.5 * L.dot(velocity,velocity) )
+      c.rho * ( cv * tmpTemperature + 0.5 * L.dot(velocity,velocity) )
       + c.sgsEnergy
   end
 end
 
 -- Initialize temporaries
 ebb Flow.InitializeTemporaries (c : grid.cells)
-    c.rho_old         = c.rho
-    c.rhoVelocity_old = c.rhoVelocity
-    c.rhoEnergy_old   = c.rhoEnergy
-    c.rho_new         = c.rho
-    c.rhoVelocity_new = c.rhoVelocity
-    c.rhoEnergy_new   = c.rhoEnergy
+  c.rho_old         = c.rho
+  c.rhoVelocity_old = c.rhoVelocity
+  c.rhoEnergy_old   = c.rhoEnergy
+  c.rho_new         = c.rho
+  c.rhoVelocity_new = c.rhoVelocity
+  c.rhoEnergy_new   = c.rhoEnergy
 end
 
 -- Initialize derivatives
 ebb Flow.InitializeTimeDerivatives (c : grid.cells)
-    c.rho_t         = L.double(0.0)
-    c.rhoVelocity_t = L.vec3d({0.0, 0.0, 0.0})
-    c.rhoEnergy_t   = L.double(0.0)
-
-    -- Initialize enthalpy
-    c.rhoEnthalpy = c.rhoEnergy + c.pressure
+  c.rho_t         = L.double(0.0)
+  c.rhoVelocity_t = L.vec3d({0.0, 0.0, 0.0})
+  c.rhoEnergy_t   = L.double(0.0)
+  -- Initialize enthalpy
+  c.rhoEnthalpy = c.rhoEnergy + c.pressure
 end
 
 ---------------------
@@ -1426,9 +1405,9 @@ if particles_options.modeParticles then
   end
 end
 
---------------
+--------------------------------------------------------------
 -- Holding avg. temperature fixed in the presence of radiation
---------------
+--------------------------------------------------------------
 
 if radiation_options.zeroAvgHeatSource then
   ebb Flow.AdjustHeatSource (c : grid.cells)
@@ -1460,183 +1439,183 @@ end
 
 
 ebb Flow.UpdatePD (c : grid.cells)
-   var divU = L.double(0.0)
+  var divU = L.double(0.0)
 
-   -- compute the divergence of the velocity (trace of the velocity gradient)
-   divU = c.velocityGradientX[0] + c.velocityGradientY[1] + c.velocityGradientZ[2]
+  -- compute the divergence of the velocity (trace of the velocity gradient)
+  divU = c.velocityGradientX[0] + c.velocityGradientY[1] + c.velocityGradientZ[2]
 
-   -- Compute pressure dilation by multiplying by pressure (assumes homogeneity)
-   -- PD = - <u_i P,j> = <Ui,i P >
-   c.PD = divU * c.pressure
+  -- Compute pressure dilation by multiplying by pressure (assumes homogeneity)
+  -- PD = - <u_i P,j> = <Ui,i P >
+  c.PD = divU * c.pressure
 end
 
 
 -- Compute viscous fluxes in X direction
 ebb Flow.ComputeDissipationX (c : grid.cells)
-    if c.in_interior or c.xneg_depth == 1 then
-        -- Consider first boundary element (c.xneg_depth == 1) to define left flux
-        -- on first interior cell
-        var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
-                            GetDynamicViscosity(c(1,0,0).temperature))
-        var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
-        var velocityX_YFace = L.double(0.0)
-        var velocityX_ZFace = L.double(0.0)
-        var velocityY_YFace = L.double(0.0)
-        var velocityZ_ZFace = L.double(0.0)
+  if c.in_interior or c.xneg_depth == 1 then
+    -- Consider first boundary element (c.xneg_depth == 1) to define left flux
+    -- on first interior cell
+    var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
+                        GetDynamicViscosity(c(1,0,0).temperature))
+    var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
+    var velocityX_YFace = L.double(0.0)
+    var velocityX_ZFace = L.double(0.0)
+    var velocityY_YFace = L.double(0.0)
+    var velocityZ_ZFace = L.double(0.0)
 
-        -- Interpolate velocity and derivatives to face
-        velocityFace = 0.5 * ( c.velocity + c(1,0,0).velocity )
-        velocityX_YFace = 0.5 * ( c.velocityGradientY[0] +
-                                  c(1,0,0).velocityGradientY[0] )
-        velocityX_ZFace = 0.5 * ( c.velocityGradientZ[0] +
-                                  c(1,0,0).velocityGradientZ[0] )
-        velocityY_YFace = 0.5 * ( c.velocityGradientY[1] +
-                                  c(1,0,0).velocityGradientY[1] )
-        velocityZ_ZFace = 0.5 * ( c.velocityGradientZ[2] +
-                                  c(1,0,0).velocityGradientZ[2] )
+    -- Interpolate velocity and derivatives to face
+    velocityFace = 0.5 * ( c.velocity + c(1,0,0).velocity )
+    velocityX_YFace = 0.5 * ( c.velocityGradientY[0] +
+                              c(1,0,0).velocityGradientY[0] )
+    velocityX_ZFace = 0.5 * ( c.velocityGradientZ[0] +
+                              c(1,0,0).velocityGradientZ[0] )
+    velocityY_YFace = 0.5 * ( c.velocityGradientY[1] +
+                              c(1,0,0).velocityGradientY[1] )
+    velocityZ_ZFace = 0.5 * ( c.velocityGradientZ[2] +
+                              c(1,0,0).velocityGradientZ[2] )
 
-        -- Differentiate at face
-        var velocityX_XFace   = L.double(0.0)
-        var velocityY_XFace   = L.double(0.0)
-        var velocityZ_XFace   = L.double(0.0)
-        var temperature_XFace = L.double(0.0)
+    -- Differentiate at face
+    var velocityX_XFace   = L.double(0.0)
+    var velocityY_XFace   = L.double(0.0)
+    var velocityZ_XFace   = L.double(0.0)
+    var temperature_XFace = L.double(0.0)
 
-        velocityX_XFace   = 0.5*( c(1,0,0).velocity[0] - c.velocity[0] )
-        velocityY_XFace   = 0.5*( c(1,0,0).velocity[1] - c.velocity[1] )
-        velocityZ_XFace   = 0.5*( c(1,0,0).velocity[2] - c.velocity[2] )
-        temperature_XFace = 0.5*( c(1,0,0).temperature - c.temperature )
+    velocityX_XFace   = 0.5*( c(1,0,0).velocity[0] - c.velocity[0] )
+    velocityY_XFace   = 0.5*( c(1,0,0).velocity[1] - c.velocity[1] )
+    velocityZ_XFace   = 0.5*( c(1,0,0).velocity[2] - c.velocity[2] )
+    temperature_XFace = 0.5*( c(1,0,0).temperature - c.temperature )
 
-        -- Half cell size due to the 0.5 above
-        velocityX_XFace   /= (grid_dx*0.5)
-        velocityY_XFace   /= (grid_dx*0.5)
-        velocityZ_XFace   /= (grid_dx*0.5)
-        temperature_XFace /= (grid_dx*0.5)
+    -- Half cell size due to the 0.5 above
+    velocityX_XFace   /= (grid_dx*0.5)
+    velocityY_XFace   /= (grid_dx*0.5)
+    velocityZ_XFace   /= (grid_dx*0.5)
+    temperature_XFace /= (grid_dx*0.5)
 
-        -- Tensor components (at face)
-        var sigmaXX = muFace * ( 4.0 * velocityX_XFace -
-                                 2.0 * velocityY_YFace -
-                                 2.0 * velocityZ_ZFace ) / 3.0
-        var sigmaYX = muFace * ( velocityY_XFace + velocityX_YFace )
-        var sigmaZX = muFace * ( velocityZ_XFace + velocityX_ZFace )
-        var usigma  = velocityFace[0] * sigmaXX +
-                      velocityFace[1] * sigmaYX +
-                      velocityFace[2] * sigmaZX
+    -- Tensor components (at face)
+    var sigmaXX = muFace * ( 4.0 * velocityX_XFace -
+                             2.0 * velocityY_YFace -
+                             2.0 * velocityZ_ZFace ) / 3.0
+    var sigmaYX = muFace * ( velocityY_XFace + velocityX_YFace )
+    var sigmaZX = muFace * ( velocityZ_XFace + velocityX_ZFace )
+    var usigma  = velocityFace[0] * sigmaXX +
+                  velocityFace[1] * sigmaYX +
+                  velocityFace[2] * sigmaZX
 
-        -- Fluxes
-        c.dissipationFlux = usigma -- possible just x component?
-    end
+    -- Fluxes
+    c.dissipationFlux = usigma -- possible just x component?
+  end
 end
 
 -- Compute viscous fluxes in Y direction
 ebb Flow.ComputeDissipationY (c : grid.cells)
-    if c.in_interior or c.yneg_depth == 1 then
-        -- Consider first boundary element (c.yneg_depth == 1) to define down flux
-        -- on first interior cell
-        var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
-                            GetDynamicViscosity(c(0,1,0).temperature))
-        var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
-        var velocityY_XFace = L.double(0.0)
-        var velocityY_ZFace = L.double(0.0)
-        var velocityX_XFace = L.double(0.0)
-        var velocityZ_ZFace = L.double(0.0)
+  if c.in_interior or c.yneg_depth == 1 then
+    -- Consider first boundary element (c.yneg_depth == 1) to define down flux
+    -- on first interior cell
+    var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
+                        GetDynamicViscosity(c(0,1,0).temperature))
+    var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
+    var velocityY_XFace = L.double(0.0)
+    var velocityY_ZFace = L.double(0.0)
+    var velocityX_XFace = L.double(0.0)
+    var velocityZ_ZFace = L.double(0.0)
 
-        -- Interpolate velocity and derivatives to face
-        velocityFace = 0.5 * ( c.velocity + c(0,1,0).velocity )
-        velocityY_XFace = 0.5 * ( c.velocityGradientX[1] +
-                                  c(0,1,0).velocityGradientX[1] )
-        velocityY_ZFace = 0.5 * ( c.velocityGradientZ[1] +
-                                  c(0,1,0).velocityGradientZ[1] )
-        velocityX_XFace = 0.5 * ( c.velocityGradientX[0] +
-                                  c(0,1,0).velocityGradientX[0] )
-        velocityZ_ZFace = 0.5 * ( c.velocityGradientZ[2] +
-                                  c(0,1,0).velocityGradientZ[2] )
+    -- Interpolate velocity and derivatives to face
+    velocityFace = 0.5 * ( c.velocity + c(0,1,0).velocity )
+    velocityY_XFace = 0.5 * ( c.velocityGradientX[1] +
+                              c(0,1,0).velocityGradientX[1] )
+    velocityY_ZFace = 0.5 * ( c.velocityGradientZ[1] +
+                              c(0,1,0).velocityGradientZ[1] )
+    velocityX_XFace = 0.5 * ( c.velocityGradientX[0] +
+                              c(0,1,0).velocityGradientX[0] )
+    velocityZ_ZFace = 0.5 * ( c.velocityGradientZ[2] +
+                              c(0,1,0).velocityGradientZ[2] )
 
-        -- Differentiate at face
-        var velocityX_YFace   = L.double(0.0)
-        var velocityY_YFace   = L.double(0.0)
-        var velocityZ_YFace   = L.double(0.0)
-        var temperature_YFace = L.double(0.0)
+    -- Differentiate at face
+    var velocityX_YFace   = L.double(0.0)
+    var velocityY_YFace   = L.double(0.0)
+    var velocityZ_YFace   = L.double(0.0)
+    var temperature_YFace = L.double(0.0)
 
-        velocityX_YFace   = 0.5*( c(0,1,0).velocity[0] - c.velocity[0] )
-        velocityY_YFace   = 0.5*( c(0,1,0).velocity[1] - c.velocity[1] )
-        velocityZ_YFace   = 0.5*( c(0,1,0).velocity[2] - c.velocity[2] )
-        temperature_YFace = 0.5*( c(0,1,0).temperature - c.temperature )
+    velocityX_YFace   = 0.5*( c(0,1,0).velocity[0] - c.velocity[0] )
+    velocityY_YFace   = 0.5*( c(0,1,0).velocity[1] - c.velocity[1] )
+    velocityZ_YFace   = 0.5*( c(0,1,0).velocity[2] - c.velocity[2] )
+    temperature_YFace = 0.5*( c(0,1,0).temperature - c.temperature )
 
-        -- Half cell size due to the 0.5 above
-        velocityX_YFace   /= (grid_dy*0.5)
-        velocityY_YFace   /= (grid_dy*0.5)
-        velocityZ_YFace   /= (grid_dy*0.5)
-        temperature_YFace /= (grid_dy*0.5)
+    -- Half cell size due to the 0.5 above
+    velocityX_YFace   /= (grid_dy*0.5)
+    velocityY_YFace   /= (grid_dy*0.5)
+    velocityZ_YFace   /= (grid_dy*0.5)
+    temperature_YFace /= (grid_dy*0.5)
 
-        -- Tensor components (at face)
-        var sigmaXY = muFace * ( velocityX_YFace + velocityY_XFace )
-        var sigmaYY = muFace * ( 4.0 * velocityY_YFace -
-                                 2.0 * velocityX_XFace -
-                                 2.0 * velocityZ_ZFace ) / 3.0
-        var sigmaZY = muFace * ( velocityZ_YFace + velocityY_ZFace )
-        var usigma  = velocityFace[0] * sigmaXY +
-                      velocityFace[1] * sigmaYY +
-                      velocityFace[2] * sigmaZY
+    -- Tensor components (at face)
+    var sigmaXY = muFace * ( velocityX_YFace + velocityY_XFace )
+    var sigmaYY = muFace * ( 4.0 * velocityY_YFace -
+                             2.0 * velocityX_XFace -
+                             2.0 * velocityZ_ZFace ) / 3.0
+    var sigmaZY = muFace * ( velocityZ_YFace + velocityY_ZFace )
+    var usigma  = velocityFace[0] * sigmaXY +
+                  velocityFace[1] * sigmaYY +
+                  velocityFace[2] * sigmaZY
 
-        -- Fluxes
-        c.dissipationFlux = usigma
-    end
+    -- Fluxes
+    c.dissipationFlux = usigma
+  end
 end
 
 -- Compute viscous fluxes in Z direction
 ebb Flow.ComputeDissipationZ (c : grid.cells)
-    if c.in_interior or c.zneg_depth == 1 then
-        -- Consider first boundary element (c.zneg_depth == 1) to define down flux
-        -- on first interior cell
-        var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
-                            GetDynamicViscosity(c(0,0,1).temperature))
-        var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
-        var velocityZ_XFace = L.double(0.0)
-        var velocityZ_YFace = L.double(0.0)
-        var velocityX_XFace = L.double(0.0)
-        var velocityY_YFace = L.double(0.0)
+  if c.in_interior or c.zneg_depth == 1 then
+    -- Consider first boundary element (c.zneg_depth == 1) to define down flux
+    -- on first interior cell
+    var muFace = 0.5 * (GetDynamicViscosity(c.temperature) +
+                          GetDynamicViscosity(c(0,0,1).temperature))
+    var velocityFace    = L.vec3d({0.0, 0.0, 0.0})
+    var velocityZ_XFace = L.double(0.0)
+    var velocityZ_YFace = L.double(0.0)
+    var velocityX_XFace = L.double(0.0)
+    var velocityY_YFace = L.double(0.0)
 
-        -- Interpolate velocity and derivatives to face
-        velocityFace = 0.5 * ( c.velocity + c(0,0,1).velocity )
-        velocityZ_XFace = 0.5 * ( c.velocityGradientX[2] +
-                                  c(0,0,1).velocityGradientX[2] )
-        velocityZ_YFace = 0.5 * ( c.velocityGradientY[2] +
-                                  c(0,0,1).velocityGradientY[2] )
-        velocityX_XFace = 0.5 * ( c.velocityGradientX[0] +
-                                  c(0,0,1).velocityGradientX[0] )
-        velocityY_YFace = 0.5 * ( c.velocityGradientY[1] +
-                                  c(0,0,1).velocityGradientY[1] )
+    -- Interpolate velocity and derivatives to face
+    velocityFace = 0.5 * ( c.velocity + c(0,0,1).velocity )
+    velocityZ_XFace = 0.5 * ( c.velocityGradientX[2] +
+                              c(0,0,1).velocityGradientX[2] )
+    velocityZ_YFace = 0.5 * ( c.velocityGradientY[2] +
+                              c(0,0,1).velocityGradientY[2] )
+    velocityX_XFace = 0.5 * ( c.velocityGradientX[0] +
+                              c(0,0,1).velocityGradientX[0] )
+    velocityY_YFace = 0.5 * ( c.velocityGradientY[1] +
+                              c(0,0,1).velocityGradientY[1] )
 
-        -- Differentiate at face
-        var velocityX_ZFace   = L.double(0.0)
-        var velocityY_ZFace   = L.double(0.0)
-        var velocityZ_ZFace   = L.double(0.0)
-        var temperature_ZFace = L.double(0.0)
+    -- Differentiate at face
+    var velocityX_ZFace   = L.double(0.0)
+    var velocityY_ZFace   = L.double(0.0)
+    var velocityZ_ZFace   = L.double(0.0)
+    var temperature_ZFace = L.double(0.0)
 
-        velocityX_ZFace   = 0.5*( c(0,0,1).velocity[0] - c.velocity[0] )
-        velocityY_ZFace   = 0.5*( c(0,0,1).velocity[1] - c.velocity[1] )
-        velocityZ_ZFace   = 0.5*( c(0,0,1).velocity[2] - c.velocity[2] )
-        temperature_ZFace = 0.5*( c(0,0,1).temperature - c.temperature )
+    velocityX_ZFace   = 0.5*( c(0,0,1).velocity[0] - c.velocity[0] )
+    velocityY_ZFace   = 0.5*( c(0,0,1).velocity[1] - c.velocity[1] )
+    velocityZ_ZFace   = 0.5*( c(0,0,1).velocity[2] - c.velocity[2] )
+    temperature_ZFace = 0.5*( c(0,0,1).temperature - c.temperature )
 
-        -- Half cell size due to the 0.5 above
-        velocityX_ZFace   /= (grid_dz*0.5)
-        velocityY_ZFace   /= (grid_dz*0.5)
-        velocityZ_ZFace   /= (grid_dz*0.5)
-        temperature_ZFace /= (grid_dz*0.5)
+    -- Half cell size due to the 0.5 above
+    velocityX_ZFace   /= (grid_dz*0.5)
+    velocityY_ZFace   /= (grid_dz*0.5)
+    velocityZ_ZFace   /= (grid_dz*0.5)
+    temperature_ZFace /= (grid_dz*0.5)
 
-        -- Tensor components (at face)
-        var sigmaXZ = muFace * ( velocityX_ZFace + velocityZ_XFace )
-        var sigmaYZ = muFace * ( velocityY_ZFace + velocityZ_YFace )
-        var sigmaZZ = muFace * ( 4.0 * velocityZ_ZFace -
-                                 2.0 * velocityX_XFace -
-                                 2.0 * velocityY_YFace ) / 3.0
-        var usigma  = velocityFace[0] * sigmaXZ +
-                      velocityFace[1] * sigmaYZ +
-                      velocityFace[2] * sigmaZZ
+    -- Tensor components (at face)
+    var sigmaXZ = muFace * ( velocityX_ZFace + velocityZ_XFace )
+    var sigmaYZ = muFace * ( velocityY_ZFace + velocityZ_YFace )
+    var sigmaZZ = muFace * ( 4.0 * velocityZ_ZFace -
+                             2.0 * velocityX_XFace -
+                             2.0 * velocityY_YFace ) / 3.0
+    var usigma  = velocityFace[0] * sigmaXZ +
+                  velocityFace[1] * sigmaYZ +
+                  velocityFace[2] * sigmaZZ
 
-        -- Fluxes
-        c.dissipationFlux = usigma
-    end
+    -- Fluxes
+    c.dissipationFlux = usigma
+  end
 end
 
 ebb Flow.UpdateDissipationX (c : grid.cells)
@@ -1779,54 +1758,33 @@ end
 -- Update flow variables using derivatives
 -- Assumes 4th-order Runge-Kutta
 ebb Flow.UpdateVars(c : grid.cells)
-    var deltaTime = TimeIntegrator.deltaTime
-    if TimeIntegrator.stage == 1 then
-        c.rho_new +=
-            (1.0/6.0) * deltaTime * c.rho_t
-        c.rho = c.rho_old +
-            0.5 * deltaTime * c.rho_t
-        c.rhoVelocity_new +=
-            (1.0/6.0) * deltaTime * c.rhoVelocity_t
-        c.rhoVelocity = c.rhoVelocity_old +
-            0.5 * deltaTime * c.rhoVelocity_t
-        c.rhoEnergy_new +=
-            (1.0/6.0) * deltaTime * c.rhoEnergy_t
-        c.rhoEnergy = c.rhoEnergy_old +
-            0.5 * deltaTime * c.rhoEnergy_t
-    elseif TimeIntegrator.stage == 2 then
-        c.rho_new +=
-            (1.0/3.0) * deltaTime * c.rho_t
-        c.rho = c.rho_old +
-            0.5 * deltaTime * c.rho_t
-        c.rhoVelocity_new +=
-            (1.0/3.0) * deltaTime * c.rhoVelocity_t
-        c.rhoVelocity = c.rhoVelocity_old +
-            0.5 * deltaTime * c.rhoVelocity_t
-        c.rhoEnergy_new +=
-            (1.0/3.0) * deltaTime * c.rhoEnergy_t
-        c.rhoEnergy = c.rhoEnergy_old +
-            0.5 * deltaTime * c.rhoEnergy_t
-    elseif TimeIntegrator.stage == 3 then
-        c.rho_new +=
-            (1.0/3.0) * deltaTime * c.rho_t
-        c.rho = c.rho_old +
-            1.0 * deltaTime * c.rho_t
-        c.rhoVelocity_new +=
-            (1.0/3.0) * deltaTime * c.rhoVelocity_t
-        c.rhoVelocity = c.rhoVelocity_old +
-            1.0 * deltaTime * c.rhoVelocity_t
-        c.rhoEnergy_new +=
-            (1.0/3.0) * deltaTime * c.rhoEnergy_t
-        c.rhoEnergy = c.rhoEnergy_old +
-            1.0 * deltaTime * c.rhoEnergy_t
-    else -- TimeIntegrator.stage == 4
-        c.rho = c.rho_new +
-            (1.0/6.0) * deltaTime * c.rho_t
-        c.rhoVelocity = c.rhoVelocity_new +
-            (1.0/6.0) * deltaTime * c.rhoVelocity_t
-        c.rhoEnergy = c.rhoEnergy_new +
-            (1.0/6.0) * deltaTime * c.rhoEnergy_t
-    end
+  var deltaTime = TimeIntegrator.deltaTime
+  if TimeIntegrator.stage == 1 then
+    c.rho_new += (1.0/6.0) * deltaTime * c.rho_t
+    c.rho = c.rho_old + 0.5 * deltaTime * c.rho_t
+    c.rhoVelocity_new += (1.0/6.0) * deltaTime * c.rhoVelocity_t
+    c.rhoVelocity = c.rhoVelocity_old + 0.5 * deltaTime * c.rhoVelocity_t
+    c.rhoEnergy_new += (1.0/6.0) * deltaTime * c.rhoEnergy_t
+    c.rhoEnergy = c.rhoEnergy_old + 0.5 * deltaTime * c.rhoEnergy_t
+  elseif TimeIntegrator.stage == 2 then
+    c.rho_new += (1.0/3.0) * deltaTime * c.rho_t
+    c.rho = c.rho_old + 0.5 * deltaTime * c.rho_t
+    c.rhoVelocity_new += (1.0/3.0) * deltaTime * c.rhoVelocity_t
+    c.rhoVelocity = c.rhoVelocity_old + 0.5 * deltaTime * c.rhoVelocity_t
+    c.rhoEnergy_new += (1.0/3.0) * deltaTime * c.rhoEnergy_t
+    c.rhoEnergy = c.rhoEnergy_old + 0.5 * deltaTime * c.rhoEnergy_t
+  elseif TimeIntegrator.stage == 3 then
+    c.rho_new += (1.0/3.0) * deltaTime * c.rho_t
+    c.rho = c.rho_old + 1.0 * deltaTime * c.rho_t
+    c.rhoVelocity_new += (1.0/3.0) * deltaTime * c.rhoVelocity_t
+    c.rhoVelocity = c.rhoVelocity_old + 1.0 * deltaTime * c.rhoVelocity_t
+    c.rhoEnergy_new += (1.0/3.0) * deltaTime * c.rhoEnergy_t
+    c.rhoEnergy = c.rhoEnergy_old + 1.0 * deltaTime * c.rhoEnergy_t
+  else -- TimeIntegrator.stage == 4
+    c.rho = c.rho_new + (1.0/6.0) * deltaTime * c.rho_t
+    c.rhoVelocity = c.rhoVelocity_new + (1.0/6.0) * deltaTime * c.rhoVelocity_t
+    c.rhoEnergy = c.rhoEnergy_new + (1.0/6.0) * deltaTime * c.rhoEnergy_t
+  end
 end
 
 ebb Flow.UpdateAuxiliaryVelocity (c : grid.cells)
@@ -2097,32 +2055,32 @@ local ebb UpdateGhostVelocityGradientHelper (c_bnd, c_int, sign)
 end
 
 ebb Flow.UpdateGhostVelocityGradientStep1 (c : grid.cells)
-    if c.xneg_depth > 0 then
-      UpdateGhostVelocityGradientHelper(c, c( 1,0,0), x_sign)
-    end
-    if c.xpos_depth > 0 then
-      UpdateGhostVelocityGradientHelper(c, c(-1,0,0), x_sign)
-    end
-    if c.yneg_depth > 0 then
-      UpdateGhostVelocityGradientHelper(c, c(0, 1,0), y_sign)
-    end
-    if c.ypos_depth > 0 then
-      UpdateGhostVelocityGradientHelper(c, c(0,-1,0), y_sign)
-    end
-    if c.zneg_depth > 0 then
-      UpdateGhostVelocityGradientHelper(c, c(0,0, 1), z_sign)
-    end
-    if c.zpos_depth > 0 then
-      UpdateGhostVelocityGradientHelper(c, c(0,0,-1), z_sign)
-    end
+  if c.xneg_depth > 0 then
+    UpdateGhostVelocityGradientHelper(c, c( 1,0,0), x_sign)
+  end
+  if c.xpos_depth > 0 then
+    UpdateGhostVelocityGradientHelper(c, c(-1,0,0), x_sign)
+  end
+  if c.yneg_depth > 0 then
+    UpdateGhostVelocityGradientHelper(c, c(0, 1,0), y_sign)
+  end
+  if c.ypos_depth > 0 then
+    UpdateGhostVelocityGradientHelper(c, c(0,-1,0), y_sign)
+  end
+  if c.zneg_depth > 0 then
+    UpdateGhostVelocityGradientHelper(c, c(0,0, 1), z_sign)
+  end
+  if c.zpos_depth > 0 then
+    UpdateGhostVelocityGradientHelper(c, c(0,0,-1), z_sign)
+  end
 end
 
 ebb Flow.UpdateGhostVelocityGradientStep2 (c : grid.cells)
-    if c.in_boundary then
-        c.velocityGradientX = c.velocityGradientXBoundary
-        c.velocityGradientY = c.velocityGradientYBoundary
-        c.velocityGradientZ = c.velocityGradientZBoundary
-    end
+  if c.in_boundary then
+    c.velocityGradientX = c.velocityGradientXBoundary
+    c.velocityGradientY = c.velocityGradientYBoundary
+    c.velocityGradientZ = c.velocityGradientZBoundary
+  end
 end
 
 -- Calculation of spectral radii for clf-based delta time
@@ -2232,12 +2190,12 @@ if particles_options.modeParticles then
 
   -- Initialize temporaries for time stepper
   ebb Particles.InitializeTemporaries (p : particles)
-      p.position_old    = p.position
-      p.velocity_old    = p.particle_velocity
-      p.temperature_old = p.particle_temperature
-      p.position_new    = p.position
-      p.velocity_new    = p.particle_velocity
-      p.temperature_new = p.particle_temperature
+    p.position_old    = p.position
+    p.velocity_old    = p.particle_velocity
+    p.temperature_old = p.particle_temperature
+    p.position_new    = p.position
+    p.velocity_new    = p.particle_velocity
+    p.temperature_new = p.particle_temperature
   end
 
   ----------------
@@ -2246,47 +2204,49 @@ if particles_options.modeParticles then
 
   -- Initialize time derivative for each stage of time stepper
   ebb Particles.InitializeTimeDerivatives (p : particles)
-      p.position_t = L.vec3d({0.0, 0.0, 0.0})
-      p.velocity_t = L.vec3d({0.0, 0.0, 0.0})
-      p.temperature_t = L.double(0)
+    p.position_t = L.vec3d({0.0, 0.0, 0.0})
+    p.velocity_t = L.vec3d({0.0, 0.0, 0.0})
+    p.temperature_t = L.double(0)
   end
 
   -- Update particle fields based on flow fields
   ebb Particles.AddFlowCoupling (p: particles)
 
-      -- WARNING: assumes we have already located particles
+    -- WARNING: assumes we have already located particles
 
-      -- Trilinear interpolation for the flow quantities
-      var flowVelocity    = InterpolateTriVelocity(p.cell, p.position)
-      var flowTemperature = InterpolateTriTemp(p.cell, p.position)
-      var flowDynamicViscosity = GetDynamicViscosity(flowTemperature)
+    -- Trilinear interpolation for the flow quantities
+    var flowVelocity = InterpolateTriVelocity(p.cell, p.position)
+    var flowTemperature = InterpolateTriTemp(p.cell, p.position)
+    var flowDynamicViscosity = GetDynamicViscosity(flowTemperature)
 
-      -- Update the particle position using the current velocity
-      if particles_options.particleType == ParticleType.Fixed then
-        -- Don't move the particle
-      elseif particles_options.particleType == ParticleType.Free then
-        p.position_t    += p.particle_velocity
-      else L.assert(false) end
+    -- Update the particle position using the current velocity
+    if particles_options.particleType == ParticleType.Fixed then
+      -- Don't move the particle
+    elseif particles_options.particleType == ParticleType.Free then
+      p.position_t += p.particle_velocity
+    else L.assert(false) end
 
-      -- Relaxation time for small particles
-      -- - particles Reynolds number (set to zero for Stokesian)
-      var particleReynoldsNumber = 0.0
-      --(p.density * norm(flowVelocity - p.velocity) * p.diameter) / flowDynamicViscosity
-      var relaxationTime =
-      ( p.density * L.pow(p.diameter,2)/(18.0 * flowDynamicViscosity))/
+    -- Relaxation time for small particles
+    -- - particles Reynolds number (set to zero for Stokesian)
+    var particleReynoldsNumber = 0.0
+    --(p.density * norm(flowVelocity - p.velocity) * p.diameter) / flowDynamicViscosity
+    var relaxationTime =
+      ( p.density * L.pow(p.diameter,2) / (18.0 * flowDynamicViscosity) ) /
       ( 1.0 + 0.15 * L.pow(particleReynoldsNumber,0.687) )
+    p.deltaVelocityOverRelaxationTime =
+      (flowVelocity - p.particle_velocity) / relaxationTime
+    p.deltaTemperatureTerm =
+      pi * L.pow(p.diameter, 2) * particles_options.convective_coefficient *
+      (flowTemperature - p.particle_temperature)
 
-      p.deltaVelocityOverRelaxationTime = (flowVelocity - p.particle_velocity) / relaxationTime
-
-      p.deltaTemperatureTerm = pi * L.pow(p.diameter, 2) * particles_options.convective_coefficient * (flowTemperature - p.particle_temperature)
-
-      -- Update the particle velocity and temperature
-      if particles_options.particleType == ParticleType.Fixed then
-        p.velocity_t  = {0.0,0.0,0.0} -- Don't move the particle
-      elseif particles_options.particleType == ParticleType.Free then
-        p.velocity_t += p.deltaVelocityOverRelaxationTime
-      else L.assert(false) end
-      p.temperature_t += p.deltaTemperatureTerm / (p.mass * particles_options.heat_capacity)
+    -- Update the particle velocity and temperature
+    if particles_options.particleType == ParticleType.Fixed then
+      p.velocity_t  = {0.0,0.0,0.0} -- Don't move the particle
+    elseif particles_options.particleType == ParticleType.Free then
+      p.velocity_t += p.deltaVelocityOverRelaxationTime
+    else L.assert(false) end
+    p.temperature_t += p.deltaTemperatureTerm /
+      (p.mass * particles_options.heat_capacity)
 
   end
 
@@ -2295,7 +2255,7 @@ if particles_options.modeParticles then
   --------------
 
   ebb Particles.AddBodyForces (p : particles)
-      p.velocity_t += particles_options.bodyForce
+    p.velocity_t += particles_options.bodyForce
   end
 
   ------------
@@ -2304,242 +2264,232 @@ if particles_options.modeParticles then
 
   -- Update particle variables using derivatives
   ebb Particles.UpdateVars(p : particles)
-      var deltaTime = TimeIntegrator.deltaTime
-      if TimeIntegrator.stage == 1 then
-          p.position_new +=
-              (1.0/6.0) * deltaTime * p.position_t
-          p.position = p.position_old +
-              0.5 * deltaTime * p.position_t
-          p.velocity_new +=
-              (1.0/6.0) * deltaTime * p.velocity_t
-          p.particle_velocity = p.velocity_old +
-              0.5 * deltaTime * p.velocity_t
-          p.temperature_new +=
-              (1.0/6.0) * deltaTime * p.temperature_t
-          p.particle_temperature = p.temperature_old +
-              0.5 * deltaTime * p.temperature_t
-      elseif TimeIntegrator.stage == 2 then
-          p.position_new +=
-              (1.0/3.0) * deltaTime * p.position_t
-          p.position = p.position_old +
-              0.5 * deltaTime * p.position_t
-          p.velocity_new +=
-              (1.0/3.0) * deltaTime * p.velocity_t
-          p.particle_velocity = p.velocity_old +
-              0.5 * deltaTime * p.velocity_t
-          p.temperature_new +=
-              (1.0/3.0) * deltaTime * p.temperature_t
-          p.particle_temperature = p.temperature_old +
-              0.5 * deltaTime * p.temperature_t
-      elseif TimeIntegrator.stage == 3 then
-          p.position_new +=
-              (1.0/3.0) * deltaTime * p.position_t
-          p.position = p.position_old +
-              1.0 * deltaTime * p.position_t
-          p.velocity_new +=
-              (1.0/3.0) * deltaTime * p.velocity_t
-          p.particle_velocity = p.velocity_old +
-              1.0 * deltaTime * p.velocity_t
-          p.temperature_new +=
-              (1.0/3.0) * deltaTime * p.temperature_t
-          p.particle_temperature = p.temperature_old +
-              1.0 * deltaTime * p.temperature_t
-      else -- TimeIntegrator.stage == 4
-          p.position = p.position_new +
-              (1.0/6.0) * deltaTime * p.position_t
-          p.particle_velocity = p.velocity_new +
-              (1.0/6.0) * deltaTime * p.velocity_t
-          p.particle_temperature = p.temperature_new +
-              (1.0/6.0) * deltaTime * p.temperature_t
-      end
+    var deltaTime = TimeIntegrator.deltaTime
+    if TimeIntegrator.stage == 1 then
+      p.position_new += (1.0/6.0) * deltaTime * p.position_t
+      p.position = p.position_old + 0.5 * deltaTime * p.position_t
+      p.velocity_new += (1.0/6.0) * deltaTime * p.velocity_t
+      p.particle_velocity = p.velocity_old + 0.5 * deltaTime * p.velocity_t
+      p.temperature_new += (1.0/6.0) * deltaTime * p.temperature_t
+      p.particle_temperature = p.temperature_old +
+        0.5 * deltaTime * p.temperature_t
+    elseif TimeIntegrator.stage == 2 then
+      p.position_new += (1.0/3.0) * deltaTime * p.position_t
+      p.position = p.position_old + 0.5 * deltaTime * p.position_t
+      p.velocity_new += (1.0/3.0) * deltaTime * p.velocity_t
+      p.particle_velocity = p.velocity_old + 0.5 * deltaTime * p.velocity_t
+      p.temperature_new += (1.0/3.0) * deltaTime * p.temperature_t
+      p.particle_temperature = p.temperature_old +
+        0.5 * deltaTime * p.temperature_t
+    elseif TimeIntegrator.stage == 3 then
+      p.position_new += (1.0/3.0) * deltaTime * p.position_t
+      p.position = p.position_old + 1.0 * deltaTime * p.position_t
+      p.velocity_new += (1.0/3.0) * deltaTime * p.velocity_t
+      p.particle_velocity = p.velocity_old + 1.0 * deltaTime * p.velocity_t
+      p.temperature_new += (1.0/3.0) * deltaTime * p.temperature_t
+      p.particle_temperature = p.temperature_old +
+        1.0 * deltaTime * p.temperature_t
+    else -- TimeIntegrator.stage == 4
+      p.position = p.position_new + (1.0/6.0) * deltaTime * p.position_t
+      p.particle_velocity = p.velocity_new + (1.0/6.0) * deltaTime * p.velocity_t
+      p.particle_temperature = p.temperature_new +
+        (1.0/6.0) * deltaTime * p.temperature_t
+    end
   end
 
   ebb Particles.UpdateAuxiliaryStep1 (p : particles)
 
-          -- Initialize position and velocity before we check for wall collisions
+    -- Initialize position and velocity before we check for wall collisions
 
-          p.position_ghost[0]   = p.position[0]
-          p.position_ghost[1]   = p.position[1]
-          p.position_ghost[2]   = p.position[2]
-          p.velocity_ghost[0]   = p.particle_velocity[0]
-          p.velocity_ghost[1]   = p.particle_velocity[1]
-          p.velocity_ghost[2]   = p.particle_velocity[2]
-          p.velocity_t_ghost[0] = p.velocity_t[0]
-          p.velocity_t_ghost[1] = p.velocity_t[1]
-          p.velocity_t_ghost[2] = p.velocity_t[2]
+    p.position_ghost[0]   = p.position[0]
+    p.position_ghost[1]   = p.position[1]
+    p.position_ghost[2]   = p.position[2]
+    p.velocity_ghost[0]   = p.particle_velocity[0]
+    p.velocity_ghost[1]   = p.particle_velocity[1]
+    p.velocity_ghost[2]   = p.particle_velocity[2]
+    p.velocity_t_ghost[0] = p.velocity_t[0]
+    p.velocity_t_ghost[1] = p.velocity_t[1]
+    p.velocity_t_ghost[2] = p.velocity_t[2]
 
-          -- Check here for particles exiting the domain. For periodic
-          -- boundaries, the particle is transported to the matching periodic
-          -- face. For symmetry or wall boundaries, an elastic collision is
-          -- assumed. To start, the collision is perfectly elastic.
+    -- Check here for particles exiting the domain. For periodic
+    -- boundaries, the particle is transported to the matching periodic
+    -- face. For symmetry or wall boundaries, an elastic collision is
+    -- assumed. To start, the collision is perfectly elastic.
 
-          -- Left X boundary
-          if p.position[0] < gridOriginInteriorX then
-            if grid_options.xBCLeftParticles == ParticleBC.Permeable then
-              p.position_ghost[0] = p.position[0] + grid_options.xWidth
-            elseif grid_options.xBCLeftParticles == ParticleBC.Solid then
+    -- Left X boundary
+    if p.position[0] < gridOriginInteriorX then
+      if grid_options.xBCLeftParticles == ParticleBC.Permeable then
+        p.position_ghost[0] = p.position[0] + grid_options.xWidth
+      elseif grid_options.xBCLeftParticles == ParticleBC.Solid then
 
-              -- Set the position to be on the wall
-              p.position_ghost[0] = gridOriginInteriorX
+        -- Set the position to be on the wall
+        p.position_ghost[0] = gridOriginInteriorX
 
-              -- Apply an impulse to kick particle away from the wall
-              var impulse = -(1.0+particles_options.restitution_coefficient)*p.particle_velocity[0]
-              if impulse <= 0 then
-                p.velocity_ghost[0] += impulse
-              end
+        -- Apply an impulse to kick particle away from the wall
+        var impulse = - (1.0+particles_options.restitution_coefficient) *
+          p.particle_velocity[0]
+        if impulse <= 0 then
+          p.velocity_ghost[0] += impulse
+        end
 
-              -- Add a contact force in case particle rests on the wall
-              var contact_force = -1.0*p.velocity_t[0]
+        -- Add a contact force in case particle rests on the wall
+        var contact_force = -1.0*p.velocity_t[0]
 
-              -- To prevent sticky walls, only add contact force if current
-              -- force would push the particle through the wall
-              if contact_force > 0 then
-                p.velocity_t_ghost[0] += contact_force
-              end
+        -- To prevent sticky walls, only add contact force if current
+        -- force would push the particle through the wall
+        if contact_force > 0 then
+          p.velocity_t_ghost[0] += contact_force
+        end
 
-            else L.assert(false) end
-          end
+      else L.assert(false) end
+    end
 
-          -- Right X boundary
-          if p.position[0] > gridOriginInteriorX + grid_options.xWidth then
-            if grid_options.xBCRightParticles == ParticleBC.Permeable then
-              p.position_ghost[0] = p.position[0] - grid_options.xWidth
-            elseif grid_options.xBCRightParticles == ParticleBC.Solid then
+    -- Right X boundary
+    if p.position[0] > gridOriginInteriorX + grid_options.xWidth then
+      if grid_options.xBCRightParticles == ParticleBC.Permeable then
+        p.position_ghost[0] = p.position[0] - grid_options.xWidth
+      elseif grid_options.xBCRightParticles == ParticleBC.Solid then
 
-              -- Set the position to be on the wall
-              p.position_ghost[0] = gridOriginInteriorX + grid_options.xWidth
+        -- Set the position to be on the wall
+        p.position_ghost[0] = gridOriginInteriorX + grid_options.xWidth
 
-              -- Apply an impulse to kick particle away from the wall
-              var impulse = -(1.0+particles_options.restitution_coefficient)*p.particle_velocity[0]
-              if impulse >= 0 then
-                p.velocity_ghost[0] += impulse
-              end
+        -- Apply an impulse to kick particle away from the wall
+        var impulse = - (1.0+particles_options.restitution_coefficient) *
+          p.particle_velocity[0]
+        if impulse >= 0 then
+          p.velocity_ghost[0] += impulse
+        end
 
-              -- Add a contact force in case particle rests on the wall
-              var contact_force = -1.0*p.velocity_t[0]
+        -- Add a contact force in case particle rests on the wall
+        var contact_force = -1.0*p.velocity_t[0]
 
-              -- To prevent sticky walls, only add contact force if current
-              -- force would push the particle through the wall
-              if contact_force < 0 then
-                p.velocity_t_ghost[0] += contact_force
-              end
+        -- To prevent sticky walls, only add contact force if current
+        -- force would push the particle through the wall
+        if contact_force < 0 then
+          p.velocity_t_ghost[0] += contact_force
+        end
 
-            else L.assert(false) end
-          end
+      else L.assert(false) end
+    end
 
-          -- Left Y boundary
-          if p.position[1] < gridOriginInteriorY then
-            if grid_options.yBCLeftParticles == ParticleBC.Permeable then
-              p.position_ghost[1] = p.position[1] + grid_options.yWidth
-            elseif grid_options.yBCLeftParticles == ParticleBC.Solid then
+    -- Left Y boundary
+    if p.position[1] < gridOriginInteriorY then
+      if grid_options.yBCLeftParticles == ParticleBC.Permeable then
+        p.position_ghost[1] = p.position[1] + grid_options.yWidth
+      elseif grid_options.yBCLeftParticles == ParticleBC.Solid then
 
-              -- Set the position to be on the wall
-              p.position_ghost[1] = gridOriginInteriorY
+        -- Set the position to be on the wall
+        p.position_ghost[1] = gridOriginInteriorY
 
-              -- Apply an impulse to kick particle away from the wall
-              var impulse = -(1.0+particles_options.restitution_coefficient)*p.particle_velocity[1]
-              if impulse <= 0 then
-              p.velocity_ghost[1] += impulse
-              end
+        -- Apply an impulse to kick particle away from the wall
+        var impulse = - (1.0+particles_options.restitution_coefficient) *
+          p.particle_velocity[1]
+        if impulse <= 0 then
+          p.velocity_ghost[1] += impulse
+        end
 
-              -- Add a contact force in case particle rests on the wall
-              var contact_force = -1.0*p.velocity_t[1]
+        -- Add a contact force in case particle rests on the wall
+        var contact_force = -1.0*p.velocity_t[1]
 
-              -- To prevent sticky walls, only add contact force if current
-              -- force would push the particle through the wall
-              if contact_force > 0 then
-              p.velocity_t_ghost[1] += contact_force
-              end
+        -- To prevent sticky walls, only add contact force if current
+        -- force would push the particle through the wall
+        if contact_force > 0 then
+          p.velocity_t_ghost[1] += contact_force
+        end
 
-            else L.assert(false) end
-          end
+      else L.assert(false) end
+    end
 
-          -- Right Y boundary
-          if p.position[1] > gridOriginInteriorY + grid_options.yWidth then
-            if grid_options.yBCRightParticles == ParticleBC.Permeable then
-              p.position_ghost[1] = p.position[1] - grid_options.yWidth
-            elseif grid_options.yBCRightParticles == ParticleBC.Solid then
+    -- Right Y boundary
+    if p.position[1] > gridOriginInteriorY + grid_options.yWidth then
+      if grid_options.yBCRightParticles == ParticleBC.Permeable then
+        p.position_ghost[1] = p.position[1] - grid_options.yWidth
+      elseif grid_options.yBCRightParticles == ParticleBC.Solid then
 
-              -- Set the position to be on the wall
-              p.position_ghost[1] = gridOriginInteriorY + grid_options.yWidth
+        -- Set the position to be on the wall
+        p.position_ghost[1] = gridOriginInteriorY + grid_options.yWidth
 
-              -- Apply an impulse to kick particle away from the wall
-              var impulse = -(1.0+particles_options.restitution_coefficient)*p.particle_velocity[1]
-              if impulse >= 0 then
-                p.velocity_ghost[1] += impulse
-              end
+        -- Apply an impulse to kick particle away from the wall
+        var impulse = - (1.0+particles_options.restitution_coefficient) *
+          p.particle_velocity[1]
+        if impulse >= 0 then
+          p.velocity_ghost[1] += impulse
+        end
 
-              -- Add a contact force in case particle rests on the wall
-              var contact_force = -1.0*p.velocity_t[1]
+        -- Add a contact force in case particle rests on the wall
+        var contact_force = -1.0*p.velocity_t[1]
 
-              -- To prevent sticky walls, only add contact force if current
-              -- force would push the particle through the wall
-              if contact_force < 0 then
-                p.velocity_t_ghost[1] += contact_force
-              end
+        -- To prevent sticky walls, only add contact force if current
+        -- force would push the particle through the wall
+        if contact_force < 0 then
+          p.velocity_t_ghost[1] += contact_force
+        end
 
-            else L.assert(false) end
-          end
+      else L.assert(false) end
+    end
 
-          -- Left Z boundary
-          if p.position[2] < gridOriginInteriorZ then
-            if grid_options.zBCLeftParticles == ParticleBC.Permeable then
-              p.position_ghost[2] = p.position[2] + grid_options.zWidth
-            elseif grid_options.zBCLeftParticles == ParticleBC.Solid then
+    -- Left Z boundary
+    if p.position[2] < gridOriginInteriorZ then
+      if grid_options.zBCLeftParticles == ParticleBC.Permeable then
+        p.position_ghost[2] = p.position[2] + grid_options.zWidth
+      elseif grid_options.zBCLeftParticles == ParticleBC.Solid then
 
-              -- Set the position to be on the wall
-              p.position_ghost[2] = gridOriginInteriorZ
+        -- Set the position to be on the wall
+        p.position_ghost[2] = gridOriginInteriorZ
 
-              -- Apply an impulse to kick particle away from the wall
-              var impulse = -(1.0+particles_options.restitution_coefficient)*p.particle_velocity[2]
-              if impulse <= 0 then
-                p.velocity_ghost[2] += impulse
-              end
+        -- Apply an impulse to kick particle away from the wall
+        var impulse = - (1.0+particles_options.restitution_coefficient) *
+          p.particle_velocity[2]
+        if impulse <= 0 then
+          p.velocity_ghost[2] += impulse
+        end
 
-              -- Add a contact force in case particle rests on the wall
-              var contact_force = -1.0*p.velocity_t[2]
+        -- Add a contact force in case particle rests on the wall
+        var contact_force = -1.0*p.velocity_t[2]
 
-              -- To prevent sticky walls, only add contact force if current
-              -- force would push the particle through the wall
-              if contact_force > 0 then
-                p.velocity_t_ghost[2] += contact_force
-              end
+        -- To prevent sticky walls, only add contact force if current
+        -- force would push the particle through the wall
+        if contact_force > 0 then
+          p.velocity_t_ghost[2] += contact_force
+        end
 
-            else L.assert(false) end
-          end
+      else L.assert(false) end
+    end
 
-          -- Right Z boundary
-          if p.position[2] > gridOriginInteriorZ + grid_options.zWidth then
-            if grid_options.zBCRightParticles == ParticleBC.Permeable then
-              p.position_ghost[2] = p.position[2] - grid_options.zWidth
-            elseif grid_options.zBCRightParticles == ParticleBC.Solid then
+    -- Right Z boundary
+    if p.position[2] > gridOriginInteriorZ + grid_options.zWidth then
+      if grid_options.zBCRightParticles == ParticleBC.Permeable then
+        p.position_ghost[2] = p.position[2] - grid_options.zWidth
+      elseif grid_options.zBCRightParticles == ParticleBC.Solid then
 
-              -- Set the position to be on the wall
-              p.position_ghost[2] = gridOriginInteriorZ + grid_options.zWidth
+        -- Set the position to be on the wall
+        p.position_ghost[2] = gridOriginInteriorZ + grid_options.zWidth
 
-              -- Apply an impulse to kick particle away from the wall
-              var impulse = -(1.0+particles_options.restitution_coefficient)*p.particle_velocity[2]
-              if impulse >= 0 then
-                p.velocity_ghost[2] += impulse
-              end
+        -- Apply an impulse to kick particle away from the wall
+        var impulse = - (1.0+particles_options.restitution_coefficient) *
+          p.particle_velocity[2]
+        if impulse >= 0 then
+          p.velocity_ghost[2] += impulse
+        end
 
-              -- Add a contact force in case particle rests on the wall
-              var contact_force = -1.0*p.velocity_t[2]
+        -- Add a contact force in case particle rests on the wall
+        var contact_force = -1.0*p.velocity_t[2]
 
-              -- To prevent sticky walls, only add contact force if current
-              -- force would push the particle through the wall
-              if contact_force < 0 then
-                p.velocity_t_ghost[2] += contact_force
-              end
+        -- To prevent sticky walls, only add contact force if current
+        -- force would push the particle through the wall
+        if contact_force < 0 then
+          p.velocity_t_ghost[2] += contact_force
+        end
 
-            else L.assert(false) end
-          end
+      else L.assert(false) end
+    end
 
   end
+
   ebb Particles.UpdateAuxiliaryStep2 (p : particles)
-      p.position   = p.position_ghost
-      p.particle_velocity   = p.velocity_ghost
-      p.velocity_t = p.velocity_t_ghost
+    p.position          = p.position_ghost
+    p.particle_velocity = p.velocity_ghost
+    p.velocity_t        = p.velocity_t_ghost
   end
 
 
@@ -2563,8 +2513,8 @@ if particles_options.modeParticles then
   -- Pick a diameter value according to a random distribution,
   -- with given mean value and maximum deviation.
   ebb Particles.RandomDiameter()
-     return (rand_float() - 0.5) * particles_options.diameter_maxDeviation +
-       particles_options.diameter_mean
+    return (rand_float() - 0.5) * particles_options.diameter_maxDeviation +
+      particles_options.diameter_mean
   end
 
   -- Calculate particle velocity from underlying flow velocity.
@@ -2630,12 +2580,13 @@ if particles_options.modeParticles then
   -------------
 
   ebb Particles.IntegrateQuantities (p : particles)
-      Particles.averageTemperature += p.particle_temperature
+    Particles.averageTemperature += p.particle_temperature
   end
 
   ebb Particles.numberOfParticles (p : particles)
-      Particles.number += L.int64(1)
+    Particles.number += L.int64(1)
   end
+
 end
 
 -----------------------------------------------------------------------------
@@ -2647,24 +2598,24 @@ end
 -------
 
 function Flow.InitializePrimitives()
-    if flow_options.initCase == InitCase.Uniform then
-        grid.cells:foreach(Flow.InitializeUniform)
-    elseif flow_options.initCase == InitCase.TaylorGreen2DVortex then
-        grid.cells:foreach(Flow.InitializeTaylorGreen2D)
-    elseif flow_options.initCase == InitCase.TaylorGreen3DVortex then
-        grid.cells:foreach(Flow.InitializeTaylorGreen3D)
-    elseif flow_options.initCase == InitCase.Perturbed then
-        grid.cells:foreach(Flow.InitializePerturbed)
-    elseif flow_options.initCase == InitCase.Restart then
-        grid.cells:Load({'rho','pressure','velocity'},
-                        io_options.outputFileNamePrefix .. 'restart_' ..
-                          time_options.restartIter .. '.hdf')
-    else assert(false) end
+  if flow_options.initCase == InitCase.Uniform then
+    grid.cells:foreach(Flow.InitializeUniform)
+  elseif flow_options.initCase == InitCase.TaylorGreen2DVortex then
+    grid.cells:foreach(Flow.InitializeTaylorGreen2D)
+  elseif flow_options.initCase == InitCase.TaylorGreen3DVortex then
+    grid.cells:foreach(Flow.InitializeTaylorGreen3D)
+  elseif flow_options.initCase == InitCase.Perturbed then
+    grid.cells:foreach(Flow.InitializePerturbed)
+  elseif flow_options.initCase == InitCase.Restart then
+    grid.cells:Load({'rho','pressure','velocity'},
+                    io_options.outputFileNamePrefix .. 'restart_' ..
+                      time_options.restartIter .. '.hdf')
+  else assert(false) end
 end
 
 function Flow.UpdateGhostVelocityGradient()
-    grid.cells:foreach(Flow.UpdateGhostVelocityGradientStep1)
-    grid.cells:foreach(Flow.UpdateGhostVelocityGradientStep2)
+  grid.cells:foreach(Flow.UpdateGhostVelocityGradientStep1)
+  grid.cells:foreach(Flow.UpdateGhostVelocityGradientStep2)
 end
 
 -- Routine that computes the inviscid flux through the face of
@@ -3003,25 +2954,25 @@ ebb Flow.AddUpdateUsingFlux(c : grid.cells)
 end
 
 function Flow.AddFluxes()
-    grid.cells:foreach(Flow.AddGetFlux)
-    grid.cells:foreach(Flow.AddUpdateUsingFlux)
+  grid.cells:foreach(Flow.AddGetFlux)
+  grid.cells:foreach(Flow.AddUpdateUsingFlux)
 end
 
 function Flow.ComputeVelocityGradients()
-    grid.cells:foreach(Flow.ComputeVelocityGradientAll)
+  grid.cells:foreach(Flow.ComputeVelocityGradientAll)
 end
 
 function Flow.UpdateAuxiliaryVelocityConservedAndGradients()
-    grid.cells:foreach(Flow.UpdateAuxiliaryVelocity)
-    Flow.UpdateGhostConserved()
-    Flow.UpdateGhostVelocity()
-    Flow.ComputeVelocityGradients()
+  grid.cells:foreach(Flow.UpdateAuxiliaryVelocity)
+  Flow.UpdateGhostConserved()
+  Flow.UpdateGhostVelocity()
+  Flow.ComputeVelocityGradients()
 end
 
 function Flow.UpdateAuxiliary()
-    Flow.UpdateAuxiliaryVelocityConservedAndGradients()
-    grid.cells:foreach(Flow.UpdateAuxiliaryThermodynamics)
-    Flow.UpdateGhostThermodynamics()
+  Flow.UpdateAuxiliaryVelocityConservedAndGradients()
+  grid.cells:foreach(Flow.UpdateAuxiliaryThermodynamics)
+  Flow.UpdateGhostThermodynamics()
 end
 
 
@@ -3085,11 +3036,11 @@ end -- particles_options.modeParticles
 ------------------
 
 function TimeIntegrator.SetupTimeStep()
-    grid.cells:foreach(Flow.InitializeTemporaries)
-    if particles_options.modeParticles then
-      -- Particles.Feed()
-      particles:foreach(Particles.InitializeTemporaries)
-    end
+  grid.cells:foreach(Flow.InitializeTemporaries)
+  if particles_options.modeParticles then
+    -- Particles.Feed()
+    particles:foreach(Particles.InitializeTemporaries)
+  end
 end
 
 function TimeIntegrator.ConcludeTimeStep()
@@ -3099,17 +3050,17 @@ function TimeIntegrator.ConcludeTimeStep()
 end
 
 function TimeIntegrator.InitializeTimeDerivatives()
-    grid.cells:foreach(Flow.InitializeTimeDerivatives)
-    if particles_options.modeParticles then
-      particles:foreach(Particles.InitializeTimeDerivatives)
-    end
+  grid.cells:foreach(Flow.InitializeTimeDerivatives)
+  if particles_options.modeParticles then
+    particles:foreach(Particles.InitializeTimeDerivatives)
+  end
 end
 
 function TimeIntegrator.UpdateAuxiliary()
-    Flow.UpdateAuxiliary()
-    if particles_options.modeParticles then
-      Particles.UpdateAuxiliary()
-    end
+  Flow.UpdateAuxiliary()
+  if particles_options.modeParticles then
+    Particles.UpdateAuxiliary()
+  end
 end
 
 function TimeIntegrator.UpdateTime()
@@ -3125,96 +3076,97 @@ end
 
 function TimeIntegrator.InitializeVariables()
 
-    grid.cells:foreach(Flow.InitializeCell)
+  grid.cells:foreach(Flow.InitializeCell)
 
-    -- Initialize several grid related entitities
-    grid.cells:foreach(Flow.InitializeCenterCoordinates)
+  -- Initialize several grid related entitities
+  grid.cells:foreach(Flow.InitializeCenterCoordinates)
 
-    -- Set initial condition for the flow and all auxiliary flow variables
-    Flow.InitializePrimitives()
-    grid.cells:foreach(Flow.UpdateConservedFromPrimitive)
-    Flow.UpdateAuxiliary()
-    Flow.UpdateGhost()
+  -- Set initial condition for the flow and all auxiliary flow variables
+  Flow.InitializePrimitives()
+  grid.cells:foreach(Flow.UpdateConservedFromPrimitive)
+  Flow.UpdateAuxiliary()
+  Flow.UpdateGhost()
 
-    -- Initialize the particles (position, velocity, temp, diameter, locate)
-    if particles_options.modeParticles then
-      Particles.InitializePrimitives()
-    end
+  -- Initialize the particles (position, velocity, temp, diameter, locate)
+  if particles_options.modeParticles then
+    Particles.InitializePrimitives()
+  end
 
 end
 
 function TimeIntegrator.ComputeDFunctionDt()
 
-    -- Compute flow convective, viscous, and body force residuals
-    Flow.UpdateGhostVelocityGradient()
-    Flow.AddFluxes()
-    if radiation_options.zeroAvgHeatSource then
-      Flow.averageHeatSource:set(0.0)
-    end
-    grid.cells:foreach(Flow.AddBodyForces)
+  -- Compute flow convective, viscous, and body force residuals
+  Flow.UpdateGhostVelocityGradient()
+  Flow.AddFluxes()
+  if radiation_options.zeroAvgHeatSource then
+    Flow.averageHeatSource:set(0.0)
+  end
+  grid.cells:foreach(Flow.AddBodyForces)
 
-    -- FIXME: turbulent-related tasks should be revised
-    if flow_options.turbForcing then
-      Flow.AddTurbulentForcing(grid.cells.interior)
-    end
+  -- FIXME: turbulent-related tasks should be revised
+  if flow_options.turbForcing then
+    Flow.AddTurbulentForcing(grid.cells.interior)
+  end
 
-    -- Compute residuals for the particles (locate all particles first)
-    if particles_options.modeParticles then
+  -- Compute residuals for the particles (locate all particles first)
+  if particles_options.modeParticles then
 
-      Particles.Locate()
-      particles:foreach(Particles.AddFlowCoupling)
+    Particles.Locate()
+    particles:foreach(Particles.AddFlowCoupling)
 
-      if particles_options.particleType == ParticleType.Free then
-          particles:foreach(Particles.AddBodyForces)
-      end
-
-      if radiation_options.radiationType ~= RadiationType.OFF then
-          M.INLINE(radiation.AddRadiation)
-      end
-
-      -- Compute two-way coupling in momentum and energy
-      if particles_options.twoWayCoupling then
-          particles:foreach(Flow.AddParticlesCoupling)
-      end
-
+    if particles_options.particleType == ParticleType.Free then
+      particles:foreach(Particles.AddBodyForces)
     end
 
-    -- In case we want to hold flow temp fixed with radiation active
-    --print(Flow.averageHeatSource:get())
+    if radiation_options.radiationType ~= RadiationType.OFF then
+      M.INLINE(radiation.AddRadiation)
+    end
 
-    if radiation_options.zeroAvgHeatSource then
-        Flow.averageHeatSource:set(Flow.averageHeatSource:get()/
+    -- Compute two-way coupling in momentum and energy
+    if particles_options.twoWayCoupling then
+      particles:foreach(Flow.AddParticlesCoupling)
+    end
+
+  end
+
+  -- In case we want to hold flow temp fixed with radiation active
+  --print(Flow.averageHeatSource:get())
+
+  if radiation_options.zeroAvgHeatSource then
+    Flow.averageHeatSource:set(Flow.averageHeatSource:get()/
                                  Flow.numberOfInteriorCells:get())
-        grid.cells.interior:foreach(Flow.AdjustHeatSource)
-    end
+    grid.cells.interior:foreach(Flow.AdjustHeatSource)
+  end
+
 end
 
 function TimeIntegrator.UpdateSolution()
-    grid.cells:foreach(Flow.UpdateVars)
-    if particles_options.modeParticles then
-        particles:foreach(Particles.UpdateVars)
-    end
+  grid.cells:foreach(Flow.UpdateVars)
+  if particles_options.modeParticles then
+    particles:foreach(Particles.UpdateVars)
+  end
 end
 
 function TimeIntegrator.AdvanceTimeStep()
 
-    TimeIntegrator.SetupTimeStep()
-    TimeIntegrator.timeOld:set(TimeIntegrator.simTime:get())
+  TimeIntegrator.SetupTimeStep()
+  TimeIntegrator.timeOld:set(TimeIntegrator.simTime:get())
 
-    TimeIntegrator.stage:set(1)
-    M.WHILE(M.LT(TimeIntegrator.stage:get(), 5))
-        TimeIntegrator.InitializeTimeDerivatives()
-        TimeIntegrator.ComputeDFunctionDt()
-        TimeIntegrator.UpdateSolution()
-        TimeIntegrator.UpdateAuxiliary()
-        TimeIntegrator.UpdateTime()
-        TimeIntegrator.stage:set(TimeIntegrator.stage:get() + 1)
-        -- HACK: Move escaping particle deletion here, to appease the SPMD
-        -- transformation. It should be fine to do this multiple times.
-        TimeIntegrator.ConcludeTimeStep()
-    M.END()
+  TimeIntegrator.stage:set(1)
+  M.WHILE(M.LT(TimeIntegrator.stage:get(), 5))
+    TimeIntegrator.InitializeTimeDerivatives()
+    TimeIntegrator.ComputeDFunctionDt()
+    TimeIntegrator.UpdateSolution()
+    TimeIntegrator.UpdateAuxiliary()
+    TimeIntegrator.UpdateTime()
+    TimeIntegrator.stage:set(TimeIntegrator.stage:get() + 1)
+    -- HACK: Move escaping particle deletion here, to appease the SPMD
+    -- transformation. It should be fine to do this multiple times.
+    TimeIntegrator.ConcludeTimeStep()
+  M.END()
 
-    TimeIntegrator.timeStep:set(TimeIntegrator.timeStep:get() + 1)
+  TimeIntegrator.timeStep:set(TimeIntegrator.timeStep:get() + 1)
 
 end
 
@@ -3253,44 +3205,43 @@ end
 -------------
 
 function Statistics.ResetSpatialAverages()
-    Flow.averagePressure:set(0.0)
-    Flow.averageTemperature:set(0.0)
-    Flow.averageKineticEnergy:set(0.0)
-    Flow.minTemperature:set(math.huge)
-    Flow.maxTemperature:set(-math.huge)
-    Flow.averagePD:set(0.0)
-    Flow.averageDissipation:set(0.0)
-    Particles.averageTemperature:set(0.0)
+  Flow.averagePressure:set(0.0)
+  Flow.averageTemperature:set(0.0)
+  Flow.averageKineticEnergy:set(0.0)
+  Flow.minTemperature:set(math.huge)
+  Flow.maxTemperature:set(-math.huge)
+  Flow.averagePD:set(0.0)
+  Flow.averageDissipation:set(0.0)
+  Particles.averageTemperature:set(0.0)
 end
 
 function Statistics.UpdateSpatialAverages(grid, particles)
-    -- Flow
-    Flow.averagePressure:set(
-      Flow.averagePressure:get()/
-      Flow.areaInterior:get())
-    Flow.averageTemperature:set(
-      Flow.averageTemperature:get()/
-      Flow.areaInterior:get())
-    Flow.averageKineticEnergy:set(
-      Flow.averageKineticEnergy:get()/
-      Flow.areaInterior:get())
+  -- Flow
+  Flow.averagePressure:set(
+    Flow.averagePressure:get() / Flow.areaInterior:get()
+  )
+  Flow.averageTemperature:set(
+    Flow.averageTemperature:get() / Flow.areaInterior:get()
+  )
+  Flow.averageKineticEnergy:set(
+    Flow.averageKineticEnergy:get() / Flow.areaInterior:get()
+  )
 
-    -- Particles
-    if particles_options.modeParticles then
-      Particles.averageTemperature:set(
-        Particles.averageTemperature:get()/
-        Particles.number:get())
-    end
-
+  -- Particles
+  if particles_options.modeParticles then
+    Particles.averageTemperature:set(
+      Particles.averageTemperature:get() / Particles.number:get()
+    )
+  end
 end
 
 function Statistics.ComputeSpatialAverages()
-    Statistics.ResetSpatialAverages()
-    Flow.IntegrateQuantities(grid.cells)
-    if particles_options.modeParticles then
-      particles:foreach(Particles.IntegrateQuantities)
-    end
-    Statistics.UpdateSpatialAverages(grid, particles)
+  Statistics.ResetSpatialAverages()
+  Flow.IntegrateQuantities(grid.cells)
+  if particles_options.modeParticles then
+    particles:foreach(Particles.IntegrateQuantities)
+  end
+  Statistics.UpdateSpatialAverages(grid, particles)
 end
 
 
@@ -3362,7 +3313,6 @@ function IO.WriteOutput()
   end
 end
 
-
 -----------------------------------------------------------------------------
 --[[                            MAIN EXECUTION                           ]]--
 -----------------------------------------------------------------------------
@@ -3392,11 +3342,11 @@ M.WHILE(M.AND(M.LT(TimeIntegrator.simTime:get(), time_options.final_time),
   end
 M.END()
 
+-- Final stats printing
+
 if regentlib.config['flow-spmd'] then
   Statistics.ComputeSpatialAverages()
 end
--- Final stats printing
-
 IO.WriteConsoleOutput()
 
 A.translateAndRun(cmapper.register_mappers, link_flags)
