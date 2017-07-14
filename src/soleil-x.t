@@ -151,7 +151,6 @@ local function printUsageAndExit()
   os.exit(1)
 end
 
--- default values for options
 local configFileName = nil
 
 do
@@ -196,11 +195,11 @@ local twoPi = 2.0*pi
 --[[                            NAMESPACES                               ]]--
 -----------------------------------------------------------------------------
 
-local Flow = {};
-local Particles = {};
-local TimeIntegrator = {};
-local Statistics = {};
-local IO = {};
+local Flow = {}
+local Particles = {}
+local TimeIntegrator = {}
+local Statistics = {}
+local IO = {}
 
 -----------------------------------------------------------------------------
 --[[                   INITIALIZE OPTIONS FROM CONFIG                    ]]--
@@ -706,7 +705,9 @@ if particles_options.modeParticles then
 
   particles = L.NewRelation {
     name = 'particles',
-    mode = 'FLEXIBLE',
+    mode = 'COUPLED',
+    coupled_with = fluidGrid,
+    coupling_field = 'cell',
     size = particles_options.maximum_num,
     max_skew = 1.5,
     max_xfer_num = 1000,
@@ -721,8 +722,6 @@ if particles_options.modeParticles then
                     {-1,-1, 0}, {-1,-1, 1}, {-1,-1,-1}}
   }
 
-  particles:NewField('cell', fluidGrid)
-  particles.cell:AutoPartitionByPreimage()
   particles:NewField('position', L.vec3d)
   particles:NewField('particle_velocity', L.vec3d)
   particles:NewField('density', L.double)

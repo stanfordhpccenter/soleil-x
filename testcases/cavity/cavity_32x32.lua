@@ -94,6 +94,5 @@ return {
   -- Radiation Options --
   radiationType = 'Algebraic',
   radiationIntensity = 10.0,
-  zeroAvgHeatSource = 'OFF'
-
+  zeroAvgHeatSource = 'OFF',
 }
