@@ -58,8 +58,6 @@ end
 
 local exports = {}
 
-exports.InitRadiation = rquote end
-
 exports.AddRadiation = rquote
   AddRadiation([particlesRel:regionSymbol()])
 end

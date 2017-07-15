@@ -190,6 +190,7 @@ local outputdir = PN.pwd_str()
 
 local pi = 2.0*L.acos(0)
 local twoPi = 2.0*pi
+local SB = 5.67e-8
 
 -----------------------------------------------------------------------------
 --[[                            NAMESPACES                               ]]--
@@ -197,6 +198,7 @@ local twoPi = 2.0*pi
 
 local Flow = {}
 local Particles = {}
+local Radiation = {}
 local TimeIntegrator = {}
 local Statistics = {}
 local IO = {}
@@ -259,6 +261,10 @@ local grid_options = {
   xWidth      = config.xWidth,
   yWidth      = config.yWidth,
   zWidth      = config.zWidth,
+  -- Width of each cell in the x, y, & z directions (meters)
+  xCellWidth  = config.xWidth / config.xnum,
+  yCellWidth  = config.yWidth / config.ynum,
+  zCellWidth  = config.zWidth / config.znum,
   -- Boundary condition type for each face of the block and possible
   -- wall velocity, if no-slip.
   xBCLeft      = parseEnum('xBCLeft', FlowBC),
@@ -530,6 +536,22 @@ local radiation_options = {
   radiationType      = parseEnum('radiationType', RadiationType),
   zeroAvgHeatSource  = parseBool('zeroAvgHeatSource'),
 }
+if radiation_options.radiationType ~= RadiationType.OFF
+  and not particles_options.modeParticles then
+  error('Radiation support requires particles to be enabled')
+end
+if radiation_options.radiationType == RadiationType.DOM then
+  radiation_options.qa = config.qa
+  radiation_options.qs = config.qs
+  radiation_options.numAngles = config.numAngles
+  radiation_options.coarsenFactor = config.coarsenFactor
+  radiation_options.xCellWidth = grid_options.xCellWidth * config.coarsenFactor[1]
+  radiation_options.yCellWidth = grid_options.yCellWidth * config.coarsenFactor[2]
+  radiation_options.zCellWidth = grid_options.zCellWidth * config.coarsenFactor[3]
+  radiation_options.cellVolume = radiation_options.xCellWidth *
+                                 radiation_options.yCellWidth *
+                                 radiation_options.zCellWidth
+end
 
 local io_options = {
   wrtRestart           = parseBool('wrtRestart'),
@@ -749,6 +771,47 @@ if particles_options.modeParticles then
 end
 
 -----------------------------------------------------------------------------
+--[[                        RADIATION PREPROCESSING                      ]]--
+-----------------------------------------------------------------------------
+
+local radiationGrid
+
+if radiation_options.radiationType == RadiationType.DOM then
+
+  radiationGrid = fluidGrid:Coarsen('Radiation', radiation_options.coarsenFactor, {0,0,0})
+
+  -- cell center intensity per angle
+  radiationGrid:NewField('I_1', L.vector(L.double,radiation_options.numAngles))
+  radiationGrid:NewField('I_2', L.vector(L.double,radiation_options.numAngles))
+  radiationGrid:NewField('I_3', L.vector(L.double,radiation_options.numAngles))
+  radiationGrid:NewField('I_4', L.vector(L.double,radiation_options.numAngles))
+  radiationGrid:NewField('I_5', L.vector(L.double,radiation_options.numAngles))
+  radiationGrid:NewField('I_6', L.vector(L.double,radiation_options.numAngles))
+  radiationGrid:NewField('I_7', L.vector(L.double,radiation_options.numAngles))
+  radiationGrid:NewField('I_8', L.vector(L.double,radiation_options.numAngles))
+
+  -- iterative intensity per angle
+  radiationGrid:NewField('Iiter_1', L.vector(L.double,radiation_options.numAngles))
+  radiationGrid:NewField('Iiter_2', L.vector(L.double,radiation_options.numAngles))
+  radiationGrid:NewField('Iiter_3', L.vector(L.double,radiation_options.numAngles))
+  radiationGrid:NewField('Iiter_4', L.vector(L.double,radiation_options.numAngles))
+  radiationGrid:NewField('Iiter_5', L.vector(L.double,radiation_options.numAngles))
+  radiationGrid:NewField('Iiter_6', L.vector(L.double,radiation_options.numAngles))
+  radiationGrid:NewField('Iiter_7', L.vector(L.double,radiation_options.numAngles))
+  radiationGrid:NewField('Iiter_8', L.vector(L.double,radiation_options.numAngles))
+
+  radiationGrid:NewField('G',     L.double) -- intensity summation over all angles
+  radiationGrid:NewField('S',     L.double) -- source term
+  radiationGrid:NewField('Ib',    L.double) -- blackbody intensity
+  radiationGrid:NewField('sigma', L.double) -- extinction coefficient
+
+  -- partial sums, over particles inside volume
+  radiationGrid:NewField('acc_d2',   L.double) -- p.diameter^2
+  radiationGrid:NewField('acc_d2t4', L.double) -- p.diameter^2 * p.temperature^4
+
+end
+
+-----------------------------------------------------------------------------
 --[[                           GLOBAL VARIABLES                          ]]--
 -----------------------------------------------------------------------------
 
@@ -796,7 +859,7 @@ local radiation
 if radiation_options.radiationType == RadiationType.Algebraic then
   radiation = (require 'algebraic')(particles)
 elseif radiation_options.radiationType == RadiationType.DOM then
-  error('DOM not supported yet')
+  radiation = (require 'dom')(radiationGrid)
 elseif radiation_options.radiationType == RadiationType.MCRT then
   error('MCRT not supported yet')
 elseif radiation_options.radiationType == RadiationType.OFF then
@@ -2488,6 +2551,62 @@ if particles_options.modeParticles then
     p.velocity_t        = p.velocity_t_ghost
   end
 
+  if radiation_options.radiationType == RadiationType.DOM then
+
+    ebb Radiation.InitializeCell(c : radiationGrid)
+      for m = 0,radiation_options.numAngles do
+        c.I_1[m]     = 0.0
+        c.I_2[m]     = 0.0
+        c.I_3[m]     = 0.0
+        c.I_4[m]     = 0.0
+        c.I_5[m]     = 0.0
+        c.I_6[m]     = 0.0
+        c.I_7[m]     = 0.0
+        c.I_8[m]     = 0.0
+        c.Iiter_1[m] = 0.0
+        c.Iiter_2[m] = 0.0
+        c.Iiter_3[m] = 0.0
+        c.Iiter_4[m] = 0.0
+        c.Iiter_5[m] = 0.0
+        c.Iiter_6[m] = 0.0
+        c.Iiter_7[m] = 0.0
+        c.Iiter_8[m] = 0.0
+      end
+      c.G = 0.0
+      c.S = 0.0
+    end
+
+    ebb Radiation.ClearAccumulators(c : radiationGrid)
+      c.acc_d2 = 0.0
+      c.acc_d2t4 = 0.0
+    end
+
+    ebb Radiation.AccumulateParticleValues(p : particles)
+      p.cell.to_Radiation.acc_d2 +=
+        L.pow(p.diameter,2.0)
+      p.cell.to_Radiation.acc_d2t4 +=
+        L.pow(p.diameter,2.0) * L.pow(p.particle_temperature,4.0)
+    end
+
+    ebb Radiation.UpdateFieldValues(c : radiationGrid)
+      c.sigma = c.acc_d2 * pi
+        * (radiation_options.qa + radiation_options.qs)
+        / (4.0 * radiation_options.cellVolume)
+      if c.acc_d2 == 0.0 then
+        c.Ib = 0.0
+      else
+        c.Ib = SB * c.acc_d2t4 / (pi * c.acc_d2)
+      end
+    end
+
+    ebb Particles.AbsorbRadiation (p : particles)
+      var t4 = L.pow(p.particle_temperature,4.0)
+      var alpha = pi * radiation_options.qa * L.pow(p.diameter,2.0)
+        * (p.cell.to_Radiation.G - 4.0 * SB * t4) / 4.0
+      p.temperature_t += alpha / (p.mass * particles_options.heat_capacity)
+    end
+
+  end
 
   ---------
   -- Feeder
@@ -3115,9 +3234,17 @@ function TimeIntegrator.ComputeDFunctionDt()
       particles:foreach(Particles.AddBodyForces)
     end
 
-    if radiation_options.radiationType ~= RadiationType.OFF then
+    if radiation_options.radiationType == RadiationType.Algebraic then
       M.INLINE(radiation.AddRadiation)
-    end
+    elseif radiation_options.radiationType == RadiationType.DOM then
+      -- Compute radiation field values from particles
+      radiationGrid:foreach(Radiation.ClearAccumulators)
+      particles:foreach(Radiation.AccumulateParticleValues)
+      radiationGrid:foreach(Radiation.UpdateFieldValues)
+      M.INLINE(radiation.ComputeRadiationField)
+      -- Absorb radiation into each particle
+      particles:foreach(Particles.AbsorbRadiation)
+   end
 
     -- Compute two-way coupling in momentum and energy
     if particles_options.twoWayCoupling then
@@ -3318,8 +3445,9 @@ end
 TimeIntegrator.InitializeVariables()
 Flow.IntegrateGeometricQuantities(fluidGrid)
 Statistics.ComputeSpatialAverages()
-if radiation_options.radiationType ~= RadiationType.OFF then
-  M.INLINE(radiation.InitRadiation)
+if radiation_options.radiationType == RadiationType.DOM then
+  radiationGrid:foreach(Radiation.InitializeCell)
+  M.INLINE(radiation.InitModule)
 end
 IO.WriteOutput()
 

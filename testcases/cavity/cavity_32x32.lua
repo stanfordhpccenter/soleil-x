@@ -92,7 +92,12 @@ return {
   -- (Kirchhoff law of thermal radiation)
 
   -- Radiation Options --
-  radiationType = 'Algebraic',
+  radiationType = 'DOM',
   radiationIntensity = 10.0,
   zeroAvgHeatSource = 'OFF',
+  qa = 0.5,
+  qs = 0.5,
+  numAngles = 14,
+  coarsenFactor = {1,1,1},
+  T_west = 2000.0,
 }
