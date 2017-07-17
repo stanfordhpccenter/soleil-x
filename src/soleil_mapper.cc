@@ -557,8 +557,8 @@ void SoleilMapper::map_must_epoch(const MapperContext           ctx,
     const Task* task = constraint.constrained_tasks[owner_id];
     const RegionRequirement& req =
       task->regions[constraint.requirement_indexes[owner_id]];
-    Memory target_memory = use_gpu ? fbmems_list[task_indices[task]]
-                                   : sysmems_list[task_indices[task]];
+    Memory target_memory = use_gpu ? fbmems_list[task_indices[task] / num_shards_per_node]
+                                   : sysmems_list[task_indices[task] / num_shards_per_node];
     if (!runtime->has_parent_logical_partition(ctx, req.region)) {
       Processor task_proc = output.task_processors[task_indices[task]];
       if (!use_gpu) {
