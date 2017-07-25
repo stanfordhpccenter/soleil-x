@@ -3250,23 +3250,23 @@ function IO.WriteConsoleOutput()
     -- Output log headers at a specified frequency
     M.IF(M.EQ(TimeIntegrator.timeStep:get() % time_options.headerFrequency, 0))
       M.PRINT("\n Current time step: %2.6e s.\n",
-              TimeIntegrator.deltaTime:get())
+              TimeIntegrator.deltaTime)
       M.PRINT(" Min Flow Temp: %11.6f K. Max Flow Temp: %11.6f K.\n",
-              Flow.minTemperature:get(), Flow.maxTemperature:get())
+              Flow.minTemperature, Flow.maxTemperature)
       if particles_options.modeParticles then
-        M.PRINT(" Current number of particles: %d.\n", Particles.number:get())
+        M.PRINT(" Current number of particles: %d.\n", Particles.number)
       end
       M.PRINT("\n")
       M.PRINT("    Iter     Time(s)   Avg Press    Avg Temp      Avg KE  Particle T\n")
     M.END()
     -- Output the current stats to the console for this iteration
     M.PRINT("%8d %11.6f %11.6f %11.6f %11.6f %11.6f\n",
-            TimeIntegrator.timeStep:get(),
-            TimeIntegrator.simTime:get(),
-            Flow.averagePressure:get(),
-            Flow.averageTemperature:get(),
-            Flow.averageKineticEnergy:get(),
-            Particles.averageTemperature:get())
+            TimeIntegrator.timeStep,
+            TimeIntegrator.simTime,
+            Flow.averagePressure,
+            Flow.averageTemperature,
+            Flow.averageKineticEnergy,
+            Particles.averageTemperature)
   M.END()
 end
 
