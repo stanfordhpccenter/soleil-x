@@ -1,5 +1,7 @@
 # Files ignored by git
 
+*.so
+
 # Mac files
 *.DS_Store
 Soleil-X.xcodeproj/project.xcworkspace/xcuserdata/economon.xcuserdatad/UserInterfaceState.xcuserstate
