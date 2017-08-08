@@ -2587,6 +2587,7 @@ if particles_options.modeParticles then
       p.cell.to_Radiation.acc_d2t4 +=
         L.pow(p.diameter,2.0) * L.pow(p.particle_temperature,4.0)
     end
+    Radiation.AccumulateParticleValues._MANUAL_PARAL = true
 
     ebb Radiation.UpdateFieldValues(c : radiationGrid)
       c.sigma = c.acc_d2 * pi
@@ -2605,6 +2606,7 @@ if particles_options.modeParticles then
         * (p.cell.to_Radiation.G - 4.0 * SB * t4) / 4.0
       p.temperature_t += alpha / (p.mass * particles_options.heat_capacity)
     end
+    Particles.AbsorbRadiation._MANUAL_PARAL = true
 
   end
 
