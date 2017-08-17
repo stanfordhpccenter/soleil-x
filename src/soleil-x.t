@@ -3287,7 +3287,7 @@ if particles_options.modeParticles then
     -- Check if it is time to output a particle restart file
     M.IF(M.EQ(TimeIntegrator.timeStep:get() % time_options.restartEveryTimeSteps, 0))
       -- Write the restart files for position, velocity, temperature and diameter
-      particles:Dump({'position','velocity','temperature','diameter'},
+      particles:Dump({'cell','position','particle_velocity','particle_temperature','diameter'},
                      io_options.outputFileNamePrefix .. "restart_particle_%d.hdf",
                      TimeIntegrator.timeStep:get())
     M.END()
