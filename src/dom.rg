@@ -1708,6 +1708,7 @@ local p_z_faces_hi = regentlib.newsymbol('p_z_faces_hi')
 local p_x_faces_lo = regentlib.newsymbol('p_x_faces_lo')
 local p_y_faces_lo = regentlib.newsymbol('p_y_faces_lo')
 local p_z_faces_lo = regentlib.newsymbol('p_z_faces_lo')
+local res = regentlib.newsymbol(double, 'res')
 
 exports.InitModule = rquote
 
@@ -1738,12 +1739,14 @@ exports.InitModule = rquote
   -- Initialize constant values
   initialize_angles(angles)
 
+  -- Declare variables that would go in the main loop, but for static SPMD
+  var [res] = 1.0
+
 end
 
 exports.ComputeRadiationField = rquote
 
   -- Compute until convergence
-  var res : double = 1.0
   while (res > tol) do
 
     -- Update the source term (in this problem, isotropic)
