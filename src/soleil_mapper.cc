@@ -40,6 +40,9 @@ public:
                 std::map<Processor, Memory>* proc_zcmems);
   virtual Processor default_policy_select_initial_processor(
                                     MapperContext ctx, const Task &task);
+  virtual void select_task_options(const MapperContext    ctx,
+                                   const Task&            task,
+                                         TaskOptions&     output);
   virtual void default_policy_select_target_processors(
                                     MapperContext ctx,
                                     const Task &task,
@@ -149,6 +152,17 @@ Processor SoleilMapper::default_policy_select_initial_processor(
   }
 
   return DefaultMapper::default_policy_select_initial_processor(ctx, task);
+}
+
+void SoleilMapper::select_task_options(const MapperContext    ctx,
+                                       const Task&            task,
+                                             TaskOptions&     output)
+{
+  output.initial_proc = default_policy_select_initial_processor(ctx, task);
+  output.inline_task = false;
+  output.stealable = stealing_enabled;
+  output.map_locally = true;
+  output.memoize = task.has_trace();
 }
 
 //--------------------------------------------------------------------------

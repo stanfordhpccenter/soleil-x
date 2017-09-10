@@ -3151,15 +3151,17 @@ function TimeIntegrator.AdvanceTimeStep()
 
   TimeIntegrator.stage:set(1)
   M.WHILE(M.LT(TimeIntegrator.stage:get(), 5))
-    TimeIntegrator.InitializeTimeDerivatives()
-    TimeIntegrator.ComputeDFunctionDt()
-    TimeIntegrator.UpdateSolution()
-    TimeIntegrator.UpdateAuxiliary()
-    TimeIntegrator.UpdateTime()
-    TimeIntegrator.stage:set(TimeIntegrator.stage:get() + 1)
-    -- HACK: Move escaping particle deletion here, to appease the SPMD
-    -- transformation. It should be fine to do this multiple times.
-    TimeIntegrator.ConcludeTimeStep()
+    M.TRACE()
+      TimeIntegrator.InitializeTimeDerivatives()
+      TimeIntegrator.ComputeDFunctionDt()
+      TimeIntegrator.UpdateSolution()
+      TimeIntegrator.UpdateAuxiliary()
+      TimeIntegrator.UpdateTime()
+      TimeIntegrator.stage:set(TimeIntegrator.stage:get() + 1)
+      -- HACK: Move escaping particle deletion here, to appease the SPMD
+      -- transformation. It should be fine to do this multiple times.
+      TimeIntegrator.ConcludeTimeStep()
+    M.END()
   M.END()
 
   TimeIntegrator.timeStep:set(TimeIntegrator.timeStep:get() + 1)
