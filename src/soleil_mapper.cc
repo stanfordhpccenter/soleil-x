@@ -154,9 +154,11 @@ Processor SoleilMapper::default_policy_select_initial_processor(
   return DefaultMapper::default_policy_select_initial_processor(ctx, task);
 }
 
+//--------------------------------------------------------------------------
 void SoleilMapper::select_task_options(const MapperContext    ctx,
                                        const Task&            task,
                                              TaskOptions&     output)
+//--------------------------------------------------------------------------
 {
   output.initial_proc = default_policy_select_initial_processor(ctx, task);
   output.inline_task = false;
