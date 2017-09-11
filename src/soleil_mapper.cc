@@ -79,6 +79,7 @@ protected:
                                    std::vector<PhysicalInstance> &instances);
 private:
   bool use_gpu;
+  bool memoize;
   std::vector<Processor>& loc_procs_list;
   std::vector<Processor>& toc_procs_list;
   std::vector<Memory>& sysmems_list;
@@ -109,6 +110,7 @@ SoleilMapper::SoleilMapper(MapperRuntime *rt, Machine machine, Processor local,
 //--------------------------------------------------------------------------
   : DefaultMapper(rt, machine, local, mapper_name),
     use_gpu(false),
+    memoize(false),
     loc_procs_list(*_loc_procs_list),
     toc_procs_list(*_toc_procs_list),
     sysmems_list(*_sysmems_list),
@@ -122,6 +124,18 @@ SoleilMapper::SoleilMapper(MapperRuntime *rt, Machine machine, Processor local,
     proc_zcmems(*_proc_zcmems)
 {
   use_gpu = toc_procs_list.size() > 0;
+  const InputArgs &command_args = Runtime::get_input_args();
+  char **argv = command_args.argv;
+  unsigned argc = command_args.argc;
+
+  for (unsigned i = 1; i < argc; ++i)
+  {
+    if (strcmp(argv[i], "-memoize") == 0)
+    {
+      memoize = true;
+      break;
+    }
+  }
 }
 
 //--------------------------------------------------------------------------
@@ -164,7 +178,7 @@ void SoleilMapper::select_task_options(const MapperContext    ctx,
   output.inline_task = false;
   output.stealable = stealing_enabled;
   output.map_locally = true;
-  output.memoize = task.has_trace();
+  output.memoize = memoize && task.has_trace();
 }
 
 //--------------------------------------------------------------------------
