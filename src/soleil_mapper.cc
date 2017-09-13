@@ -29,6 +29,8 @@ public:
                 const char *mapper_name,
                 std::vector<Processor>* loc_procs_list,
                 std::vector<Processor>* toc_procs_list,
+                std::vector<Processor>* omp_procs_list,
+                std::vector<Processor>* io_procs_list,
                 std::vector<Memory>* sysmems_list,
                 std::vector<Memory>* fbmems_list,
                 std::map<Memory, std::vector<Processor> >* sysmem_local_procs,
@@ -43,6 +45,10 @@ public:
   virtual void select_task_options(const MapperContext    ctx,
                                    const Task&            task,
                                          TaskOptions&     output);
+  virtual void slice_task(const MapperContext      ctx,
+                          const Task&              task,
+                          const SliceTaskInput&    input,
+                                SliceTaskOutput&   output);
   virtual void default_policy_select_target_processors(
                                     MapperContext ctx,
                                     const Task &task,
@@ -79,9 +85,12 @@ protected:
                                    std::vector<PhysicalInstance> &instances);
 private:
   bool use_gpu;
+  bool use_omp;
   bool memoize;
   std::vector<Processor>& loc_procs_list;
   std::vector<Processor>& toc_procs_list;
+  std::vector<Processor>& omp_procs_list;
+  std::vector<Processor>& io_procs_list;
   std::vector<Memory>& sysmems_list;
   std::vector<Memory>& fbmems_list;
   std::map<Memory, std::vector<Processor> >& sysmem_local_procs;
@@ -91,6 +100,11 @@ private:
   std::map<Processor, Memory>& proc_regmems;
   std::map<Processor, Memory>& proc_fbmems;
   std::map<Processor, Memory>& proc_zcmems;
+  std::vector<TaskSlice> loc_slice_cache;
+  std::vector<TaskSlice> toc_slice_cache;
+  std::vector<TaskSlice> omp_slice_cache;
+  std::vector<Processor::Kind> ranking;
+  std::vector<Processor> initial_procs;
 };
 
 //--------------------------------------------------------------------------
@@ -98,6 +112,8 @@ SoleilMapper::SoleilMapper(MapperRuntime *rt, Machine machine, Processor local,
                              const char *mapper_name,
                              std::vector<Processor>* _loc_procs_list,
                              std::vector<Processor>* _toc_procs_list,
+                             std::vector<Processor>* _omp_procs_list,
+                             std::vector<Processor>* _io_procs_list,
                              std::vector<Memory>* _sysmems_list,
                              std::vector<Memory>* _fbmems_list,
                              std::map<Memory, std::vector<Processor> >* _sysmem_local_procs,
@@ -110,9 +126,12 @@ SoleilMapper::SoleilMapper(MapperRuntime *rt, Machine machine, Processor local,
 //--------------------------------------------------------------------------
   : DefaultMapper(rt, machine, local, mapper_name),
     use_gpu(false),
+    use_omp(false),
     memoize(false),
     loc_procs_list(*_loc_procs_list),
     toc_procs_list(*_toc_procs_list),
+    omp_procs_list(*_omp_procs_list),
+    io_procs_list(*_io_procs_list),
     sysmems_list(*_sysmems_list),
     fbmems_list(*_fbmems_list),
     sysmem_local_procs(*_sysmem_local_procs),
@@ -124,6 +143,7 @@ SoleilMapper::SoleilMapper(MapperRuntime *rt, Machine machine, Processor local,
     proc_zcmems(*_proc_zcmems)
 {
   use_gpu = toc_procs_list.size() > 0;
+  use_omp = omp_procs_list.size() > 0;
   const InputArgs &command_args = Runtime::get_input_args();
   char **argv = command_args.argv;
   unsigned argc = command_args.argc;
@@ -136,6 +156,18 @@ SoleilMapper::SoleilMapper(MapperRuntime *rt, Machine machine, Processor local,
       break;
     }
   }
+  if (use_gpu)
+  {
+    ranking.push_back(Processor::TOC_PROC);
+    initial_procs.push_back(*toc_procs_list.begin());
+  }
+  else if (use_omp)
+  {
+    ranking.push_back(Processor::OMP_PROC);
+    initial_procs.push_back(*omp_procs_list.begin());
+  }
+  ranking.push_back(Processor::LOC_PROC);
+  initial_procs.push_back(*loc_procs_list.begin());
 }
 
 //--------------------------------------------------------------------------
@@ -165,6 +197,19 @@ Processor SoleilMapper::default_policy_select_initial_processor(
     }
   }
 
+  if (task.parent_task == NULL)
+    return io_procs_list.size() > 0 ? *io_procs_list.begin()
+                                    : *loc_procs_list.begin();
+  else
+  {
+    std::vector<VariantID> variants;
+    for (unsigned idx = 0; idx < ranking.size(); idx++)
+    {
+      runtime->find_valid_variants(ctx, task.task_id,
+                                   variants, ranking[idx]);
+      if (variants.size() > 0) return initial_procs[idx];
+    }
+  }
   return DefaultMapper::default_policy_select_initial_processor(ctx, task);
 }
 
@@ -179,6 +224,62 @@ void SoleilMapper::select_task_options(const MapperContext    ctx,
   output.stealable = stealing_enabled;
   output.map_locally = true;
   output.memoize = memoize && task.has_trace();
+}
+
+//--------------------------------------------------------------------------
+void SoleilMapper::slice_task(const MapperContext      ctx,
+                              const Task&              task,
+                              const SliceTaskInput&    input,
+                                    SliceTaskOutput&   output)
+//--------------------------------------------------------------------------
+{
+  const std::vector<Processor> &procs =
+    task.target_proc.kind() == Processor::TOC_PROC ? toc_procs_list :
+    task.target_proc.kind() == Processor::OMP_PROC ? omp_procs_list
+                                                   : loc_procs_list;
+  std::vector<TaskSlice> &slice_cache =
+    task.target_proc.kind() == Processor::TOC_PROC ? toc_slice_cache :
+    task.target_proc.kind() == Processor::OMP_PROC ? omp_slice_cache
+                                                   : loc_slice_cache;
+  if (slice_cache.size() == 0)
+  {
+    switch (input.domain.get_dim())
+    {
+      case 1:
+        {
+          Rect<1> point_rect = input.domain.get_rect<1>();
+          Point<1> num_blocks(procs.size());
+          default_decompose_points<1>(point_rect, procs,
+                num_blocks, false/*recurse*/,
+                stealing_enabled, slice_cache);
+          break;
+        }
+      case 2:
+        {
+          Rect<2> point_rect = input.domain.get_rect<2>();
+          Point<2> num_blocks =
+            default_select_num_blocks<2>(procs.size(), point_rect);
+          default_decompose_points<2>(point_rect, procs,
+              num_blocks, false/*recurse*/,
+              stealing_enabled, slice_cache);
+          break;
+        }
+      case 3:
+        {
+          Rect<3> point_rect = input.domain.get_rect<3>();
+          Point<3> num_blocks =
+            default_select_num_blocks<3>(procs.size(), point_rect);
+          default_decompose_points<3>(point_rect, procs,
+              num_blocks, false/*recurse*/,
+              stealing_enabled, slice_cache);
+          break;
+        }
+      default: // don't support other dimensions right now
+        assert(false);
+    }
+  }
+  output.slices = slice_cache;
+  output.verify_correctness = false;
 }
 
 //--------------------------------------------------------------------------
@@ -343,7 +444,9 @@ void SoleilMapper::map_task(const MapperContext      ctx,
     }
     else
     {
-      if (task.target_proc.kind() == Processor::IO_PROC || task.target_proc.kind() == Processor::LOC_PROC)
+      if (task.target_proc.kind() == Processor::IO_PROC ||
+          task.target_proc.kind() == Processor::OMP_PROC || 
+          task.target_proc.kind() == Processor::LOC_PROC)
       {
         target_memory = proc_sysmems[task.target_proc];
         if (task.regions.size() > 3 && idx >= 3)
@@ -629,6 +732,8 @@ static void create_mappers(Machine machine,
 {
   std::vector<Processor>* loc_procs_list = new std::vector<Processor>();
   std::vector<Processor>* toc_procs_list = new std::vector<Processor>();
+  std::vector<Processor>* omp_procs_list = new std::vector<Processor>();
+  std::vector<Processor>* io_procs_list = new std::vector<Processor>();
   std::vector<Memory>* sysmems_list = new std::vector<Memory>();
   std::vector<Memory>* fbmems_list = new std::vector<Memory>();
   std::map<Memory, std::vector<Processor> >* sysmem_local_procs =
@@ -640,6 +745,7 @@ static void create_mappers(Machine machine,
   std::map<Processor, Memory>* proc_sysmems = new std::map<Processor, Memory>();
   std::map<Processor, Memory>* proc_regmems = new std::map<Processor, Memory>();
   std::map<Processor, Memory>* proc_fbmems = new std::map<Processor, Memory>();
+  std::map<Processor, unsigned> proc_fbmems_affinity;
   std::map<Processor, Memory>* proc_zcmems = new std::map<Processor, Memory>();
 
   std::vector<Machine::ProcessorMemoryAffinity> proc_mem_affinities;
@@ -648,7 +754,8 @@ static void create_mappers(Machine machine,
   for (unsigned idx = 0; idx < proc_mem_affinities.size(); ++idx) {
     Machine::ProcessorMemoryAffinity& affinity = proc_mem_affinities[idx];
     if (affinity.p.kind() == Processor::LOC_PROC ||
-       affinity.p.kind() == Processor::IO_PROC) {
+        affinity.p.kind() == Processor::IO_PROC ||
+        affinity.p.kind() == Processor::OMP_PROC) {
       if (affinity.m.kind() == Memory::SYSTEM_MEM) {
         (*proc_sysmems)[affinity.p] = affinity.m;
       }
@@ -658,7 +765,14 @@ static void create_mappers(Machine machine,
     }
     else if (affinity.p.kind() == Processor::TOC_PROC) {
       if (affinity.m.kind() == Memory::GPU_FB_MEM) {
-        (*proc_fbmems)[affinity.p] = affinity.m;
+        std::map<Processor, unsigned>::iterator finder =
+          proc_fbmems_affinity.find(affinity.p);
+        if (finder == proc_fbmems_affinity.end() ||
+            finder->second > affinity.latency)
+        {
+          (*proc_fbmems)[affinity.p] = affinity.m;
+          proc_fbmems_affinity[affinity.p] = affinity.latency;
+        }
       }
       else if (affinity.m.kind() == Memory::Z_COPY_MEM) {
         (*proc_zcmems)[affinity.p] = affinity.m;
@@ -674,6 +788,10 @@ static void create_mappers(Machine machine,
     }
     else if (it->first.kind() == Processor::IO_PROC) {
       (*sysmem_local_io_procs)[it->second].push_back(it->first);
+      io_procs_list->push_back(it->first);
+    }
+    else if (it->first.kind() == Processor::OMP_PROC) {
+      omp_procs_list->push_back(it->first);
     }
   }
 
@@ -700,6 +818,8 @@ static void create_mappers(Machine machine,
                                             machine, *it, "soleil_mapper",
                                             loc_procs_list,
                                             toc_procs_list,
+                                            omp_procs_list,
+                                            io_procs_list,
                                             sysmems_list,
                                             fbmems_list,
                                             sysmem_local_procs,
