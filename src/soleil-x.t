@@ -152,6 +152,7 @@ local function printUsageAndExit()
 end
 
 local configFileName = nil
+local insertTrace = false
 
 do
   local i = 1
@@ -160,6 +161,9 @@ do
       if i == #arg then printUsageAndExit() end
       configFileName = arg[i+1]
       i = i + 2
+    elseif arg[i] == '-trace' then
+      insertTrace = true
+      i = i + 1
     else
       i = i + 1
     end
@@ -3151,7 +3155,7 @@ function TimeIntegrator.AdvanceTimeStep()
 
   TimeIntegrator.stage:set(1)
   M.WHILE(M.LT(TimeIntegrator.stage:get(), 5))
-    M.TRACE()
+    if insertTrace then M.TRACE() end
       TimeIntegrator.InitializeTimeDerivatives()
       TimeIntegrator.ComputeDFunctionDt()
       TimeIntegrator.UpdateSolution()
@@ -3161,7 +3165,7 @@ function TimeIntegrator.AdvanceTimeStep()
       -- HACK: Move escaping particle deletion here, to appease the SPMD
       -- transformation. It should be fine to do this multiple times.
       TimeIntegrator.ConcludeTimeStep()
-    M.END()
+    if insertTrace then M.END() end
   M.END()
 
   TimeIntegrator.timeStep:set(TimeIntegrator.timeStep:get() + 1)
