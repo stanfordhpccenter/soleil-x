@@ -467,7 +467,6 @@ local time_options = {
   max_iter              = config.max_iter,
   cfl                   = config.cfl,
   delta_time            = config.delta_time,
-  outputEveryTimeSteps  = config.outputEveryTimeSteps,
   restartEveryTimeSteps = config.restartEveryTimeSteps,
   headerFrequency       = config.headerFrequency,
   consoleFrequency      = config.consoleFrequency,
@@ -2604,7 +2603,7 @@ function Flow.InitializePrimitives()
     fluidGrid:foreach(Flow.InitializePerturbed)
   elseif flow_options.initCase == InitCase.Restart then
     fluidGrid:Load({'rho','pressure','velocity'},
-                    io_options.outputFileNamePrefix .. 'restart_' ..
+                    io_options.outputFileNamePrefix .. 'restart_fluid_' ..
                       time_options.restartIter .. '.hdf')
   else assert(false) end
 end
@@ -3009,8 +3008,8 @@ if particles_options.modeParticles then
       error("Random particle initialization is disabled")
     elseif particles_options.initParticles == InitParticles.Restart then
       particles:Load(
-        {'cell','position','velocity','temperature','diameter'},
-        io_options.outputFileNamePrefix .. 'restart_particle_' ..
+        {'cell','position','particle_velocity','particle_temperature','diameter'},
+        io_options.outputFileNamePrefix .. 'restart_particles_' ..
           tostring(particles_options.restartParticleIter) .. '.hdf')
       particles.density:Fill(particles_options.density)
     elseif particles_options.initParticles == InitParticles.Uniform then
@@ -3275,7 +3274,7 @@ function IO.WriteFlowRestart()
   M.IF(M.EQ(TimeIntegrator.timeStep:get() % time_options.restartEveryTimeSteps, 0))
     -- Write the restart files for density, pressure, and velocity
     fluidGrid:Dump({'rho','pressure','velocity'},
-                   io_options.outputFileNamePrefix .. "restart_%d.hdf",
+                   io_options.outputFileNamePrefix .. "restart_fluid_%d.hdf",
                    TimeIntegrator.timeStep:get())
   M.END()
 end
@@ -3288,7 +3287,7 @@ if particles_options.modeParticles then
     M.IF(M.EQ(TimeIntegrator.timeStep:get() % time_options.restartEveryTimeSteps, 0))
       -- Write the restart files for position, velocity, temperature and diameter
       particles:Dump({'cell','position','particle_velocity','particle_temperature','diameter'},
-                     io_options.outputFileNamePrefix .. "restart_particle_%d.hdf",
+                     io_options.outputFileNamePrefix .. "restart_particles_%d.hdf",
                      TimeIntegrator.timeStep:get())
     M.END()
   end
