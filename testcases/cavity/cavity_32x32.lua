@@ -42,18 +42,17 @@ return {
 
   --Time Integration Options --
   final_time            = 20.00001,
-  max_iter              = 50000,
+  max_iter              = 100,
   cfl                   = 2.0,
 
   --- File Output Options --
-  wrtRestart = 'OFF',
+  wrtRestart = 'ON',
   wrtVolumeSolution = 'ON',
   wrt1DSlice = 'ON',
   wrtParticleEvolution = 'OFF',
   particleEvolutionIndex = 0,
-  outputEveryTimeSteps  = 100,
-  restartEveryTimeSteps = 100,
-  consoleFrequency = 10,  -- Iterations between console output of statistics
+  restartEveryTimeSteps = 1,
+  consoleFrequency = 1,  -- Iterations between console output of statistics
   headerFrequency       = 100,
   outputFormat = 'Tecplot', -- Only 'Tecplot' is currently available
 
