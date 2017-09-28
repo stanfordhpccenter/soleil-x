@@ -1,5 +1,7 @@
 import 'regent'
 
+local A = require 'admiral'
+
 -------------------------------------------------------------------------------
 -- Module parameters
 -------------------------------------------------------------------------------
@@ -90,6 +92,7 @@ do
     end
   end
 end
+A.registerTask(InitParticlesUniform, 'InitParticlesUniform')
 
 -------------------------------------------------------------------------------
 -- Exported quotes

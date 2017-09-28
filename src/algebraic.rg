@@ -1,5 +1,7 @@
 import 'regent'
 
+local A = require 'admiral'
+
 -------------------------------------------------------------------------------
 -- Module parameters
 -------------------------------------------------------------------------------
@@ -51,6 +53,7 @@ do
     p.temperature_t += absorbedRadiationIntensity / (mass * heatCapacity)
   end
 end
+A.registerTask(AddRadiation, 'AddRadiation')
 
 -------------------------------------------------------------------------------
 -- Exported quotes
