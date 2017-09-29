@@ -1,5 +1,7 @@
 import 'regent'
 
+local A = require 'admiral'
+
 -------------------------------------------------------------------------------
 -- Module parameters
 -------------------------------------------------------------------------------
@@ -60,7 +62,7 @@ where
 do
   var pBase = 0
   for p in particles do
-    pBase = __raw(p).value
+    pBase = [int32](p)
     break
   end
   var lo : int3d = cells.bounds.lo
@@ -75,9 +77,9 @@ do
   var ySize = hi.y - lo.y + 1
   --__demand(__openmp)
   for p in particles do
-    if __raw(p).value - pBase < particlesPerTask then
+    if [int32](p) - pBase < particlesPerTask then
       p.__valid = true
-      var relIdx = __raw(p).value - pBase
+      var relIdx = [int32](p) - pBase
       var c : int3d = { lo.x + relIdx % xSize,
                         lo.y + relIdx / xSize % ySize,
                         lo.z + relIdx / xSize / ySize }
@@ -90,6 +92,7 @@ do
     end
   end
 end
+A.registerTask(InitParticlesUniform, 'InitParticlesUniform')
 
 -------------------------------------------------------------------------------
 -- Exported quotes
