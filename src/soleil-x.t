@@ -854,7 +854,7 @@ local radiation
 if radiation_options.radiationType == RadiationType.Algebraic then
   radiation = (require 'algebraic')(particles)
 elseif radiation_options.radiationType == RadiationType.DOM then
-  radiation = (require 'dom')(radiationGrid)
+  radiation = (require 'dom/dom')(radiationGrid)
 elseif radiation_options.radiationType == RadiationType.MCRT then
   error('MCRT not supported yet')
 elseif radiation_options.radiationType == RadiationType.OFF then
