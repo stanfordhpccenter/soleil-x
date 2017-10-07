@@ -96,12 +96,8 @@ do
   local mapper_dir = runtime_dir .. "mappers/"
   local realm_dir = runtime_dir .. "realm/"
   local mapper_cc = root_dir .. "soleil_mapper.cc"
-  if os.getenv('SAVEOBJ') == '1' then
-    mapper_so = root_dir .. "libsoleil_mapper.so"
-    link_flags = terralib.newlist({"-L" .. root_dir, "-lsoleil_mapper"})
-  else
-    mapper_so = os.tmpname() .. ".so"
-  end
+  local mapper_so = root_dir .. "libsoleil_mapper.so"
+  local link_flags = terralib.newlist({"-L" .. root_dir, "-lsoleil_mapper"})
   local cxx = os.getenv('CXX') or 'c++'
 
   local cxx_flags = "-O2 -Wall -Werror"
@@ -127,7 +123,7 @@ do
                                                   "-I", realm_dir})
 end
 
-if os.getenv('SAVEOBJ') == '1' and os.getenv('CRAYPE_VERSION') then
+if os.getenv('CRAYPE_VERSION') then
   local new_flags = terralib.newlist({"-Wl,-Bdynamic"})
   new_flags:insertall(link_flags)
   for flag in os.getenv('CRAY_UGNI_POST_LINK_OPTS'):gmatch("%S+") do
