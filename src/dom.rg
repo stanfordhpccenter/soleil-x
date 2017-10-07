@@ -83,8 +83,6 @@ local qa = config.qa
 local qs = config.qs
 local omega = qs/(qa+qs)
 
-local heatCapacity = config.heatCapacity
-
 -- Wall emissivity
 
 local emiss_east  = config.emiss_east  or 1.0
@@ -208,14 +206,14 @@ do
 end
 
 local task make_interior_partition_x_hi(faces : region(ispace(int3d), x_face),
-                                        tiles : ispace(int3d))
+                                        x_tiles : ispace(int3d))
 
   var coloring = c.legion_domain_point_coloring_create()
-  for tile in tiles do
+  for tile in x_tiles do
 
     -- include extra face in last partition
     var val : int = -1
-    if tile.x == tiles.bounds.hi.x-1 then val = 0 end
+    if tile.x == x_tiles.bounds.hi.x-1 then val = 0 end
 
     var lo = int3d { x = tile.x     * Nx / ntx,
                      y = tile.y     * Ny / nty,
@@ -233,16 +231,16 @@ local task make_interior_partition_x_hi(faces : region(ispace(int3d), x_face),
     var rect = rect3d {lo = lo, hi = hi}
     c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
   end
-  var p = partition(disjoint, faces, coloring, tiles)
+  var p = partition(disjoint, faces, coloring, x_tiles)
   c.legion_domain_point_coloring_destroy(coloring)
   return p
 end
 
 local task make_interior_partition_x_lo(faces : region(ispace(int3d), x_face),
-                                        tiles : ispace(int3d))
+                                        x_tiles : ispace(int3d))
 
   var coloring = c.legion_domain_point_coloring_create()
-  for tile in tiles do
+  for tile in x_tiles do
 
     -- include extra face in first partition
     var val : int = 1
@@ -264,20 +262,20 @@ local task make_interior_partition_x_lo(faces : region(ispace(int3d), x_face),
     var rect = rect3d {lo = lo, hi = hi}
     c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
   end
-  var p = partition(disjoint, faces, coloring, tiles)
+  var p = partition(disjoint, faces, coloring, x_tiles)
   c.legion_domain_point_coloring_destroy(coloring)
   return p
 end
 
 local task make_interior_partition_y_hi(faces : region(ispace(int3d), y_face),
-                                        tiles : ispace(int3d))
+                                        y_tiles : ispace(int3d))
 
   var coloring = c.legion_domain_point_coloring_create()
-  for tile in tiles do
+  for tile in y_tiles do
 
     -- include extra face in last partition
     var val : int = -1
-    if tile.y == tiles.bounds.hi.y-1 then val = 0 end
+    if tile.y == y_tiles.bounds.hi.y-1 then val = 0 end
 
     var lo = int3d { x = tile.x     * Nx / ntx,
                      y = tile.y     * Ny / nty,
@@ -295,16 +293,16 @@ local task make_interior_partition_y_hi(faces : region(ispace(int3d), y_face),
     var rect = rect3d {lo = lo, hi = hi}
     c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
   end
-  var p = partition(disjoint, faces, coloring, tiles)
+  var p = partition(disjoint, faces, coloring, y_tiles)
   c.legion_domain_point_coloring_destroy(coloring)
   return p
 end
 
 local task make_interior_partition_y_lo(faces : region(ispace(int3d), y_face),
-                                        tiles : ispace(int3d))
+                                        y_tiles : ispace(int3d))
 
   var coloring = c.legion_domain_point_coloring_create()
-  for tile in tiles do
+  for tile in y_tiles do
 
     -- include extra face in first partition
     var val : int = 1
@@ -326,20 +324,20 @@ local task make_interior_partition_y_lo(faces : region(ispace(int3d), y_face),
     var rect = rect3d {lo = lo, hi = hi}
     c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
   end
-  var p = partition(disjoint, faces, coloring, tiles)
+  var p = partition(disjoint, faces, coloring, y_tiles)
   c.legion_domain_point_coloring_destroy(coloring)
   return p
 end
 
 local task make_interior_partition_z_hi(faces : region(ispace(int3d), z_face),
-                                        tiles : ispace(int3d))
+                                        z_tiles : ispace(int3d))
 
   var coloring = c.legion_domain_point_coloring_create()
-  for tile in tiles do
+  for tile in z_tiles do
 
     -- include extra face in last partition
     var val : int = -1
-    if tile.z == tiles.bounds.hi.z-1 then val = 0 end
+    if tile.z == z_tiles.bounds.hi.z-1 then val = 0 end
 
     var lo = int3d { x = tile.x     * Nx / ntx,
                      y = tile.y     * Ny / nty,
@@ -357,16 +355,16 @@ local task make_interior_partition_z_hi(faces : region(ispace(int3d), z_face),
     var rect = rect3d {lo = lo, hi = hi}
     c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
   end
-  var p = partition(disjoint, faces, coloring, tiles)
+  var p = partition(disjoint, faces, coloring, z_tiles)
   c.legion_domain_point_coloring_destroy(coloring)
   return p
 end
 
 local task make_interior_partition_z_lo(faces : region(ispace(int3d), z_face),
-                                        tiles : ispace(int3d))
+                                        z_tiles : ispace(int3d))
 
   var coloring = c.legion_domain_point_coloring_create()
-  for tile in tiles do
+  for tile in z_tiles do
 
     -- include extra face in first partition
     var val : int = 1
@@ -388,7 +386,7 @@ local task make_interior_partition_z_lo(faces : region(ispace(int3d), z_face),
     var rect = rect3d {lo = lo, hi = hi}
     c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
   end
-  var p = partition(disjoint, faces, coloring, tiles)
+  var p = partition(disjoint, faces, coloring, z_tiles)
   c.legion_domain_point_coloring_destroy(coloring)
   return p
 end
