@@ -97,7 +97,7 @@ do
   local realm_dir = runtime_dir .. "realm/"
   local mapper_cc = root_dir .. "soleil_mapper.cc"
   local mapper_so = root_dir .. "libsoleil_mapper.so"
-  local link_flags = terralib.newlist({"-L" .. root_dir, "-lsoleil_mapper"})
+  link_flags = terralib.newlist({"-L" .. root_dir, "-lsoleil_mapper"})
   local cxx = os.getenv('CXX') or 'c++'
 
   local cxx_flags = "-O2 -Wall -Werror"
