@@ -1462,11 +1462,11 @@ end
 
 if radiation_options.zeroAvgHeatSource then
   ebb Flow.AdjustHeatSource (c : fluidGrid)
-
+    if c.in_interior then
     -- Remove a constant heat flux in all cells to balance with radiation.
     -- Note that this has been pre-computed before reaching this kernel (above).
     c.rhoEnergy_t += Flow.averageHeatSource
-
+    end
   end
 end
 
@@ -1490,16 +1490,17 @@ end
 
 
 ebb Flow.UpdatePD (c : fluidGrid)
-  var divU = L.double(0.0)
+  if c.in_interior then
+    var divU = L.double(0.0)
 
-  -- compute the divergence of the velocity (trace of the velocity gradient)
-  divU = c.velocityGradientX[0] + c.velocityGradientY[1] + c.velocityGradientZ[2]
+    -- compute the divergence of the velocity (trace of the velocity gradient)
+    divU = c.velocityGradientX[0] + c.velocityGradientY[1] + c.velocityGradientZ[2]
 
-  -- Compute pressure dilation by multiplying by pressure (assumes homogeneity)
-  -- PD = - <u_i P,j> = <Ui,i P >
-  c.PD = divU * c.pressure
+    -- Compute pressure dilation by multiplying by pressure (assumes homogeneity)
+    -- PD = - <u_i P,j> = <Ui,i P >
+    c.PD = divU * c.pressure
+  end
 end
-
 
 -- Compute viscous fluxes in X direction
 ebb Flow.ComputeDissipationX (c : fluidGrid)
@@ -1670,18 +1671,24 @@ ebb Flow.ComputeDissipationZ (c : fluidGrid)
 end
 
 ebb Flow.UpdateDissipationX (c : fluidGrid)
-  c.dissipation += (c( 0,0,0).dissipationFlux -
-                    c(-1,0,0).dissipationFlux)/grid_dx
+  if c.in_interior then
+    c.dissipation += (c( 0,0,0).dissipationFlux -
+                      c(-1,0,0).dissipationFlux)/grid_dx
+  end
 end
 
 ebb Flow.UpdateDissipationY (c : fluidGrid)
-  c.dissipation += (c(0, 0,0).dissipationFlux -
-                    c(0,-1,0).dissipationFlux)/grid_dy
+  if c.in_interior then
+    c.dissipation += (c(0, 0,0).dissipationFlux -
+                      c(0,-1,0).dissipationFlux)/grid_dy
+  end
 end
 
 ebb Flow.UpdateDissipationZ (c : fluidGrid)
+  if c.in_interior then
     c.dissipation += (c(0,0, 0).dissipationFlux -
                       c(0,0,-1).dissipationFlux)/grid_dz
+  end
 end
 
 ebb Flow.ResetDissipation (c : fluidGrid)
@@ -1691,11 +1698,11 @@ end
 function Flow.UpdateDissipation (cells)
   fluidGrid:foreach(Flow.ResetDissipation)
   fluidGrid:foreach(Flow.ComputeDissipationX)
-  fluidGrid.interior:foreach(Flow.UpdateDissipationX)
+  fluidGrid:foreach(Flow.UpdateDissipationX)
   fluidGrid:foreach(Flow.ComputeDissipationY)
-  fluidGrid.interior:foreach(Flow.UpdateDissipationY)
+  fluidGrid:foreach(Flow.UpdateDissipationY)
   fluidGrid:foreach(Flow.ComputeDissipationZ)
-  fluidGrid.interior:foreach(Flow.UpdateDissipationZ)
+  fluidGrid:foreach(Flow.UpdateDissipationZ)
 end
 
 
@@ -1728,6 +1735,7 @@ function Flow.UpdateTurbulentAverages(cells)
 end
 
 ebb Flow.AddTurbulentSource (c : fluidGrid)
+  if c.in_interior then
 
   var W   = L.double(0.0)
   var A   = L.double(0.0)
@@ -1761,17 +1769,18 @@ ebb Flow.AddTurbulentSource (c : fluidGrid)
   -- WARNING: Uniform grid assumption
   var cellVolume = grid_dx * grid_dy * grid_dz
   Flow.averageFe += L.dot(force,c.velocity) * cellVolume
-
+  end
 end
 
 ebb Flow.AdjustTurbulentSource (c : fluidGrid)
+  if c.in_interior then
 
   -- Remove the average of the forcing term that has been added to the energy
   -- equation so that the flow can reach a statistical steady state.
   -- Note that this has been pre-computed before reaching this kernel (above).
 
   c.rhoEnergy_t -= Flow.averageFe
-
+  end
 end
 
 -- One high level routine that runs all steps
@@ -1784,7 +1793,7 @@ function Flow.AddTurbulentForcing (cells)
   Flow.averageFe:set(0.0)
   Flow.averageK:set(0.0)
 
-  fluidGrid.interior:foreach(Flow.UpdatePD)
+  fluidGrid:foreach(Flow.UpdatePD)
   Flow.UpdateDissipation(cells)
 
   -- average PD and EPS
@@ -1792,13 +1801,13 @@ function Flow.AddTurbulentForcing (cells)
 
   -- Compute A & force, f_i
   -- Add rho * A * u_i to momentum, f_i*u_i to energy, accumulate f_i*u_i for average
-  fluidGrid.interior:foreach(Flow.AddTurbulentSource)
+  fluidGrid:foreach(Flow.AddTurbulentSource)
 
   -- Update average of the energy source
   Flow.averageFe:set(Flow.averageFe:get()/Flow.areaInterior:get())
 
   -- Subtract <f_e> from energy
-  fluidGrid.interior:foreach(Flow.AdjustTurbulentSource)
+  fluidGrid:foreach(Flow.AdjustTurbulentSource)
 
 end
 
@@ -3253,7 +3262,7 @@ function TimeIntegrator.ComputeDFunctionDt()
   if radiation_options.zeroAvgHeatSource then
     Flow.averageHeatSource:set(Flow.averageHeatSource:get()/
                                  Flow.numberOfInteriorCells:get())
-    fluidGrid.interior:foreach(Flow.AdjustHeatSource)
+    fluidGrid:foreach(Flow.AdjustHeatSource)
   end
 
 end
