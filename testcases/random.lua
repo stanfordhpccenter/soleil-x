@@ -10,9 +10,10 @@ return {
   restartIter = 111,
 
   -- Grid Options
-  xnum = 378,
-  ynum = 831,
-  znum = 732,
+  xnum = 124320, -- 148 * 840
+  ynum = 320364, -- 396 * 809
+  znum = 201584, -- 344 * 586
+  -- dop = 148 * 396 * 344
   origin = {0.6987052, 0.9980223, 0.7057003},
   xWidth = 0.5988125,
   yWidth = 0.8466831,
