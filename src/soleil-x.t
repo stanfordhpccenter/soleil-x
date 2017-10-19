@@ -82,62 +82,6 @@ double rand_gauss() {
 local rand_float = L.rand
 
 -----------------------------------------------------------------------------
---[[                       MAPPER CONFIGURATION                          ]]--
------------------------------------------------------------------------------
-
-local SAVE_MAPPER_ONLY = os.getenv('SAVE_MAPPER_ONLY') == '1'
-local cmapper
-local link_flags
-do
-  local root_dir = arg[0]:match(".*/") or "./"
-  assert(os.getenv('LG_RT_DIR'), "LG_RT_DIR should be set!")
-  local runtime_dir = os.getenv('LG_RT_DIR') .. "/"
-  local legion_dir = runtime_dir .. "legion/"
-  local mapper_dir = runtime_dir .. "mappers/"
-  local realm_dir = runtime_dir .. "realm/"
-  local mapper_cc = root_dir .. "soleil_mapper.cc"
-  local mapper_so = root_dir .. "libsoleil_mapper.so"
-  link_flags = terralib.newlist({"-L" .. root_dir, "-lsoleil_mapper"})
-  local cxx = os.getenv('CXX') or 'c++'
-
-  local cxx_flags = "-O2 -Wall -Werror"
-  if os.execute('test "$(uname)" = Darwin') == 0 then
-    cxx_flags =
-      (cxx_flags ..
-         " -dynamiclib -single_module -undefined dynamic_lookup -fPIC")
-  else
-    cxx_flags = cxx_flags .. " -shared -fPIC"
-  end
-
-  local cmd = (cxx .. " " .. cxx_flags .. " -I " .. runtime_dir .. " " ..
-                 " -I " .. mapper_dir .. " " .. " -I " .. legion_dir .. " " ..
-                 " -I " .. realm_dir .. " " .. mapper_cc .. " -o " .. mapper_so)
-  if os.execute(cmd) ~= 0 then
-    print("Error: failed to compile " .. mapper_cc)
-    assert(false)
-  end
-  if SAVE_MAPPER_ONLY then os.exit(0) end
-  terralib.linklibrary(mapper_so)
-  cmapper = terralib.includec("soleil_mapper.h", {"-I", root_dir, "-I", runtime_dir,
-                                                  "-I", mapper_dir, "-I", legion_dir,
-                                                  "-I", realm_dir})
-end
-
-if os.getenv('CRAYPE_VERSION') then
-  local new_flags = terralib.newlist({"-Wl,-Bdynamic"})
-  new_flags:insertall(link_flags)
-  for flag in os.getenv('CRAY_UGNI_POST_LINK_OPTS'):gmatch("%S+") do
-    new_flags:insert(flag)
-  end
-  new_flags:insert("-lugni")
-  for flag in os.getenv('CRAY_UDREG_POST_LINK_OPTS'):gmatch("%S+") do
-    new_flags:insert(flag)
-  end
-  new_flags:insert("-ludreg")
-  link_flags = new_flags
-end
-
------------------------------------------------------------------------------
 --[[                       COMMAND LINE OPTIONS                          ]]--
 -----------------------------------------------------------------------------
 
@@ -3475,4 +3419,4 @@ if regentlib.config['flow-spmd'] then
 end
 IO.WriteConsoleOutput()
 
-A.translateAndRun(cmapper.register_mappers, link_flags)
+A.translateAndRun()
