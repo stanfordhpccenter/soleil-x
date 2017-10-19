@@ -215,23 +215,22 @@ local function joinList(list, sep)
   return res
 end
 
-local function Enum(...)
+local function Enum(base, ...)
   local enum = {}
   enum.__values = {...}
   for i,val in ipairs({...}) do
-    enum[val] = i
+    enum[val] = base + i
   end
   return enum
 end
 
 local function parseEnum(name, enum)
-  for i,val in ipairs(enum.__values) do
-    if config[name] == val then
-      return i
-    end
+  local val = enum[config[name]]
+  if not val then
+    valuesStr = joinList(enum.__values, ', ')
+    error('Configuration value "'..name..'" not defined ('..valuesStr..')')
   end
-  valuesStr = joinList(enum.__values, ', ')
-  error('Configuration value "'..name..'" not defined ('..valuesStr..')')
+  return val
 end
 
 local function parseBool(name)
@@ -243,8 +242,8 @@ local function parseBool(name)
   error('Configuration value "'..name..'" not defined (ON,OFF)')
 end
 
-local FlowBC = Enum('periodic','symmetry','adiabatic_wall','isothermal_wall')
-local ParticleBC = Enum('Permeable','Solid')
+local FlowBC = Enum(1000, 'periodic','symmetry','adiabatic_wall','isothermal_wall')
+local ParticleBC = Enum(2000, 'Permeable','Solid')
 
 local grid_options = {
   -- Number of cells in the x, y, & z directions
@@ -474,7 +473,7 @@ local time_options = {
   consoleFrequency      = config.consoleFrequency,
 }
 
-local ViscosityModel = Enum('Constant','PowerLaw','Sutherland')
+local ViscosityModel = Enum(3000, 'Constant','PowerLaw','Sutherland')
 local fluid_options = {
   viscosity_model    = parseEnum('viscosity_model', ViscosityModel),
   gasConstant        = config.gasConstant,
@@ -488,7 +487,7 @@ local fluid_options = {
   suth_s_ref         = config.suth_s_ref,
 }
 
-local InitCase = Enum('Uniform','Restart','Perturbed','TaylorGreen2DVortex','TaylorGreen3DVortex')
+local InitCase = Enum(4000, 'Uniform','Restart','Perturbed','TaylorGreen2DVortex','TaylorGreen3DVortex')
 local flow_options = {
   initCase       = parseEnum('initCase', InitCase),
   initParams     = L.Constant(L.vector(L.double,5), config.initParams),
@@ -497,8 +496,8 @@ local flow_options = {
   turbForcing    = parseBool('turbForcing'),
 }
 
-local InitParticles = Enum('Random','Restart','Uniform')
-local ParticleType = Enum('Fixed','Free')
+local InitParticles = Enum(5000, 'Random','Restart','Uniform')
+local ParticleType = Enum(6000, 'Fixed','Free')
 local particles_options = {
   -- Define the initial number of particles and insertion/deletion
   num            = config.num,
@@ -523,7 +522,7 @@ local particles_options = {
   twoWayCoupling = parseBool('twoWayCoupling'),
 }
 
-local RadiationType = Enum('Algebraic','DOM','MCRT','OFF')
+local RadiationType = Enum(7000, 'Algebraic','DOM','MCRT','OFF')
 local radiation_options = {
   radiationType      = parseEnum('radiationType', RadiationType),
   zeroAvgHeatSource  = parseBool('zeroAvgHeatSource'),
