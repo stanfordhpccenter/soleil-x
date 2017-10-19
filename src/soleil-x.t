@@ -503,9 +503,6 @@ local particles_options = {
   -- Define the initial number of particles and insertion/deletion
   num            = config.num,
   maximum_num    = config.maximum_num,
-  insertion_rate = config.insertion_rate,
-  insertion_mode = L.Constant(L.vector(L.int,6), config.insertion_mode),
-  deletion_mode  = L.Constant(L.vector(L.int,6), config.deletion_mode),
 
   -- Particle characteristics
   restitution_coefficient = L.Constant(L.double, config.restitutionCoefficient),
