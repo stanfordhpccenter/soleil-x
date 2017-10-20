@@ -86,7 +86,6 @@ protected:
 private:
   bool use_gpu;
   bool use_omp;
-  bool memoize;
   std::vector<Processor>& loc_procs_list;
   std::vector<Processor>& toc_procs_list;
   std::vector<Processor>& omp_procs_list;
@@ -127,7 +126,6 @@ SoleilMapper::SoleilMapper(MapperRuntime *rt, Machine machine, Processor local,
   : DefaultMapper(rt, machine, local, mapper_name),
     use_gpu(false),
     use_omp(false),
-    memoize(false),
     loc_procs_list(*_loc_procs_list),
     toc_procs_list(*_toc_procs_list),
     omp_procs_list(*_omp_procs_list),
@@ -144,18 +142,6 @@ SoleilMapper::SoleilMapper(MapperRuntime *rt, Machine machine, Processor local,
 {
   use_gpu = toc_procs_list.size() > 0;
   use_omp = omp_procs_list.size() > 0;
-  const InputArgs &command_args = Runtime::get_input_args();
-  char **argv = command_args.argv;
-  unsigned argc = command_args.argc;
-
-  for (unsigned i = 1; i < argc; ++i)
-  {
-    if (strcmp(argv[i], "-memoize") == 0)
-    {
-      memoize = true;
-      break;
-    }
-  }
   if (use_gpu)
   {
     ranking.push_back(Processor::TOC_PROC);
@@ -223,7 +209,7 @@ void SoleilMapper::select_task_options(const MapperContext    ctx,
   output.inline_task = false;
   output.stealable = stealing_enabled;
   output.map_locally = true;
-  output.memoize = memoize && task.has_trace();
+  output.memoize = task.has_trace();
 }
 
 //--------------------------------------------------------------------------
