@@ -409,7 +409,7 @@ local spatial_options = {
 local time_options = {
   final_time            = config.final_time,
   restartIter           = config.restartIter,
-  max_iter              = config.max_iter,
+  max_iter              = A.readConfig('max_iter', int),
   cfl                   = config.cfl,
   delta_time            = config.delta_time,
   restartEveryTimeSteps = config.restartEveryTimeSteps,
@@ -436,7 +436,6 @@ local flow_options = {
   initCase       = parseEnum('initCase', InitCase),
   initParams     = L.Constant(L.vector(L.double,5), config.initParams),
   bodyForce      = L.Constant(L.vec3d, config.bodyForce),
-  turbForceCoeff = L.Constant(L.double, config.turbForceCoeff),
   turbForcing    = parseBool('turbForcing'),
 }
 
@@ -793,7 +792,6 @@ if flow_options.initCase == InitCase.Restart then
   -- doesn't immediately exit.
   TimeIntegrator.timeStep:set(time_options.restartIter)
   -- TODO: No way to pass TimeIntegrator.simTime for the restart
-  time_options.max_iter = time_options.max_iter + time_options.restartIter
 end
 
 -----------------------------------------------------------------------------

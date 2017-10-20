@@ -4,7 +4,6 @@ return {
   initCase    = 'Uniform', -- Uniform, Restart, TaylorGreen2DVortex, TaylorGreen3DVortex
   initParams  = {0.4472728, 0.4001904, 0.3713178, 0.6807681, 0.4900506},
   bodyForce   = {0.7751856, 0.7816449, 0.1264908},
-  turbForceCoeff = 0.6875105,
   turbForcing = 'OFF',
 
   restartIter = 111,
@@ -40,7 +39,6 @@ return {
 
   -- Time Integration Options
   final_time            = 0.8029553,
-  max_iter              = 222,
   cfl                   = 0.4106583,
 
   -- File Output Options
