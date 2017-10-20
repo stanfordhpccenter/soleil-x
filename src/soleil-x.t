@@ -460,7 +460,6 @@ local particles_options = {
 
   -- Particles mode
   initParticles  = parseEnum('initParticles', InitParticles),
-  twoWayCoupling = parseBool('twoWayCoupling'),
 }
 
 local RadiationType = Enum(7000, 'Algebraic','DOM','MCRT','OFF')
@@ -3101,9 +3100,7 @@ function TimeIntegrator.ComputeDFunctionDt()
   end
 
   -- Compute two-way coupling in momentum and energy
-  if particles_options.twoWayCoupling then
-    particles:foreach(Flow.AddParticlesCoupling)
-  end
+  particles:foreach(Flow.AddParticlesCoupling)
 
 end
 

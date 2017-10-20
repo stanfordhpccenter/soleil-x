@@ -63,7 +63,6 @@ return {
 
   -- Particle Options
   initParticles = 'Uniform', -- 'Random' or 'Restart'
-  twoWayCoupling = 'ON',
   num = 120,
   maximum_num = 240,
   restitutionCoefficient = 0.1487899,
