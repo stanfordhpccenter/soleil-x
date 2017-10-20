@@ -62,7 +62,6 @@ return {
   suth_s_ref = 0.2772065,
 
   -- Particle Options
-  modeParticles = 'ON',
   initParticles = 'Uniform', -- 'Random' or 'Restart'
   particleType = 'Free', -- Fixed or Free
   twoWayCoupling = 'ON',
