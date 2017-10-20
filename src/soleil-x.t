@@ -466,7 +466,6 @@ local particles_options = {
 local RadiationType = Enum(7000, 'Algebraic','DOM','MCRT','OFF')
 local radiation_options = {
   radiationType      = parseEnum('radiationType', RadiationType),
-  zeroAvgHeatSource  = parseBool('zeroAvgHeatSource'),
 }
 if radiation_options.radiationType == RadiationType.DOM then
   radiation_options.qa = config.qa
@@ -755,7 +754,6 @@ Flow.numberOfInteriorCells   = L.Global('Flow.numberOfInteriorCells', L.int64, 0
 Flow.areaInterior            = L.Global('Flow.areaInterior', L.double, 0.0)
 Flow.averagePressure         = L.Global('Flow.averagePressure', L.double, 0.0)
 Flow.averageTemperature      = L.Global('Flow.averageTemperature', L.double, 0.0)
-Flow.averageHeatSource       = L.Global('Flow.averageHeatSource', L.double, 0.0)
 Flow.averageKineticEnergy    = L.Global('Flow.averageKineticEnergy', L.double, 0.0)
 Flow.minTemperature          = L.Global('Flow.minTemperature', L.double, 0.0)
 Flow.maxTemperature          = L.Global('Flow.maxTemperature', L.double, 0.0)
@@ -1370,27 +1368,6 @@ ebb Flow.AddParticlesCoupling (p : particles)
   -- computed deltaVelocityOverRelaxationTime and deltaTemperatureTerm
   p.cell.rhoVelocity_t += -p.mass * p.deltaVelocityOverRelaxationTime / cellVolume
   p.cell.rhoEnergy_t   += -p.deltaTemperatureTerm / cellVolume
-
-  -- In case we want to hold a fixed temperature by subtracting
-  -- a constant heat flux from the fluid, compute the avg.
-  -- deltaTemperatureTerm to be adjusted later (note change in sign)
-  if radiation_options.zeroAvgHeatSource then
-    Flow.averageHeatSource += p.deltaTemperatureTerm / cellVolume
-  end
-end
-
---------------------------------------------------------------
--- Holding avg. temperature fixed in the presence of radiation
---------------------------------------------------------------
-
-if radiation_options.zeroAvgHeatSource then
-  ebb Flow.AdjustHeatSource (c : fluidGrid)
-    if c.in_interior then
-    -- Remove a constant heat flux in all cells to balance with radiation.
-    -- Note that this has been pre-computed before reaching this kernel (above).
-    c.rhoEnergy_t += Flow.averageHeatSource
-    end
-  end
 end
 
 --------------
@@ -1404,10 +1381,6 @@ ebb Flow.AddBodyForces (c : fluidGrid)
 
     -- Body force contribution to energy equation
     c.rhoEnergy_t += c.rho * L.dot(flow_options.bodyForce,c.velocity)
-
-    -- Compute average heat source contribution in case we would
-    -- like to subtract this later to recover a steady solution with radiation.
-    --Flow.averageHeatSource += -c.rho * L.dot(flow_options.bodyForce,c.velocity)
   end
 end
 
@@ -3103,9 +3076,6 @@ function TimeIntegrator.ComputeDFunctionDt()
   -- Compute flow convective, viscous, and body force residuals
   Flow.UpdateGhostVelocityGradient()
   Flow.AddFluxes()
-  if radiation_options.zeroAvgHeatSource then
-    Flow.averageHeatSource:set(0.0)
-  end
   fluidGrid:foreach(Flow.AddBodyForces)
 
   -- FIXME: turbulent-related tasks should be revised
@@ -3133,15 +3103,6 @@ function TimeIntegrator.ComputeDFunctionDt()
   -- Compute two-way coupling in momentum and energy
   if particles_options.twoWayCoupling then
     particles:foreach(Flow.AddParticlesCoupling)
-  end
-
-  -- In case we want to hold flow temp fixed with radiation active
-  --print(Flow.averageHeatSource:get())
-
-  if radiation_options.zeroAvgHeatSource then
-    Flow.averageHeatSource:set(Flow.averageHeatSource:get()/
-                                 Flow.numberOfInteriorCells:get())
-    fluidGrid:foreach(Flow.AdjustHeatSource)
   end
 
 end

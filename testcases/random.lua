@@ -79,5 +79,4 @@ return {
   -- Radiation Options
   radiationType = 'Algebraic', -- 'Algebraic', 'DOM', 'MCRT', 'OFF'
   radiationIntensity = 0.258018,
-  zeroAvgHeatSource = 'OFF',
 }
