@@ -441,7 +441,6 @@ local flow_options = {
 }
 
 local InitParticles = Enum(5000, 'Random','Restart','Uniform')
-local ParticleType = Enum(6000, 'Fixed','Free')
 local particles_options = {
   -- Define the initial number of particles and insertion/deletion
   num            = config.num,
@@ -461,7 +460,6 @@ local particles_options = {
 
   -- Particles mode
   initParticles  = parseEnum('initParticles', InitParticles),
-  particleType   = parseEnum('particleType', ParticleType),
   twoWayCoupling = parseBool('twoWayCoupling'),
 }
 
@@ -2201,11 +2199,7 @@ ebb Particles.AddFlowCoupling (p: particles)
   var flowDynamicViscosity = GetDynamicViscosity(flowTemperature)
 
   -- Update the particle position using the current velocity
-  if particles_options.particleType == ParticleType.Fixed then
-    -- Don't move the particle
-  elseif particles_options.particleType == ParticleType.Free then
-    p.position_t += p.particle_velocity
-  else L.assert(false) end
+  p.position_t += p.particle_velocity
 
   -- Relaxation time for small particles
   -- - particles Reynolds number (set to zero for Stokesian)
@@ -2221,11 +2215,7 @@ ebb Particles.AddFlowCoupling (p: particles)
     (flowTemperature - p.particle_temperature)
 
   -- Update the particle velocity and temperature
-  if particles_options.particleType == ParticleType.Fixed then
-    p.velocity_t  = {0.0,0.0,0.0} -- Don't move the particle
-  elseif particles_options.particleType == ParticleType.Free then
-    p.velocity_t += p.deltaVelocityOverRelaxationTime
-  else L.assert(false) end
+  p.velocity_t += p.deltaVelocityOverRelaxationTime
   p.temperature_t += p.deltaTemperatureTerm /
     (p.mass * particles_options.heat_capacity)
 
@@ -2557,15 +2547,9 @@ ebb Particles.RandomDiameter()
 end
 
 -- Calculate particle velocity from underlying flow velocity.
-if particles_options.particleType == ParticleType.Fixed then
-  ebb Particles.VelocityFromFlow(cell, position)
-    return {0.0, 0.0, 0.0} -- Don't move the particle
-  end
-elseif particles_options.particleType == ParticleType.Free then
-  ebb Particles.VelocityFromFlow(cell, position)
-    return InterpolateTriVelocity(cell, position)
-  end
-else assert(false) end
+ebb Particles.VelocityFromFlow(cell, position)
+  return InterpolateTriVelocity(cell, position)
+end
 
 -- Insert one particle on each cell, with a small probability.
 -- TODO: Inserting exactly at the center, to avoid the need for stencils.
@@ -3132,10 +3116,7 @@ function TimeIntegrator.ComputeDFunctionDt()
   -- Compute residuals for the particles (locate all particles first)
   Particles.Locate()
   particles:foreach(Particles.AddFlowCoupling)
-
-  if particles_options.particleType == ParticleType.Free then
-    particles:foreach(Particles.AddBodyForces)
-  end
+  particles:foreach(Particles.AddBodyForces)
 
   if radiation_options.radiationType == RadiationType.Algebraic then
     M.INLINE(radiation.AddRadiation)

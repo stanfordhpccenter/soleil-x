@@ -63,7 +63,6 @@ return {
 
   -- Particle Options
   initParticles = 'Uniform', -- 'Random' or 'Restart'
-  particleType = 'Free', -- Fixed or Free
   twoWayCoupling = 'ON',
   num = 120,
   maximum_num = 240,
