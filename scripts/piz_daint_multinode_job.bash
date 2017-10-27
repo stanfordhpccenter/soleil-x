@@ -13,7 +13,7 @@ srun -n 1 -N 1 lscpu
 
 ROOT=/users/aheirich
 cd $ROOT/PSAAP
-source soleil-m/scripts/do.bash SOLEIL_DIR
+source soleil-master/scripts/do.bash SOLEIL_DIR
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export GASNET_BACKTRACE=1
@@ -21,7 +21,7 @@ export LD_LIBRARY_PATH="$SOLEIL_PATH/src/piz_daint_jobs/JOB_ID/:$LEGION_PATH/bin
 export REALM_BACKTRACE=1
 export LEGION_BACKTRACE=1
 export LEGION_FREEZE_ON_ERROR=1
-RUNDIR=/scratch/snx3000/aheirich/runX/soleil-m/JOB_ID
+RUNDIR=/scratch/snx3000/aheirich/runX/soleil-master/JOB_ID
 
 rm -rf ${RUNDIR}
 mkdir -p ${RUNDIR}
