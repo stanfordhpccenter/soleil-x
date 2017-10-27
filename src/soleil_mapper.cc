@@ -224,12 +224,13 @@ void SoleilMapper::map_task(const MapperContext      ctx,
         const TaskLayoutConstraintSet &layout_constraints =
             runtime->find_task_layout_constraints(ctx,
                                   task.task_id, output.chosen_variant);
-        Memory target_memory = default_policy_select_target_memory(ctx,
-                                                     task.target_proc);
         for (std::vector<unsigned>::const_iterator it =
               reduction_indexes.begin(); it !=
               reduction_indexes.end(); it++)
         {
+          Memory target_memory = default_policy_select_target_memory(ctx,
+                                 task.target_proc, task.regions[*it]);
+
           std::set<FieldID> copy = task.regions[*it].privilege_fields;
           if (!soleil_create_custom_instances(ctx, task.target_proc,
               target_memory, task.regions[*it], *it, copy,
