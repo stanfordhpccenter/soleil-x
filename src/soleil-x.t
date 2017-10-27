@@ -3317,12 +3317,14 @@ end
 
 -- Initialize all variables
 
+M.DO(true)
 TimeIntegrator.InitializeVariables()
 Flow.IntegrateGeometricQuantities(fluidGrid)
 Statistics.ComputeSpatialAverages()
 if radiation_options.radiationType ~= RadiationType.OFF then
   M.INLINE(radiation.InitRadiation)
 end
+M.END()
 IO.WriteOutput()
 
 -- Main iteration loop
