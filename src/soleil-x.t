@@ -81,6 +81,8 @@ double rand_gauss() {
 -- Use the built in rand() function from Liszt
 local rand_float = L.rand
 
+local TPRUNE = 5
+
 -----------------------------------------------------------------------------
 --[[                       MAPPER CONFIGURATION                          ]]--
 -----------------------------------------------------------------------------
@@ -472,6 +474,8 @@ local time_options = {
   headerFrequency       = config.headerFrequency,
   consoleFrequency      = config.consoleFrequency,
 }
+
+time_options.max_iter = time_options.max_iter + 2 * TPRUNE
 
 local ViscosityModel = Enum('Constant','PowerLaw','Sutherland')
 local fluid_options = {
@@ -1369,7 +1373,12 @@ ebb Flow.InitializeTimeDerivatives (c : fluidGrid)
   -- Initialize enthalpy
   c.rhoEnthalpy = c.rhoEnergy + c.pressure
 end
-Flow.InitializeTimeDerivatives.timing = "pre"
+
+Flow.InitializeTimeDerivatives.timing = {
+  kind = "pre",
+  variable = TimeIntegrator.timeStep,
+  target = TPRUNE,
+}
 
 ---------------------
 -- Particles coupling
@@ -1908,7 +1917,11 @@ ebb Flow.UpdateGhostThermodynamicsStep2 (c : fluidGrid)
   end
 end
 
-Flow.UpdateGhostThermodynamicsStep2.timing = "post"
+Flow.UpdateGhostThermodynamicsStep2.timing = {
+  kind = "post",
+  variable = TimeIntegrator.timeStep,
+  target = time_options.max_iter - TPRUNE,
+}
 
 function Flow.UpdateGhostThermodynamics()
   fluidGrid:foreach(Flow.UpdateGhostThermodynamicsStep1)
