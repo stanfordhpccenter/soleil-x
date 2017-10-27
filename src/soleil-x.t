@@ -1369,6 +1369,7 @@ ebb Flow.InitializeTimeDerivatives (c : fluidGrid)
   -- Initialize enthalpy
   c.rhoEnthalpy = c.rhoEnergy + c.pressure
 end
+Flow.InitializeTimeDerivatives.timing = "pre"
 
 ---------------------
 -- Particles coupling
@@ -1906,6 +1907,8 @@ ebb Flow.UpdateGhostThermodynamicsStep2 (c : fluidGrid)
     c.temperature = c.temperatureBoundary
   end
 end
+
+Flow.UpdateGhostThermodynamicsStep2.timing = "post"
 
 function Flow.UpdateGhostThermodynamics()
   fluidGrid:foreach(Flow.UpdateGhostThermodynamicsStep1)
