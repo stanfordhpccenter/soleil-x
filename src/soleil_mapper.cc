@@ -40,19 +40,19 @@ public:
                 std::map<Processor, Memory>* proc_regmems,
                 std::map<Processor, Memory>* proc_fbmems,
                 std::map<Processor, Memory>* proc_zcmems);
-  virtual Processor default_policy_select_initial_processor(
-                                    MapperContext ctx, const Task &task);
   virtual void select_task_options(const MapperContext    ctx,
                                    const Task&            task,
                                          TaskOptions&     output);
-  virtual void slice_task(const MapperContext      ctx,
-                          const Task&              task,
-                          const SliceTaskInput&    input,
-                                SliceTaskOutput&   output);
+  virtual void default_policy_rank_processor_kinds(
+                                    MapperContext ctx, const Task &task,
+                                    std::vector<Processor::Kind> &ranking);
   virtual void default_policy_select_target_processors(
                                     MapperContext ctx,
                                     const Task &task,
                                     std::vector<Processor> &target_procs);
+  virtual Memory default_policy_select_target_memory(MapperContext ctx,
+                                    Processor target_proc,
+                                    const RegionRequirement &req);
   virtual LogicalRegion default_policy_select_instance_region(
                                      MapperContext ctx, Memory target_memory,
                                      const RegionRequirement &req,
@@ -67,18 +67,7 @@ public:
                         const Copy &copy,
                         const MapCopyInput &input,
                         MapCopyOutput &output);
-
-  virtual void map_must_epoch(const MapperContext           ctx,
-                              const MapMustEpochInput&      input,
-                                    MapMustEpochOutput&     output);
 protected:
-  bool soleil_create_custom_instances(MapperContext ctx,
-                          Processor target, Memory target_memory,
-                          const RegionRequirement &req, unsigned index,
-                          std::set<FieldID> &needed_fields, // will destroy
-                          const TaskLayoutConstraintSet &layout_constraints,
-                          bool needs_field_constraint_check,
-                          std::vector<PhysicalInstance> &instances);
   template<bool IS_SRC>
   void soleil_create_copy_instance(MapperContext ctx, const Copy &copy,
                                    const RegionRequirement &req, unsigned index,
@@ -156,54 +145,9 @@ SoleilMapper::SoleilMapper(MapperRuntime *rt, Machine machine, Processor local,
   initial_procs.push_back(*loc_procs_list.begin());
 }
 
-//--------------------------------------------------------------------------
-Processor SoleilMapper::default_policy_select_initial_processor(
-                                    MapperContext ctx, const Task &task)
-//--------------------------------------------------------------------------
-{
-  if (!task.regions.empty()) {
-    if (task.regions[0].handle_type == SINGULAR) {
-      const LogicalRegion& region = task.regions[0].region;
-      Color color = 0;
-      if (runtime->has_parent_index_partition(ctx, region.get_index_space())) {
-        IndexPartition ip =
-          runtime->get_parent_index_partition(ctx, region.get_index_space());
-        Domain domain =
-          runtime->get_index_partition_color_space(ctx, ip);
-        DomainPoint point =
-          runtime->get_logical_region_color_point(ctx, region);
-        coord_t size_x = domain.rect_data[3] - domain.rect_data[0] + 1;
-        coord_t size_y = domain.rect_data[4] - domain.rect_data[1] + 1;
-        color = point.point_data[0] +
-                point.point_data[1] * size_x +
-                point.point_data[2] * size_x * size_y;
-      }
-      return use_gpu ? toc_procs_list[color % toc_procs_list.size()]
-                     : loc_procs_list[color % loc_procs_list.size()];
-    }
-  }
-
-  if (task.parent_task == NULL)
-    return io_procs_list.size() > 0 ? *io_procs_list.begin()
-                                    : *loc_procs_list.begin();
-  else
-  {
-    std::vector<VariantID> variants;
-    for (unsigned idx = 0; idx < ranking.size(); idx++)
-    {
-      runtime->find_valid_variants(ctx, task.task_id,
-                                   variants, ranking[idx]);
-      if (variants.size() > 0) return initial_procs[idx];
-    }
-  }
-  return DefaultMapper::default_policy_select_initial_processor(ctx, task);
-}
-
-//--------------------------------------------------------------------------
 void SoleilMapper::select_task_options(const MapperContext    ctx,
                                        const Task&            task,
                                              TaskOptions&     output)
-//--------------------------------------------------------------------------
 {
   output.initial_proc = default_policy_select_initial_processor(ctx, task);
   output.inline_task = false;
@@ -212,70 +156,54 @@ void SoleilMapper::select_task_options(const MapperContext    ctx,
   output.memoize = task.has_trace();
 }
 
-//--------------------------------------------------------------------------
-void SoleilMapper::slice_task(const MapperContext      ctx,
-                              const Task&              task,
-                              const SliceTaskInput&    input,
-                                    SliceTaskOutput&   output)
-//--------------------------------------------------------------------------
+void SoleilMapper::default_policy_rank_processor_kinds(MapperContext ctx,
+                        const Task &task, std::vector<Processor::Kind> &ranking)
 {
-  const std::vector<Processor> &procs =
-    task.target_proc.kind() == Processor::TOC_PROC ? toc_procs_list :
-    task.target_proc.kind() == Processor::OMP_PROC ? omp_procs_list
-                                                   : loc_procs_list;
-  std::vector<TaskSlice> &slice_cache =
-    task.target_proc.kind() == Processor::TOC_PROC ? toc_slice_cache :
-    task.target_proc.kind() == Processor::OMP_PROC ? omp_slice_cache
-                                                   : loc_slice_cache;
-  if (slice_cache.size() == 0)
-  {
-    switch (input.domain.get_dim())
-    {
-      case 1:
-        {
-          Rect<1> point_rect = input.domain.get_rect<1>();
-          Point<1> num_blocks(procs.size());
-          default_decompose_points<1>(point_rect, procs,
-                num_blocks, false/*recurse*/,
-                stealing_enabled, slice_cache);
-          break;
-        }
-      case 2:
-        {
-          Rect<2> point_rect = input.domain.get_rect<2>();
-          Point<2> num_blocks =
-            default_select_num_blocks<2>(procs.size(), point_rect);
-          default_decompose_points<2>(point_rect, procs,
-              num_blocks, false/*recurse*/,
-              stealing_enabled, slice_cache);
-          break;
-        }
-      case 3:
-        {
-          Rect<3> point_rect = input.domain.get_rect<3>();
-          Point<3> num_blocks =
-            default_select_num_blocks<3>(procs.size(), point_rect);
-          default_decompose_points<3>(point_rect, procs,
-              num_blocks, false/*recurse*/,
-              stealing_enabled, slice_cache);
-          break;
-        }
-      default: // don't support other dimensions right now
-        assert(false);
-    }
+  const char* task_name = task.get_task_name();
+  const char* prefix = "shard_";
+  if (strncmp(task_name, prefix, strlen(prefix)) == 0) {
+    // Put shard tasks on IO processors.
+    ranking.resize(4);
+    ranking[0] = Processor::TOC_PROC;
+    ranking[1] = Processor::PROC_SET;
+    ranking[2] = Processor::IO_PROC;
+    ranking[3] = Processor::LOC_PROC;
+  } else {
+    DefaultMapper::default_policy_rank_processor_kinds(ctx, task, ranking);
   }
-  output.slices = slice_cache;
-  output.verify_correctness = false;
 }
 
-//--------------------------------------------------------------------------
 void SoleilMapper::default_policy_select_target_processors(
                                     MapperContext ctx,
                                     const Task &task,
                                     std::vector<Processor> &target_procs)
-//--------------------------------------------------------------------------
 {
   target_procs.push_back(task.target_proc);
+}
+
+static bool is_ghost(MapperRuntime *runtime,
+                     const MapperContext ctx,
+                     LogicalRegion leaf)
+{
+  // If the region has no parent then it was from a duplicated
+  // partition and therefore must be a ghost.
+  if (!runtime->has_parent_logical_partition(ctx, leaf)) {
+    return true;
+  }
+
+  return false;
+}
+
+Memory SoleilMapper::default_policy_select_target_memory(MapperContext ctx,
+                                                   Processor target_proc,
+                                                   const RegionRequirement &req)
+{
+  Memory target_memory = proc_sysmems[target_proc];
+  if (is_ghost(runtime, ctx, req.region)) {
+    std::map<Processor, Memory>::iterator finder = proc_regmems.find(target_proc);
+    if (finder != proc_regmems.end()) target_memory = finder->second;
+  }
+  return target_memory;
 }
 
 LogicalRegion SoleilMapper::default_policy_select_instance_region(
@@ -288,213 +216,48 @@ LogicalRegion SoleilMapper::default_policy_select_instance_region(
   return req.region;
 }
 
-//--------------------------------------------------------------------------
 void SoleilMapper::map_task(const MapperContext      ctx,
                             const Task&              task,
                             const MapTaskInput&      input,
                                   MapTaskOutput&     output)
-//--------------------------------------------------------------------------
 {
-  Processor::Kind target_kind = task.target_proc.kind();
-  // Get the variant that we are going to use to map this task
-  VariantInfo chosen = default_find_preferred_variant(task, ctx,
-                    true/*needs tight bound*/, true/*cache*/, target_kind);
-  output.chosen_variant = chosen.variant;
-  // TODO: some criticality analysis to assign priorities
-  output.task_priority = 0;
-  output.postmap_task = false;
-  // Figure out our target processors
-  default_policy_select_target_processors(ctx, task, output.target_procs);
+  if (task.parent_task != NULL && task.parent_task->must_epoch_task) {
+    Processor::Kind target_kind = task.target_proc.kind();
+    // Get the variant that we are going to use to map this task
+    VariantInfo chosen = default_find_preferred_variant(task, ctx,
+                                                        true/*needs tight bound*/, true/*cache*/, target_kind);
+    output.chosen_variant = chosen.variant;
+    // TODO: some criticality analysis to assign priorities
+    output.task_priority = 0;
+    output.postmap_task = false;
+    // Figure out our target processors
+    output.target_procs.push_back(task.target_proc);
 
-  // See if we have an inner variant, if we do virtually map all the regions
-  // We don't even both caching these since they are so simple
-  if (chosen.is_inner)
-  {
-    // Check to see if we have any relaxed coherence modes in which
-    // case we can no longer do virtual mappings so we'll fall through
-    bool has_relaxed_coherence = false;
-    for (unsigned idx = 0; idx < task.regions.size(); idx++)
-    {
-      if (task.regions[idx].prop != EXCLUSIVE)
-      {
-        has_relaxed_coherence = true;
-        break;
+    for (unsigned idx = 0; idx < task.regions.size(); idx++) {
+      const RegionRequirement &req = task.regions[idx];
+
+      // Skip any empty regions
+      if ((req.privilege == NO_ACCESS) || (req.privilege_fields.empty()))
+        continue;
+
+      assert(input.valid_instances[idx].size() > 0);
+      output.chosen_instances[idx] = input.valid_instances[idx];
+      bool ok = runtime->acquire_and_filter_instances(ctx, output.chosen_instances);
+      if (!ok) {
+        log_soleil.error("failed to acquire instances");
+        assert(false);
       }
     }
-    if (!has_relaxed_coherence)
-    {
-      std::vector<unsigned> reduction_indexes;
-      for (unsigned idx = 0; idx < task.regions.size(); idx++)
-      {
-        // As long as this isn't a reduction-only region requirement
-        // we will do a virtual mapping, for reduction-only instances
-        // we will actually make a physical instance because the runtime
-        // doesn't allow virtual mappings for reduction-only privileges
-        if (task.regions[idx].privilege == REDUCE)
-          reduction_indexes.push_back(idx);
-        else
-          output.chosen_instances[idx].push_back(
-              PhysicalInstance::get_virtual_instance());
-      }
-      if (!reduction_indexes.empty())
-      {
-        const TaskLayoutConstraintSet &layout_constraints =
-            runtime->find_task_layout_constraints(ctx,
-                                  task.task_id, output.chosen_variant);
-        Memory target_memory = default_policy_select_target_memory(ctx,
-                                                     task.target_proc);
-        for (std::vector<unsigned>::const_iterator it =
-              reduction_indexes.begin(); it !=
-              reduction_indexes.end(); it++)
-        {
-          std::set<FieldID> copy = task.regions[*it].privilege_fields;
-          if (!soleil_create_custom_instances(ctx, task.target_proc,
-              target_memory, task.regions[*it], *it, copy,
-              layout_constraints, false/*needs constraint check*/,
-              output.chosen_instances[*it]))
-          {
-            default_report_failed_instance_creation(task, *it,
-                                        task.target_proc, target_memory);
-          }
-        }
-      }
-      return;
-    }
+    return;
   }
 
-  bool needs_field_constraint_check = false;
-
-  const TaskLayoutConstraintSet &layout_constraints =
-    runtime->find_task_layout_constraints(ctx,
-                          task.task_id, output.chosen_variant);
-  // Now we need to go through and make instances for any of our
-  // regions which do not have space for certain fields
-  //bool has_reductions = false;
-  //fprintf(stderr, "task %s\n", task.get_task_name());
-  for (unsigned idx = 0; idx < task.regions.size(); idx++)
-  {
-    // Skip any empty regions
-    if ((task.regions[idx].privilege == NO_ACCESS) ||
-        (task.regions[idx].privilege_fields.empty()))
-      continue;
-
-    Memory target_memory = Memory::NO_MEMORY;
-    bool is_pull_task = strcmp(task.get_task_name(), "particles_pullAll") == 0;
-
-    if (task.must_epoch_task || (!task.is_index_space && !is_pull_task))
-    {
-      if (task.target_proc.kind() == Processor::IO_PROC || task.target_proc.kind() == Processor::LOC_PROC)
-      {
-        target_memory = proc_sysmems[task.target_proc];
-        if (!runtime->has_parent_logical_partition(ctx, task.regions[idx].region))
-        {
-          std::map<Processor, Memory>::iterator finder = proc_regmems.find(task.target_proc);
-          if (finder != proc_regmems.end()) target_memory = finder->second;
-        }
-      }
-      else if (task.target_proc.kind() == Processor::TOC_PROC) {
-        target_memory = proc_fbmems[task.target_proc];
-        if (!runtime->has_parent_logical_partition(ctx, task.regions[idx].region))
-        {
-          std::map<Processor, Memory>::iterator finder = proc_zcmems.find(task.target_proc);
-          if (finder != proc_zcmems.end()) target_memory = finder->second;
-        }
-      }
-      else {
-        assert(false);
-      }
-    }
-    else if (is_pull_task)
-    {
-      if (task.target_proc.kind() == Processor::IO_PROC || task.target_proc.kind() == Processor::LOC_PROC)
-      {
-        target_memory = proc_sysmems[task.target_proc];
-        if (idx > 0)
-        {
-          std::map<Processor, Memory>::iterator finder = proc_regmems.find(task.target_proc);
-          if (finder != proc_regmems.end()) target_memory = finder->second;
-        }
-      }
-      else if (task.target_proc.kind() == Processor::TOC_PROC)
-      {
-        target_memory = proc_fbmems[task.target_proc];
-        if (idx > 0)
-        {
-          std::map<Processor, Memory>::iterator finder = proc_zcmems.find(task.target_proc);
-          if (finder != proc_zcmems.end()) target_memory = finder->second;
-        }
-      }
-      else {
-        assert(false);
-      }
-    }
-    else
-    {
-      if (task.target_proc.kind() == Processor::IO_PROC ||
-          task.target_proc.kind() == Processor::OMP_PROC || 
-          task.target_proc.kind() == Processor::LOC_PROC)
-      {
-        target_memory = proc_sysmems[task.target_proc];
-        if (task.regions.size() > 3 && idx >= 3)
-        {
-          std::map<Processor, Memory>::iterator finder = proc_regmems.find(task.target_proc);
-          if (finder != proc_regmems.end()) target_memory = finder->second;
-        }
-      }
-      else if (task.target_proc.kind() == Processor::TOC_PROC)
-      {
-        target_memory = proc_fbmems[task.target_proc];
-        if (task.regions.size() > 3 && idx >= 3)
-        {
-          std::map<Processor, Memory>::iterator finder = proc_zcmems.find(task.target_proc);
-          if (finder != proc_zcmems.end()) target_memory = finder->second;
-        }
-      }
-      else {
-        assert(false);
-      }
-    }
-    assert(target_memory.exists());
-
-    std::set<FieldID> missing_fields(task.regions[idx].privilege_fields);
-    // See if this is a reduction
-    if (task.regions[idx].privilege == REDUCE)
-    {
-      if (!soleil_create_custom_instances(ctx, task.target_proc,
-              target_memory, task.regions[idx], idx, missing_fields,
-              layout_constraints, needs_field_constraint_check,
-              output.chosen_instances[idx]))
-      {
-        default_report_failed_instance_creation(task, idx,
-                                    task.target_proc, target_memory);
-      }
-      continue;
-    }
-    // Did the application request a virtual mapping for this requirement?
-    if ((task.regions[idx].tag & DefaultMapper::VIRTUAL_MAP) != 0)
-    {
-      PhysicalInstance virt_inst = PhysicalInstance::get_virtual_instance();
-      output.chosen_instances[idx].push_back(virt_inst);
-      continue;
-    }
-    // Otherwise make normal instances for the given region
-    if (!soleil_create_custom_instances(ctx, task.target_proc,
-            target_memory, task.regions[idx], idx, missing_fields,
-            layout_constraints, needs_field_constraint_check,
-            output.chosen_instances[idx]))
-    {
-      default_report_failed_instance_creation(task, idx,
-                                  task.target_proc, target_memory);
-    }
-  }
+  DefaultMapper::map_task(ctx, task, input, output);
 }
 
-//--------------------------------------------------------------------------
 void SoleilMapper::map_copy(const MapperContext ctx,
                              const Copy &copy,
                              const MapCopyInput &input,
                              MapCopyOutput &output)
-//--------------------------------------------------------------------------
 {
   log_soleil.spew("Soleil mapper map_copy");
   for (unsigned idx = 0; idx < copy.src_requirements.size(); idx++)
@@ -521,42 +284,10 @@ void SoleilMapper::map_copy(const MapperContext ctx,
   }
 }
 
-//--------------------------------------------------------------------------
-bool SoleilMapper::soleil_create_custom_instances(MapperContext ctx,
-                      Processor target_proc, Memory target_memory,
-                      const RegionRequirement &req, unsigned index,
-                      std::set<FieldID> &needed_fields,
-                      const TaskLayoutConstraintSet &layout_constraints,
-                      bool needs_field_constraint_check,
-                      std::vector<PhysicalInstance> &instances)
-//--------------------------------------------------------------------------
-{
-  // Before we do anything else figure out our
-  // constraints for any instances of this task, then we'll
-  // see if these constraints conflict with or are satisfied by
-  // any of the other constraints
-  bool force_new_instances = false;
-  LayoutConstraintID our_layout_id =
-   default_policy_select_layout_constraints(ctx, target_memory, req,
-           TASK_MAPPING, needs_field_constraint_check, force_new_instances);
-  const LayoutConstraintSet &our_constraints =
-                runtime->find_layout_constraints(ctx, our_layout_id);
-
-  instances.resize(instances.size()+1);
-  LayoutConstraintSet creation_constraints = our_constraints;
-  if (!default_make_instance(ctx, target_memory, creation_constraints,
-            instances.back(), TASK_MAPPING, force_new_instances,
-            true/*meets*/,  req))
-    return false;
-  return true;
-}
-
-//--------------------------------------------------------------------------
 template<bool IS_SRC>
 void SoleilMapper::soleil_create_copy_instance(MapperContext ctx,
                      const Copy &copy, const RegionRequirement &req,
                      unsigned idx, std::vector<PhysicalInstance> &instances)
-//--------------------------------------------------------------------------
 {
   // This method is identical to the default version except that it
   // chooses an intelligent memory based on the destination of the
@@ -588,20 +319,15 @@ void SoleilMapper::soleil_create_copy_instance(MapperContext ctx,
   Color color = point.point_data[0] +
                 point.point_data[1] * size_x +
                 point.point_data[2] * size_x * size_y;
-  Memory target_memory = Memory::NO_MEMORY;
-  if (!use_gpu) {
-    Processor proc = loc_procs_list[color % loc_procs_list.size()];
-    target_memory = proc_sysmems[proc];
-    std::map<Processor, Memory>::iterator finder = proc_regmems.find(proc);
-    if (finder != proc_regmems.end()) target_memory = finder->second;
+  Processor proc = Processor::NO_PROC;
+  if (use_gpu) {
+    proc = toc_procs_list[color % toc_procs_list.size()];
+  } else if (use_omp) {
+    proc = omp_procs_list[color % omp_procs_list.size()];
+  } else {
+    proc = loc_procs_list[color % loc_procs_list.size()];
   }
-  else {
-    Processor proc = toc_procs_list[color % toc_procs_list.size()];
-    target_memory = proc_fbmems[proc];
-    std::map<Processor, Memory>::iterator finder = proc_zcmems.find(proc);
-    if (finder != proc_zcmems.end()) target_memory = finder->second;
-  }
-  assert(target_memory.exists());
+  Memory target_memory = default_policy_select_target_memory(ctx, proc, req);
 
   bool force_new_instances = false;
   LayoutConstraintSet creation_constraints;
@@ -632,83 +358,6 @@ void SoleilMapper::soleil_create_copy_instance(MapperContext ctx,
 		                 target_memory.id,
 		                 copy.parent_task->current_proc.id);
     assert(false);
-  }
-}
-
-//--------------------------------------------------------------------------
-void SoleilMapper::map_must_epoch(const MapperContext           ctx,
-                                  const MapMustEpochInput&      input,
-                                        MapMustEpochOutput&     output)
-//--------------------------------------------------------------------------
-{
-  size_t num_nodes = use_gpu ? fbmems_list.size() : sysmems_list.size();
-  size_t num_tasks = input.tasks.size();
-  size_t num_shards_per_node =
-    num_nodes < input.tasks.size() ? (num_tasks + num_nodes - 1) / num_nodes : 1;
-  bool use_io_procs = not use_gpu && sysmem_local_io_procs.size() > 0;
-  std::map<const Task*, size_t> task_indices;
-  for (size_t idx = 0; idx < input.tasks.size(); ++idx) {
-    size_t node_idx = idx / num_shards_per_node;
-    size_t proc_idx = idx % num_shards_per_node;
-    if (use_gpu)
-      output.task_processors[idx] = fbmem_local_procs[fbmems_list[node_idx]][proc_idx];
-    else if (use_io_procs)
-      output.task_processors[idx] = sysmem_local_io_procs[sysmems_list[node_idx]][proc_idx];
-    else
-      output.task_processors[idx] = sysmem_local_procs[sysmems_list[node_idx]][proc_idx];
-    task_indices[input.tasks[idx]] = idx;
-  }
-
-  for (size_t idx = 0; idx < input.constraints.size(); ++idx) {
-    const MappingConstraint& constraint = input.constraints[idx];
-    int owner_id = -1;
-
-    for (unsigned i = 0; i < constraint.constrained_tasks.size(); ++i) {
-      const RegionRequirement& req =
-        constraint.constrained_tasks[i]->regions[
-          constraint.requirement_indexes[i]];
-      if (req.is_no_access()) continue;
-      assert(owner_id == -1);
-      owner_id = static_cast<int>(i);
-    }
-    assert(owner_id != -1);
-
-    const Task* task = constraint.constrained_tasks[owner_id];
-    const RegionRequirement& req =
-      task->regions[constraint.requirement_indexes[owner_id]];
-    Memory target_memory = use_gpu ? fbmems_list[task_indices[task] / num_shards_per_node]
-                                   : sysmems_list[task_indices[task] / num_shards_per_node];
-    if (!runtime->has_parent_logical_partition(ctx, req.region)) {
-      Processor task_proc = output.task_processors[task_indices[task]];
-      if (!use_gpu) {
-        std::map<Processor, Memory>::iterator finder = proc_regmems.find(task_proc);
-        if (finder != proc_regmems.end()) target_memory = finder->second;
-      }
-      else {
-        std::map<Processor, Memory>::iterator finder = proc_zcmems.find(task_proc);
-        if (finder != proc_zcmems.end()) target_memory = finder->second;
-      }
-    }
-    LayoutConstraintSet layout_constraints;
-    default_policy_select_constraints(ctx, layout_constraints, target_memory, req);
-    layout_constraints.add_constraint(
-      FieldConstraint(req.privilege_fields, false /*!contiguous*/));
-
-	  PhysicalInstance inst;
-    bool created;
-    bool ok = runtime->find_or_create_physical_instance(ctx, target_memory,
-        layout_constraints, std::vector<LogicalRegion>(1, req.region),
-        inst, created, true /*acquire*/);
-    if(!ok) {
-      log_soleil.fatal("Soleil mapper error. Unable to make instance(s) "
-          "in memory " IDFMT " for index %d of constrained "
-          "task %s (ID %lld) in must epoch launch.",
-          target_memory.id, constraint.requirement_indexes[0],
-          constraint.constrained_tasks[0]->get_task_name(),
-          constraint.constrained_tasks[0]->get_unique_id());
-      assert(false);
-    }
-    output.constraint_mappings[idx].push_back(inst);
   }
 }
 
