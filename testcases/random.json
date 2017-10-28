@@ -1,3 +1,7 @@
 {
+    // Time Integration Options
+    "cfl" : 0.4106583,
+    "delta_time" : 0.2098004,
+    "final_time" : 0.8029553,
     "max_iter" : 10
 }

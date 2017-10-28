@@ -407,11 +407,11 @@ local spatial_options = {
 
 -- Time integration options
 local time_options = {
-  final_time            = config.final_time,
+  final_time            = A.readConfig('final_time', double),
   restartIter           = config.restartIter,
   max_iter              = A.readConfig('max_iter', int),
-  cfl                   = config.cfl,
-  delta_time            = config.delta_time,
+  cfl                   = A.readConfig('cfl', double),
+  delta_time            = A.readConfig('delta_time', double),
   restartEveryTimeSteps = config.restartEveryTimeSteps,
   headerFrequency       = config.headerFrequency,
   consoleFrequency      = config.consoleFrequency,
@@ -3049,34 +3049,26 @@ function TimeIntegrator.AdvanceTimeStep()
 end
 
 function TimeIntegrator.CalculateDeltaTime()
-
   -- Check whether we are imposing a delta time or basing it on the CFL,
   -- i.e. a negative CFL was imposed in the config
-  if time_options.cfl < 0 then
-
+  M.IF(M.LT(time_options.cfl, 0.0))
     -- Impose a fixed time step from the config
     TimeIntegrator.deltaTime:set(time_options.delta_time)
-
-  else
-
+  M.ELSE()
     -- Calculate the convective, viscous, and heat spectral radii
     Flow.CalculateSpectralRadii()
-
-    local maxV = maxViscousSpectralRadius:get()
-    local maxH = maxHeatConductionSpectralRadius:get()
-    local maxC = maxConvectiveSpectralRadius:get()
-
     -- Calculate diffusive spectral radius as the maximum between
     -- heat conduction and convective spectral radii
     -- Calculate global spectral radius as the maximum between the convective
     -- and diffusive spectral radii
     -- Delta time using the CFL and max spectral radius for stability
-    TimeIntegrator.deltaTime:set(time_options.cfl /
-                                 M.MAX(maxC,M.MAX(maxV,maxH)))
-  end
-
+    TimeIntegrator.deltaTime:set(
+      time_options.cfl /
+        M.MAX(maxConvectiveSpectralRadius:get(),
+              M.MAX(maxViscousSpectralRadius:get(),
+                    maxHeatConductionSpectralRadius:get())))
+  M.END()
 end
-
 
 -------------
 -- STATISTICS

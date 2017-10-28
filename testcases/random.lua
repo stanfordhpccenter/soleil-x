@@ -37,10 +37,6 @@ return {
   zBCRightVel = {0.9480248, 0.9376553, 0.4133212},
   zBCRightTemp = 0.3741956,
 
-  -- Time Integration Options
-  final_time            = 0.8029553,
-  cfl                   = 0.4106583,
-
   -- File Output Options
   wrtRestart = 'ON',
   consoleFrequency = 333,
