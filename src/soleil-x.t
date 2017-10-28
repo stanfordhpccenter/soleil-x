@@ -851,21 +851,21 @@ end
 -- WARNING: update cellVolume computation for non-uniform grids
 local cellVolume = L.Constant(L.double,
                               grid_dx:get() * grid_dy:get() * grid_dz:get())
-local ebb numberOfInteriorCells ( c : fluidGrid )
+local ebb numberOfInteriorCells( c : fluidGrid )
   if c.in_interior then
     Flow.numberOfInteriorCells += L.int64(1)
   end
 end
-local ebb areaInterior ( c : fluidGrid )
+local ebb areaInterior( c : fluidGrid )
   if c.in_interior then
     Flow.areaInterior += cellVolume
   end
 end
-function Flow.IntegrateGeometricQuantities(cells)
+function Flow.IntegrateGeometricQuantities()
   Flow.numberOfInteriorCells:set(0)
   Flow.areaInterior:set(0)
-  cells:foreach(numberOfInteriorCells)
-  cells:foreach(areaInterior         )
+  fluidGrid:foreach(numberOfInteriorCells)
+  fluidGrid:foreach(areaInterior)
 end
 
 -----------------------------------------------------------------------------
@@ -1396,7 +1396,7 @@ ebb Flow.UpdatePD (c : fluidGrid)
 end
 
 -- Compute viscous fluxes in X direction
-ebb Flow.ComputeDissipationX (c : fluidGrid)
+ebb Flow.ComputeDissipationX(c : fluidGrid)
   if c.in_interior or c.xneg_depth == 1 then
     -- Consider first boundary element (c.xneg_depth == 1) to define left flux
     -- on first interior cell
@@ -1452,7 +1452,7 @@ ebb Flow.ComputeDissipationX (c : fluidGrid)
 end
 
 -- Compute viscous fluxes in Y direction
-ebb Flow.ComputeDissipationY (c : fluidGrid)
+ebb Flow.ComputeDissipationY(c : fluidGrid)
   if c.in_interior or c.yneg_depth == 1 then
     -- Consider first boundary element (c.yneg_depth == 1) to define down flux
     -- on first interior cell
@@ -1508,7 +1508,7 @@ ebb Flow.ComputeDissipationY (c : fluidGrid)
 end
 
 -- Compute viscous fluxes in Z direction
-ebb Flow.ComputeDissipationZ (c : fluidGrid)
+ebb Flow.ComputeDissipationZ(c : fluidGrid)
   if c.in_interior or c.zneg_depth == 1 then
     -- Consider first boundary element (c.zneg_depth == 1) to define down flux
     -- on first interior cell
@@ -1588,7 +1588,7 @@ ebb Flow.ResetDissipation (c : fluidGrid)
   c.dissipation = 0.0
 end
 
-function Flow.UpdateDissipation (cells)
+function Flow.UpdateDissipation()
   fluidGrid:foreach(Flow.ResetDissipation)
   fluidGrid:foreach(Flow.ComputeDissipationX)
   fluidGrid:foreach(Flow.UpdateDissipationX)
@@ -1600,31 +1600,31 @@ end
 
 
 -- WARNING: uniform grid assumption
-local ebb averagePD ( c : fluidGrid )
-  Flow.averagePD += c.PD * cellVolume
+local ebb averagePD( c : fluidGrid )
+  if c.in_interior then
+    Flow.averagePD += c.PD * cellVolume
+  end
 end
-local ebb averageDissipation ( c : fluidGrid )
-  Flow.averageDissipation += c.dissipation * cellVolume
+local ebb averageDissipation( c : fluidGrid )
+  if c.in_interior then
+    Flow.averageDissipation += c.dissipation * cellVolume
+  end
 end
-local ebb averageK ( c : fluidGrid )
-  Flow.averageK += 0.5 * c.rho * L.dot(c.velocity,c.velocity) * cellVolume
+local ebb averageK( c : fluidGrid )
+  if c.in_interior then
+    Flow.averageK += 0.5 * c.rho * L.dot(c.velocity,c.velocity) * cellVolume
+  end
 end
-function Flow.UpdateTurbulentAverages(cells)
-
+function Flow.UpdateTurbulentAverages()
   cells:foreach(averagePD)
   Flow.averagePD:set(
-      Flow.averagePD:get()/
-      Flow.areaInterior:get())
-
+    Flow.averagePD:get() / Flow.areaInterior:get())
   cells:foreach(averageDissipation)
   Flow.averageDissipation:set(
-      Flow.averageDissipation:get()/
-      Flow.areaInterior:get())
-
+    Flow.averageDissipation:get()/ Flow.areaInterior:get())
   cells:foreach(averageK)
   Flow.averageK:set(
-      Flow.averageK:get()/
-      Flow.areaInterior:get())
+    Flow.averageK:get() / Flow.areaInterior:get())
 end
 
 ebb Flow.AddTurbulentSource (c : fluidGrid)
@@ -1652,8 +1652,6 @@ ebb Flow.AddTurbulentSource (c : fluidGrid)
   -- Compute the turbulent force vector
   force = c.rho * A * c.velocity
 
-  --L.print(Flow.averagePD, Flow.averageDissipation, Flow.averageK, A)
-
   -- Add the forcing terms to the momentum and energy equations
   c.rhoVelocity_t += force
   c.rhoEnergy_t   += L.dot(force,c.velocity)
@@ -1677,7 +1675,7 @@ ebb Flow.AdjustTurbulentSource (c : fluidGrid)
 end
 
 -- One high level routine that runs all steps
-function Flow.AddTurbulentForcing (cells)
+function Flow.AddTurbulentForcing()
 
   -- Need to reset these averages somewhere
 
@@ -1687,10 +1685,10 @@ function Flow.AddTurbulentForcing (cells)
   Flow.averageK:set(0.0)
 
   fluidGrid:foreach(Flow.UpdatePD)
-  Flow.UpdateDissipation(cells)
+  Flow.UpdateDissipation()
 
   -- average PD and EPS
-  Flow.UpdateTurbulentAverages(cells)
+  Flow.UpdateTurbulentAverages()
 
   -- Compute A & force, f_i
   -- Add rho * A * u_i to momentum, f_i*u_i to energy, accumulate f_i*u_i for average
@@ -2046,7 +2044,7 @@ local dXYZInverseSquare = L.Constant(L.double,
                                      1.0/grid_dx:get() * 1.0/grid_dx:get() +
                                      1.0/grid_dy:get() * 1.0/grid_dy:get() +
                                      1.0/grid_dz:get() * 1.0/grid_dz:get())
-local ebb calculateConvectiveSpectralRadius     ( c : fluidGrid )
+local ebb calculateConvectiveSpectralRadius( c : fluidGrid )
   -- Convective spectral radii
   -- WARNING: uniform grid assumption
   c.convectiveSpectralRadius =
@@ -2057,7 +2055,7 @@ local ebb calculateConvectiveSpectralRadius     ( c : fluidGrid )
 
   maxConvectiveSpectralRadius max= c.convectiveSpectralRadius
 end
-local ebb calculateViscousSpectralRadius        ( c : fluidGrid )
+local ebb calculateViscousSpectralRadius( c : fluidGrid )
   -- Viscous spectral radii (including sgs model component)
   var dynamicViscosity = GetDynamicViscosity(c.temperature)
   var eddyViscosity = c.sgsEddyViscosity
@@ -2067,7 +2065,7 @@ local ebb calculateViscousSpectralRadius        ( c : fluidGrid )
 
   maxViscousSpectralRadius max= c.viscousSpectralRadius
 end
-local ebb calculateHeatConductionSpectralRadius ( c : fluidGrid )
+local ebb calculateHeatConductionSpectralRadius( c : fluidGrid )
   var dynamicViscosity  = GetDynamicViscosity(c.temperature)
 
   -- Heat conduction spectral radii (including sgs model component)
@@ -2080,47 +2078,47 @@ local ebb calculateHeatConductionSpectralRadius ( c : fluidGrid )
      ((kappa + c.sgsEddyKappa) / (cv * c.rho) * dXYZInverseSquare) * 4.0
   maxHeatConductionSpectralRadius max= c.heatConductionSpectralRadius
 end
-function Flow.CalculateSpectralRadii(cells)
-  cells:foreach(calculateConvectiveSpectralRadius)
-  cells:foreach(calculateViscousSpectralRadius)
-  cells:foreach(calculateHeatConductionSpectralRadius)
+function Flow.CalculateSpectralRadii()
+  fluidGrid:foreach(calculateConvectiveSpectralRadius)
+  fluidGrid:foreach(calculateViscousSpectralRadius)
+  fluidGrid:foreach(calculateHeatConductionSpectralRadius)
 end
 
 -------------
 -- Statistics
 -------------
 
-local ebb averagePressure       ( c : fluidGrid )
+local ebb averagePressure( c : fluidGrid )
   if c.in_interior then
-    Flow.averagePressure          += c.pressure * cellVolume
+    Flow.averagePressure += c.pressure * cellVolume
   end
 end
-local ebb averageTemperature    ( c : fluidGrid )
+local ebb averageTemperature( c : fluidGrid )
   if c.in_interior then
-    Flow.averageTemperature       += c.temperature * cellVolume
+    Flow.averageTemperature += c.temperature * cellVolume
   end
 end
-local ebb averageKineticEnergy  ( c : fluidGrid )
+local ebb averageKineticEnergy( c : fluidGrid )
   if c.in_interior then
-    Flow.averageKineticEnergy     += c.kineticEnergy * cellVolume
+    Flow.averageKineticEnergy += c.kineticEnergy * cellVolume
   end
 end
-local ebb minTemperature        ( c : fluidGrid )
+local ebb minTemperature( c : fluidGrid )
   if c.in_interior then
-    Flow.minTemperature         min= c.temperature
+    Flow.minTemperature min= c.temperature
   end
 end
-local ebb maxTemperature        ( c : fluidGrid )
+local ebb maxTemperature( c : fluidGrid )
   if c.in_interior then
-    Flow.maxTemperature         max= c.temperature
+    Flow.maxTemperature max= c.temperature
   end
 end
-function Flow.IntegrateQuantities(cells)
-  cells:foreach(averagePressure      )
-  cells:foreach(averageTemperature   )
-  cells:foreach(averageKineticEnergy )
-  cells:foreach(minTemperature       )
-  cells:foreach(maxTemperature       )
+function Flow.IntegrateQuantities()
+  fluidGrid:foreach(averagePressure)
+  fluidGrid:foreach(averageTemperature)
+  fluidGrid:foreach(averageKineticEnergy)
+  fluidGrid:foreach(minTemperature)
+  fluidGrid:foreach(maxTemperature)
 end
 
 
@@ -3141,7 +3139,7 @@ function TimeIntegrator.CalculateDeltaTime()
   else
 
     -- Calculate the convective, viscous, and heat spectral radii
-    Flow.CalculateSpectralRadii(fluidGrid)
+    Flow.CalculateSpectralRadii()
 
     local maxV = maxViscousSpectralRadius:get()
     local maxH = maxHeatConductionSpectralRadius:get()
@@ -3174,29 +3172,24 @@ function Statistics.ResetSpatialAverages()
   Particles.averageTemperature:set(0.0)
 end
 
-function Statistics.UpdateSpatialAverages(grid, particles)
+function Statistics.UpdateSpatialAverages()
   -- Flow
   Flow.averagePressure:set(
-    Flow.averagePressure:get() / Flow.areaInterior:get()
-  )
+    Flow.averagePressure:get() / Flow.areaInterior:get())
   Flow.averageTemperature:set(
-    Flow.averageTemperature:get() / Flow.areaInterior:get()
-  )
+    Flow.averageTemperature:get() / Flow.areaInterior:get())
   Flow.averageKineticEnergy:set(
-    Flow.averageKineticEnergy:get() / Flow.areaInterior:get()
-  )
-
+    Flow.averageKineticEnergy:get() / Flow.areaInterior:get())
   -- Particles
   Particles.averageTemperature:set(
-    Particles.averageTemperature:get() / Particles.number:get()
-  )
+    Particles.averageTemperature:get() / Particles.number:get())
 end
 
 function Statistics.ComputeSpatialAverages()
   Statistics.ResetSpatialAverages()
-  Flow.IntegrateQuantities(fluidGrid)
+  Flow.IntegrateQuantities()
   particles:foreach(Particles.IntegrateQuantities)
-  Statistics.UpdateSpatialAverages(fluidGrid, particles)
+  Statistics.UpdateSpatialAverages()
 end
 
 
@@ -3266,7 +3259,7 @@ end
 -- Initialize all variables
 
 TimeIntegrator.InitializeVariables()
-Flow.IntegrateGeometricQuantities(fluidGrid)
+Flow.IntegrateGeometricQuantities()
 Statistics.ComputeSpatialAverages()
 if radiation_options.radiationType == RadiationType.DOM then
   radiationGrid:foreach(Radiation.InitializeCell)
