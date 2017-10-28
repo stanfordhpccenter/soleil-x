@@ -120,10 +120,6 @@ if not config then
 end
 local config = config()
 
--- Set the output directory to the current working directory
-
-local outputdir = PN.pwd_str()
-
 -----------------------------------------------------------------------------
 --[[                            CONSTANTS                                ]]--
 -----------------------------------------------------------------------------
@@ -451,7 +447,6 @@ local particles_options = {
   heat_capacity           = L.Constant(L.double, config.heatCapacity),
   density                 = config.density,
   bodyForce               = L.Constant(L.vec3d, config.bodyForceParticles),
-  restartParticleIter     = config.restartParticleIter,
 
   -- Particles mode
   initParticles  = parseEnum('initParticles', InitParticles),
@@ -476,7 +471,6 @@ end
 
 local io_options = {
   wrtRestart           = parseBool('wrtRestart'),
-  outputFileNamePrefix = outputdir .. '/',
 }
 
 -----------------------------------------------------------------------------
@@ -2543,7 +2537,7 @@ function Flow.InitializePrimitives()
     fluidGrid:foreach(Flow.InitializePerturbed)
   elseif flow_options.initCase == InitCase.Restart then
     fluidGrid:Load({'rho','pressure','velocity'},
-                   io_options.outputFileNamePrefix..'restart_fluid_%d.hdf',
+                   'restart_fluid_%d.hdf',
                    time_options.restartIter)
   else assert(false) end
 end
@@ -2921,8 +2915,8 @@ function Particles.InitializePrimitives()
   elseif particles_options.initParticles == InitParticles.Restart then
     particles:Load(
       {'cell','position','particle_velocity','particle_temperature','diameter'},
-      io_options.outputFileNamePrefix .. 'restart_particles_' ..
-        tostring(particles_options.restartParticleIter) .. '.hdf')
+      'restart_particles_%d.hdf',
+      time_options.restartIter)
     particles.density:Fill(particles_options.density)
   elseif particles_options.initParticles == InitParticles.Uniform then
     Particles.number:set(particles_options.num)
@@ -3138,7 +3132,7 @@ function IO.WriteFlowRestart()
   M.IF(M.EQ(TimeIntegrator.timeStep:get() % time_options.restartEveryTimeSteps, 0))
     -- Write the restart files for density, pressure, and velocity
     fluidGrid:Dump({'rho','pressure','velocity'},
-                   io_options.outputFileNamePrefix .. "restart_fluid_%d.hdf",
+                   'restart_fluid_%d.hdf',
                    TimeIntegrator.timeStep:get())
   M.END()
 end
@@ -3148,7 +3142,7 @@ function IO.WriteParticleRestart()
   M.IF(M.EQ(TimeIntegrator.timeStep:get() % time_options.restartEveryTimeSteps, 0))
     -- Write the restart files for position, velocity, temperature and diameter
     particles:Dump({'cell','position','particle_velocity','particle_temperature','diameter'},
-                   io_options.outputFileNamePrefix .. "restart_particles_%d.hdf",
+                   'restart_particles_%d.hdf',
                    TimeIntegrator.timeStep:get())
   M.END()
 end
