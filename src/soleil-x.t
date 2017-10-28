@@ -408,13 +408,13 @@ local spatial_options = {
 -- Time integration options
 local time_options = {
   final_time            = A.readConfig('final_time', double),
-  restartIter           = config.restartIter,
+  restartIter           = A.readConfig('restartIter', int),
   max_iter              = A.readConfig('max_iter', int),
   cfl                   = A.readConfig('cfl', double),
   delta_time            = A.readConfig('delta_time', double),
-  restartEveryTimeSteps = config.restartEveryTimeSteps,
-  headerFrequency       = config.headerFrequency,
-  consoleFrequency      = config.consoleFrequency,
+  restartEveryTimeSteps = A.readConfig('restartEveryTimeSteps', int),
+  headerFrequency       = A.readConfig('headerFrequency', int),
+  consoleFrequency      = A.readConfig('consoleFrequency', int),
 }
 
 local ViscosityModel = Enum(3000, 'Constant','PowerLaw','Sutherland')
@@ -2543,8 +2543,8 @@ function Flow.InitializePrimitives()
     fluidGrid:foreach(Flow.InitializePerturbed)
   elseif flow_options.initCase == InitCase.Restart then
     fluidGrid:Load({'rho','pressure','velocity'},
-                    io_options.outputFileNamePrefix .. 'restart_fluid_' ..
-                      time_options.restartIter .. '.hdf')
+                   io_options.outputFileNamePrefix..'restart_fluid_%d.hdf',
+                   time_options.restartIter)
   else assert(false) end
 end
 

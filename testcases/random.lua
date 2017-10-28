@@ -6,8 +6,6 @@ return {
   bodyForce   = {0.7751856, 0.7816449, 0.1264908},
   turbForcing = 'OFF',
 
-  restartIter = 111,
-
   -- Grid Options
   xnum = 124320, -- 148 * 840
   ynum = 320364, -- 396 * 809
@@ -39,9 +37,6 @@ return {
 
   -- File Output Options
   wrtRestart = 'ON',
-  consoleFrequency = 333,
-  restartEveryTimeSteps = 444,
-  headerFrequency       = 555,
 
   -- Fluid Options
   gasConstant = 0.7272462,

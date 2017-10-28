@@ -1,7 +1,15 @@
 {
+    // Flow Initialization Options
+    "restartIter" : 111,
+
     // Time Integration Options
     "cfl" : 0.4106583,
     "delta_time" : 0.2098004,
     "final_time" : 0.8029553,
-    "max_iter" : 10
+    "max_iter" : 10,
+
+    // File Output Options
+    "consoleFrequency" : 333,
+    "headerFrequency" : 555,
+    "restartEveryTimeSteps" : 444,
 }
