@@ -449,12 +449,8 @@ local particles_options = {
   restitution_coefficient = L.Constant(L.double, config.restitutionCoefficient),
   convective_coefficient  = L.Constant(L.double, config.convectiveCoefficient),
   heat_capacity           = L.Constant(L.double, config.heatCapacity),
-  initialTemperature      = config.initialTemperature,
   density                 = config.density,
-  diameter_mean           = config.diameter_mean,
-  diameter_maxDeviation   = config.diameter_maxDeviation,
   bodyForce               = L.Constant(L.vec3d, config.bodyForceParticles),
-  absorptivity            = config.absorptivity,
   restartParticleIter     = config.restartParticleIter,
 
   -- Particles mode
@@ -2490,59 +2486,9 @@ if radiation_options.radiationType == RadiationType.DOM then
 
 end
 
----------
--- Feeder
----------
-
--- Convert the cell coordinates to a number in 0..size(interior)-1
-ebb Flow.InteriorCellNumber(c)
-  var xid = L.int64(L.xid(c))
-  var yid = L.int64(L.yid(c))
-  var zid = L.int64(L.zid(c))
-  if not xBCPeriodic then xid = xid-L.int64(1) end
-  if not yBCPeriodic then yid = yid-L.int64(1) end
-  if not zBCPeriodic then zid = zid-L.int64(1) end
-  return (zid * L.int64(grid_options.xnum) * L.int64(grid_options.ynum) +
-          yid * L.int64(grid_options.xnum) +
-          xid)
-end
-
--- Pick a diameter value according to a random distribution,
--- with given mean value and maximum deviation.
-ebb Particles.RandomDiameter()
-  return (rand_float() - 0.5) * particles_options.diameter_maxDeviation +
-    particles_options.diameter_mean
-end
-
--- Calculate particle velocity from underlying flow velocity.
-ebb Particles.VelocityFromFlow(cell, position)
-  return InterpolateTriVelocity(cell, position)
-end
-
--- Insert one particle on each cell, with a small probability.
--- TODO: Inserting exactly at the center, to avoid the need for stencils.
-ebb Flow.InsertParticlesAtRandom(c : fluidGrid)
-  if c.in_interior and
-     Flow.InteriorCellNumber(c) < Particles.limit and
-     rand_float() < 0.01 then
-    insert {
-      cell = c,
-      position = c.center,
-      particle_velocity = c.velocity,
-      density = particles_options.density,
-      particle_temperature = particles_options.initialTemperature,
-      diameter = Particles.RandomDiameter()
-    } into particles
-    Particles.number += 1
-  end
-end
-
--- Particle feeder
-function Particles.Feed()
-  -- For now, insert at random just for testing.
-  Particles.limit:set(particles_options.maximum_num - Particles.number:get())
-  fluidGrid:foreach(Flow.InsertParticlesAtRandom)
-end
+------------
+-- Collector
+------------
 
 ebb Particles.DeleteEscapingParticles(p: particles)
   var min_x = grid_originX
@@ -2969,30 +2915,6 @@ end
 -- PARTICLES
 ------------
 
--- Insert one particle at the center of each cell (plus a tiny offset to help
--- the interpolation verification checks).
-ebb Flow.InsertParticlesUniform(c : fluidGrid)
-  if c.in_interior then
-    var cellId = Flow.InteriorCellNumber(c)
-    var numCells = L.int64(grid_options.xnum) *
-                   L.int64(grid_options.ynum) *
-                   L.int64(grid_options.znum)
-    if cellId == L.int64(0) or
-       (cellId-L.int64(1)) * (Particles.limit-L.int64(1)) / (numCells-L.int64(1)) <
-         cellId * (Particles.limit-L.int64(1)) / (numCells-L.int64(1)) then
-      insert {
-        cell = c,
-        position = c.center,
-        particle_velocity = c.velocity,
-        density = particles_options.density,
-        particle_temperature = particles_options.initialTemperature,
-        diameter = particles_options.diameter_mean
-      } into particles
-      Particles.number += L.int64(1)
-    end
-  end
-end
-
 function Particles.InitializePrimitives()
   if particles_options.initParticles == InitParticles.Random then
     error("Random particle initialization is disabled")
@@ -3019,7 +2941,6 @@ end
 
 function TimeIntegrator.SetupTimeStep()
   fluidGrid:foreach(Flow.InitializeTemporaries)
-  -- Particles.Feed()
   particles:foreach(Particles.InitializeTemporaries)
 end
 

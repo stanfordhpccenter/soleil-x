@@ -69,7 +69,6 @@ return {
   initialTemperature = 0.7490512,
   density = 0.4769553,
   diameter_mean = 0.5250806,
-  diameter_maxDeviation = 0.9746212,
   bodyForceParticles = {0.5899043, 0.3012763, 0.6355317},
   absorptivity = 0.6796266,
 
