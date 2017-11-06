@@ -6,7 +6,7 @@ if [[ -d $LISZT_PATH ]] ; then echo skipping liszt-legion.git ; else
   git clone https://github.com/manopapad/liszt-legion.git $LISZT_PATH
 fi
 if [[ -d $SOLEIL_PATH ]] ; then echo skipping soleil-x; else
-  git clone https://github.com/stanfordhpccenter/soleil-x.git $SOLEIL_PATH
+  git clone https://github.com/stanfordhpccenter/soleil-x $SOLEIL_PATH
 fi
 cd $LEGION_PATH/language
 git clone -b luajit2.1-no-opt https://github.com/elliottslaughter/terra.git
