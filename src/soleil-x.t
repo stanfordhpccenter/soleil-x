@@ -444,7 +444,12 @@ local particles_options = {
   -- Particle characteristics
   restitution_coefficient = L.Constant(L.double, config.restitutionCoefficient),
   convective_coefficient  = L.Constant(L.double, config.convectiveCoefficient),
-  heat_capacity           = L.Constant(L.double, config.heatCapacity),
+  absorptivity            = L.Global('absorptivity', L.double,
+                                     A.readConfig('absorptivity', double)),
+  heatCapacity            = L.Global('heatCapacity', L.double,
+                                     A.readConfig('heatCapacity', double)),
+  radiationIntensity      = L.Global('radiationIntensity', L.double,
+                                     A.readConfig('radiationIntensity', double)),
   density                 = config.density,
   bodyForce               = L.Constant(L.vec3d, config.bodyForceParticles),
 
@@ -763,7 +768,11 @@ local particles_init_uniform =
 
 local radiation
 if radiation_options.radiationType == RadiationType.Algebraic then
-  radiation = (require 'algebraic')(particles)
+  radiation = (require 'algebraic')(
+    particles,
+    particles_options.absorptivity,
+    particles_options.heatCapacity,
+    particles_options.radiationIntensity)
 elseif radiation_options.radiationType == RadiationType.DOM then
   radiation = (require 'dom/dom')(radiationGrid)
 elseif radiation_options.radiationType == RadiationType.MCRT then
@@ -2175,7 +2184,7 @@ ebb Particles.AddFlowCoupling (p: particles)
   -- Update the particle velocity and temperature
   p.velocity_t += p.deltaVelocityOverRelaxationTime
   p.temperature_t += p.deltaTemperatureTerm /
-    (p.mass * particles_options.heat_capacity)
+    (p.mass * particles_options.heatCapacity)
 
 end
 
@@ -2474,7 +2483,7 @@ if radiation_options.radiationType == RadiationType.DOM then
     var t4 = L.pow(p.particle_temperature,4.0)
     var alpha = pi * radiation_options.qa * L.pow(p.diameter,2.0)
       * (p.cell.to_Radiation.G - 4.0 * SB * t4) / 4.0
-    p.temperature_t += alpha / (p.mass * particles_options.heat_capacity)
+    p.temperature_t += alpha / (p.mass * particles_options.heatCapacity)
   end
   Particles.AbsorbRadiation._MANUAL_PARAL = true
 

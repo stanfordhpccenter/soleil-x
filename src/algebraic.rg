@@ -6,40 +6,21 @@ local A = require 'admiral'
 -- Module parameters
 -------------------------------------------------------------------------------
 
-return function(particlesRel)
+return function(particlesRel, absorptivity, heatCapacity, radiationIntensity)
 
 -------------------------------------------------------------------------------
--- Compile-time computation
+-- Local tasks
 -------------------------------------------------------------------------------
 
 local acos = regentlib.acos(double)
 local pow = regentlib.pow(double)
 local pi = rexpr 2.0 * acos(0.0) end
 
-local config
-local i = 1
-while i <= #arg do
-  if arg[i] == '-i' and i < #arg then
-    config = loadfile(arg[i+1])()
-    break
-  end
-  i = i + 1
-end
-if not config then
-  print("config file required (-i <file> option)")
-  os.exit(1)
-end
-
-local absorptivity = config.absorptivity
-local radiationIntensity = config.radiationIntensity
-local heatCapacity = config.heatCapacity
-
--------------------------------------------------------------------------------
--- Local tasks
--------------------------------------------------------------------------------
-
 local __demand(__parallel) task AddRadiation
-  (particles : particlesRel:regionType())
+  (particles : particlesRel:regionType(),
+   absorptivity : double,
+   heatCapacity : double,
+   radiationIntensity : double)
 where
   reads(particles.{density, diameter}),
   reads writes(particles.temperature_t)
@@ -62,7 +43,10 @@ A.registerTask(AddRadiation, 'AddRadiation')
 local exports = {}
 
 exports.AddRadiation = rquote
-  AddRadiation([particlesRel:regionSymbol()])
+  AddRadiation([particlesRel:regionSymbol()],
+               [absorptivity:varSymbol()],
+               [heatCapacity:varSymbol()],
+               [radiationIntensity:varSymbol()])
 end
 
 -------------------------------------------------------------------------------

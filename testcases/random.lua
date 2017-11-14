@@ -56,14 +56,11 @@ return {
   maximum_num = 240,
   restitutionCoefficient = 0.1487899,
   convectiveCoefficient = 0.8720309,
-  heatCapacity = 0.3767944,
   initialTemperature = 0.7490512,
   density = 0.4769553,
   diameter_mean = 0.5250806,
   bodyForceParticles = {0.5899043, 0.3012763, 0.6355317},
-  absorptivity = 0.6796266,
 
   -- Radiation Options
   radiationType = 'Algebraic', -- 'Algebraic', 'DOM', 'MCRT', 'OFF'
-  radiationIntensity = 0.258018,
 }

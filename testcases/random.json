@@ -1,6 +1,6 @@
 {
     // Flow Initialization Options
-    "restartIter" : 111,
+    "restartIter" : -111,
 
     // Time Integration Options
     "cfl" : 0.4106583,
@@ -12,4 +12,11 @@
     "consoleFrequency" : 333,
     "headerFrequency" : 555,
     "restartEveryTimeSteps" : 444,
+
+    // Particle Options
+    "absorptivity" : 0.6796266,
+    "heatCapacity" : 0.3767944,
+
+    // Radiation Options
+    "radiationIntensity" : 0.258018,
 }
