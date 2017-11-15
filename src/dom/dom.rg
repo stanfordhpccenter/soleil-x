@@ -1147,7 +1147,7 @@ do
             end
 
             var upwind_y_value : double = 0.0
-            if indy > y_faces.bounds.lo.y then
+            if indy > y_faces.bounds.hi.y then
               var ghost_y_limits = ghost_y_faces.bounds
               upwind_y_value = ghost_y_faces[{i,ghost_y_limits.lo.y,k}].Ify_4[m]
             else
