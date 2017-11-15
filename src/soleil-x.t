@@ -3161,13 +3161,13 @@ function TimeIntegrator.UpdateSolution()
 end
 
 function TimeIntegrator.AdvanceTimeStep()
+  M.TRACE()
 
-  TimeIntegrator.SetupTimeStep()
-  TimeIntegrator.timeOld:set(TimeIntegrator.simTime:get())
+    TimeIntegrator.SetupTimeStep()
+    TimeIntegrator.timeOld:set(TimeIntegrator.simTime:get())
 
-  TimeIntegrator.stage:set(1)
-  M.WHILE(M.LT(TimeIntegrator.stage:get(), 5))
-    M.TRACE()
+    TimeIntegrator.stage:set(1)
+    M.WHILE(M.LT(TimeIntegrator.stage:get(), 5))
       TimeIntegrator.InitializeTimeDerivatives()
       TimeIntegrator.ComputeDFunctionDt()
       TimeIntegrator.UpdateSolution()
@@ -3178,10 +3178,10 @@ function TimeIntegrator.AdvanceTimeStep()
       -- transformation. It should be fine to do this multiple times.
       TimeIntegrator.ConcludeTimeStep()
     M.END()
+
+    TimeIntegrator.timeStep:set(TimeIntegrator.timeStep:get() + 1)
+
   M.END()
-
-  TimeIntegrator.timeStep:set(TimeIntegrator.timeStep:get() + 1)
-
 end
 
 function TimeIntegrator.CalculateDeltaTime()
