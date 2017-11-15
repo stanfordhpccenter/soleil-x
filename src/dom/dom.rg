@@ -929,6 +929,867 @@ do
   end
 end
 
+local task sweep_2(points : pointsType,
+                   x_faces : region(ispace(int3d), face),
+                   y_faces : region(ispace(int3d), face),
+                   z_faces : region(ispace(int3d), face),
+                   ghost_x_faces : region(ispace(int3d), face),
+                   ghost_y_faces : region(ispace(int3d), face),
+                   ghost_z_faces : region(ispace(int3d), face),
+                   angles : region(ispace(int1d), angle),
+                   xi : int64, eta : int64, mu : int64)
+where
+  reads (angles.{xi, eta, mu}, points.{S, sigma},
+         ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
+  reads writes(points.I_2, x_faces.I, y_faces.I, z_faces.I)
+do
+
+  -- Determine sweep direction and bounds
+
+  var limits = points.bounds
+
+  var dindx  : int64 = 1
+  var startx : int64 = limits.lo.x
+  var endx   : int64 = limits.hi.x + 1
+
+  var dindy  : int64 = 1
+  var starty : int64 = limits.lo.y
+  var endy   : int64 = limits.hi.y + 1
+
+  var dindz  : int64 = 1
+  var startz : int64 = limits.lo.z
+  var endz   : int64 = limits.hi.z + 1
+
+  if xi < 0 then
+    dindx = -1
+    startx = limits.hi.x
+    endx = limits.lo.x - 1
+  end
+
+  if eta < 0 then
+    dindx = -1
+    startx = limits.hi.y
+    endx = limits.lo.y - 1
+  end
+
+  if mu < 0 then
+    dindx = -1
+    startx = limits.hi.z
+    endx = limits.lo.z - 1
+  end
+
+
+  -- Outer loop over all angles.
+  for m = 0, N_angles do
+
+    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and 
+      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and 
+      (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
+
+      -- Use our direction and increments for the sweep.
+
+      for k = startz,endz,dindz do
+        for j = starty,endy,dindy do
+          for i = startx,endx,dindx do
+
+            -- indx and indy are the upwind indices
+            var indx : int64 = i - min(dindx,0)
+            var indy : int64 = j - min(dindy,0)
+            var indz : int64 = k - min(dindz,0)
+
+            -- Determine if necessary to use ghost partition
+
+            var ghost_x_limits = ghost_x_faces.bounds
+            var upwind_x_value : double = 0.0
+            if indx < x_faces.bounds.lo.x then
+              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I[m]
+            elseif indx > x_faces.bounds.hi.x then
+              upwind_x_value = ghost_x_faces[{i,j,ghost_x_limits.lo.x}].I[m]
+            else
+              upwind_x_value = x_faces[{indx,j,k}].I[m]
+            end
+
+            var ghost_y_limits = ghost_y_faces.bounds
+            var upwind_y_value : double = 0.0
+            if indy < y_faces.bounds.lo.y then
+              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y,k}].I[m]
+            elseif indy > y_faces.bounds.hi.y then
+              upwind_y_value = ghost_y_faces[{i,j,ghost_y_limits.lo.y}].I[m]
+            else
+              upwind_y_value = y_faces[{i,indy,k}].I[m]
+            end
+
+            var ghost_z_limits = ghost_z_faces.bounds
+            var upwind_z_value : double = 0.0
+            if indz < z_faces.bounds.lo.z then
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.hi.z}].I[m]
+            elseif indz > z_faces.bounds.hi.z then
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.lo.z}].I[m]
+            else
+              upwind_z_value = z_faces[{i,j,indz}].I[m]
+            end
+
+            -- Integrate to compute cell-centered value of I.
+
+            points[{i,j,k}].I_2[m] = (points[{i,j,k}].S * dV
+                                        + cmath.fabs(angles[m].xi) * dAx * upwind_x_value/gamma
+                                        + cmath.fabs(angles[m].eta) * dAy * upwind_y_value/gamma
+                                        + cmath.fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+              /(points[{i,j,k}].sigma * dV
+                  + cmath.fabs(angles[m].xi) * dAx/gamma
+                  + cmath.fabs(angles[m].eta) * dAy/gamma
+                  + cmath.fabs(angles[m].mu) * dAz/gamma)
+
+            -- Compute intensities on downwind faces
+
+            x_faces[{indx+dindx, j, k}].I[m] = (points[{i,j,k}].I_2[m] - (1-gamma)*upwind_x_value)/gamma
+            y_faces[{i, indy+dindy, k}].I[m] = (points[{i,j,k}].I_2[m] - (1-gamma)*upwind_y_value)/gamma
+            z_faces[{i, j, indz+dindz}].I[m] = (points[{i,j,k}].I_2[m] - (1-gamma)*upwind_z_value)/gamma
+          end
+        end
+      end
+    end
+  end
+end
+
+local task sweep_3(points : pointsType,
+                   x_faces : region(ispace(int3d), face),
+                   y_faces : region(ispace(int3d), face),
+                   z_faces : region(ispace(int3d), face),
+                   ghost_x_faces : region(ispace(int3d), face),
+                   ghost_y_faces : region(ispace(int3d), face),
+                   ghost_z_faces : region(ispace(int3d), face),
+                   angles : region(ispace(int1d), angle),
+                   xi : int64, eta : int64, mu : int64)
+where
+  reads (angles.{xi, eta, mu}, points.{S, sigma},
+         ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
+  reads writes(points.I_3, x_faces.I, y_faces.I, z_faces.I)
+do
+
+  -- Determine sweep direction and bounds
+
+  var limits = points.bounds
+
+  var dindx  : int64 = 1
+  var startx : int64 = limits.lo.x
+  var endx   : int64 = limits.hi.x + 1
+
+  var dindy  : int64 = 1
+  var starty : int64 = limits.lo.y
+  var endy   : int64 = limits.hi.y + 1
+
+  var dindz  : int64 = 1
+  var startz : int64 = limits.lo.z
+  var endz   : int64 = limits.hi.z + 1
+
+  if xi < 0 then
+    dindx = -1
+    startx = limits.hi.x
+    endx = limits.lo.x - 1
+  end
+
+  if eta < 0 then
+    dindx = -1
+    startx = limits.hi.y
+    endx = limits.lo.y - 1
+  end
+
+  if mu < 0 then
+    dindx = -1
+    startx = limits.hi.z
+    endx = limits.lo.z - 1
+  end
+
+
+  -- Outer loop over all angles.
+  for m = 0, N_angles do
+
+    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and 
+      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and 
+      (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
+
+      -- Use our direction and increments for the sweep.
+
+      for k = startz,endz,dindz do
+        for j = starty,endy,dindy do
+          for i = startx,endx,dindx do
+
+            -- indx and indy are the upwind indices
+            var indx : int64 = i - min(dindx,0)
+            var indy : int64 = j - min(dindy,0)
+            var indz : int64 = k - min(dindz,0)
+
+            -- Determine if necessary to use ghost partition
+
+            var ghost_x_limits = ghost_x_faces.bounds
+            var upwind_x_value : double = 0.0
+            if indx < x_faces.bounds.lo.x then
+              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I[m]
+            elseif indx > x_faces.bounds.hi.x then
+              upwind_x_value = ghost_x_faces[{i,j,ghost_x_limits.lo.x}].I[m]
+            else
+              upwind_x_value = x_faces[{indx,j,k}].I[m]
+            end
+
+            var ghost_y_limits = ghost_y_faces.bounds
+            var upwind_y_value : double = 0.0
+            if indy < y_faces.bounds.lo.y then
+              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y,k}].I[m]
+            elseif indy > y_faces.bounds.hi.y then
+              upwind_y_value = ghost_y_faces[{i,j,ghost_y_limits.lo.y}].I[m]
+            else
+              upwind_y_value = y_faces[{i,indy,k}].I[m]
+            end
+
+            var ghost_z_limits = ghost_z_faces.bounds
+            var upwind_z_value : double = 0.0
+            if indz < z_faces.bounds.lo.z then
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.hi.z}].I[m]
+            elseif indz > z_faces.bounds.hi.z then
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.lo.z}].I[m]
+            else
+              upwind_z_value = z_faces[{i,j,indz}].I[m]
+            end
+
+            -- Integrate to compute cell-centered value of I.
+
+            points[{i,j,k}].I_3[m] = (points[{i,j,k}].S * dV
+                                        + cmath.fabs(angles[m].xi) * dAx * upwind_x_value/gamma
+                                        + cmath.fabs(angles[m].eta) * dAy * upwind_y_value/gamma
+                                        + cmath.fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+              /(points[{i,j,k}].sigma * dV
+                  + cmath.fabs(angles[m].xi) * dAx/gamma
+                  + cmath.fabs(angles[m].eta) * dAy/gamma
+                  + cmath.fabs(angles[m].mu) * dAz/gamma)
+
+            -- Compute intensities on downwind faces
+
+            x_faces[{indx+dindx, j, k}].I[m] = (points[{i,j,k}].I_3[m] - (1-gamma)*upwind_x_value)/gamma
+            y_faces[{i, indy+dindy, k}].I[m] = (points[{i,j,k}].I_3[m] - (1-gamma)*upwind_y_value)/gamma
+            z_faces[{i, j, indz+dindz}].I[m] = (points[{i,j,k}].I_3[m] - (1-gamma)*upwind_z_value)/gamma
+          end
+        end
+      end
+    end
+  end
+end
+
+local task sweep_4(points : pointsType,
+                   x_faces : region(ispace(int3d), face),
+                   y_faces : region(ispace(int3d), face),
+                   z_faces : region(ispace(int3d), face),
+                   ghost_x_faces : region(ispace(int3d), face),
+                   ghost_y_faces : region(ispace(int3d), face),
+                   ghost_z_faces : region(ispace(int3d), face),
+                   angles : region(ispace(int1d), angle),
+                   xi : int64, eta : int64, mu : int64)
+where
+  reads (angles.{xi, eta, mu}, points.{S, sigma},
+         ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
+  reads writes(points.I_4, x_faces.I, y_faces.I, z_faces.I)
+do
+
+  -- Determine sweep direction and bounds
+
+  var limits = points.bounds
+
+  var dindx  : int64 = 1
+  var startx : int64 = limits.lo.x
+  var endx   : int64 = limits.hi.x + 1
+
+  var dindy  : int64 = 1
+  var starty : int64 = limits.lo.y
+  var endy   : int64 = limits.hi.y + 1
+
+  var dindz  : int64 = 1
+  var startz : int64 = limits.lo.z
+  var endz   : int64 = limits.hi.z + 1
+
+  if xi < 0 then
+    dindx = -1
+    startx = limits.hi.x
+    endx = limits.lo.x - 1
+  end
+
+  if eta < 0 then
+    dindx = -1
+    startx = limits.hi.y
+    endx = limits.lo.y - 1
+  end
+
+  if mu < 0 then
+    dindx = -1
+    startx = limits.hi.z
+    endx = limits.lo.z - 1
+  end
+
+
+  -- Outer loop over all angles.
+  for m = 0, N_angles do
+
+    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and 
+      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and 
+      (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
+
+      -- Use our direction and increments for the sweep.
+
+      for k = startz,endz,dindz do
+        for j = starty,endy,dindy do
+          for i = startx,endx,dindx do
+
+            -- indx and indy are the upwind indices
+            var indx : int64 = i - min(dindx,0)
+            var indy : int64 = j - min(dindy,0)
+            var indz : int64 = k - min(dindz,0)
+
+            -- Determine if necessary to use ghost partition
+
+            var ghost_x_limits = ghost_x_faces.bounds
+            var upwind_x_value : double = 0.0
+            if indx < x_faces.bounds.lo.x then
+              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I[m]
+            elseif indx > x_faces.bounds.hi.x then
+              upwind_x_value = ghost_x_faces[{i,j,ghost_x_limits.lo.x}].I[m]
+            else
+              upwind_x_value = x_faces[{indx,j,k}].I[m]
+            end
+
+            var ghost_y_limits = ghost_y_faces.bounds
+            var upwind_y_value : double = 0.0
+            if indy < y_faces.bounds.lo.y then
+              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y,k}].I[m]
+            elseif indy > y_faces.bounds.hi.y then
+              upwind_y_value = ghost_y_faces[{i,j,ghost_y_limits.lo.y}].I[m]
+            else
+              upwind_y_value = y_faces[{i,indy,k}].I[m]
+            end
+
+            var ghost_z_limits = ghost_z_faces.bounds
+            var upwind_z_value : double = 0.0
+            if indz < z_faces.bounds.lo.z then
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.hi.z}].I[m]
+            elseif indz > z_faces.bounds.hi.z then
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.lo.z}].I[m]
+            else
+              upwind_z_value = z_faces[{i,j,indz}].I[m]
+            end
+
+            -- Integrate to compute cell-centered value of I.
+
+            points[{i,j,k}].I_4[m] = (points[{i,j,k}].S * dV
+                                        + cmath.fabs(angles[m].xi) * dAx * upwind_x_value/gamma
+                                        + cmath.fabs(angles[m].eta) * dAy * upwind_y_value/gamma
+                                        + cmath.fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+              /(points[{i,j,k}].sigma * dV
+                  + cmath.fabs(angles[m].xi) * dAx/gamma
+                  + cmath.fabs(angles[m].eta) * dAy/gamma
+                  + cmath.fabs(angles[m].mu) * dAz/gamma)
+
+            -- Compute intensities on downwind faces
+
+            x_faces[{indx+dindx, j, k}].I[m] = (points[{i,j,k}].I_4[m] - (1-gamma)*upwind_x_value)/gamma
+            y_faces[{i, indy+dindy, k}].I[m] = (points[{i,j,k}].I_4[m] - (1-gamma)*upwind_y_value)/gamma
+            z_faces[{i, j, indz+dindz}].I[m] = (points[{i,j,k}].I_4[m] - (1-gamma)*upwind_z_value)/gamma
+          end
+        end
+      end
+    end
+  end
+end
+
+local task sweep_5(points : pointsType,
+                   x_faces : region(ispace(int3d), face),
+                   y_faces : region(ispace(int3d), face),
+                   z_faces : region(ispace(int3d), face),
+                   ghost_x_faces : region(ispace(int3d), face),
+                   ghost_y_faces : region(ispace(int3d), face),
+                   ghost_z_faces : region(ispace(int3d), face),
+                   angles : region(ispace(int1d), angle),
+                   xi : int64, eta : int64, mu : int64)
+where
+  reads (angles.{xi, eta, mu}, points.{S, sigma},
+         ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
+  reads writes(points.I_5, x_faces.I, y_faces.I, z_faces.I)
+do
+
+  -- Determine sweep direction and bounds
+
+  var limits = points.bounds
+
+  var dindx  : int64 = 1
+  var startx : int64 = limits.lo.x
+  var endx   : int64 = limits.hi.x + 1
+
+  var dindy  : int64 = 1
+  var starty : int64 = limits.lo.y
+  var endy   : int64 = limits.hi.y + 1
+
+  var dindz  : int64 = 1
+  var startz : int64 = limits.lo.z
+  var endz   : int64 = limits.hi.z + 1
+
+  if xi < 0 then
+    dindx = -1
+    startx = limits.hi.x
+    endx = limits.lo.x - 1
+  end
+
+  if eta < 0 then
+    dindx = -1
+    startx = limits.hi.y
+    endx = limits.lo.y - 1
+  end
+
+  if mu < 0 then
+    dindx = -1
+    startx = limits.hi.z
+    endx = limits.lo.z - 1
+  end
+
+
+  -- Outer loop over all angles.
+  for m = 0, N_angles do
+
+    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and 
+      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and 
+      (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
+
+      -- Use our direction and increments for the sweep.
+
+      for k = startz,endz,dindz do
+        for j = starty,endy,dindy do
+          for i = startx,endx,dindx do
+
+            -- indx and indy are the upwind indices
+            var indx : int64 = i - min(dindx,0)
+            var indy : int64 = j - min(dindy,0)
+            var indz : int64 = k - min(dindz,0)
+
+            -- Determine if necessary to use ghost partition
+
+            var ghost_x_limits = ghost_x_faces.bounds
+            var upwind_x_value : double = 0.0
+            if indx < x_faces.bounds.lo.x then
+              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I[m]
+            elseif indx > x_faces.bounds.hi.x then
+              upwind_x_value = ghost_x_faces[{i,j,ghost_x_limits.lo.x}].I[m]
+            else
+              upwind_x_value = x_faces[{indx,j,k}].I[m]
+            end
+
+            var ghost_y_limits = ghost_y_faces.bounds
+            var upwind_y_value : double = 0.0
+            if indy < y_faces.bounds.lo.y then
+              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y,k}].I[m]
+            elseif indy > y_faces.bounds.hi.y then
+              upwind_y_value = ghost_y_faces[{i,j,ghost_y_limits.lo.y}].I[m]
+            else
+              upwind_y_value = y_faces[{i,indy,k}].I[m]
+            end
+
+            var ghost_z_limits = ghost_z_faces.bounds
+            var upwind_z_value : double = 0.0
+            if indz < z_faces.bounds.lo.z then
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.hi.z}].I[m]
+            elseif indz > z_faces.bounds.hi.z then
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.lo.z}].I[m]
+            else
+              upwind_z_value = z_faces[{i,j,indz}].I[m]
+            end
+
+            -- Integrate to compute cell-centered value of I.
+
+            points[{i,j,k}].I_5[m] = (points[{i,j,k}].S * dV
+                                        + cmath.fabs(angles[m].xi) * dAx * upwind_x_value/gamma
+                                        + cmath.fabs(angles[m].eta) * dAy * upwind_y_value/gamma
+                                        + cmath.fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+              /(points[{i,j,k}].sigma * dV
+                  + cmath.fabs(angles[m].xi) * dAx/gamma
+                  + cmath.fabs(angles[m].eta) * dAy/gamma
+                  + cmath.fabs(angles[m].mu) * dAz/gamma)
+
+            -- Compute intensities on downwind faces
+
+            x_faces[{indx+dindx, j, k}].I[m] = (points[{i,j,k}].I_5[m] - (1-gamma)*upwind_x_value)/gamma
+            y_faces[{i, indy+dindy, k}].I[m] = (points[{i,j,k}].I_5[m] - (1-gamma)*upwind_y_value)/gamma
+            z_faces[{i, j, indz+dindz}].I[m] = (points[{i,j,k}].I_5[m] - (1-gamma)*upwind_z_value)/gamma
+          end
+        end
+      end
+    end
+  end
+end
+
+local task sweep_6(points : pointsType,
+                   x_faces : region(ispace(int3d), face),
+                   y_faces : region(ispace(int3d), face),
+                   z_faces : region(ispace(int3d), face),
+                   ghost_x_faces : region(ispace(int3d), face),
+                   ghost_y_faces : region(ispace(int3d), face),
+                   ghost_z_faces : region(ispace(int3d), face),
+                   angles : region(ispace(int1d), angle),
+                   xi : int64, eta : int64, mu : int64)
+where
+  reads (angles.{xi, eta, mu}, points.{S, sigma},
+         ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
+  reads writes(points.I_6, x_faces.I, y_faces.I, z_faces.I)
+do
+
+  -- Determine sweep direction and bounds
+
+  var limits = points.bounds
+
+  var dindx  : int64 = 1
+  var startx : int64 = limits.lo.x
+  var endx   : int64 = limits.hi.x + 1
+
+  var dindy  : int64 = 1
+  var starty : int64 = limits.lo.y
+  var endy   : int64 = limits.hi.y + 1
+
+  var dindz  : int64 = 1
+  var startz : int64 = limits.lo.z
+  var endz   : int64 = limits.hi.z + 1
+
+  if xi < 0 then
+    dindx = -1
+    startx = limits.hi.x
+    endx = limits.lo.x - 1
+  end
+
+  if eta < 0 then
+    dindx = -1
+    startx = limits.hi.y
+    endx = limits.lo.y - 1
+  end
+
+  if mu < 0 then
+    dindx = -1
+    startx = limits.hi.z
+    endx = limits.lo.z - 1
+  end
+
+
+  -- Outer loop over all angles.
+  for m = 0, N_angles do
+
+    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and 
+      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and 
+      (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
+
+      -- Use our direction and increments for the sweep.
+
+      for k = startz,endz,dindz do
+        for j = starty,endy,dindy do
+          for i = startx,endx,dindx do
+
+            -- indx and indy are the upwind indices
+            var indx : int64 = i - min(dindx,0)
+            var indy : int64 = j - min(dindy,0)
+            var indz : int64 = k - min(dindz,0)
+
+            -- Determine if necessary to use ghost partition
+
+            var ghost_x_limits = ghost_x_faces.bounds
+            var upwind_x_value : double = 0.0
+            if indx < x_faces.bounds.lo.x then
+              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I[m]
+            elseif indx > x_faces.bounds.hi.x then
+              upwind_x_value = ghost_x_faces[{i,j,ghost_x_limits.lo.x}].I[m]
+            else
+              upwind_x_value = x_faces[{indx,j,k}].I[m]
+            end
+
+            var ghost_y_limits = ghost_y_faces.bounds
+            var upwind_y_value : double = 0.0
+            if indy < y_faces.bounds.lo.y then
+              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y,k}].I[m]
+            elseif indy > y_faces.bounds.hi.y then
+              upwind_y_value = ghost_y_faces[{i,j,ghost_y_limits.lo.y}].I[m]
+            else
+              upwind_y_value = y_faces[{i,indy,k}].I[m]
+            end
+
+            var ghost_z_limits = ghost_z_faces.bounds
+            var upwind_z_value : double = 0.0
+            if indz < z_faces.bounds.lo.z then
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.hi.z}].I[m]
+            elseif indz > z_faces.bounds.hi.z then
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.lo.z}].I[m]
+            else
+              upwind_z_value = z_faces[{i,j,indz}].I[m]
+            end
+
+            -- Integrate to compute cell-centered value of I.
+
+            points[{i,j,k}].I_6[m] = (points[{i,j,k}].S * dV
+                                        + cmath.fabs(angles[m].xi) * dAx * upwind_x_value/gamma
+                                        + cmath.fabs(angles[m].eta) * dAy * upwind_y_value/gamma
+                                        + cmath.fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+              /(points[{i,j,k}].sigma * dV
+                  + cmath.fabs(angles[m].xi) * dAx/gamma
+                  + cmath.fabs(angles[m].eta) * dAy/gamma
+                  + cmath.fabs(angles[m].mu) * dAz/gamma)
+
+            -- Compute intensities on downwind faces
+
+            x_faces[{indx+dindx, j, k}].I[m] = (points[{i,j,k}].I_6[m] - (1-gamma)*upwind_x_value)/gamma
+            y_faces[{i, indy+dindy, k}].I[m] = (points[{i,j,k}].I_6[m] - (1-gamma)*upwind_y_value)/gamma
+            z_faces[{i, j, indz+dindz}].I[m] = (points[{i,j,k}].I_6[m] - (1-gamma)*upwind_z_value)/gamma
+          end
+        end
+      end
+    end
+  end
+end
+
+local task sweep_7(points : pointsType,
+                   x_faces : region(ispace(int3d), face),
+                   y_faces : region(ispace(int3d), face),
+                   z_faces : region(ispace(int3d), face),
+                   ghost_x_faces : region(ispace(int3d), face),
+                   ghost_y_faces : region(ispace(int3d), face),
+                   ghost_z_faces : region(ispace(int3d), face),
+                   angles : region(ispace(int1d), angle),
+                   xi : int64, eta : int64, mu : int64)
+where
+  reads (angles.{xi, eta, mu}, points.{S, sigma},
+         ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
+  reads writes(points.I_7, x_faces.I, y_faces.I, z_faces.I)
+do
+
+  -- Determine sweep direction and bounds
+
+  var limits = points.bounds
+
+  var dindx  : int64 = 1
+  var startx : int64 = limits.lo.x
+  var endx   : int64 = limits.hi.x + 1
+
+  var dindy  : int64 = 1
+  var starty : int64 = limits.lo.y
+  var endy   : int64 = limits.hi.y + 1
+
+  var dindz  : int64 = 1
+  var startz : int64 = limits.lo.z
+  var endz   : int64 = limits.hi.z + 1
+
+  if xi < 0 then
+    dindx = -1
+    startx = limits.hi.x
+    endx = limits.lo.x - 1
+  end
+
+  if eta < 0 then
+    dindx = -1
+    startx = limits.hi.y
+    endx = limits.lo.y - 1
+  end
+
+  if mu < 0 then
+    dindx = -1
+    startx = limits.hi.z
+    endx = limits.lo.z - 1
+  end
+
+
+  -- Outer loop over all angles.
+  for m = 0, N_angles do
+
+    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and 
+      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and 
+      (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
+
+      -- Use our direction and increments for the sweep.
+
+      for k = startz,endz,dindz do
+        for j = starty,endy,dindy do
+          for i = startx,endx,dindx do
+
+            -- indx and indy are the upwind indices
+            var indx : int64 = i - min(dindx,0)
+            var indy : int64 = j - min(dindy,0)
+            var indz : int64 = k - min(dindz,0)
+
+            -- Determine if necessary to use ghost partition
+
+            var ghost_x_limits = ghost_x_faces.bounds
+            var upwind_x_value : double = 0.0
+            if indx < x_faces.bounds.lo.x then
+              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I[m]
+            elseif indx > x_faces.bounds.hi.x then
+              upwind_x_value = ghost_x_faces[{i,j,ghost_x_limits.lo.x}].I[m]
+            else
+              upwind_x_value = x_faces[{indx,j,k}].I[m]
+            end
+
+            var ghost_y_limits = ghost_y_faces.bounds
+            var upwind_y_value : double = 0.0
+            if indy < y_faces.bounds.lo.y then
+              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y,k}].I[m]
+            elseif indy > y_faces.bounds.hi.y then
+              upwind_y_value = ghost_y_faces[{i,j,ghost_y_limits.lo.y}].I[m]
+            else
+              upwind_y_value = y_faces[{i,indy,k}].I[m]
+            end
+
+            var ghost_z_limits = ghost_z_faces.bounds
+            var upwind_z_value : double = 0.0
+            if indz < z_faces.bounds.lo.z then
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.hi.z}].I[m]
+            elseif indz > z_faces.bounds.hi.z then
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.lo.z}].I[m]
+            else
+              upwind_z_value = z_faces[{i,j,indz}].I[m]
+            end
+
+            -- Integrate to compute cell-centered value of I.
+
+            points[{i,j,k}].I_7[m] = (points[{i,j,k}].S * dV
+                                        + cmath.fabs(angles[m].xi) * dAx * upwind_x_value/gamma
+                                        + cmath.fabs(angles[m].eta) * dAy * upwind_y_value/gamma
+                                        + cmath.fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+              /(points[{i,j,k}].sigma * dV
+                  + cmath.fabs(angles[m].xi) * dAx/gamma
+                  + cmath.fabs(angles[m].eta) * dAy/gamma
+                  + cmath.fabs(angles[m].mu) * dAz/gamma)
+
+            -- Compute intensities on downwind faces
+
+            x_faces[{indx+dindx, j, k}].I[m] = (points[{i,j,k}].I_7[m] - (1-gamma)*upwind_x_value)/gamma
+            y_faces[{i, indy+dindy, k}].I[m] = (points[{i,j,k}].I_7[m] - (1-gamma)*upwind_y_value)/gamma
+            z_faces[{i, j, indz+dindz}].I[m] = (points[{i,j,k}].I_7[m] - (1-gamma)*upwind_z_value)/gamma
+          end
+        end
+      end
+    end
+  end
+end
+
+local task sweep_8(points : pointsType,
+                   x_faces : region(ispace(int3d), face),
+                   y_faces : region(ispace(int3d), face),
+                   z_faces : region(ispace(int3d), face),
+                   ghost_x_faces : region(ispace(int3d), face),
+                   ghost_y_faces : region(ispace(int3d), face),
+                   ghost_z_faces : region(ispace(int3d), face),
+                   angles : region(ispace(int1d), angle),
+                   xi : int64, eta : int64, mu : int64)
+where
+  reads (angles.{xi, eta, mu}, points.{S, sigma},
+         ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
+  reads writes(points.I_8, x_faces.I, y_faces.I, z_faces.I)
+do
+
+  -- Determine sweep direction and bounds
+
+  var limits = points.bounds
+
+  var dindx  : int64 = 1
+  var startx : int64 = limits.lo.x
+  var endx   : int64 = limits.hi.x + 1
+
+  var dindy  : int64 = 1
+  var starty : int64 = limits.lo.y
+  var endy   : int64 = limits.hi.y + 1
+
+  var dindz  : int64 = 1
+  var startz : int64 = limits.lo.z
+  var endz   : int64 = limits.hi.z + 1
+
+  if xi < 0 then
+    dindx = -1
+    startx = limits.hi.x
+    endx = limits.lo.x - 1
+  end
+
+  if eta < 0 then
+    dindx = -1
+    startx = limits.hi.y
+    endx = limits.lo.y - 1
+  end
+
+  if mu < 0 then
+    dindx = -1
+    startx = limits.hi.z
+    endx = limits.lo.z - 1
+  end
+
+
+  -- Outer loop over all angles.
+  for m = 0, N_angles do
+
+    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and 
+      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and 
+      (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
+
+      -- Use our direction and increments for the sweep.
+
+      for k = startz,endz,dindz do
+        for j = starty,endy,dindy do
+          for i = startx,endx,dindx do
+
+            -- indx and indy are the upwind indices
+            var indx : int64 = i - min(dindx,0)
+            var indy : int64 = j - min(dindy,0)
+            var indz : int64 = k - min(dindz,0)
+
+            -- Determine if necessary to use ghost partition
+
+            var ghost_x_limits = ghost_x_faces.bounds
+            var upwind_x_value : double = 0.0
+            if indx < x_faces.bounds.lo.x then
+              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I[m]
+            elseif indx > x_faces.bounds.hi.x then
+              upwind_x_value = ghost_x_faces[{i,j,ghost_x_limits.lo.x}].I[m]
+            else
+              upwind_x_value = x_faces[{indx,j,k}].I[m]
+            end
+
+            var ghost_y_limits = ghost_y_faces.bounds
+            var upwind_y_value : double = 0.0
+            if indy < y_faces.bounds.lo.y then
+              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y,k}].I[m]
+            elseif indy > y_faces.bounds.hi.y then
+              upwind_y_value = ghost_y_faces[{i,j,ghost_y_limits.lo.y}].I[m]
+            else
+              upwind_y_value = y_faces[{i,indy,k}].I[m]
+            end
+
+            var ghost_z_limits = ghost_z_faces.bounds
+            var upwind_z_value : double = 0.0
+            if indz < z_faces.bounds.lo.z then
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.hi.z}].I[m]
+            elseif indz > z_faces.bounds.hi.z then
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.lo.z}].I[m]
+            else
+              upwind_z_value = z_faces[{i,j,indz}].I[m]
+            end
+
+            -- Integrate to compute cell-centered value of I.
+
+            points[{i,j,k}].I_8[m] = (points[{i,j,k}].S * dV
+                                        + cmath.fabs(angles[m].xi) * dAx * upwind_x_value/gamma
+                                        + cmath.fabs(angles[m].eta) * dAy * upwind_y_value/gamma
+                                        + cmath.fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+              /(points[{i,j,k}].sigma * dV
+                  + cmath.fabs(angles[m].xi) * dAx/gamma
+                  + cmath.fabs(angles[m].eta) * dAy/gamma
+                  + cmath.fabs(angles[m].mu) * dAz/gamma)
+
+            -- Compute intensities on downwind faces
+
+            x_faces[{indx+dindx, j, k}].I[m] = (points[{i,j,k}].I_8[m] - (1-gamma)*upwind_x_value)/gamma
+            y_faces[{i, indy+dindy, k}].I[m] = (points[{i,j,k}].I_8[m] - (1-gamma)*upwind_y_value)/gamma
+            z_faces[{i, j, indz+dindz}].I[m] = (points[{i,j,k}].I_8[m] - (1-gamma)*upwind_z_value)/gamma
+          end
+        end
+      end
+    end
+  end
+end
+
 -- Compute the residual after each iteration and return the value.
 local task residual(points : pointsType)
 where
