@@ -100,7 +100,7 @@ do
   link_flags = terralib.newlist({"-L" .. root_dir, "-lsoleil_mapper"})
   local cxx = os.getenv('CXX') or 'c++'
 
-  local cxx_flags = "-O2 -Wall -Werror"
+  local cxx_flags = "-O2 -Wall -Werror -Wno-unused-private-field"
   if os.execute('test "$(uname)" = Darwin') == 0 then
     cxx_flags =
       (cxx_flags ..
@@ -112,6 +112,7 @@ do
   local cmd = (cxx .. " " .. cxx_flags .. " -I " .. runtime_dir .. " " ..
                  " -I " .. mapper_dir .. " " .. " -I " .. legion_dir .. " " ..
                  " -I " .. realm_dir .. " " .. mapper_cc .. " -o " .. mapper_so)
+  print(cmd)
   if os.execute(cmd) ~= 0 then
     print("Error: failed to compile " .. mapper_cc)
     assert(false)
