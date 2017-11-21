@@ -143,6 +143,24 @@ local points = pointsRel:regionSymbol()
 local colors = A.primColors()
 local p_points = pointsRel:primPartSymbol()
 
+local task writeIntensity(points : region(ispace(int3d), Point))
+where
+  reads (points.G)
+do
+  var limits = points.bounds
+  var f = regentlib.c.fopen("intensity.dat", "w")
+  for i = limits.lo.x, limits.hi.x+1 do
+    for j = limits.lo.y, limits.hi.y+1 do
+      for k = limits.lo.z, limits.hi.z+1 do
+        regentlib.c.fprintf(f,' %.6e ', points[{i,j,k}].G)
+      end
+      regentlib.c.fprintf(f,'\n')
+    end
+    regentlib.c.fprintf(f,'\n')
+  end
+  regentlib.c.fclose(f)
+end
+
 local task main()
   var is = ispace(int3d, {nx,ny,nz})
   var [points] = region(is, Point)
@@ -151,6 +169,7 @@ local task main()
   [domMod.InitModule]
   InitPoints(points);
   [domMod.ComputeRadiationField]
+  writeIntensity(points)
 end
 
 print('Saving standalone DOM executable to a.out')
