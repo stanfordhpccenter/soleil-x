@@ -48,7 +48,7 @@ cat tmp_src/viz.rg | sed -e "s/NUM_FRAGMENTS/${NUM_FRAGMENTS}/" > viz.rg
 
 COMPILE_COMMAND=\
 "CC=gcc CXX=g++ USE_HDF=0 DEBUG=0 SAVEOBJ=1 OBJNAME=${EXEC} \
-	$LISZT_PATH/liszt-legion.sh $SOLEIL_PATH/src/soleil-x.t \
+	$LISZT_PATH/liszt-legion.sh $SOLEIL_PATH/src/soleil-master.t \
 	-i testcase.lua \
 	-fparallelize 1 \
 	-fparallelize-dop ${MESH} \

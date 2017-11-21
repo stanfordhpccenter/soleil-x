@@ -5,9 +5,9 @@ then
   exit
 fi
 
-source soleil-m/scripts/setup.bash
-export SOLEIL_PATH=${SOLEIL_PATH}-$1
+source soleil-master/scripts/setup.bash
+#export SOLEIL_PATH=${SOLEIL_PATH}-$1
 cd $SOLEIL_PATH
-git stash
-git pull
+#git stash
+#git pull
 
