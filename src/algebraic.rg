@@ -6,7 +6,7 @@ local A = require 'admiral'
 -- Module parameters
 -------------------------------------------------------------------------------
 
-return function(particlesRel, absorptivity, heatCapacity, radiationIntensity)
+return function(particlesRel)
 
 -------------------------------------------------------------------------------
 -- Local tasks
@@ -18,9 +18,7 @@ local pi = rexpr 2.0 * acos(0.0) end
 
 local __demand(__parallel) task AddRadiation
   (particles : particlesRel:regionType(),
-   absorptivity : double,
-   heatCapacity : double,
-   radiationIntensity : double)
+   config : A.configStruct())
 where
   reads(particles.{density, diameter}),
   reads writes(particles.temperature_t)
@@ -30,8 +28,11 @@ do
     var volume = pi * pow(p.diameter, 3.0) / 6.0
     var mass = volume * p.density
     var absorbedRadiationIntensity =
-      absorptivity * radiationIntensity * crossSectionArea
-    p.temperature_t += absorbedRadiationIntensity / (mass * heatCapacity)
+      config.Particles.absorptivity
+      * config.Radiation.intensity
+      * crossSectionArea
+    p.temperature_t +=
+      absorbedRadiationIntensity / (mass * config.Particles.heatCapacity)
   end
 end
 A.registerTask(AddRadiation, 'AddRadiation')
@@ -44,9 +45,7 @@ local exports = {}
 
 exports.AddRadiation = rquote
   AddRadiation([particlesRel:regionSymbol()],
-               [absorptivity:varSymbol()],
-               [heatCapacity:varSymbol()],
-               [radiationIntensity:varSymbol()])
+               [A.configSymbol()])
 end
 
 -------------------------------------------------------------------------------

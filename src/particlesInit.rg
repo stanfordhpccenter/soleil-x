@@ -6,56 +6,20 @@ local A = require 'admiral'
 -- Module parameters
 -------------------------------------------------------------------------------
 
-return function(particlesRel, cellsRel)
-
--------------------------------------------------------------------------------
--- Compile-time computation
--------------------------------------------------------------------------------
-
-local config
-local i = 1
-while i <= #arg do
-  if arg[i] == '-i' and i < #arg then
-    config = loadfile(arg[i+1])()
-    break
-  end
-  i = i + 1
-end
-if not config then
-  print("config file required (-i <file> option)")
-  os.exit(1)
-end
-
-local NUM_PRIM_PARTS = 1
-
-if regentlib.config["parallelize"] then
-  local dop = regentlib.config['parallelize-dop']
-  local NX,NY,NZ = dop:match('^(%d+),(%d+),(%d+)$')
-  if NX then
-    NUM_PRIM_PARTS = NX * NY * NZ
-  else
-    NUM_PRIM_PARTS = assert(tonumber(dop))
-  end
-end
-
-local particlesPerTask = math.ceil(config.num / NUM_PRIM_PARTS)
-local density = config.density
-local initialTemperature = config.initialTemperature
-local diameter_mean = config.diameter_mean
-
-local xBoundaryWidth = (config.xBCLeft == 'periodic') and 0 or 1
-local yBoundaryWidth = (config.yBCLeft == 'periodic') and 0 or 1
-local zBoundaryWidth = (config.zBCLeft == 'periodic') and 0 or 1
-local xInteriorWidth = config.xnum
-local yInteriorWidth = config.ynum
-local zInteriorWidth = config.znum
+return function(particlesRel, cellsRel,
+                xBnumGlobal, yBnumGlobal, zBnumGlobal)
 
 -------------------------------------------------------------------------------
 -- Local tasks
 -------------------------------------------------------------------------------
 
 local __demand(__parallel) task InitParticlesUniform
-  (particles : particlesRel:regionType(), cells : cellsRel:regionType())
+  (particles : particlesRel:regionType(),
+   cells : cellsRel:regionType(),
+   config : A.configStruct(),
+   xBnum : int,
+   yBnum : int,
+   zBnum : int)
 where
   reads writes(particles),
   reads(cells.{velocity, centerCoordinates})
@@ -66,15 +30,18 @@ do
     break
   end
   var lo : int3d = cells.bounds.lo
-  lo.x = max(lo.x, xBoundaryWidth)
-  lo.y = max(lo.y, yBoundaryWidth)
-  lo.z = max(lo.z, zBoundaryWidth)
+  lo.x = max(lo.x, xBnum)
+  lo.y = max(lo.y, yBnum)
+  lo.z = max(lo.z, zBnum)
   var hi : int3d = cells.bounds.hi
-  hi.x = min(hi.x, xInteriorWidth + xBoundaryWidth - 1)
-  hi.y = min(hi.y, yInteriorWidth + yBoundaryWidth - 1)
-  hi.z = min(hi.z, zInteriorWidth + zBoundaryWidth - 1)
+  hi.x = min(hi.x, config.Grid.xNum + xBnum - 1)
+  hi.y = min(hi.y, config.Grid.yNum + yBnum - 1)
+  hi.z = min(hi.z, config.Grid.zNum + zBnum - 1)
   var xSize = hi.x - lo.x + 1
   var ySize = hi.y - lo.y + 1
+  var particlesPerTask =
+    config.Particles.initNum
+    / (config.Grid.xTiles * config.Grid.yTiles * config.Grid.zTiles)
   --__demand(__openmp)
   for p in particles do
     if [int32](p) - pBase < particlesPerTask then
@@ -86,9 +53,9 @@ do
       p.cell = c
       p.position = cells[p.cell].centerCoordinates
       p.particle_velocity = cells[p.cell].velocity
-      p.density = density
-      p.particle_temperature = initialTemperature
-      p.diameter = diameter_mean
+      p.density = config.Particles.density
+      p.particle_temperature = config.Particles.initTemperature
+      p.diameter = config.Particles.diameterMean
     end
   end
 end
@@ -102,7 +69,11 @@ local exports = {}
 
 exports.InitParticlesUniform = rquote
   InitParticlesUniform([particlesRel:regionSymbol()],
-                       [cellsRel:regionSymbol()])
+                       [cellsRel:regionSymbol()],
+                       [A.configSymbol()],
+                       [xBnumGlobal:varSymbol()],
+                       [yBnumGlobal:varSymbol()],
+                       [zBnumGlobal:varSymbol()])
 end
 
 -------------------------------------------------------------------------------

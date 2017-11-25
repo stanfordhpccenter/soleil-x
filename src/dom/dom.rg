@@ -6,32 +6,28 @@ local A = require 'admiral'
 -- MODULE PARAMETERS
 -------------------------------------------------------------------------------
 
-return function(radiationRel)
+return function(radiationRel, NUM_ANGLES,
+                NxGlobal, NyGlobal, NzGlobal,
+                dxGlobal, dyGlobal, dzGlobal)
 
 local points = radiationRel:regionSymbol()
 local p_points = radiationRel:primPartSymbol()
 local pointsType = radiationRel:regionType()
 local tiles = A.primColors()
 
+local Nx = NxGlobal:varSymbol()
+local Ny = NyGlobal:varSymbol()
+local Nz = NzGlobal:varSymbol()
+
+local dx = dxGlobal:varSymbol()
+local dy = dyGlobal:varSymbol()
+local dz = dzGlobal:varSymbol()
+
+local config = A.configSymbol()
+
 -------------------------------------------------------------------------------
 -- COMPILE-TIME COMPUTATION
 -------------------------------------------------------------------------------
-
--- Read configuration
-
-local config
-local i = 1
-while i <= #arg do
-  if arg[i] == '-i' and i < #arg then
-    config = loadfile(arg[i+1])()
-    break
-  end
-  i = i + 1
-end
-if not config then
-  print('config file required (-i <file> option)')
-  os.exit(1)
-end
 
 -- C imports
 
@@ -46,62 +42,11 @@ local pow = regentlib.pow(double)
 local pi  = 2.0*cmath.acos(0.0)
 
 -- Quadrature file name
-local quad_file = 'LMquads/'..config.numAngles..'.txt'
-
--- Grid size
-
-local Nx = radiationRel:Dims()[1]
-local Ny = radiationRel:Dims()[2]
-local Nz = radiationRel:Dims()[3]
-
-local N_angles = config.numAngles
-
--- Domain size
-
-local Lx = config.xWidth
-local Ly = config.yWidth
-local Lz = config.zWidth
-
--- Grid spacing
-
-local dx = Lx/Nx
-local dy = Ly/Ny
-local dz = Lz/Nz
-
-local dAx = dy*dz;
-local dAy = dx*dz;
-local dAz = dx*dy;
-local dV = dx*dy*dz;
-
--- Grid tiling
-
-local ntx,nty,ntz = A.primPartDims()
-
--- Albedo
-
-local qa = config.qa
-local qs = config.qs
-local omega = qs/(qa+qs)
-
--- Wall emissivity
-
-local emiss_east  = config.emiss_east  or 1.0
-local emiss_west  = config.emiss_west  or 1.0
-local emiss_south = config.emiss_south or 1.0
-local emiss_north = config.emiss_north or 1.0
-local emiss_up    = config.emiss_up    or 1.0
-local emiss_down  = config.emiss_down  or 1.0
+local quad_file = 'LMquads/'..NUM_ANGLES..'.txt'
 
 -- Wall temperatures
 
 local SB = 5.67e-8
-
-local T_east  = config.T_east  or 300.0
-local T_west  = config.T_west  or 300.0
-local T_south = config.T_south or 300.0
-local T_north = config.T_north or 300.0
-local T_up    = config.T_up    or 300.0
-local T_down  = config.T_down  or 300.0
 
 -- TODO: Read location of irradiated window
 
@@ -131,7 +76,7 @@ local fspace angle {
 }
 
 local fspace face {
-  I : double[N_angles],    -- face intensity per angle
+  I : double[NUM_ANGLES],    -- face intensity per angle
 }
 
 -------------------------------------------------------------------------------
@@ -177,7 +122,9 @@ do
 end
 
 local task make_interior_partition_x_hi(faces : region(ispace(int3d), face),
-                                        x_tiles : ispace(int3d))
+                                        x_tiles : ispace(int3d),
+                                        Nx : int, Ny : int, Nz : int,
+                                        ntx : int, nty : int, ntz : int)
 
   var coloring = c.legion_domain_point_coloring_create()
   for tile in x_tiles do
@@ -208,7 +155,9 @@ local task make_interior_partition_x_hi(faces : region(ispace(int3d), face),
 end
 
 local task make_interior_partition_x_lo(faces : region(ispace(int3d), face),
-                                        x_tiles : ispace(int3d))
+                                        x_tiles : ispace(int3d),
+                                        Nx : int, Ny : int, Nz : int,
+                                        ntx : int, nty : int, ntz : int)
 
   var coloring = c.legion_domain_point_coloring_create()
   for tile in x_tiles do
@@ -239,7 +188,9 @@ local task make_interior_partition_x_lo(faces : region(ispace(int3d), face),
 end
 
 local task make_interior_partition_y_hi(faces : region(ispace(int3d), face),
-                                        y_tiles : ispace(int3d))
+                                        y_tiles : ispace(int3d),
+                                        Nx : int, Ny : int, Nz : int,
+                                        ntx : int, nty : int, ntz : int)
 
   var coloring = c.legion_domain_point_coloring_create()
   for tile in y_tiles do
@@ -270,7 +221,9 @@ local task make_interior_partition_y_hi(faces : region(ispace(int3d), face),
 end
 
 local task make_interior_partition_y_lo(faces : region(ispace(int3d), face),
-                                        y_tiles : ispace(int3d))
+                                        y_tiles : ispace(int3d),
+                                        Nx : int, Ny : int, Nz : int,
+                                        ntx : int, nty : int, ntz : int)
 
   var coloring = c.legion_domain_point_coloring_create()
   for tile in y_tiles do
@@ -301,7 +254,9 @@ local task make_interior_partition_y_lo(faces : region(ispace(int3d), face),
 end
 
 local task make_interior_partition_z_hi(faces : region(ispace(int3d), face),
-                                        z_tiles : ispace(int3d))
+                                        z_tiles : ispace(int3d),
+                                        Nx : int, Ny : int, Nz : int,
+                                        ntx : int, nty : int, ntz : int)
 
   var coloring = c.legion_domain_point_coloring_create()
   for tile in z_tiles do
@@ -332,7 +287,9 @@ local task make_interior_partition_z_hi(faces : region(ispace(int3d), face),
 end
 
 local task make_interior_partition_z_lo(faces : region(ispace(int3d), face),
-                                        z_tiles : ispace(int3d))
+                                        z_tiles : ispace(int3d),
+                                        Nx : int, Ny : int, Nz : int,
+                                        ntx : int, nty : int, ntz : int)
 
   var coloring = c.legion_domain_point_coloring_create()
   for tile in z_tiles do
@@ -365,7 +322,8 @@ end
 -- Loop over all angles and grid cells to compute the source term
 -- for the current iteration.
 local task source_term(points : pointsType,
-                       angles : region(ispace(int1d), angle))
+                       angles : region(ispace(int1d), angle),
+                       omega : double)
 where
   reads (points.{Iiter_1, Iiter_2, Iiter_3, Iiter_4,
                  Iiter_5, Iiter_6, Iiter_7, Iiter_8,
@@ -375,7 +333,7 @@ where
 do
   for p in points do
     p.S = (1.0-omega) * p.sigma * p.Ib
-    for m = 0, N_angles do
+    for m = 0, NUM_ANGLES do
       p.S += omega * p.sigma/(4.0*pi) * angles[m].w * p.Iiter_1[m]
            + omega * p.sigma/(4.0*pi) * angles[m].w * p.Iiter_2[m]
            + omega * p.sigma/(4.0*pi) * angles[m].w * p.Iiter_3[m]
@@ -396,7 +354,9 @@ local task west_bound(faces_1 : region(ispace(int3d), face),
                       faces_6 : region(ispace(int3d), face),
                       faces_7 : region(ispace(int3d), face),
                       faces_8 : region(ispace(int3d), face),
-                      angles : region(ispace(int1d), angle))
+                      angles : region(ispace(int1d), angle),
+                      emissWest : double,
+                      tempWest : double)
 where
   reads (angles.{w, xi, eta, mu}),
   reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
@@ -410,8 +370,8 @@ do
   -- Temporary variables
 
   var reflect : double = 0.0
-  var epsw    : double = emiss_west
-  var Tw      : double = T_west
+  var epsw    : double = emissWest
+  var Tw      : double = tempWest
 
   for j = limits.lo.y, limits.hi.y + 1 do
     for k = limits.lo.z, limits.hi.z + 1 do
@@ -419,7 +379,7 @@ do
       -- Calculate reflect
 
       reflect = 0
-      for m = 0, N_angles do
+      for m = 0, NUM_ANGLES do
         if angles[m].xi < 0 then
           var face_value : double = 0.0
           if angles[m].eta > 0 and angles[m].mu > 0 then
@@ -437,7 +397,7 @@ do
 
       -- Set Ifx values using reflect
 
-      for m = 0, N_angles do
+      for m = 0, NUM_ANGLES do
         if angles[m].xi > 0 then
           var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
 
@@ -466,7 +426,9 @@ local task east_bound(faces_1 : region(ispace(int3d), face),
                       faces_6 : region(ispace(int3d), face),
                       faces_7 : region(ispace(int3d), face),
                       faces_8 : region(ispace(int3d), face),
-                      angles : region(ispace(int1d), angle))
+                      angles : region(ispace(int1d), angle),
+                      emissEast : double,
+                      tempEast : double)
 where
   reads (angles.{w, xi, eta, mu}),
   reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
@@ -480,8 +442,8 @@ do
   -- Temporary variables
 
   var reflect : double = 0.0
-  var epsw    : double = emiss_east
-  var Tw      : double = T_east
+  var epsw    : double = emissEast
+  var Tw      : double = tempEast
 
   for j = limits.lo.y, limits.hi.y + 1 do
     for k = limits.lo.z, limits.hi.z + 1 do
@@ -489,7 +451,7 @@ do
       -- Calculate reflect
 
       reflect = 0
-      for m = 0, N_angles do
+      for m = 0, NUM_ANGLES do
         if angles[m].xi > 0 then
           var face_value : double = 0.0
           if angles[m].eta > 0 and angles[m].mu > 0 then
@@ -507,7 +469,7 @@ do
 
       -- Set Ifx values using reflect
 
-      for m = 0, N_angles do
+      for m = 0, NUM_ANGLES do
         if angles[m].xi < 0 then
           var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
 
@@ -529,14 +491,16 @@ do
 end
 
 local task north_bound(faces_1 : region(ispace(int3d), face),
-                      faces_2 : region(ispace(int3d), face),
-                      faces_3 : region(ispace(int3d), face),
-                      faces_4 : region(ispace(int3d), face),
-                      faces_5 : region(ispace(int3d), face),
-                      faces_6 : region(ispace(int3d), face),
-                      faces_7 : region(ispace(int3d), face),
-                      faces_8 : region(ispace(int3d), face),
-                      angles : region(ispace(int1d), angle))
+                       faces_2 : region(ispace(int3d), face),
+                       faces_3 : region(ispace(int3d), face),
+                       faces_4 : region(ispace(int3d), face),
+                       faces_5 : region(ispace(int3d), face),
+                       faces_6 : region(ispace(int3d), face),
+                       faces_7 : region(ispace(int3d), face),
+                       faces_8 : region(ispace(int3d), face),
+                       angles : region(ispace(int1d), angle),
+                       emissNorth : double,
+                       tempNorth : double)
 where
   reads (angles.{w, xi, eta, mu}),
   reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
@@ -550,8 +514,8 @@ do
   -- Temporary variables
 
   var reflect : double = 0.0
-  var epsw    : double = emiss_north
-  var Tw      : double = T_north
+  var epsw    : double = emissNorth
+  var Tw      : double = tempNorth
 
   for i = limits.lo.x, limits.hi.x + 1 do
     for k = limits.lo.z, limits.hi.z + 1 do
@@ -559,7 +523,7 @@ do
       -- Calculate reflect
 
       reflect = 0
-      for m = 0, N_angles do
+      for m = 0, NUM_ANGLES do
         if angles[m].eta > 0 then
           var face_value : double = 0.0
           if angles[m].xi > 0 and angles[m].mu > 0 then
@@ -577,7 +541,7 @@ do
 
       -- Set Ify values using reflect
 
-      for m = 0, N_angles do
+      for m = 0, NUM_ANGLES do
         if angles[m].eta < 0 then
           var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
 
@@ -599,14 +563,16 @@ do
 end
 
 local task south_bound(faces_1 : region(ispace(int3d), face),
-                      faces_2 : region(ispace(int3d), face),
-                      faces_3 : region(ispace(int3d), face),
-                      faces_4 : region(ispace(int3d), face),
-                      faces_5 : region(ispace(int3d), face),
-                      faces_6 : region(ispace(int3d), face),
-                      faces_7 : region(ispace(int3d), face),
-                      faces_8 : region(ispace(int3d), face),
-                      angles : region(ispace(int1d), angle))
+                       faces_2 : region(ispace(int3d), face),
+                       faces_3 : region(ispace(int3d), face),
+                       faces_4 : region(ispace(int3d), face),
+                       faces_5 : region(ispace(int3d), face),
+                       faces_6 : region(ispace(int3d), face),
+                       faces_7 : region(ispace(int3d), face),
+                       faces_8 : region(ispace(int3d), face),
+                       angles : region(ispace(int1d), angle),
+                       emissSouth : double,
+                       tempSouth : double)
 where
   reads (angles.{w, xi, eta, mu}),
   reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
@@ -620,8 +586,8 @@ do
   -- Temporary variables
 
   var reflect : double = 0.0
-  var epsw    : double = emiss_south
-  var Tw      : double = T_south
+  var epsw    : double = emissSouth
+  var Tw      : double = tempSouth
 
   for i = limits.lo.x, limits.hi.x + 1 do
     for k = limits.lo.z, limits.hi.z + 1 do
@@ -629,7 +595,7 @@ do
       -- Calculate reflect
 
       reflect = 0
-      for m = 0, N_angles do
+      for m = 0, NUM_ANGLES do
         if angles[m].eta < 0 then
           var face_value : double = 0.0
           if angles[m].xi > 0 and angles[m].mu > 0 then
@@ -647,7 +613,7 @@ do
 
       -- Set Ify values using reflect
 
-      for m = 0, N_angles do
+      for m = 0, NUM_ANGLES do
         if angles[m].eta > 0 then
           var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
 
@@ -669,14 +635,16 @@ do
 end
 
 local task up_bound(faces_1 : region(ispace(int3d), face),
-                      faces_2 : region(ispace(int3d), face),
-                      faces_3 : region(ispace(int3d), face),
-                      faces_4 : region(ispace(int3d), face),
-                      faces_5 : region(ispace(int3d), face),
-                      faces_6 : region(ispace(int3d), face),
-                      faces_7 : region(ispace(int3d), face),
-                      faces_8 : region(ispace(int3d), face),
-                      angles : region(ispace(int1d), angle))
+                    faces_2 : region(ispace(int3d), face),
+                    faces_3 : region(ispace(int3d), face),
+                    faces_4 : region(ispace(int3d), face),
+                    faces_5 : region(ispace(int3d), face),
+                    faces_6 : region(ispace(int3d), face),
+                    faces_7 : region(ispace(int3d), face),
+                    faces_8 : region(ispace(int3d), face),
+                    angles : region(ispace(int1d), angle),
+                    emissUp : double,
+                    tempUp : double)
 where
   reads (angles.{w, xi, eta, mu}),
   reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
@@ -690,8 +658,8 @@ do
   -- Temporary variables
 
   var reflect : double = 0.0
-  var epsw    : double = emiss_up
-  var Tw      : double = T_up
+  var epsw    : double = emissUp
+  var Tw      : double = tempUp
 
   for i = limits.lo.x, limits.hi.x + 1 do
     for j = limits.lo.y, limits.hi.y + 1 do
@@ -699,7 +667,7 @@ do
       -- Calculate reflect
 
       reflect = 0
-      for m = 0, N_angles do
+      for m = 0, NUM_ANGLES do
         if angles[m].mu < 0 then
           var face_value : double = 0.0
           if angles[m].xi > 0 and angles[m].eta > 0 then
@@ -717,7 +685,7 @@ do
 
       -- Set Ifz values using reflect
 
-      for m = 0, N_angles do
+      for m = 0, NUM_ANGLES do
         if angles[m].mu > 0 then
           var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
 
@@ -746,7 +714,9 @@ local task down_bound(faces_1 : region(ispace(int3d), face),
                       faces_6 : region(ispace(int3d), face),
                       faces_7 : region(ispace(int3d), face),
                       faces_8 : region(ispace(int3d), face),
-                      angles : region(ispace(int1d), angle))
+                      angles : region(ispace(int1d), angle),
+                      emissDown : double,
+                      tempDown : double)
 where
   reads (angles.{w, xi, eta, mu}),
   reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
@@ -760,8 +730,8 @@ do
   -- Temporary variables
 
   var reflect : double = 0.0
-  var epsw    : double = emiss_down
-  var Tw      : double = T_down
+  var epsw    : double = emissDown
+  var Tw      : double = tempDown
 
   for i = limits.lo.x, limits.hi.x + 1 do
     for j = limits.lo.y, limits.hi.y + 1 do
@@ -769,7 +739,7 @@ do
       -- Calculate reflect
 
       reflect = 0
-      for m = 0, N_angles do
+      for m = 0, NUM_ANGLES do
         if angles[m].mu > 0 then
           var face_value : double = 0.0
           if angles[m].xi > 0 and angles[m].eta > 0 then
@@ -787,7 +757,7 @@ do
 
       -- Set Ifz values using reflect
 
-      for m = 0, N_angles do
+      for m = 0, NUM_ANGLES do
         if angles[m].mu < 0 then
           var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
 
@@ -814,12 +784,17 @@ local task sweep_1(points : pointsType,
                    ghost_y_faces : region(ispace(int3d), face),
                    ghost_z_faces : region(ispace(int3d), face),
                    angles : region(ispace(int1d), angle),
-                   xi : int64, eta : int64, mu : int64)
+                   xi : int64, eta : int64, mu : int64,
+                   dx : double, dy : double, dz : double)
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
          ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
   reads writes(points.I_1, x_faces.I, y_faces.I, z_faces.I)
 do
+  var dAx = dy*dz;
+  var dAy = dx*dz;
+  var dAz = dx*dy;
+  var dV = dx*dy*dz;
 
   -- Determine sweep direction and bounds
 
@@ -857,10 +832,10 @@ do
 
 
   -- Outer loop over all angles.
-  for m = 0, N_angles do
+  for m = 0, NUM_ANGLES do
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and 
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and 
+    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
       (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
       -- Use our direction and increments for the sweep.
@@ -937,12 +912,17 @@ local task sweep_2(points : pointsType,
                    ghost_y_faces : region(ispace(int3d), face),
                    ghost_z_faces : region(ispace(int3d), face),
                    angles : region(ispace(int1d), angle),
-                   xi : int64, eta : int64, mu : int64)
+                   xi : int64, eta : int64, mu : int64,
+                   dx : double, dy : double, dz : double)
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
          ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
   reads writes(points.I_2, x_faces.I, y_faces.I, z_faces.I)
 do
+  var dAx = dy*dz;
+  var dAy = dx*dz;
+  var dAz = dx*dy;
+  var dV = dx*dy*dz;
 
   -- Determine sweep direction and bounds
 
@@ -980,10 +960,10 @@ do
 
 
   -- Outer loop over all angles.
-  for m = 0, N_angles do
+  for m = 0, NUM_ANGLES do
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and 
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and 
+    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
       (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
       -- Use our direction and increments for the sweep.
@@ -1060,12 +1040,17 @@ local task sweep_3(points : pointsType,
                    ghost_y_faces : region(ispace(int3d), face),
                    ghost_z_faces : region(ispace(int3d), face),
                    angles : region(ispace(int1d), angle),
-                   xi : int64, eta : int64, mu : int64)
+                   xi : int64, eta : int64, mu : int64,
+                   dx : double, dy : double, dz : double)
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
          ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
   reads writes(points.I_3, x_faces.I, y_faces.I, z_faces.I)
 do
+  var dAx = dy*dz;
+  var dAy = dx*dz;
+  var dAz = dx*dy;
+  var dV = dx*dy*dz;
 
   -- Determine sweep direction and bounds
 
@@ -1103,10 +1088,10 @@ do
 
 
   -- Outer loop over all angles.
-  for m = 0, N_angles do
+  for m = 0, NUM_ANGLES do
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and 
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and 
+    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
       (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
       -- Use our direction and increments for the sweep.
@@ -1183,12 +1168,17 @@ local task sweep_4(points : pointsType,
                    ghost_y_faces : region(ispace(int3d), face),
                    ghost_z_faces : region(ispace(int3d), face),
                    angles : region(ispace(int1d), angle),
-                   xi : int64, eta : int64, mu : int64)
+                   xi : int64, eta : int64, mu : int64,
+                   dx : double, dy : double, dz : double)
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
          ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
   reads writes(points.I_4, x_faces.I, y_faces.I, z_faces.I)
 do
+  var dAx = dy*dz;
+  var dAy = dx*dz;
+  var dAz = dx*dy;
+  var dV = dx*dy*dz;
 
   -- Determine sweep direction and bounds
 
@@ -1226,10 +1216,10 @@ do
 
 
   -- Outer loop over all angles.
-  for m = 0, N_angles do
+  for m = 0, NUM_ANGLES do
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and 
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and 
+    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
       (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
       -- Use our direction and increments for the sweep.
@@ -1306,12 +1296,17 @@ local task sweep_5(points : pointsType,
                    ghost_y_faces : region(ispace(int3d), face),
                    ghost_z_faces : region(ispace(int3d), face),
                    angles : region(ispace(int1d), angle),
-                   xi : int64, eta : int64, mu : int64)
+                   xi : int64, eta : int64, mu : int64,
+                   dx : double, dy : double, dz : double)
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
          ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
   reads writes(points.I_5, x_faces.I, y_faces.I, z_faces.I)
 do
+  var dAx = dy*dz;
+  var dAy = dx*dz;
+  var dAz = dx*dy;
+  var dV = dx*dy*dz;
 
   -- Determine sweep direction and bounds
 
@@ -1349,10 +1344,10 @@ do
 
 
   -- Outer loop over all angles.
-  for m = 0, N_angles do
+  for m = 0, NUM_ANGLES do
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and 
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and 
+    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
       (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
       -- Use our direction and increments for the sweep.
@@ -1429,12 +1424,17 @@ local task sweep_6(points : pointsType,
                    ghost_y_faces : region(ispace(int3d), face),
                    ghost_z_faces : region(ispace(int3d), face),
                    angles : region(ispace(int1d), angle),
-                   xi : int64, eta : int64, mu : int64)
+                   xi : int64, eta : int64, mu : int64,
+                   dx : double, dy : double, dz : double)
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
          ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
   reads writes(points.I_6, x_faces.I, y_faces.I, z_faces.I)
 do
+  var dAx = dy*dz;
+  var dAy = dx*dz;
+  var dAz = dx*dy;
+  var dV = dx*dy*dz;
 
   -- Determine sweep direction and bounds
 
@@ -1472,10 +1472,10 @@ do
 
 
   -- Outer loop over all angles.
-  for m = 0, N_angles do
+  for m = 0, NUM_ANGLES do
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and 
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and 
+    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
       (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
       -- Use our direction and increments for the sweep.
@@ -1552,12 +1552,17 @@ local task sweep_7(points : pointsType,
                    ghost_y_faces : region(ispace(int3d), face),
                    ghost_z_faces : region(ispace(int3d), face),
                    angles : region(ispace(int1d), angle),
-                   xi : int64, eta : int64, mu : int64)
+                   xi : int64, eta : int64, mu : int64,
+                   dx : double, dy : double, dz : double)
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
          ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
   reads writes(points.I_7, x_faces.I, y_faces.I, z_faces.I)
 do
+  var dAx = dy*dz;
+  var dAy = dx*dz;
+  var dAz = dx*dy;
+  var dV = dx*dy*dz;
 
   -- Determine sweep direction and bounds
 
@@ -1595,10 +1600,10 @@ do
 
 
   -- Outer loop over all angles.
-  for m = 0, N_angles do
+  for m = 0, NUM_ANGLES do
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and 
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and 
+    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
       (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
       -- Use our direction and increments for the sweep.
@@ -1675,12 +1680,17 @@ local task sweep_8(points : pointsType,
                    ghost_y_faces : region(ispace(int3d), face),
                    ghost_z_faces : region(ispace(int3d), face),
                    angles : region(ispace(int1d), angle),
-                   xi : int64, eta : int64, mu : int64)
+                   xi : int64, eta : int64, mu : int64,
+                   dx : double, dy : double, dz : double)
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
          ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
   reads writes(points.I_8, x_faces.I, y_faces.I, z_faces.I)
 do
+  var dAx = dy*dz;
+  var dAy = dx*dz;
+  var dAz = dx*dy;
+  var dV = dx*dy*dz;
 
   -- Determine sweep direction and bounds
 
@@ -1718,10 +1728,10 @@ do
 
 
   -- Outer loop over all angles.
-  for m = 0, N_angles do
+  for m = 0, NUM_ANGLES do
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and 
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and 
+    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
       (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
       -- Use our direction and increments for the sweep.
@@ -1791,7 +1801,7 @@ do
 end
 
 -- Compute the residual after each iteration and return the value.
-local task residual(points : pointsType)
+local task residual(points : pointsType, Nx : int, Ny : int, Nz : int)
 where
   reads (points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8,
                  Iiter_1, Iiter_2, Iiter_3, Iiter_4,
@@ -1800,52 +1810,52 @@ do
   var res : double = 0.0
 
   for p in points do
-    for m = 0, N_angles do
+    for m = 0, NUM_ANGLES do
 
       if p.I_1[m] > 0 then
-        res += (1.0/(Nx*Ny*Nz*(N_angles)))
+        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
           * pow((p.I_1[m]-p.Iiter_1[m]),2.0)
           / pow((p.I_1[m]),2.0)
       end
 
       if p.I_2[m] > 0 then
-        res += (1.0/(Nx*Ny*Nz*(N_angles)))
+        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
           * pow((p.I_2[m]-p.Iiter_2[m]),2.0)
           / pow((p.I_2[m]),2.0)
       end
 
       if p.I_3[m] > 0 then
-        res += (1.0/(Nx*Ny*Nz*(N_angles)))
+        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
           * pow((p.I_3[m]-p.Iiter_3[m]),2.0)
           / pow((p.I_3[m]),2.0)
       end
 
       if p.I_4[m] > 0 then
-        res += (1.0/(Nx*Ny*Nz*(N_angles)))
+        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
           * pow((p.I_4[m]-p.Iiter_4[m]),2.0)
           / pow((p.I_4[m]),2.0)
       end
 
       if p.I_5[m] > 0 then
-        res += (1.0/(Nx*Ny*Nz*(N_angles)))
+        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
           * pow((p.I_5[m]-p.Iiter_5[m]),2.0)
           / pow((p.I_5[m]),2.0)
       end
 
       if p.I_6[m] > 0 then
-        res += (1.0/(Nx*Ny*Nz*(N_angles)))
+        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
           * pow((p.I_6[m]-p.Iiter_6[m]),2.0)
           / pow((p.I_6[m]),2.0)
       end
 
       if p.I_7[m] > 0 then
-        res += (1.0/(Nx*Ny*Nz*(N_angles)))
+        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
           * pow((p.I_7[m]-p.Iiter_7[m]),2.0)
           / pow((p.I_7[m]),2.0)
       end
 
       if p.I_8[m] > 0 then
-        res += (1.0/(Nx*Ny*Nz*(N_angles)))
+        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
           * pow((p.I_8[m]-p.Iiter_8[m]),2.0)
           / pow((p.I_8[m]),2.0)
       end
@@ -1864,7 +1874,7 @@ where
                         Iiter_5, Iiter_6, Iiter_7, Iiter_8})
 do
   for p in points do
-    for m = 0, N_angles do
+    for m = 0, NUM_ANGLES do
       p.Iiter_1[m] = p.I_1[m]
       p.Iiter_2[m] = p.I_2[m]
       p.Iiter_3[m] = p.I_3[m]
@@ -1885,7 +1895,7 @@ where
   reads writes (points.G)
 do
   for p in points do
-    for m = 0, N_angles do
+    for m = 0, NUM_ANGLES do
       p.G += angles[m].w * p.I_1[m]
            + angles[m].w * p.I_2[m]
            + angles[m].w * p.I_3[m]
@@ -1905,6 +1915,10 @@ end
 local exports = {}
 
 -- Symbols shared between quotes
+local ntx = regentlib.newsymbol('ntx')
+local nty = regentlib.newsymbol('nty')
+local ntz = regentlib.newsymbol('ntz')
+
 local angles = regentlib.newsymbol('angles')
 local x_tiles = regentlib.newsymbol('x_tiles')
 local y_tiles = regentlib.newsymbol('y_tiles')
@@ -1946,6 +1960,10 @@ local res = regentlib.newsymbol(double, 'res')
 
 exports.InitModule = rquote
 
+  var [ntx] = config.Grid.xTiles
+  var [nty] = config.Grid.yTiles
+  var [ntz] = config.Grid.zTiles
+
   -- Regions for faces (+1 in one direction)
   var grid_x = ispace(int3d, {x = Nx+1, y = Ny,   z = Nz})
   var grid_y = ispace(int3d, {x = Nx,   y = Ny+1, z = Nz})
@@ -1980,7 +1998,7 @@ exports.InitModule = rquote
 
 
   -- 1D Region for angle values
-  var angle_indices = ispace(int1d, N_angles)
+  var angle_indices = ispace(int1d, NUM_ANGLES)
   var [angles] = region(angle_indices, angle)
 
   -- Partition faces
@@ -1989,39 +2007,39 @@ exports.InitModule = rquote
   var [y_tiles] = ispace(int3d, {x = ntx,   y = nty+1, z = ntz  })
   var [z_tiles] = ispace(int3d, {x = ntx,   y = nty,   z = ntz+1})
 
-  var [p_x_faces_1] = make_interior_partition_x_lo(x_faces_1, x_tiles)
-  var [p_y_faces_1] = make_interior_partition_y_lo(y_faces_1, y_tiles)
-  var [p_z_faces_1] = make_interior_partition_z_lo(z_faces_1, z_tiles)
+  var [p_x_faces_1] = make_interior_partition_x_lo(x_faces_1, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces_1] = make_interior_partition_y_lo(y_faces_1, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces_1] = make_interior_partition_z_lo(z_faces_1, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces_2] = make_interior_partition_x_lo(x_faces_2, x_tiles)
-  var [p_y_faces_2] = make_interior_partition_y_lo(y_faces_2, y_tiles)
-  var [p_z_faces_2] = make_interior_partition_z_hi(z_faces_2, z_tiles)
+  var [p_x_faces_2] = make_interior_partition_x_lo(x_faces_2, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces_2] = make_interior_partition_y_lo(y_faces_2, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces_2] = make_interior_partition_z_hi(z_faces_2, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces_3] = make_interior_partition_x_lo(x_faces_3, x_tiles)
-  var [p_y_faces_3] = make_interior_partition_y_hi(y_faces_3, y_tiles)
-  var [p_z_faces_3] = make_interior_partition_z_lo(z_faces_3, z_tiles)
+  var [p_x_faces_3] = make_interior_partition_x_lo(x_faces_3, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces_3] = make_interior_partition_y_hi(y_faces_3, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces_3] = make_interior_partition_z_lo(z_faces_3, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces_4] = make_interior_partition_x_lo(x_faces_4, x_tiles)
-  var [p_y_faces_4] = make_interior_partition_y_hi(y_faces_4, y_tiles)
-  var [p_z_faces_4] = make_interior_partition_z_hi(z_faces_4, z_tiles)
+  var [p_x_faces_4] = make_interior_partition_x_lo(x_faces_4, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces_4] = make_interior_partition_y_hi(y_faces_4, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces_4] = make_interior_partition_z_hi(z_faces_4, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces_5] = make_interior_partition_x_hi(x_faces_5, x_tiles)
-  var [p_y_faces_5] = make_interior_partition_y_lo(y_faces_5, y_tiles)
-  var [p_z_faces_5] = make_interior_partition_z_lo(z_faces_5, z_tiles)
+  var [p_x_faces_5] = make_interior_partition_x_hi(x_faces_5, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces_5] = make_interior_partition_y_lo(y_faces_5, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces_5] = make_interior_partition_z_lo(z_faces_5, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces_6] = make_interior_partition_x_hi(x_faces_6, x_tiles)
-  var [p_y_faces_6] = make_interior_partition_y_lo(y_faces_6, y_tiles)
-  var [p_z_faces_6] = make_interior_partition_z_hi(z_faces_6, z_tiles)
+  var [p_x_faces_6] = make_interior_partition_x_hi(x_faces_6, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces_6] = make_interior_partition_y_lo(y_faces_6, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces_6] = make_interior_partition_z_hi(z_faces_6, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces_7] = make_interior_partition_x_hi(x_faces_7, x_tiles)
-  var [p_y_faces_7] = make_interior_partition_y_hi(y_faces_7, y_tiles)
-  var [p_z_faces_7] = make_interior_partition_z_lo(z_faces_7, z_tiles)
+  var [p_x_faces_7] = make_interior_partition_x_hi(x_faces_7, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces_7] = make_interior_partition_y_hi(y_faces_7, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces_7] = make_interior_partition_z_lo(z_faces_7, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces_8] = make_interior_partition_x_hi(x_faces_8, x_tiles)
-  var [p_y_faces_8] = make_interior_partition_y_hi(y_faces_8, y_tiles)
-  var [p_z_faces_8] = make_interior_partition_z_hi(z_faces_8, z_tiles)
+  var [p_x_faces_8] = make_interior_partition_x_hi(x_faces_8, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces_8] = make_interior_partition_y_hi(y_faces_8, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces_8] = make_interior_partition_z_hi(z_faces_8, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  
+
 
   -- Initialize constant values
   initialize_angles(angles)
@@ -2033,15 +2051,15 @@ end
 
 exports.ComputeRadiationField = rquote
 
-
-  var t   : int64  = 1
+  var t : int64  = 1
+  var omega = config.Radiation.qs/(config.Radiation.qa+config.Radiation.qs)
 
   -- Compute until convergence
   while (res > tol) do
 
     -- Update the source term (in this problem, isotropic)
     for color in tiles do
-      source_term(p_points[color], angles)
+      source_term(p_points[color], angles, omega)
     end
 
     -- Update the grid boundary intensities
@@ -2057,7 +2075,9 @@ exports.ComputeRadiationField = rquote
                    p_x_faces_6[{0  ,j,k}],
                    p_x_faces_7[{0  ,j,k}],
                    p_x_faces_8[{0  ,j,k}],
-                   angles)
+                   angles,
+                   config.Radiation.emissWest,
+                   config.Radiation.tempWest)
 
         east_bound(p_x_faces_1[{ntx  ,j,k}],
                    p_x_faces_2[{ntx  ,j,k}],
@@ -2067,7 +2087,9 @@ exports.ComputeRadiationField = rquote
                    p_x_faces_6[{ntx-1,j,k}],
                    p_x_faces_7[{ntx-1,j,k}],
                    p_x_faces_8[{ntx-1,j,k}],
-                   angles)
+                   angles,
+                   config.Radiation.emissEast,
+                   config.Radiation.tempEast)
       end
     end
 
@@ -2082,7 +2104,9 @@ exports.ComputeRadiationField = rquote
                     p_y_faces_6[{i,1,  k}],
                     p_y_faces_7[{i,0,  k}],
                     p_y_faces_8[{i,0,  k}],
-                    angles)
+                    angles,
+                    config.Radiation.emissSouth,
+                    config.Radiation.tempSouth)
 
         north_bound(p_y_faces_1[{i,nty,k}],
                     p_y_faces_2[{i,nty,k}],
@@ -2092,7 +2116,9 @@ exports.ComputeRadiationField = rquote
                     p_y_faces_6[{i,nty,k}],
                     p_y_faces_7[{i,nty-1,k}],
                     p_y_faces_8[{i,nty-1,k}],
-                    angles)
+                    angles,
+                    config.Radiation.emissNorth,
+                    config.Radiation.tempNorth)
       end
     end
 
@@ -2101,23 +2127,27 @@ exports.ComputeRadiationField = rquote
       for j = 0, nty do
         up_bound  (p_z_faces_1[{i,j,1  }],
                    p_z_faces_2[{i,j,0  }],
-                   p_z_faces_3[{i,j,1  }], 
-                   p_z_faces_4[{i,j,0  }], 
-                   p_z_faces_5[{i,j,1  }], 
-                   p_z_faces_6[{i,j,0  }], 
-                   p_z_faces_7[{i,j,1  }], 
-                   p_z_faces_8[{i,j,0  }], 
-                   angles)
+                   p_z_faces_3[{i,j,1  }],
+                   p_z_faces_4[{i,j,0  }],
+                   p_z_faces_5[{i,j,1  }],
+                   p_z_faces_6[{i,j,0  }],
+                   p_z_faces_7[{i,j,1  }],
+                   p_z_faces_8[{i,j,0  }],
+                   angles,
+                   config.Radiation.emissUp,
+                   config.Radiation.tempUp)
 
         down_bound(p_z_faces_1[{i,j,ntz}],
                    p_z_faces_2[{i,j,ntz-1}],
-                   p_z_faces_3[{i,j,ntz}], 
-                   p_z_faces_4[{i,j,ntz-1}], 
-                   p_z_faces_5[{i,j,ntz}], 
-                   p_z_faces_6[{i,j,ntz-1}], 
-                   p_z_faces_7[{i,j,ntz}], 
-                   p_z_faces_8[{i,j,ntz-1}], 
-                   angles)
+                   p_z_faces_3[{i,j,ntz}],
+                   p_z_faces_4[{i,j,ntz-1}],
+                   p_z_faces_5[{i,j,ntz}],
+                   p_z_faces_6[{i,j,ntz-1}],
+                   p_z_faces_7[{i,j,ntz}],
+                   p_z_faces_8[{i,j,ntz-1}],
+                   angles,
+                   config.Radiation.emissDown,
+                   config.Radiation.tempDown)
       end
     end
 
@@ -2129,7 +2159,7 @@ exports.ComputeRadiationField = rquote
           sweep_1(p_points[{i,j,k}],
                   p_x_faces_1[{i+1,j,k}], p_y_faces_1[{i,j+1,k}], p_z_faces_1[{i,j,k+1}],
                   p_x_faces_1[{i,  j,k}], p_y_faces_1[{i,j,  k}], p_z_faces_1[{i,j,k  }],
-                  angles, 1, 1, 1)
+                  angles, 1, 1, 1, dx, dy, dz)
         end
       end
     end
@@ -2141,7 +2171,7 @@ exports.ComputeRadiationField = rquote
           sweep_2(p_points[{i,j,k}],
                   p_x_faces_2[{i+1,j,k}], p_y_faces_2[{i,j+1,k}], p_z_faces_2[{i,j,k  }],
                   p_x_faces_2[{i,  j,k}], p_y_faces_2[{i,j,  k}], p_z_faces_2[{i,j,k+1}],
-                  angles, 1, 1, -1)
+                  angles, 1, 1, -1, dx, dy, dz)
         end
       end
     end
@@ -2153,7 +2183,7 @@ exports.ComputeRadiationField = rquote
           sweep_3(p_points[{i,j,k}],
                   p_x_faces_3[{i+1,j,k}], p_y_faces_3[{i,j,  k}], p_z_faces_3[{i,j,k+1}],
                   p_x_faces_3[{i,  j,k}], p_y_faces_3[{i,j+1,k}], p_z_faces_3[{i,j,k  }],
-                  angles, 1, -1, 1)
+                  angles, 1, -1, 1, dx, dy, dz)
         end
       end
     end
@@ -2165,7 +2195,7 @@ exports.ComputeRadiationField = rquote
           sweep_4(p_points[{i,j,k}],
                   p_x_faces_4[{i+1,j,k}], p_y_faces_4[{i,j,  k}], p_z_faces_4[{i,j,k  }],
                   p_x_faces_4[{i,  j,k}], p_y_faces_4[{i,j+1,k}], p_z_faces_4[{i,j,k+1}],
-                  angles, 1, -1, -1)
+                  angles, 1, -1, -1, dx, dy, dz)
         end
       end
     end
@@ -2177,7 +2207,7 @@ exports.ComputeRadiationField = rquote
           sweep_5(p_points[{i,j,k}],
                   p_x_faces_5[{i,  j,k}], p_y_faces_5[{i,j+1,k}], p_z_faces_5[{i,j,k+1}],
                   p_x_faces_5[{i+1,j,k}], p_y_faces_5[{i,j,  k}], p_z_faces_5[{i,j,k  }],
-                  angles, -1, 1, 1)
+                  angles, -1, 1, 1, dx, dy, dz)
         end
       end
     end
@@ -2189,7 +2219,7 @@ exports.ComputeRadiationField = rquote
           sweep_6(p_points[{i,j,k}],
                   p_x_faces_6[{i,  j,k}], p_y_faces_6[{i,j+1,k}], p_z_faces_6[{i,j,k  }],
                   p_x_faces_6[{i+1,j,k}], p_y_faces_6[{i,j,  k}], p_z_faces_6[{i,j,k+1}],
-                  angles, -1, 1, -1)
+                  angles, -1, 1, -1, dx, dy, dz)
         end
       end
     end
@@ -2201,7 +2231,7 @@ exports.ComputeRadiationField = rquote
           sweep_7(p_points[{i,j,k}],
                   p_x_faces_7[{i,  j,k}], p_y_faces_7[{i,j,  k}], p_z_faces_7[{i,j,k+1}],
                   p_x_faces_7[{i+1,j,k}], p_y_faces_7[{i,j+1,k}], p_z_faces_7[{i,j,k  }],
-                  angles, -1, -1, 1)
+                  angles, -1, -1, 1, dx, dy, dz)
         end
       end
     end
@@ -2213,7 +2243,7 @@ exports.ComputeRadiationField = rquote
           sweep_8(p_points[{i,j,k}],
                   p_x_faces_8[{i,  j,k}], p_y_faces_8[{i,j,  k}], p_z_faces_8[{i,j,k  }],
                   p_x_faces_8[{i+1,j,k}], p_y_faces_8[{i,j+1,k}], p_z_faces_8[{i,j,k+1}],
-                  angles, -1, -1, -1)
+                  angles, -1, -1, -1, dx, dy, dz)
         end
       end
     end
@@ -2221,7 +2251,7 @@ exports.ComputeRadiationField = rquote
     -- Compute the residual
     res = 0.0
     for color in tiles do
-      res += residual(p_points[color])
+      res += residual(p_points[color], Nx, Ny, Nz)
     end
     res = cmath.sqrt(res)
 
