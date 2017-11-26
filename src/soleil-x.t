@@ -313,7 +313,7 @@ Particles.convectiveCoeff    = A.globalFromConfig('Particles.convectiveCoeff', d
 Particles.absorptivity       = A.readConfig('Particles.absorptivity', double)
 Particles.heatCapacity       = A.globalFromConfig('Particles.heatCapacity', double)
 Particles.initTemperature    = A.readConfig('Particles.initTemperature', double)
-Particles.density            = A.readConfig('Particles.density', double)
+Particles.density            = A.globalFromConfig('Particles.density', double)
 Particles.diameterMean       = A.readConfig('Particles.diameterMean', double)
 Particles.bodyForce          = A.globalFromConfig('Particles.bodyForce', double[3])
 Particles.maxSkew            = A.globalFromConfig('Particles.maxSkew', double)
@@ -2830,6 +2830,10 @@ end
 -- PARTICLES
 ------------
 
+ebb Particles.InitializeDensity (p : particles)
+  p.density = Particles.density
+end
+
 function Particles.InitializePrimitives ()
   M.IF(M.EQ(Particles.initCase, ParticlesInitCase.Random))
     M.ERROR('Random particle initialization is disabled')
@@ -2839,7 +2843,7 @@ function Particles.InitializePrimitives ()
       {'cell','position','velocity','temperature','diameter'},
       'restart_particles_%d.hdf',
       Integrator.restartIter)
-    particles.density:Fill(Particles.density)
+    particles:foreach(Particles.InitializeDensity)
     particles:foreach(Particles.CalculateNumber)
   M.END()
   M.IF(M.EQ(Particles.initCase, ParticlesInitCase.Uniform))
