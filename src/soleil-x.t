@@ -83,6 +83,10 @@ local pi = 2.0*L.acos(0)
 local twoPi = 2.0*pi
 local SB = 5.67e-8
 
+-- HACK: to appease the type system
+local ZERO = L.Global('ZERO', L.double, 0.0):get()
+local ONE = L.Global('ONE', L.double, 1.0):get()
+
 -----------------------------------------------------------------------------
 --[[                            NAMESPACES                               ]]--
 -----------------------------------------------------------------------------
@@ -156,9 +160,9 @@ BC.xBCRightVel     = A.readConfig('BC.xBCRightVel', double[3])
 BC.xBCRightTemp    = A.readConfig('BC.xBCRightTemp', double)
 BC.xBCPeriodic     = L.Global('BC.xBCPeriodic', L.bool,
                               M.COND2EXPR(M.EQ(BC.xBCLeft, FlowBC.Periodic)))
-BC.xSign           = L.Global('BC.xSign', L.vec3d, {0.0,0.0,0.0})
-BC.xPosVelocity    = L.Global('BC.xPosVelocity', L.vec3d, {0.0,0.0,0.0})
-BC.xNegVelocity    = L.Global('BC.xNegVelocity', L.vec3d, {0.0,0.0,0.0})
+BC.xSign           = L.Global('BC.xSign', L.vec3d, {0.1,0.1,0.1})
+BC.xPosVelocity    = L.Global('BC.xPosVelocity', L.vec3d, {0.1,0.1,0.1})
+BC.xNegVelocity    = L.Global('BC.xNegVelocity', L.vec3d, {0.1,0.1,0.1})
 BC.xPosTemperature = L.Global('BC.xPosTemperature', L.double, 0.0)
 BC.xNegTemperature = L.Global('BC.xNegTemperature', L.double, 0.0)
 
@@ -171,9 +175,9 @@ BC.yBCRightVel     = A.readConfig('BC.yBCRightVel', double[3])
 BC.yBCRightTemp    = A.readConfig('BC.yBCRightTemp', double)
 BC.yBCPeriodic     = L.Global('BC.yBCPeriodic', L.bool,
                               M.COND2EXPR(M.EQ(BC.yBCLeft, FlowBC.Periodic)))
-BC.ySign           = L.Global('BC.ySign', L.vec3d, {0.0,0.0,0.0})
-BC.yPosVelocity    = L.Global('BC.yPosVelocity', L.vec3d, {0.0,0.0,0.0})
-BC.yNegVelocity    = L.Global('BC.yNegVelocity', L.vec3d, {0.0,0.0,0.0})
+BC.ySign           = L.Global('BC.ySign', L.vec3d, {0.1,0.1,0.1})
+BC.yPosVelocity    = L.Global('BC.yPosVelocity', L.vec3d, {0.1,0.1,0.1})
+BC.yNegVelocity    = L.Global('BC.yNegVelocity', L.vec3d, {0.1,0.1,0.1})
 BC.yPosTemperature = L.Global('BC.yPosTemperature', L.double, 0.0)
 BC.yNegTemperature = L.Global('BC.yNegTemperature', L.double, 0.0)
 
@@ -186,9 +190,9 @@ BC.zBCRightVel     = A.readConfig('BC.zBCRightVel', double[3])
 BC.zBCRightTemp    = A.readConfig('BC.zBCRightTemp', double)
 BC.zBCPeriodic     = L.Global('BC.zBCPeriodic', L.bool,
                               M.COND2EXPR(M.EQ(BC.zBCLeft, FlowBC.Periodic)))
-BC.zSign           = L.Global('BC.zSign', L.vec3d, {0.0,0.0,0.0})
-BC.zPosVelocity    = L.Global('BC.zPosVelocity', L.vec3d, {0.0,0.0,0.0})
-BC.zNegVelocity    = L.Global('BC.zNegVelocity', L.vec3d, {0.0,0.0,0.0})
+BC.zSign           = L.Global('BC.zSign', L.vec3d, {0.1,0.1,0.1})
+BC.zPosVelocity    = L.Global('BC.zPosVelocity', L.vec3d, {0.1,0.1,0.1})
+BC.zNegVelocity    = L.Global('BC.zNegVelocity', L.vec3d, {0.1,0.1,0.1})
 BC.zPosTemperature = L.Global('BC.zPosTemperature', L.double, 0.0)
 BC.zNegTemperature = L.Global('BC.zNegTemperature', L.double, 0.0)
 
@@ -588,38 +592,38 @@ end
 
 M.IF(M.AND(M.EQ(BC.xBCLeft,  FlowBC.Periodic),
            M.EQ(BC.xBCRight, FlowBC.Periodic)))
-  BC.xSign:set({1.0,1.0,1.0})
-  BC.xPosVelocity:set({0.0,0.0,0.0})
-  BC.xNegVelocity:set({0.0,0.0,0.0})
-  BC.xPosTemperature:set(-1.0)
-  BC.xNegTemperature:set(-1.0)
+  BC.xSign:set(M.ARRAY{ONE,ONE,ONE})
+  BC.xPosVelocity:set(M.ARRAY{ZERO,ZERO,ZERO})
+  BC.xNegVelocity:set(M.ARRAY{ZERO,ZERO,ZERO})
+  BC.xPosTemperature:set(-ONE)
+  BC.xNegTemperature:set(-ONE)
   BC.xBCLeftParticles:set(ParticleBC.Permeable)
   BC.xBCRightParticles:set(ParticleBC.Permeable)
 M.ELSE() M.IF(M.AND(M.EQ(BC.xBCLeft,  FlowBC.Symmetry),
                     M.EQ(BC.xBCRight, FlowBC.Symmetry)))
-  BC.xSign:set({-1.0,1.0,1.0})
-  BC.xPosVelocity:set({0.0,0.0,0.0})
-  BC.xNegVelocity:set({0.0,0.0,0.0})
-  BC.xPosTemperature:set(-1.0)
-  BC.xNegTemperature:set(-1.0)
+  BC.xSign:set(M.ARRAY{-ONE,ONE,ONE})
+  BC.xPosVelocity:set(M.ARRAY{ZERO,ZERO,ZERO})
+  BC.xNegVelocity:set(M.ARRAY{ZERO,ZERO,ZERO})
+  BC.xPosTemperature:set(-ONE)
+  BC.xNegTemperature:set(-ONE)
   BC.xBCLeftParticles:set(ParticleBC.Solid)
   BC.xBCRightParticles:set(ParticleBC.Solid)
 M.ELSE() M.IF(M.AND(M.EQ(BC.xBCLeft,  FlowBC.AdiabaticWall),
                     M.EQ(BC.xBCRight, FlowBC.AdiabaticWall)))
-  BC.xSign:set({-1.0,-1.0,-1.0})
+  BC.xSign:set(M.ARRAY{-ONE,-ONE,-ONE})
   BC.xPosVelocity:set(M.ARRAY{2.0*BC.xBCRightVel[0],
                               2.0*BC.xBCRightVel[1],
                               2.0*BC.xBCRightVel[2]})
   BC.xNegVelocity:set(M.ARRAY{2.0*BC.xBCLeftVel[0],
                               2.0*BC.xBCLeftVel[1],
                               2.0*BC.xBCLeftVel[2]})
-  BC.xPosTemperature:set(-1.0)
-  BC.xNegTemperature:set(-1.0)
+  BC.xPosTemperature:set(-ONE)
+  BC.xNegTemperature:set(-ONE)
   BC.xBCLeftParticles:set(ParticleBC.Solid)
   BC.xBCRightParticles:set(ParticleBC.Solid)
 M.ELSE() M.IF(M.AND(M.EQ(BC.xBCLeft,  FlowBC.IsothermalWall),
                     M.EQ(BC.xBCRight, FlowBC.IsothermalWall)))
-  BC.xSign:set({-1.0,-1.0,-1.0})
+  BC.xSign:set(M.ARRAY{-ONE,-ONE,-ONE})
   BC.xPosVelocity:set(M.ARRAY{2.0*BC.xBCRightVel[0],
                               2.0*BC.xBCRightVel[1],
                               2.0*BC.xBCRightVel[2]})
@@ -638,38 +642,38 @@ M.END() M.END() M.END() M.END()
 
 M.IF(M.AND(M.EQ(BC.yBCLeft,  FlowBC.Periodic),
            M.EQ(BC.yBCRight, FlowBC.Periodic)))
-  BC.ySign:set({1.0,1.0,1.0})
-  BC.yPosVelocity:set({0.0,0.0,0.0})
-  BC.yNegVelocity:set({0.0,0.0,0.0})
-  BC.yPosTemperature:set(-1.0)
-  BC.yNegTemperature:set(-1.0)
+  BC.ySign:set(M.ARRAY{ONE,ONE,ONE})
+  BC.yPosVelocity:set(M.ARRAY{ZERO,ZERO,ZERO})
+  BC.yNegVelocity:set(M.ARRAY{ZERO,ZERO,ZERO})
+  BC.yPosTemperature:set(-ONE)
+  BC.yNegTemperature:set(-ONE)
   BC.yBCLeftParticles:set(ParticleBC.Permeable)
   BC.yBCRightParticles:set(ParticleBC.Permeable)
 M.ELSE() M.IF(M.AND(M.EQ(BC.yBCLeft,  FlowBC.Symmetry),
                     M.EQ(BC.yBCRight, FlowBC.Symmetry)))
-  BC.ySign:set({1.0,-1.0,1.0})
-  BC.yPosVelocity:set({0.0,0.0,0.0})
-  BC.yNegVelocity:set({0.0,0.0,0.0})
-  BC.yPosTemperature:set(-1.0)
-  BC.yNegTemperature:set(-1.0)
+  BC.ySign:set(M.ARRAY{ONE,-ONE,ONE})
+  BC.yPosVelocity:set(M.ARRAY{ZERO,ZERO,ZERO})
+  BC.yNegVelocity:set(M.ARRAY{ZERO,ZERO,ZERO})
+  BC.yPosTemperature:set(-ONE)
+  BC.yNegTemperature:set(-ONE)
   BC.yBCLeftParticles:set(ParticleBC.Solid)
   BC.yBCRightParticles:set(ParticleBC.Solid)
 M.ELSE() M.IF(M.AND(M.EQ(BC.yBCLeft,  FlowBC.AdiabaticWall),
                     M.EQ(BC.yBCRight, FlowBC.AdiabaticWall)))
-  BC.ySign:set({-1.0,-1.0,-1.0})
+  BC.ySign:set(M.ARRAY{-ONE,-ONE,-ONE})
   BC.yPosVelocity:set(M.ARRAY{2.0*BC.yBCRightVel[0],
                               2.0*BC.yBCRightVel[1],
                               2.0*BC.yBCRightVel[2]})
   BC.yNegVelocity:set(M.ARRAY{2.0*BC.yBCLeftVel[0],
                               2.0*BC.yBCLeftVel[1],
                               2.0*BC.yBCLeftVel[2]})
-  BC.yPosTemperature:set(-1.0)
-  BC.yNegTemperature:set(-1.0)
+  BC.yPosTemperature:set(-ONE)
+  BC.yNegTemperature:set(-ONE)
   BC.yBCLeftParticles:set(ParticleBC.Solid)
   BC.yBCRightParticles:set(ParticleBC.Solid)
 M.ELSE() M.IF(M.AND(M.EQ(BC.yBCLeft,  FlowBC.IsothermalWall),
                     M.EQ(BC.yBCRight, FlowBC.IsothermalWall)))
-  BC.ySign:set({-1.0,-1.0,-1.0})
+  BC.ySign:set(M.ARRAY{-ONE,-ONE,-ONE})
   BC.yPosVelocity:set(M.ARRAY{2.0*BC.yBCRightVel[0],
                               2.0*BC.yBCRightVel[1],
                               2.0*BC.yBCRightVel[2]})
@@ -688,38 +692,38 @@ M.END() M.END() M.END() M.END()
 
 M.IF(M.AND(M.EQ(BC.zBCLeft,  FlowBC.Periodic),
            M.EQ(BC.zBCRight, FlowBC.Periodic)))
-  BC.zSign:set({1.0,1.0,1.0})
-  BC.zPosVelocity:set({0.0,0.0,0.0})
-  BC.zNegVelocity:set({0.0,0.0,0.0})
-  BC.zPosTemperature:set(-1.0)
-  BC.zNegTemperature:set(-1.0)
+  BC.zSign:set(M.ARRAY{ONE,ONE,ONE})
+  BC.zPosVelocity:set(M.ARRAY{ZERO,ZERO,ZERO})
+  BC.zNegVelocity:set(M.ARRAY{ZERO,ZERO,ZERO})
+  BC.zPosTemperature:set(-ONE)
+  BC.zNegTemperature:set(-ONE)
   BC.zBCLeftParticles:set(ParticleBC.Permeable)
   BC.zBCRightParticles:set(ParticleBC.Permeable)
 M.ELSE() M.IF(M.AND(M.EQ(BC.zBCLeft,  FlowBC.Symmetry),
                     M.EQ(BC.zBCRight, FlowBC.Symmetry)))
-  BC.zSign:set({1.0,1.0,-1.0})
-  BC.zPosVelocity:set({0.0,0.0,0.0})
-  BC.zNegVelocity:set({0.0,0.0,0.0})
-  BC.zPosTemperature:set(-1.0)
-  BC.zNegTemperature:set(-1.0)
+  BC.zSign:set(M.ARRAY{ONE,ONE,-ONE})
+  BC.zPosVelocity:set(M.ARRAY{ZERO,ZERO,ZERO})
+  BC.zNegVelocity:set(M.ARRAY{ZERO,ZERO,ZERO})
+  BC.zPosTemperature:set(-ONE)
+  BC.zNegTemperature:set(-ONE)
   BC.zBCLeftParticles:set(ParticleBC.Solid)
   BC.zBCRightParticles:set(ParticleBC.Solid)
 M.ELSE() M.IF(M.AND(M.EQ(BC.zBCLeft,  FlowBC.AdiabaticWall),
                     M.EQ(BC.zBCRight, FlowBC.AdiabaticWall)))
-  BC.zSign:set({-1.0,-1.0,-1.0})
+  BC.zSign:set(M.ARRAY{-ONE,-ONE,-ONE})
   BC.zPosVelocity:set(M.ARRAY{2.0*BC.zBCRightVel[0],
                               2.0*BC.zBCRightVel[1],
                               2.0*BC.zBCRightVel[2]})
   BC.zNegVelocity:set(M.ARRAY{2.0*BC.zBCLeftVel[0],
                               2.0*BC.zBCLeftVel[1],
                               2.0*BC.zBCLeftVel[2]})
-  BC.zPosTemperature:set(-1.0)
-  BC.zNegTemperature:set(-1.0)
+  BC.zPosTemperature:set(-ONE)
+  BC.zNegTemperature:set(-ONE)
   BC.zBCLeftParticles:set(ParticleBC.Solid)
   BC.zBCRightParticles:set(ParticleBC.Solid)
 M.ELSE() M.IF(M.AND(M.EQ(BC.zBCLeft,  FlowBC.IsothermalWall),
                     M.EQ(BC.zBCRight, FlowBC.IsothermalWall)))
-  BC.zSign:set({-1.0,-1.0,-1.0})
+  BC.zSign:set(M.ARRAY{-ONE,-ONE,-ONE})
   BC.zPosVelocity:set(M.ARRAY{2.0*BC.zBCRightVel[0],
                               2.0*BC.zBCRightVel[1],
                               2.0*BC.zBCRightVel[2]})
@@ -2050,6 +2054,7 @@ end
 ebb Particles.LocateInCells (p : particles)
   p.cell = fluidGrid.locate(p.position)
 end
+Particles.LocateInCells._MANUAL_PARAL = true
 
 -- Locate particles in cells
 function Particles.Locate ()
@@ -3091,7 +3096,6 @@ end
 -----------------------------------------------------------------------------
 
 -- Initialize all variables
-
 Integrator.InitializeVariables()
 Statistics.ComputeSpatialAverages()
 if Radiation.TYPE == 'DOM' then
