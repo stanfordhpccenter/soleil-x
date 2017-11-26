@@ -290,7 +290,7 @@ local OnOrOff = A.Enum('OFF','ON')
 Flow.initCase    = A.readConfig('Flow.initCase', FlowInitCase)
 Flow.initParams  = A.globalFromConfig('Flow.initParams', double[5])
 Flow.bodyForce   = A.globalFromConfig('Flow.bodyForce', double[3])
-Flow.turbForcing = A.readConfig('turbForcing', OnOrOff)
+Flow.turbForcing = A.readConfig('Flow.turbForcing', OnOrOff)
 
 Flow.averagePressure      = L.Global('Flow.averagePressure', L.double, 0.0)
 Flow.averageTemperature   = L.Global('Flow.averageTemperature', L.double, 0.0)
@@ -379,10 +379,10 @@ end
 --[[ IO ]]--
 ------------
 
-IO.wrtRestart            = A.readConfig('wrtRestart', OnOrOff)
-IO.restartEveryTimeSteps = A.readConfig('restartEveryTimeSteps', int)
-IO.headerFrequency       = A.readConfig('headerFrequency', int)
-IO.consoleFrequency      = A.readConfig('consoleFrequency', int)
+IO.wrtRestart            = A.readConfig('IO.wrtRestart', OnOrOff)
+IO.restartEveryTimeSteps = A.readConfig('IO.restartEveryTimeSteps', int)
+IO.headerFrequency       = A.readConfig('IO.headerFrequency', int)
+IO.consoleFrequency      = A.readConfig('IO.consoleFrequency', int)
 
 -----------------------------------------------------------------------------
 --[[                           FLUID GRID                                ]]--
