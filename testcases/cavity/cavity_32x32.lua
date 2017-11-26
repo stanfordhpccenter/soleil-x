@@ -53,7 +53,7 @@ return {
   particleEvolutionIndex = 0,
   restartEveryTimeSteps = 1,
   consoleFrequency = 1,  -- Iterations between console output of statistics
-  headerFrequency       = 100,
+  headerFrequency       = 10,
   outputFormat = 'Tecplot', -- Only 'Tecplot' is currently available
 
   -- Fluid Options --
@@ -73,7 +73,7 @@ return {
   initParticles = 'Uniform', -- 'Random' or 'Restart'
   restartParticleIter = 0,
   particleType = 'Free', -- Fixed or Free
-  twoWayCoupling = 'OFF',
+  twoWayCoupling = 'ON',
   num = 100,
   maximum_num = 1000, -- upper bound on particles with insertion
   insertion_rate = 0, -- per face and per time step
@@ -91,7 +91,7 @@ return {
   -- (Kirchhoff law of thermal radiation)
 
   -- Radiation Options --
-  radiationType = 'DOM',
+  radiationType = 'Algebraic',
   radiationIntensity = 10.0,
   zeroAvgHeatSource = 'OFF',
   qa = 0.5,
