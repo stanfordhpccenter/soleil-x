@@ -155,7 +155,7 @@ BC.xBCRight        = A.readConfig('BC.xBCRight', FlowBC)
 BC.xBCRightVel     = A.readConfig('BC.xBCRightVel', double[3])
 BC.xBCRightTemp    = A.readConfig('BC.xBCRightTemp', double)
 BC.xBCPeriodic     = L.Global('BC.xBCPeriodic', L.bool,
-                              M.EQ(BC.xBCLeft, FlowBC.Periodic)))
+                              M.COND2EXPR(M.EQ(BC.xBCLeft, FlowBC.Periodic)))
 BC.xSign           = L.Global('BC.xSign', L.vec3d, {0.0,0.0,0.0})
 BC.xPosVelocity    = L.Global('BC.xPosVelocity', L.vec3d, {0.0,0.0,0.0})
 BC.xNegVelocity    = L.Global('BC.xNegVelocity', L.vec3d, {0.0,0.0,0.0})
@@ -170,7 +170,7 @@ BC.yBCRight        = A.readConfig('BC.yBCRight', FlowBC)
 BC.yBCRightVel     = A.readConfig('BC.yBCRightVel', double[3])
 BC.yBCRightTemp    = A.readConfig('BC.yBCRightTemp', double)
 BC.yBCPeriodic     = L.Global('BC.yBCPeriodic', L.bool,
-                              M.EQ(BC.yBCLeft, FlowBC.Periodic)))
+                              M.COND2EXPR(M.EQ(BC.yBCLeft, FlowBC.Periodic)))
 BC.ySign           = L.Global('BC.ySign', L.vec3d, {0.0,0.0,0.0})
 BC.yPosVelocity    = L.Global('BC.yPosVelocity', L.vec3d, {0.0,0.0,0.0})
 BC.yNegVelocity    = L.Global('BC.yNegVelocity', L.vec3d, {0.0,0.0,0.0})
@@ -185,7 +185,7 @@ BC.zBCRight        = A.readConfig('BC.zBCRight', FlowBC)
 BC.zBCRightVel     = A.readConfig('BC.zBCRightVel', double[3])
 BC.zBCRightTemp    = A.readConfig('BC.zBCRightTemp', double)
 BC.zBCPeriodic     = L.Global('BC.zBCPeriodic', L.bool,
-                              M.EQ(BC.zBCLeft, FlowBC.Periodic)))
+                              M.COND2EXPR(M.EQ(BC.zBCLeft, FlowBC.Periodic)))
 BC.zSign           = L.Global('BC.zSign', L.vec3d, {0.0,0.0,0.0})
 BC.zPosVelocity    = L.Global('BC.zPosVelocity', L.vec3d, {0.0,0.0,0.0})
 BC.zNegVelocity    = L.Global('BC.zNegVelocity', L.vec3d, {0.0,0.0,0.0})
@@ -305,7 +305,7 @@ Flow.averageK             = L.Global('Flow.averageK', L.double, 0.0)
 local ParticlesInitCase = A.Enum('Random','Restart','Uniform')
 
 -- Define the initial number of particles and insertion/deletion
-Particles.initCase           = A.readConfig('Particles.initCase', ParticlesInitCase),
+Particles.initCase           = A.readConfig('Particles.initCase', ParticlesInitCase)
 Particles.initNum            = A.readConfig('Particles.initNum', int)
 Particles.maxNum             = A.globalFromConfig('Particles.maxNum', int)
 Particles.restitutionCoeff   = A.globalFromConfig('Particles.restitutionCoeff', double)
@@ -361,9 +361,9 @@ if Radiation.TYPE == 'DOM' then
   Radiation.emissWest  = A.readConfig('Radiation.emissWest', double)
   Radiation.emissSouth = A.readConfig('Radiation.emissSouth', double)
   Radiation.emissNorth = A.readConfig('Radiation.emissNorth', double)
-  Radiation.emissUp    = A.readConfig('Radiation.emissUp'  , double)
+  Radiation.emissUp    = A.readConfig('Radiation.emissUp', double)
   Radiation.emissDown  = A.readConfig('Radiation.emissDown', double)
-  Radiation.tempEast  = A.readConfig('Radiation.tempEast' double)
+  Radiation.tempEast  = A.readConfig('Radiation.tempEast', double)
   Radiation.tempWest  = A.readConfig('Radiation.tempWest', double)
   Radiation.tempSouth = A.readConfig('Radiation.tempSouth', double)
   Radiation.tempNorth = A.readConfig('Radiation.tempNorth', double)
@@ -587,7 +587,7 @@ end
 -- Define offsets, signs, and velocities for the x BCs
 
 M.IF(M.AND(M.EQ(BC.xBCLeft,  FlowBC.Periodic),
-           M.EQ(BC.xBCRight, FlowBC.Periodic))
+           M.EQ(BC.xBCRight, FlowBC.Periodic)))
   BC.xSign:set({1.0,1.0,1.0})
   BC.xPosVelocity:set({0.0,0.0,0.0})
   BC.xNegVelocity:set({0.0,0.0,0.0})
@@ -595,8 +595,8 @@ M.IF(M.AND(M.EQ(BC.xBCLeft,  FlowBC.Periodic),
   BC.xNegTemperature:set(-1.0)
   BC.xBCLeftParticles:set(ParticleBC.Permeable)
   BC.xBCRightParticles:set(ParticleBC.Permeable)
-M.ELSE() M.IF(M.AND(M.EQ(BC.xBCLeft,  FlowBC.Symmetry)
-                    M.EQ(BC.xBCRight, FlowBC.Symmetry))
+M.ELSE() M.IF(M.AND(M.EQ(BC.xBCLeft,  FlowBC.Symmetry),
+                    M.EQ(BC.xBCRight, FlowBC.Symmetry)))
   BC.xSign:set({-1.0,1.0,1.0})
   BC.xPosVelocity:set({0.0,0.0,0.0})
   BC.xNegVelocity:set({0.0,0.0,0.0})
@@ -637,7 +637,7 @@ M.END() M.END() M.END() M.END()
 -- Define offsets, signs, and velocities for the y BCs
 
 M.IF(M.AND(M.EQ(BC.yBCLeft,  FlowBC.Periodic),
-           M.EQ(BC.yBCRight, FlowBC.Periodic))
+           M.EQ(BC.yBCRight, FlowBC.Periodic)))
   BC.ySign:set({1.0,1.0,1.0})
   BC.yPosVelocity:set({0.0,0.0,0.0})
   BC.yNegVelocity:set({0.0,0.0,0.0})
@@ -645,8 +645,8 @@ M.IF(M.AND(M.EQ(BC.yBCLeft,  FlowBC.Periodic),
   BC.yNegTemperature:set(-1.0)
   BC.yBCLeftParticles:set(ParticleBC.Permeable)
   BC.yBCRightParticles:set(ParticleBC.Permeable)
-M.ELSE() M.IF(M.AND(M.EQ(BC.yBCLeft,  FlowBC.Symmetry)
-                    M.EQ(BC.yBCRight, FlowBC.Symmetry))
+M.ELSE() M.IF(M.AND(M.EQ(BC.yBCLeft,  FlowBC.Symmetry),
+                    M.EQ(BC.yBCRight, FlowBC.Symmetry)))
   BC.ySign:set({1.0,-1.0,1.0})
   BC.yPosVelocity:set({0.0,0.0,0.0})
   BC.yNegVelocity:set({0.0,0.0,0.0})
@@ -687,7 +687,7 @@ M.END() M.END() M.END() M.END()
 -- Define offsets, signs, and velocities for the z BCs
 
 M.IF(M.AND(M.EQ(BC.zBCLeft,  FlowBC.Periodic),
-           M.EQ(BC.zBCRight, FlowBC.Periodic))
+           M.EQ(BC.zBCRight, FlowBC.Periodic)))
   BC.zSign:set({1.0,1.0,1.0})
   BC.zPosVelocity:set({0.0,0.0,0.0})
   BC.zNegVelocity:set({0.0,0.0,0.0})
@@ -695,8 +695,8 @@ M.IF(M.AND(M.EQ(BC.zBCLeft,  FlowBC.Periodic),
   BC.zNegTemperature:set(-1.0)
   BC.zBCLeftParticles:set(ParticleBC.Permeable)
   BC.zBCRightParticles:set(ParticleBC.Permeable)
-M.ELSE() M.IF(M.AND(M.EQ(BC.zBCLeft,  FlowBC.Symmetry)
-                    M.EQ(BC.zBCRight, FlowBC.Symmetry))
+M.ELSE() M.IF(M.AND(M.EQ(BC.zBCLeft,  FlowBC.Symmetry),
+                    M.EQ(BC.zBCRight, FlowBC.Symmetry)))
   BC.zSign:set({1.0,1.0,-1.0})
   BC.zPosVelocity:set({0.0,0.0,0.0})
   BC.zNegVelocity:set({0.0,0.0,0.0})
@@ -1576,11 +1576,11 @@ local ebb CalculateAverageK (c : fluidGrid)
 end
 
 function Flow.UpdateTurbulentAverages ()
-  cells:foreach(CalculateAveragePD)
+  fluidGrid:foreach(CalculateAveragePD)
   Flow.averagePD:set(Flow.averagePD:get() / Grid.areaInterior)
-  cells:foreach(CalculateAverageDissipation)
+  fluidGrid:foreach(CalculateAverageDissipation)
   Flow.averageDissipation:set(Flow.averageDissipation:get()/ Grid.areaInterior)
-  cells:foreach(CalculateAverageK)
+  fluidGrid:foreach(CalculateAverageK)
   Flow.averageK:set(Flow.averageK:get() / Grid.areaInterior)
 end
 
@@ -2982,9 +2982,9 @@ function Integrator.CalculateDeltaTime ()
     -- Delta time using the CFL and max spectral radius for stability
     Integrator.deltaTime:set(
       Integrator.cfl /
-        M.MAX(maxConvectiveSpectralRadius:get(),
-        M.MAX(maxViscousSpectralRadius:get(),
-              maxHeatConductionSpectralRadius:get())))
+        M.MAX(Integrator.maxConvectiveSpectralRadius:get(),
+        M.MAX(Integrator.maxViscousSpectralRadius:get(),
+              Integrator.maxHeatConductionSpectralRadius:get())))
   M.END()
 end
 
@@ -3056,7 +3056,7 @@ function IO.WriteFlowRestart ()
     -- Write the restart files for density, pressure, and velocity
     fluidGrid:Dump({'rho','pressure','velocity'},
                    'restart_fluid_%d.hdf',
-                   Integrator.timeStep)
+                   Integrator.timeStep:get())
   M.END()
 end
 
@@ -3066,7 +3066,7 @@ function IO.WriteParticleRestart ()
     -- Write the restart files for position, velocity, temperature and diameter
     particles:Dump({'cell','position','velocity','temperature','diameter'},
                    'restart_particles_%d.hdf',
-                   Integrator.timeStep)
+                   Integrator.timeStep:get())
   M.END()
 end
 
@@ -3089,7 +3089,6 @@ end
 -- Initialize all variables
 
 Integrator.InitializeVariables()
-Flow.IntegrateGeometricQuantities()
 Statistics.ComputeSpatialAverages()
 if Radiation.TYPE == 'DOM' then
   domGrid:foreach(Radiation.InitializeCell)

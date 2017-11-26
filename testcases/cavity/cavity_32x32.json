@@ -13,21 +13,18 @@
     },
 
     "BC" : {
-        // X
         "xBCLeft"  : "AdiabaticWall",
         "xBCLeftVel" : [0.0, 0.0, 0.0],
         "xBCLeftTemp" : 0.0,
         "xBCRight" : "AdiabaticWall",
         "xBCRightVel" : [0.0, 0.0, 0.0],
         "xBCRightTemp" : 0.0,
-        // Y
         "yBCLeft"  : "AdiabaticWall",
         "yBCLeftVel" : [0.0, 0.0, 0.0],
         "yBCLeftTemp" : 0.0,
         "yBCRight" : "AdiabaticWall",
         "yBCRightVel" : [34.03, 0.0, 0.0],
         "yBCRightTemp" : 0.0,
-        // Z
         "zBCLeft"  : "Symmetry",
         "zBCLeftVel" : [0.0, 0.0, 0.0],
         "zBCLeftTemp" : 0.0,
@@ -48,7 +45,7 @@
         "gasConstant" : 287.058,
         "gamma" : 1.4,
         "prandtl" : 0.72,
-        "viscosityModel" : "Sutherland"
+        "viscosityModel" : "Sutherland",
         "constantVisc" : 0.1,
         "powerlawViscRef" : 0.001,
         "powerlawTempRef" : 273.0,
@@ -78,26 +75,8 @@
     },
 
     "Radiation" : {
-        "TYPE" : "Algebraic", // COMPILE-TIME PARAMETER
+        "TYPE" : "Algebraic",
         "intensity" : 10.0,
-        // "NUM_ANGLES" : 14, // COMPILE-TIME PARAMETER
-        // "qa" : 0.5,
-        // "qs" : 0.5,
-        // "xNum" : 32,
-        // "yNum" : 32,
-        // "zNum" : 1,
-        // "emissEast"  : 1.0,
-        // "emissWest"  : 1.0,
-        // "emissSouth" : 1.0,
-        // "emissNorth" : 1.0,
-        // "emissUp"    : 1.0,
-        // "emissDown"  : 1.0,
-        // "tempEast"  : 300.0,
-        // "tempWest"  : 2000.0,
-        // "tempSouth" : 300.0,
-        // "tempNorth" : 300.0,
-        // "tempUp"    : 300.0,
-        // "tempDown"  : 300.0,
     },
 
     "IO" : {

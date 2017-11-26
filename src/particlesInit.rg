@@ -52,9 +52,9 @@ do
                         lo.z + relIdx / xSize / ySize }
       p.cell = c
       p.position = cells[p.cell].centerCoordinates
-      p.particle_velocity = cells[p.cell].velocity
+      p.velocity = cells[p.cell].velocity
       p.density = config.Particles.density
-      p.particle_temperature = config.Particles.initTemperature
+      p.temperature = config.Particles.initTemperature
       p.diameter = config.Particles.diameterMean
     end
   end
