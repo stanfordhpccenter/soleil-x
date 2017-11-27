@@ -1,6 +1,6 @@
 #!/bin/bash -eu
 
-SOLEIL_SRC="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+SOLEIL_SRC="$(cd "$(dirname "$(perl -MCwd -le 'print Cwd::abs_path(shift)' "${BASH_SOURCE[0]}")")" && pwd)"
 
 cd "$SOLEIL_SRC"
 
