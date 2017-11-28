@@ -2228,68 +2228,68 @@ end
 --   end
 -- end
 -- 
--- task Particles_LocateInCells(v6980 : region(ispace(int1d), particles_columns), v6982 : bool, v6983 : bool, v6984 : bool, v6985 : int32, v6986 : int32, v6987 : double, v6988 : double, v6989 : int32, v6990 : int32, v6991 : double, v6992 : double, v6993 : int32, v6994 : int32, v6995 : double, v6996 : double)
--- where
---   reads(v6980.cell), writes(v6980.cell), reads(v6980.position), reads(v6980.__valid)
--- do
---   for v7095 in v6980 do
---     if v6980[v7095].__valid then
---       var v7114 : int3d
---       do
---         var v7098 = v6980[v7095].position
---         var v7099 = v6982
---         var v7100 = v6983
---         var v7101 = v6984
---         var v7102 = v6985
---         var v7103 = v6986
---         var v7104 = v6987
---         var v7105 = v6988
---         var v7106 = v6989
---         var v7107 = v6990
---         var v7108 = v6991
---         var v7109 = v6992
---         var v7110 = v6993
---         var v7111 = v6994
---         var v7112 = v6995
---         var v7113 = v6996
---         var v7058 = (v7105/double(v7103))
---         var v7059 = (v7104-(double(v7102)*v7058))
---         var v7060 = ((v7098[int32(0)]-v7059)/v7058)
---         var v7061 = (v7103+(int32(2)*v7102))
---         var v7062 : uint64
---         if v7099 then
---           v7062 = (uint64((C.fmod(v7060, double(v7061))+double(v7061)))%uint64(v7061))
---         else
---           v7062 = uint64(max(double(0), min(double((v7061-int32(1))), v7060)))
---         end
---         var v7063 = (v7109/double(v7107))
---         var v7064 = (v7108-(double(v7106)*v7063))
---         var v7065 = ((v7098[int32(1)]-v7064)/v7063)
---         var v7066 = (v7107+(int32(2)*v7106))
---         var v7067 : uint64
---         if v7100 then
---           v7067 = (uint64((C.fmod(v7065, double(v7066))+double(v7066)))%uint64(v7066))
---         else
---           v7067 = uint64(max(double(0), min(double((v7066-int32(1))), v7065)))
---         end
---         var v7068 = (v7113/double(v7111))
---         var v7069 = (v7112-(double(v7110)*v7068))
---         var v7070 = ((v7098[int32(2)]-v7069)/v7068)
---         var v7071 = (v7111+(int32(2)*v7110))
---         var v7072 : uint64
---         if v7101 then
---           v7072 = (uint64((C.fmod(v7070, double(v7071))+double(v7071)))%uint64(v7071))
---         else
---           v7072 = uint64(max(double(0), min(double((v7071-int32(1))), v7070)))
---         end
---         v7114 = int3d({v7062, v7067, v7072})
---       end
---       var v7115 = 0
---       v6980[v7095].cell = v7114
---     else
---     end
---   end
--- end
+task Particles_LocateInCells(v6980 : region(ispace(int1d), particles_columns), v6982 : bool, v6983 : bool, v6984 : bool, v6985 : int32, v6986 : int32, v6987 : double, v6988 : double, v6989 : int32, v6990 : int32, v6991 : double, v6992 : double, v6993 : int32, v6994 : int32, v6995 : double, v6996 : double)
+where
+  reads(v6980.cell), writes(v6980.cell), reads(v6980.position), reads(v6980.__valid)
+do
+  for v7095 in v6980 do
+    if v6980[v7095].__valid then
+      var v7114 : int3d
+      do
+        var v7098 = v6980[v7095].position
+        var v7099 = v6982
+        var v7100 = v6983
+        var v7101 = v6984
+        var v7102 = v6985
+        var v7103 = v6986
+        var v7104 = v6987
+        var v7105 = v6988
+        var v7106 = v6989
+        var v7107 = v6990
+        var v7108 = v6991
+        var v7109 = v6992
+        var v7110 = v6993
+        var v7111 = v6994
+        var v7112 = v6995
+        var v7113 = v6996
+        var v7058 = (v7105/double(v7103))
+        var v7059 = (v7104-(double(v7102)*v7058))
+        var v7060 = ((v7098[int32(0)]-v7059)/v7058)
+        var v7061 = (v7103+(int32(2)*v7102))
+        var v7062 : uint64
+        if v7099 then
+          v7062 = (uint64((C.fmod(v7060, double(v7061))+double(v7061)))%uint64(v7061))
+        else
+          v7062 = uint64(max(double(0), min(double((v7061-int32(1))), v7060)))
+        end
+        var v7063 = (v7109/double(v7107))
+        var v7064 = (v7108-(double(v7106)*v7063))
+        var v7065 = ((v7098[int32(1)]-v7064)/v7063)
+        var v7066 = (v7107+(int32(2)*v7106))
+        var v7067 : uint64
+        if v7100 then
+          v7067 = (uint64((C.fmod(v7065, double(v7066))+double(v7066)))%uint64(v7066))
+        else
+          v7067 = uint64(max(double(0), min(double((v7066-int32(1))), v7065)))
+        end
+        var v7068 = (v7113/double(v7111))
+        var v7069 = (v7112-(double(v7110)*v7068))
+        var v7070 = ((v7098[int32(2)]-v7069)/v7068)
+        var v7071 = (v7111+(int32(2)*v7110))
+        var v7072 : uint64
+        if v7101 then
+          v7072 = (uint64((C.fmod(v7070, double(v7071))+double(v7071)))%uint64(v7071))
+        else
+          v7072 = uint64(max(double(0), min(double((v7071-int32(1))), v7070)))
+        end
+        v7114 = int3d({v7062, v7067, v7072})
+      end
+      var v7115 = 0
+      v6980[v7095].cell = v7114
+    else
+    end
+  end
+end
 
 terra particles_pushElement(dst : &opaque,idx : int32,src : particles_columns) : {}
     var ptr = [&int8](dst) + idx * 376
