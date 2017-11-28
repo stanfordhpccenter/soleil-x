@@ -1802,493 +1802,494 @@ do
   end
 end
 
-task Flow_UpdatePD(v6090 : region(ispace(int3d), Fluid_columns), v6092 : int32, v6093 : int32, v6094 : int32, v6095 : int32, v6096 : int32, v6097 : int32)
-where
-  reads(v6090.PD), writes(v6090.PD), reads(v6090.pressure), reads(v6090.velocityGradientX), reads(v6090.velocityGradientY), reads(v6090.velocityGradientZ)
-do
-  for v6105 in v6090 do
-    if (not ((((((max(int32((uint64(v6092)-int3d(v6105).x)), int32(0))>int32(0)) or (max(int32((int3d(v6105).x-uint64(((v6093+v6092)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6094)-int3d(v6105).y)), int32(0))>int32(0))) or (max(int32((int3d(v6105).y-uint64(((v6095+v6094)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6096)-int3d(v6105).z)), int32(0))>int32(0))) or (max(int32((int3d(v6105).z-uint64(((v6097+v6096)-int32(1))))), int32(0))>int32(0)))) then
-      var v6106 = double(double(0))
-      v6106 = ((v6090[v6105].velocityGradientX[int32(0)]+v6090[v6105].velocityGradientY[int32(1)])+v6090[v6105].velocityGradientZ[int32(2)])
-      v6090[v6105].PD = (v6106*v6090[v6105].pressure)
-    else
-    end
-  end
-end
+-- XXX: Turn off turbulent forcing
+-- task Flow_UpdatePD(v6090 : region(ispace(int3d), Fluid_columns), v6092 : int32, v6093 : int32, v6094 : int32, v6095 : int32, v6096 : int32, v6097 : int32)
+-- where
+--   reads(v6090.PD), writes(v6090.PD), reads(v6090.pressure), reads(v6090.velocityGradientX), reads(v6090.velocityGradientY), reads(v6090.velocityGradientZ)
+-- do
+--   for v6105 in v6090 do
+--     if (not ((((((max(int32((uint64(v6092)-int3d(v6105).x)), int32(0))>int32(0)) or (max(int32((int3d(v6105).x-uint64(((v6093+v6092)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6094)-int3d(v6105).y)), int32(0))>int32(0))) or (max(int32((int3d(v6105).y-uint64(((v6095+v6094)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6096)-int3d(v6105).z)), int32(0))>int32(0))) or (max(int32((int3d(v6105).z-uint64(((v6097+v6096)-int32(1))))), int32(0))>int32(0)))) then
+--       var v6106 = double(double(0))
+--       v6106 = ((v6090[v6105].velocityGradientX[int32(0)]+v6090[v6105].velocityGradientY[int32(1)])+v6090[v6105].velocityGradientZ[int32(2)])
+--       v6090[v6105].PD = (v6106*v6090[v6105].pressure)
+--     else
+--     end
+--   end
+-- end
 
-task Flow_ResetDissipation(v6113 : region(ispace(int3d), Fluid_columns))
-where
-  reads(v6113.dissipation), writes(v6113.dissipation)
-do
-  for v6116 in v6113 do
-    v6113[v6116].dissipation = double(0)
-  end
-end
+-- task Flow_ResetDissipation(v6113 : region(ispace(int3d), Fluid_columns))
+-- where
+--   reads(v6113.dissipation), writes(v6113.dissipation)
+-- do
+--   for v6116 in v6113 do
+--     v6113[v6116].dissipation = double(0)
+--   end
+-- end
 
-task Flow_ComputeDissipationX(v6122 : region(ispace(int3d), Fluid_columns), v6124 : double, v6125 : double, v6126 : double, v6127 : double, v6128 : double, v6129 : double, v6130 : int32, v6131 : int32, v6132 : double, v6133 : int32, v6134 : int32, v6135 : int32, v6136 : int32, v6137 : int32)
-where
-  reads(v6122.dissipationFlux), writes(v6122.dissipationFlux), reads(v6122.temperature), reads(v6122.velocity), reads(v6122.velocityGradientY), reads(v6122.velocityGradientZ)
-do
-  for v6223 in v6122 do
-    if ((not ((((((max(int32((uint64(v6131)-int3d(v6223).x)), int32(0))>int32(0)) or (max(int32((int3d(v6223).x-uint64(((v6133+v6131)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6134)-int3d(v6223).y)), int32(0))>int32(0))) or (max(int32((int3d(v6223).y-uint64(((v6135+v6134)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6136)-int3d(v6223).z)), int32(0))>int32(0))) or (max(int32((int3d(v6223).z-uint64(((v6137+v6136)-int32(1))))), int32(0))>int32(0)))) or (max(int32((uint64(v6131)-int3d(v6223).x)), int32(0))==int32(1))) then
-      var v6277 : double
-      do
-        var v6269 = v6122[((v6223+{1, 0, 0})%v6122.bounds)].temperature
-        var v6270 = v6124
-        var v6271 = v6125
-        var v6272 = v6126
-        var v6273 = v6127
-        var v6274 = v6128
-        var v6275 = v6129
-        var v6276 = v6130
-        var v4253 = double(double(0))
-        if (v6276==int32(0)) then
-          v4253 = v6270
-        else
-          if (v6276==int32(1)) then
-            v4253 = (v6272*C.pow((v6269/v6271), double(0.75)))
-          else
-            if (v6276==int32(2)) then
-              v4253 = ((v6275*C.pow((v6269/v6274), (double(3)/double(2))))*((v6274+v6273)/(v6269+v6273)))
-            else
-              regentlib.assert(false, "(Liszt assertion)")
-            end
-          end
-        end
-        v6277 = v4253
-      end
-      var v6278 = 0
-      var v6287 : double
-      do
-        var v6279 = v6122[v6223].temperature
-        var v6280 = v6124
-        var v6281 = v6125
-        var v6282 = v6126
-        var v6283 = v6127
-        var v6284 = v6128
-        var v6285 = v6129
-        var v6286 = v6130
-        var v4253 = double(double(0))
-        if (v6286==int32(0)) then
-          v4253 = v6280
-        else
-          if (v6286==int32(1)) then
-            v4253 = (v6282*C.pow((v6279/v6281), double(0.75)))
-          else
-            if (v6286==int32(2)) then
-              v4253 = ((v6285*C.pow((v6279/v6284), (double(3)/double(2))))*((v6284+v6283)/(v6279+v6283)))
-            else
-              regentlib.assert(false, "(Liszt assertion)")
-            end
-          end
-        end
-        v6287 = v4253
-      end
-      var v6288 = 0
-      var v6224 = (double(0.5)*(v6287+v6277))
-      var v6225 = [double[3]](array(double(0), double(0), double(0)))
-      var v6226 = double(double(0))
-      var v6227 = double(double(0))
-      var v6228 = double(double(0))
-      var v6229 = double(double(0))
-      v6225 = vs_mul_double_3(vv_add_double_3(v6122[v6223].velocity, v6122[((v6223+{1, 0, 0})%v6122.bounds)].velocity), double(0.5))
-      v6226 = (double(0.5)*(v6122[v6223].velocityGradientY[int32(0)]+v6122[((v6223+{1, 0, 0})%v6122.bounds)].velocityGradientY[int32(0)]))
-      v6227 = (double(0.5)*(v6122[v6223].velocityGradientZ[int32(0)]+v6122[((v6223+{1, 0, 0})%v6122.bounds)].velocityGradientZ[int32(0)]))
-      v6228 = (double(0.5)*(v6122[v6223].velocityGradientY[int32(1)]+v6122[((v6223+{1, 0, 0})%v6122.bounds)].velocityGradientY[int32(1)]))
-      v6229 = (double(0.5)*(v6122[v6223].velocityGradientZ[int32(2)]+v6122[((v6223+{1, 0, 0})%v6122.bounds)].velocityGradientZ[int32(2)]))
-      var v6230 = double(double(0))
-      var v6231 = double(double(0))
-      var v6232 = double(double(0))
-      var v6233 = double(double(0))
-      v6230 = (double(0.5)*(v6122[((v6223+{1, 0, 0})%v6122.bounds)].velocity[int32(0)]-v6122[v6223].velocity[int32(0)]))
-      v6231 = (double(0.5)*(v6122[((v6223+{1, 0, 0})%v6122.bounds)].velocity[int32(1)]-v6122[v6223].velocity[int32(1)]))
-      v6232 = (double(0.5)*(v6122[((v6223+{1, 0, 0})%v6122.bounds)].velocity[int32(2)]-v6122[v6223].velocity[int32(2)]))
-      v6233 = (double(0.5)*(v6122[((v6223+{1, 0, 0})%v6122.bounds)].temperature-v6122[v6223].temperature))
-      v6230 *= (1/(v6132*double(0.5)))
-      v6231 *= (1/(v6132*double(0.5)))
-      v6232 *= (1/(v6132*double(0.5)))
-      v6233 *= (1/(v6132*double(0.5)))
-      var v6234 = ((v6224*(((double(4)*v6230)-(double(2)*v6228))-(double(2)*v6229)))/double(3))
-      var v6235 = (v6224*(v6231+v6226))
-      var v6236 = (v6224*(v6232+v6227))
-      var v6237 = (((v6225[int32(0)]*v6234)+(v6225[int32(1)]*v6235))+(v6225[int32(2)]*v6236))
-      v6122[v6223].dissipationFlux = v6237
-    else
-    end
-  end
-end
-
-task Flow_UpdateDissipationX(v6325 : region(ispace(int3d), Fluid_columns), v6327 : int32, v6328 : double, v6329 : int32, v6330 : int32, v6331 : int32, v6332 : int32, v6333 : int32)
-where
-  reads(v6325.dissipation), writes(v6325.dissipation), reads(v6325.dissipationFlux)
-do
-  for v6335 in v6325 do
-    if (not ((((((max(int32((uint64(v6327)-int3d(v6335).x)), int32(0))>int32(0)) or (max(int32((int3d(v6335).x-uint64(((v6329+v6327)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6330)-int3d(v6335).y)), int32(0))>int32(0))) or (max(int32((int3d(v6335).y-uint64(((v6331+v6330)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6332)-int3d(v6335).z)), int32(0))>int32(0))) or (max(int32((int3d(v6335).z-uint64(((v6333+v6332)-int32(1))))), int32(0))>int32(0)))) then
-      v6325[v6335].dissipation += ((v6325[v6335].dissipationFlux-v6325[((v6335+{-1, 0, 0})%v6325.bounds)].dissipationFlux)/v6328)
-    else
-    end
-  end
-end
-
-task Flow_ComputeDissipationY(v6346 : region(ispace(int3d), Fluid_columns), v6348 : double, v6349 : double, v6350 : double, v6351 : double, v6352 : double, v6353 : double, v6354 : int32, v6355 : int32, v6356 : int32, v6357 : int32, v6358 : double, v6359 : int32, v6360 : int32, v6361 : int32)
-where
-  reads(v6346.dissipationFlux), writes(v6346.dissipationFlux), reads(v6346.temperature), reads(v6346.velocity), reads(v6346.velocityGradientX), reads(v6346.velocityGradientZ)
-do
-  for v6447 in v6346 do
-    if ((not ((((((max(int32((uint64(v6355)-int3d(v6447).x)), int32(0))>int32(0)) or (max(int32((int3d(v6447).x-uint64(((v6356+v6355)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6357)-int3d(v6447).y)), int32(0))>int32(0))) or (max(int32((int3d(v6447).y-uint64(((v6359+v6357)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6360)-int3d(v6447).z)), int32(0))>int32(0))) or (max(int32((int3d(v6447).z-uint64(((v6361+v6360)-int32(1))))), int32(0))>int32(0)))) or (max(int32((uint64(v6357)-int3d(v6447).y)), int32(0))==int32(1))) then
-      var v6501 : double
-      do
-        var v6493 = v6346[((v6447+{0, 1, 0})%v6346.bounds)].temperature
-        var v6494 = v6348
-        var v6495 = v6349
-        var v6496 = v6350
-        var v6497 = v6351
-        var v6498 = v6352
-        var v6499 = v6353
-        var v6500 = v6354
-        var v4253 = double(double(0))
-        if (v6500==int32(0)) then
-          v4253 = v6494
-        else
-          if (v6500==int32(1)) then
-            v4253 = (v6496*C.pow((v6493/v6495), double(0.75)))
-          else
-            if (v6500==int32(2)) then
-              v4253 = ((v6499*C.pow((v6493/v6498), (double(3)/double(2))))*((v6498+v6497)/(v6493+v6497)))
-            else
-              regentlib.assert(false, "(Liszt assertion)")
-            end
-          end
-        end
-        v6501 = v4253
-      end
-      var v6502 = 0
-      var v6511 : double
-      do
-        var v6503 = v6346[v6447].temperature
-        var v6504 = v6348
-        var v6505 = v6349
-        var v6506 = v6350
-        var v6507 = v6351
-        var v6508 = v6352
-        var v6509 = v6353
-        var v6510 = v6354
-        var v4253 = double(double(0))
-        if (v6510==int32(0)) then
-          v4253 = v6504
-        else
-          if (v6510==int32(1)) then
-            v4253 = (v6506*C.pow((v6503/v6505), double(0.75)))
-          else
-            if (v6510==int32(2)) then
-              v4253 = ((v6509*C.pow((v6503/v6508), (double(3)/double(2))))*((v6508+v6507)/(v6503+v6507)))
-            else
-              regentlib.assert(false, "(Liszt assertion)")
-            end
-          end
-        end
-        v6511 = v4253
-      end
-      var v6512 = 0
-      var v6448 = (double(0.5)*(v6511+v6501))
-      var v6449 = [double[3]](array(double(0), double(0), double(0)))
-      var v6450 = double(double(0))
-      var v6451 = double(double(0))
-      var v6452 = double(double(0))
-      var v6453 = double(double(0))
-      v6449 = vs_mul_double_3(vv_add_double_3(v6346[v6447].velocity, v6346[((v6447+{0, 1, 0})%v6346.bounds)].velocity), double(0.5))
-      v6450 = (double(0.5)*(v6346[v6447].velocityGradientX[int32(1)]+v6346[((v6447+{0, 1, 0})%v6346.bounds)].velocityGradientX[int32(1)]))
-      v6451 = (double(0.5)*(v6346[v6447].velocityGradientZ[int32(1)]+v6346[((v6447+{0, 1, 0})%v6346.bounds)].velocityGradientZ[int32(1)]))
-      v6452 = (double(0.5)*(v6346[v6447].velocityGradientX[int32(0)]+v6346[((v6447+{0, 1, 0})%v6346.bounds)].velocityGradientX[int32(0)]))
-      v6453 = (double(0.5)*(v6346[v6447].velocityGradientZ[int32(2)]+v6346[((v6447+{0, 1, 0})%v6346.bounds)].velocityGradientZ[int32(2)]))
-      var v6454 = double(double(0))
-      var v6455 = double(double(0))
-      var v6456 = double(double(0))
-      var v6457 = double(double(0))
-      v6454 = (double(0.5)*(v6346[((v6447+{0, 1, 0})%v6346.bounds)].velocity[int32(0)]-v6346[v6447].velocity[int32(0)]))
-      v6455 = (double(0.5)*(v6346[((v6447+{0, 1, 0})%v6346.bounds)].velocity[int32(1)]-v6346[v6447].velocity[int32(1)]))
-      v6456 = (double(0.5)*(v6346[((v6447+{0, 1, 0})%v6346.bounds)].velocity[int32(2)]-v6346[v6447].velocity[int32(2)]))
-      v6457 = (double(0.5)*(v6346[((v6447+{0, 1, 0})%v6346.bounds)].temperature-v6346[v6447].temperature))
-      v6454 *= (1/(v6358*double(0.5)))
-      v6455 *= (1/(v6358*double(0.5)))
-      v6456 *= (1/(v6358*double(0.5)))
-      v6457 *= (1/(v6358*double(0.5)))
-      var v6458 = (v6448*(v6454+v6450))
-      var v6459 = ((v6448*(((double(4)*v6455)-(double(2)*v6452))-(double(2)*v6453)))/double(3))
-      var v6460 = (v6448*(v6456+v6451))
-      var v6461 = (((v6449[int32(0)]*v6458)+(v6449[int32(1)]*v6459))+(v6449[int32(2)]*v6460))
-      v6346[v6447].dissipationFlux = v6461
-    else
-    end
-  end
-end
-
-task Flow_UpdateDissipationY(v6549 : region(ispace(int3d), Fluid_columns), v6551 : int32, v6552 : int32, v6553 : int32, v6554 : double, v6555 : int32, v6556 : int32, v6557 : int32)
-where
-  reads(v6549.dissipation), writes(v6549.dissipation), reads(v6549.dissipationFlux)
-do
-  for v6559 in v6549 do
-    if (not ((((((max(int32((uint64(v6551)-int3d(v6559).x)), int32(0))>int32(0)) or (max(int32((int3d(v6559).x-uint64(((v6552+v6551)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6553)-int3d(v6559).y)), int32(0))>int32(0))) or (max(int32((int3d(v6559).y-uint64(((v6555+v6553)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6556)-int3d(v6559).z)), int32(0))>int32(0))) or (max(int32((int3d(v6559).z-uint64(((v6557+v6556)-int32(1))))), int32(0))>int32(0)))) then
-      v6549[v6559].dissipation += ((v6549[v6559].dissipationFlux-v6549[((v6559+{0, -1, 0})%v6549.bounds)].dissipationFlux)/v6554)
-    else
-    end
-  end
-end
-
-task Flow_ComputeDissipationZ(v6570 : region(ispace(int3d), Fluid_columns), v6572 : double, v6573 : double, v6574 : double, v6575 : double, v6576 : double, v6577 : double, v6578 : int32, v6579 : int32, v6580 : int32, v6581 : int32, v6582 : int32, v6583 : int32, v6584 : double, v6585 : int32)
-where
-  reads(v6570.dissipationFlux), writes(v6570.dissipationFlux), reads(v6570.temperature), reads(v6570.velocity), reads(v6570.velocityGradientX), reads(v6570.velocityGradientY)
-do
-  for v6671 in v6570 do
-    if ((not ((((((max(int32((uint64(v6579)-int3d(v6671).x)), int32(0))>int32(0)) or (max(int32((int3d(v6671).x-uint64(((v6580+v6579)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6581)-int3d(v6671).y)), int32(0))>int32(0))) or (max(int32((int3d(v6671).y-uint64(((v6582+v6581)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6583)-int3d(v6671).z)), int32(0))>int32(0))) or (max(int32((int3d(v6671).z-uint64(((v6585+v6583)-int32(1))))), int32(0))>int32(0)))) or (max(int32((uint64(v6583)-int3d(v6671).z)), int32(0))==int32(1))) then
-      var v6725 : double
-      do
-        var v6717 = v6570[((v6671+{0, 0, 1})%v6570.bounds)].temperature
-        var v6718 = v6572
-        var v6719 = v6573
-        var v6720 = v6574
-        var v6721 = v6575
-        var v6722 = v6576
-        var v6723 = v6577
-        var v6724 = v6578
-        var v4253 = double(double(0))
-        if (v6724==int32(0)) then
-          v4253 = v6718
-        else
-          if (v6724==int32(1)) then
-            v4253 = (v6720*C.pow((v6717/v6719), double(0.75)))
-          else
-            if (v6724==int32(2)) then
-              v4253 = ((v6723*C.pow((v6717/v6722), (double(3)/double(2))))*((v6722+v6721)/(v6717+v6721)))
-            else
-              regentlib.assert(false, "(Liszt assertion)")
-            end
-          end
-        end
-        v6725 = v4253
-      end
-      var v6726 = 0
-      var v6735 : double
-      do
-        var v6727 = v6570[v6671].temperature
-        var v6728 = v6572
-        var v6729 = v6573
-        var v6730 = v6574
-        var v6731 = v6575
-        var v6732 = v6576
-        var v6733 = v6577
-        var v6734 = v6578
-        var v4253 = double(double(0))
-        if (v6734==int32(0)) then
-          v4253 = v6728
-        else
-          if (v6734==int32(1)) then
-            v4253 = (v6730*C.pow((v6727/v6729), double(0.75)))
-          else
-            if (v6734==int32(2)) then
-              v4253 = ((v6733*C.pow((v6727/v6732), (double(3)/double(2))))*((v6732+v6731)/(v6727+v6731)))
-            else
-              regentlib.assert(false, "(Liszt assertion)")
-            end
-          end
-        end
-        v6735 = v4253
-      end
-      var v6736 = 0
-      var v6672 = (double(0.5)*(v6735+v6725))
-      var v6673 = [double[3]](array(double(0), double(0), double(0)))
-      var v6674 = double(double(0))
-      var v6675 = double(double(0))
-      var v6676 = double(double(0))
-      var v6677 = double(double(0))
-      v6673 = vs_mul_double_3(vv_add_double_3(v6570[v6671].velocity, v6570[((v6671+{0, 0, 1})%v6570.bounds)].velocity), double(0.5))
-      v6674 = (double(0.5)*(v6570[v6671].velocityGradientX[int32(2)]+v6570[((v6671+{0, 0, 1})%v6570.bounds)].velocityGradientX[int32(2)]))
-      v6675 = (double(0.5)*(v6570[v6671].velocityGradientY[int32(2)]+v6570[((v6671+{0, 0, 1})%v6570.bounds)].velocityGradientY[int32(2)]))
-      v6676 = (double(0.5)*(v6570[v6671].velocityGradientX[int32(0)]+v6570[((v6671+{0, 0, 1})%v6570.bounds)].velocityGradientX[int32(0)]))
-      v6677 = (double(0.5)*(v6570[v6671].velocityGradientY[int32(1)]+v6570[((v6671+{0, 0, 1})%v6570.bounds)].velocityGradientY[int32(1)]))
-      var v6678 = double(double(0))
-      var v6679 = double(double(0))
-      var v6680 = double(double(0))
-      var v6681 = double(double(0))
-      v6678 = (double(0.5)*(v6570[((v6671+{0, 0, 1})%v6570.bounds)].velocity[int32(0)]-v6570[v6671].velocity[int32(0)]))
-      v6679 = (double(0.5)*(v6570[((v6671+{0, 0, 1})%v6570.bounds)].velocity[int32(1)]-v6570[v6671].velocity[int32(1)]))
-      v6680 = (double(0.5)*(v6570[((v6671+{0, 0, 1})%v6570.bounds)].velocity[int32(2)]-v6570[v6671].velocity[int32(2)]))
-      v6681 = (double(0.5)*(v6570[((v6671+{0, 0, 1})%v6570.bounds)].temperature-v6570[v6671].temperature))
-      v6678 *= (1/(v6584*double(0.5)))
-      v6679 *= (1/(v6584*double(0.5)))
-      v6680 *= (1/(v6584*double(0.5)))
-      v6681 *= (1/(v6584*double(0.5)))
-      var v6682 = (v6672*(v6678+v6674))
-      var v6683 = (v6672*(v6679+v6675))
-      var v6684 = ((v6672*(((double(4)*v6680)-(double(2)*v6676))-(double(2)*v6677)))/double(3))
-      var v6685 = (((v6673[int32(0)]*v6682)+(v6673[int32(1)]*v6683))+(v6673[int32(2)]*v6684))
-      v6570[v6671].dissipationFlux = v6685
-    else
-    end
-  end
-end
-
-task Flow_UpdateDissipationZ(v6773 : region(ispace(int3d), Fluid_columns), v6775 : int32, v6776 : int32, v6777 : int32, v6778 : int32, v6779 : int32, v6780 : double, v6781 : int32)
-where
-  reads(v6773.dissipation), writes(v6773.dissipation), reads(v6773.dissipationFlux)
-do
-  for v6783 in v6773 do
-    if (not ((((((max(int32((uint64(v6775)-int3d(v6783).x)), int32(0))>int32(0)) or (max(int32((int3d(v6783).x-uint64(((v6776+v6775)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6777)-int3d(v6783).y)), int32(0))>int32(0))) or (max(int32((int3d(v6783).y-uint64(((v6778+v6777)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6779)-int3d(v6783).z)), int32(0))>int32(0))) or (max(int32((int3d(v6783).z-uint64(((v6781+v6779)-int32(1))))), int32(0))>int32(0)))) then
-      v6773[v6783].dissipation += ((v6773[v6783].dissipationFlux-v6773[((v6783+{0, 0, -1})%v6773.bounds)].dissipationFlux)/v6780)
-    else
-    end
-  end
-end
-
-task CalculateAveragePD(v6794 : region(ispace(int3d), Fluid_columns), v6797 : double, v6798 : int32, v6799 : int32, v6800 : int32, v6801 : int32, v6802 : int32, v6803 : int32) : double
-where
-  reads(v6794.PD)
-do
-  var v6806 = double(0)
-  for v6807 in v6794 do
-    if (not ((((((max(int32((uint64(v6798)-int3d(v6807).x)), int32(0))>int32(0)) or (max(int32((int3d(v6807).x-uint64(((v6799+v6798)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6800)-int3d(v6807).y)), int32(0))>int32(0))) or (max(int32((int3d(v6807).y-uint64(((v6801+v6800)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6802)-int3d(v6807).z)), int32(0))>int32(0))) or (max(int32((int3d(v6807).z-uint64(((v6803+v6802)-int32(1))))), int32(0))>int32(0)))) then
-      v6806 += (v6794[v6807].PD*v6797)
-    else
-    end
-  end
-  return v6806
-end
-
-task CalculateAverageDissipation(v6814 : region(ispace(int3d), Fluid_columns), v6817 : double, v6818 : int32, v6819 : int32, v6820 : int32, v6821 : int32, v6822 : int32, v6823 : int32) : double
-where
-  reads(v6814.dissipation)
-do
-  var v6826 = double(0)
-  for v6827 in v6814 do
-    if (not ((((((max(int32((uint64(v6818)-int3d(v6827).x)), int32(0))>int32(0)) or (max(int32((int3d(v6827).x-uint64(((v6819+v6818)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6820)-int3d(v6827).y)), int32(0))>int32(0))) or (max(int32((int3d(v6827).y-uint64(((v6821+v6820)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6822)-int3d(v6827).z)), int32(0))>int32(0))) or (max(int32((int3d(v6827).z-uint64(((v6823+v6822)-int32(1))))), int32(0))>int32(0)))) then
-      v6826 += (v6814[v6827].dissipation*v6817)
-    else
-    end
-  end
-  return v6826
-end
-
-task CalculateAverageK(v6834 : region(ispace(int3d), Fluid_columns), v6837 : double, v6838 : int32, v6839 : int32, v6840 : int32, v6841 : int32, v6842 : int32, v6843 : int32) : double
-where
-  reads(v6834.rho), reads(v6834.velocity)
-do
-  var v6846 = double(0)
-  for v6847 in v6834 do
-    if (not ((((((max(int32((uint64(v6838)-int3d(v6847).x)), int32(0))>int32(0)) or (max(int32((int3d(v6847).x-uint64(((v6839+v6838)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6840)-int3d(v6847).y)), int32(0))>int32(0))) or (max(int32((int3d(v6847).y-uint64(((v6841+v6840)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6842)-int3d(v6847).z)), int32(0))>int32(0))) or (max(int32((int3d(v6847).z-uint64(((v6843+v6842)-int32(1))))), int32(0))>int32(0)))) then
-      v6846 += (((double(0.5)*v6834[v6847].rho)*dot_double_3(v6834[v6847].velocity, v6834[v6847].velocity))*v6837)
-    else
-    end
-  end
-  return v6846
-end
-
-task Flow_AddTurbulentSource(v6858 : region(ispace(int3d), Fluid_columns), v6860 : double, v6862 : double, v6863 : double, v6864 : double, v6865 : int32, v6866 : int32, v6867 : int32, v6868 : int32, v6869 : int32, v6870 : int32) : double
-where
-  reads(v6858.rho), reads(v6858.rhoEnergy_t), writes(v6858.rhoEnergy_t), reads(v6858.rhoVelocity_t), writes(v6858.rhoVelocity_t), reads(v6858.velocity)
-do
-  var v6923 = double(0)
-  for v6924 in v6858 do
-    if (not ((((((max(int32((uint64(v6865)-int3d(v6924).x)), int32(0))>int32(0)) or (max(int32((int3d(v6924).x-uint64(((v6866+v6865)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6867)-int3d(v6924).y)), int32(0))>int32(0))) or (max(int32((int3d(v6924).y-uint64(((v6868+v6867)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6869)-int3d(v6924).z)), int32(0))>int32(0))) or (max(int32((int3d(v6924).z-uint64(((v6870+v6869)-int32(1))))), int32(0))>int32(0)))) then
-      var v6925 = double(double(0))
-      var v6926 = double(double(0))
-      var v6927 = double(double(0))
-      var v6928 = double(double(0))
-      var v6929 = double(double(0))
-      var v6930 = [double[3]](array(double(0), double(0), double(0)))
-      v6925 = (v6863+v6860)
-      v6927 = double(300)
-      v6928 = double(3.00889e-06)
-      v6929 = double(66.27348)
-      v6926 = (((-v6925)-((v6927*(v6862-v6929))/v6928))/(double(2)*v6862))
-      v6930 = vs_mul_double_3(v6858[v6924].velocity, (v6858[v6924].rho*v6926))
-      var v6931 = v6930
-      var v6932 = v6858[v6924].rhoVelocity_t
-      v6932[0] += v6931[0]
-      v6932[1] += v6931[1]
-      v6932[2] += v6931[2]
-      v6858[v6924].rhoVelocity_t = v6932
-      v6858[v6924].rhoEnergy_t += dot_double_3(v6930, v6858[v6924].velocity)
-      v6923 += (dot_double_3(v6930, v6858[v6924].velocity)*v6864)
-    else
-    end
-  end
-  return v6923
-end
-
-task Flow_AdjustTurbulentSource(v6963 : region(ispace(int3d), Fluid_columns), v6965 : double, v6966 : int32, v6967 : int32, v6968 : int32, v6969 : int32, v6970 : int32, v6971 : int32)
-where
-  reads(v6963.rhoEnergy_t), writes(v6963.rhoEnergy_t)
-do
-  for v6973 in v6963 do
-    if (not ((((((max(int32((uint64(v6966)-int3d(v6973).x)), int32(0))>int32(0)) or (max(int32((int3d(v6973).x-uint64(((v6967+v6966)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6968)-int3d(v6973).y)), int32(0))>int32(0))) or (max(int32((int3d(v6973).y-uint64(((v6969+v6968)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6970)-int3d(v6973).z)), int32(0))>int32(0))) or (max(int32((int3d(v6973).z-uint64(((v6971+v6970)-int32(1))))), int32(0))>int32(0)))) then
-      v6963[v6973].rhoEnergy_t += (-v6965)
-    else
-    end
-  end
-end
-
-task Particles_LocateInCells(v6980 : region(ispace(int1d), particles_columns), v6982 : bool, v6983 : bool, v6984 : bool, v6985 : int32, v6986 : int32, v6987 : double, v6988 : double, v6989 : int32, v6990 : int32, v6991 : double, v6992 : double, v6993 : int32, v6994 : int32, v6995 : double, v6996 : double)
-where
-  reads(v6980.cell), writes(v6980.cell), reads(v6980.position), reads(v6980.__valid)
-do
-  for v7095 in v6980 do
-    if v6980[v7095].__valid then
-      var v7114 : int3d
-      do
-        var v7098 = v6980[v7095].position
-        var v7099 = v6982
-        var v7100 = v6983
-        var v7101 = v6984
-        var v7102 = v6985
-        var v7103 = v6986
-        var v7104 = v6987
-        var v7105 = v6988
-        var v7106 = v6989
-        var v7107 = v6990
-        var v7108 = v6991
-        var v7109 = v6992
-        var v7110 = v6993
-        var v7111 = v6994
-        var v7112 = v6995
-        var v7113 = v6996
-        var v7058 = (v7105/double(v7103))
-        var v7059 = (v7104-(double(v7102)*v7058))
-        var v7060 = ((v7098[int32(0)]-v7059)/v7058)
-        var v7061 = (v7103+(int32(2)*v7102))
-        var v7062 : uint64
-        if v7099 then
-          v7062 = (uint64((C.fmod(v7060, double(v7061))+double(v7061)))%uint64(v7061))
-        else
-          v7062 = uint64(max(double(0), min(double((v7061-int32(1))), v7060)))
-        end
-        var v7063 = (v7109/double(v7107))
-        var v7064 = (v7108-(double(v7106)*v7063))
-        var v7065 = ((v7098[int32(1)]-v7064)/v7063)
-        var v7066 = (v7107+(int32(2)*v7106))
-        var v7067 : uint64
-        if v7100 then
-          v7067 = (uint64((C.fmod(v7065, double(v7066))+double(v7066)))%uint64(v7066))
-        else
-          v7067 = uint64(max(double(0), min(double((v7066-int32(1))), v7065)))
-        end
-        var v7068 = (v7113/double(v7111))
-        var v7069 = (v7112-(double(v7110)*v7068))
-        var v7070 = ((v7098[int32(2)]-v7069)/v7068)
-        var v7071 = (v7111+(int32(2)*v7110))
-        var v7072 : uint64
-        if v7101 then
-          v7072 = (uint64((C.fmod(v7070, double(v7071))+double(v7071)))%uint64(v7071))
-        else
-          v7072 = uint64(max(double(0), min(double((v7071-int32(1))), v7070)))
-        end
-        v7114 = int3d({v7062, v7067, v7072})
-      end
-      var v7115 = 0
-      v6980[v7095].cell = v7114
-    else
-    end
-  end
-end
+-- task Flow_ComputeDissipationX(v6122 : region(ispace(int3d), Fluid_columns), v6124 : double, v6125 : double, v6126 : double, v6127 : double, v6128 : double, v6129 : double, v6130 : int32, v6131 : int32, v6132 : double, v6133 : int32, v6134 : int32, v6135 : int32, v6136 : int32, v6137 : int32)
+-- where
+--   reads(v6122.dissipationFlux), writes(v6122.dissipationFlux), reads(v6122.temperature), reads(v6122.velocity), reads(v6122.velocityGradientY), reads(v6122.velocityGradientZ)
+-- do
+--   for v6223 in v6122 do
+--     if ((not ((((((max(int32((uint64(v6131)-int3d(v6223).x)), int32(0))>int32(0)) or (max(int32((int3d(v6223).x-uint64(((v6133+v6131)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6134)-int3d(v6223).y)), int32(0))>int32(0))) or (max(int32((int3d(v6223).y-uint64(((v6135+v6134)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6136)-int3d(v6223).z)), int32(0))>int32(0))) or (max(int32((int3d(v6223).z-uint64(((v6137+v6136)-int32(1))))), int32(0))>int32(0)))) or (max(int32((uint64(v6131)-int3d(v6223).x)), int32(0))==int32(1))) then
+--       var v6277 : double
+--       do
+--         var v6269 = v6122[((v6223+{1, 0, 0})%v6122.bounds)].temperature
+--         var v6270 = v6124
+--         var v6271 = v6125
+--         var v6272 = v6126
+--         var v6273 = v6127
+--         var v6274 = v6128
+--         var v6275 = v6129
+--         var v6276 = v6130
+--         var v4253 = double(double(0))
+--         if (v6276==int32(0)) then
+--           v4253 = v6270
+--         else
+--           if (v6276==int32(1)) then
+--             v4253 = (v6272*C.pow((v6269/v6271), double(0.75)))
+--           else
+--             if (v6276==int32(2)) then
+--               v4253 = ((v6275*C.pow((v6269/v6274), (double(3)/double(2))))*((v6274+v6273)/(v6269+v6273)))
+--             else
+--               regentlib.assert(false, "(Liszt assertion)")
+--             end
+--           end
+--         end
+--         v6277 = v4253
+--       end
+--       var v6278 = 0
+--       var v6287 : double
+--       do
+--         var v6279 = v6122[v6223].temperature
+--         var v6280 = v6124
+--         var v6281 = v6125
+--         var v6282 = v6126
+--         var v6283 = v6127
+--         var v6284 = v6128
+--         var v6285 = v6129
+--         var v6286 = v6130
+--         var v4253 = double(double(0))
+--         if (v6286==int32(0)) then
+--           v4253 = v6280
+--         else
+--           if (v6286==int32(1)) then
+--             v4253 = (v6282*C.pow((v6279/v6281), double(0.75)))
+--           else
+--             if (v6286==int32(2)) then
+--               v4253 = ((v6285*C.pow((v6279/v6284), (double(3)/double(2))))*((v6284+v6283)/(v6279+v6283)))
+--             else
+--               regentlib.assert(false, "(Liszt assertion)")
+--             end
+--           end
+--         end
+--         v6287 = v4253
+--       end
+--       var v6288 = 0
+--       var v6224 = (double(0.5)*(v6287+v6277))
+--       var v6225 = [double[3]](array(double(0), double(0), double(0)))
+--       var v6226 = double(double(0))
+--       var v6227 = double(double(0))
+--       var v6228 = double(double(0))
+--       var v6229 = double(double(0))
+--       v6225 = vs_mul_double_3(vv_add_double_3(v6122[v6223].velocity, v6122[((v6223+{1, 0, 0})%v6122.bounds)].velocity), double(0.5))
+--       v6226 = (double(0.5)*(v6122[v6223].velocityGradientY[int32(0)]+v6122[((v6223+{1, 0, 0})%v6122.bounds)].velocityGradientY[int32(0)]))
+--       v6227 = (double(0.5)*(v6122[v6223].velocityGradientZ[int32(0)]+v6122[((v6223+{1, 0, 0})%v6122.bounds)].velocityGradientZ[int32(0)]))
+--       v6228 = (double(0.5)*(v6122[v6223].velocityGradientY[int32(1)]+v6122[((v6223+{1, 0, 0})%v6122.bounds)].velocityGradientY[int32(1)]))
+--       v6229 = (double(0.5)*(v6122[v6223].velocityGradientZ[int32(2)]+v6122[((v6223+{1, 0, 0})%v6122.bounds)].velocityGradientZ[int32(2)]))
+--       var v6230 = double(double(0))
+--       var v6231 = double(double(0))
+--       var v6232 = double(double(0))
+--       var v6233 = double(double(0))
+--       v6230 = (double(0.5)*(v6122[((v6223+{1, 0, 0})%v6122.bounds)].velocity[int32(0)]-v6122[v6223].velocity[int32(0)]))
+--       v6231 = (double(0.5)*(v6122[((v6223+{1, 0, 0})%v6122.bounds)].velocity[int32(1)]-v6122[v6223].velocity[int32(1)]))
+--       v6232 = (double(0.5)*(v6122[((v6223+{1, 0, 0})%v6122.bounds)].velocity[int32(2)]-v6122[v6223].velocity[int32(2)]))
+--       v6233 = (double(0.5)*(v6122[((v6223+{1, 0, 0})%v6122.bounds)].temperature-v6122[v6223].temperature))
+--       v6230 *= (1/(v6132*double(0.5)))
+--       v6231 *= (1/(v6132*double(0.5)))
+--       v6232 *= (1/(v6132*double(0.5)))
+--       v6233 *= (1/(v6132*double(0.5)))
+--       var v6234 = ((v6224*(((double(4)*v6230)-(double(2)*v6228))-(double(2)*v6229)))/double(3))
+--       var v6235 = (v6224*(v6231+v6226))
+--       var v6236 = (v6224*(v6232+v6227))
+--       var v6237 = (((v6225[int32(0)]*v6234)+(v6225[int32(1)]*v6235))+(v6225[int32(2)]*v6236))
+--       v6122[v6223].dissipationFlux = v6237
+--     else
+--     end
+--   end
+-- end
+-- 
+-- task Flow_UpdateDissipationX(v6325 : region(ispace(int3d), Fluid_columns), v6327 : int32, v6328 : double, v6329 : int32, v6330 : int32, v6331 : int32, v6332 : int32, v6333 : int32)
+-- where
+--   reads(v6325.dissipation), writes(v6325.dissipation), reads(v6325.dissipationFlux)
+-- do
+--   for v6335 in v6325 do
+--     if (not ((((((max(int32((uint64(v6327)-int3d(v6335).x)), int32(0))>int32(0)) or (max(int32((int3d(v6335).x-uint64(((v6329+v6327)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6330)-int3d(v6335).y)), int32(0))>int32(0))) or (max(int32((int3d(v6335).y-uint64(((v6331+v6330)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6332)-int3d(v6335).z)), int32(0))>int32(0))) or (max(int32((int3d(v6335).z-uint64(((v6333+v6332)-int32(1))))), int32(0))>int32(0)))) then
+--       v6325[v6335].dissipation += ((v6325[v6335].dissipationFlux-v6325[((v6335+{-1, 0, 0})%v6325.bounds)].dissipationFlux)/v6328)
+--     else
+--     end
+--   end
+-- end
+-- 
+-- task Flow_ComputeDissipationY(v6346 : region(ispace(int3d), Fluid_columns), v6348 : double, v6349 : double, v6350 : double, v6351 : double, v6352 : double, v6353 : double, v6354 : int32, v6355 : int32, v6356 : int32, v6357 : int32, v6358 : double, v6359 : int32, v6360 : int32, v6361 : int32)
+-- where
+--   reads(v6346.dissipationFlux), writes(v6346.dissipationFlux), reads(v6346.temperature), reads(v6346.velocity), reads(v6346.velocityGradientX), reads(v6346.velocityGradientZ)
+-- do
+--   for v6447 in v6346 do
+--     if ((not ((((((max(int32((uint64(v6355)-int3d(v6447).x)), int32(0))>int32(0)) or (max(int32((int3d(v6447).x-uint64(((v6356+v6355)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6357)-int3d(v6447).y)), int32(0))>int32(0))) or (max(int32((int3d(v6447).y-uint64(((v6359+v6357)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6360)-int3d(v6447).z)), int32(0))>int32(0))) or (max(int32((int3d(v6447).z-uint64(((v6361+v6360)-int32(1))))), int32(0))>int32(0)))) or (max(int32((uint64(v6357)-int3d(v6447).y)), int32(0))==int32(1))) then
+--       var v6501 : double
+--       do
+--         var v6493 = v6346[((v6447+{0, 1, 0})%v6346.bounds)].temperature
+--         var v6494 = v6348
+--         var v6495 = v6349
+--         var v6496 = v6350
+--         var v6497 = v6351
+--         var v6498 = v6352
+--         var v6499 = v6353
+--         var v6500 = v6354
+--         var v4253 = double(double(0))
+--         if (v6500==int32(0)) then
+--           v4253 = v6494
+--         else
+--           if (v6500==int32(1)) then
+--             v4253 = (v6496*C.pow((v6493/v6495), double(0.75)))
+--           else
+--             if (v6500==int32(2)) then
+--               v4253 = ((v6499*C.pow((v6493/v6498), (double(3)/double(2))))*((v6498+v6497)/(v6493+v6497)))
+--             else
+--               regentlib.assert(false, "(Liszt assertion)")
+--             end
+--           end
+--         end
+--         v6501 = v4253
+--       end
+--       var v6502 = 0
+--       var v6511 : double
+--       do
+--         var v6503 = v6346[v6447].temperature
+--         var v6504 = v6348
+--         var v6505 = v6349
+--         var v6506 = v6350
+--         var v6507 = v6351
+--         var v6508 = v6352
+--         var v6509 = v6353
+--         var v6510 = v6354
+--         var v4253 = double(double(0))
+--         if (v6510==int32(0)) then
+--           v4253 = v6504
+--         else
+--           if (v6510==int32(1)) then
+--             v4253 = (v6506*C.pow((v6503/v6505), double(0.75)))
+--           else
+--             if (v6510==int32(2)) then
+--               v4253 = ((v6509*C.pow((v6503/v6508), (double(3)/double(2))))*((v6508+v6507)/(v6503+v6507)))
+--             else
+--               regentlib.assert(false, "(Liszt assertion)")
+--             end
+--           end
+--         end
+--         v6511 = v4253
+--       end
+--       var v6512 = 0
+--       var v6448 = (double(0.5)*(v6511+v6501))
+--       var v6449 = [double[3]](array(double(0), double(0), double(0)))
+--       var v6450 = double(double(0))
+--       var v6451 = double(double(0))
+--       var v6452 = double(double(0))
+--       var v6453 = double(double(0))
+--       v6449 = vs_mul_double_3(vv_add_double_3(v6346[v6447].velocity, v6346[((v6447+{0, 1, 0})%v6346.bounds)].velocity), double(0.5))
+--       v6450 = (double(0.5)*(v6346[v6447].velocityGradientX[int32(1)]+v6346[((v6447+{0, 1, 0})%v6346.bounds)].velocityGradientX[int32(1)]))
+--       v6451 = (double(0.5)*(v6346[v6447].velocityGradientZ[int32(1)]+v6346[((v6447+{0, 1, 0})%v6346.bounds)].velocityGradientZ[int32(1)]))
+--       v6452 = (double(0.5)*(v6346[v6447].velocityGradientX[int32(0)]+v6346[((v6447+{0, 1, 0})%v6346.bounds)].velocityGradientX[int32(0)]))
+--       v6453 = (double(0.5)*(v6346[v6447].velocityGradientZ[int32(2)]+v6346[((v6447+{0, 1, 0})%v6346.bounds)].velocityGradientZ[int32(2)]))
+--       var v6454 = double(double(0))
+--       var v6455 = double(double(0))
+--       var v6456 = double(double(0))
+--       var v6457 = double(double(0))
+--       v6454 = (double(0.5)*(v6346[((v6447+{0, 1, 0})%v6346.bounds)].velocity[int32(0)]-v6346[v6447].velocity[int32(0)]))
+--       v6455 = (double(0.5)*(v6346[((v6447+{0, 1, 0})%v6346.bounds)].velocity[int32(1)]-v6346[v6447].velocity[int32(1)]))
+--       v6456 = (double(0.5)*(v6346[((v6447+{0, 1, 0})%v6346.bounds)].velocity[int32(2)]-v6346[v6447].velocity[int32(2)]))
+--       v6457 = (double(0.5)*(v6346[((v6447+{0, 1, 0})%v6346.bounds)].temperature-v6346[v6447].temperature))
+--       v6454 *= (1/(v6358*double(0.5)))
+--       v6455 *= (1/(v6358*double(0.5)))
+--       v6456 *= (1/(v6358*double(0.5)))
+--       v6457 *= (1/(v6358*double(0.5)))
+--       var v6458 = (v6448*(v6454+v6450))
+--       var v6459 = ((v6448*(((double(4)*v6455)-(double(2)*v6452))-(double(2)*v6453)))/double(3))
+--       var v6460 = (v6448*(v6456+v6451))
+--       var v6461 = (((v6449[int32(0)]*v6458)+(v6449[int32(1)]*v6459))+(v6449[int32(2)]*v6460))
+--       v6346[v6447].dissipationFlux = v6461
+--     else
+--     end
+--   end
+-- end
+-- 
+-- task Flow_UpdateDissipationY(v6549 : region(ispace(int3d), Fluid_columns), v6551 : int32, v6552 : int32, v6553 : int32, v6554 : double, v6555 : int32, v6556 : int32, v6557 : int32)
+-- where
+--   reads(v6549.dissipation), writes(v6549.dissipation), reads(v6549.dissipationFlux)
+-- do
+--   for v6559 in v6549 do
+--     if (not ((((((max(int32((uint64(v6551)-int3d(v6559).x)), int32(0))>int32(0)) or (max(int32((int3d(v6559).x-uint64(((v6552+v6551)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6553)-int3d(v6559).y)), int32(0))>int32(0))) or (max(int32((int3d(v6559).y-uint64(((v6555+v6553)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6556)-int3d(v6559).z)), int32(0))>int32(0))) or (max(int32((int3d(v6559).z-uint64(((v6557+v6556)-int32(1))))), int32(0))>int32(0)))) then
+--       v6549[v6559].dissipation += ((v6549[v6559].dissipationFlux-v6549[((v6559+{0, -1, 0})%v6549.bounds)].dissipationFlux)/v6554)
+--     else
+--     end
+--   end
+-- end
+-- 
+-- task Flow_ComputeDissipationZ(v6570 : region(ispace(int3d), Fluid_columns), v6572 : double, v6573 : double, v6574 : double, v6575 : double, v6576 : double, v6577 : double, v6578 : int32, v6579 : int32, v6580 : int32, v6581 : int32, v6582 : int32, v6583 : int32, v6584 : double, v6585 : int32)
+-- where
+--   reads(v6570.dissipationFlux), writes(v6570.dissipationFlux), reads(v6570.temperature), reads(v6570.velocity), reads(v6570.velocityGradientX), reads(v6570.velocityGradientY)
+-- do
+--   for v6671 in v6570 do
+--     if ((not ((((((max(int32((uint64(v6579)-int3d(v6671).x)), int32(0))>int32(0)) or (max(int32((int3d(v6671).x-uint64(((v6580+v6579)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6581)-int3d(v6671).y)), int32(0))>int32(0))) or (max(int32((int3d(v6671).y-uint64(((v6582+v6581)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6583)-int3d(v6671).z)), int32(0))>int32(0))) or (max(int32((int3d(v6671).z-uint64(((v6585+v6583)-int32(1))))), int32(0))>int32(0)))) or (max(int32((uint64(v6583)-int3d(v6671).z)), int32(0))==int32(1))) then
+--       var v6725 : double
+--       do
+--         var v6717 = v6570[((v6671+{0, 0, 1})%v6570.bounds)].temperature
+--         var v6718 = v6572
+--         var v6719 = v6573
+--         var v6720 = v6574
+--         var v6721 = v6575
+--         var v6722 = v6576
+--         var v6723 = v6577
+--         var v6724 = v6578
+--         var v4253 = double(double(0))
+--         if (v6724==int32(0)) then
+--           v4253 = v6718
+--         else
+--           if (v6724==int32(1)) then
+--             v4253 = (v6720*C.pow((v6717/v6719), double(0.75)))
+--           else
+--             if (v6724==int32(2)) then
+--               v4253 = ((v6723*C.pow((v6717/v6722), (double(3)/double(2))))*((v6722+v6721)/(v6717+v6721)))
+--             else
+--               regentlib.assert(false, "(Liszt assertion)")
+--             end
+--           end
+--         end
+--         v6725 = v4253
+--       end
+--       var v6726 = 0
+--       var v6735 : double
+--       do
+--         var v6727 = v6570[v6671].temperature
+--         var v6728 = v6572
+--         var v6729 = v6573
+--         var v6730 = v6574
+--         var v6731 = v6575
+--         var v6732 = v6576
+--         var v6733 = v6577
+--         var v6734 = v6578
+--         var v4253 = double(double(0))
+--         if (v6734==int32(0)) then
+--           v4253 = v6728
+--         else
+--           if (v6734==int32(1)) then
+--             v4253 = (v6730*C.pow((v6727/v6729), double(0.75)))
+--           else
+--             if (v6734==int32(2)) then
+--               v4253 = ((v6733*C.pow((v6727/v6732), (double(3)/double(2))))*((v6732+v6731)/(v6727+v6731)))
+--             else
+--               regentlib.assert(false, "(Liszt assertion)")
+--             end
+--           end
+--         end
+--         v6735 = v4253
+--       end
+--       var v6736 = 0
+--       var v6672 = (double(0.5)*(v6735+v6725))
+--       var v6673 = [double[3]](array(double(0), double(0), double(0)))
+--       var v6674 = double(double(0))
+--       var v6675 = double(double(0))
+--       var v6676 = double(double(0))
+--       var v6677 = double(double(0))
+--       v6673 = vs_mul_double_3(vv_add_double_3(v6570[v6671].velocity, v6570[((v6671+{0, 0, 1})%v6570.bounds)].velocity), double(0.5))
+--       v6674 = (double(0.5)*(v6570[v6671].velocityGradientX[int32(2)]+v6570[((v6671+{0, 0, 1})%v6570.bounds)].velocityGradientX[int32(2)]))
+--       v6675 = (double(0.5)*(v6570[v6671].velocityGradientY[int32(2)]+v6570[((v6671+{0, 0, 1})%v6570.bounds)].velocityGradientY[int32(2)]))
+--       v6676 = (double(0.5)*(v6570[v6671].velocityGradientX[int32(0)]+v6570[((v6671+{0, 0, 1})%v6570.bounds)].velocityGradientX[int32(0)]))
+--       v6677 = (double(0.5)*(v6570[v6671].velocityGradientY[int32(1)]+v6570[((v6671+{0, 0, 1})%v6570.bounds)].velocityGradientY[int32(1)]))
+--       var v6678 = double(double(0))
+--       var v6679 = double(double(0))
+--       var v6680 = double(double(0))
+--       var v6681 = double(double(0))
+--       v6678 = (double(0.5)*(v6570[((v6671+{0, 0, 1})%v6570.bounds)].velocity[int32(0)]-v6570[v6671].velocity[int32(0)]))
+--       v6679 = (double(0.5)*(v6570[((v6671+{0, 0, 1})%v6570.bounds)].velocity[int32(1)]-v6570[v6671].velocity[int32(1)]))
+--       v6680 = (double(0.5)*(v6570[((v6671+{0, 0, 1})%v6570.bounds)].velocity[int32(2)]-v6570[v6671].velocity[int32(2)]))
+--       v6681 = (double(0.5)*(v6570[((v6671+{0, 0, 1})%v6570.bounds)].temperature-v6570[v6671].temperature))
+--       v6678 *= (1/(v6584*double(0.5)))
+--       v6679 *= (1/(v6584*double(0.5)))
+--       v6680 *= (1/(v6584*double(0.5)))
+--       v6681 *= (1/(v6584*double(0.5)))
+--       var v6682 = (v6672*(v6678+v6674))
+--       var v6683 = (v6672*(v6679+v6675))
+--       var v6684 = ((v6672*(((double(4)*v6680)-(double(2)*v6676))-(double(2)*v6677)))/double(3))
+--       var v6685 = (((v6673[int32(0)]*v6682)+(v6673[int32(1)]*v6683))+(v6673[int32(2)]*v6684))
+--       v6570[v6671].dissipationFlux = v6685
+--     else
+--     end
+--   end
+-- end
+-- 
+-- task Flow_UpdateDissipationZ(v6773 : region(ispace(int3d), Fluid_columns), v6775 : int32, v6776 : int32, v6777 : int32, v6778 : int32, v6779 : int32, v6780 : double, v6781 : int32)
+-- where
+--   reads(v6773.dissipation), writes(v6773.dissipation), reads(v6773.dissipationFlux)
+-- do
+--   for v6783 in v6773 do
+--     if (not ((((((max(int32((uint64(v6775)-int3d(v6783).x)), int32(0))>int32(0)) or (max(int32((int3d(v6783).x-uint64(((v6776+v6775)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6777)-int3d(v6783).y)), int32(0))>int32(0))) or (max(int32((int3d(v6783).y-uint64(((v6778+v6777)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6779)-int3d(v6783).z)), int32(0))>int32(0))) or (max(int32((int3d(v6783).z-uint64(((v6781+v6779)-int32(1))))), int32(0))>int32(0)))) then
+--       v6773[v6783].dissipation += ((v6773[v6783].dissipationFlux-v6773[((v6783+{0, 0, -1})%v6773.bounds)].dissipationFlux)/v6780)
+--     else
+--     end
+--   end
+-- end
+-- 
+-- task CalculateAveragePD(v6794 : region(ispace(int3d), Fluid_columns), v6797 : double, v6798 : int32, v6799 : int32, v6800 : int32, v6801 : int32, v6802 : int32, v6803 : int32) : double
+-- where
+--   reads(v6794.PD)
+-- do
+--   var v6806 = double(0)
+--   for v6807 in v6794 do
+--     if (not ((((((max(int32((uint64(v6798)-int3d(v6807).x)), int32(0))>int32(0)) or (max(int32((int3d(v6807).x-uint64(((v6799+v6798)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6800)-int3d(v6807).y)), int32(0))>int32(0))) or (max(int32((int3d(v6807).y-uint64(((v6801+v6800)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6802)-int3d(v6807).z)), int32(0))>int32(0))) or (max(int32((int3d(v6807).z-uint64(((v6803+v6802)-int32(1))))), int32(0))>int32(0)))) then
+--       v6806 += (v6794[v6807].PD*v6797)
+--     else
+--     end
+--   end
+--   return v6806
+-- end
+-- 
+-- task CalculateAverageDissipation(v6814 : region(ispace(int3d), Fluid_columns), v6817 : double, v6818 : int32, v6819 : int32, v6820 : int32, v6821 : int32, v6822 : int32, v6823 : int32) : double
+-- where
+--   reads(v6814.dissipation)
+-- do
+--   var v6826 = double(0)
+--   for v6827 in v6814 do
+--     if (not ((((((max(int32((uint64(v6818)-int3d(v6827).x)), int32(0))>int32(0)) or (max(int32((int3d(v6827).x-uint64(((v6819+v6818)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6820)-int3d(v6827).y)), int32(0))>int32(0))) or (max(int32((int3d(v6827).y-uint64(((v6821+v6820)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6822)-int3d(v6827).z)), int32(0))>int32(0))) or (max(int32((int3d(v6827).z-uint64(((v6823+v6822)-int32(1))))), int32(0))>int32(0)))) then
+--       v6826 += (v6814[v6827].dissipation*v6817)
+--     else
+--     end
+--   end
+--   return v6826
+-- end
+-- 
+-- task CalculateAverageK(v6834 : region(ispace(int3d), Fluid_columns), v6837 : double, v6838 : int32, v6839 : int32, v6840 : int32, v6841 : int32, v6842 : int32, v6843 : int32) : double
+-- where
+--   reads(v6834.rho), reads(v6834.velocity)
+-- do
+--   var v6846 = double(0)
+--   for v6847 in v6834 do
+--     if (not ((((((max(int32((uint64(v6838)-int3d(v6847).x)), int32(0))>int32(0)) or (max(int32((int3d(v6847).x-uint64(((v6839+v6838)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6840)-int3d(v6847).y)), int32(0))>int32(0))) or (max(int32((int3d(v6847).y-uint64(((v6841+v6840)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6842)-int3d(v6847).z)), int32(0))>int32(0))) or (max(int32((int3d(v6847).z-uint64(((v6843+v6842)-int32(1))))), int32(0))>int32(0)))) then
+--       v6846 += (((double(0.5)*v6834[v6847].rho)*dot_double_3(v6834[v6847].velocity, v6834[v6847].velocity))*v6837)
+--     else
+--     end
+--   end
+--   return v6846
+-- end
+-- 
+-- task Flow_AddTurbulentSource(v6858 : region(ispace(int3d), Fluid_columns), v6860 : double, v6862 : double, v6863 : double, v6864 : double, v6865 : int32, v6866 : int32, v6867 : int32, v6868 : int32, v6869 : int32, v6870 : int32) : double
+-- where
+--   reads(v6858.rho), reads(v6858.rhoEnergy_t), writes(v6858.rhoEnergy_t), reads(v6858.rhoVelocity_t), writes(v6858.rhoVelocity_t), reads(v6858.velocity)
+-- do
+--   var v6923 = double(0)
+--   for v6924 in v6858 do
+--     if (not ((((((max(int32((uint64(v6865)-int3d(v6924).x)), int32(0))>int32(0)) or (max(int32((int3d(v6924).x-uint64(((v6866+v6865)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6867)-int3d(v6924).y)), int32(0))>int32(0))) or (max(int32((int3d(v6924).y-uint64(((v6868+v6867)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6869)-int3d(v6924).z)), int32(0))>int32(0))) or (max(int32((int3d(v6924).z-uint64(((v6870+v6869)-int32(1))))), int32(0))>int32(0)))) then
+--       var v6925 = double(double(0))
+--       var v6926 = double(double(0))
+--       var v6927 = double(double(0))
+--       var v6928 = double(double(0))
+--       var v6929 = double(double(0))
+--       var v6930 = [double[3]](array(double(0), double(0), double(0)))
+--       v6925 = (v6863+v6860)
+--       v6927 = double(300)
+--       v6928 = double(3.00889e-06)
+--       v6929 = double(66.27348)
+--       v6926 = (((-v6925)-((v6927*(v6862-v6929))/v6928))/(double(2)*v6862))
+--       v6930 = vs_mul_double_3(v6858[v6924].velocity, (v6858[v6924].rho*v6926))
+--       var v6931 = v6930
+--       var v6932 = v6858[v6924].rhoVelocity_t
+--       v6932[0] += v6931[0]
+--       v6932[1] += v6931[1]
+--       v6932[2] += v6931[2]
+--       v6858[v6924].rhoVelocity_t = v6932
+--       v6858[v6924].rhoEnergy_t += dot_double_3(v6930, v6858[v6924].velocity)
+--       v6923 += (dot_double_3(v6930, v6858[v6924].velocity)*v6864)
+--     else
+--     end
+--   end
+--   return v6923
+-- end
+-- 
+-- task Flow_AdjustTurbulentSource(v6963 : region(ispace(int3d), Fluid_columns), v6965 : double, v6966 : int32, v6967 : int32, v6968 : int32, v6969 : int32, v6970 : int32, v6971 : int32)
+-- where
+--   reads(v6963.rhoEnergy_t), writes(v6963.rhoEnergy_t)
+-- do
+--   for v6973 in v6963 do
+--     if (not ((((((max(int32((uint64(v6966)-int3d(v6973).x)), int32(0))>int32(0)) or (max(int32((int3d(v6973).x-uint64(((v6967+v6966)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6968)-int3d(v6973).y)), int32(0))>int32(0))) or (max(int32((int3d(v6973).y-uint64(((v6969+v6968)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6970)-int3d(v6973).z)), int32(0))>int32(0))) or (max(int32((int3d(v6973).z-uint64(((v6971+v6970)-int32(1))))), int32(0))>int32(0)))) then
+--       v6963[v6973].rhoEnergy_t += (-v6965)
+--     else
+--     end
+--   end
+-- end
+-- 
+-- task Particles_LocateInCells(v6980 : region(ispace(int1d), particles_columns), v6982 : bool, v6983 : bool, v6984 : bool, v6985 : int32, v6986 : int32, v6987 : double, v6988 : double, v6989 : int32, v6990 : int32, v6991 : double, v6992 : double, v6993 : int32, v6994 : int32, v6995 : double, v6996 : double)
+-- where
+--   reads(v6980.cell), writes(v6980.cell), reads(v6980.position), reads(v6980.__valid)
+-- do
+--   for v7095 in v6980 do
+--     if v6980[v7095].__valid then
+--       var v7114 : int3d
+--       do
+--         var v7098 = v6980[v7095].position
+--         var v7099 = v6982
+--         var v7100 = v6983
+--         var v7101 = v6984
+--         var v7102 = v6985
+--         var v7103 = v6986
+--         var v7104 = v6987
+--         var v7105 = v6988
+--         var v7106 = v6989
+--         var v7107 = v6990
+--         var v7108 = v6991
+--         var v7109 = v6992
+--         var v7110 = v6993
+--         var v7111 = v6994
+--         var v7112 = v6995
+--         var v7113 = v6996
+--         var v7058 = (v7105/double(v7103))
+--         var v7059 = (v7104-(double(v7102)*v7058))
+--         var v7060 = ((v7098[int32(0)]-v7059)/v7058)
+--         var v7061 = (v7103+(int32(2)*v7102))
+--         var v7062 : uint64
+--         if v7099 then
+--           v7062 = (uint64((C.fmod(v7060, double(v7061))+double(v7061)))%uint64(v7061))
+--         else
+--           v7062 = uint64(max(double(0), min(double((v7061-int32(1))), v7060)))
+--         end
+--         var v7063 = (v7109/double(v7107))
+--         var v7064 = (v7108-(double(v7106)*v7063))
+--         var v7065 = ((v7098[int32(1)]-v7064)/v7063)
+--         var v7066 = (v7107+(int32(2)*v7106))
+--         var v7067 : uint64
+--         if v7100 then
+--           v7067 = (uint64((C.fmod(v7065, double(v7066))+double(v7066)))%uint64(v7066))
+--         else
+--           v7067 = uint64(max(double(0), min(double((v7066-int32(1))), v7065)))
+--         end
+--         var v7068 = (v7113/double(v7111))
+--         var v7069 = (v7112-(double(v7110)*v7068))
+--         var v7070 = ((v7098[int32(2)]-v7069)/v7068)
+--         var v7071 = (v7111+(int32(2)*v7110))
+--         var v7072 : uint64
+--         if v7101 then
+--           v7072 = (uint64((C.fmod(v7070, double(v7071))+double(v7071)))%uint64(v7071))
+--         else
+--           v7072 = uint64(max(double(0), min(double((v7071-int32(1))), v7070)))
+--         end
+--         v7114 = int3d({v7062, v7067, v7072})
+--       end
+--       var v7115 = 0
+--       v6980[v7095].cell = v7114
+--     else
+--     end
+--   end
+-- end
 
 terra particles_pushElement(dst : &opaque,idx : int32,src : particles_columns) : {}
     var ptr = [&int8](dst) + idx * 376
@@ -3716,23 +3717,24 @@ do
   end
 end
 
-task Flow_AddParticlesCoupling(v9979 : region(ispace(int1d), particles_columns), v9982 : region(ispace(int3d), Fluid_columns), v9983 : double)
-where
-  reads(v9982.rhoEnergy_t), writes(v9982.rhoEnergy_t), reads(v9982.rhoVelocity_t), writes(v9982.rhoVelocity_t), reads(v9979.cell), reads(v9979.deltaTemperatureTerm), reads(v9979.deltaVelocityOverRelaxationTime), reads(v9979.density), reads(v9979.diameter), reads(v9979.__valid)
-do
-  for v9997 in v9979 do
-    if v9979[v9997].__valid then
-      var v9998 = vs_div_double_3(vs_mul_double_3(v9979[v9997].deltaVelocityOverRelaxationTime, (-(((double(3.1415926535898)*C.pow(v9979[v9997].diameter, double(int32(3))))/double(6))*v9979[v9997].density))), v9983)
-      var v9999 = v9982[v9979[v9997].cell].rhoVelocity_t
-      v9999[0] += v9998[0]
-      v9999[1] += v9998[1]
-      v9999[2] += v9998[2]
-      v9982[v9979[v9997].cell].rhoVelocity_t = v9999
-      v9982[v9979[v9997].cell].rhoEnergy_t += ((-v9979[v9997].deltaTemperatureTerm)/v9983)
-    else
-    end
-  end
-end
+-- XXX: Turn off two-way coupling
+-- task Flow_AddParticlesCoupling(v9979 : region(ispace(int1d), particles_columns), v9982 : region(ispace(int3d), Fluid_columns), v9983 : double)
+-- where
+--   reads(v9982.rhoEnergy_t), writes(v9982.rhoEnergy_t), reads(v9982.rhoVelocity_t), writes(v9982.rhoVelocity_t), reads(v9979.cell), reads(v9979.deltaTemperatureTerm), reads(v9979.deltaVelocityOverRelaxationTime), reads(v9979.density), reads(v9979.diameter), reads(v9979.__valid)
+-- do
+--   for v9997 in v9979 do
+--     if v9979[v9997].__valid then
+--       var v9998 = vs_div_double_3(vs_mul_double_3(v9979[v9997].deltaVelocityOverRelaxationTime, (-(((double(3.1415926535898)*C.pow(v9979[v9997].diameter, double(int32(3))))/double(6))*v9979[v9997].density))), v9983)
+--       var v9999 = v9982[v9979[v9997].cell].rhoVelocity_t
+--       v9999[0] += v9998[0]
+--       v9999[1] += v9998[1]
+--       v9999[2] += v9998[2]
+--       v9982[v9979[v9997].cell].rhoVelocity_t = v9999
+--       v9982[v9979[v9997].cell].rhoEnergy_t += ((-v9979[v9997].deltaTemperatureTerm)/v9983)
+--     else
+--     end
+--   end
+-- end
 
 __demand(__parallel)
 task Flow_UpdateVars(v10022 : region(ispace(int3d), Fluid_columns), v10024 : double, v10025 : int32)
@@ -5265,8 +5267,8 @@ task work(v46 : Config)
     --   print_____(v10808, v10806, v10826, v10827, v10828, v10843)
     --   v11263 -= 1
     -- end
-    -- while ((v10806<v46.integrator.finalTime) and (v10808<v46.integrator.maxIter)) do
     -- XXX: Turn off dynamic time stepping as we will cut off much earlier for now
+    -- while ((v10806<v46.integrator.finalTime) and (v10808<v46.integrator.maxIter)) do
     while v10808<v46.integrator.maxIter do
       var v11265 = int32((v46.integrator.cfl<int32(0)))
       var v11266 = (1-v11265)
