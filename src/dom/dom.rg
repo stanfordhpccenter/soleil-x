@@ -86,6 +86,16 @@ A.registerStruct(face)
 -- MODULE-LOCAL TASKS
 -------------------------------------------------------------------------------
 
+-- Initialize face values
+local task initialize_faces(faces : region(ispace(int3d), face))
+where
+  reads writes (faces.I)
+do
+  for m = 0, NUM_ANGLES do
+    faces.I[m] = 0.0
+  end
+end
+
 -- Initialize angle quads
 local task initialize_angles(angles : region(ispace(int1d), angle))
 where
@@ -2067,7 +2077,33 @@ exports.InitModule = rquote
   var [p_y_faces_8] = make_interior_partition_y_hi(y_faces_8, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
   var [p_z_faces_8] = make_interior_partition_z_hi(z_faces_8, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
+  -- Initialize face values
+  initialize_faces(x_faces_1)
+  initialize_faces(x_faces_2)
+  initialize_faces(x_faces_3)
+  initialize_faces(x_faces_4)
+  initialize_faces(x_faces_5)
+  initialize_faces(x_faces_6)
+  initialize_faces(x_faces_7)
+  initialize_faces(x_faces_8)
 
+  initialize_faces(y_faces_1)
+  initialize_faces(y_faces_2)
+  initialize_faces(y_faces_3)
+  initialize_faces(y_faces_4)
+  initialize_faces(y_faces_5)
+  initialize_faces(y_faces_6)
+  initialize_faces(y_faces_7)
+  initialize_faces(y_faces_8)
+
+  initialize_faces(z_faces_1)
+  initialize_faces(z_faces_2)
+  initialize_faces(z_faces_3)
+  initialize_faces(z_faces_4)
+  initialize_faces(z_faces_5)
+  initialize_faces(z_faces_6)
+  initialize_faces(z_faces_7)
+  initialize_faces(z_faces_8)
 
   -- Initialize constant values
   initialize_angles(angles)
