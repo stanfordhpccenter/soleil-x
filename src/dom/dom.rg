@@ -58,6 +58,7 @@ local gamma = 0.5    -- 1 for step differencing, 0.5 for diamond differencing
 local terra read_val(f : &c.FILE, val : &double)
   return c.fscanf(f, '%lf\n', &val[0])
 end
+A.registerFun(read_val, 'read_val')
 
 -------------------------------------------------------------------------------
 -- MODULE-LOCAL FIELD SPACES
@@ -68,16 +69,18 @@ end
 -- Update cell value, then update downstream face values
 
 -- quadrature information
-local fspace angle {
+local struct angle {
   xi  : double,
   eta : double,
   mu  : double,
   w   : double,
 }
+A.registerStruct(angle)
 
-local fspace face {
-  I : double[NUM_ANGLES],    -- face intensity per angle
+local struct face {
+  I : double[NUM_ANGLES],
 }
+A.registerStruct(face)
 
 -------------------------------------------------------------------------------
 -- MODULE-LOCAL TASKS
@@ -120,6 +123,7 @@ do
   c.fclose(f)
 
 end
+A.registerTask(initialize_angles, 'initialize_angles')
 
 local task make_interior_partition_x_hi(faces : region(ispace(int3d), face),
                                         x_tiles : ispace(int3d),
@@ -153,6 +157,7 @@ local task make_interior_partition_x_hi(faces : region(ispace(int3d), face),
   c.legion_domain_point_coloring_destroy(coloring)
   return p
 end
+A.registerTask(make_interior_partition_x_hi, 'make_interior_partition_x_hi')
 
 local task make_interior_partition_x_lo(faces : region(ispace(int3d), face),
                                         x_tiles : ispace(int3d),
@@ -186,6 +191,7 @@ local task make_interior_partition_x_lo(faces : region(ispace(int3d), face),
   c.legion_domain_point_coloring_destroy(coloring)
   return p
 end
+A.registerTask(make_interior_partition_x_lo, 'make_interior_partition_x_lo')
 
 local task make_interior_partition_y_hi(faces : region(ispace(int3d), face),
                                         y_tiles : ispace(int3d),
@@ -219,6 +225,7 @@ local task make_interior_partition_y_hi(faces : region(ispace(int3d), face),
   c.legion_domain_point_coloring_destroy(coloring)
   return p
 end
+A.registerTask(make_interior_partition_y_hi, 'make_interior_partition_y_hi')
 
 local task make_interior_partition_y_lo(faces : region(ispace(int3d), face),
                                         y_tiles : ispace(int3d),
@@ -252,6 +259,7 @@ local task make_interior_partition_y_lo(faces : region(ispace(int3d), face),
   c.legion_domain_point_coloring_destroy(coloring)
   return p
 end
+A.registerTask(make_interior_partition_y_lo, 'make_interior_partition_y_lo')
 
 local task make_interior_partition_z_hi(faces : region(ispace(int3d), face),
                                         z_tiles : ispace(int3d),
@@ -285,6 +293,7 @@ local task make_interior_partition_z_hi(faces : region(ispace(int3d), face),
   c.legion_domain_point_coloring_destroy(coloring)
   return p
 end
+A.registerTask(make_interior_partition_z_hi, 'make_interior_partition_z_hi')
 
 local task make_interior_partition_z_lo(faces : region(ispace(int3d), face),
                                         z_tiles : ispace(int3d),
@@ -318,6 +327,7 @@ local task make_interior_partition_z_lo(faces : region(ispace(int3d), face),
   c.legion_domain_point_coloring_destroy(coloring)
   return p
 end
+A.registerTask(make_interior_partition_z_lo, 'make_interior_partition_z_lo')
 
 -- Loop over all angles and grid cells to compute the source term
 -- for the current iteration.
@@ -345,6 +355,7 @@ do
     end
   end
 end
+A.registerTask(source_term, 'source_term')
 
 local task west_bound(faces_1 : region(ispace(int3d), face),
                       faces_2 : region(ispace(int3d), face),
@@ -417,6 +428,7 @@ do
   end
 
 end
+A.registerTask(west_bound, 'west_bound')
 
 local task east_bound(faces_1 : region(ispace(int3d), face),
                       faces_2 : region(ispace(int3d), face),
@@ -489,6 +501,7 @@ do
   end
 
 end
+A.registerTask(east_bound, 'east_bound')
 
 local task north_bound(faces_1 : region(ispace(int3d), face),
                        faces_2 : region(ispace(int3d), face),
@@ -561,6 +574,7 @@ do
   end
 
 end
+A.registerTask(north_bound, 'north_bound')
 
 local task south_bound(faces_1 : region(ispace(int3d), face),
                        faces_2 : region(ispace(int3d), face),
@@ -633,6 +647,7 @@ do
   end
 
 end
+A.registerTask(south_bound, 'south_bound')
 
 local task up_bound(faces_1 : region(ispace(int3d), face),
                     faces_2 : region(ispace(int3d), face),
@@ -705,6 +720,7 @@ do
   end
 
 end
+A.registerTask(up_bound, 'up_bound')
 
 local task down_bound(faces_1 : region(ispace(int3d), face),
                       faces_2 : region(ispace(int3d), face),
@@ -775,6 +791,7 @@ do
     end
   end
 end
+A.registerTask(down_bound, 'down_bound')
 
 local task sweep_1(points : pointsType,
                    x_faces : region(ispace(int3d), face),
@@ -903,6 +920,7 @@ do
     end
   end
 end
+A.registerTask(sweep_1, 'sweep_1')
 
 local task sweep_2(points : pointsType,
                    x_faces : region(ispace(int3d), face),
@@ -1031,6 +1049,7 @@ do
     end
   end
 end
+A.registerTask(sweep_2, 'sweep_2')
 
 local task sweep_3(points : pointsType,
                    x_faces : region(ispace(int3d), face),
@@ -1159,6 +1178,7 @@ do
     end
   end
 end
+A.registerTask(sweep_3, 'sweep_3')
 
 local task sweep_4(points : pointsType,
                    x_faces : region(ispace(int3d), face),
@@ -1287,6 +1307,7 @@ do
     end
   end
 end
+A.registerTask(sweep_4, 'sweep_4')
 
 local task sweep_5(points : pointsType,
                    x_faces : region(ispace(int3d), face),
@@ -1415,6 +1436,7 @@ do
     end
   end
 end
+A.registerTask(sweep_5, 'sweep_5')
 
 local task sweep_6(points : pointsType,
                    x_faces : region(ispace(int3d), face),
@@ -1543,6 +1565,7 @@ do
     end
   end
 end
+A.registerTask(sweep_6, 'sweep_6')
 
 local task sweep_7(points : pointsType,
                    x_faces : region(ispace(int3d), face),
@@ -1671,6 +1694,7 @@ do
     end
   end
 end
+A.registerTask(sweep_7, 'sweep_7')
 
 local task sweep_8(points : pointsType,
                    x_faces : region(ispace(int3d), face),
@@ -1799,6 +1823,7 @@ do
     end
   end
 end
+A.registerTask(sweep_8, 'sweep_8')
 
 -- Compute the residual after each iteration and return the value.
 local task residual(points : pointsType, Nx : int, Ny : int, Nz : int)
@@ -1865,6 +1890,7 @@ do
 
   return res
 end
+A.registerTask(residual, 'residual')
 
 -- Update the intensity before moving to the next iteration.
 local task update(points : pointsType)
@@ -1886,6 +1912,7 @@ do
     end
   end
 end
+A.registerTask(update, 'update')
 
 -- Reduce the intensity to summation over all angles
 local task reduce_intensity(points : pointsType,
@@ -1907,6 +1934,7 @@ do
     end
   end
 end
+A.registerTask(reduce_intensity, 'reduce_intensity')
 
 -------------------------------------------------------------------------------
 -- EXPORTED QUOTES
