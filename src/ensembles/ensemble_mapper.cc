@@ -24,7 +24,7 @@ double cost_fn_linear(const Config &config, unsigned num_procs)
 {
   static double cutoff = 32 * 32 * 32;
   long grid_size = (long)config.grid.xNum * config.grid.yNum * config.grid.zNum;
-  double cost = std::max(cutoff, grid_size / pow(1.8, num_procs));
+  double cost = std::max(cutoff, grid_size / (1.8 * num_procs));
   return cost * config.integrator.maxIter;
 }
 
@@ -32,7 +32,7 @@ double cost_fn_step(const Config &config, unsigned num_procs)
 {
   static double cutoff = 32 * 32 * 32;
   long grid_size = (long)config.grid.xNum * config.grid.yNum * config.grid.zNum;
-  double cost = std::max(cutoff, grid_size / pow(1.8, exp2((int)log2(num_procs))));
+  double cost = std::max(cutoff, grid_size / (1.8 * exp2((int)log2(num_procs))));
   return cost * config.integrator.maxIter;
 }
 
@@ -84,6 +84,15 @@ private:
   std::map<Processor, unsigned>& proc_ids;
   std::vector<Config>& configs;
   std::vector<TaskMapping>& mappings;
+  typedef std::pair<UniqueID, Domain> SliceCacheKey;
+  typedef std::vector<TaskSlice> SliceCache;
+  std::map<SliceCacheKey, SliceCache> slice_caches;
+  TaskID work_task_id;
+  std::set<TaskID> sweep_tasks;
+  typedef std::pair<UniqueID, LogicalRegion> SweepCacheKey;
+  std::map<SweepCacheKey, Processor> sweep_caches;
+  std::set<TaskID> bound_tasks;
+  std::map<unsigned, unsigned> last_bound_task;
 };
 
 EnsembleMapper::EnsembleMapper(MapperRuntime *rt, Machine machine, Processor local,
@@ -101,7 +110,8 @@ EnsembleMapper::EnsembleMapper(MapperRuntime *rt, Machine machine, Processor loc
     sysmem_local_procs(*_sysmem_local_procs),
     proc_sysmems(*_proc_sysmems),
     proc_ids(*_proc_ids), configs(*_configs),
-    mappings(*_mappings)
+    mappings(*_mappings),
+    work_task_id(0)
 {
 }
 
@@ -118,13 +128,81 @@ void EnsembleMapper::select_task_options(const MapperContext    ctx,
 Processor EnsembleMapper::default_policy_select_initial_processor(
                                     MapperContext ctx, const Task &task)
 {
-  if (strcmp(task.get_task_name(), "work") == 0)
+  const char *task_name = task.get_task_name();
+  if (task.task_id == work_task_id ||
+      (work_task_id == 0 && strcmp(task_name, "work") == 0))
   {
+    work_task_id = task.task_id;
     const char *ptr = static_cast<const char*>(task.args);
     const Config *config =
       reinterpret_cast<const Config*>(ptr + sizeof(uint64_t));
     unsigned id = config->unique_id;
     return procs_list[mappings[id].main_idx];
+  }
+  else if (sweep_tasks.find(task.task_id) != sweep_tasks.end() ||
+           (sweep_tasks.size() < 8 &&
+            strncmp(task_name, "sweep", 5) == 0))
+  {
+    LogicalRegion region = task.regions[0].region;
+    SweepCacheKey key(task.parent_task->get_unique_id(), region);
+    std::map<SweepCacheKey, Processor>::iterator finder =
+      sweep_caches.find(key);
+    if (finder != sweep_caches.end()) return finder->second;
+
+    sweep_tasks.insert(task.task_id);
+    const char *ptr = static_cast<const char*>(task.parent_task->args);
+    const Config *config =
+      reinterpret_cast<const Config*>(ptr + sizeof(uint64_t));
+    unsigned id = config->unique_id;
+    TaskMapping &mapping = mappings[id];
+
+    IndexPartition ip =
+      runtime->get_parent_index_partition(ctx, region.get_index_space());
+    Domain domain = runtime->get_index_partition_color_space(ctx, ip);
+    DomainPoint point =
+      runtime->get_logical_region_color_point(ctx, region);
+    coord_t size_x = domain.rect_data[3] - domain.rect_data[0] + 1;
+    coord_t size_y = domain.rect_data[4] - domain.rect_data[1] + 1;
+    Color color = point.point_data[0] +
+                  point.point_data[1] * size_x +
+                  point.point_data[2] * size_x * size_y;
+    assert(mapping.start_idx + color <= mapping.end_idx);
+    assert(mapping.start_idx + color < procs_list.size());
+    Processor target_proc = procs_list[mapping.start_idx + color];
+    sweep_caches[key] = target_proc;
+    return target_proc;
+  }
+  else if (bound_tasks.find(task.task_id) != bound_tasks.end() ||
+           (bound_tasks.size() < 6 &&
+            (strcmp(task_name, "west_bound") == 0 ||
+             strcmp(task_name, "east_bound") == 0 ||
+             strcmp(task_name, "north_bound") == 0 ||
+             strcmp(task_name, "south_bound") == 0 ||
+             strcmp(task_name, "up_bound") == 0 ||
+             strcmp(task_name, "down_bound") == 0)))
+  {
+    bound_tasks.insert(task.task_id);
+    const char *ptr = static_cast<const char*>(task.parent_task->args);
+    const Config *config =
+      reinterpret_cast<const Config*>(ptr + sizeof(uint64_t));
+    unsigned id = config->unique_id;
+    TaskMapping &mapping = mappings[id];
+    std::map<unsigned, unsigned>::iterator finder = last_bound_task.find(id);
+    Processor target_proc;
+    if (finder == last_bound_task.end())
+    {
+      target_proc = procs_list[mapping.main_idx];
+      last_bound_task[id] = mapping.main_idx;
+    }
+    else
+    {
+      unsigned next_idx = finder->second;
+      if (++next_idx > mapping.end_idx)
+        next_idx = mapping.start_idx;
+      target_proc = procs_list[next_idx];
+      last_bound_task[id] = next_idx;
+    }
+    return target_proc;
   }
   else if (task.parent_task != 0)
     return task.parent_task->target_proc;
@@ -161,6 +239,18 @@ void EnsembleMapper::slice_task(const MapperContext      ctx,
     return;
   }
 
+
+  output.verify_correctness = false;
+
+  SliceCacheKey key(task.parent_task->get_unique_id(), input.domain);
+  std::map<SliceCacheKey, SliceCache>::iterator finder =
+    slice_caches.find(key);
+  if (finder != slice_caches.end())
+  {
+    output.slices = finder->second;
+    return;
+  }
+
   const char *ptr = static_cast<const char*>(task.parent_task->args);
   const Config *config =
     reinterpret_cast<const Config*>(ptr + sizeof(uint64_t));
@@ -177,6 +267,7 @@ void EnsembleMapper::slice_task(const MapperContext      ctx,
     default_select_num_blocks<3>(procs.size(), point_space.bounds);
   default_decompose_points<3>(point_space, procs,
       num_blocks, false/*recurse*/, false, output.slices);
+  slice_caches[key] = output.slices;
 }
 
 void EnsembleMapper::select_tunable_value(const MapperContext         ctx,
