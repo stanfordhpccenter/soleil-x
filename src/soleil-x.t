@@ -527,7 +527,7 @@ particles:NewField('temperature_t', L.double)
 
 if Radiation.TYPE == 'DOM' then
 
-  local domGrid = GRID.NewGrid{
+  domGrid = GRID.NewGrid{
     name = 'Radiation',
     xNum = Radiation.xNum,
     yNum = Radiation.yNum,
