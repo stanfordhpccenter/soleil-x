@@ -111,6 +111,23 @@ typedef struct Grid
 typedef struct Radiation
 {
   double intensity;
+  double emissSouth;
+  double tempSouth;
+  double qa;
+  int yNum;
+  double tempNorth;
+  double emissWest;
+  double emissEast;
+  double tempWest;
+  int xNum;
+  double emissDown;
+  double emissUp;
+  double tempDown;
+  int zNum;
+  double emissNorth;
+  double tempEast;
+  double qs;
+  double tempUp;
 } Radiation;
 
 typedef struct Config
