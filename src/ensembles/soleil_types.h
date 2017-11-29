@@ -132,6 +132,7 @@ typedef struct Radiation
 
 typedef struct Config
 {
+  int        unique_id;
   Grid       grid;
   BC         bc;
   Integrator integrator;
@@ -141,6 +142,11 @@ typedef struct Config
   IO         io;
   char       filename[512];
 } Config;
+
+enum Tunables
+{
+  TUNABLE_CONFIG = 0xCAFE,
+};
 
 #ifdef __cplusplus
 }
