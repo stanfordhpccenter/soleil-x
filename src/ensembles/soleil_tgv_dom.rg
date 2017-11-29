@@ -140,6 +140,36 @@ terra Grid:grid_volume()
 end
 
 __demand(__parallel)
+task Particles_InitializeDensity(v5574 : region(ispace(int1d), particles_columns), v5576 : double)
+-- leaf (false), inner (false), idempotent (false)
+where
+  reads(v5574.density), writes(v5574.density), reads(v5574.__valid)
+do
+  for v5578 in v5574 do
+    if v5574[v5578].__valid then
+      v5574[v5578].density = v5576
+    else
+    end
+  end
+end
+
+__demand(__parallel)
+task Particles_CalculateNumber(v5584 : region(ispace(int1d), particles_columns)) : int64
+-- leaf (false), inner (false), idempotent (false)
+where
+  reads(v5584.__valid)
+do
+  var v5589 = int64(0)
+  for v5590 in v5584 do
+    if v5584[v5590].__valid then
+      v5589 += int64(int32(1))
+    else
+    end
+  end
+  return v5589
+end
+
+__demand(__parallel)
 task InitParticlesUniform(v5 : region(ispace(int1d), particles_columns), v7 : region(ispace(int3d), Fluid_columns), v9 : Config, v10 : int32, v11 : int32, v12 : int32)
 where
   reads(v5), writes(v5), reads(v7.velocity), reads(v7.centerCoordinates)
@@ -201,7 +231,7 @@ struct Radiation_columns {
   acc_d2t4 : double;
 }
          terra read_val(f : &C._IO_FILE,val : &double) : int32
-             return fscanf(f, "%lf\n", &val[0])
+             return C.fscanf(f, "%lf\n", &val[0])
          end
 struct angle {
   xi : double;
@@ -246,7 +276,7 @@ do
   C.fclose(vf)
 end
 
-task make_interior_partition_x_hi(vfaces : region(ispace(int3d), face), vx_tiles : ispace(int3d), vNx : int32, vNy : int32, vNz : int32, vntx : int32, vnty : int32, vntz : int32) : partition#7(disjoint, vfaces, vx_tiles)
+task make_interior_partition_x_hi(vfaces : region(ispace(int3d), face), vx_tiles : ispace(int3d), vNx : int32, vNy : int32, vNz : int32, vntx : int32, vnty : int32, vntz : int32)
 -- leaf (false), inner (false), idempotent (false)
   var vcoloring = regentlib.c.legion_domain_point_coloring_create()
   for vtile in vx_tiles do
@@ -270,7 +300,7 @@ task make_interior_partition_x_hi(vfaces : region(ispace(int3d), face), vx_tiles
   return vp
 end
 
-task make_interior_partition_x_lo(vfaces : region(ispace(int3d), face), vx_tiles : ispace(int3d), vNx : int32, vNy : int32, vNz : int32, vntx : int32, vnty : int32, vntz : int32) : partition#9(disjoint, vfaces, vx_tiles)
+task make_interior_partition_x_lo(vfaces : region(ispace(int3d), face), vx_tiles : ispace(int3d), vNx : int32, vNy : int32, vNz : int32, vntx : int32, vnty : int32, vntz : int32)
 -- leaf (false), inner (false), idempotent (false)
   var vcoloring = regentlib.c.legion_domain_point_coloring_create()
   for vtile in vx_tiles do
@@ -294,7 +324,7 @@ task make_interior_partition_x_lo(vfaces : region(ispace(int3d), face), vx_tiles
   return vp
 end
 
-task make_interior_partition_y_hi(vfaces : region(ispace(int3d), face), vy_tiles : ispace(int3d), vNx : int32, vNy : int32, vNz : int32, vntx : int32, vnty : int32, vntz : int32) : partition#11(disjoint, vfaces, vy_tiles)
+task make_interior_partition_y_hi(vfaces : region(ispace(int3d), face), vy_tiles : ispace(int3d), vNx : int32, vNy : int32, vNz : int32, vntx : int32, vnty : int32, vntz : int32)
 -- leaf (false), inner (false), idempotent (false)
   var vcoloring = regentlib.c.legion_domain_point_coloring_create()
   for vtile in vy_tiles do
@@ -318,7 +348,7 @@ task make_interior_partition_y_hi(vfaces : region(ispace(int3d), face), vy_tiles
   return vp
 end
 
-task make_interior_partition_y_lo(vfaces : region(ispace(int3d), face), vy_tiles : ispace(int3d), vNx : int32, vNy : int32, vNz : int32, vntx : int32, vnty : int32, vntz : int32) : partition#13(disjoint, vfaces, vy_tiles)
+task make_interior_partition_y_lo(vfaces : region(ispace(int3d), face), vy_tiles : ispace(int3d), vNx : int32, vNy : int32, vNz : int32, vntx : int32, vnty : int32, vntz : int32)
 -- leaf (false), inner (false), idempotent (false)
   var vcoloring = regentlib.c.legion_domain_point_coloring_create()
   for vtile in vy_tiles do
@@ -342,7 +372,7 @@ task make_interior_partition_y_lo(vfaces : region(ispace(int3d), face), vy_tiles
   return vp
 end
 
-task make_interior_partition_z_hi(vfaces : region(ispace(int3d), face), vz_tiles : ispace(int3d), vNx : int32, vNy : int32, vNz : int32, vntx : int32, vnty : int32, vntz : int32) : partition#15(disjoint, vfaces, vz_tiles)
+task make_interior_partition_z_hi(vfaces : region(ispace(int3d), face), vz_tiles : ispace(int3d), vNx : int32, vNy : int32, vNz : int32, vntx : int32, vnty : int32, vntz : int32)
 -- leaf (false), inner (false), idempotent (false)
   var vcoloring = regentlib.c.legion_domain_point_coloring_create()
   for vtile in vz_tiles do
@@ -366,7 +396,7 @@ task make_interior_partition_z_hi(vfaces : region(ispace(int3d), face), vz_tiles
   return vp
 end
 
-task make_interior_partition_z_lo(vfaces : region(ispace(int3d), face), vz_tiles : ispace(int3d), vNx : int32, vNy : int32, vNz : int32, vntx : int32, vnty : int32, vntz : int32) : partition#17(disjoint, vfaces, vz_tiles)
+task make_interior_partition_z_lo(vfaces : region(ispace(int3d), face), vz_tiles : ispace(int3d), vNx : int32, vNy : int32, vNz : int32, vntx : int32, vnty : int32, vntz : int32)
 -- leaf (false), inner (false), idempotent (false)
   var vcoloring = regentlib.c.legion_domain_point_coloring_create()
   for vtile in vz_tiles do
@@ -427,7 +457,7 @@ do
           else
             vface_value = vfaces_8[{vlimits.lo.x, vj, vk}].I_8[vm]
           end
-          vreflect += (((((1-vepsw)/3.1415926535898)*vangles[vm].w)*fabs(vangles[vm].xi))*vface_value)
+          vreflect += (((((1-vepsw)/3.1415926535898)*vangles[vm].w)*C.fabs(vangles[vm].xi))*vface_value)
         else
         end
       end
@@ -568,7 +598,7 @@ do
           else
             vface_value = vfaces_8[{vi, vlimits.lo.y, vk}].I_8[vm]
           end
-          vreflect += (((((1-vepsw)/3.1415926535898)*vangles[vm].w)*fabs(vangles[vm].eta))*vface_value)
+          vreflect += (((((1-vepsw)/3.1415926535898)*vangles[vm].w)*C.fabs(vangles[vm].eta))*vface_value)
         else
         end
       end
@@ -615,7 +645,7 @@ do
           else
             vface_value = vfaces_8[{vi, vj, vlimits.lo.z}].I_8[vm]
           end
-          vreflect += (((((1-vepsw)/3.1415926535898)*vangles[vm].w)*fabs(vangles[vm].mu))*vface_value)
+          vreflect += (((((1-vepsw)/3.1415926535898)*vangles[vm].w)*C.fabs(vangles[vm].mu))*vface_value)
         else
         end
       end
@@ -757,7 +787,7 @@ do
             else
               vupwind_z_value = vz_faces[{vi, vj, vindz}].I_1[vm]
             end
-            vpoints[{vi, vj, vk}].I_1[vm] = (((((vpoints[{vi, vj, vk}].S*vdV)+(((fabs(vangles[vm].xi)*vdAx)*vupwind_x_value)/0.5))+(((fabs(vangles[vm].eta)*vdAy)*vupwind_y_value)/0.5))+(((fabs(vangles[vm].mu)*vdAz)*vupwind_z_value)/0.5))/((((vpoints[{vi, vj, vk}].sigma*vdV)+((fabs(vangles[vm].xi)*vdAx)/0.5))+((fabs(vangles[vm].eta)*vdAy)/0.5))+((fabs(vangles[vm].mu)*vdAz)/0.5)))
+            vpoints[{vi, vj, vk}].I_1[vm] = (((((vpoints[{vi, vj, vk}].S*vdV)+(((C.fabs(vangles[vm].xi)*vdAx)*vupwind_x_value)/0.5))+(((C.fabs(vangles[vm].eta)*vdAy)*vupwind_y_value)/0.5))+(((C.fabs(vangles[vm].mu)*vdAz)*vupwind_z_value)/0.5))/((((vpoints[{vi, vj, vk}].sigma*vdV)+((C.fabs(vangles[vm].xi)*vdAx)/0.5))+((C.fabs(vangles[vm].eta)*vdAy)/0.5))+((C.fabs(vangles[vm].mu)*vdAz)/0.5)))
             vx_faces[{(vindx+vdindx), vj, vk}].I_1[vm] = ((vpoints[{vi, vj, vk}].I_1[vm]-((1-0.5)*vupwind_x_value))/0.5)
             vy_faces[{vi, (vindy+vdindy), vk}].I_1[vm] = ((vpoints[{vi, vj, vk}].I_1[vm]-((1-0.5)*vupwind_y_value))/0.5)
             vz_faces[{vi, vj, (vindz+vdindz)}].I_1[vm] = ((vpoints[{vi, vj, vk}].I_1[vm]-((1-0.5)*vupwind_z_value))/0.5)
@@ -841,7 +871,7 @@ do
             else
               vupwind_z_value = vz_faces[{vi, vj, vindz}].I_2[vm]
             end
-            vpoints[{vi, vj, vk}].I_2[vm] = (((((vpoints[{vi, vj, vk}].S*vdV)+(((fabs(vangles[vm].xi)*vdAx)*vupwind_x_value)/0.5))+(((fabs(vangles[vm].eta)*vdAy)*vupwind_y_value)/0.5))+(((fabs(vangles[vm].mu)*vdAz)*vupwind_z_value)/0.5))/((((vpoints[{vi, vj, vk}].sigma*vdV)+((fabs(vangles[vm].xi)*vdAx)/0.5))+((fabs(vangles[vm].eta)*vdAy)/0.5))+((fabs(vangles[vm].mu)*vdAz)/0.5)))
+            vpoints[{vi, vj, vk}].I_2[vm] = (((((vpoints[{vi, vj, vk}].S*vdV)+(((C.fabs(vangles[vm].xi)*vdAx)*vupwind_x_value)/0.5))+(((C.fabs(vangles[vm].eta)*vdAy)*vupwind_y_value)/0.5))+(((C.fabs(vangles[vm].mu)*vdAz)*vupwind_z_value)/0.5))/((((vpoints[{vi, vj, vk}].sigma*vdV)+((C.fabs(vangles[vm].xi)*vdAx)/0.5))+((C.fabs(vangles[vm].eta)*vdAy)/0.5))+((C.fabs(vangles[vm].mu)*vdAz)/0.5)))
             vx_faces[{(vindx+vdindx), vj, vk}].I_2[vm] = ((vpoints[{vi, vj, vk}].I_2[vm]-((1-0.5)*vupwind_x_value))/0.5)
             vy_faces[{vi, (vindy+vdindy), vk}].I_2[vm] = ((vpoints[{vi, vj, vk}].I_2[vm]-((1-0.5)*vupwind_y_value))/0.5)
             vz_faces[{vi, vj, (vindz+vdindz)}].I_2[vm] = ((vpoints[{vi, vj, vk}].I_2[vm]-((1-0.5)*vupwind_z_value))/0.5)
@@ -925,7 +955,7 @@ do
             else
               vupwind_z_value = vz_faces[{vi, vj, vindz}].I_3[vm]
             end
-            vpoints[{vi, vj, vk}].I_3[vm] = (((((vpoints[{vi, vj, vk}].S*vdV)+(((fabs(vangles[vm].xi)*vdAx)*vupwind_x_value)/0.5))+(((fabs(vangles[vm].eta)*vdAy)*vupwind_y_value)/0.5))+(((fabs(vangles[vm].mu)*vdAz)*vupwind_z_value)/0.5))/((((vpoints[{vi, vj, vk}].sigma*vdV)+((fabs(vangles[vm].xi)*vdAx)/0.5))+((fabs(vangles[vm].eta)*vdAy)/0.5))+((fabs(vangles[vm].mu)*vdAz)/0.5)))
+            vpoints[{vi, vj, vk}].I_3[vm] = (((((vpoints[{vi, vj, vk}].S*vdV)+(((C.fabs(vangles[vm].xi)*vdAx)*vupwind_x_value)/0.5))+(((C.fabs(vangles[vm].eta)*vdAy)*vupwind_y_value)/0.5))+(((C.fabs(vangles[vm].mu)*vdAz)*vupwind_z_value)/0.5))/((((vpoints[{vi, vj, vk}].sigma*vdV)+((C.fabs(vangles[vm].xi)*vdAx)/0.5))+((C.fabs(vangles[vm].eta)*vdAy)/0.5))+((C.fabs(vangles[vm].mu)*vdAz)/0.5)))
             vx_faces[{(vindx+vdindx), vj, vk}].I_3[vm] = ((vpoints[{vi, vj, vk}].I_3[vm]-((1-0.5)*vupwind_x_value))/0.5)
             vy_faces[{vi, (vindy+vdindy), vk}].I_3[vm] = ((vpoints[{vi, vj, vk}].I_3[vm]-((1-0.5)*vupwind_y_value))/0.5)
             vz_faces[{vi, vj, (vindz+vdindz)}].I_3[vm] = ((vpoints[{vi, vj, vk}].I_3[vm]-((1-0.5)*vupwind_z_value))/0.5)
@@ -1009,7 +1039,7 @@ do
             else
               vupwind_z_value = vz_faces[{vi, vj, vindz}].I_4[vm]
             end
-            vpoints[{vi, vj, vk}].I_4[vm] = (((((vpoints[{vi, vj, vk}].S*vdV)+(((fabs(vangles[vm].xi)*vdAx)*vupwind_x_value)/0.5))+(((fabs(vangles[vm].eta)*vdAy)*vupwind_y_value)/0.5))+(((fabs(vangles[vm].mu)*vdAz)*vupwind_z_value)/0.5))/((((vpoints[{vi, vj, vk}].sigma*vdV)+((fabs(vangles[vm].xi)*vdAx)/0.5))+((fabs(vangles[vm].eta)*vdAy)/0.5))+((fabs(vangles[vm].mu)*vdAz)/0.5)))
+            vpoints[{vi, vj, vk}].I_4[vm] = (((((vpoints[{vi, vj, vk}].S*vdV)+(((C.fabs(vangles[vm].xi)*vdAx)*vupwind_x_value)/0.5))+(((C.fabs(vangles[vm].eta)*vdAy)*vupwind_y_value)/0.5))+(((C.fabs(vangles[vm].mu)*vdAz)*vupwind_z_value)/0.5))/((((vpoints[{vi, vj, vk}].sigma*vdV)+((C.fabs(vangles[vm].xi)*vdAx)/0.5))+((C.fabs(vangles[vm].eta)*vdAy)/0.5))+((C.fabs(vangles[vm].mu)*vdAz)/0.5)))
             vx_faces[{(vindx+vdindx), vj, vk}].I_4[vm] = ((vpoints[{vi, vj, vk}].I_4[vm]-((1-0.5)*vupwind_x_value))/0.5)
             vy_faces[{vi, (vindy+vdindy), vk}].I_4[vm] = ((vpoints[{vi, vj, vk}].I_4[vm]-((1-0.5)*vupwind_y_value))/0.5)
             vz_faces[{vi, vj, (vindz+vdindz)}].I_4[vm] = ((vpoints[{vi, vj, vk}].I_4[vm]-((1-0.5)*vupwind_z_value))/0.5)
@@ -1093,7 +1123,7 @@ do
             else
               vupwind_z_value = vz_faces[{vi, vj, vindz}].I_5[vm]
             end
-            vpoints[{vi, vj, vk}].I_5[vm] = (((((vpoints[{vi, vj, vk}].S*vdV)+(((fabs(vangles[vm].xi)*vdAx)*vupwind_x_value)/0.5))+(((fabs(vangles[vm].eta)*vdAy)*vupwind_y_value)/0.5))+(((fabs(vangles[vm].mu)*vdAz)*vupwind_z_value)/0.5))/((((vpoints[{vi, vj, vk}].sigma*vdV)+((fabs(vangles[vm].xi)*vdAx)/0.5))+((fabs(vangles[vm].eta)*vdAy)/0.5))+((fabs(vangles[vm].mu)*vdAz)/0.5)))
+            vpoints[{vi, vj, vk}].I_5[vm] = (((((vpoints[{vi, vj, vk}].S*vdV)+(((C.fabs(vangles[vm].xi)*vdAx)*vupwind_x_value)/0.5))+(((C.fabs(vangles[vm].eta)*vdAy)*vupwind_y_value)/0.5))+(((C.fabs(vangles[vm].mu)*vdAz)*vupwind_z_value)/0.5))/((((vpoints[{vi, vj, vk}].sigma*vdV)+((C.fabs(vangles[vm].xi)*vdAx)/0.5))+((C.fabs(vangles[vm].eta)*vdAy)/0.5))+((C.fabs(vangles[vm].mu)*vdAz)/0.5)))
             vx_faces[{(vindx+vdindx), vj, vk}].I_5[vm] = ((vpoints[{vi, vj, vk}].I_5[vm]-((1-0.5)*vupwind_x_value))/0.5)
             vy_faces[{vi, (vindy+vdindy), vk}].I_5[vm] = ((vpoints[{vi, vj, vk}].I_5[vm]-((1-0.5)*vupwind_y_value))/0.5)
             vz_faces[{vi, vj, (vindz+vdindz)}].I_5[vm] = ((vpoints[{vi, vj, vk}].I_5[vm]-((1-0.5)*vupwind_z_value))/0.5)
@@ -1177,7 +1207,7 @@ do
             else
               vupwind_z_value = vz_faces[{vi, vj, vindz}].I_6[vm]
             end
-            vpoints[{vi, vj, vk}].I_6[vm] = (((((vpoints[{vi, vj, vk}].S*vdV)+(((fabs(vangles[vm].xi)*vdAx)*vupwind_x_value)/0.5))+(((fabs(vangles[vm].eta)*vdAy)*vupwind_y_value)/0.5))+(((fabs(vangles[vm].mu)*vdAz)*vupwind_z_value)/0.5))/((((vpoints[{vi, vj, vk}].sigma*vdV)+((fabs(vangles[vm].xi)*vdAx)/0.5))+((fabs(vangles[vm].eta)*vdAy)/0.5))+((fabs(vangles[vm].mu)*vdAz)/0.5)))
+            vpoints[{vi, vj, vk}].I_6[vm] = (((((vpoints[{vi, vj, vk}].S*vdV)+(((C.fabs(vangles[vm].xi)*vdAx)*vupwind_x_value)/0.5))+(((C.fabs(vangles[vm].eta)*vdAy)*vupwind_y_value)/0.5))+(((C.fabs(vangles[vm].mu)*vdAz)*vupwind_z_value)/0.5))/((((vpoints[{vi, vj, vk}].sigma*vdV)+((C.fabs(vangles[vm].xi)*vdAx)/0.5))+((C.fabs(vangles[vm].eta)*vdAy)/0.5))+((C.fabs(vangles[vm].mu)*vdAz)/0.5)))
             vx_faces[{(vindx+vdindx), vj, vk}].I_6[vm] = ((vpoints[{vi, vj, vk}].I_6[vm]-((1-0.5)*vupwind_x_value))/0.5)
             vy_faces[{vi, (vindy+vdindy), vk}].I_6[vm] = ((vpoints[{vi, vj, vk}].I_6[vm]-((1-0.5)*vupwind_y_value))/0.5)
             vz_faces[{vi, vj, (vindz+vdindz)}].I_6[vm] = ((vpoints[{vi, vj, vk}].I_6[vm]-((1-0.5)*vupwind_z_value))/0.5)
@@ -1261,7 +1291,7 @@ do
             else
               vupwind_z_value = vz_faces[{vi, vj, vindz}].I_7[vm]
             end
-            vpoints[{vi, vj, vk}].I_7[vm] = (((((vpoints[{vi, vj, vk}].S*vdV)+(((fabs(vangles[vm].xi)*vdAx)*vupwind_x_value)/0.5))+(((fabs(vangles[vm].eta)*vdAy)*vupwind_y_value)/0.5))+(((fabs(vangles[vm].mu)*vdAz)*vupwind_z_value)/0.5))/((((vpoints[{vi, vj, vk}].sigma*vdV)+((fabs(vangles[vm].xi)*vdAx)/0.5))+((fabs(vangles[vm].eta)*vdAy)/0.5))+((fabs(vangles[vm].mu)*vdAz)/0.5)))
+            vpoints[{vi, vj, vk}].I_7[vm] = (((((vpoints[{vi, vj, vk}].S*vdV)+(((C.fabs(vangles[vm].xi)*vdAx)*vupwind_x_value)/0.5))+(((C.fabs(vangles[vm].eta)*vdAy)*vupwind_y_value)/0.5))+(((C.fabs(vangles[vm].mu)*vdAz)*vupwind_z_value)/0.5))/((((vpoints[{vi, vj, vk}].sigma*vdV)+((C.fabs(vangles[vm].xi)*vdAx)/0.5))+((C.fabs(vangles[vm].eta)*vdAy)/0.5))+((C.fabs(vangles[vm].mu)*vdAz)/0.5)))
             vx_faces[{(vindx+vdindx), vj, vk}].I_7[vm] = ((vpoints[{vi, vj, vk}].I_7[vm]-((1-0.5)*vupwind_x_value))/0.5)
             vy_faces[{vi, (vindy+vdindy), vk}].I_7[vm] = ((vpoints[{vi, vj, vk}].I_7[vm]-((1-0.5)*vupwind_y_value))/0.5)
             vz_faces[{vi, vj, (vindz+vdindz)}].I_7[vm] = ((vpoints[{vi, vj, vk}].I_7[vm]-((1-0.5)*vupwind_z_value))/0.5)
@@ -1345,7 +1375,7 @@ do
             else
               vupwind_z_value = vz_faces[{vi, vj, vindz}].I_8[vm]
             end
-            vpoints[{vi, vj, vk}].I_8[vm] = (((((vpoints[{vi, vj, vk}].S*vdV)+(((fabs(vangles[vm].xi)*vdAx)*vupwind_x_value)/0.5))+(((fabs(vangles[vm].eta)*vdAy)*vupwind_y_value)/0.5))+(((fabs(vangles[vm].mu)*vdAz)*vupwind_z_value)/0.5))/((((vpoints[{vi, vj, vk}].sigma*vdV)+((fabs(vangles[vm].xi)*vdAx)/0.5))+((fabs(vangles[vm].eta)*vdAy)/0.5))+((fabs(vangles[vm].mu)*vdAz)/0.5)))
+            vpoints[{vi, vj, vk}].I_8[vm] = (((((vpoints[{vi, vj, vk}].S*vdV)+(((C.fabs(vangles[vm].xi)*vdAx)*vupwind_x_value)/0.5))+(((C.fabs(vangles[vm].eta)*vdAy)*vupwind_y_value)/0.5))+(((C.fabs(vangles[vm].mu)*vdAz)*vupwind_z_value)/0.5))/((((vpoints[{vi, vj, vk}].sigma*vdV)+((C.fabs(vangles[vm].xi)*vdAx)/0.5))+((C.fabs(vangles[vm].eta)*vdAy)/0.5))+((C.fabs(vangles[vm].mu)*vdAz)/0.5)))
             vx_faces[{(vindx+vdindx), vj, vk}].I_8[vm] = ((vpoints[{vi, vj, vk}].I_8[vm]-((1-0.5)*vupwind_x_value))/0.5)
             vy_faces[{vi, (vindy+vdindy), vk}].I_8[vm] = ((vpoints[{vi, vj, vk}].I_8[vm]-((1-0.5)*vupwind_y_value))/0.5)
             vz_faces[{vi, vj, (vindz+vdindz)}].I_8[vm] = ((vpoints[{vi, vj, vk}].I_8[vm]-((1-0.5)*vupwind_z_value))/0.5)
@@ -5551,11 +5581,11 @@ task work(v46 : Config)
   var v12813 = v46.particles.maxXferNum
   var v12814 = double(int32(0))
   var v12815 = int64(int32(0))
-  var v12816 = v46.Radiation.qa
-  var v12817 = v46.Radiation.qs
-  var v12818 = v46.Radiation.xNum
-  var v12819 = v46.Radiation.yNum
-  var v12820 = v46.Radiation.zNum
+  var v12816 = v46.radiation.qa
+  var v12817 = v46.radiation.qs
+  var v12818 = v46.radiation.xNum
+  var v12819 = v46.radiation.yNum
+  var v12820 = v46.radiation.zNum
   var v12821 = int32(0)
   var v12822 = int32(0)
   var v12823 = int32(0)
@@ -6657,24 +6687,6 @@ task work(v46 : Config)
       regentlib.assert(false, "Random particle initialization is disabled")
       v13261 -= 1
     end
-    var v13262 = int32((v46.particles.initCase==int32(1)))
-    while (v13262>0) do
-      var v13263 = [&int8](C.malloc(uint64(256)))
-      C.snprintf(v13263, uint64(256), "restart_particles_%d.hdf", v46.integrator.restartIter)
-      attach(hdf5, v12836.{cell, position, velocity, temperature, diameter, __valid}, v13263, uint32(0))
-      for v13264 in v12840 do
-        var v13265 = v12852[int3d(v13264)]
-        var v13266 = v12853[int3d(v13264)]
-        acquire(v13266.{cell, position, velocity, temperature, diameter, __valid})
-        copy(v13266.{cell, position, velocity, temperature, diameter, __valid}, v13265.{cell, position, velocity, temperature, diameter, __valid})
-        release(v13266.{cell, position, velocity, temperature, diameter, __valid})
-      end
-      detach(hdf5, v12836.{cell, position, velocity, temperature, diameter, __valid})
-      C.free([&opaque](v13263))
-      Particles_InitializeDensity(v12835, v12810)
-      v12815 += Particles_CalculateNumber(v12835)
-      v13262 -= 1
-    end
     var v13267 = int32((v46.particles.initCase==int32(2)))
     while (v13267>0) do
       InitParticlesUniform(v12835, v12832, v46, v12768, v12769, v12770)
@@ -6788,31 +6800,6 @@ task work(v46 : Config)
         Flow_AddGetFlux(v12832, v12789, v12786, v12785, v12791, v12790, v12787, v12794, v12793, v12792, v12788, v12768, v12739, v12730, v12769, v12740, v12731, v12770, v12741, v12732)
         Flow_AddUpdateUsingFlux(v12832, v12768, v12739, v12730, v12769, v12740, v12731, v12770, v12741, v12732)
         Flow_AddBodyForces(v12832, v12796, v12768, v12730, v12769, v12731, v12770, v12732)
-        var v13343 = int32((v46.flow.turbForcing==int32(1)))
-        while (v13343>0) do
-          v12802 = double(int32(0))
-          v12803 = double(int32(0))
-          v12804 = double(int32(0))
-          v12805 = double(int32(0))
-          Flow_UpdatePD(v12832, v12768, v12730, v12769, v12731, v12770, v12732)
-          Flow_ResetDissipation(v12832)
-          Flow_ComputeDissipationX(v12832, v12789, v12791, v12790, v12794, v12793, v12792, v12788, v12768, v12739, v12730, v12769, v12731, v12770, v12732)
-          Flow_UpdateDissipationX(v12832, v12768, v12739, v12730, v12769, v12731, v12770, v12732)
-          Flow_ComputeDissipationY(v12832, v12789, v12791, v12790, v12794, v12793, v12792, v12788, v12768, v12730, v12769, v12740, v12731, v12770, v12732)
-          Flow_UpdateDissipationY(v12832, v12768, v12730, v12769, v12740, v12731, v12770, v12732)
-          Flow_ComputeDissipationZ(v12832, v12789, v12791, v12790, v12794, v12793, v12792, v12788, v12768, v12730, v12769, v12731, v12770, v12741, v12732)
-          Flow_UpdateDissipationZ(v12832, v12768, v12730, v12769, v12731, v12770, v12741, v12732)
-          v12802 += CalculateAveragePD(v12832, v12742, v12768, v12730, v12769, v12731, v12770, v12732)
-          v12802 = (v12802/(((v12730*v12731)*v12732)*v12742))
-          v12803 += CalculateAverageDissipation(v12832, v12742, v12768, v12730, v12769, v12731, v12770, v12732)
-          v12803 = (v12803/(((v12730*v12731)*v12732)*v12742))
-          v12805 += CalculateAverageK(v12832, v12742, v12768, v12730, v12769, v12731, v12770, v12732)
-          v12805 = (v12805/(((v12730*v12731)*v12732)*v12742))
-          v12804 += Flow_AddTurbulentSource(v12832, v12803, v12805, v12802, v12742, v12768, v12730, v12769, v12731, v12770, v12732)
-          v12804 = (v12804/(((v12730*v12731)*v12732)*v12742))
-          Flow_AdjustTurbulentSource(v12832, v12804, v12768, v12730, v12769, v12731, v12770, v12732)
-          v13343 -= 1
-        end
         for v13344 in v12840 do
           Particles_LocateInCells(v12852[int3d(v13344)], v12744, v12750, v12756, v12768, v12730, v12733, v12736, v12769, v12731, v12734, v12737, v12770, v12732, v12735, v12738)
         end
@@ -6830,27 +6817,27 @@ task work(v46 : Config)
         end
         Radiation_UpdateFieldValues(v12838, v12830, v12816, v12817)
         var v13348 = int64(1)
-        var v13349 = (v46.Radiation.qs/(v46.Radiation.qa+v46.Radiation.qs))
+        var v13349 = (v46.radiation.qs/(v46.radiation.qa+v46.radiation.qs))
         while (v13327>1e-06) do
           for v13350 in v12840 do
             source_term(v13221[int3d(v13350)], v13299, v13349)
           end
           for v13351 : int32 = 0, v13269 do
             for v13352 : int32 = 0, v13270 do
-              west_bound(v13303[int3d({1, v13351, v13352})], v13306[int3d({1, v13351, v13352})], v13309[int3d({1, v13351, v13352})], v13312[int3d({1, v13351, v13352})], v13315[int3d({0, v13351, v13352})], v13318[int3d({0, v13351, v13352})], v13321[int3d({0, v13351, v13352})], v13324[int3d({0, v13351, v13352})], v13299, v46.Radiation.emissWest, v46.Radiation.tempWest)
-              east_bound(v13303[int3d({v13268, v13351, v13352})], v13306[int3d({v13268, v13351, v13352})], v13309[int3d({v13268, v13351, v13352})], v13312[int3d({v13268, v13351, v13352})], v13315[int3d({(v13268-1), v13351, v13352})], v13318[int3d({(v13268-1), v13351, v13352})], v13321[int3d({(v13268-1), v13351, v13352})], v13324[int3d({(v13268-1), v13351, v13352})], v13299, v46.Radiation.emissEast, v46.Radiation.tempEast)
+              west_bound(v13303[int3d({1, v13351, v13352})], v13306[int3d({1, v13351, v13352})], v13309[int3d({1, v13351, v13352})], v13312[int3d({1, v13351, v13352})], v13315[int3d({0, v13351, v13352})], v13318[int3d({0, v13351, v13352})], v13321[int3d({0, v13351, v13352})], v13324[int3d({0, v13351, v13352})], v13299, v46.radiation.emissWest, v46.radiation.tempWest)
+              east_bound(v13303[int3d({v13268, v13351, v13352})], v13306[int3d({v13268, v13351, v13352})], v13309[int3d({v13268, v13351, v13352})], v13312[int3d({v13268, v13351, v13352})], v13315[int3d({(v13268-1), v13351, v13352})], v13318[int3d({(v13268-1), v13351, v13352})], v13321[int3d({(v13268-1), v13351, v13352})], v13324[int3d({(v13268-1), v13351, v13352})], v13299, v46.radiation.emissEast, v46.radiation.tempEast)
             end
           end
           for v13353 : int32 = 0, v13268 do
             for v13354 : int32 = 0, v13270 do
-              south_bound(v13304[int3d({v13353, 1, v13354})], v13307[int3d({v13353, 1, v13354})], v13310[int3d({v13353, 0, v13354})], v13313[int3d({v13353, 0, v13354})], v13316[int3d({v13353, 1, v13354})], v13319[int3d({v13353, 1, v13354})], v13322[int3d({v13353, 0, v13354})], v13325[int3d({v13353, 0, v13354})], v13299, v46.Radiation.emissSouth, v46.Radiation.tempSouth)
-              north_bound(v13304[int3d({v13353, v13269, v13354})], v13307[int3d({v13353, v13269, v13354})], v13310[int3d({v13353, (v13269-1), v13354})], v13313[int3d({v13353, (v13269-1), v13354})], v13316[int3d({v13353, v13269, v13354})], v13319[int3d({v13353, v13269, v13354})], v13322[int3d({v13353, (v13269-1), v13354})], v13325[int3d({v13353, (v13269-1), v13354})], v13299, v46.Radiation.emissNorth, v46.Radiation.tempNorth)
+              south_bound(v13304[int3d({v13353, 1, v13354})], v13307[int3d({v13353, 1, v13354})], v13310[int3d({v13353, 0, v13354})], v13313[int3d({v13353, 0, v13354})], v13316[int3d({v13353, 1, v13354})], v13319[int3d({v13353, 1, v13354})], v13322[int3d({v13353, 0, v13354})], v13325[int3d({v13353, 0, v13354})], v13299, v46.radiation.emissSouth, v46.radiation.tempSouth)
+              north_bound(v13304[int3d({v13353, v13269, v13354})], v13307[int3d({v13353, v13269, v13354})], v13310[int3d({v13353, (v13269-1), v13354})], v13313[int3d({v13353, (v13269-1), v13354})], v13316[int3d({v13353, v13269, v13354})], v13319[int3d({v13353, v13269, v13354})], v13322[int3d({v13353, (v13269-1), v13354})], v13325[int3d({v13353, (v13269-1), v13354})], v13299, v46.radiation.emissNorth, v46.radiation.tempNorth)
             end
           end
           for v13355 : int32 = 0, v13268 do
             for v13356 : int32 = 0, v13269 do
-              up_bound(v13305[int3d({v13355, v13356, 1})], v13308[int3d({v13355, v13356, 0})], v13311[int3d({v13355, v13356, 1})], v13314[int3d({v13355, v13356, 0})], v13317[int3d({v13355, v13356, 1})], v13320[int3d({v13355, v13356, 0})], v13323[int3d({v13355, v13356, 1})], v13326[int3d({v13355, v13356, 0})], v13299, v46.Radiation.emissUp, v46.Radiation.tempUp)
-              down_bound(v13305[int3d({v13355, v13356, v13270})], v13308[int3d({v13355, v13356, (v13270-1)})], v13311[int3d({v13355, v13356, v13270})], v13314[int3d({v13355, v13356, (v13270-1)})], v13317[int3d({v13355, v13356, v13270})], v13320[int3d({v13355, v13356, (v13270-1)})], v13323[int3d({v13355, v13356, v13270})], v13326[int3d({v13355, v13356, (v13270-1)})], v13299, v46.Radiation.emissDown, v46.Radiation.tempDown)
+              up_bound(v13305[int3d({v13355, v13356, 1})], v13308[int3d({v13355, v13356, 0})], v13311[int3d({v13355, v13356, 1})], v13314[int3d({v13355, v13356, 0})], v13317[int3d({v13355, v13356, 1})], v13320[int3d({v13355, v13356, 0})], v13323[int3d({v13355, v13356, 1})], v13326[int3d({v13355, v13356, 0})], v13299, v46.radiation.emissUp, v46.radiation.tempUp)
+              down_bound(v13305[int3d({v13355, v13356, v13270})], v13308[int3d({v13355, v13356, (v13270-1)})], v13311[int3d({v13355, v13356, v13270})], v13314[int3d({v13355, v13356, (v13270-1)})], v13317[int3d({v13355, v13356, v13270})], v13320[int3d({v13355, v13356, (v13270-1)})], v13323[int3d({v13355, v13356, v13270})], v13326[int3d({v13355, v13356, (v13270-1)})], v13299, v46.radiation.emissDown, v46.radiation.tempDown)
             end
           end
           for v13357 : int32 = 0, v13268 do
@@ -6913,7 +6900,7 @@ task work(v46 : Config)
           for v13381 in v12840 do
             v13327 += residual(v13221[int3d(v13381)], v12818, v12819, v12820)
           end
-          v13327 = sqrt(v13327)
+          v13327 = C.sqrt(v13327)
           for v13382 in v12840 do
             update(v13221[int3d(v13382)])
           end
@@ -6932,7 +6919,7 @@ task work(v46 : Config)
         for v13384 in v12840 do
           Particles_AbsorbRadiation(v12852[int3d(v13384)], v12844[int3d(v13384)], v13221[int3d(v13384)], v12809, v12816)
         end
-        Flow_AddParticlesCoupling(v12835, v12832, v12742)
+        -- Flow_AddParticlesCoupling(v12835, v12832, v12742)
         Flow_UpdateVars(v12832, v12780, v12781)
         Particles_UpdateVars(v12835, v12780, v12781)
         Flow_UpdateAuxiliaryVelocity(v12832, v12768, v12730, v12769, v12731, v12770, v12732)
