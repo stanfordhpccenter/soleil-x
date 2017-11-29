@@ -78,14 +78,7 @@ local struct angle {
 A.registerStruct(angle)
 
 local struct face {
-  I_1 : double[NUM_ANGLES],
-  I_2 : double[NUM_ANGLES],
-  I_3 : double[NUM_ANGLES],
-  I_4 : double[NUM_ANGLES],
-  I_5 : double[NUM_ANGLES],
-  I_6 : double[NUM_ANGLES],
-  I_7 : double[NUM_ANGLES],
-  I_8 : double[NUM_ANGLES],
+  I : double[NUM_ANGLES],
 }
 A.registerStruct(face)
 
@@ -377,8 +370,8 @@ local task west_bound(faces_1 : region(ispace(int3d), face),
                       tempWest : double)
 where
   reads (angles.{w, xi, eta, mu}),
-  reads writes (faces_1.I_1, faces_2.I_2, faces_3.I_3, faces_4.I_4,
-                faces_5.I_5, faces_6.I_6, faces_7.I_7, faces_8.I_8)
+  reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
+                faces_5.I, faces_6.I, faces_7.I, faces_8.I)
 do
 
   -- Get array bounds
@@ -401,13 +394,13 @@ do
         if angles[m].xi < 0 then
           var face_value : double = 0.0
           if angles[m].eta > 0 and angles[m].mu > 0 then
-            face_value = faces_5[{limits.lo.x,j,k}].I_5[m]
+            face_value = faces_5[{limits.lo.x,j,k}].I[m]
           elseif angles[m].eta > 0 and angles[m].mu < 0 then
-            face_value = faces_6[{limits.lo.x,j,k}].I_6[m]
+            face_value = faces_6[{limits.lo.x,j,k}].I[m]
           elseif angles[m].eta < 0 and angles[m].mu > 0 then
-            face_value = faces_7[{limits.lo.x,j,k}].I_7[m]
+            face_value = faces_7[{limits.lo.x,j,k}].I[m]
           else
-            face_value = faces_8[{limits.lo.x,j,k}].I_8[m]
+            face_value = faces_8[{limits.lo.x,j,k}].I[m]
           end
           reflect += (1.0-epsw)/pi*angles[m].w*cmath.fabs(angles[m].xi)*face_value
         end
@@ -420,13 +413,13 @@ do
           var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
 
           if angles[m].eta > 0 and angles[m].mu > 0 then
-            faces_1[{limits.lo.x,j,k}].I_1[m] = value
+            faces_1[{limits.lo.x,j,k}].I[m] = value
           elseif angles[m].eta > 0 and angles[m].mu < 0 then
-            faces_2[{limits.lo.x,j,k}].I_2[m] = value
+            faces_2[{limits.lo.x,j,k}].I[m] = value
           elseif angles[m].eta < 0 and angles[m].mu > 0 then
-            faces_3[{limits.lo.x,j,k}].I_3[m] = value
+            faces_3[{limits.lo.x,j,k}].I[m] = value
           else
-            faces_4[{limits.lo.x,j,k}].I_4[m] = value
+            faces_4[{limits.lo.x,j,k}].I[m] = value
           end
         end
       end
@@ -450,8 +443,8 @@ local task east_bound(faces_1 : region(ispace(int3d), face),
                       tempEast : double)
 where
   reads (angles.{w, xi, eta, mu}),
-  reads writes (faces_1.I_1, faces_2.I_2, faces_3.I_3, faces_4.I_4,
-                faces_5.I_5, faces_6.I_6, faces_7.I_7, faces_8.I_8)
+  reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
+                faces_5.I, faces_6.I, faces_7.I, faces_8.I)
 do
 
   -- Get array bounds
@@ -474,13 +467,13 @@ do
         if angles[m].xi > 0 then
           var face_value : double = 0.0
           if angles[m].eta > 0 and angles[m].mu > 0 then
-            face_value = faces_1[{limits.hi.x,j,k}].I_1[m]
+            face_value = faces_1[{limits.hi.x,j,k}].I[m]
           elseif angles[m].eta > 0 and angles[m].mu < 0 then
-            face_value = faces_2[{limits.hi.x,j,k}].I_2[m]
+            face_value = faces_2[{limits.hi.x,j,k}].I[m]
           elseif angles[m].eta < 0 and angles[m].mu > 0 then
-            face_value = faces_3[{limits.hi.x,j,k}].I_3[m]
+            face_value = faces_3[{limits.hi.x,j,k}].I[m]
           else
-            face_value = faces_4[{limits.hi.x,j,k}].I_4[m]
+            face_value = faces_4[{limits.hi.x,j,k}].I[m]
           end
           reflect += (1.0-epsw)/pi*angles[m].w*angles[m].xi*face_value
         end
@@ -493,13 +486,13 @@ do
           var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
 
           if angles[m].eta > 0 and angles[m].mu > 0 then
-            faces_5[{limits.hi.x,j,k}].I_5[m] = value
+            faces_5[{limits.hi.x,j,k}].I[m] = value
           elseif angles[m].eta > 0 and angles[m].mu < 0 then
-            faces_6[{limits.hi.x,j,k}].I_6[m] = value
+            faces_6[{limits.hi.x,j,k}].I[m] = value
           elseif angles[m].eta < 0 and angles[m].mu > 0 then
-            faces_7[{limits.hi.x,j,k}].I_7[m] = value
+            faces_7[{limits.hi.x,j,k}].I[m] = value
           else
-            faces_8[{limits.hi.x,j,k}].I_8[m] = value
+            faces_8[{limits.hi.x,j,k}].I[m] = value
           end
         end
       end
@@ -523,8 +516,8 @@ local task north_bound(faces_1 : region(ispace(int3d), face),
                        tempNorth : double)
 where
   reads (angles.{w, xi, eta, mu}),
-  reads writes (faces_1.I_1, faces_2.I_2, faces_3.I_3, faces_4.I_4,
-                faces_5.I_5, faces_6.I_6, faces_7.I_7, faces_8.I_8)
+  reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
+                faces_5.I, faces_6.I, faces_7.I, faces_8.I)
 do
 
   -- Get array bounds
@@ -547,13 +540,13 @@ do
         if angles[m].eta > 0 then
           var face_value : double = 0.0
           if angles[m].xi > 0 and angles[m].mu > 0 then
-            face_value = faces_1[{i,limits.hi.y,k}].I_1[m]
+            face_value = faces_1[{i,limits.hi.y,k}].I[m]
           elseif angles[m].xi > 0 and angles[m].mu < 0 then
-            face_value = faces_2[{i,limits.hi.y,k}].I_2[m]
+            face_value = faces_2[{i,limits.hi.y,k}].I[m]
           elseif angles[m].xi < 0 and angles[m].mu > 0 then
-            face_value = faces_5[{i,limits.hi.y,k}].I_5[m]
+            face_value = faces_5[{i,limits.hi.y,k}].I[m]
           else
-            face_value = faces_6[{i,limits.hi.y,k}].I_6[m]
+            face_value = faces_6[{i,limits.hi.y,k}].I[m]
           end
           reflect += (1.0-epsw)/pi*angles[m].w*angles[m].eta*face_value
         end
@@ -566,13 +559,13 @@ do
           var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
 
           if angles[m].xi > 0 and angles[m].mu > 0 then
-            faces_3[{i,limits.hi.y,k}].I_3[m] = value
+            faces_3[{i,limits.hi.y,k}].I[m] = value
           elseif angles[m].xi > 0 and angles[m].mu < 0 then
-            faces_4[{i,limits.hi.y,k}].I_4[m] = value
+            faces_4[{i,limits.hi.y,k}].I[m] = value
           elseif angles[m].xi < 0 and angles[m].mu > 0 then
-            faces_7[{i,limits.hi.y,k}].I_7[m] = value
+            faces_7[{i,limits.hi.y,k}].I[m] = value
           else
-            faces_8[{i,limits.hi.y,k}].I_8[m] = value
+            faces_8[{i,limits.hi.y,k}].I[m] = value
           end
         end
       end
@@ -596,8 +589,8 @@ local task south_bound(faces_1 : region(ispace(int3d), face),
                        tempSouth : double)
 where
   reads (angles.{w, xi, eta, mu}),
-  reads writes (faces_1.I_1, faces_2.I_2, faces_3.I_3, faces_4.I_4,
-                faces_5.I_5, faces_6.I_6, faces_7.I_7, faces_8.I_8)
+  reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
+                faces_5.I, faces_6.I, faces_7.I, faces_8.I)
 do
 
   -- Get array bounds
@@ -620,13 +613,13 @@ do
         if angles[m].eta < 0 then
           var face_value : double = 0.0
           if angles[m].xi > 0 and angles[m].mu > 0 then
-            face_value = faces_3[{i,limits.lo.y,k}].I_3[m]
+            face_value = faces_3[{i,limits.lo.y,k}].I[m]
           elseif angles[m].xi > 0 and angles[m].mu < 0 then
-            face_value = faces_4[{i,limits.lo.y,k}].I_4[m]
+            face_value = faces_4[{i,limits.lo.y,k}].I[m]
           elseif angles[m].xi < 0 and angles[m].mu > 0 then
-            face_value = faces_7[{i,limits.lo.y,k}].I_7[m]
+            face_value = faces_7[{i,limits.lo.y,k}].I[m]
           else
-            face_value = faces_8[{i,limits.lo.y,k}].I_8[m]
+            face_value = faces_8[{i,limits.lo.y,k}].I[m]
           end
           reflect += (1.0-epsw)/pi*angles[m].w*cmath.fabs(angles[m].eta)*face_value
         end
@@ -639,13 +632,13 @@ do
           var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
 
           if angles[m].xi > 0 and angles[m].mu > 0 then
-            faces_1[{i,limits.lo.y,k}].I_1[m] = value
+            faces_1[{i,limits.lo.y,k}].I[m] = value
           elseif angles[m].xi > 0 and angles[m].mu < 0 then
-            faces_2[{i,limits.lo.y,k}].I_2[m] = value
+            faces_2[{i,limits.lo.y,k}].I[m] = value
           elseif angles[m].xi < 0 and angles[m].mu > 0 then
-            faces_5[{i,limits.lo.y,k}].I_5[m] = value
+            faces_5[{i,limits.lo.y,k}].I[m] = value
           else
-            faces_6[{i,limits.lo.y,k}].I_6[m] = value
+            faces_6[{i,limits.lo.y,k}].I[m] = value
           end
         end
       end
@@ -669,8 +662,8 @@ local task up_bound(faces_1 : region(ispace(int3d), face),
                     tempUp : double)
 where
   reads (angles.{w, xi, eta, mu}),
-  reads writes (faces_1.I_1, faces_2.I_2, faces_3.I_3, faces_4.I_4,
-                faces_5.I_5, faces_6.I_6, faces_7.I_7, faces_8.I_8)
+  reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
+                faces_5.I, faces_6.I, faces_7.I, faces_8.I)
 do
 
   -- Get array bounds
@@ -693,13 +686,13 @@ do
         if angles[m].mu < 0 then
           var face_value : double = 0.0
           if angles[m].xi > 0 and angles[m].eta > 0 then
-            face_value = faces_2[{i,j,limits.lo.z}].I_2[m]
+            face_value = faces_2[{i,j,limits.lo.z}].I[m]
           elseif angles[m].xi > 0 and angles[m].eta < 0 then
-            face_value = faces_4[{i,j,limits.lo.z}].I_4[m]
+            face_value = faces_4[{i,j,limits.lo.z}].I[m]
           elseif angles[m].xi < 0 and angles[m].eta > 0 then
-            face_value = faces_6[{i,j,limits.lo.z}].I_6[m]
+            face_value = faces_6[{i,j,limits.lo.z}].I[m]
           else
-            face_value = faces_8[{i,j,limits.lo.z}].I_8[m]
+            face_value = faces_8[{i,j,limits.lo.z}].I[m]
           end
           reflect += (1.0-epsw)/pi*angles[m].w*cmath.fabs(angles[m].mu)*face_value
         end
@@ -712,13 +705,13 @@ do
           var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
 
           if angles[m].xi > 0 and angles[m].eta > 0 then
-            faces_1[{i,j,limits.lo.z}].I_1[m] = value
+            faces_1[{i,j,limits.lo.z}].I[m] = value
           elseif angles[m].xi > 0 and angles[m].eta < 0 then
-            faces_3[{i,j,limits.lo.z}].I_3[m] = value
+            faces_3[{i,j,limits.lo.z}].I[m] = value
           elseif angles[m].xi < 0 and angles[m].eta > 0 then
-            faces_5[{i,j,limits.lo.z}].I_5[m] = value
+            faces_5[{i,j,limits.lo.z}].I[m] = value
           else
-            faces_7[{i,j,limits.lo.z}].I_7[m] = value
+            faces_7[{i,j,limits.lo.z}].I[m] = value
           end
         end
       end
@@ -742,8 +735,8 @@ local task down_bound(faces_1 : region(ispace(int3d), face),
                       tempDown : double)
 where
   reads (angles.{w, xi, eta, mu}),
-  reads writes (faces_1.I_1, faces_2.I_2, faces_3.I_3, faces_4.I_4,
-                faces_5.I_5, faces_6.I_6, faces_7.I_7, faces_8.I_8)
+  reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
+                faces_5.I, faces_6.I, faces_7.I, faces_8.I)
 do
 
   -- Get array bounds
@@ -766,13 +759,13 @@ do
         if angles[m].mu > 0 then
           var face_value : double = 0.0
           if angles[m].xi > 0 and angles[m].eta > 0 then
-            face_value = faces_1[{i,j,limits.hi.z}].I_1[m]
+            face_value = faces_1[{i,j,limits.hi.z}].I[m]
           elseif angles[m].xi > 0 and angles[m].eta < 0 then
-            face_value = faces_3[{i,j,limits.hi.z}].I_3[m]
+            face_value = faces_3[{i,j,limits.hi.z}].I[m]
           elseif angles[m].xi < 0 and angles[m].eta > 0 then
-            face_value = faces_5[{i,j,limits.hi.z}].I_5[m]
+            face_value = faces_5[{i,j,limits.hi.z}].I[m]
           else
-            face_value = faces_7[{i,j,limits.hi.z}].I_7[m]
+            face_value = faces_7[{i,j,limits.hi.z}].I[m]
           end
           reflect += (1.0-epsw)/pi*angles[m].w*angles[m].mu*face_value
         end
@@ -785,13 +778,13 @@ do
           var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
 
           if angles[m].xi > 0 and angles[m].eta > 0 then
-            faces_2[{i,j,limits.hi.z}].I_2[m] = value
+            faces_2[{i,j,limits.hi.z}].I[m] = value
           elseif angles[m].xi > 0 and angles[m].eta < 0 then
-            faces_4[{i,j,limits.hi.z}].I_4[m] = value
+            faces_4[{i,j,limits.hi.z}].I[m] = value
           elseif angles[m].xi < 0 and angles[m].eta > 0 then
-            faces_6[{i,j,limits.hi.z}].I_6[m] = value
+            faces_6[{i,j,limits.hi.z}].I[m] = value
           else
-            faces_8[{i,j,limits.hi.z}].I_8[m] = value
+            faces_8[{i,j,limits.hi.z}].I[m] = value
           end
         end
       end
@@ -812,8 +805,8 @@ local task sweep_1(points : pointsType,
                    dx : double, dy : double, dz : double)
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
-         ghost_x_faces.I_1, ghost_y_faces.I_1, ghost_z_faces.I_1),
-  reads writes(points.I_1, x_faces.I_1, y_faces.I_1, z_faces.I_1)
+         ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
+  reads writes(points.I_1, x_faces.I, y_faces.I, z_faces.I)
 do
   var dAx = dy*dz;
   var dAy = dx*dz;
@@ -878,31 +871,31 @@ do
             var ghost_x_limits = ghost_x_faces.bounds
             var upwind_x_value : double = 0.0
             if indx < x_faces.bounds.lo.x then
-              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I_1[m]
+              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I[m]
             elseif indx > x_faces.bounds.hi.x then
-              upwind_x_value = ghost_x_faces[{ghost_x_limits.lo.x,j,k}].I_1[m]
+              upwind_x_value = ghost_x_faces[{ghost_x_limits.lo.x,j,k}].I[m]
             else
-              upwind_x_value = x_faces[{indx,j,k}].I_1[m]
+              upwind_x_value = x_faces[{indx,j,k}].I[m]
             end
 
             var ghost_y_limits = ghost_y_faces.bounds
             var upwind_y_value : double = 0.0
             if indy < y_faces.bounds.lo.y then
-              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y,k}].I_1[m]
+              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y,k}].I[m]
             elseif indy > y_faces.bounds.hi.y then
-              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.lo.y,k}].I_1[m]
+              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.lo.y,k}].I[m]
             else
-              upwind_y_value = y_faces[{i,indy,k}].I_1[m]
+              upwind_y_value = y_faces[{i,indy,k}].I[m]
             end
 
             var ghost_z_limits = ghost_z_faces.bounds
             var upwind_z_value : double = 0.0
             if indz < z_faces.bounds.lo.z then
-              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.hi.z}].I_1[m]
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.hi.z}].I[m]
             elseif indz > z_faces.bounds.hi.z then
-              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.lo.z}].I_1[m]
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.lo.z}].I[m]
             else
-              upwind_z_value = z_faces[{i,j,indz}].I_1[m]
+              upwind_z_value = z_faces[{i,j,indz}].I[m]
             end
 
             -- Integrate to compute cell-centered value of I.
@@ -918,9 +911,9 @@ do
 
             -- Compute intensities on downwind faces
 
-            x_faces[{indx+dindx, j, k}].I_1[m] = (points[{i,j,k}].I_1[m] - (1-gamma)*upwind_x_value)/gamma
-            y_faces[{i, indy+dindy, k}].I_1[m] = (points[{i,j,k}].I_1[m] - (1-gamma)*upwind_y_value)/gamma
-            z_faces[{i, j, indz+dindz}].I_1[m] = (points[{i,j,k}].I_1[m] - (1-gamma)*upwind_z_value)/gamma
+            x_faces[{indx+dindx, j, k}].I[m] = (points[{i,j,k}].I_1[m] - (1-gamma)*upwind_x_value)/gamma
+            y_faces[{i, indy+dindy, k}].I[m] = (points[{i,j,k}].I_1[m] - (1-gamma)*upwind_y_value)/gamma
+            z_faces[{i, j, indz+dindz}].I[m] = (points[{i,j,k}].I_1[m] - (1-gamma)*upwind_z_value)/gamma
           end
         end
       end
@@ -941,8 +934,8 @@ local task sweep_2(points : pointsType,
                    dx : double, dy : double, dz : double)
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
-         ghost_x_faces.I_2, ghost_y_faces.I_2, ghost_z_faces.I_2),
-  reads writes(points.I_2, x_faces.I_2, y_faces.I_2, z_faces.I_2)
+         ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
+  reads writes(points.I_2, x_faces.I, y_faces.I, z_faces.I)
 do
   var dAx = dy*dz;
   var dAy = dx*dz;
@@ -1007,31 +1000,31 @@ do
             var ghost_x_limits = ghost_x_faces.bounds
             var upwind_x_value : double = 0.0
             if indx < x_faces.bounds.lo.x then
-              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I_2[m]
+              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I[m]
             elseif indx > x_faces.bounds.hi.x then
-              upwind_x_value = ghost_x_faces[{ghost_x_limits.lo.x,j,k}].I_2[m]
+              upwind_x_value = ghost_x_faces[{ghost_x_limits.lo.x,j,k}].I[m]
             else
-              upwind_x_value = x_faces[{indx,j,k}].I_2[m]
+              upwind_x_value = x_faces[{indx,j,k}].I[m]
             end
 
             var ghost_y_limits = ghost_y_faces.bounds
             var upwind_y_value : double = 0.0
             if indy < y_faces.bounds.lo.y then
-              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y,k}].I_2[m]
+              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y,k}].I[m]
             elseif indy > y_faces.bounds.hi.y then
-              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.lo.y,k}].I_2[m]
+              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.lo.y,k}].I[m]
             else
-              upwind_y_value = y_faces[{i,indy,k}].I_2[m]
+              upwind_y_value = y_faces[{i,indy,k}].I[m]
             end
 
             var ghost_z_limits = ghost_z_faces.bounds
             var upwind_z_value : double = 0.0
             if indz < z_faces.bounds.lo.z then
-              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.hi.z}].I_2[m]
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.hi.z}].I[m]
             elseif indz > z_faces.bounds.hi.z then
-              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.lo.z}].I_2[m]
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.lo.z}].I[m]
             else
-              upwind_z_value = z_faces[{i,j,indz}].I_2[m]
+              upwind_z_value = z_faces[{i,j,indz}].I[m]
             end
 
             -- Integrate to compute cell-centered value of I.
@@ -1047,9 +1040,9 @@ do
 
             -- Compute intensities on downwind faces
 
-            x_faces[{indx+dindx, j, k}].I_2[m] = (points[{i,j,k}].I_2[m] - (1-gamma)*upwind_x_value)/gamma
-            y_faces[{i, indy+dindy, k}].I_2[m] = (points[{i,j,k}].I_2[m] - (1-gamma)*upwind_y_value)/gamma
-            z_faces[{i, j, indz+dindz}].I_2[m] = (points[{i,j,k}].I_2[m] - (1-gamma)*upwind_z_value)/gamma
+            x_faces[{indx+dindx, j, k}].I[m] = (points[{i,j,k}].I_2[m] - (1-gamma)*upwind_x_value)/gamma
+            y_faces[{i, indy+dindy, k}].I[m] = (points[{i,j,k}].I_2[m] - (1-gamma)*upwind_y_value)/gamma
+            z_faces[{i, j, indz+dindz}].I[m] = (points[{i,j,k}].I_2[m] - (1-gamma)*upwind_z_value)/gamma
           end
         end
       end
@@ -1070,8 +1063,8 @@ local task sweep_3(points : pointsType,
                    dx : double, dy : double, dz : double)
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
-         ghost_x_faces.I_3, ghost_y_faces.I_3, ghost_z_faces.I_3),
-  reads writes(points.I_3, x_faces.I_3, y_faces.I_3, z_faces.I_3)
+         ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
+  reads writes(points.I_3, x_faces.I, y_faces.I, z_faces.I)
 do
   var dAx = dy*dz;
   var dAy = dx*dz;
@@ -1136,31 +1129,31 @@ do
             var ghost_x_limits = ghost_x_faces.bounds
             var upwind_x_value : double = 0.0
             if indx < x_faces.bounds.lo.x then
-              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I_3[m]
+              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I[m]
             elseif indx > x_faces.bounds.hi.x then
-              upwind_x_value = ghost_x_faces[{ghost_x_limits.lo.x,j,k}].I_3[m]
+              upwind_x_value = ghost_x_faces[{ghost_x_limits.lo.x,j,k}].I[m]
             else
-              upwind_x_value = x_faces[{indx,j,k}].I_3[m]
+              upwind_x_value = x_faces[{indx,j,k}].I[m]
             end
 
             var ghost_y_limits = ghost_y_faces.bounds
             var upwind_y_value : double = 0.0
             if indy < y_faces.bounds.lo.y then
-              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y,k}].I_3[m]
+              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y,k}].I[m]
             elseif indy > y_faces.bounds.hi.y then
-              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.lo.y,k}].I_3[m]
+              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.lo.y,k}].I[m]
             else
-              upwind_y_value = y_faces[{i,indy,k}].I_3[m]
+              upwind_y_value = y_faces[{i,indy,k}].I[m]
             end
 
             var ghost_z_limits = ghost_z_faces.bounds
             var upwind_z_value : double = 0.0
             if indz < z_faces.bounds.lo.z then
-              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.hi.z}].I_3[m]
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.hi.z}].I[m]
             elseif indz > z_faces.bounds.hi.z then
-              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.lo.z}].I_3[m]
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.lo.z}].I[m]
             else
-              upwind_z_value = z_faces[{i,j,indz}].I_3[m]
+              upwind_z_value = z_faces[{i,j,indz}].I[m]
             end
 
             -- Integrate to compute cell-centered value of I.
@@ -1176,9 +1169,9 @@ do
 
             -- Compute intensities on downwind faces
 
-            x_faces[{indx+dindx, j, k}].I_3[m] = (points[{i,j,k}].I_3[m] - (1-gamma)*upwind_x_value)/gamma
-            y_faces[{i, indy+dindy, k}].I_3[m] = (points[{i,j,k}].I_3[m] - (1-gamma)*upwind_y_value)/gamma
-            z_faces[{i, j, indz+dindz}].I_3[m] = (points[{i,j,k}].I_3[m] - (1-gamma)*upwind_z_value)/gamma
+            x_faces[{indx+dindx, j, k}].I[m] = (points[{i,j,k}].I_3[m] - (1-gamma)*upwind_x_value)/gamma
+            y_faces[{i, indy+dindy, k}].I[m] = (points[{i,j,k}].I_3[m] - (1-gamma)*upwind_y_value)/gamma
+            z_faces[{i, j, indz+dindz}].I[m] = (points[{i,j,k}].I_3[m] - (1-gamma)*upwind_z_value)/gamma
           end
         end
       end
@@ -1199,8 +1192,8 @@ local task sweep_4(points : pointsType,
                    dx : double, dy : double, dz : double)
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
-         ghost_x_faces.I_4, ghost_y_faces.I_4, ghost_z_faces.I_4),
-  reads writes(points.I_4, x_faces.I_4, y_faces.I_4, z_faces.I_4)
+         ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
+  reads writes(points.I_4, x_faces.I, y_faces.I, z_faces.I)
 do
   var dAx = dy*dz;
   var dAy = dx*dz;
@@ -1265,31 +1258,31 @@ do
             var ghost_x_limits = ghost_x_faces.bounds
             var upwind_x_value : double = 0.0
             if indx < x_faces.bounds.lo.x then
-              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I_4[m]
+              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I[m]
             elseif indx > x_faces.bounds.hi.x then
-              upwind_x_value = ghost_x_faces[{ghost_x_limits.lo.x,j,k}].I_4[m]
+              upwind_x_value = ghost_x_faces[{ghost_x_limits.lo.x,j,k}].I[m]
             else
-              upwind_x_value = x_faces[{indx,j,k}].I_4[m]
+              upwind_x_value = x_faces[{indx,j,k}].I[m]
             end
 
             var ghost_y_limits = ghost_y_faces.bounds
             var upwind_y_value : double = 0.0
             if indy < y_faces.bounds.lo.y then
-              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y,k}].I_4[m]
+              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y,k}].I[m]
             elseif indy > y_faces.bounds.hi.y then
-              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.lo.y,k}].I_4[m]
+              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.lo.y,k}].I[m]
             else
-              upwind_y_value = y_faces[{i,indy,k}].I_4[m]
+              upwind_y_value = y_faces[{i,indy,k}].I[m]
             end
 
             var ghost_z_limits = ghost_z_faces.bounds
             var upwind_z_value : double = 0.0
             if indz < z_faces.bounds.lo.z then
-              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.hi.z}].I_4[m]
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.hi.z}].I[m]
             elseif indz > z_faces.bounds.hi.z then
-              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.lo.z}].I_4[m]
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.lo.z}].I[m]
             else
-              upwind_z_value = z_faces[{i,j,indz}].I_4[m]
+              upwind_z_value = z_faces[{i,j,indz}].I[m]
             end
 
             -- Integrate to compute cell-centered value of I.
@@ -1305,9 +1298,9 @@ do
 
             -- Compute intensities on downwind faces
 
-            x_faces[{indx+dindx, j, k}].I_4[m] = (points[{i,j,k}].I_4[m] - (1-gamma)*upwind_x_value)/gamma
-            y_faces[{i, indy+dindy, k}].I_4[m] = (points[{i,j,k}].I_4[m] - (1-gamma)*upwind_y_value)/gamma
-            z_faces[{i, j, indz+dindz}].I_4[m] = (points[{i,j,k}].I_4[m] - (1-gamma)*upwind_z_value)/gamma
+            x_faces[{indx+dindx, j, k}].I[m] = (points[{i,j,k}].I_4[m] - (1-gamma)*upwind_x_value)/gamma
+            y_faces[{i, indy+dindy, k}].I[m] = (points[{i,j,k}].I_4[m] - (1-gamma)*upwind_y_value)/gamma
+            z_faces[{i, j, indz+dindz}].I[m] = (points[{i,j,k}].I_4[m] - (1-gamma)*upwind_z_value)/gamma
           end
         end
       end
@@ -1328,8 +1321,8 @@ local task sweep_5(points : pointsType,
                    dx : double, dy : double, dz : double)
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
-         ghost_x_faces.I_5, ghost_y_faces.I_5, ghost_z_faces.I_5),
-  reads writes(points.I_5, x_faces.I_5, y_faces.I_5, z_faces.I_5)
+         ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
+  reads writes(points.I_5, x_faces.I, y_faces.I, z_faces.I)
 do
   var dAx = dy*dz;
   var dAy = dx*dz;
@@ -1394,31 +1387,31 @@ do
             var ghost_x_limits = ghost_x_faces.bounds
             var upwind_x_value : double = 0.0
             if indx < x_faces.bounds.lo.x then
-              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I_5[m]
+              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I[m]
             elseif indx > x_faces.bounds.hi.x then
-              upwind_x_value = ghost_x_faces[{ghost_x_limits.lo.x,j,k}].I_5[m]
+              upwind_x_value = ghost_x_faces[{ghost_x_limits.lo.x,j,k}].I[m]
             else
-              upwind_x_value = x_faces[{indx,j,k}].I_5[m]
+              upwind_x_value = x_faces[{indx,j,k}].I[m]
             end
 
             var ghost_y_limits = ghost_y_faces.bounds
             var upwind_y_value : double = 0.0
             if indy < y_faces.bounds.lo.y then
-              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y,k}].I_5[m]
+              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y,k}].I[m]
             elseif indy > y_faces.bounds.hi.y then
-              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.lo.y,k}].I_5[m]
+              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.lo.y,k}].I[m]
             else
-              upwind_y_value = y_faces[{i,indy,k}].I_5[m]
+              upwind_y_value = y_faces[{i,indy,k}].I[m]
             end
 
             var ghost_z_limits = ghost_z_faces.bounds
             var upwind_z_value : double = 0.0
             if indz < z_faces.bounds.lo.z then
-              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.hi.z}].I_5[m]
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.hi.z}].I[m]
             elseif indz > z_faces.bounds.hi.z then
-              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.lo.z}].I_5[m]
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.lo.z}].I[m]
             else
-              upwind_z_value = z_faces[{i,j,indz}].I_5[m]
+              upwind_z_value = z_faces[{i,j,indz}].I[m]
             end
 
             -- Integrate to compute cell-centered value of I.
@@ -1434,9 +1427,9 @@ do
 
             -- Compute intensities on downwind faces
 
-            x_faces[{indx+dindx, j, k}].I_5[m] = (points[{i,j,k}].I_5[m] - (1-gamma)*upwind_x_value)/gamma
-            y_faces[{i, indy+dindy, k}].I_5[m] = (points[{i,j,k}].I_5[m] - (1-gamma)*upwind_y_value)/gamma
-            z_faces[{i, j, indz+dindz}].I_5[m] = (points[{i,j,k}].I_5[m] - (1-gamma)*upwind_z_value)/gamma
+            x_faces[{indx+dindx, j, k}].I[m] = (points[{i,j,k}].I_5[m] - (1-gamma)*upwind_x_value)/gamma
+            y_faces[{i, indy+dindy, k}].I[m] = (points[{i,j,k}].I_5[m] - (1-gamma)*upwind_y_value)/gamma
+            z_faces[{i, j, indz+dindz}].I[m] = (points[{i,j,k}].I_5[m] - (1-gamma)*upwind_z_value)/gamma
           end
         end
       end
@@ -1457,8 +1450,8 @@ local task sweep_6(points : pointsType,
                    dx : double, dy : double, dz : double)
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
-         ghost_x_faces.I_6, ghost_y_faces.I_6, ghost_z_faces.I_6),
-  reads writes(points.I_6, x_faces.I_6, y_faces.I_6, z_faces.I_6)
+         ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
+  reads writes(points.I_6, x_faces.I, y_faces.I, z_faces.I)
 do
   var dAx = dy*dz;
   var dAy = dx*dz;
@@ -1523,31 +1516,31 @@ do
             var ghost_x_limits = ghost_x_faces.bounds
             var upwind_x_value : double = 0.0
             if indx < x_faces.bounds.lo.x then
-              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I_6[m]
+              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I[m]
             elseif indx > x_faces.bounds.hi.x then
-              upwind_x_value = ghost_x_faces[{ghost_x_limits.lo.x,j,k}].I_6[m]
+              upwind_x_value = ghost_x_faces[{ghost_x_limits.lo.x,j,k}].I[m]
             else
-              upwind_x_value = x_faces[{indx,j,k}].I_6[m]
+              upwind_x_value = x_faces[{indx,j,k}].I[m]
             end
 
             var ghost_y_limits = ghost_y_faces.bounds
             var upwind_y_value : double = 0.0
             if indy < y_faces.bounds.lo.y then
-              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y,k}].I_6[m]
+              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y,k}].I[m]
             elseif indy > y_faces.bounds.hi.y then
-              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.lo.y,k}].I_6[m]
+              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.lo.y,k}].I[m]
             else
-              upwind_y_value = y_faces[{i,indy,k}].I_6[m]
+              upwind_y_value = y_faces[{i,indy,k}].I[m]
             end
 
             var ghost_z_limits = ghost_z_faces.bounds
             var upwind_z_value : double = 0.0
             if indz < z_faces.bounds.lo.z then
-              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.hi.z}].I_6[m]
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.hi.z}].I[m]
             elseif indz > z_faces.bounds.hi.z then
-              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.lo.z}].I_6[m]
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.lo.z}].I[m]
             else
-              upwind_z_value = z_faces[{i,j,indz}].I_6[m]
+              upwind_z_value = z_faces[{i,j,indz}].I[m]
             end
 
             -- Integrate to compute cell-centered value of I.
@@ -1563,9 +1556,9 @@ do
 
             -- Compute intensities on downwind faces
 
-            x_faces[{indx+dindx, j, k}].I_6[m] = (points[{i,j,k}].I_6[m] - (1-gamma)*upwind_x_value)/gamma
-            y_faces[{i, indy+dindy, k}].I_6[m] = (points[{i,j,k}].I_6[m] - (1-gamma)*upwind_y_value)/gamma
-            z_faces[{i, j, indz+dindz}].I_6[m] = (points[{i,j,k}].I_6[m] - (1-gamma)*upwind_z_value)/gamma
+            x_faces[{indx+dindx, j, k}].I[m] = (points[{i,j,k}].I_6[m] - (1-gamma)*upwind_x_value)/gamma
+            y_faces[{i, indy+dindy, k}].I[m] = (points[{i,j,k}].I_6[m] - (1-gamma)*upwind_y_value)/gamma
+            z_faces[{i, j, indz+dindz}].I[m] = (points[{i,j,k}].I_6[m] - (1-gamma)*upwind_z_value)/gamma
           end
         end
       end
@@ -1586,8 +1579,8 @@ local task sweep_7(points : pointsType,
                    dx : double, dy : double, dz : double)
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
-         ghost_x_faces.I_7, ghost_y_faces.I_7, ghost_z_faces.I_7),
-  reads writes(points.I_7, x_faces.I_7, y_faces.I_7, z_faces.I_7)
+         ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
+  reads writes(points.I_7, x_faces.I, y_faces.I, z_faces.I)
 do
   var dAx = dy*dz;
   var dAy = dx*dz;
@@ -1652,31 +1645,31 @@ do
             var ghost_x_limits = ghost_x_faces.bounds
             var upwind_x_value : double = 0.0
             if indx < x_faces.bounds.lo.x then
-              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I_7[m]
+              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I[m]
             elseif indx > x_faces.bounds.hi.x then
-              upwind_x_value = ghost_x_faces[{ghost_x_limits.lo.x,j,k}].I_7[m]
+              upwind_x_value = ghost_x_faces[{ghost_x_limits.lo.x,j,k}].I[m]
             else
-              upwind_x_value = x_faces[{indx,j,k}].I_7[m]
+              upwind_x_value = x_faces[{indx,j,k}].I[m]
             end
 
             var ghost_y_limits = ghost_y_faces.bounds
             var upwind_y_value : double = 0.0
             if indy < y_faces.bounds.lo.y then
-              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y,k}].I_7[m]
+              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y,k}].I[m]
             elseif indy > y_faces.bounds.hi.y then
-              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.lo.y,k}].I_7[m]
+              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.lo.y,k}].I[m]
             else
-              upwind_y_value = y_faces[{i,indy,k}].I_7[m]
+              upwind_y_value = y_faces[{i,indy,k}].I[m]
             end
 
             var ghost_z_limits = ghost_z_faces.bounds
             var upwind_z_value : double = 0.0
             if indz < z_faces.bounds.lo.z then
-              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.hi.z}].I_7[m]
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.hi.z}].I[m]
             elseif indz > z_faces.bounds.hi.z then
-              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.lo.z}].I_7[m]
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.lo.z}].I[m]
             else
-              upwind_z_value = z_faces[{i,j,indz}].I_7[m]
+              upwind_z_value = z_faces[{i,j,indz}].I[m]
             end
 
             -- Integrate to compute cell-centered value of I.
@@ -1692,9 +1685,9 @@ do
 
             -- Compute intensities on downwind faces
 
-            x_faces[{indx+dindx, j, k}].I_7[m] = (points[{i,j,k}].I_7[m] - (1-gamma)*upwind_x_value)/gamma
-            y_faces[{i, indy+dindy, k}].I_7[m] = (points[{i,j,k}].I_7[m] - (1-gamma)*upwind_y_value)/gamma
-            z_faces[{i, j, indz+dindz}].I_7[m] = (points[{i,j,k}].I_7[m] - (1-gamma)*upwind_z_value)/gamma
+            x_faces[{indx+dindx, j, k}].I[m] = (points[{i,j,k}].I_7[m] - (1-gamma)*upwind_x_value)/gamma
+            y_faces[{i, indy+dindy, k}].I[m] = (points[{i,j,k}].I_7[m] - (1-gamma)*upwind_y_value)/gamma
+            z_faces[{i, j, indz+dindz}].I[m] = (points[{i,j,k}].I_7[m] - (1-gamma)*upwind_z_value)/gamma
           end
         end
       end
@@ -1715,8 +1708,8 @@ local task sweep_8(points : pointsType,
                    dx : double, dy : double, dz : double)
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
-         ghost_x_faces.I_8, ghost_y_faces.I_8, ghost_z_faces.I_8),
-  reads writes(points.I_8, x_faces.I_8, y_faces.I_8, z_faces.I_8)
+         ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
+  reads writes(points.I_8, x_faces.I, y_faces.I, z_faces.I)
 do
   var dAx = dy*dz;
   var dAy = dx*dz;
@@ -1781,31 +1774,31 @@ do
             var ghost_x_limits = ghost_x_faces.bounds
             var upwind_x_value : double = 0.0
             if indx < x_faces.bounds.lo.x then
-              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I_8[m]
+              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I[m]
             elseif indx > x_faces.bounds.hi.x then
-              upwind_x_value = ghost_x_faces[{ghost_x_limits.lo.x,j,k}].I_8[m]
+              upwind_x_value = ghost_x_faces[{ghost_x_limits.lo.x,j,k}].I[m]
             else
-              upwind_x_value = x_faces[{indx,j,k}].I_8[m]
+              upwind_x_value = x_faces[{indx,j,k}].I[m]
             end
 
             var ghost_y_limits = ghost_y_faces.bounds
             var upwind_y_value : double = 0.0
             if indy < y_faces.bounds.lo.y then
-              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y,k}].I_8[m]
+              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.hi.y,k}].I[m]
             elseif indy > y_faces.bounds.hi.y then
-              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.lo.y,k}].I_8[m]
+              upwind_y_value = ghost_y_faces[{i,ghost_y_limits.lo.y,k}].I[m]
             else
-              upwind_y_value = y_faces[{i,indy,k}].I_8[m]
+              upwind_y_value = y_faces[{i,indy,k}].I[m]
             end
 
             var ghost_z_limits = ghost_z_faces.bounds
             var upwind_z_value : double = 0.0
             if indz < z_faces.bounds.lo.z then
-              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.hi.z}].I_8[m]
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.hi.z}].I[m]
             elseif indz > z_faces.bounds.hi.z then
-              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.lo.z}].I_8[m]
+              upwind_z_value = ghost_z_faces[{i,j,ghost_z_limits.lo.z}].I[m]
             else
-              upwind_z_value = z_faces[{i,j,indz}].I_8[m]
+              upwind_z_value = z_faces[{i,j,indz}].I[m]
             end
 
             -- Integrate to compute cell-centered value of I.
@@ -1821,9 +1814,9 @@ do
 
             -- Compute intensities on downwind faces
 
-            x_faces[{indx+dindx, j, k}].I_8[m] = (points[{i,j,k}].I_8[m] - (1-gamma)*upwind_x_value)/gamma
-            y_faces[{i, indy+dindy, k}].I_8[m] = (points[{i,j,k}].I_8[m] - (1-gamma)*upwind_y_value)/gamma
-            z_faces[{i, j, indz+dindz}].I_8[m] = (points[{i,j,k}].I_8[m] - (1-gamma)*upwind_z_value)/gamma
+            x_faces[{indx+dindx, j, k}].I[m] = (points[{i,j,k}].I_8[m] - (1-gamma)*upwind_x_value)/gamma
+            y_faces[{i, indy+dindy, k}].I[m] = (points[{i,j,k}].I_8[m] - (1-gamma)*upwind_y_value)/gamma
+            z_faces[{i, j, indz+dindz}].I[m] = (points[{i,j,k}].I_8[m] - (1-gamma)*upwind_z_value)/gamma
           end
         end
       end
