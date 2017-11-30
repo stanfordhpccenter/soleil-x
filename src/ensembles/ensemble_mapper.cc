@@ -215,6 +215,13 @@ void EnsembleMapper::default_policy_select_target_processors(
                                     std::vector<Processor> &target_procs)
 {
   target_procs.push_back(task.target_proc);
+  if (task.task_id != work_task_id)
+  {
+    const std::vector<Processor> &local_procs =
+      sysmem_local_procs[proc_sysmems[task.target_proc]];
+    target_procs.insert(target_procs.end(), local_procs.begin(),
+        local_procs.end());
+  }
 }
 
 LogicalRegion EnsembleMapper::default_policy_select_instance_region(
@@ -1752,22 +1759,23 @@ static void create_mappers(Machine machine, HighLevelRuntime *runtime,
       else
         small_tasks.insert(idx);
     }
+    unsigned next_core = cores;
     for (std::set<unsigned>::iterator it = small_tasks.begin();
          it != small_tasks.end(); ++it)
     {
       TaskMapping &mapping = (*mappings)[*it];
-      if (cores >= total_num_cores) cores = 0;
-      mapping.main_idx = cores;
-      mapping.start_idx = cores;
-      mapping.end_idx = cores;
-      ++cores;
+      if (next_core >= total_num_cores) next_core = cores;
+      mapping.main_idx = next_core;
+      mapping.start_idx = next_core;
+      mapping.end_idx = next_core;
+      ++next_core;
     }
   }
   else
   {
-    two_shelf<Config, cost_fn_step>(*configs, *mappings,
-                                    procs_list->size() / sysmems_list->size(),
-                                    sysmems_list->size());
+    two_shelves<Config, cost_fn_step>(*configs, *mappings,
+                                      procs_list->size() / sysmems_list->size(),
+                                      sysmems_list->size());
   }
   for (unsigned idx = 0; idx < configs->size(); ++idx)
   {

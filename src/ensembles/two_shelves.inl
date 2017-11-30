@@ -104,9 +104,9 @@ TaskMapping compute_mapping(std::map<unsigned, unsigned> &main_assigned,
 
 template<typename T,
          double (*COST_FN)(const T&, unsigned)>
-void two_shelf(const std::vector<T> &configs,
-               std::vector<TaskMapping> &mappings,
-               unsigned cores_per_node, unsigned num_nodes)
+void two_shelves(const std::vector<T> &configs,
+                 std::vector<TaskMapping> &mappings,
+                 unsigned cores_per_node, unsigned num_nodes)
 {
   unsigned total_num_cores = cores_per_node * num_nodes;
   double min_cost = 0;
