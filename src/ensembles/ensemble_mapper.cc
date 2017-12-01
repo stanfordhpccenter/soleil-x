@@ -60,28 +60,51 @@ class EnsembleMapper : public DefaultMapper
 public:
   EnsembleMapper(MapperRuntime *rt, Machine machine, Processor local,
                 const char *mapper_name,
-                std::vector<Processor>* procs_list,
+                std::vector<Processor>* loc_procs_list,
+                std::vector<Processor>* omp_procs_list,
+                std::vector<Processor>* io_procs_list,
                 std::vector<Memory>* sysmems_list,
                 std::map<Memory, std::vector<Processor> >* sysmem_local_procs,
+                std::map<Memory, std::vector<Processor> >* sysmem_local_io_procs,
                 std::map<Processor, Memory>* proc_sysmems,
+                std::map<Processor, Memory>* proc_regmems,
                 std::map<Processor, unsigned>* proc_ids,
                 std::vector<Config>* configs,
                 std::vector<TaskMapping>* mappings);
+  bool default_policy_select_must_epoch_processors(
+      MapperContext ctx,
+      const std::vector<std::set<const Task *> > &tasks,
+      Processor::Kind proc_kind,
+      std::map<const Task *, Processor> &target_procs);
   virtual void select_task_options(const MapperContext    ctx,
                                    const Task&            task,
                                          TaskOptions&     output);
+  virtual void default_policy_rank_processor_kinds(
+                                    MapperContext ctx, const Task &task,
+                                    std::vector<Processor::Kind> &ranking);
   virtual Processor default_policy_select_initial_processor(
                                     MapperContext ctx, const Task &task);
   virtual void default_policy_select_target_processors(
                                     MapperContext ctx,
                                     const Task &task,
                                     std::vector<Processor> &target_procs);
+  virtual Memory default_policy_select_target_memory(MapperContext ctx,
+                                    Processor target_proc,
+                                    const RegionRequirement &req);
   virtual LogicalRegion default_policy_select_instance_region(
                                 MapperContext ctx, Memory target_memory,
                                 const RegionRequirement &req,
                                 const LayoutConstraintSet &constraints,
                                 bool force_new_instances,
                                 bool meets_constraints);
+  virtual void map_task(const MapperContext      ctx,
+                        const Task&              task,
+                        const MapTaskInput&      input,
+                              MapTaskOutput&     output);
+  virtual void map_copy(const MapperContext ctx,
+                        const Copy &copy,
+                        const MapCopyInput &input,
+                        MapCopyOutput &output);
   virtual void slice_task(const MapperContext      ctx,
                           const Task&              task,
                           const SliceTaskInput&    input,
@@ -90,11 +113,20 @@ public:
                                     const Task&                 task,
                                     const SelectTunableInput&   input,
                                           SelectTunableOutput&  output);
+protected:
+  template<bool IS_SRC>
+  void ensemble_create_copy_instance(MapperContext ctx, const Copy &copy,
+                                   const RegionRequirement &req, unsigned index,
+                                   std::vector<PhysicalInstance> &instances);
 private:
-  std::vector<Processor>& procs_list;
+  std::vector<Processor>& loc_procs_list;
+  std::vector<Processor>& omp_procs_list;
+  std::vector<Processor>& io_procs_list;
   std::vector<Memory>& sysmems_list;
   std::map<Memory, std::vector<Processor> >& sysmem_local_procs;
+  std::map<Memory, std::vector<Processor> >& sysmem_local_io_procs;
   std::map<Processor, Memory>& proc_sysmems;
+  std::map<Processor, Memory>& proc_regmems;
   std::map<Processor, unsigned>& proc_ids;
   std::vector<Config>& configs;
   std::vector<TaskMapping>& mappings;
@@ -111,22 +143,56 @@ private:
 
 EnsembleMapper::EnsembleMapper(MapperRuntime *rt, Machine machine, Processor local,
                                const char *mapper_name,
-                               std::vector<Processor>* _procs_list,
+                               std::vector<Processor>* _loc_procs_list,
+                               std::vector<Processor>* _omp_procs_list,
+                               std::vector<Processor>* _io_procs_list,
                                std::vector<Memory>* _sysmems_list,
                                std::map<Memory, std::vector<Processor> >* _sysmem_local_procs,
+                               std::map<Memory, std::vector<Processor> >* _sysmem_local_io_procs,
                                std::map<Processor, Memory>* _proc_sysmems,
+                               std::map<Processor, Memory>* _proc_regmems,
                                std::map<Processor, unsigned>* _proc_ids,
                                std::vector<Config>* _configs,
                                std::vector<TaskMapping>* _mappings)
   : DefaultMapper(rt, machine, local, mapper_name),
-    procs_list(*_procs_list),
+    loc_procs_list(*_loc_procs_list),
+    omp_procs_list(*_omp_procs_list),
+    io_procs_list(*_io_procs_list),
     sysmems_list(*_sysmems_list),
     sysmem_local_procs(*_sysmem_local_procs),
+    sysmem_local_io_procs(*_sysmem_local_io_procs),
     proc_sysmems(*_proc_sysmems),
+    proc_regmems(*_proc_regmems),
     proc_ids(*_proc_ids), configs(*_configs),
     mappings(*_mappings),
     work_task_id(0)
 {
+}
+
+bool EnsembleMapper::default_policy_select_must_epoch_processors(
+    MapperContext ctx,
+    const std::vector<std::set<const Task *> > &tasks,
+    Processor::Kind proc_kind,
+    std::map<const Task *, Processor> &target_procs)
+{
+  const char *ptr = static_cast<const char*>(
+      (*(tasks.begin()->begin()))->parent_task->args);
+  const Config *config =
+    reinterpret_cast<const Config*>(ptr + sizeof(uint64_t));
+  unsigned id = config->unique_id;
+  TaskMapping &mapping = mappings[id];
+
+  unsigned idx = mapping.start_idx;
+  for (std::vector<std::set<const Task *> >::const_iterator it = tasks.begin();
+       it != tasks.end(); ++it)
+    for (std::set<const Task *>::const_iterator tit = it->begin();
+         tit != it->end(); ++tit)
+      if (target_procs.find(*tit) == target_procs.end())
+        target_procs[*tit] =
+          proc_kind == Processor::IO_PROC ? io_procs_list[idx++]
+                                          : loc_procs_list[idx++];
+  assert(idx == mapping.end_idx + 1);
+  return true;
 }
 
 void EnsembleMapper::select_task_options(const MapperContext    ctx,
@@ -137,6 +203,23 @@ void EnsembleMapper::select_task_options(const MapperContext    ctx,
   output.inline_task = false;
   output.stealable = stealing_enabled;
   output.map_locally = false;
+}
+
+void EnsembleMapper::default_policy_rank_processor_kinds(MapperContext ctx,
+                        const Task &task, std::vector<Processor::Kind> &ranking)
+{
+  const char* task_name = task.get_task_name();
+  const char* prefix = "shard_";
+  if (strncmp(task_name, prefix, strlen(prefix)) == 0) {
+    // Put shard tasks on IO processors.
+    ranking.resize(4);
+    ranking[0] = Processor::TOC_PROC;
+    ranking[1] = Processor::PROC_SET;
+    ranking[2] = Processor::IO_PROC;
+    ranking[3] = Processor::LOC_PROC;
+  } else {
+    DefaultMapper::default_policy_rank_processor_kinds(ctx, task, ranking);
+  }
 }
 
 Processor EnsembleMapper::default_policy_select_initial_processor(
@@ -151,75 +234,75 @@ Processor EnsembleMapper::default_policy_select_initial_processor(
     const Config *config =
       reinterpret_cast<const Config*>(ptr + sizeof(uint64_t));
     unsigned id = config->unique_id;
-    return procs_list[mappings[id].main_idx];
+    return loc_procs_list[mappings[id].main_idx];
   }
-  else if (sweep_tasks.find(task.task_id) != sweep_tasks.end() ||
-           (sweep_tasks.size() < 8 &&
-            strncmp(task_name, "sweep", 5) == 0))
-  {
-    LogicalRegion region = task.regions[0].region;
-    SweepCacheKey key(task.parent_task->get_unique_id(), region);
-    std::map<SweepCacheKey, Processor>::iterator finder =
-      sweep_caches.find(key);
-    if (finder != sweep_caches.end()) return finder->second;
+  //else if (sweep_tasks.find(task.task_id) != sweep_tasks.end() ||
+  //         (sweep_tasks.size() < 8 &&
+  //          strncmp(task_name, "sweep", 5) == 0))
+  //{
+  //  LogicalRegion region = task.regions[0].region;
+  //  SweepCacheKey key(task.parent_task->get_unique_id(), region);
+  //  std::map<SweepCacheKey, Processor>::iterator finder =
+  //    sweep_caches.find(key);
+  //  if (finder != sweep_caches.end()) return finder->second;
 
-    sweep_tasks.insert(task.task_id);
-    const char *ptr = static_cast<const char*>(task.parent_task->args);
-    const Config *config =
-      reinterpret_cast<const Config*>(ptr + sizeof(uint64_t));
-    unsigned id = config->unique_id;
-    TaskMapping &mapping = mappings[id];
+  //  sweep_tasks.insert(task.task_id);
+  //  const char *ptr = static_cast<const char*>(task.parent_task->args);
+  //  const Config *config =
+  //    reinterpret_cast<const Config*>(ptr + sizeof(uint64_t));
+  //  unsigned id = config->unique_id;
+  //  TaskMapping &mapping = mappings[id];
 
-    IndexPartition ip =
-      runtime->get_parent_index_partition(ctx, region.get_index_space());
-    Domain domain = runtime->get_index_partition_color_space(ctx, ip);
-    DomainPoint point =
-      runtime->get_logical_region_color_point(ctx, region);
-    coord_t size_x = domain.rect_data[3] - domain.rect_data[0] + 1;
-    coord_t size_y = domain.rect_data[4] - domain.rect_data[1] + 1;
-    Color color = point.point_data[0] +
-                  point.point_data[1] * size_x +
-                  point.point_data[2] * size_x * size_y;
-    assert(mapping.start_idx + color <= mapping.end_idx);
-    assert(mapping.start_idx + color < procs_list.size());
-    Processor target_proc = procs_list[mapping.start_idx + color];
-    sweep_caches[key] = target_proc;
-    return target_proc;
-  }
-  else if (bound_tasks.find(task.task_id) != bound_tasks.end() ||
-           (bound_tasks.size() < 6 &&
-            (strcmp(task_name, "west_bound") == 0 ||
-             strcmp(task_name, "east_bound") == 0 ||
-             strcmp(task_name, "north_bound") == 0 ||
-             strcmp(task_name, "south_bound") == 0 ||
-             strcmp(task_name, "up_bound") == 0 ||
-             strcmp(task_name, "down_bound") == 0)))
-  {
-    bound_tasks.insert(task.task_id);
-    const char *ptr = static_cast<const char*>(task.parent_task->args);
-    const Config *config =
-      reinterpret_cast<const Config*>(ptr + sizeof(uint64_t));
-    unsigned id = config->unique_id;
-    TaskMapping &mapping = mappings[id];
-    std::map<unsigned, unsigned>::iterator finder = last_bound_task.find(id);
-    Processor target_proc;
-    if (finder == last_bound_task.end())
-    {
-      target_proc = procs_list[mapping.main_idx];
-      last_bound_task[id] = mapping.main_idx;
-    }
-    else
-    {
-      unsigned next_idx = finder->second;
-      if (++next_idx > mapping.end_idx)
-        next_idx = mapping.start_idx;
-      target_proc = procs_list[next_idx];
-      last_bound_task[id] = next_idx;
-    }
-    return target_proc;
-  }
-  else if (task.parent_task != 0)
-    return task.parent_task->target_proc;
+  //  IndexPartition ip =
+  //    runtime->get_parent_index_partition(ctx, region.get_index_space());
+  //  Domain domain = runtime->get_index_partition_color_space(ctx, ip);
+  //  DomainPoint point =
+  //    runtime->get_logical_region_color_point(ctx, region);
+  //  coord_t size_x = domain.rect_data[3] - domain.rect_data[0] + 1;
+  //  coord_t size_y = domain.rect_data[4] - domain.rect_data[1] + 1;
+  //  Color color = point.point_data[0] +
+  //                point.point_data[1] * size_x +
+  //                point.point_data[2] * size_x * size_y;
+  //  assert(mapping.start_idx + color <= mapping.end_idx);
+  //  assert(mapping.start_idx + color < loc_procs_list.size());
+  //  Processor target_proc = loc_procs_list[mapping.start_idx + color];
+  //  sweep_caches[key] = target_proc;
+  //  return target_proc;
+  //}
+  //else if (bound_tasks.find(task.task_id) != bound_tasks.end() ||
+  //         (bound_tasks.size() < 6 &&
+  //          (strcmp(task_name, "west_bound") == 0 ||
+  //           strcmp(task_name, "east_bound") == 0 ||
+  //           strcmp(task_name, "north_bound") == 0 ||
+  //           strcmp(task_name, "south_bound") == 0 ||
+  //           strcmp(task_name, "up_bound") == 0 ||
+  //           strcmp(task_name, "down_bound") == 0)))
+  //{
+  //  bound_tasks.insert(task.task_id);
+  //  const char *ptr = static_cast<const char*>(task.parent_task->args);
+  //  const Config *config =
+  //    reinterpret_cast<const Config*>(ptr + sizeof(uint64_t));
+  //  unsigned id = config->unique_id;
+  //  TaskMapping &mapping = mappings[id];
+  //  std::map<unsigned, unsigned>::iterator finder = last_bound_task.find(id);
+  //  Processor target_proc;
+  //  if (finder == last_bound_task.end())
+  //  {
+  //    target_proc = loc_procs_list[mapping.main_idx];
+  //    last_bound_task[id] = mapping.main_idx;
+  //  }
+  //  else
+  //  {
+  //    unsigned next_idx = finder->second;
+  //    if (++next_idx > mapping.end_idx)
+  //      next_idx = mapping.start_idx;
+  //    target_proc = loc_procs_list[next_idx];
+  //    last_bound_task[id] = next_idx;
+  //  }
+  //  return target_proc;
+  //}
+  //else if (task.parent_task != 0)
+  //  return loc_procs_list[proc_ids[task.parent_task->target_proc]];
   return DefaultMapper::default_policy_select_initial_processor(ctx, task);
 }
 
@@ -229,13 +312,38 @@ void EnsembleMapper::default_policy_select_target_processors(
                                     std::vector<Processor> &target_procs)
 {
   target_procs.push_back(task.target_proc);
-  if (task.task_id != work_task_id)
-  {
-    const std::vector<Processor> &local_procs =
-      sysmem_local_procs[proc_sysmems[task.target_proc]];
-    target_procs.insert(target_procs.end(), local_procs.begin(),
-        local_procs.end());
+  //if (task.task_id != work_task_id)
+  //{
+  //  const std::vector<Processor> &local_procs =
+  //    sysmem_local_procs[proc_sysmems[task.target_proc]];
+  //  target_procs.insert(target_procs.end(), local_procs.begin(),
+  //      local_procs.end());
+  //}
+}
+
+static bool is_ghost(MapperRuntime *runtime,
+                     const MapperContext ctx,
+                     LogicalRegion leaf)
+{
+  // If the region has no parent then it was from a duplicated
+  // partition and therefore must be a ghost.
+  if (!runtime->has_parent_logical_partition(ctx, leaf)) {
+    return true;
   }
+
+  return false;
+}
+
+Memory EnsembleMapper::default_policy_select_target_memory(MapperContext ctx,
+                                                   Processor target_proc,
+                                                   const RegionRequirement &req)
+{
+  Memory target_memory = proc_sysmems[target_proc];
+  if (is_ghost(runtime, ctx, req.region)) {
+    std::map<Processor, Memory>::iterator finder = proc_regmems.find(target_proc);
+    if (finder != proc_regmems.end()) target_memory = finder->second;
+  }
+  return target_memory;
 }
 
 LogicalRegion EnsembleMapper::default_policy_select_instance_region(
@@ -246,6 +354,151 @@ LogicalRegion EnsembleMapper::default_policy_select_instance_region(
                               bool meets_constraints)
 {
   return req.region;
+}
+
+void EnsembleMapper::map_task(const MapperContext      ctx,
+                            const Task&              task,
+                            const MapTaskInput&      input,
+                                  MapTaskOutput&     output)
+{
+  if (task.parent_task != NULL && task.parent_task->must_epoch_task) {
+    Processor::Kind target_kind = task.target_proc.kind();
+    // Get the variant that we are going to use to map this task
+    VariantInfo chosen = default_find_preferred_variant(task, ctx,
+                                                        true/*needs tight bound*/, true/*cache*/, target_kind);
+    output.chosen_variant = chosen.variant;
+    // TODO: some criticality analysis to assign priorities
+    output.task_priority = 0;
+    output.postmap_task = false;
+    // Figure out our target processors
+    output.target_procs.push_back(task.target_proc);
+
+    for (unsigned idx = 0; idx < task.regions.size(); idx++) {
+      const RegionRequirement &req = task.regions[idx];
+
+      // Skip any empty regions
+      if ((req.privilege == NO_ACCESS) || (req.privilege_fields.empty()))
+        continue;
+
+      assert(input.valid_instances[idx].size() > 0);
+      output.chosen_instances[idx] = input.valid_instances[idx];
+      bool ok = runtime->acquire_and_filter_instances(ctx, output.chosen_instances);
+      if (!ok) {
+        log_ensemble.error("failed to acquire instances");
+        assert(false);
+      }
+    }
+    return;
+  }
+
+  DefaultMapper::map_task(ctx, task, input, output);
+}
+
+void EnsembleMapper::map_copy(const MapperContext ctx,
+                             const Copy &copy,
+                             const MapCopyInput &input,
+                             MapCopyOutput &output)
+{
+  log_ensemble.spew("Soleil mapper map_copy");
+  for (unsigned idx = 0; idx < copy.src_requirements.size(); idx++)
+  {
+    // Always use a virtual instance for the source.
+    output.src_instances[idx].clear();
+    output.src_instances[idx].push_back(
+      PhysicalInstance::get_virtual_instance());
+
+    // Place the destination instance on the remote node.
+    output.dst_instances[idx].clear();
+    if (!copy.dst_requirements[idx].is_restricted()) {
+      // Call a customized method to create an instance on the desired node.
+      ensemble_create_copy_instance<false/*is src*/>(ctx, copy,
+        copy.dst_requirements[idx], idx, output.dst_instances[idx]);
+    } else {
+      // If it's restricted, just take the instance. This will only
+      // happen inside the shard task.
+      output.dst_instances[idx] = input.dst_instances[idx];
+      if (!output.dst_instances[idx].empty())
+        runtime->acquire_and_filter_instances(ctx,
+                                output.dst_instances[idx]);
+    }
+  }
+}
+
+template<bool IS_SRC>
+void EnsembleMapper::ensemble_create_copy_instance(MapperContext ctx,
+                     const Copy &copy, const RegionRequirement &req,
+                     unsigned idx, std::vector<PhysicalInstance> &instances)
+{
+  // This method is identical to the default version except that it
+  // chooses an intelligent memory based on the destination of the
+  // copy.
+
+  // See if we have all the fields covered
+  std::set<FieldID> missing_fields = req.privilege_fields;
+  for (std::vector<PhysicalInstance>::const_iterator it =
+        instances.begin(); it != instances.end(); it++)
+  {
+    it->remove_space_fields(missing_fields);
+    if (missing_fields.empty())
+      break;
+  }
+  if (missing_fields.empty())
+    return;
+  // If we still have fields, we need to make an instance
+  // We clearly need to take a guess, let's see if we can find
+  // one of our instances to use.
+
+
+  const LogicalRegion& region = copy.src_requirements[idx].region;
+  IndexPartition ip = runtime->get_parent_index_partition(ctx, region.get_index_space());
+  Domain domain = runtime->get_index_partition_color_space(ctx, ip);
+  DomainPoint point =
+    runtime->get_logical_region_color_point(ctx, region);
+  coord_t size_x = domain.rect_data[3] - domain.rect_data[0] + 1;
+  coord_t size_y = domain.rect_data[4] - domain.rect_data[1] + 1;
+  Color color = point.point_data[0] +
+                point.point_data[1] * size_x +
+                point.point_data[2] * size_x * size_y;
+  Processor proc = Processor::NO_PROC;
+  //if (use_gpu) {
+  //  proc = toc_procs_list[color % toc_procs_list.size()];
+  //} else if (use_omp) {
+  //  proc = omp_procs_list[color % omp_procs_list.size()];
+  //} else {
+    proc = loc_procs_list[color % loc_procs_list.size()];
+  //}
+  Memory target_memory = default_policy_select_target_memory(ctx, proc, req);
+
+  bool force_new_instances = false;
+  LayoutConstraintSet creation_constraints;
+  default_policy_select_constraints(ctx, creation_constraints, target_memory, req);
+  creation_constraints.add_constraint(
+      FieldConstraint(missing_fields,
+                      false/*contig*/, false/*inorder*/));
+  instances.resize(instances.size() + 1);
+  if (!default_make_instance(ctx, target_memory,
+        creation_constraints, instances.back(),
+        COPY_MAPPING, force_new_instances, true/*meets*/, req))
+  {
+    // If we failed to make it that is bad
+    log_ensemble.error("Soleil mapper failed allocation for "
+                     "%s region requirement %d of explicit "
+                     "region-to-region copy operation in task %s "
+                     "(ID %lld) in memory " IDFMT " for processor "
+                     IDFMT ". This means the working set of your "
+                     "application is too big for the allotted "
+                     "capacity of the given memory under the default "
+                     "mapper's mapping scheme. You have three "
+                     "choices: ask Realm to allocate more memory, "
+                     "write a custom mapper to better manage working "
+                     "sets, or find a bigger machine. Good luck!",
+                     IS_SRC ? "source" : "destination", idx,
+                     copy.parent_task->get_task_name(),
+                     copy.parent_task->get_unique_id(),
+		                 target_memory.id,
+		                 copy.parent_task->current_proc.id);
+    assert(false);
+  }
 }
 
 void EnsembleMapper::slice_task(const MapperContext      ctx,
@@ -278,11 +531,11 @@ void EnsembleMapper::slice_task(const MapperContext      ctx,
   TaskMapping &mapping = mappings[config->unique_id];
   std::vector<Processor> procs;
   for (unsigned i = mapping.start_idx; i <= mapping.end_idx; ++i)
-    procs.push_back(procs_list[i]);
+    procs.push_back(loc_procs_list[i]);
   assert(mapping.start_idx >= 0);
-  assert(mapping.start_idx < procs_list.size());
+  assert(mapping.start_idx < loc_procs_list.size());
   assert(mapping.end_idx >= 0);
-  assert(mapping.end_idx < procs_list.size());
+  assert(mapping.end_idx < loc_procs_list.size());
   DomainT<3,coord_t> point_space = input.domain;
   Point<3,coord_t> num_blocks =
     default_select_num_blocks<3>(procs.size(), point_space.bounds);
@@ -1711,11 +1964,16 @@ static void create_mappers(Machine machine, HighLevelRuntime *runtime,
     (*configs)[idx].unique_id = idx;
   }
 
-  std::vector<Processor>* procs_list = new std::vector<Processor>();
+  std::vector<Processor>* loc_procs_list = new std::vector<Processor>();
+  std::vector<Processor>* omp_procs_list = new std::vector<Processor>();
+  std::vector<Processor>* io_procs_list = new std::vector<Processor>();
   std::vector<Memory>* sysmems_list = new std::vector<Memory>();
   std::map<Memory, std::vector<Processor> >* sysmem_local_procs =
     new std::map<Memory, std::vector<Processor> >();
+  std::map<Memory, std::vector<Processor> >* sysmem_local_io_procs =
+    new std::map<Memory, std::vector<Processor> >();
   std::map<Processor, Memory>* proc_sysmems = new std::map<Processor, Memory>();
+  std::map<Processor, Memory>* proc_regmems = new std::map<Processor, Memory>();
   std::map<Processor, unsigned>* proc_ids = new std::map<Processor, unsigned>();
 
   std::vector<Machine::ProcessorMemoryAffinity> proc_mem_affinities;
@@ -1723,18 +1981,33 @@ static void create_mappers(Machine machine, HighLevelRuntime *runtime,
 
   for (unsigned idx = 0; idx < proc_mem_affinities.size(); ++idx) {
     Machine::ProcessorMemoryAffinity& affinity = proc_mem_affinities[idx];
-    if (affinity.p.kind() == Processor::LOC_PROC) {
+    if (affinity.p.kind() == Processor::LOC_PROC ||
+        affinity.p.kind() == Processor::IO_PROC ||
+        affinity.p.kind() == Processor::OMP_PROC) {
       if (affinity.m.kind() == Memory::SYSTEM_MEM) {
         (*proc_sysmems)[affinity.p] = affinity.m;
+      }
+      else if (affinity.m.kind() == Memory::REGDMA_MEM) {
+        (*proc_regmems)[affinity.p] = affinity.m;
       }
     }
   }
 
   for (std::map<Processor, Memory>::iterator it = proc_sysmems->begin();
        it != proc_sysmems->end(); ++it) {
-    (*proc_ids)[it->first] = procs_list->size();
-    procs_list->push_back(it->first);
-    (*sysmem_local_procs)[it->second].push_back(it->first);
+    if (it->first.kind() == Processor::LOC_PROC) {
+      (*proc_ids)[it->first] = loc_procs_list->size();
+      loc_procs_list->push_back(it->first);
+      (*sysmem_local_procs)[it->second].push_back(it->first);
+    }
+    else if (it->first.kind() == Processor::IO_PROC) {
+      (*sysmem_local_io_procs)[it->second].push_back(it->first);
+      io_procs_list->push_back(it->first);
+    }
+    else if (it->first.kind() == Processor::OMP_PROC) {
+      (*proc_ids)[it->first] = omp_procs_list->size();
+      omp_procs_list->push_back(it->first);
+    }
   }
 
   for (std::map<Memory, std::vector<Processor> >::iterator it =
@@ -1745,7 +2018,7 @@ static void create_mappers(Machine machine, HighLevelRuntime *runtime,
   {
     mappings->resize(configs->size());
     unsigned long total_volume = 0;
-    unsigned long total_num_cores = procs_list->size();
+    unsigned long total_num_cores = loc_procs_list->size();
     for (unsigned idx = 0; idx < configs->size(); ++idx)
     {
       Config &config = (*configs)[idx];
@@ -1788,7 +2061,7 @@ static void create_mappers(Machine machine, HighLevelRuntime *runtime,
   else
   {
     two_shelves<Config, cost_fn_heuristic>(*configs, *mappings,
-        procs_list->size() / sysmems_list->size(), sysmems_list->size());
+        loc_procs_list->size() / sysmems_list->size(), sysmems_list->size());
   }
   for (unsigned idx = 0; idx < configs->size(); ++idx)
   {
@@ -1802,10 +2075,14 @@ static void create_mappers(Machine machine, HighLevelRuntime *runtime,
   {
     EnsembleMapper* mapper = new EnsembleMapper(runtime->get_mapper_runtime(),
                                                 machine, *it, "ensemble_mapper",
-                                                procs_list,
+                                                loc_procs_list,
+                                                omp_procs_list,
+                                                io_procs_list,
                                                 sysmems_list,
                                                 sysmem_local_procs,
+                                                sysmem_local_io_procs,
                                                 proc_sysmems,
+                                                proc_regmems,
                                                 proc_ids,
                                                 configs,
                                                 mappings);
