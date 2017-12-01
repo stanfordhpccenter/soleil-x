@@ -160,7 +160,9 @@ do
   var v17 = ((v16.x-v15.x)+1)
   var v18 = ((v16.y-v15.y)+1)
   var v19 = (v9.particles.initNum/((v9.grid.xTiles*v9.grid.yTiles)*v9.grid.zTiles))
+  __demand(__openmp)
   for v20 in v5 do
+    v20.__valid = false
     if ((int32(v20)-v13)<v19) then
       v20.__valid = true
       var v21 = (int32(v20)-v13)
@@ -181,6 +183,7 @@ task AddRadiation(v50 : region(ispace(int1d), particles_columns), v52 : Config)
 where
   reads(v50.density), reads(v50.diameter), reads(v50.temperature_t), writes(v50.temperature_t)
 do
+  __demand(__openmp)
   for v53 in v50 do
     var v54 = (((2*C.acos(0))*C.pow(v53.diameter, 2))/4)
     var v55 = (((2*C.acos(0))*C.pow(v53.diameter, 3))/6)
@@ -204,6 +207,7 @@ task Flow_InitializeCell(v1154 : region(ispace(int3d), Fluid_columns))
 where
   reads(v1154.PD), writes(v1154.PD), reads(v1154.centerCoordinates), writes(v1154.centerCoordinates), reads(v1154.convectiveSpectralRadius), writes(v1154.convectiveSpectralRadius), reads(v1154.dissipation), writes(v1154.dissipation), reads(v1154.dissipationFlux), writes(v1154.dissipationFlux), reads(v1154.heatConductionSpectralRadius), writes(v1154.heatConductionSpectralRadius), reads(v1154.kineticEnergy), writes(v1154.kineticEnergy), reads(v1154.pressure), writes(v1154.pressure), reads(v1154.pressureBoundary), writes(v1154.pressureBoundary), reads(v1154.rho), writes(v1154.rho), reads(v1154.rhoBoundary), writes(v1154.rhoBoundary), reads(v1154.rhoEnergy), writes(v1154.rhoEnergy), reads(v1154.rhoEnergyBoundary), writes(v1154.rhoEnergyBoundary), reads(v1154.rhoEnergyFluxX), writes(v1154.rhoEnergyFluxX), reads(v1154.rhoEnergyFluxY), writes(v1154.rhoEnergyFluxY), reads(v1154.rhoEnergyFluxZ), writes(v1154.rhoEnergyFluxZ), reads(v1154.rhoEnergy_new), writes(v1154.rhoEnergy_new), reads(v1154.rhoEnergy_old), writes(v1154.rhoEnergy_old), reads(v1154.rhoEnergy_t), writes(v1154.rhoEnergy_t), reads(v1154.rhoEnthalpy), writes(v1154.rhoEnthalpy), reads(v1154.rhoFluxX), writes(v1154.rhoFluxX), reads(v1154.rhoFluxY), writes(v1154.rhoFluxY), reads(v1154.rhoFluxZ), writes(v1154.rhoFluxZ), reads(v1154.rhoVelocity), writes(v1154.rhoVelocity), reads(v1154.rhoVelocityBoundary), writes(v1154.rhoVelocityBoundary), reads(v1154.rhoVelocityFluxX), writes(v1154.rhoVelocityFluxX), reads(v1154.rhoVelocityFluxY), writes(v1154.rhoVelocityFluxY), reads(v1154.rhoVelocityFluxZ), writes(v1154.rhoVelocityFluxZ), reads(v1154.rhoVelocity_new), writes(v1154.rhoVelocity_new), reads(v1154.rhoVelocity_old), writes(v1154.rhoVelocity_old), reads(v1154.rhoVelocity_t), writes(v1154.rhoVelocity_t), reads(v1154.rho_new), writes(v1154.rho_new), reads(v1154.rho_old), writes(v1154.rho_old), reads(v1154.rho_t), writes(v1154.rho_t), reads(v1154.sgsEddyKappa), writes(v1154.sgsEddyKappa), reads(v1154.sgsEddyViscosity), writes(v1154.sgsEddyViscosity), reads(v1154.sgsEnergy), writes(v1154.sgsEnergy), reads(v1154.temperature), writes(v1154.temperature), reads(v1154.temperatureBoundary), writes(v1154.temperatureBoundary), reads(v1154.velocity), writes(v1154.velocity), reads(v1154.velocityBoundary), writes(v1154.velocityBoundary), reads(v1154.velocityGradientX), writes(v1154.velocityGradientX), reads(v1154.velocityGradientXBoundary), writes(v1154.velocityGradientXBoundary), reads(v1154.velocityGradientY), writes(v1154.velocityGradientY), reads(v1154.velocityGradientYBoundary), writes(v1154.velocityGradientYBoundary), reads(v1154.velocityGradientZ), writes(v1154.velocityGradientZ), reads(v1154.velocityGradientZBoundary), writes(v1154.velocityGradientZBoundary), reads(v1154.viscousSpectralRadius), writes(v1154.viscousSpectralRadius)
 do
+  __demand(__openmp)
   for v1157 in v1154 do
     v1154[v1157].rho = double(0)
     v1154[v1157].pressure = double(0)
@@ -261,6 +265,7 @@ task Flow_InitializeCenterCoordinates(v1265 : region(ispace(int3d), Fluid_column
 where
   reads(v1265.centerCoordinates), writes(v1265.centerCoordinates)
 do
+  __demand(__openmp)
   for v1284 in v1265 do
     var v1285 = [double[3]](array((v1269+((v1270/double(v1268))*(double((int3d(v1284).x-uint64(v1267)))+double(0.5)))), (v1273+((v1274/double(v1272))*(double((int3d(v1284).y-uint64(v1271)))+double(0.5)))), (v1277+((v1278/double(v1276))*(double((int3d(v1284).z-uint64(v1275)))+double(0.5))))))
     v1265[v1284].centerCoordinates = [double[3]](array(double(v1285[int32(0)]), double(v1285[int32(1)]), double(v1285[int32(2)])))
@@ -272,6 +277,7 @@ task Flow_InitializeUniform(v1305 : region(ispace(int3d), Fluid_columns), v1307 
 where
   reads(v1305.pressure), writes(v1305.pressure), reads(v1305.rho), writes(v1305.rho), reads(v1305.velocity), writes(v1305.velocity)
 do
+  __demand(__openmp)
   for v1309 in v1305 do
     v1305[v1309].rho = v1307[int32(0)]
     v1305[v1309].pressure = v1307[int32(1)]
@@ -307,6 +313,7 @@ task Flow_InitializeTaylorGreen3D(v1417 : region(ispace(int3d), Fluid_columns), 
 where
   reads(v1417.pressure), writes(v1417.pressure), reads(v1417.rho), writes(v1417.rho), reads(v1417.velocity), writes(v1417.velocity)
 do
+  __demand(__openmp)
   for v1457 in v1417 do
     var v1458 = v1419[int32(0)]
     var v1459 = v1419[int32(1)]
@@ -341,6 +348,7 @@ task Flow_UpdateConservedFromPrimitive(v1524 : region(ispace(int3d), Fluid_colum
 where
   reads(v1524.pressure), reads(v1524.rho), reads(v1524.rhoEnergy), writes(v1524.rhoEnergy), reads(v1524.rhoVelocity), writes(v1524.rhoVelocity), reads(v1524.sgsEnergy), reads(v1524.velocity)
 do
+  __demand(__openmp)
   for v1553 in v1524 do
     if (not ((((((max(int32((uint64(v1528)-int3d(v1553).x)), int32(0))>int32(0)) or (max(int32((int3d(v1553).x-uint64(((v1529+v1528)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v1530)-int3d(v1553).y)), int32(0))>int32(0))) or (max(int32((int3d(v1553).y-uint64(((v1531+v1530)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v1532)-int3d(v1553).z)), int32(0))>int32(0))) or (max(int32((int3d(v1553).z-uint64(((v1533+v1532)-int32(1))))), int32(0))>int32(0)))) then
       var v1554 = (v1524[v1553].pressure/(v1527*v1524[v1553].rho))
@@ -361,6 +369,7 @@ task Flow_UpdateAuxiliaryVelocity(v1571 : region(ispace(int3d), Fluid_columns), 
 where
   reads(v1571.kineticEnergy), writes(v1571.kineticEnergy), reads(v1571.rho), reads(v1571.rhoVelocity), reads(v1571.velocity), writes(v1571.velocity)
 do
+  __demand(__openmp)
   for v1586 in v1571 do
     if (not ((((((max(int32((uint64(v1573)-int3d(v1586).x)), int32(0))>int32(0)) or (max(int32((int3d(v1586).x-uint64(((v1574+v1573)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v1575)-int3d(v1586).y)), int32(0))>int32(0))) or (max(int32((int3d(v1586).y-uint64(((v1576+v1575)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v1577)-int3d(v1586).z)), int32(0))>int32(0))) or (max(int32((int3d(v1586).z-uint64(((v1578+v1577)-int32(1))))), int32(0))>int32(0)))) then
       var v1587 = vs_div_double_3(v1571[v1586].rhoVelocity, v1571[v1586].rho)
@@ -382,6 +391,7 @@ task Flow_UpdateGhostConservedStep1(v1600 : region(ispace(int3d), Fluid_columns)
 where
   reads(v1600.pressure), reads(v1600.rho), reads(v1600.rhoBoundary), writes(v1600.rhoBoundary), reads(v1600.rhoEnergyBoundary), writes(v1600.rhoEnergyBoundary), reads(v1600.rhoVelocity), reads(v1600.rhoVelocityBoundary), writes(v1600.rhoVelocityBoundary), reads(v1600.temperature)
 do
+  __demand(__openmp)
   for v2088 in v1600 do
     if (max(int32((uint64(v1619)-int3d(v2088).x)), int32(0))>int32(0)) then
       var v2089 = int3d(v2088)
@@ -541,6 +551,7 @@ task Flow_UpdateGhostConservedStep2(v2454 : region(ispace(int3d), Fluid_columns)
 where
   reads(v2454.rho), writes(v2454.rho), reads(v2454.rhoBoundary), reads(v2454.rhoEnergy), writes(v2454.rhoEnergy), reads(v2454.rhoEnergyBoundary), reads(v2454.rhoVelocity), writes(v2454.rhoVelocity), reads(v2454.rhoVelocityBoundary)
 do
+  __demand(__openmp)
   for v2463 in v2454 do
     if ((((((max(int32((uint64(v2456)-int3d(v2463).x)), int32(0))>int32(0)) or (max(int32((int3d(v2463).x-uint64(((v2457+v2456)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v2458)-int3d(v2463).y)), int32(0))>int32(0))) or (max(int32((int3d(v2463).y-uint64(((v2459+v2458)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v2460)-int3d(v2463).z)), int32(0))>int32(0))) or (max(int32((int3d(v2463).z-uint64(((v2461+v2460)-int32(1))))), int32(0))>int32(0))) then
       v2454[v2463].rho = v2454[v2463].rhoBoundary
@@ -556,6 +567,7 @@ task Flow_UpdateGhostVelocityStep1(v2469 : region(ispace(int3d), Fluid_columns),
 where
   reads(v2469.velocity), reads(v2469.velocityBoundary), writes(v2469.velocityBoundary)
 do
+  __demand(__openmp)
   for v2655 in v2469 do
     if (max(int32((uint64(v2480)-int3d(v2655).x)), int32(0))>int32(0)) then
       var v2656 = int3d(v2655)
@@ -613,6 +625,7 @@ task Flow_UpdateGhostVelocityStep2(v2769 : region(ispace(int3d), Fluid_columns),
 where
   reads(v2769.velocity), writes(v2769.velocity), reads(v2769.velocityBoundary)
 do
+  __demand(__openmp)
   for v2778 in v2769 do
     if ((((((max(int32((uint64(v2771)-int3d(v2778).x)), int32(0))>int32(0)) or (max(int32((int3d(v2778).x-uint64(((v2772+v2771)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v2773)-int3d(v2778).y)), int32(0))>int32(0))) or (max(int32((int3d(v2778).y-uint64(((v2774+v2773)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v2775)-int3d(v2778).z)), int32(0))>int32(0))) or (max(int32((int3d(v2778).z-uint64(((v2776+v2775)-int32(1))))), int32(0))>int32(0))) then
       v2769[v2778].velocity = v2769[v2778].velocityBoundary
@@ -629,6 +642,7 @@ task Flow_ComputeVelocityGradientAll(v2784 : region(ispace(int3d), Fluid_columns
 where
   reads(v2784.velocity), reads(v2784.velocityGradientX), writes(v2784.velocityGradientX), reads(v2784.velocityGradientY), writes(v2784.velocityGradientY), reads(v2784.velocityGradientZ), writes(v2784.velocityGradientZ)
 do
+  __demand(__openmp)
   for v2796 in v2784 do
     if (not ((((((max(int32((uint64(v2786)-int3d(v2796).x)), int32(0))>int32(0)) or (max(int32((int3d(v2796).x-uint64(((v2788+v2786)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v2789)-int3d(v2796).y)), int32(0))>int32(0))) or (max(int32((int3d(v2796).y-uint64(((v2791+v2789)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v2792)-int3d(v2796).z)), int32(0))>int32(0))) or (max(int32((int3d(v2796).z-uint64(((v2794+v2792)-int32(1))))), int32(0))>int32(0)))) then
       v2784[v2796].velocityGradientX = vs_div_double_3(vs_mul_double_3(vv_sub_double_3(v2784[((v2796+{1, 0, 0})%v2784.bounds)].velocity, v2784[((v2796+{-1, 0, 0})%v2784.bounds)].velocity), double(0.5)), v2787)
@@ -644,6 +658,7 @@ task Flow_UpdateAuxiliaryThermodynamics(v2865 : region(ispace(int3d), Fluid_colu
 where
   reads(v2865.pressure), writes(v2865.pressure), reads(v2865.rho), reads(v2865.rhoEnergy), reads(v2865.temperature), writes(v2865.temperature), reads(v2865.velocity)
 do
+  __demand(__openmp)
   for v2888 in v2865 do
     if (not ((((((max(int32((uint64(v2869)-int3d(v2888).x)), int32(0))>int32(0)) or (max(int32((int3d(v2888).x-uint64(((v2870+v2869)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v2871)-int3d(v2888).y)), int32(0))>int32(0))) or (max(int32((int3d(v2888).y-uint64(((v2872+v2871)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v2873)-int3d(v2888).z)), int32(0))>int32(0))) or (max(int32((int3d(v2888).z-uint64(((v2874+v2873)-int32(1))))), int32(0))>int32(0)))) then
       var v2889 = ((double(0.5)*v2865[v2888].rho)*dot_double_3(v2865[v2888].velocity, v2865[v2888].velocity))
@@ -660,6 +675,7 @@ task Flow_UpdateGhostThermodynamicsStep1(v2902 : region(ispace(int3d), Fluid_col
 where
   reads(v2902.pressure), reads(v2902.pressureBoundary), writes(v2902.pressureBoundary), reads(v2902.temperature), reads(v2902.temperatureBoundary), writes(v2902.temperatureBoundary)
 do
+  __demand(__openmp)
   for v3127 in v2902 do
     if (max(int32((uint64(v2910)-int3d(v3127).x)), int32(0))>int32(0)) then
       var v3128 = int3d(v3127)
@@ -765,6 +781,7 @@ task Flow_UpdateGhostThermodynamicsStep2(v3241 : region(ispace(int3d), Fluid_col
 where
   reads(v3241.pressure), writes(v3241.pressure), reads(v3241.pressureBoundary), reads(v3241.temperature), writes(v3241.temperature), reads(v3241.temperatureBoundary)
 do
+  __demand(__openmp)
   for v3250 in v3241 do
     if ((((((max(int32((uint64(v3243)-int3d(v3250).x)), int32(0))>int32(0)) or (max(int32((int3d(v3250).x-uint64(((v3244+v3243)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v3245)-int3d(v3250).y)), int32(0))>int32(0))) or (max(int32((int3d(v3250).y-uint64(((v3246+v3245)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v3247)-int3d(v3250).z)), int32(0))>int32(0))) or (max(int32((int3d(v3250).z-uint64(((v3248+v3247)-int32(1))))), int32(0))>int32(0))) then
       v3241[v3250].pressure = v3241[v3250].pressureBoundary
@@ -779,6 +796,7 @@ task Flow_UpdateGhostFieldsStep1(v3256 : region(ispace(int3d), Fluid_columns), v
 where
   reads(v3256.pressure), reads(v3256.pressureBoundary), writes(v3256.pressureBoundary), reads(v3256.rho), reads(v3256.rhoBoundary), writes(v3256.rhoBoundary), reads(v3256.rhoEnergyBoundary), writes(v3256.rhoEnergyBoundary), reads(v3256.rhoVelocity), reads(v3256.rhoVelocityBoundary), writes(v3256.rhoVelocityBoundary), reads(v3256.temperature), reads(v3256.temperatureBoundary), writes(v3256.temperatureBoundary), reads(v3256.velocityBoundary), writes(v3256.velocityBoundary)
 do
+  __demand(__openmp)
   for v3702 in v3256 do
     if (max(int32((uint64(v3275)-int3d(v3702).x)), int32(0))>int32(0)) then
       var v3703 = int3d(v3702)
@@ -950,6 +968,7 @@ task Flow_UpdateGhostFieldsStep2(v4032 : region(ispace(int3d), Fluid_columns), v
 where
   reads(v4032.pressure), writes(v4032.pressure), reads(v4032.pressureBoundary), reads(v4032.rho), writes(v4032.rho), reads(v4032.rhoBoundary), reads(v4032.rhoEnergy), writes(v4032.rhoEnergy), reads(v4032.rhoEnergyBoundary), reads(v4032.rhoVelocity), writes(v4032.rhoVelocity), reads(v4032.rhoVelocityBoundary), reads(v4032.temperature), writes(v4032.temperature), reads(v4032.temperatureBoundary)
 do
+  __demand(__openmp)
   for v4041 in v4032 do
     if ((((((max(int32((uint64(v4034)-int3d(v4041).x)), int32(0))>int32(0)) or (max(int32((int3d(v4041).x-uint64(((v4035+v4034)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v4036)-int3d(v4041).y)), int32(0))>int32(0))) or (max(int32((int3d(v4041).y-uint64(((v4037+v4036)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v4038)-int3d(v4041).z)), int32(0))>int32(0))) or (max(int32((int3d(v4041).z-uint64(((v4039+v4038)-int32(1))))), int32(0))>int32(0))) then
       v4032[v4041].rho = v4032[v4041].rhoBoundary
@@ -968,6 +987,7 @@ where
   reads(v4051.pressure)
 do
   var v4063 = double(0)
+  __demand(__openmp)
   for v4064 in v4051 do
     if (not ((((((max(int32((uint64(v4055)-int3d(v4064).x)), int32(0))>int32(0)) or (max(int32((int3d(v4064).x-uint64(((v4056+v4055)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v4057)-int3d(v4064).y)), int32(0))>int32(0))) or (max(int32((int3d(v4064).y-uint64(((v4058+v4057)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v4059)-int3d(v4064).z)), int32(0))>int32(0))) or (max(int32((int3d(v4064).z-uint64(((v4060+v4059)-int32(1))))), int32(0))>int32(0)))) then
       v4063 += (v4051[v4064].pressure*v4054)
@@ -983,6 +1003,7 @@ where
   reads(v4071.temperature)
 do
   var v4083 = double(0)
+  __demand(__openmp)
   for v4084 in v4071 do
     if (not ((((((max(int32((uint64(v4075)-int3d(v4084).x)), int32(0))>int32(0)) or (max(int32((int3d(v4084).x-uint64(((v4076+v4075)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v4077)-int3d(v4084).y)), int32(0))>int32(0))) or (max(int32((int3d(v4084).y-uint64(((v4078+v4077)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v4079)-int3d(v4084).z)), int32(0))>int32(0))) or (max(int32((int3d(v4084).z-uint64(((v4080+v4079)-int32(1))))), int32(0))>int32(0)))) then
       v4083 += (v4071[v4084].temperature*v4074)
@@ -998,6 +1019,7 @@ where
   reads(v4091.kineticEnergy)
 do
   var v4103 = double(0)
+  __demand(__openmp)
   for v4104 in v4091 do
     if (not ((((((max(int32((uint64(v4095)-int3d(v4104).x)), int32(0))>int32(0)) or (max(int32((int3d(v4104).x-uint64(((v4096+v4095)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v4097)-int3d(v4104).y)), int32(0))>int32(0))) or (max(int32((int3d(v4104).y-uint64(((v4098+v4097)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v4099)-int3d(v4104).z)), int32(0))>int32(0))) or (max(int32((int3d(v4104).z-uint64(((v4100+v4099)-int32(1))))), int32(0))>int32(0)))) then
       v4103 += (v4091[v4104].kineticEnergy*v4094)
@@ -1013,6 +1035,7 @@ where
   reads(v4111.temperature)
 do
   var v4122 = math.huge
+  __demand(__openmp)
   for v4123 in v4111 do
     if (not ((((((max(int32((uint64(v4114)-int3d(v4123).x)), int32(0))>int32(0)) or (max(int32((int3d(v4123).x-uint64(((v4115+v4114)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v4116)-int3d(v4123).y)), int32(0))>int32(0))) or (max(int32((int3d(v4123).y-uint64(((v4117+v4116)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v4118)-int3d(v4123).z)), int32(0))>int32(0))) or (max(int32((int3d(v4123).z-uint64(((v4119+v4118)-int32(1))))), int32(0))>int32(0)))) then
       v4122 min= v4111[v4123].temperature
@@ -1028,6 +1051,7 @@ where
   reads(v4130.temperature)
 do
   var v4141 = -math.huge
+  __demand(__openmp)
   for v4142 in v4130 do
     if (not ((((((max(int32((uint64(v4133)-int3d(v4142).x)), int32(0))>int32(0)) or (max(int32((int3d(v4142).x-uint64(((v4134+v4133)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v4135)-int3d(v4142).y)), int32(0))>int32(0))) or (max(int32((int3d(v4142).y-uint64(((v4136+v4135)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v4137)-int3d(v4142).z)), int32(0))>int32(0))) or (max(int32((int3d(v4142).z-uint64(((v4138+v4137)-int32(1))))), int32(0))>int32(0)))) then
       v4141 max= v4130[v4142].temperature
@@ -1043,6 +1067,7 @@ where
   reads(v4149.temperature), reads(v4149.__valid)
 do
   var v4154 = double(0)
+  __demand(__openmp)
   for v4155 in v4149 do
     if v4149[v4155].__valid then
       v4154 += v4149[v4155].temperature
@@ -1086,6 +1111,7 @@ where
   reads(v4192.convectiveSpectralRadius), writes(v4192.convectiveSpectralRadius), reads(v4192.temperature), reads(v4192.velocity)
 do
   var v4208 = -math.huge
+  __demand(__openmp)
   for v4209 in v4192 do
     var v4223 : double
     do
@@ -1107,6 +1133,7 @@ where
   reads(v4229.rho), reads(v4229.sgsEddyViscosity), reads(v4229.temperature), reads(v4229.viscousSpectralRadius), writes(v4229.viscousSpectralRadius)
 do
   var v4275 = -math.huge
+  __demand(__openmp)
   for v4276 in v4229 do
     var v4292 : double
     do
@@ -1149,6 +1176,7 @@ where
   reads(v4298.heatConductionSpectralRadius), writes(v4298.heatConductionSpectralRadius), reads(v4298.rho), reads(v4298.sgsEddyKappa), reads(v4298.temperature)
 do
   var v4330 = -math.huge
+  __demand(__openmp)
   for v4331 in v4298 do
     var v4351 : double
     do
@@ -1192,6 +1220,7 @@ task Flow_InitializeTemporaries(v4359 : region(ispace(int3d), Fluid_columns))
 where
   reads(v4359.rho), reads(v4359.rhoEnergy), reads(v4359.rhoEnergy_new), writes(v4359.rhoEnergy_new), reads(v4359.rhoEnergy_old), writes(v4359.rhoEnergy_old), reads(v4359.rhoVelocity), reads(v4359.rhoVelocity_new), writes(v4359.rhoVelocity_new), reads(v4359.rhoVelocity_old), writes(v4359.rhoVelocity_old), reads(v4359.rho_new), writes(v4359.rho_new), reads(v4359.rho_old), writes(v4359.rho_old)
 do
+  __demand(__openmp)
   for v4362 in v4359 do
     v4359[v4362].rho_old = v4359[v4362].rho
     v4359[v4362].rhoVelocity_old = v4359[v4362].rhoVelocity
@@ -1207,6 +1236,7 @@ task Particles_InitializeTemporaries(v4368 : region(ispace(int1d), particles_col
 where
   reads(v4368.position), reads(v4368.position_new), writes(v4368.position_new), reads(v4368.position_old), writes(v4368.position_old), reads(v4368.temperature), reads(v4368.temperature_new), writes(v4368.temperature_new), reads(v4368.temperature_old), writes(v4368.temperature_old), reads(v4368.velocity), reads(v4368.velocity_new), writes(v4368.velocity_new), reads(v4368.velocity_old), writes(v4368.velocity_old), reads(v4368.__valid)
 do
+  __demand(__openmp)
   for v4371 in v4368 do
     if v4368[v4371].__valid then
       v4368[v4371].position_old = v4368[v4371].position
@@ -1225,6 +1255,7 @@ task Flow_InitializeTimeDerivatives(v4377 : region(ispace(int3d), Fluid_columns)
 where
   reads(v4377.pressure), reads(v4377.rhoEnergy), reads(v4377.rhoEnergy_t), writes(v4377.rhoEnergy_t), reads(v4377.rhoEnthalpy), writes(v4377.rhoEnthalpy), reads(v4377.rhoVelocity_t), writes(v4377.rhoVelocity_t), reads(v4377.rho_t), writes(v4377.rho_t)
 do
+  __demand(__openmp)
   for v4380 in v4377 do
     v4377[v4380].rho_t = double(double(0))
     v4377[v4380].rhoVelocity_t = [double[3]](array(double(0), double(0), double(0)))
@@ -1238,6 +1269,7 @@ task Particles_InitializeTimeDerivatives(v4392 : region(ispace(int1d), particles
 where
   reads(v4392.position_t), writes(v4392.position_t), reads(v4392.temperature_t), writes(v4392.temperature_t), reads(v4392.velocity_t), writes(v4392.velocity_t), reads(v4392.__valid)
 do
+  __demand(__openmp)
   for v4395 in v4392 do
     if v4392[v4395].__valid then
       v4392[v4395].position_t = [double[3]](array(double(0), double(0), double(0)))
@@ -1253,6 +1285,7 @@ task Flow_UpdateGhostVelocityGradientStep1(v4413 : region(ispace(int3d), Fluid_c
 where
   reads(v4413.velocityGradientX), reads(v4413.velocityGradientXBoundary), writes(v4413.velocityGradientXBoundary), reads(v4413.velocityGradientY), reads(v4413.velocityGradientYBoundary), writes(v4413.velocityGradientYBoundary), reads(v4413.velocityGradientZ), reads(v4413.velocityGradientZBoundary), writes(v4413.velocityGradientZBoundary)
 do
+  __demand(__openmp)
   for v4551 in v4413 do
     if (max(int32((uint64(v4418)-int3d(v4551).x)), int32(0))>int32(0)) then
       var v4552 = int3d(v4551)
@@ -1316,6 +1349,7 @@ task Flow_UpdateGhostVelocityGradientStep2(v4695 : region(ispace(int3d), Fluid_c
 where
   reads(v4695.velocityGradientX), writes(v4695.velocityGradientX), reads(v4695.velocityGradientXBoundary), reads(v4695.velocityGradientY), writes(v4695.velocityGradientY), reads(v4695.velocityGradientYBoundary), reads(v4695.velocityGradientZ), writes(v4695.velocityGradientZ), reads(v4695.velocityGradientZBoundary)
 do
+  __demand(__openmp)
   for v4704 in v4695 do
     if ((((((max(int32((uint64(v4697)-int3d(v4704).x)), int32(0))>int32(0)) or (max(int32((int3d(v4704).x-uint64(((v4698+v4697)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v4699)-int3d(v4704).y)), int32(0))>int32(0))) or (max(int32((int3d(v4704).y-uint64(((v4700+v4699)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v4701)-int3d(v4704).z)), int32(0))>int32(0))) or (max(int32((int3d(v4704).z-uint64(((v4702+v4701)-int32(1))))), int32(0))>int32(0))) then
       v4695[v4704].velocityGradientX = v4695[v4704].velocityGradientXBoundary
@@ -1331,6 +1365,7 @@ task Flow_AddGetFlux(v4710 : region(ispace(int3d), Fluid_columns), v4712 : doubl
 where
   reads(v4710.pressure), reads(v4710.rho), reads(v4710.rhoEnergyFluxX), writes(v4710.rhoEnergyFluxX), reads(v4710.rhoEnergyFluxX), writes(v4710.rhoEnergyFluxX), reads(v4710.rhoEnergyFluxY), writes(v4710.rhoEnergyFluxY), reads(v4710.rhoEnergyFluxY), writes(v4710.rhoEnergyFluxY), reads(v4710.rhoEnergyFluxZ), writes(v4710.rhoEnergyFluxZ), reads(v4710.rhoEnergyFluxZ), writes(v4710.rhoEnergyFluxZ), reads(v4710.rhoEnthalpy), reads(v4710.rhoFluxX), writes(v4710.rhoFluxX), reads(v4710.rhoFluxY), writes(v4710.rhoFluxY), reads(v4710.rhoFluxZ), writes(v4710.rhoFluxZ), reads(v4710.rhoVelocity), reads(v4710.rhoVelocityFluxX), writes(v4710.rhoVelocityFluxX), reads(v4710.rhoVelocityFluxX), writes(v4710.rhoVelocityFluxX), reads(v4710.rhoVelocityFluxY), writes(v4710.rhoVelocityFluxY), reads(v4710.rhoVelocityFluxY), writes(v4710.rhoVelocityFluxY), reads(v4710.rhoVelocityFluxZ), writes(v4710.rhoVelocityFluxZ), reads(v4710.rhoVelocityFluxZ), writes(v4710.rhoVelocityFluxZ), reads(v4710.temperature), reads(v4710.velocity), reads(v4710.velocityGradientX), reads(v4710.velocityGradientY), reads(v4710.velocityGradientZ)
 do
+  __demand(__openmp)
   for v5477 in v4710 do
     if ((not ((((((max(int32((uint64(v4722)-int3d(v5477).x)), int32(0))>int32(0)) or (max(int32((int3d(v5477).x-uint64(((v4724+v4722)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v4725)-int3d(v5477).y)), int32(0))>int32(0))) or (max(int32((int3d(v5477).y-uint64(((v4727+v4725)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v4728)-int3d(v5477).z)), int32(0))>int32(0))) or (max(int32((int3d(v5477).z-uint64(((v4730+v4728)-int32(1))))), int32(0))>int32(0)))) or (max(int32((uint64(v4722)-int3d(v5477).x)), int32(0))==int32(1))) then
       var v5660 : double[5]
@@ -1755,6 +1790,7 @@ task Flow_AddUpdateUsingFlux(v5911 : region(ispace(int3d), Fluid_columns), v5913
 where
   reads(v5911.rhoEnergyFluxX), reads(v5911.rhoEnergyFluxY), reads(v5911.rhoEnergyFluxZ), reads(v5911.rhoEnergy_t), writes(v5911.rhoEnergy_t), reads(v5911.rhoFluxX), reads(v5911.rhoFluxY), reads(v5911.rhoFluxZ), reads(v5911.rhoVelocityFluxX), reads(v5911.rhoVelocityFluxY), reads(v5911.rhoVelocityFluxZ), reads(v5911.rhoVelocity_t), writes(v5911.rhoVelocity_t), reads(v5911.rho_t), writes(v5911.rho_t)
 do
+  __demand(__openmp)
   for v5965 in v5911 do
     if (not ((((((max(int32((uint64(v5913)-int3d(v5965).x)), int32(0))>int32(0)) or (max(int32((int3d(v5965).x-uint64(((v5915+v5913)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v5916)-int3d(v5965).y)), int32(0))>int32(0))) or (max(int32((int3d(v5965).y-uint64(((v5918+v5916)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v5919)-int3d(v5965).z)), int32(0))>int32(0))) or (max(int32((int3d(v5965).z-uint64(((v5921+v5919)-int32(1))))), int32(0))>int32(0)))) then
       v5911[v5965].rho_t += ((-(v5911[v5965].rhoFluxX-v5911[((v5965+{-1, 0, 0})%v5911.bounds)].rhoFluxX))/v5914)
@@ -1791,6 +1827,7 @@ task Flow_AddBodyForces(v6049 : region(ispace(int3d), Fluid_columns), v6051 : do
 where
   reads(v6049.rho), reads(v6049.rhoEnergy_t), writes(v6049.rhoEnergy_t), reads(v6049.rhoVelocity_t), writes(v6049.rhoVelocity_t), reads(v6049.velocity)
 do
+  __demand(__openmp)
   for v6073 in v6049 do
     if (not ((((((max(int32((uint64(v6052)-int3d(v6073).x)), int32(0))>int32(0)) or (max(int32((int3d(v6073).x-uint64(((v6053+v6052)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6054)-int3d(v6073).y)), int32(0))>int32(0))) or (max(int32((int3d(v6073).y-uint64(((v6055+v6054)-int32(1))))), int32(0))>int32(0))) or (max(int32((uint64(v6056)-int3d(v6073).z)), int32(0))>int32(0))) or (max(int32((int3d(v6073).z-uint64(((v6057+v6056)-int32(1))))), int32(0))>int32(0)))) then
       var v6074 = vs_mul_double_3(v6051, v6049[v6073].rho)
@@ -3350,6 +3387,7 @@ task Particles_AddFlowCoupling(v8816 : region(ispace(int1d), particles_columns),
 where
   reads(v8819.centerCoordinates), reads(v8819.temperature), reads(v8819.velocity), reads(v8816.cell), reads(v8816.deltaTemperatureTerm), writes(v8816.deltaTemperatureTerm), reads(v8816.deltaVelocityOverRelaxationTime), writes(v8816.deltaVelocityOverRelaxationTime), reads(v8816.density), reads(v8816.diameter), reads(v8816.position), reads(v8816.position_t), writes(v8816.position_t), reads(v8816.temperature), reads(v8816.temperature_t), writes(v8816.temperature_t), reads(v8816.velocity), reads(v8816.velocity_t), writes(v8816.velocity_t), reads(v8816.__valid)
 do
+  __demand(__openmp)
   for v9479 in v8816 do
     if v8816[v9479].__valid then
       var v9532 : double[3]
@@ -3707,6 +3745,7 @@ task Particles_AddBodyForces(v9953 : region(ispace(int1d), particles_columns), v
 where
   reads(v9953.velocity_t), writes(v9953.velocity_t), reads(v9953.__valid)
 do
+  __demand(__openmp)
   for v9969 in v9953 do
     if v9953[v9969].__valid then
       var v9970 = v9955
@@ -3744,6 +3783,7 @@ task Flow_UpdateVars(v10022 : region(ispace(int3d), Fluid_columns), v10024 : dou
 where
   reads(v10022.rho), writes(v10022.rho), reads(v10022.rhoEnergy), writes(v10022.rhoEnergy), reads(v10022.rhoEnergy_new), reads(v10022.rhoEnergy_new), writes(v10022.rhoEnergy_new), reads(v10022.rhoEnergy_old), reads(v10022.rhoEnergy_t), reads(v10022.rhoVelocity), writes(v10022.rhoVelocity), reads(v10022.rhoVelocity_new), reads(v10022.rhoVelocity_new), writes(v10022.rhoVelocity_new), reads(v10022.rhoVelocity_old), reads(v10022.rhoVelocity_t), reads(v10022.rho_new), reads(v10022.rho_new), writes(v10022.rho_new), reads(v10022.rho_old), reads(v10022.rho_t)
 do
+  __demand(__openmp)
   for v10079 in v10022 do
     var v10080 = v10024
     if (v10025==int32(1)) then
@@ -3799,6 +3839,7 @@ task Particles_UpdateVars(v10143 : region(ispace(int1d), particles_columns), v10
 where
   reads(v10143.position), writes(v10143.position), reads(v10143.position_new), reads(v10143.position_new), writes(v10143.position_new), reads(v10143.position_old), reads(v10143.position_t), reads(v10143.temperature), writes(v10143.temperature), reads(v10143.temperature_new), reads(v10143.temperature_new), writes(v10143.temperature_new), reads(v10143.temperature_old), reads(v10143.temperature_t), reads(v10143.velocity), writes(v10143.velocity), reads(v10143.velocity_new), reads(v10143.velocity_new), writes(v10143.velocity_new), reads(v10143.velocity_old), reads(v10143.velocity_t), reads(v10143.__valid)
 do
+  __demand(__openmp)
   for v10261 in v10143 do
     if v10143[v10261].__valid then
       var v10262 = v10145
@@ -3872,6 +3913,7 @@ task Particles_UpdateAuxiliaryStep1(v10390 : region(ispace(int1d), particles_col
 where
   reads(v10390.position), reads(v10390.position_ghost), writes(v10390.position_ghost), reads(v10390.velocity), reads(v10390.velocity_ghost), writes(v10390.velocity_ghost), reads(v10390.velocity_ghost), writes(v10390.velocity_ghost), reads(v10390.velocity_t), reads(v10390.velocity_t_ghost), writes(v10390.velocity_t_ghost), reads(v10390.velocity_t_ghost), writes(v10390.velocity_t_ghost), reads(v10390.__valid)
 do
+  __demand(__openmp)
   for v10526 in v10390 do
     if v10390[v10526].__valid then
       v10390[v10526].position_ghost[int32(0)] = v10390[v10526].position[int32(0)]
@@ -4025,6 +4067,7 @@ task Particles_UpdateAuxiliaryStep2(v10580 : region(ispace(int1d), particles_col
 where
   reads(v10580.position), writes(v10580.position), reads(v10580.position_ghost), reads(v10580.velocity), writes(v10580.velocity), reads(v10580.velocity_ghost), reads(v10580.velocity_t), writes(v10580.velocity_t), reads(v10580.velocity_t_ghost), reads(v10580.__valid)
 do
+  __demand(__openmp)
   for v10583 in v10580 do
     if v10580[v10583].__valid then
       v10580[v10583].position = v10580[v10583].position_ghost
@@ -4988,7 +5031,6 @@ task work(v46 : Config)
   var v11228 = partition(aliased, v11215, v11223, v10851)
   regentlib.c.legion_domain_point_coloring_destroy(v11223)
   __parallelize_with v10855, v10863, v10851, (image(v10846, v10863, v10849.cell)<=v10855) do
-    particles_initValidField(v10849)
     var v11229 = int32(((v46.bc.xBCLeft==int32(0)) and (v46.bc.xBCRight==int32(0))))
     var v11230 = (1-v11229)
     while (v11229>0) do
@@ -5192,28 +5234,37 @@ task work(v46 : Config)
       v10808 = v46.integrator.restartIter
       v11256 -= 1
     end
+
+    __demand(__spmd)
+    do
+
+    -- particles_initValidField(v10849)
     Flow_InitializeCell(v10846)
     Flow_InitializeCenterCoordinates(v10846, v10797, v10759, v10762, v10765, v10798, v10760, v10763, v10766, v10799, v10761, v10764, v10767)
-    var v11257 = int32((v46.flow.initCase==int32(0)))
-    while (v11257>0) do
-      Flow_InitializeUniform(v10846, v10824)
-      v11257 -= 1
-    end
-    var v11258 = int32((v46.flow.initCase==int32(3)))
-    while (v11258>0) do
-      Flow_InitializeTaylorGreen2D(v10846, v10824, v10797, v10759, v10762, v10765, v10798, v10760, v10763, v10766, v10799, v10761, v10764, v10767)
-      v11258 -= 1
-    end
-    var v11259 = int32((v46.flow.initCase==int32(4)))
-    while (v11259>0) do
-      Flow_InitializeTaylorGreen3D(v10846, v10824, v10797, v10759, v10762, v10765, v10798, v10760, v10763, v10766, v10799, v10761, v10764, v10767)
-      v11259 -= 1
-    end
-    var v11260 = int32((v46.flow.initCase==int32(2)))
-    while (v11260>0) do
-      Flow_InitializePerturbed(v10846, v10824)
-      v11260 -= 1
-    end
+
+    -- var v11257 = int32((v46.flow.initCase==int32(0)))
+    -- while (v11257>0) do
+    --   Flow_InitializeUniform(v10846, v10824)
+    --   v11257 -= 1
+    -- end
+    -- var v11258 = int32((v46.flow.initCase==int32(3)))
+    -- while (v11258>0) do
+    --   Flow_InitializeTaylorGreen2D(v10846, v10824, v10797, v10759, v10762, v10765, v10798, v10760, v10763, v10766, v10799, v10761, v10764, v10767)
+    --   v11258 -= 1
+    -- end
+    -- var v11259 = int32((v46.flow.initCase==int32(4)))
+    -- while (v11259>0) do
+    --   Flow_InitializeTaylorGreen3D(v10846, v10824, v10797, v10759, v10762, v10765, v10798, v10760, v10763, v10766, v10799, v10761, v10764, v10767)
+    --   v11259 -= 1
+    -- end
+    -- var v11260 = int32((v46.flow.initCase==int32(2)))
+    -- while (v11260>0) do
+    --   Flow_InitializePerturbed(v10846, v10824)
+    --   v11260 -= 1
+    -- end
+
+    Flow_InitializeTaylorGreen3D(v10846, v10824, v10797, v10759, v10762, v10765, v10798, v10760, v10763, v10766, v10799, v10761, v10764, v10767)
+
     Flow_UpdateConservedFromPrimitive(v10846, v10815, v10814, v10797, v10759, v10798, v10760, v10799, v10761)
     Flow_UpdateAuxiliaryVelocity(v10846, v10797, v10759, v10798, v10760, v10799, v10761)
     Flow_UpdateGhostConservedStep1(v10846, v10778, v10776, v10777, v10775, v10774, v10784, v10782, v10783, v10781, v10780, v10790, v10788, v10789, v10787, v10786, v10815, v10814, v10797, v10759, v10798, v10760, v10799, v10761)
@@ -5226,17 +5277,25 @@ task work(v46 : Config)
     Flow_UpdateGhostThermodynamicsStep2(v10846, v10797, v10759, v10798, v10760, v10799, v10761)
     Flow_UpdateGhostFieldsStep1(v10846, v10778, v10776, v10777, v10775, v10774, v10784, v10782, v10783, v10781, v10780, v10790, v10788, v10789, v10787, v10786, v10815, v10814, v10797, v10759, v10798, v10760, v10799, v10761)
     Flow_UpdateGhostFieldsStep2(v10846, v10797, v10759, v10798, v10760, v10799, v10761)
-    var v11261 = int32((v46.particles.initCase==int32(0)))
-    while (v11261>0) do
-      regentlib.assert(false, "Random particle initialization is disabled")
-      v11261 -= 1
+
+    -- var v11261 = int32((v46.particles.initCase==int32(0)))
+    -- while (v11261>0) do
+    --   regentlib.assert(false, "Random particle initialization is disabled")
+    --   v11261 -= 1
+    -- end
+    -- var v11262 = int32((v46.particles.initCase==int32(2)))
+    -- while (v11262>0) do
+    --   InitParticlesUniform(v10849, v10846, v46, v10797, v10798, v10799)
+    --   v10844 = int64(((v46.particles.initNum/((v46.grid.xTiles*v46.grid.yTiles)*v46.grid.zTiles))*((v46.grid.xTiles*v46.grid.yTiles)*v46.grid.zTiles)))
+    --   v11262 -= 1
+    -- end
+
+    InitParticlesUniform(v10849, v10846, v46, v10797, v10798, v10799)
+
     end
-    var v11262 = int32((v46.particles.initCase==int32(2)))
-    while (v11262>0) do
-      InitParticlesUniform(v10849, v10846, v46, v10797, v10798, v10799)
-      v10844 = int64(((v46.particles.initNum/((v46.grid.xTiles*v46.grid.yTiles)*v46.grid.zTiles))*((v46.grid.xTiles*v46.grid.yTiles)*v46.grid.zTiles)))
-      v11262 -= 1
-    end
+
+    v10844 = int64(((v46.particles.initNum/((v46.grid.xTiles*v46.grid.yTiles)*v46.grid.zTiles))*((v46.grid.xTiles*v46.grid.yTiles)*v46.grid.zTiles)))
+
     -- XXX: Turn off stat output
     -- v10826 = double(int32(0))
     -- v10827 = double(int32(0))
@@ -5272,20 +5331,29 @@ task work(v46 : Config)
     -- end
     -- XXX: Turn off dynamic time stepping as we will cut off much earlier for now
     -- while ((v10806<v46.integrator.finalTime) and (v10808<v46.integrator.maxIter)) do
-    while v10808<v46.integrator.maxIter do
-      var v11265 = int32((v46.integrator.cfl<int32(0)))
-      var v11266 = (1-v11265)
-      while (v11265>0) do
-        v10809 = v46.integrator.fixedDeltaTime
-        v11265 -= 1
-      end
-      while (v11266>0) do
+    var maxIter = v46.integrator.maxIter
+    var cfl = v46.integrator.cfl
+    var fixedDeltaTime = v46.integrator.fixedDeltaTime
+    __demand(__spmd)
+    while v10808 < maxIter do
+      -- var v11265 = int32((v46.integrator.cfl<int32(0)))
+      -- var v11266 = (1-v11265)
+      -- while (v11265>0) do
+      --   v10809 = v46.integrator.fixedDeltaTime
+      --   v11265 -= 1
+      -- end
+      -- while (v11266>0) do
+      -- do
         v10811 max= CalculateConvectiveSpectralRadius(v10846, v10815, v10814, v10772, v10768, v10769, v10770)
         v10812 max= CalculateViscousSpectralRadius(v10846, v10818, v10820, v10819, v10823, v10822, v10821, v10817, v10772)
         v10813 max= CalculateHeatConductionSpectralRadius(v10846, v10818, v10815, v10814, v10820, v10819, v10816, v10823, v10822, v10821, v10817, v10772)
-        v10809 = (v46.integrator.cfl/max(v10811, max(v10812, v10813)))
-        v11266 -= 1
-      end
+        -- v10809 = (v46.integrator.cfl/max(v10811, max(v10812, v10813)))
+        -- v11266 -= 1
+      -- end
+
+      v10809 = [int32](cfl <  0) * fixedDeltaTime +
+               [int32](cfl >= 0) * (cfl/max(v10811, max(v10812, v10813)))
+
       Flow_InitializeTemporaries(v10846)
       Particles_InitializeTemporaries(v10849)
       v10807 = v10806
@@ -5411,32 +5479,32 @@ task work(v46 : Config)
     --   print_________________(v10808, v10806, v10826, v10827, v10828, v10843)
     --   v11275 -= 1
     -- end
-    v10826 = double(int32(0))
-    v10827 = double(int32(0))
-    v10828 = double(int32(0))
-    v10829 = double(int32(math.huge))
-    v10830 = double(int32(-math.huge))
-    v10831 = double(int32(0))
-    v10832 = double(int32(0))
-    v10843 = double(int32(0))
-    v10826 += CalculateAveragePressure(v10846, v10771, v10797, v10759, v10798, v10760, v10799, v10761)
-    v10827 += CalculateAverageTemperature(v10846, v10771, v10797, v10759, v10798, v10760, v10799, v10761)
-    v10828 += CalculateAverageKineticEnergy(v10846, v10771, v10797, v10759, v10798, v10760, v10799, v10761)
-    v10829 min= CalculateMinTemperature(v10846, v10797, v10759, v10798, v10760, v10799, v10761)
-    v10830 max= CalculateMaxTemperature(v10846, v10797, v10759, v10798, v10760, v10799, v10761)
-    v10843 += Particles_IntegrateQuantities(v10849)
-    v10826 = (v10826/(((v10759*v10760)*v10761)*v10771))
-    v10827 = (v10827/(((v10759*v10760)*v10761)*v10771))
-    v10828 = (v10828/(((v10759*v10760)*v10761)*v10771))
-    v10843 = (v10843/v10844)
-    C.printf(["Test Case: %s\nCurrent time step: %2.6e s.\n" ..
-              " Min Flow Temp: %11.6f K. Max Flow Temp: %11.6f K.\n" ..
-              " Current number of particles: %d.\n" ..
-              "\n" ..
-              "    Iter     Time(s)   Avg Press    Avg Temp      Avg KE  Particle T\n" ..
-              "%8d %11.6f %11.6f %11.6f %11.6f %11.6f\n"],
-             v46.filename, v10809, v10829, v10830, v10844,
-             v10808, v10806, v10826, v10827, v10828, v10843)
+    -- v10826 = double(int32(0))
+    -- v10827 = double(int32(0))
+    -- v10828 = double(int32(0))
+    -- v10829 = double(int32(math.huge))
+    -- v10830 = double(int32(-math.huge))
+    -- v10831 = double(int32(0))
+    -- v10832 = double(int32(0))
+    -- v10843 = double(int32(0))
+    -- v10826 += CalculateAveragePressure(v10846, v10771, v10797, v10759, v10798, v10760, v10799, v10761)
+    -- v10827 += CalculateAverageTemperature(v10846, v10771, v10797, v10759, v10798, v10760, v10799, v10761)
+    -- v10828 += CalculateAverageKineticEnergy(v10846, v10771, v10797, v10759, v10798, v10760, v10799, v10761)
+    -- v10829 min= CalculateMinTemperature(v10846, v10797, v10759, v10798, v10760, v10799, v10761)
+    -- v10830 max= CalculateMaxTemperature(v10846, v10797, v10759, v10798, v10760, v10799, v10761)
+    -- v10843 += Particles_IntegrateQuantities(v10849)
+    -- v10826 = (v10826/(((v10759*v10760)*v10761)*v10771))
+    -- v10827 = (v10827/(((v10759*v10760)*v10761)*v10771))
+    -- v10828 = (v10828/(((v10759*v10760)*v10761)*v10771))
+    -- v10843 = (v10843/v10844)
+    -- C.printf(["Test Case: %s\nCurrent time step: %2.6e s.\n" ..
+    --           " Min Flow Temp: %11.6f K. Max Flow Temp: %11.6f K.\n" ..
+    --           " Current number of particles: %d.\n" ..
+    --           "\n" ..
+    --           "    Iter     Time(s)   Avg Press    Avg Temp      Avg KE  Particle T\n" ..
+    --           "%8d %11.6f %11.6f %11.6f %11.6f %11.6f\n"],
+    --          v46.filename, v10809, v10829, v10830, v10844,
+    --          v10808, v10806, v10826, v10827, v10828, v10843)
   end
 end
 

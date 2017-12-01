@@ -36,6 +36,20 @@ double cost_fn_step(const Config &config, unsigned num_procs)
   return cost * config.integrator.maxIter;
 }
 
+double cost_fn_heuristic(const Config &config, unsigned num_procs)
+{
+  static double increment[5] = {1, 1.67, 1.78, 1.95, 1.83};
+  static double cutoff = 32 * 64 * 64;
+  num_procs = exp2((int)log2(num_procs));
+  long grid_size =
+    (long)config.grid.xNum * config.grid.yNum * config.grid.zNum / num_procs;
+  int steps = std::max(1, (int)log2((double)grid_size / cutoff)) - 1;
+  double cost = cutoff;
+  for (int i = 0; i < std::min(steps, 5); ++i) cost *= increment[i];
+  cost *= exp2(std::max(0, steps - 4));
+  return cost;
+}
+
 using namespace Legion;
 using namespace Legion::Mapping;
 
@@ -447,8 +461,8 @@ Config parse_config(const std::string &filename)
         }
         if (parsedv1)
           totalParsedv1 = totalParsedv1 + 1;
-        else
-          printf("Ignoring option %s\n", nodeNamev1);
+        //else
+        //  printf("Ignoring option %s\n", nodeNamev1);
       }
       if (totalParsedv1 < 4)
       {
@@ -513,8 +527,8 @@ Config parse_config(const std::string &filename)
         }
         if (parsedv1)
           totalParsedv1 = totalParsedv1 + 1;
-        else
-          printf("Ignoring option %s\n", nodeNamev1);
+        //else
+        //  printf("Ignoring option %s\n", nodeNamev1);
       }
       if (totalParsedv1 < 5)
       {
@@ -726,8 +740,8 @@ Config parse_config(const std::string &filename)
         }
         if (parsedv1)
           totalParsedv1 = totalParsedv1 + 1;
-        else
-          printf("Ignoring option %s\n", nodeNamev1);
+        //else
+        //  printf("Ignoring option %s\n", nodeNamev1);
       }
       if (totalParsedv1 < 14)
       {
@@ -884,8 +898,8 @@ Config parse_config(const std::string &filename)
         }
         if (parsedv1)
           totalParsedv1 = totalParsedv1 + 1;
-        else
-          printf("Ignoring option %s\n", nodeNamev1);
+        //else
+        //  printf("Ignoring option %s\n", nodeNamev1);
       }
       if (totalParsedv1 < 13)
       {
@@ -1246,8 +1260,8 @@ Config parse_config(const std::string &filename)
         }
         if (parsedv1)
           totalParsedv1 = totalParsedv1 + 1;
-        else
-          printf("Ignoring option %s\n", nodeNamev1);
+        //else
+        //  printf("Ignoring option %s\n", nodeNamev1);
       }
       if (totalParsedv1 < 18)
       {
@@ -1364,8 +1378,8 @@ Config parse_config(const std::string &filename)
         }
         if (parsedv1)
           totalParsedv1 = totalParsedv1 + 1;
-        else
-          printf("Ignoring option %s\n", nodeNamev1);
+        //else
+        //  printf("Ignoring option %s\n", nodeNamev1);
       }
       if (totalParsedv1 < 10)
       {
@@ -1434,8 +1448,8 @@ Config parse_config(const std::string &filename)
               }
               if (parsedv1)
                 totalParsedv1 = totalParsedv1 + 1;
-              else
-                printf("Ignoring option %s\n", nodeNamev1);
+              //else
+              //  printf("Ignoring option %s\n", nodeNamev1);
             }
             if (totalParsedv1 < 1)
             {
@@ -1593,8 +1607,8 @@ Config parse_config(const std::string &filename)
               }
               if (parsedv1)
                 totalParsedv1 = totalParsedv1 + 1;
-              else
-                printf("Ignoring option %s\n", nodeNamev1);
+              //else
+              //  printf("Ignoring option %s\n", nodeNamev1);
             }
             if (totalParsedv1 < 17)
             {
@@ -1609,8 +1623,8 @@ Config parse_config(const std::string &filename)
     }
     if (parsed)
       totalParsed = totalParsed + 1;
-    else
-      printf("Ignoring option %s\n", nodeName);
+    //else
+    //  printf("Ignoring option %s\n", nodeName);
   }
   if (totalParsed < 7)
   {
@@ -1773,9 +1787,8 @@ static void create_mappers(Machine machine, HighLevelRuntime *runtime,
   }
   else
   {
-    two_shelves<Config, cost_fn_step>(*configs, *mappings,
-                                      procs_list->size() / sysmems_list->size(),
-                                      sysmems_list->size());
+    two_shelves<Config, cost_fn_heuristic>(*configs, *mappings,
+        procs_list->size() / sysmems_list->size(), sysmems_list->size());
   }
   for (unsigned idx = 0; idx < configs->size(); ++idx)
   {

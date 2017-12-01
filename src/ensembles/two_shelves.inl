@@ -122,7 +122,7 @@ void two_shelves(const std::vector<T> &configs,
   double target = (min_cost + max_cost) / 2;
 
   for (unsigned idx = 0; idx < configs.size(); ++idx)
-    mappings.push_back(TaskMapping(idx, 0, total_num_cores - 1));
+    mappings.push_back(TaskMapping(idx % total_num_cores, 0, total_num_cores - 1));
 
   // Implementation of two-shelf scheduling algorithm as per Mounie et al.
   while (std::fabs(min_cost - max_cost) / max_cost > 1e-5)
@@ -337,6 +337,7 @@ void two_shelves(const std::vector<T> &configs,
           it != tasks_S0.end(); ++it)
       {
         unsigned assigned_cores = cores_S0[*it];
+        //fprintf(stderr, "S0 %u %u\n", cores, assigned_cores);
         mappings[*it] = compute_mapping(main_assigned, num_analysis_tasks,
                                         cores_per_node, num_nodes,
                                         cores, cores + assigned_cores - 1);
@@ -347,6 +348,7 @@ void two_shelves(const std::vector<T> &configs,
           it != tasks_S1.end(); ++it)
       {
         unsigned assigned_cores = cores_S1[*it];
+        //fprintf(stderr, "S1 %u %u\n", cores, assigned_cores);
         mappings[*it] = compute_mapping(main_assigned, num_analysis_tasks,
                                         cores_per_node, num_nodes,
                                         cores, cores + assigned_cores - 1);
@@ -361,6 +363,7 @@ void two_shelves(const std::vector<T> &configs,
         {
           unsigned assigned_cores = cores_S2[*it];
           if (cores + assigned_cores - 1 >= total_num_cores) break;
+          //fprintf(stderr, "S2 %u %u\n", cores, assigned_cores);
           mappings[*it] = compute_mapping(main_assigned, num_analysis_tasks,
                                           cores_per_node, num_nodes,
                                           cores, cores + assigned_cores - 1);
@@ -370,6 +373,7 @@ void two_shelves(const std::vector<T> &configs,
         for (; it != tasks_S2.end(); ++it)
         {
           unsigned assigned_cores = cores_S2[*it];
+          //fprintf(stderr, "S2 %u %u\n", cores, assigned_cores);
           mappings[*it] = compute_mapping(main_assigned, num_analysis_tasks,
                                           cores_per_node, num_nodes,
                                           cores, cores + assigned_cores - 1);
@@ -437,12 +441,12 @@ void two_shelves(const std::vector<T> &configs,
   }
 #endif
 
-  //fprintf(stderr, "Final schedule:\n");
-  //for (unsigned idx = 0; idx < mappings.size(); ++idx)
-  //  fprintf(stderr, "T%u: %u -- %u (main: %u, #cores: %u)\n",
-  //      idx, mappings[idx].start_idx, mappings[idx].end_idx,
-  //      mappings[idx].main_idx,
-  //      mappings[idx].end_idx - mappings[idx].start_idx + 1);
+  fprintf(stderr, "Final schedule:\n");
+  for (unsigned idx = 0; idx < mappings.size(); ++idx)
+    fprintf(stderr, "T%u: %u -- %u (main: %u, #cores: %u)\n",
+        idx, mappings[idx].start_idx, mappings[idx].end_idx,
+        mappings[idx].main_idx,
+        mappings[idx].end_idx - mappings[idx].start_idx + 1);
 }
 
 //int main()
