@@ -1,7 +1,4 @@
 -- Runs dom.rg standalone.
--- Compile using: regent.py host.rg
--- Run binary using: LD_LIBRARY_PATH=$LEGION_PATH/bindings/terra/ ./a.out
-
 -- Uses static values for DOM configuration options.
 -- Uses default values for Ib and sigma.
 
