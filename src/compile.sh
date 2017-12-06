@@ -1,15 +1,26 @@
 #!/bin/bash -eu
 
 SOLEIL_SRC="$(cd "$(dirname "$(perl -MCwd -le 'print Cwd::abs_path(shift)' "${BASH_SOURCE[0]}")")" && pwd)"
-
-export HDF_LIBNAME=hdf5_serial
-export HDF_HEADER=hdf5/serial/hdf5.h
-
 cd "$SOLEIL_SRC"
 
-USE_HDF=1 DEBUG=1 OBJNAME=soleil.exec \
-    "$LISZT_PATH"/liszt-legion.sh soleil-x.t \
+# Translation options
+export HDF_LIBNAME=hdf5_serial
+export HDF_HEADER=hdf5/serial/hdf5.h
+export USE_HDF=1
+export DEBUG=1
+export OBJNAME=soleil.exec
+
+# Regent options
+export TERRA_PATH=liszt/?.t
+export LIBRARY_PATH=".:$LIBRARY_PATH"
+export INCLUDE_PATH="."
+
+gcc -g -O2 -c -o json.o json.c
+ar rcs libjsonparser.a json.o
+
+"$LEGION_PATH"/language/regent.py soleil-x.t \
     -i ../testcases/cavity/cavity_32x32.json \
+    -fflow 0 -fdebug 1 \
     1> soleil.out 2> soleil.err
 
-"$LISZT_PATH"/make_parsable.py soleil.out > soleil.rg
+./make_parsable.py soleil.out > soleil.rg
