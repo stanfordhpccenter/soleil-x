@@ -91,8 +91,10 @@ local task initialize_faces(faces : region(ispace(int3d), face))
 where
   reads writes (faces.I)
 do
-  for m = 0, NUM_ANGLES do
-    faces.I[m] = 0.0
+  for f in faces do
+    for m = 0, NUM_ANGLES do
+      f.I[m] = 0.0
+    end
   end
 end
 
