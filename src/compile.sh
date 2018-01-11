@@ -12,7 +12,7 @@ export OBJNAME=soleil.exec
 
 # Regent options
 export TERRA_PATH=liszt/?.t
-export LIBRARY_PATH=".:$LIBRARY_PATH"
+export LIBRARY_PATH="${LIBRARY_PATH:-}:."
 export INCLUDE_PATH="."
 
 gcc -g -O2 -c -o json.o json.c
