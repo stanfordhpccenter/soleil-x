@@ -6,6 +6,7 @@ cd "$SOLEIL_SRC"
 # Translation options
 export HDF_LIBNAME=hdf5_serial
 export HDF_HEADER=hdf5/serial/hdf5.h
+export USE_HDF=1
 export DEBUG=1
 export OBJNAME=soleil.exec
 
