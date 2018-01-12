@@ -2136,6 +2136,22 @@ if USE_HDF then
     end
   end
 
+else -- if not USE_HDF
+
+  -- string*, string, RG.rexpr* -> RG.rquote
+  function R.Relation:emitDump(flds, file, vals)
+    return rquote
+      RG.assert(false, 'HDF I/O not supported; recompile with USE_HDF=1')
+    end
+  end
+
+  -- string*, string, RG.rexpr* -> RG.rquote
+  function R.Relation:emitLoad(flds, file, vals)
+    return rquote
+      RG.assert(false, 'HDF I/O not supported; recompile with USE_HDF=1')
+    end
+  end
+
 end -- if USE_HDF
 
 -------------------------------------------------------------------------------
