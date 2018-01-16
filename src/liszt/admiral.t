@@ -49,7 +49,7 @@ local newlist = terralib.newlist
 -- Parse config options
 -------------------------------------------------------------------------------
 
-local DEBUG = os.getenv('DEBUG') == '1'
+local DUMP_REGENT = os.getenv('DUMP_REGENT') == '1'
 
 local LIBS = newlist({'-ljsonparser', '-lm'})
 
@@ -211,7 +211,7 @@ function A.registerTask(tsk, name)
     parallel_task:set_name(name)
   end
   tsk:get_primary_variant():get_ast().name[1] = name -- XXX: Dangerous
-  if DEBUG then
+  if DUMP_REGENT then
     prettyPrintTask(tsk)
   end
 end
@@ -224,14 +224,14 @@ function A.registerFun(fun, name)
   end
   NAME_CACHE[name] = fun
   fun:setname(name)
-  if DEBUG then
+  if DUMP_REGENT then
     prettyPrintFun(fun)
   end
 end
 
 -- terralib.struct -> ()
 function A.registerStruct(s)
-  if DEBUG then
+  if DUMP_REGENT then
     prettyPrintStruct(s)
   end
 end

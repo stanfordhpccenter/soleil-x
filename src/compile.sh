@@ -3,24 +3,39 @@
 SOLEIL_SRC="$(cd "$(dirname "$(perl -MCwd -le 'print Cwd::abs_path(shift)' "${BASH_SOURCE[0]}")")" && pwd)"
 cd "$SOLEIL_SRC"
 
-# Translation options
-export HDF_LIBNAME=hdf5_serial
-export HDF_HEADER=hdf5/serial/hdf5.h
+# Translator options
+if [[ $(uname -n) == *"titan"* ]]; then
+    export HDF_LIBNAME=hdf5
+    export HDF_HEADER=hdf5.h
+else
+    export HDF_LIBNAME=hdf5_serial
+    export HDF_HEADER=hdf5/serial/hdf5.h
+fi
 export USE_HDF=1
-export DEBUG=1
+export DUMP_REGENT=1
 export OBJNAME=soleil.exec
 
 # Regent options
+if [[ $(uname -n) == *"titan"* ]]; then
+    export LIBRARY_PATH=".:/opt/cray/hdf5/1.10.0.1/GNU/4.9/lib"
+    export INCLUDE_PATH=".;/opt/cray/hdf5/1.10.0.1/GNU/4.9/include"
+else
+    export LIBRARY_PATH="."
+    export INCLUDE_PATH="."
+fi
 export TERRA_PATH=liszt/?.t
-export LIBRARY_PATH="."
-export INCLUDE_PATH="."
 
+# Build libraries
 gcc -g -O2 -c -o json.o json.c
 ar rcs libjsonparser.a json.o
 
-"$LEGION_PATH"/language/regent.py soleil-x.t \
+# Compile Liszt
+"$LEGION_DIR"/language/regent.py soleil-x.t \
     -i ../testcases/cavity/cavity_32x32.json \
     -fflow 0 -fflow-spmd 0 -fcuda 0 -fopenmp 0 \
     1> soleil.out 2> soleil.err
 
-./make_parsable.py soleil.out > soleil.rg
+# Post-process dumped Regent
+if [[ $DUMP_REGENT == 1 ]]; then
+    ./make_parsable.py soleil.out > soleil.rg
+fi
