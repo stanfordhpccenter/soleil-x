@@ -21,6 +21,6 @@ ar rcs libjsonparser.a json.o
 "$LEGION_PATH"/language/regent.py soleil-x.t \
     -i ../testcases/cavity/cavity_32x32.json \
     -fflow 0 -fflow-spmd 0 -fcuda 0 -fopenmp 0 \
-    -fdebug 1 1> soleil.out 2> soleil.err
+    1> soleil.out 2> soleil.err
 
 ./make_parsable.py soleil.out > soleil.rg

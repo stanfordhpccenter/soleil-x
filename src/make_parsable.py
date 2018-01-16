@@ -27,9 +27,12 @@ for line in fileinput.input():
     line = re.sub(r'for ([\w$#]+) : .* in ', r'for \1 in ', line)
     line = re.sub(r'var ([\w$#]+) : [^:=]* =', r'var \1 =', line)
     # Make variable names valid identifiers
-    line = re.sub(r'\$\w+#([0-9]+)', r'v\1', line)
-    line = re.sub(r'\$(\w+)\$([0-9]+)', r'v\1__\2', line)
-    line = re.sub(r'\$(\w+)', r'v\1', line)
+    # Regent vars: $abc, $abc#123, $123
+    # Terra vars: abc, $abc, abc$123, $abc$123
+    line = re.sub(r'\$(\w+)#([0-9]+)', r'\1__\2', line)
+    line = re.sub(r'\$?(\w+)\$([0-9]+)', r'\1__\2', line)
+    line = re.sub(r'\$([0-9]+)', r'__\1', line)
+    line = re.sub(r'\$(\w+)', r'\1', line)
     # Remove remaining debug numbers
     line = re.sub(r'region#[0-9]+', r'region', line)
     line = re.sub(r'ispace#[0-9]+', r'ispace', line)
@@ -47,6 +50,7 @@ for line in fileinput.input():
     line = line.replace('H5', 'HDF5.H5')
     line = line.replace('legion_', 'regentlib.c.legion_')
     line = line.replace('std.', 'regentlib.')
+    line = line.replace('base.', 'regentlib.')
     line = re.sub(r'(_?json_)', r'JSON.\1', line)
     # Remove unparsable terra annotations
     line = re.sub(r'extern global (.*) : \w+', r'\1', line)
@@ -55,6 +59,10 @@ for line in fileinput.input():
     line = re.sub(r'\(_0,[ _0-9,]* = ([^)]*)\)', r'({\1})', line)
     # (@x). -> x.
     line = re.sub(r'\(@(\w+)\)\.', r'\1.', line)
+    # Remove unnecessary casts
+    line = re.sub(r'uint32\(([0-9]+)\)', r'\1', line)
+    line = re.sub(r'int32\(([0-9]+)\)', r'\1', line)
+    line = re.sub(r'double\(([0-9]+)\)', r'\1.0', line)
     # Print filtered line
     print line
 
