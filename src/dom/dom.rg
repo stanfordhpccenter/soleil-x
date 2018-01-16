@@ -176,6 +176,7 @@ do
 
 end
 
+
 local task make_interior_partition_x_hi(faces : region(ispace(int3d), face),
                                         x_tiles : ispace(int3d))
 
@@ -413,6 +414,8 @@ do
   var epsw    : double = emiss_west
   var Tw      : double = T_west
 
+  var value : double = epsw*SB*pow(Tw,4.0)/pi
+
   for j = limits.lo.y, limits.hi.y + 1 do
     for k = limits.lo.z, limits.hi.z + 1 do
 
@@ -424,9 +427,9 @@ do
           var face_value : double = 0.0
           if angles[m].eta > 0 and angles[m].mu > 0 then
             face_value = faces_5[{limits.lo.x,j,k}].I[m]
-          elseif angles[m].eta > 0 and angles[m].mu < 0 then
+          elseif angles[m].eta > 0 and angles[m].mu <= 0 then
             face_value = faces_6[{limits.lo.x,j,k}].I[m]
-          elseif angles[m].eta < 0 and angles[m].mu > 0 then
+          elseif angles[m].eta <= 0 and angles[m].mu > 0 then
             face_value = faces_7[{limits.lo.x,j,k}].I[m]
           else
             face_value = faces_8[{limits.lo.x,j,k}].I[m]
@@ -437,15 +440,14 @@ do
 
       -- Set Ifx values using reflect
 
+      var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
       for m = 0, N_angles do
         if angles[m].xi > 0 then
-          var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
-
           if angles[m].eta > 0 and angles[m].mu > 0 then
             faces_1[{limits.lo.x,j,k}].I[m] = value
-          elseif angles[m].eta > 0 and angles[m].mu < 0 then
+          elseif angles[m].eta > 0 and angles[m].mu <= 0 then
             faces_2[{limits.lo.x,j,k}].I[m] = value
-          elseif angles[m].eta < 0 and angles[m].mu > 0 then
+          elseif angles[m].eta <= 0 and angles[m].mu > 0 then
             faces_3[{limits.lo.x,j,k}].I[m] = value
           else
             faces_4[{limits.lo.x,j,k}].I[m] = value
@@ -483,6 +485,8 @@ do
   var epsw    : double = emiss_east
   var Tw      : double = T_east
 
+  var value : double = epsw*SB*pow(Tw,4.0)/pi
+
   for j = limits.lo.y, limits.hi.y + 1 do
     for k = limits.lo.z, limits.hi.z + 1 do
 
@@ -494,9 +498,9 @@ do
           var face_value : double = 0.0
           if angles[m].eta > 0 and angles[m].mu > 0 then
             face_value = faces_1[{limits.hi.x,j,k}].I[m]
-          elseif angles[m].eta > 0 and angles[m].mu < 0 then
+          elseif angles[m].eta > 0 and angles[m].mu <= 0 then
             face_value = faces_2[{limits.hi.x,j,k}].I[m]
-          elseif angles[m].eta < 0 and angles[m].mu > 0 then
+          elseif angles[m].eta <= 0 and angles[m].mu > 0 then
             face_value = faces_3[{limits.hi.x,j,k}].I[m]
           else
             face_value = faces_4[{limits.hi.x,j,k}].I[m]
@@ -507,15 +511,15 @@ do
 
       -- Set Ifx values using reflect
 
+      var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
       for m = 0, N_angles do
         if angles[m].xi < 0 then
-          var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
 
           if angles[m].eta > 0 and angles[m].mu > 0 then
             faces_5[{limits.hi.x,j,k}].I[m] = value
-          elseif angles[m].eta > 0 and angles[m].mu < 0 then
+          elseif angles[m].eta > 0 and angles[m].mu <= 0 then
             faces_6[{limits.hi.x,j,k}].I[m] = value
-          elseif angles[m].eta < 0 and angles[m].mu > 0 then
+          elseif angles[m].eta <= 0 and angles[m].mu > 0 then
             faces_7[{limits.hi.x,j,k}].I[m] = value
           else
             faces_8[{limits.hi.x,j,k}].I[m] = value
@@ -553,6 +557,8 @@ do
   var epsw    : double = emiss_north
   var Tw      : double = T_north
 
+  var value : double = epsw*SB*pow(Tw,4.0)/pi
+
   for i = limits.lo.x, limits.hi.x + 1 do
     for k = limits.lo.z, limits.hi.z + 1 do
 
@@ -564,9 +570,9 @@ do
           var face_value : double = 0.0
           if angles[m].xi > 0 and angles[m].mu > 0 then
             face_value = faces_1[{i,limits.hi.y,k}].I[m]
-          elseif angles[m].xi > 0 and angles[m].mu < 0 then
+          elseif angles[m].xi > 0 and angles[m].mu <= 0 then
             face_value = faces_2[{i,limits.hi.y,k}].I[m]
-          elseif angles[m].xi < 0 and angles[m].mu > 0 then
+          elseif angles[m].xi <= 0 and angles[m].mu > 0 then
             face_value = faces_5[{i,limits.hi.y,k}].I[m]
           else
             face_value = faces_6[{i,limits.hi.y,k}].I[m]
@@ -577,15 +583,15 @@ do
 
       -- Set Ify values using reflect
 
+      var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
       for m = 0, N_angles do
         if angles[m].eta < 0 then
-          var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
 
           if angles[m].xi > 0 and angles[m].mu > 0 then
             faces_3[{i,limits.hi.y,k}].I[m] = value
-          elseif angles[m].xi > 0 and angles[m].mu < 0 then
+          elseif angles[m].xi > 0 and angles[m].mu <= 0 then
             faces_4[{i,limits.hi.y,k}].I[m] = value
-          elseif angles[m].xi < 0 and angles[m].mu > 0 then
+          elseif angles[m].xi <= 0 and angles[m].mu > 0 then
             faces_7[{i,limits.hi.y,k}].I[m] = value
           else
             faces_8[{i,limits.hi.y,k}].I[m] = value
@@ -623,6 +629,8 @@ do
   var epsw    : double = emiss_south
   var Tw      : double = T_south
 
+  var value : double = epsw*SB*pow(Tw,4.0)/pi
+
   for i = limits.lo.x, limits.hi.x + 1 do
     for k = limits.lo.z, limits.hi.z + 1 do
 
@@ -634,9 +642,9 @@ do
           var face_value : double = 0.0
           if angles[m].xi > 0 and angles[m].mu > 0 then
             face_value = faces_3[{i,limits.lo.y,k}].I[m]
-          elseif angles[m].xi > 0 and angles[m].mu < 0 then
+          elseif angles[m].xi > 0 and angles[m].mu <= 0 then
             face_value = faces_4[{i,limits.lo.y,k}].I[m]
-          elseif angles[m].xi < 0 and angles[m].mu > 0 then
+          elseif angles[m].xi <= 0 and angles[m].mu > 0 then
             face_value = faces_7[{i,limits.lo.y,k}].I[m]
           else
             face_value = faces_8[{i,limits.lo.y,k}].I[m]
@@ -647,15 +655,15 @@ do
 
       -- Set Ify values using reflect
 
+      var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
       for m = 0, N_angles do
         if angles[m].eta > 0 then
-          var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
 
           if angles[m].xi > 0 and angles[m].mu > 0 then
             faces_1[{i,limits.lo.y,k}].I[m] = value
-          elseif angles[m].xi > 0 and angles[m].mu < 0 then
+          elseif angles[m].xi > 0 and angles[m].mu <= 0 then
             faces_2[{i,limits.lo.y,k}].I[m] = value
-          elseif angles[m].xi < 0 and angles[m].mu > 0 then
+          elseif angles[m].xi <= 0 and angles[m].mu > 0 then
             faces_5[{i,limits.lo.y,k}].I[m] = value
           else
             faces_6[{i,limits.lo.y,k}].I[m] = value
@@ -693,6 +701,8 @@ do
   var epsw    : double = emiss_up
   var Tw      : double = T_up
 
+  var value : double = epsw*SB*pow(Tw,4.0)/pi
+
   for i = limits.lo.x, limits.hi.x + 1 do
     for j = limits.lo.y, limits.hi.y + 1 do
 
@@ -704,9 +714,9 @@ do
           var face_value : double = 0.0
           if angles[m].xi > 0 and angles[m].eta > 0 then
             face_value = faces_2[{i,j,limits.lo.z}].I[m]
-          elseif angles[m].xi > 0 and angles[m].eta < 0 then
+          elseif angles[m].xi > 0 and angles[m].eta <= 0 then
             face_value = faces_4[{i,j,limits.lo.z}].I[m]
-          elseif angles[m].xi < 0 and angles[m].eta > 0 then
+          elseif angles[m].xi <= 0 and angles[m].eta > 0 then
             face_value = faces_6[{i,j,limits.lo.z}].I[m]
           else
             face_value = faces_8[{i,j,limits.lo.z}].I[m]
@@ -717,15 +727,15 @@ do
 
       -- Set Ifz values using reflect
 
+      var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
       for m = 0, N_angles do
         if angles[m].mu > 0 then
-          var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
 
           if angles[m].xi > 0 and angles[m].eta > 0 then
             faces_1[{i,j,limits.lo.z}].I[m] = value
-          elseif angles[m].xi > 0 and angles[m].eta < 0 then
+          elseif angles[m].xi > 0 and angles[m].eta <= 0 then
             faces_3[{i,j,limits.lo.z}].I[m] = value
-          elseif angles[m].xi < 0 and angles[m].eta > 0 then
+          elseif angles[m].xi <= 0 and angles[m].eta > 0 then
             faces_5[{i,j,limits.lo.z}].I[m] = value
           else
             faces_7[{i,j,limits.lo.z}].I[m] = value
@@ -763,6 +773,8 @@ do
   var epsw    : double = emiss_down
   var Tw      : double = T_down
 
+  var value : double = epsw*SB*pow(Tw,4.0)/pi
+
   for i = limits.lo.x, limits.hi.x + 1 do
     for j = limits.lo.y, limits.hi.y + 1 do
 
@@ -774,9 +786,9 @@ do
           var face_value : double = 0.0
           if angles[m].xi > 0 and angles[m].eta > 0 then
             face_value = faces_1[{i,j,limits.hi.z}].I[m]
-          elseif angles[m].xi > 0 and angles[m].eta < 0 then
+          elseif angles[m].xi > 0 and angles[m].eta <= 0 then
             face_value = faces_3[{i,j,limits.hi.z}].I[m]
-          elseif angles[m].xi < 0 and angles[m].eta > 0 then
+          elseif angles[m].xi <= 0 and angles[m].eta > 0 then
             face_value = faces_5[{i,j,limits.hi.z}].I[m]
           else
             face_value = faces_7[{i,j,limits.hi.z}].I[m]
@@ -787,15 +799,15 @@ do
 
       -- Set Ifz values using reflect
 
+      var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
       for m = 0, N_angles do
         if angles[m].mu < 0 then
-          var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
 
           if angles[m].xi > 0 and angles[m].eta > 0 then
             faces_2[{i,j,limits.hi.z}].I[m] = value
-          elseif angles[m].xi > 0 and angles[m].eta < 0 then
+          elseif angles[m].xi > 0 and angles[m].eta <= 0 then
             faces_4[{i,j,limits.hi.z}].I[m] = value
-          elseif angles[m].xi < 0 and angles[m].eta > 0 then
+          elseif angles[m].xi <= 0 and angles[m].eta > 0 then
             faces_6[{i,j,limits.hi.z}].I[m] = value
           else
             faces_8[{i,j,limits.hi.z}].I[m] = value
@@ -1898,6 +1910,79 @@ do
   end
 end
 
+local task write_intensity(points : pointsType)
+where
+  reads (points.G)
+do
+  var limits = points.bounds
+  var f = c.fopen("intensity.dat", "w")
+  for i = limits.lo.x, limits.hi.x+1 do
+    for j = limits.lo.y, limits.hi.y+1 do
+      for k = limits.lo.z, limits.hi.z+1 do
+        c.fprintf(f,' %.6e ', points[{i,j,k}].G)
+      end
+      c.fprintf(f,'\n')
+    end
+    c.fprintf(f,'\n')
+  end
+  c.fclose(f)
+end
+
+-- for debugging
+local task print_final_intensities(points : pointsType)
+where
+  reads (points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8})
+
+do
+
+    var limits = points.bounds
+    for i = limits.lo.x, limits.hi.x+1 do
+      for j = limits.lo.y, limits.hi.y+1 do
+        for k = limits.lo.z, limits.hi.z+1 do
+            for m = 0, N_angles do
+
+              if points[{i,j,k}].I_1[m] > 0 then
+                c.printf("1 x=%d,y=%d,z=%d,angle=%d I = %lf", i, j, k, m, points[{i,j,k}].I_1[m])
+              end 
+
+              if points[{i,j,k}].I_2[m] > 0 then
+                c.printf(" 2 x=%d,y=%d,z=%d,angle=%d I = %lf", i, j, k, m, points[{i,j,k}].I_2[m])
+              end 
+
+              if points[{i,j,k}].I_3[m] > 0 then
+                c.printf(" 3 x=%d,y=%d,z=%d,angle=%d I = %lf", i, j, k, m, points[{i,j,k}].I_3[m])
+              end 
+
+              if points[{i,j,k}].I_4[m] > 0 then
+                c.printf(" 4 x=%d,y=%d,z=%d,angle=%d I = %lf", i, j, k, m, points[{i,j,k}].I_4[m])
+              end 
+
+              if points[{i,j,k}].I_5[m] > 0 then
+                c.printf(" 5 x=%d,y=%d,z=%d,angle=%d I = %lf", i, j, k, m, points[{i,j,k}].I_5[m])
+              end 
+
+              if points[{i,j,k}].I_6[m] > 0 then
+                c.printf(" 6 x=%d,y=%d,z=%d,angle=%d I = %lf", i, j, k, m, points[{i,j,k}].I_6[m])
+              end 
+
+              if points[{i,j,k}].I_7[m] > 0 then
+                c.printf(" 7 x=%d,y=%d,z=%d,angle=%d I = %lf", i, j, k, m, points[{i,j,k}].I_7[m])
+              end 
+
+              if points[{i,j,k}].I_8[m] > 0 then
+                c.printf(" 8 x=%d,y=%d,z=%d,angle=%d I = %lf", i, j, k, m, points[{i,j,k}].I_8[m])
+              end 
+
+            end
+            c.printf("\n")
+          end
+          c.printf("\n")
+      end
+      c.printf("\n")
+    end
+
+end
+
 -------------------------------------------------------------------------------
 -- EXPORTED QUOTES
 -------------------------------------------------------------------------------
@@ -1988,6 +2073,9 @@ exports.InitModule = rquote
   var [x_tiles] = ispace(int3d, {x = ntx+1, y = nty,   z = ntz  })
   var [y_tiles] = ispace(int3d, {x = ntx,   y = nty+1, z = ntz  })
   var [z_tiles] = ispace(int3d, {x = ntx,   y = nty,   z = ntz+1})
+
+  -- Partition x_faces_1 private/shared
+  -- Partition private and shared into tiles
 
   var [p_x_faces_1] = make_interior_partition_x_lo(x_faces_1, x_tiles)
   var [p_y_faces_1] = make_interior_partition_y_lo(y_faces_1, y_tiles)
@@ -2245,6 +2333,10 @@ exports.ComputeRadiationField = rquote
   for color in tiles do
     reduce_intensity(p_points[color], angles)
   end
+  
+  -- Debugging
+  write_intensity(points)
+  -- print_final_intensities(points)
 
 end
 
