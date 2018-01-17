@@ -4,8 +4,8 @@
         "yNum" : 64,
         "zNum" : 64,
         "xTiles" : 2,
-        "yTiles" : 2,
-        "zTiles" : 2,
+        "yTiles" : 1,
+        "zTiles" : 1,
         "origin" : [0.0, 0.0, 0.0],
         "xWidth" : 6.283185307179586,
         "yWidth" : 6.283185307179586,
@@ -82,7 +82,7 @@
     "IO" : {
         "wrtRestart" : "OFF",
         "restartEveryTimeSteps" : -1,
-        "consoleFrequency" : 10000,
-        "headerFrequency" : 10000,
+        "consoleFrequency" : 1,
+        "headerFrequency" : 10,
     },
 }

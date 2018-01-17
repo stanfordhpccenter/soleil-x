@@ -31,8 +31,8 @@ ar rcs libjsonparser.a json.o
 
 # Compile Liszt
 "$LEGION_DIR"/language/regent.py soleil-x.t \
-    -i ../testcases/cavity/cavity_32x32.json \
-    -fflow 0 -fflow-spmd 0 -fcuda 0 -fopenmp 0 \
+    -i ../testcases/tgv_64x64x64.json \
+    -fflow 0 -fflow-spmd 0 -fcuda 0 -fopenmp 1 \
     1> soleil.out 2> soleil.err
 
 # Post-process dumped Regent

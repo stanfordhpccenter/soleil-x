@@ -1,7 +1,7 @@
 #!/bin/bash -eu
 #PBS -A CSC188
 #PBS -l walltime=00:05:00
-#PBS -l nodes=2
+#PBS -l nodes=1
 #PBS -q debug
 
 SCRATCH_DIR="$PROJWORK"/csc188/stanford
@@ -12,4 +12,7 @@ cp "$LEGION_DIR"/bindings/terra/liblegion_terra.so "$SCRATCH_DIR"
 export LD_LIBRARY_PATH="$SCRATCH_DIR"
 
 # HACK: LLVM installs a bad ELF interpreter on the executable, use the one in ld.so:
-aprun -n 4 -S 1 /lib64/ld-linux-x86-64.so.2 "$SOLEIL_DIR"/src/soleil.exec -i "$SOLEIL_DIR"/testcases/cavity/cavity_32x32.json -ll:cpu 1
+aprun -n 2 -S 1 -d 8 \
+    /lib64/ld-linux-x86-64.so.2 "$SOLEIL_DIR"/src/soleil.exec \
+    -i "$SOLEIL_DIR"/testcases/tgv_64x64x64.json \
+    -ll:cpu 1 -ll:ocpu 1 -ll:onuma 0 -ll:othr 8

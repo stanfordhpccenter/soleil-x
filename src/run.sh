@@ -7,5 +7,6 @@ if [[ $(uname -n) == *"titan"* ]]; then
     qsub soleil.pbs
 else
     LD_LIBRARY_PATH="$LEGION_DIR"/bindings/terra/ ./soleil.exec \
-        -i ../testcases/cavity/cavity_32x32.json
+        -i ../testcases/tgv_64x64x64.json \
+        -ll:cpu 1 -ll:ocpu 1 -ll:onuma 0 -ll:othr 4
 fi
