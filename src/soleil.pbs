@@ -1,0 +1,16 @@
+#!/bin/bash -eu
+#PBS -A CSC188
+#PBS -l walltime=00:05:00
+#PBS -l nodes=2
+#PBS -q debug
+
+export SOLEIL_SRC="$(cd "$(dirname "$(perl -MCwd -le 'print Cwd::abs_path(shift)' "${BASH_SOURCE[0]}")")" && pwd)"
+export SCRATCH_DIR="$PROJWORK/csc188/stanford"
+cd "$SCRATCH_DIR"
+
+# Copy shared libs to scratch directory
+cp "$LEGION_DIR"/bindings/terra/liblegion_terra.so .
+export LD_LIBRARY_PATH=.
+
+# HACK: LLVM installs a bad ELF interpreter on the executable, use the one in ld.so:
+aprun -n 4 -S 1 /lib64/ld-linux-x86-64.so.2 "$SOLEIL_SRC"/soleil.exec -i "$SOLEIL_SRC"/../testcases/cavity/cavity_32x32.json -ll:cpu 1
