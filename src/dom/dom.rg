@@ -176,6 +176,68 @@ do
 
 end
 
+----------------------------------------------------------------------------
+
+
+local task make_private_partition_x(faces : region(ispace(int3d), face),
+                                        x_tiles : ispace(int3d))
+
+  var coloring = c.legion_domain_point_coloring_create()
+  for tile in x_tiles do
+
+    var lo = int3d { x = tile.x     * Nx / ntx + 1,
+                     y = tile.y     * Ny / nty,
+                     z = tile.z     * Nz / ntz}
+    var hi = int3d { x = (tile.x+1) * Nx / ntx - 1,
+                     y = (tile.y+1) * Ny / nty - 1,
+                     z = (tile.z+1) * Nz / ntz - 1}
+
+    if hi.x < Nx+1 then
+      c.printf("private tile.x = %d, lo = %d, hi = %d \n", tile.x, lo.x, hi.x); 
+      c.printf("private tile.y = %d, lo = %d, hi = %d \n", tile.y, lo.y, hi.y); 
+      c.printf("private tile.z = %d, lo = %d, hi = %d \n\n", tile.z, lo.z, hi.z);                 
+
+      var rect = rect3d {lo = lo, hi = hi}
+      c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
+    end                
+    
+  end
+  var p = partition(disjoint, faces, coloring, x_tiles)
+  c.legion_domain_point_coloring_destroy(coloring)
+  return p
+
+end
+
+-- 1 - 2 - 3
+local task make_shared_partition_x(faces : region(ispace(int3d), face),
+                                        x_tiles : ispace(int3d))
+
+  var coloring = c.legion_domain_point_coloring_create()
+  for tile in x_tiles do
+
+
+    var lo = int3d { x = tile.x     * Nx / ntx,
+                     y = tile.y     * Ny / nty,
+                     z = tile.z     * Nz / ntz}
+    var hi = int3d { x = lo.x,
+                     y = (tile.y+1) * Ny / nty - 1,
+                     z = (tile.z+1) * Nz / ntz - 1}
+
+    c.printf("shared tile.x = %d, lo = %d, hi = %d \n", tile.x, lo.x, hi.x);   
+    c.printf("shared tile.y = %d, lo = %d, hi = %d \n", tile.y, lo.y, hi.y); 
+    c.printf("shared tile.z = %d, lo = %d, hi = %d \n\n", tile.z, lo.z, hi.z);                 
+
+    var rect = rect3d {lo = lo, hi = hi}
+    c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
+  end
+  var p = partition(disjoint, faces, coloring, x_tiles)
+  c.legion_domain_point_coloring_destroy(coloring)
+  return p
+
+end
+
+----------------------------------------------------------------------------
+
 
 local task make_interior_partition_x_hi(faces : region(ispace(int3d), face),
                                         x_tiles : ispace(int3d))
@@ -822,15 +884,16 @@ local task sweep_1(points : pointsType,
                    x_faces : region(ispace(int3d), face),
                    y_faces : region(ispace(int3d), face),
                    z_faces : region(ispace(int3d), face),
-                   ghost_x_faces : region(ispace(int3d), face),
+                   shared_x_faces_lo : region(ispace(int3d), face),
+                   shared_x_faces_hi : region(ispace(int3d), face),
                    ghost_y_faces : region(ispace(int3d), face),
                    ghost_z_faces : region(ispace(int3d), face),
                    angles : region(ispace(int1d), angle),
                    xi : int64, eta : int64, mu : int64)
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
-         ghost_x_faces.I, ghost_y_faces.I, ghost_z_faces.I),
-  reads writes(points.I_1, x_faces.I, y_faces.I, z_faces.I)
+         shared_x_faces_lo.I, ghost_y_faces.I, ghost_z_faces.I),
+  reads writes(points.I_1, x_faces.I, y_faces.I, z_faces.I, shared_x_faces_hi.I)
 do
 
   -- Determine sweep direction and bounds
@@ -888,15 +951,14 @@ do
 
             -- Determine if necessary to use ghost partition
 
-            var ghost_x_limits = ghost_x_faces.bounds
             var upwind_x_value : double = 0.0
             if indx < x_faces.bounds.lo.x then
-              upwind_x_value = ghost_x_faces[{ghost_x_limits.hi.x,j,k}].I[m]
-            elseif indx > x_faces.bounds.hi.x then
-              upwind_x_value = ghost_x_faces[{ghost_x_limits.lo.x,j,k}].I[m]
+              upwind_x_value = shared_x_faces_lo[{0,j,k}].I[m]
             else
               upwind_x_value = x_faces[{indx,j,k}].I[m]
             end
+
+            ---
 
             var ghost_y_limits = ghost_y_faces.bounds
             var upwind_y_value : double = 0.0
@@ -931,7 +993,11 @@ do
 
             -- Compute intensities on downwind faces
 
-            x_faces[{indx+dindx, j, k}].I[m] = (points[{i,j,k}].I_1[m] - (1-gamma)*upwind_x_value)/gamma
+            if (indx + dindx) > x_faces.bounds.hi.x then
+              shared_x_faces_hi[{0, j, k}].I[m] = (points[{i,j,k}].I_1[m] - (1-gamma)*upwind_x_value)/gamma
+            else
+              x_faces[{indx+dindx, j, k}].I[m] = (points[{i,j,k}].I_1[m] - (1-gamma)*upwind_x_value)/gamma
+            end
             y_faces[{i, indy+dindy, k}].I[m] = (points[{i,j,k}].I_1[m] - (1-gamma)*upwind_y_value)/gamma
             z_faces[{i, j, indz+dindz}].I[m] = (points[{i,j,k}].I_1[m] - (1-gamma)*upwind_z_value)/gamma
           end
@@ -1995,9 +2061,13 @@ local x_tiles = regentlib.newsymbol('x_tiles')
 local y_tiles = regentlib.newsymbol('y_tiles')
 local z_tiles = regentlib.newsymbol('z_tiles')
 
+--todo:
+
 local p_x_faces_1 = regentlib.newsymbol('p_x_faces_1')
 local p_y_faces_1 = regentlib.newsymbol('p_y_faces_1')
 local p_z_faces_1 = regentlib.newsymbol('p_z_faces_1')
+
+local s_x_faces_1 = regentlib.newsymbol('s_x_faces_1')
 
 local p_x_faces_2 = regentlib.newsymbol('p_x_faces_2')
 local p_y_faces_2 = regentlib.newsymbol('p_y_faces_2')
@@ -2069,15 +2139,21 @@ exports.InitModule = rquote
   var [angles] = region(angle_indices, angle)
 
   -- Partition faces
-  -- extra tile required for ghost
+  -- extra tile required for shared edge
   var [x_tiles] = ispace(int3d, {x = ntx+1, y = nty,   z = ntz  })
   var [y_tiles] = ispace(int3d, {x = ntx,   y = nty+1, z = ntz  })
   var [z_tiles] = ispace(int3d, {x = ntx,   y = nty,   z = ntz+1})
 
+  c.printf("ntx = %d, nty = %d, ntz = %d \n", ntx, nty, ntz)
+  c.printf("Nx = %d, Ny = %d, Nz = %d \n", Nx, Ny, Nz)
+
   -- Partition x_faces_1 private/shared
   -- Partition private and shared into tiles
+  --todo
+  
+  var [p_x_faces_1] = make_private_partition_x(x_faces_1, x_tiles)
+  var [s_x_faces_1] = make_shared_partition_x(x_faces_1, x_tiles)
 
-  var [p_x_faces_1] = make_interior_partition_x_lo(x_faces_1, x_tiles)
   var [p_y_faces_1] = make_interior_partition_y_lo(y_faces_1, y_tiles)
   var [p_z_faces_1] = make_interior_partition_z_lo(z_faces_1, z_tiles)
 
@@ -2137,7 +2213,7 @@ exports.ComputeRadiationField = rquote
     for j = 0, nty do
       for k = 0, ntz do
         -- Avoid empty partitions (index 0 for lo, index ntx for hi)
-        west_bound(p_x_faces_1[{1  ,j,k}],
+        west_bound(s_x_faces_1[{0  ,j,k}],
                    p_x_faces_2[{1  ,j,k}],
                    p_x_faces_3[{1  ,j,k}],
                    p_x_faces_4[{1  ,j,k}],
@@ -2147,7 +2223,7 @@ exports.ComputeRadiationField = rquote
                    p_x_faces_8[{0  ,j,k}],
                    angles)
 
-        east_bound(p_x_faces_1[{ntx  ,j,k}],
+        east_bound(s_x_faces_1[{ntx  ,j,k}],
                    p_x_faces_2[{ntx  ,j,k}],
                    p_x_faces_3[{ntx  ,j,k}],
                    p_x_faces_4[{ntx  ,j,k}],
@@ -2209,14 +2285,15 @@ exports.ComputeRadiationField = rquote
       end
     end
 
-    -- Perform the sweep for computing new intensities
-    -- Quadrant 1 - +x, +y, +z
+    --Perform the sweep for computing new intensities
+    --Quadrant 1 - +x, +y, +z
     for i = 0, ntx do
       for j = 0, nty do
         for k = 0, ntz do
           sweep_1(p_points[{i,j,k}],
-                  p_x_faces_1[{i+1,j,k}], p_y_faces_1[{i,j+1,k}], p_z_faces_1[{i,j,k+1}],
-                  p_x_faces_1[{i,  j,k}], p_y_faces_1[{i,j,  k}], p_z_faces_1[{i,j,k  }],
+                  p_x_faces_1[{i,j,k}], p_y_faces_1[{i,j+1,k}], p_z_faces_1[{i,j,k+1}],
+                  s_x_faces_1[{i,  j,k}], s_x_faces_1[{i+1,  j,k}],
+                  p_y_faces_1[{i,j,  k}], p_z_faces_1[{i,j,k  }],
                   angles, 1, 1, 1)
         end
       end
