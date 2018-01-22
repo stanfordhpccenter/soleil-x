@@ -7,8 +7,10 @@ import fileinput
 import os
 import re
 
-HDF_LIBNAME = os.environ['HDF_LIBNAME'] if 'HDF_LIBNAME' in os.environ else 'hdf5'
-HDF_HEADER = os.environ['HDF_HEADER'] if 'HDF_HEADER' in os.environ else 'hdf5.h'
+assert('HDF_LIBNAME' in os.environ)
+HDF_LIBNAME = os.environ['HDF_LIBNAME']
+assert('HDF_HEADER' in os.environ)
+HDF_HEADER = os.environ['HDF_HEADER']
 
 # Add required imports
 print 'import "regent"'
@@ -23,9 +25,13 @@ print ']]'
 
 for line in fileinput.input():
     line = line[:-1]
+    # Remove some debug numbers
+    line = re.sub(r'region#[0-9]+', r'region', line)
+    line = re.sub(r'ispace#[0-9]+', r'ispace', line)
     # Remove type annotations where they can be inferred
     line = re.sub(r'for ([\w$#]+) : .* in ', r'for \1 in ', line)
     line = re.sub(r'var ([\w$#]+) : [^:=]* =', r'var \1 =', line)
+    line = re.sub(r' : partition\(.*', '', line)
     # Make variable names valid identifiers
     # Regent vars: $abc, $abc#123, $123
     # Terra vars: abc, $abc, abc$123, $abc$123
@@ -33,9 +39,6 @@ for line in fileinput.input():
     line = re.sub(r'\$?(\w+)\$([0-9]+)', r'\1__\2', line)
     line = re.sub(r'\$([0-9]+)', r'__\1', line)
     line = re.sub(r'\$(\w+)', r'\1', line)
-    # Remove remaining debug numbers
-    line = re.sub(r'region#[0-9]+', r'region', line)
-    line = re.sub(r'ispace#[0-9]+', r'ispace', line)
     # Wrap type casts
     line = re.sub(r'(float\[[0-9]+\])\(', r'[\1](', line)
     line = re.sub(r'(double\[[0-9]+\])\(', r'[\1](', line)
@@ -43,9 +46,9 @@ for line in fileinput.input():
     # inf -> math.huge
     line = re.sub(r'([^\w])inf', r'\1math.huge', line)
     # Add proper namespaces
-    line = re.sub(r'([^\w])(printf|snprintf|strcmp|malloc|free|memcpy|exit)\(', r'\1C.\2(', line)
-    line = re.sub(r'([^\w])(acos|asin|atan|cbrt|tan|pow|fmod|ceil)\(', r'\1C.\2(', line)
-    line = re.sub(r'([^\w])(fopen|fseek|ftell|fread|fclose|rand)\(', r'\1C.\2(', line)
+    line = re.sub(r'([^\w.])(printf|snprintf|strcmp|malloc|free|memcpy|exit)\(', r'\1C.\2(', line)
+    line = re.sub(r'([^\w.])(acos|asin|atan|cbrt|tan|pow|fmod|ceil|fabs|sqrt)\(', r'\1C.\2(', line)
+    line = re.sub(r'([^\w.])(fscanf|fopen|fseek|ftell|fread|fclose|rand)\(', r'\1C.\2(', line)
     line = line.replace('_IO_FILE', 'C._IO_FILE')
     line = line.replace('H5', 'HDF5.H5')
     line = line.replace('legion_', 'regentlib.c.legion_')

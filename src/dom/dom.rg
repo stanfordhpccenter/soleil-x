@@ -97,6 +97,7 @@ do
     end
   end
 end
+A.registerTask(initialize_faces, 'initialize_faces')
 
 -- Initialize angle quads
 local task initialize_angles(angles : region(ispace(int1d), angle))

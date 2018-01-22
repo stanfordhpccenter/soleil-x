@@ -2501,13 +2501,13 @@ end
 function M.AST.Print:toRQuote()
   local formals =
     self.globals:map(function(g) return RG.newsymbol(toRType(g:Type())) end)
-  local task print([formals])
+  local task output([formals])
     C.printf([self.fmt], [formals])
   end
-  A.registerTask(print, 'print')
+  A.registerTask(output, 'output')
   local actuals = self.globals:map(function(g) return g:varSymbol() end)
   return rquote
-    print([actuals])
+    output([actuals])
   end
 end
 function M.AST.Dump:toRQuote()
