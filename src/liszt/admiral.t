@@ -2437,23 +2437,16 @@ end
 function M.AST.If:toRQuote()
   if self.elseBlock then
     return rquote
-      var thenFlag = [int]([self.cond:toRExpr()])
-      var elseFlag = 1 - thenFlag
-      while thenFlag > 0 do
+      if [self.cond:toRExpr()] then
         [self.thenBlock:toRQuote()]
-        thenFlag -= 1
-      end
-      while elseFlag > 0 do
+      else
         [self.elseBlock:toRQuote()]
-        elseFlag -= 1
       end
     end
   else
     return rquote
-      var flag = [int]([self.cond:toRExpr()])
-      while flag > 0 do
+      if [self.cond:toRExpr()] then
         [self.thenBlock:toRQuote()]
-        flag -= 1
       end
     end
   end
