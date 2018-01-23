@@ -5,8 +5,14 @@ cd "$SOLEIL_SRC"
 
 if [[ $(uname -n) == *"titan"* ]]; then
     qsub soleil.pbs
-else
-    LD_LIBRARY_PATH="$LEGION_DIR"/bindings/terra/ ./soleil.exec \
+elif [[ $(uname -n) == *"sapling"* ]]; then
+    LD_LIBRARY_PATH="$LEGION_DIR"/bindings/terra/ \
+        mpiexec -H n0000 --bind-to none -x LD_LIBRARY_PATH ./soleil.exec \
         -i ../testcases/tgv_64x64x64.json \
-        -ll:cpu 1 -ll:ocpu 1 -ll:onuma 0 -ll:othr 4
+        -ll:cpu 1 -ll:ocpu 1 -ll:onuma 0 -ll:othr 8
+else
+    LD_LIBRARY_PATH="$LEGION_DIR"/bindings/terra/ \
+        ./soleil.exec \
+        -i ../testcases/tgv_64x64x64.json \
+        -ll:cpu 1 -ll:ocpu 1 -ll:onuma 0 -ll:othr 8
 fi

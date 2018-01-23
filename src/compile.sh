@@ -7,11 +7,14 @@ cd "$SOLEIL_SRC"
 if [[ $(uname -n) == *"titan"* ]]; then
     export HDF_LIBNAME=hdf5
     export HDF_HEADER=hdf5.h
+elif [[ $(uname -n) == *"sapling"* ]]; then
+    export HDF_LIBNAME=hdf5
+    export HDF_HEADER=hdf5.h
 else
     export HDF_LIBNAME=hdf5_serial
     export HDF_HEADER=hdf5/serial/hdf5.h
 fi
-export USE_HDF=1
+export USE_HDF=0
 export DUMP_REGENT=1
 export OBJNAME=soleil.exec
 
@@ -19,6 +22,9 @@ export OBJNAME=soleil.exec
 if [[ $(uname -n) == *"titan"* ]]; then
     export LIBRARY_PATH=".:/opt/cray/hdf5/1.10.0.1/GNU/4.9/lib"
     export INCLUDE_PATH=".;/opt/cray/hdf5/1.10.0.1/GNU/4.9/include"
+elif [[ $(uname -n) == *"sapling"* ]]; then
+    export LIBRARY_PATH="."
+    export INCLUDE_PATH="."
 else
     export LIBRARY_PATH="."
     export INCLUDE_PATH="."
