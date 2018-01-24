@@ -4,7 +4,7 @@ SOLEIL_SRC="$(cd "$(dirname "$(perl -MCwd -le 'print Cwd::abs_path(shift)' "${BA
 cd "$SOLEIL_SRC"
 
 if [[ $(uname -n) == *"titan"* ]]; then
-    qsub soleil.pbs
+    qsub titan.pbs
 elif [[ $(uname -n) == *"sapling"* ]]; then
     LD_LIBRARY_PATH="$LEGION_DIR"/bindings/terra/ \
         mpiexec -H n0000 --bind-to none -x LD_LIBRARY_PATH ./soleil.exec \

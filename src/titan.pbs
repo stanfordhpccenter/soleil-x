@@ -7,8 +7,9 @@
 SCRATCH_DIR="$PROJWORK"/csc188/stanford
 cd "$SCRATCH_DIR"
 
-# Copy shared libs to scratch directory
+# Copy shared libs and input files to scratch directory
 cp "$LEGION_DIR"/bindings/terra/liblegion_terra.so "$SCRATCH_DIR"
+cp -r "$SOLEIL_DIR"/src/LMquads "$SCRATCH_DIR"
 export LD_LIBRARY_PATH="$SCRATCH_DIR"
 
 # HACK: LLVM installs a bad ELF interpreter on the executable, use the one in ld.so:
