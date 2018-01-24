@@ -48,17 +48,30 @@ local quad_file = 'LMquads/'..NUM_ANGLES..'.txt'
 
 local SB = 5.67e-8
 
--- TODO: Read location of irradiated window
-
 -- Procedure parameters
 
 local tol   = 1e-6   -- solution tolerance
 local gamma = 0.5    -- 1 for step differencing, 0.5 for diamond differencing
 
-local terra read_val(f : &c.FILE, val : &double)
-  return c.fscanf(f, '%lf\n', &val[0])
+local terra open_quad_file() : &c.FILE
+  var f = c.fopen([quad_file], 'rb')
+  if f == nil then
+    c.printf('Error opening angle file\n')
+    c.exit(1)
+  end
+  return f
 end
-A.registerFun(read_val, 'read_val')
+A.registerFun(open_quad_file, 'open_quad_file')
+
+local terra read_double(f : &c.FILE) : double
+  var val : double
+  if c.fscanf(f, '%lf\n', &val) < 1 then
+    c.printf('Error while reading angle file\n')
+    c.exit(1)
+  end
+  return val
+end
+A.registerFun(read_double, 'read_double')
 
 -------------------------------------------------------------------------------
 -- MODULE-LOCAL FIELD SPACES
@@ -107,30 +120,24 @@ do
 
   -- Read angle_value information from file.
 
-  var val : double[1]
+  var f = open_quad_file()
 
-  var f = c.fopen([quad_file], 'rb')
-
-  read_val(f, val) -- gets rid of num angles
+  read_double(f) -- gets rid of num angles
 
   for a in angles do
-    read_val(f, val)
-    a.xi = val[0]
+    a.xi = read_double(f)
   end
 
   for a in angles do
-    read_val(f, val)
-    a.eta = val[0]
+    a.eta = read_double(f)
   end
 
   for a in angles do
-    read_val(f, val)
-    a.mu = val[0]
+    a.mu = read_double(f)
   end
 
   for a in angles do
-    read_val(f, val)
-    a.w = val[0]
+    a.w = read_double(f)
   end
 
   c.fclose(f)
@@ -1997,8 +2004,6 @@ local p_x_faces_8 = regentlib.newsymbol('p_x_faces_8')
 local p_y_faces_8 = regentlib.newsymbol('p_y_faces_8')
 local p_z_faces_8 = regentlib.newsymbol('p_z_faces_8')
 
-local res = regentlib.newsymbol(double, 'res')
-
 exports.InitModule = rquote
 
   var [ntx] = config.Grid.xTiles
@@ -2111,9 +2116,6 @@ exports.InitModule = rquote
   -- Initialize constant values
   initialize_angles(angles)
 
-  -- Declare variables that would go in the main loop, but for static SPMD
-  var [res] = 1.0
-
 end
 
 exports.ComputeRadiationField = rquote
@@ -2122,6 +2124,7 @@ exports.ComputeRadiationField = rquote
   var omega = config.Radiation.qs/(config.Radiation.qa+config.Radiation.qs)
 
   -- Compute until convergence
+  var res = 1.0
   while (res > tol) do
 
     -- Update the source term (in this problem, isotropic)
