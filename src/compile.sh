@@ -4,30 +4,18 @@ SOLEIL_SRC="$(cd "$(dirname "$(perl -MCwd -le 'print Cwd::abs_path(shift)' "${BA
 cd "$SOLEIL_SRC"
 
 # Translator options
-if [[ $(uname -n) == *"titan"* ]]; then
-    export HDF_LIBNAME=hdf5
-    export HDF_HEADER=hdf5.h
-elif [[ $(uname -n) == *"sapling"* ]]; then
-    export HDF_LIBNAME=hdf5
-    export HDF_HEADER=hdf5.h
-else
-    export HDF_LIBNAME=hdf5_serial
-    export HDF_HEADER=hdf5/serial/hdf5.h
-fi
+export HDF_HEADER="${HDF_HEADER:-hdf5.h}"
+export HDF_LIBNAME="${HDF_LIBNAME:-hdf5}"
 export USE_HDF=0
 export DUMP_REGENT=1
 export OBJNAME=soleil.exec
 
 # Regent options
-if [[ $(uname -n) == *"titan"* ]]; then
-    export LIBRARY_PATH=".:/opt/cray/hdf5/1.10.0.1/GNU/4.9/lib"
-    export INCLUDE_PATH=".;/opt/cray/hdf5/1.10.0.1/GNU/4.9/include"
-elif [[ $(uname -n) == *"sapling"* ]]; then
-    export LIBRARY_PATH="."
-    export INCLUDE_PATH="."
-else
-    export LIBRARY_PATH="."
-    export INCLUDE_PATH="."
+export INCLUDE_PATH="."
+export LIBRARY_PATH="."
+if [ ! -z "$HDF_ROOT" ]; then
+    export INCLUDE_PATH="$INCLUDE_PATH;$HDF_ROOT/include"
+    export LIBRARY_PATH="$LIBRARY_PATH:$HDF_ROOT/lib"
 fi
 export TERRA_PATH=liszt/?.t
 
