@@ -13,7 +13,7 @@ export OBJNAME=soleil.exec
 # Regent options
 export INCLUDE_PATH="."
 export LIBRARY_PATH="."
-if [ ! -z "$HDF_ROOT" ]; then
+if [ ! -z "${HDF_ROOT:-}" ]; then
     export INCLUDE_PATH="$INCLUDE_PATH;$HDF_ROOT/include"
     export LIBRARY_PATH="$LIBRARY_PATH:$HDF_ROOT/lib"
 fi
