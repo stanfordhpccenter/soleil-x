@@ -351,9 +351,10 @@ A.registerTask(make_interior_partition_z_lo, 'make_interior_partition_z_lo')
 
 -- Loop over all angles and grid cells to compute the source term
 -- for the current iteration.
-local task source_term(points : pointsType,
-                       angles : region(ispace(int1d), angle),
-                       omega : double)
+local __demand(__cuda)
+task source_term(points : pointsType,
+                 angles : region(ispace(int1d), angle),
+                 omega : double)
 where
   reads (points.{Iiter_1, Iiter_2, Iiter_3, Iiter_4,
                  Iiter_5, Iiter_6, Iiter_7, Iiter_8,
@@ -361,6 +362,7 @@ where
          angles.w),
   reads writes (points.S)
 do
+  __demand(__openmp)
   for p in points do
     p.S = (1.0-omega) * p.sigma * p.Ib
     for m = 0, NUM_ANGLES do
@@ -1846,7 +1848,8 @@ end
 A.registerTask(sweep_8, 'sweep_8')
 
 -- Compute the residual after each iteration and return the value.
-local task residual(points : pointsType, Nx : int, Ny : int, Nz : int)
+local __demand(__cuda)
+task residual(points : pointsType, Nx : int, Ny : int, Nz : int)
 where
   reads (points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8,
                  Iiter_1, Iiter_2, Iiter_3, Iiter_4,
@@ -1854,6 +1857,7 @@ where
 do
   var res : double = 0.0
 
+  __demand(__openmp)
   for p in points do
     for m = 0, NUM_ANGLES do
 
@@ -1913,12 +1917,13 @@ end
 A.registerTask(residual, 'residual')
 
 -- Update the intensity before moving to the next iteration.
-local task update(points : pointsType)
+local __demand(__cuda) task update(points : pointsType)
 where
   reads (points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8}),
   reads writes (points.{Iiter_1, Iiter_2, Iiter_3, Iiter_4,
                         Iiter_5, Iiter_6, Iiter_7, Iiter_8})
 do
+  __demand(__openmp)
   for p in points do
     for m = 0, NUM_ANGLES do
       p.Iiter_1[m] = p.I_1[m]
@@ -1935,12 +1940,14 @@ end
 A.registerTask(update, 'update')
 
 -- Reduce the intensity to summation over all angles
-local task reduce_intensity(points : pointsType,
-                            angles : region(ispace(int1d), angle))
+local __demand(__cuda)
+task reduce_intensity(points : pointsType,
+                      angles : region(ispace(int1d), angle))
 where
   reads (points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8}, angles.w),
   reads writes (points.G)
 do
+  __demand(__openmp)
   for p in points do
     for m = 0, NUM_ANGLES do
       p.G += angles[m].w * p.I_1[m]

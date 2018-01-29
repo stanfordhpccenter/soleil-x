@@ -13,7 +13,7 @@ return function(particlesRel, cellsRel,
 -- Local tasks
 -------------------------------------------------------------------------------
 
-local __demand(__parallel) task InitParticlesUniform
+local __demand(__parallel, __cuda) task InitParticlesUniform
   (particles : particlesRel:regionType(),
    cells : cellsRel:regionType(),
    config : A.configStruct(),
@@ -42,7 +42,7 @@ do
   var particlesPerTask =
     config.Particles.initNum
     / (config.Grid.xTiles * config.Grid.yTiles * config.Grid.zTiles)
-  --__demand(__openmp)
+  __demand(__openmp)
   for p in particles do
     if [int32](p) - pBase < particlesPerTask then
       p.__valid = true

@@ -607,9 +607,10 @@ end
 -- () -> RG.rquote
 function R.Relation:emitValidInit()
   assert(self:isCoupled())
-  local initValidField
-  __demand(__parallel) task initValidField(r : self:regionType())
+  local __demand(__parallel, __cuda)
+  task initValidField(r : self:regionType())
   where writes(r.__valid) do
+    __demand(__openmp)
     for e in r do
       e.__valid = false
     end
@@ -1309,12 +1310,8 @@ function AST.UserFunction:toTask(info)
     if info.domainRel:isCoupled() then
       block = rquote if [rel][loopVar].__valid then [block] end end
     end
-    if RG.config['openmp'] then
-      block = rquote
-        __demand(__openmp) for [loopVar] in [rel] do [block] end
-      end
-    else
-      block = rquote for [loopVar] in [rel] do [block] end end
+    block = rquote
+      __demand(__openmp) for [loopVar] in [rel] do [block] end
     end
   end
   body:insert(block)
@@ -1331,9 +1328,9 @@ function AST.UserFunction:toTask(info)
       -- TODO: Only handling the simple case of functions without stencils,
       -- which don't require any changes.
       assert(self.body:hasNoStencil())
-      task tsk([ctxt:signature()])
+      __demand(__cuda) task tsk([ctxt:signature()])
       where [ctxt.privileges] do [body] end
-    elseif not ctxt.reducedGlobal and RG.check_cuda_available() then
+    elseif not ctxt.reducedGlobal then
       __demand(__parallel, __cuda) task tsk([ctxt:signature()])
       where [ctxt.privileges] do [body] end
     else
@@ -2599,33 +2596,14 @@ local function emitFillTaskCalls(fillStmts)
     local privileges = newlist()
     privileges:insert(RG.privilege(RG.reads, arg))
     privileges:insert(RG.privilege(RG.writes, arg))
-    local body
-    if not rel:isCoupled() and RG.config['openmp'] then
-      body = fills:map(function(fill) return rquote
-        __demand(__openmp)
-        for e in arg do
-          e.[fill.fld:Name()] = [toRConst(fill.val, fill.fld:Type())]
-        end
-      end end)
-    else
-      body = fills:map(function(fill) return rquote
-        for e in arg do
-          e.[fill.fld:Name()] = [toRConst(fill.val, fill.fld:Type())]
-        end
-      end end)
-    end
-    local tsk
-    if RG.check_cuda_available() then
-      __demand(__parallel, __cuda)
-      task tsk([arg]) where [privileges] do
-        [body]
+    local body = fills:map(function(fill) return rquote
+      __demand(__openmp)
+      for e in arg do
+        e.[fill.fld:Name()] = [toRConst(fill.val, fill.fld:Type())]
       end
-    else
-      __demand(__parallel)
-      task tsk([arg]) where [privileges] do
-        [body]
-      end
-    end
+    end end)
+    local __demand(__parallel, __cuda) task tsk([arg])
+    where [privileges] do [body] end
     fillTasks[rel] = tsk
     A.registerTask(tsk, rel:Name()..'_fillTask')
   end
