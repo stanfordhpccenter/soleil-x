@@ -1153,7 +1153,7 @@ function AST.Bool:hasNoStencil()
 end
 
 function AST.Call:hasNoStencil()
-  if self.func == L.assert or self.func == L.print or self.func == L.rand or
+  if self.func == L.print or self.func == L.rand or
      self.func == L.id or
      self.func == L.xid or self.func == L.yid or self.func == L.zid or
      UNARY_ARITH_FUNS[self.func] or BINARY_ARITH_FUNS[self.func] or
@@ -1507,17 +1507,6 @@ function AST.Call:toRExpr(ctxt)
     end
     return rexpr (base + {x,y,z}) % [ctxt.relMap[rel]].bounds end
   end
-  -- Assertion
-  -- self.params[1] : AST.Expression
-  if self.func == L.assert then
-    if RG.check_cuda_available() then
-      return rexpr 0 end
-    else
-      return rexpr
-        RG.assert([self.params[1]:toRExpr(ctxt)], '(Liszt assertion)')
-      end
-    end
-  end
   -- Key unboxing
   -- self.params[1] : AST.Expression
   if self.func == L.id then
@@ -1656,7 +1645,7 @@ function AST.Call:toRExpr(ctxt)
     fmt = fmt .. "\n"
     return rexpr C.printf([fmt], [args]) end
   end
-  -- TODO: Not covered: L.cross, L.length
+  -- TODO: Not covered: L.cross, L.length, L.assert
   assert(false)
 end
 function AST.Cast:toRExpr(ctxt)

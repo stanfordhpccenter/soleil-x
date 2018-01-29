@@ -809,12 +809,12 @@ local ebb GetDynamicViscosity (temperature)
   elseif Flow.viscosityModel == ViscosityModel.PowerLaw then
     viscosity = Flow.powerlawViscRef *
       L.pow(temperature/Flow.powerlawTempRef, 0.75)
-  elseif Flow.viscosityModel == ViscosityModel.Sutherland then
+  else -- Flow.viscosityModel == ViscosityModel.Sutherland
     viscosity = Flow.sutherlandViscRef *
       L.pow((temperature/Flow.sutherlandTempRef),(3.0/2.0))*
       ((Flow.sutherlandTempRef + Flow.sutherlandSRef)/
          (temperature + Flow.sutherlandSRef))
-  else L.assert(false) end
+  end
   return viscosity
 end
 
@@ -2180,7 +2180,7 @@ ebb Particles.UpdateAuxiliaryStep1 (p : particles)
   if p.position[0] < Grid.xOrigin then
     if BC.xBCLeftParticles == ParticleBC.Permeable then
       p.position_ghost[0] = p.position[0] + Grid.xWidth
-    elseif BC.xBCLeftParticles == ParticleBC.Solid then
+    else -- BC.xBCLeftParticles == ParticleBC.Solid
 
       -- Set the position to be on the wall
       p.position_ghost[0] = Grid.xOrigin
@@ -2200,14 +2200,14 @@ ebb Particles.UpdateAuxiliaryStep1 (p : particles)
         p.velocity_t_ghost[0] += contact_force
       end
 
-    else L.assert(false) end
+    end
   end
 
   -- Right X boundary
   if p.position[0] > Grid.xOrigin + Grid.xWidth then
     if BC.xBCRightParticles == ParticleBC.Permeable then
       p.position_ghost[0] = p.position[0] - Grid.xWidth
-    elseif BC.xBCRightParticles == ParticleBC.Solid then
+    else -- BC.xBCRightParticles == ParticleBC.Solid
 
       -- Set the position to be on the wall
       p.position_ghost[0] = Grid.xOrigin + Grid.xWidth
@@ -2227,14 +2227,14 @@ ebb Particles.UpdateAuxiliaryStep1 (p : particles)
         p.velocity_t_ghost[0] += contact_force
       end
 
-    else L.assert(false) end
+    end
   end
 
   -- Left Y boundary
   if p.position[1] < Grid.yOrigin then
     if BC.yBCLeftParticles == ParticleBC.Permeable then
       p.position_ghost[1] = p.position[1] + Grid.yWidth
-    elseif BC.yBCLeftParticles == ParticleBC.Solid then
+    else -- BC.yBCLeftParticles == ParticleBC.Solid
 
       -- Set the position to be on the wall
       p.position_ghost[1] = Grid.yOrigin
@@ -2254,14 +2254,14 @@ ebb Particles.UpdateAuxiliaryStep1 (p : particles)
         p.velocity_t_ghost[1] += contact_force
       end
 
-    else L.assert(false) end
+    end
   end
 
   -- Right Y boundary
   if p.position[1] > Grid.yOrigin + Grid.yWidth then
     if BC.yBCRightParticles == ParticleBC.Permeable then
       p.position_ghost[1] = p.position[1] - Grid.yWidth
-    elseif BC.yBCRightParticles == ParticleBC.Solid then
+    else -- BC.yBCRightParticles == ParticleBC.Solid
 
       -- Set the position to be on the wall
       p.position_ghost[1] = Grid.yOrigin + Grid.yWidth
@@ -2281,14 +2281,14 @@ ebb Particles.UpdateAuxiliaryStep1 (p : particles)
         p.velocity_t_ghost[1] += contact_force
       end
 
-    else L.assert(false) end
+    end
   end
 
   -- Left Z boundary
   if p.position[2] < Grid.zOrigin then
     if BC.zBCLeftParticles == ParticleBC.Permeable then
       p.position_ghost[2] = p.position[2] + Grid.zWidth
-    elseif BC.zBCLeftParticles == ParticleBC.Solid then
+    else -- BC.zBCLeftParticles == ParticleBC.Solid
 
       -- Set the position to be on the wall
       p.position_ghost[2] = Grid.zOrigin
@@ -2308,14 +2308,14 @@ ebb Particles.UpdateAuxiliaryStep1 (p : particles)
         p.velocity_t_ghost[2] += contact_force
       end
 
-    else L.assert(false) end
+    end
   end
 
   -- Right Z boundary
   if p.position[2] > Grid.zOrigin + Grid.zWidth then
     if BC.zBCRightParticles == ParticleBC.Permeable then
       p.position_ghost[2] = p.position[2] - Grid.zWidth
-    elseif BC.zBCRightParticles == ParticleBC.Solid then
+    else -- BC.zBCRightParticles == ParticleBC.Solid
 
       -- Set the position to be on the wall
       p.position_ghost[2] = Grid.zOrigin + Grid.zWidth
@@ -2335,7 +2335,7 @@ ebb Particles.UpdateAuxiliaryStep1 (p : particles)
         p.velocity_t_ghost[2] += contact_force
       end
 
-    else L.assert(false) end
+    end
   end
 
 end
