@@ -13,7 +13,7 @@ return function(particlesRel, cellsRel,
 -- Local tasks
 -------------------------------------------------------------------------------
 
-local __demand(__parallel, __cuda) task InitParticlesUniform
+local __demand(__parallel) task InitParticlesUniform
   (particles : particlesRel:regionType(),
    cells : cellsRel:regionType(),
    config : A.configStruct(),

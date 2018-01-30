@@ -1328,7 +1328,7 @@ function AST.UserFunction:toTask(info)
       -- TODO: Only handling the simple case of functions without stencils,
       -- which don't require any changes.
       assert(self.body:hasNoStencil())
-      __demand(__cuda) task tsk([ctxt:signature()])
+      task tsk([ctxt:signature()])
       where [ctxt.privileges] do [body] end
     elseif not ctxt.reducedGlobal then
       __demand(__parallel, __cuda) task tsk([ctxt:signature()])
