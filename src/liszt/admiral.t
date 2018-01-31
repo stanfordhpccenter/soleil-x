@@ -423,6 +423,148 @@ local function emitReduce(op, typ, lval, exp)
     assert(false)
 end
 
+-- (AST.Expression -> bool) -> bool
+function AST.Expression:forAllExprs(p)
+  error('Abstract Method')
+end
+function AST.BinaryOp:forAllExprs(p)
+  return p(self) and self.lhs:forAllExprs(p) and self.rhs:forAllExprs(p)
+end
+function AST.Bool:forAllExprs(p)
+  return p(self)
+end
+function AST.Call:forAllExprs(p)
+  if not p(self) then
+    return false
+  end
+  if self.func == L.print or self.func == L.rand or
+     self.func == L.id or
+     self.func == L.xid or self.func == L.yid or self.func == L.zid or
+     UNARY_ARITH_FUNS[self.func] or BINARY_ARITH_FUNS[self.func] or
+     self.func == L.fmax or self.func == L.imax or
+     self.func == L.fmin or self.func == L.imin or
+     self.func == L.dot or self.func == L.times or
+     self.func.is_a_terra_func then
+    return all(self.params, function(e) return e:forAllExprs(p) end)
+  elseif self.func == L.Affine then
+    return self.params[3]:forAllExprs(p)
+  elseif self.func == L.UNSAFE_ROW then
+    return self.params[1]:forAllExprs(p)
+  else assert(false) end
+end
+function AST.Cast:forAllExprs(p)
+  return p(self) and self.value:forAllExprs(p)
+end
+function AST.FieldAccess:forAllExprs(p)
+  return p(self) and self.key:forAllExprs(p)
+end
+function AST.FieldAccessIndex:forAllExprs(p)
+  return p(self) and self.base:forAllExprs(p) and self.index:forAllExprs(p)
+end
+function AST.Global:forAllExprs(p)
+  return p(self)
+end
+function AST.GlobalIndex:forAllExprs(p)
+  return p(self) and self.index:forAllExprs(p)
+end
+function AST.LetExpr:forAllExprs(p)
+  return p(self) and self.block:forAllExprs(p) and self.exp:forAllExprs(p)
+end
+function AST.LuaObject:forAllExprs(p)
+  quit(self)
+end
+function AST.MatrixLiteral:forAllExprs(p)
+  quit(self)
+end
+function AST.Name:forAllExprs(p)
+  return p(self)
+end
+function AST.Number:forAllExprs(p)
+  return p(self)
+end
+function AST.Quote:forAllExprs(p)
+  return p(self) and self.code:forAllExprs(p)
+end
+function AST.RecordLiteral:forAllExprs(p)
+  quit(self)
+end
+function AST.Reduce:forAllExprs(p)
+  quit(self)
+end
+function AST.SquareIndex:forAllExprs(p)
+  return p(self) and self.base:forAllExprs(p) and self.index:forAllExprs(p)
+end
+function AST.String:forAllExprs(p)
+  quit(self)
+end
+function AST.TableLookup:forAllExprs(p)
+  quit(self)
+end
+function AST.UnaryOp:forAllExprs(p)
+  return p(self) and self.exp:forAllExprs(p)
+end
+function AST.VectorLiteral:forAllExprs(p)
+  return p(self) and all(self.elems, function(e) return e:forAllExprs(p) end)
+end
+function AST.Where:forAllExprs(p)
+  quit(self)
+end
+
+-- (AST.Expression -> bool) -> bool
+function AST.Statement:forAllExprs(p)
+  error('Abstract Method')
+end
+function AST.Assignment:forAllExprs(p)
+  return self.lvalue:forAllExprs(p) and self.exp:forAllExprs(p)
+end
+function AST.Break:forAllExprs(p)
+  quit(self)
+end
+function AST.DeclStatement:forAllExprs(p)
+  return not self.initializer or self.initializer:forAllExprs(p)
+end
+function AST.DeleteStatement:forAllExprs(p)
+  return self.key:forAllExprs(p)
+end
+function AST.DoStatement:forAllExprs(p)
+  return self.body:forAllExprs(p)
+end
+function AST.ExprStatement:forAllExprs(p)
+  return self.exp:forAllExprs(p)
+end
+function AST.FieldWrite:forAllExprs(p)
+  return self.fieldaccess:forAllExprs(p) and self.exp:forAllExprs(p)
+end
+function AST.GenericFor:forAllExprs(p)
+  quit(self)
+end
+function AST.GlobalReduce:forAllExprs(p)
+  return self.exp:forAllExprs(p)
+end
+function AST.IfStatement:forAllExprs(p)
+  return all(self.if_blocks, function(cb)
+               return cb.cond:forAllExprs(p) and cb.body:forAllExprs(p)
+             end)
+    and (not self.else_block or self.else_block:forAllExprs(p))
+end
+function AST.InsertStatement:forAllExprs(p)
+  return all(self.record.exprs, function(e) return e:forAllExprs(p) end)
+end
+function AST.NumericFor:forAllExprs(p)
+  return self.body:forAllExprs(p)
+end
+function AST.RepeatStatement:forAllExprs(p)
+  quit(self)
+end
+function AST.WhileStatement:forAllExprs(p)
+  quit(self)
+end
+
+-- (AST.Expression -> bool) -> bool
+function AST.Block:forAllExprs(p)
+  return all(self.statements, function(s) return s:forAllExprs(p) end)
+end
+
 -------------------------------------------------------------------------------
 -- Global symbols
 -------------------------------------------------------------------------------
@@ -1142,143 +1284,19 @@ function FunContext:signature()
   return fullArgs
 end
 
--- () -> bool
-function AST.Expression:hasNoStencil()
-  error('Abstract Method')
-end
-function AST.BinaryOp:hasNoStencil()
-  return self.lhs:hasNoStencil() and self.rhs:hasNoStencil()
-end
-function AST.Bool:hasNoStencil()
-  return true
+-- AST.Expression -> bool
+local function hasNoStencil(expr)
+  return not expr:is(AST.Call) or
+    expr.func ~= L.Affine and
+    not expr.func.is_a_terra_func
 end
 
-function AST.Call:hasNoStencil()
-  if self.func == L.print or self.func == L.rand or
-     self.func == L.id or
-     self.func == L.xid or self.func == L.yid or self.func == L.zid or
-     UNARY_ARITH_FUNS[self.func] or BINARY_ARITH_FUNS[self.func] or
-     self.func == L.fmax or self.func == L.imax or
-     self.func == L.fmin or self.func == L.imin or
-     self.func == L.dot or self.func == L.times then
-    return all(self.params, function(e) return e:hasNoStencil() end)
-  end
-  if self.func == L.UNSAFE_ROW then
-    return self.params[1]:hasNoStencil()
-  end
-  return false
-end
-function AST.Cast:hasNoStencil()
-  return self.value:hasNoStencil()
-end
-function AST.FieldAccess:hasNoStencil()
-  return self.key:hasNoStencil()
-end
-function AST.FieldAccessIndex:hasNoStencil()
-  return self.base:hasNoStencil() and self.index:hasNoStencil()
-end
-function AST.Global:hasNoStencil()
-  return true
-end
-function AST.GlobalIndex:hasNoStencil()
-  return self.index:hasNoStencil()
-end
-function AST.LetExpr:hasNoStencil()
-  return self.block:hasNoStencil() and self.exp:hasNoStencil()
-end
-function AST.LuaObject:hasNoStencil()
-  quit(self)
-end
-function AST.MatrixLiteral:hasNoStencil()
-  quit(self)
-end
-function AST.Name:hasNoStencil()
-  return true
-end
-function AST.Number:hasNoStencil()
-  return true
-end
-function AST.Quote:hasNoStencil()
-  return self.code:hasNoStencil()
-end
-function AST.RecordLiteral:hasNoStencil()
-  quit(self)
-end
-function AST.Reduce:hasNoStencil()
-  quit(self)
-end
-function AST.SquareIndex:hasNoStencil()
-  return self.base:hasNoStencil() and self.index:hasNoStencil()
-end
-function AST.String:hasNoStencil()
-  quit(self)
-end
-function AST.TableLookup:hasNoStencil()
-  quit(self)
-end
-function AST.UnaryOp:hasNoStencil()
-  return self.exp:hasNoStencil()
-end
-function AST.VectorLiteral:hasNoStencil()
-  return all(self.elems, function(e) return e:hasNoStencil() end)
-end
-function AST.Where:hasNoStencil()
-  quit(self)
-end
-
--- () -> bool
-function AST.Statement:hasNoStencil()
-  error('Abstract Method')
-end
-function AST.Assignment:hasNoStencil()
-  return self.lvalue:hasNoStencil() and self.exp:hasNoStencil()
-end
-function AST.Break:hasNoStencil()
-  quit(self)
-end
-function AST.DeclStatement:hasNoStencil()
-  return not self.initializer or self.initializer:hasNoStencil()
-end
-function AST.DeleteStatement:hasNoStencil()
-  return self.key:hasNoStencil()
-end
-function AST.DoStatement:hasNoStencil()
-  return self.body:hasNoStencil()
-end
-function AST.ExprStatement:hasNoStencil()
-  return self.exp:hasNoStencil()
-end
-function AST.FieldWrite:hasNoStencil()
-  return self.fieldaccess:hasNoStencil() and self.exp:hasNoStencil()
-end
-function AST.GenericFor:hasNoStencil()
-  quit(self)
-end
-function AST.GlobalReduce:hasNoStencil()
-  return self.exp:hasNoStencil()
-end
-function AST.IfStatement:hasNoStencil()
-  return all(self.if_blocks, function(cb)
-               return cb.cond:hasNoStencil() and cb.body:hasNoStencil()
-             end)
-    and (not self.else_block or self.else_block:hasNoStencil())
-end
-function AST.InsertStatement:hasNoStencil()
-  return all(self.record.exprs, function(e) return e:hasNoStencil() end)
-end
-function AST.NumericFor:hasNoStencil()
-  return self.body:hasNoStencil()
-end
-function AST.RepeatStatement:hasNoStencil()
-  quit(self)
-end
-function AST.WhileStatement:hasNoStencil()
-  quit(self)
-end
-
--- () -> bool
-function AST.Block:hasNoStencil()
-  return all(self.statements, function(s) return s:hasNoStencil() end)
+-- AST.Expression -> bool
+local function isSafeForGPU(expr)
+  return not expr:is(AST.Call) or
+    expr.func ~= L.rand and
+    expr.func ~= L.print and
+    not expr.func.is_a_terra_func
 end
 
 -- FunInfo -> bool
@@ -1296,6 +1314,7 @@ function AST.UserFunction:toTask(info)
   -- self.exp    : AST.Expression?
   local ctxt = FunContext.New(info, self.params, self.ptypes)
   assert(not ctxt.reducedGlobal or not self.exp)
+  local gpuSafe = self.body:forAllExprs(isSafeForGPU)
   -- Synthesize body
   local body = newlist() -- RG.quote*
   if ctxt.reducedGlobal then
@@ -1310,9 +1329,9 @@ function AST.UserFunction:toTask(info)
     if info.domainRel:isCoupled() then
       block = rquote if [rel][loopVar].__valid then [block] end end
     end
-    block = rquote
-      __demand(__openmp) for [loopVar] in [rel] do [block] end
-    end
+    block = gpuSafe
+      and rquote __demand(__openmp) for [loopVar] in [rel] do [block] end end
+      or  rquote for [loopVar] in [rel] do [block] end end
   end
   body:insert(block)
   if ctxt.reducedGlobal then
@@ -1327,15 +1346,22 @@ function AST.UserFunction:toTask(info)
     if mustParallelizeManually(info) then
       -- TODO: Only handling the simple case of functions without stencils,
       -- which don't require any changes.
-      assert(self.body:hasNoStencil())
-      task tsk([ctxt:signature()])
-      where [ctxt.privileges] do [body] end
-    elseif not ctxt.reducedGlobal then
-      __demand(__parallel, __cuda) task tsk([ctxt:signature()])
-      where [ctxt.privileges] do [body] end
+      assert(self.body:forAllExprs(hasNoStencil))
+      if gpuSafe and not ctxt.reducedGlobal then
+        __demand(__cuda) task tsk([ctxt:signature()])
+        where [ctxt.privileges] do [body] end
+      else
+        task tsk([ctxt:signature()])
+        where [ctxt.privileges] do [body] end
+      end
     else
-      __demand(__parallel) task tsk([ctxt:signature()])
-      where [ctxt.privileges] do [body] end
+      if gpuSafe and not ctxt.reducedGlobal then
+        __demand(__parallel, __cuda) task tsk([ctxt:signature()])
+        where [ctxt.privileges] do [body] end
+      else
+        __demand(__parallel) task tsk([ctxt:signature()])
+        where [ctxt.privileges] do [body] end
+      end
     end
   else
     __demand(__inline) task tsk([ctxt:signature()])
