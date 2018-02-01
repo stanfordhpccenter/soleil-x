@@ -23,17 +23,16 @@ where
   reads(particles.{density, diameter}),
   reads writes(particles.temperature_t)
 do
+  var absorptivity = config.Particles.absorptivity
+  var intensity = config.Radiation.intensity
+  var heatCapacity = config.Particles.heatCapacity
   __demand(__openmp)
   for p in particles do
     var crossSectionArea = pi * pow(p.diameter, 2.0) / 4.0
     var volume = pi * pow(p.diameter, 3.0) / 6.0
     var mass = volume * p.density
-    var absorbedRadiationIntensity =
-      config.Particles.absorptivity
-      * config.Radiation.intensity
-      * crossSectionArea
-    p.temperature_t +=
-      absorbedRadiationIntensity / (mass * config.Particles.heatCapacity)
+    var absorbedRadiationIntensity = absorptivity * intensity * crossSectionArea
+    p.temperature_t += absorbedRadiationIntensity / (mass * heatCapacity)
   end
 end
 A.registerTask(AddRadiation, 'AddRadiation')
