@@ -26,7 +26,8 @@ ar rcs libjsonparser.a json.o
 # Compile Liszt
 "$LEGION_DIR"/language/regent.py soleil-x.t \
     -i ../testcases/tgv_64x64x64.json \
-    -fflow 0 -fflow-spmd 0 -fcuda 1 -fopenmp 1 \
+    -fflow 0 -fflow-spmd 0 -fopenmp 1 \
+    -fcuda 1 -fcuda-offline 1 \
     1> soleil.out 2> soleil.err
 
 # Post-process dumped Regent
