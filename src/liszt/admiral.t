@@ -2472,34 +2472,9 @@ function M.AST.SetGlobal:toRQuote()
   end
 end
 function M.AST.While:toRQuote()
-  if self.spmd then
-    return rquote
-      __demand(__spmd)
-      while [self.cond:toRExpr()] do
-        [self.body:toRQuote()]
-      end
-    end
-  else
-    return rquote
-      while [self.cond:toRExpr()] do
-        [self.body:toRQuote()]
-      end
-    end
-  end
-end
-function M.AST.Do:toRQuote()
-  if self.spmd then
-    return rquote
-      __demand(__spmd)
-      do
-        [self.body:toRQuote()]
-      end
-    end
-  else
-    return rquote
-      do
-        [self.body:toRQuote()]
-      end
+  return rquote
+    while [self.cond:toRExpr()] do
+      [self.body:toRQuote()]
     end
   end
 end

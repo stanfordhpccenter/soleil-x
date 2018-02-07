@@ -69,8 +69,7 @@ local ADT AST
        | If { cond : Cond, thenBlock : Stmt?, elseBlock : Stmt? }
        | FillField { fld : Field, val : Expr }
        | SetGlobal { global : Global, expr : Expr }
-       | While { cond : Cond, spmd : boolean, body : Stmt? }
-       | Do { spmd : boolean, body : Stmt? }
+       | While { cond : Cond, body : Stmt? }
        | Print { fmt : string, globals : Global* }
        | Dump { rel : Relation, flds : string*, file : string, vals : Expr* }
        | Load { rel : Relation, flds : string*, file : string, vals : Expr* }
@@ -283,18 +282,10 @@ function M.ELSE()
   scopes[#scopes] = terralib.newlist()
 end
 
--- boolean | AST.Cond, boolean? -> ()
-function M.WHILE(cond, spmd)
-  spmd = spmd or false
+-- boolean | AST.Cond -> ()
+function M.WHILE(cond)
   if type(cond) == 'boolean' then cond = AST.Literal(cond) end
-  stack:insert(AST.While(cond, spmd, nil))
-  scopes:insert(terralib.newlist())
-end
-
--- boolean? -> ()
-function M.DO(spmd)
-  spmd = spmd or false
-  stack:insert(AST.Do(spmd, nil))
+  stack:insert(AST.While(cond, nil))
   scopes:insert(terralib.newlist())
 end
 
@@ -311,8 +302,6 @@ function M.END()
       wrapper.thenBlock = AST.Block(stmts)
     end
   elseif AST.While.check(wrapper) then
-    wrapper.body = AST.Block(stmts)
-  elseif AST.Do.check(wrapper) then
     wrapper.body = AST.Block(stmts)
   else assert(false) end
   scopes[#scopes-1]:insert(wrapper)

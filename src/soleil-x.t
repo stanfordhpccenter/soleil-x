@@ -3107,23 +3107,18 @@ IO.WriteOutput()
 -- Main iteration loop
 
 M.WHILE(M.AND(M.LT(Integrator.simTime:get(), Integrator.finalTime),
-              M.LT(Integrator.timeStep:get(), Integrator.maxIter)),
-        true)
+              M.LT(Integrator.timeStep:get(), Integrator.maxIter)))
   Integrator.CalculateDeltaTime()
   Integrator.AdvanceTimeStep()
-  if not regentlib.config['flow-spmd'] then
-    M.IF(M.EQ(Integrator.timeStep:get() % IO.consoleFrequency, 0))
-      Statistics.ComputeSpatialAverages()
-      IO.WriteOutput()
-    M.END()
-  end
+  M.IF(M.EQ(Integrator.timeStep:get() % IO.consoleFrequency, 0))
+    Statistics.ComputeSpatialAverages()
+    IO.WriteOutput()
+  M.END()
 M.END()
 
 -- Final stats printing
 
-if regentlib.config['flow-spmd'] then
-  Statistics.ComputeSpatialAverages()
-end
+Statistics.ComputeSpatialAverages()
 IO.WriteConsoleOutput()
 
 A.translate(Grid.xTiles, Grid.yTiles, Grid.zTiles)
