@@ -14,6 +14,6 @@ elif [[ $(uname -n) == *"sapling"* ]]; then
 else
     ./soleil.exec \
         -i ../testcases/tgv_64x64x64.json \
-        -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 4 -ll:gpu 0 \
+        -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 3 \
         -ll:csize 9000
 fi
