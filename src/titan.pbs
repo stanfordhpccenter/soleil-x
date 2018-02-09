@@ -1,0 +1,20 @@
+#!/bin/bash -eu
+#PBS -A CSC188
+#PBS -l walltime=00:05:00
+#PBS -l nodes=1
+#PBS -q debug
+
+SCRATCH_DIR="$PROJWORK"/csc188/stanford
+cd "$SCRATCH_DIR"
+
+# Copy shared libs and input files to scratch directory
+cp "$LEGION_DIR"/bindings/regent/libregent.so "$SCRATCH_DIR"
+cp -r "$SOLEIL_DIR"/src/LMquads "$SCRATCH_DIR"
+export LD_LIBRARY_PATH="$SCRATCH_DIR"
+
+# HACK: LLVM installs a bad ELF interpreter on the executable, use the one in ld.so
+aprun -n 2 -cc numa_node -S 1 \
+    /lib64/ld-linux-x86-64.so.2 "$SOLEIL_DIR"/src/soleil.exec \
+    -i "$SOLEIL_DIR"/testcases/tgv_64x64x64.json \
+    -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 4 \
+    -ll:csize 20000

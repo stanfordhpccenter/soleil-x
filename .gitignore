@@ -1,11 +1,12 @@
-# Files ignored by git
-
+*~
+*.o
+*.a
 *.so
-
-# Mac files
+*.bc
+*.dylib
+*.out
+*.err
+*.exec
 *.DS_Store
-Soleil-X.xcodeproj/project.xcworkspace/xcuserdata/economon.xcuserdatad/UserInterfaceState.xcuserstate
-
-# Solution files Tecplot / CSV
 *.dat
 *.csv

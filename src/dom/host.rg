@@ -1,20 +1,6 @@
 -- Runs dom.rg standalone.
--- Compile using: regent.py host.rg -i <config>.lua
--- Run binary using: LD_LIBRARY_PATH=$LEGION_PATH/bindings/terra/ ./a.out
-
--- Reads the following configuration options from a Soleil-X config file
--- (supplied using the '-i' option):
--- * xnum,ynum,znum : number of cells in fluid grid
--- * coarsenFactor : how coarser the rad. grid is vs the fluid, e.g. {2,2,2}
--- * xWidth,yWidth,zWidth : physical size of the fluid grid
--- * [emiss_west/south/north/up/down : wall emissivity]
--- * [T_west/south/north/up/down : wall temperature]
--- * qa,qs : albedo
--- * numAngles : number of DOM angles
-
--- Uses default values for:
--- * Ib
--- * sigma
+-- Uses static values for DOM configuration options.
+-- Uses default values for Ib and sigma.
 
 -------------------------------------------------------------------------------
 -- Imports
@@ -22,49 +8,129 @@
 
 import 'regent'
 
-local A = require 'admiral'
+local A = require 'admiral' -- We proxy this module
 
 local cmath = terralib.includec("math.h")
 
 -------------------------------------------------------------------------------
--- Read configuration
+-- Proxy runtime configuration object
 -------------------------------------------------------------------------------
 
-local config
-local i = 1
-while i <= #arg do
-  if arg[i] == '-i' and i < #arg then
-    config = loadfile(arg[i+1])()
-    break
-  end
-  i = i + 1
+struct Config {
+  Grid : struct {
+    xTiles : int,
+    yTiles : int,
+    zTiles : int,
+  },
+  Radiation : struct {
+    xNum : int,
+    yNum : int,
+    zNum : int,
+    xCellWidth : double,
+    yCellWidth : double,
+    zCellWidth : double,
+    qa : double,
+    qs : double,
+    emissWest  : double,
+    emissEast  : double,
+    emissSouth : double,
+    emissNorth : double,
+    emissUp    : double,
+    emissDown  : double,
+    tempWest  : double,
+    tempEast  : double,
+    tempSouth : double,
+    tempNorth : double,
+    tempUp    : double,
+    tempDown  : double,
+  },
+}
+
+-------------------------------------------------------------------------------
+-- Set configuration options statically
+-------------------------------------------------------------------------------
+
+local terra readConfig() : Config
+  var config : Config
+  config.Grid.xTiles = 2
+  config.Grid.yTiles = 2
+  config.Grid.zTiles = 1
+  config.Radiation.xNum = 32
+  config.Radiation.yNum = 32
+  config.Radiation.zNum = 1
+  config.Radiation.xCellWidth = 1.0/32.0
+  config.Radiation.yCellWidth = 1.0/32.0
+  config.Radiation.zCellWidth = 1.0/32.0
+  config.Radiation.qa = 0.5
+  config.Radiation.qs = 0.5
+  config.Radiation.emissWest  = 1.0
+  config.Radiation.emissEast  = 1.0
+  config.Radiation.emissSouth = 1.0
+  config.Radiation.emissNorth = 1.0
+  config.Radiation.emissUp    = 1.0
+  config.Radiation.emissDown  = 1.0
+  config.Radiation.tempWest  = 2000.0
+  config.Radiation.tempEast  = 300.0
+  config.Radiation.tempSouth = 300.0
+  config.Radiation.tempNorth = 300.0
+  config.Radiation.tempUp    = 300.0
+  config.Radiation.tempDown  = 300.0
+  return config
 end
-if not config then
-  print('config file required (-i <file> option)')
-  os.exit(1)
-end
+
+local NUM_ANGLES = 14
+
+-------------------------------------------------------------------------------
+-- Proxy globals
+-------------------------------------------------------------------------------
+
+local NxGlobal = {}
+NxGlobal.varSymbol = terralib.memoize(function(self)
+  return regentlib.newsymbol()
+end)
+local NyGlobal = {}
+NyGlobal.varSymbol = terralib.memoize(function(self)
+  return regentlib.newsymbol()
+end)
+local NzGlobal = {}
+NzGlobal.varSymbol = terralib.memoize(function(self)
+  return regentlib.newsymbol()
+end)
+
+local dxGlobal = {}
+dxGlobal.varSymbol = terralib.memoize(function(self)
+  return regentlib.newsymbol()
+end)
+local dyGlobal = {}
+dyGlobal.varSymbol = terralib.memoize(function(self)
+  return regentlib.newsymbol()
+end)
+local dzGlobal = {}
+dzGlobal.varSymbol = terralib.memoize(function(self)
+  return regentlib.newsymbol()
+end)
 
 -------------------------------------------------------------------------------
 -- Proxy radiation grid
 -------------------------------------------------------------------------------
 
 struct Point {
-    I_1 : double[config.numAngles];
-    I_2 : double[config.numAngles];
-    I_3 : double[config.numAngles];
-    I_4 : double[config.numAngles];
-    I_5 : double[config.numAngles];
-    I_6 : double[config.numAngles];
-    I_7 : double[config.numAngles];
-    I_8 : double[config.numAngles];
-    Iiter_1 : double[config.numAngles];
-    Iiter_2 : double[config.numAngles];
-    Iiter_3 : double[config.numAngles];
-    Iiter_4 : double[config.numAngles];
-    Iiter_5 : double[config.numAngles];
-    Iiter_6 : double[config.numAngles];
-    Iiter_7 : double[config.numAngles];
-    Iiter_8 : double[config.numAngles];
+    I_1 : double[NUM_ANGLES];
+    I_2 : double[NUM_ANGLES];
+    I_3 : double[NUM_ANGLES];
+    I_4 : double[NUM_ANGLES];
+    I_5 : double[NUM_ANGLES];
+    I_6 : double[NUM_ANGLES];
+    I_7 : double[NUM_ANGLES];
+    I_8 : double[NUM_ANGLES];
+    Iiter_1 : double[NUM_ANGLES];
+    Iiter_2 : double[NUM_ANGLES];
+    Iiter_3 : double[NUM_ANGLES];
+    Iiter_4 : double[NUM_ANGLES];
+    Iiter_5 : double[NUM_ANGLES];
+    Iiter_6 : double[NUM_ANGLES];
+    Iiter_7 : double[NUM_ANGLES];
+    Iiter_8 : double[NUM_ANGLES];
     G : double;
     S : double;
     Ib : double;
@@ -85,17 +151,13 @@ function pointsRel:regionType()
   return region(ispace(int3d),Point)
 end
 
-function pointsRel:Dims()
-  return {config.xnum / config.coarsenFactor[1],
-          config.ynum / config.coarsenFactor[2],
-          config.znum / config.coarsenFactor[3]}
-end
-
 -------------------------------------------------------------------------------
 -- Import DOM module
 -------------------------------------------------------------------------------
 
-local domMod = (require 'dom')(pointsRel)
+local domMod = (require 'dom')(pointsRel, NUM_ANGLES,
+                               NxGlobal, NyGlobal, NzGlobal,
+                               dxGlobal, dyGlobal, dzGlobal)
 
 -------------------------------------------------------------------------------
 -- Proxy tasks
@@ -110,7 +172,7 @@ where reads writes(points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8,
                            Iiter_5, Iiter_6, Iiter_7, Iiter_8,
                            G, S, Ib, sigma}) do
   for p in points do
-    for m = 0,config.numAngles do
+    for m = 0,NUM_ANGLES do
       p.I_1[m]     = 0.0
       p.I_2[m]     = 0.0
       p.I_3[m]     = 0.0
@@ -135,14 +197,6 @@ where reads writes(points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8,
   end
 end
 
-local dims = pointsRel:Dims()
-local nx,ny,nz = dims[1],dims[2],dims[3]
-local ntx,nty,ntz = A.primPartDims()
-
-local points = pointsRel:regionSymbol()
-local colors = A.primColors()
-local p_points = pointsRel:primPartSymbol()
-
 local task writeIntensity(points : region(ispace(int3d), Point))
 where
   reads (points.G)
@@ -161,11 +215,39 @@ do
   regentlib.c.fclose(f)
 end
 
+-------------------------------------------------------------------------------
+-- Proxy main
+-------------------------------------------------------------------------------
+
+local config = A.configSymbol()
+
+local Nx = NxGlobal:varSymbol()
+local Ny = NyGlobal:varSymbol()
+local Nz = NzGlobal:varSymbol()
+
+local dx = dxGlobal:varSymbol()
+local dy = dyGlobal:varSymbol()
+local dz = dzGlobal:varSymbol()
+
+local points = pointsRel:regionSymbol()
+local colors = A.primColors()
+local p_points = pointsRel:primPartSymbol()
+
 local task main()
-  var is = ispace(int3d, {nx,ny,nz})
+  -- "Read" configuration
+  var [config] = readConfig()
+  -- Initialize symbols
+  var [Nx] = config.Radiation.xNum
+  var [Ny] = config.Radiation.yNum
+  var [Nz] = config.Radiation.zNum
+  var [dx] = config.Radiation.xCellWidth
+  var [dy] = config.Radiation.yCellWidth
+  var [dz] = config.Radiation.zCellWidth
+  var is = ispace(int3d, {Nx,Ny,Nz})
   var [points] = region(is, Point)
-  var [colors] = ispace(int3d, {ntx,nty,ntz})
+  var [colors] = ispace(int3d, {config.Grid.xTiles, config.Grid.yTiles, config.Grid.zTiles})
   var [p_points] = partition(equal, points, colors);
+  -- Inline quotes from external module
   [domMod.InitModule]
   InitPoints(points);
   [domMod.ComputeRadiationField]
@@ -173,4 +255,4 @@ local task main()
 end
 
 print('Saving standalone DOM executable to a.out')
-regentlib.saveobj(main, 'a.out', 'executable')
+regentlib.saveobj(main, 'a.out', 'executable', nil, {'-lm'})
