@@ -19,7 +19,7 @@ General Public License for more details.
 You should have received a copy of the GNU General Public
 License along with this program; if not, write to the Free
 Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-nBoston, MA 02110-1301 USA.
+Boston, MA 02110-1301 USA.
 
 -----------------------------------------------------------------------------
 ]]--
@@ -1527,21 +1527,21 @@ end
 
 ebb Flow.UpdateDissipationX (c : fluidGrid)
   if c.in_interior then
-    c.dissipation += (c( 0,0,0).dissipationFlux -
+    c.dissipation += (c.dissipationFlux -
                       c(-1,0,0).dissipationFlux)/Grid.xCellWidth
   end
 end
 
 ebb Flow.UpdateDissipationY (c : fluidGrid)
   if c.in_interior then
-    c.dissipation += (c(0, 0,0).dissipationFlux -
+    c.dissipation += (c.dissipationFlux -
                       c(0,-1,0).dissipationFlux)/Grid.yCellWidth
   end
 end
 
 ebb Flow.UpdateDissipationZ (c : fluidGrid)
   if c.in_interior then
-    c.dissipation += (c(0,0, 0).dissipationFlux -
+    c.dissipation += (c.dissipationFlux -
                       c(0,0,-1).dissipationFlux)/Grid.zCellWidth
   end
 end
@@ -2783,27 +2783,27 @@ end
 ebb Flow.AddUpdateUsingFlux (c : fluidGrid)
   --if c.in_interior or c.xneg_depth == 1 then
   if c.in_interior then --or c.xneg_depth == 1 then
-    c.rho_t += -(c( 0,0,0).rhoFluxX -
+    c.rho_t += -(c.rhoFluxX -
                  c(-1,0,0).rhoFluxX)/Grid.xCellWidth
-    c.rhoVelocity_t += -(c( 0,0,0).rhoVelocityFluxX -
+    c.rhoVelocity_t += -(c.rhoVelocityFluxX -
                          c(-1,0,0).rhoVelocityFluxX)/Grid.xCellWidth
-    c.rhoEnergy_t += -(c( 0,0,0).rhoEnergyFluxX -
+    c.rhoEnergy_t += -(c.rhoEnergyFluxX -
                        c(-1,0,0).rhoEnergyFluxX)/Grid.xCellWidth
   --end
   --if c.in_interior or c.zneg_depth == 1 then
-    c.rho_t += -(c(0, 0,0).rhoFluxY -
+    c.rho_t += -(c.rhoFluxY -
                  c(0,-1,0).rhoFluxY)/Grid.yCellWidth
-    c.rhoVelocity_t += -(c(0, 0,0).rhoVelocityFluxY -
+    c.rhoVelocity_t += -(c.rhoVelocityFluxY -
                          c(0,-1,0).rhoVelocityFluxY)/Grid.yCellWidth
-    c.rhoEnergy_t += -(c(0, 0,0).rhoEnergyFluxY -
+    c.rhoEnergy_t += -(c.rhoEnergyFluxY -
                        c(0,-1,0).rhoEnergyFluxY)/Grid.yCellWidth
   --end
   --if c.in_interior or c.zneg_depth == 1 then
-    c.rho_t += -(c(0,0, 0).rhoFluxZ -
+    c.rho_t += -(c.rhoFluxZ -
                  c(0,0,-1).rhoFluxZ)/Grid.zCellWidth
-    c.rhoVelocity_t += -(c(0,0, 0).rhoVelocityFluxZ -
+    c.rhoVelocity_t += -(c.rhoVelocityFluxZ -
                          c(0,0,-1).rhoVelocityFluxZ)/Grid.zCellWidth
-    c.rhoEnergy_t += -(c(0,0, 0).rhoEnergyFluxZ -
+    c.rhoEnergy_t += -(c.rhoEnergyFluxZ -
                        c(0,0,-1).rhoEnergyFluxZ)/Grid.zCellWidth
   end
 end
