@@ -49,20 +49,11 @@ local newlist = terralib.newlist
 -- Parse config options
 -------------------------------------------------------------------------------
 
-local DUMP_REGENT = os.getenv('DUMP_REGENT') == '1'
+local HDF_HEADER = assert(os.getenv('HDF_HEADER'))
 
-local LIBS = newlist({'-ljsonparser', '-lm'})
+local HDF_LIBNAME = assert(os.getenv('HDF_LIBNAME'))
 
-local OBJNAME = os.getenv('OBJNAME') or 'a.out'
-
-local HDF_LIBNAME = os.getenv('HDF_LIBNAME') or 'hdf5'
-
-local HDF_HEADER = os.getenv('HDF_HEADER') or 'hdf5.h'
-
-local USE_HDF = not (os.getenv('USE_HDF') == '0')
-if USE_HDF then
-  LIBS:insert('-l'..HDF_LIBNAME)
-end
+local USE_HDF = assert(os.getenv('USE_HDF')) ~= '0'
 
 -------------------------------------------------------------------------------
 -- Helper functions
@@ -183,7 +174,11 @@ end
 
 -- terralib.struct -> ()
 local function prettyPrintStruct(s)
-  print('struct '..s.name..' {')
+  if s.name:sub(1,4) == 'anon' then
+    print('struct {')
+  else
+    print('struct '..s.name..' {')
+  end
   for _,e in ipairs(s.entries) do
     local name, type = parseStructEntry(e)
     print('  '..name..' : '..tostring(type)..';')
@@ -198,8 +193,8 @@ end
 
 local NAME_CACHE = {} -- map(string, (* -> *) | RG.task)
 
--- RG.task, string -> ()
-function A.registerTask(tsk, name)
+-- RG.task, string, bool? -> ()
+function A.registerTask(tsk, name, inline)
   name = idSanitize(name)
   while NAME_CACHE[name] do
     name = name..'_'
@@ -211,9 +206,10 @@ function A.registerTask(tsk, name)
     parallel_task:set_name(name)
   end
   tsk:get_primary_variant():get_ast().name[1] = name -- XXX: Dangerous
-  if DUMP_REGENT then
-    prettyPrintTask(tsk)
+  if inline then
+    print('__demand(__inline)')
   end
+  prettyPrintTask(tsk)
 end
 
 -- (* -> *), string -> ()
@@ -224,16 +220,12 @@ function A.registerFun(fun, name)
   end
   NAME_CACHE[name] = fun
   fun:setname(name)
-  if DUMP_REGENT then
-    prettyPrintFun(fun)
-  end
+  prettyPrintFun(fun)
 end
 
 -- terralib.struct -> ()
 function A.registerStruct(s)
-  if DUMP_REGENT then
-    prettyPrintStruct(s)
-  end
+  prettyPrintStruct(s)
 end
 
 -------------------------------------------------------------------------------
@@ -842,10 +834,10 @@ R.Relation.emitElemColor = terralib.memoize(function(self)
   local NZ_ = RG.newsymbol(int, 'NZ_')
   local elemColor
   if self:isGrid() then
-    __demand(__inline) task elemColor(idx : int3d,
-                                      xNum : int, yNum : int, zNum : int,
-                                      xBnum : int, yBnum : int, zBnum : int,
-                                      [NX_], [NY_], [NZ_])
+    task elemColor(idx : int3d,
+                   xNum : int, yNum : int, zNum : int,
+                   xBnum : int, yBnum : int, zBnum : int,
+                   [NX_], [NY_], [NZ_])
       idx.x = min( max( idx.x, xBnum ), xNum + xBnum - 1 )
       idx.y = min( max( idx.y, yBnum ), yNum + yBnum - 1 )
       idx.z = min( max( idx.z, zBnum ), zNum + zBnum - 1 )
@@ -859,7 +851,7 @@ R.Relation.emitElemColor = terralib.memoize(function(self)
     -- calculate offsets.
     assert(false)
   end
-  A.registerTask(elemColor, self:Name()..'_elemColor')
+  A.registerTask(elemColor, self:Name()..'_elemColor', true)
   return elemColor
 end)
 
@@ -1363,12 +1355,13 @@ function AST.UserFunction:toTask(info)
         where [ctxt.privileges] do [body] end
       end
     end
+    A.registerTask(tsk, info.name)
   else
-    __demand(__inline) task tsk([ctxt:signature()])
+    task tsk([ctxt:signature()])
     where [ctxt.privileges] do [body] end
+    A.registerTask(tsk, info.name, true)
   end
   -- Finalize task
-  A.registerTask(tsk, info.name)
   return tsk, ctxt
 end
 
@@ -2729,6 +2722,4 @@ function A.translate(xTiles, yTiles, zTiles)
     end
   end
   A.registerTask(main, 'main')
-  -- Emit to executable
-  RG.saveobj(main, OBJNAME, 'executable', nil, LIBS)
 end

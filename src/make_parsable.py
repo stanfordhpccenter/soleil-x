@@ -1,27 +1,25 @@
 #!/usr/bin/env python
 
-# NOTE: Run Admiral with DEBUG=1, set '-fdebug 1', and feed the stdout
-# (not stderr) output into this script.
-
 import fileinput
 import os
 import re
 
-assert('HDF_LIBNAME' in os.environ)
-HDF_LIBNAME = os.environ['HDF_LIBNAME']
-assert('HDF_HEADER' in os.environ)
 HDF_HEADER = os.environ['HDF_HEADER']
+HDF_LIBNAME = os.environ['HDF_LIBNAME']
+OBJNAME = os.environ['OBJNAME']
+USE_HDF = os.environ['USE_HDF'] != '0'
 
 # Add required imports
 print 'import "regent"'
-print 'local HDF5 = terralib.includec("%s")' % HDF_HEADER
-print 'local JSON = terralib.includec("json.h")'
 print 'local C = terralib.includecstring[['
 print '#include <math.h>'
 print '#include <stdlib.h>'
 print '#include <stdio.h>'
 print '#include <string.h>'
 print ']]'
+if USE_HDF:
+  print 'local HDF5 = terralib.includec("%s")' % HDF_HEADER
+print 'local JSON = terralib.includec("json.h")'
 
 for line in fileinput.input():
     line = line[:-1]
@@ -66,8 +64,10 @@ for line in fileinput.input():
     line = re.sub(r'uint32\(([0-9]+)\)', r'\1', line)
     line = re.sub(r'int32\(([0-9]+)\)', r'\1', line)
     line = re.sub(r'double\(([0-9]+)\)', r'\1.0', line)
-    # Print filtered line
-    print line
+    # Print filtered line (unless it's a comment)
+    if not line.startswith('--'):
+        print line
 
 # Add final compile command
-print 'regentlib.saveobj(main, "a.out", "executable", nil, {"-ljsonparser","-lm","-l%s"})' % HDF_LIBNAME
+LIBS = '"-ljsonparser","-lm"' + ((',"-l%s"' % HDF_LIBNAME) if USE_HDF else '')
+print 'regentlib.saveobj(main, "%s", "executable", nil, {%s})' % (OBJNAME, LIBS)
