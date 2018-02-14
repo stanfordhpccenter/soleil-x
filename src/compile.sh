@@ -24,8 +24,7 @@ gcc -g -O2 -c -o json.o json.c
 ar rcs libjsonparser.a json.o
 
 # Translate Liszt to Regent
-"$LEGION_DIR"/language/regent.py soleil-x.t $REGENT_FLAGS \
-    -i ../testcases/tgv_64x64x64.json 1> soleil.out
+"$LEGION_DIR"/language/regent.py soleil-x.t $REGENT_FLAGS 1> soleil.out
 
 # Post-process dumped Regent
 ./make_parsable.py soleil.out > soleil.rg

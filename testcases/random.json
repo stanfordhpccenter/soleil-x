@@ -78,8 +78,8 @@
     },
 
     "Radiation" : {
-        "TYPE" : "DOM", // COMPILE-TIME PARAMETER
-        "NUM_ANGLES" : 14, // COMPILE-TIME PARAMETER
+        "type" : "DOM",
+        "intensity" : -1.0,
         "qa" : 0.5,
         "qs" : 0.5,
         "xNum" : 124320, // 148 * 840

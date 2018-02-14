@@ -29,7 +29,6 @@ import 'ebb'
 
 local A    = require 'admiral'
 local GRID = require 'ebb.domains.grid'
-local JSON = require 'json'
 local L    = require 'ebblib'
 local M    = require 'ebb.src.main'
 
@@ -43,37 +42,6 @@ local C = terralib.includecstring [[
 #include <time.h>
 #include <stdio.h>
 ]]
-
-----------------------------------------------------------------------------
---[[                      COMPILE-TIME OPTIONS                           ]]--
------------------------------------------------------------------------------
-
-local function PrintUsageAndExit ()
-  print("Usage : $LISZT_PATH/liszt-legion.sh $SOLEIL_PATH/src/soleil-x.t")
-  print("          -i <config.json> (** required **)")
-  os.exit(1)
-end
-
-do
-  local configFileName
-  local i = 1
-  while i <= #arg do
-    if arg[i] == '-i' then
-      if i == #arg then PrintUsageAndExit() end
-      configFileName = arg[i+1]
-      break
-    end
-    i = i + 1
-  end
-  if not configFileName then PrintUsageAndExit() end
-  local f = io.open(configFileName, 'r')
-  if not f then PrintUsageAndExit() end
-  local content = f:read('*all')
-  if not content then PrintUsageAndExit() end
-  f:close()
-  config = JSON.decode(content)
-  if not config then PrintUsageAndExit() end
-end
 
 -----------------------------------------------------------------------------
 --[[                            CONSTANTS                                ]]--
@@ -329,51 +297,45 @@ Particles.number             = L.Global('Particles.number', L.int64, 0)
 --[[ Radiation ]]--
 -------------------
 
-Radiation.TYPE = config.Radiation.TYPE
-assert(Radiation.TYPE == 'OFF' or
-       Radiation.TYPE == 'Algebraic' or
-       Radiation.TYPE == 'DOM')
+Radiation.NUM_ANGLES = 14 -- Compile-time parameter
 
-if Radiation.TYPE == 'Algebraic' then
-  Radiation.intensity = A.readConfig('Radiation.intensity', double)
-end
+local RadiationType = A.Enum('OFF', 'Algebraic', 'DOM')
 
-if Radiation.TYPE == 'DOM' then
-  Radiation.NUM_ANGLES = config.Radiation.NUM_ANGLES
-  Radiation.qa         = A.globalFromConfig('Radiation.qa', double)
-  Radiation.qs         = A.globalFromConfig('Radiation.qs', double)
-  Radiation.xNum       = A.globalFromConfig('Radiation.xNum', int)
-  Radiation.yNum       = A.globalFromConfig('Radiation.yNum', int)
-  Radiation.zNum       = A.globalFromConfig('Radiation.zNum', int)
-  Radiation.xBnum      = L.Global('Radiation.xBnum', L.int, 0)
-  Radiation.yBnum      = L.Global('Radiation.yBnum', L.int, 0)
-  Radiation.zBnum      = L.Global('Radiation.zBnum', L.int, 0)
-  Radiation.xPeriodic  = L.Global('Radiation.xPeriodic', L.bool, false)
-  Radiation.yPeriodic  = L.Global('Radiation.yPeriodic', L.bool, false)
-  Radiation.zPeriodic  = L.Global('Radiation.zPeriodic', L.bool, false)
-  Radiation.xCellWidth = L.Global('Radiation.xCellWidth', L.double,
-                                  Grid.xWidth:get() / Radiation.xNum:get())
-  Radiation.yCellWidth = L.Global('Radiation.yCellWidth', L.double,
-                                  Grid.yWidth:get() / Radiation.yNum:get())
-  Radiation.zCellWidth = L.Global('Radiation.zCellWidth', L.double,
-                                  Grid.zWidth:get() / Radiation.zNum:get())
-  Radiation.cellVolume = L.Global('Radiation.cellVolume', L.double,
-                                  Radiation.xCellWidth:get() *
-                                  Radiation.yCellWidth:get() *
-                                  Radiation.zCellWidth:get())
-  Radiation.emissEast  = A.readConfig('Radiation.emissEast', double)
-  Radiation.emissWest  = A.readConfig('Radiation.emissWest', double)
-  Radiation.emissSouth = A.readConfig('Radiation.emissSouth', double)
-  Radiation.emissNorth = A.readConfig('Radiation.emissNorth', double)
-  Radiation.emissUp    = A.readConfig('Radiation.emissUp', double)
-  Radiation.emissDown  = A.readConfig('Radiation.emissDown', double)
-  Radiation.tempEast  = A.readConfig('Radiation.tempEast', double)
-  Radiation.tempWest  = A.readConfig('Radiation.tempWest', double)
-  Radiation.tempSouth = A.readConfig('Radiation.tempSouth', double)
-  Radiation.tempNorth = A.readConfig('Radiation.tempNorth', double)
-  Radiation.tempUp    = A.readConfig('Radiation.tempUp', double)
-  Radiation.tempDown  = A.readConfig('Radiation.tempDown', double)
-end
+Radiation.type       = A.readConfig('Radiation.type', RadiationType)
+Radiation.intensity  = A.readConfig('Radiation.intensity', double)
+Radiation.qa         = A.globalFromConfig('Radiation.qa', double)
+Radiation.qs         = A.globalFromConfig('Radiation.qs', double)
+Radiation.xNum       = A.globalFromConfig('Radiation.xNum', int)
+Radiation.yNum       = A.globalFromConfig('Radiation.yNum', int)
+Radiation.zNum       = A.globalFromConfig('Radiation.zNum', int)
+Radiation.xBnum      = L.Global('Radiation.xBnum', L.int, 0)
+Radiation.yBnum      = L.Global('Radiation.yBnum', L.int, 0)
+Radiation.zBnum      = L.Global('Radiation.zBnum', L.int, 0)
+Radiation.xPeriodic  = L.Global('Radiation.xPeriodic', L.bool, false)
+Radiation.yPeriodic  = L.Global('Radiation.yPeriodic', L.bool, false)
+Radiation.zPeriodic  = L.Global('Radiation.zPeriodic', L.bool, false)
+Radiation.xCellWidth = L.Global('Radiation.xCellWidth', L.double,
+                                Grid.xWidth:get() / Radiation.xNum:get())
+Radiation.yCellWidth = L.Global('Radiation.yCellWidth', L.double,
+                                Grid.yWidth:get() / Radiation.yNum:get())
+Radiation.zCellWidth = L.Global('Radiation.zCellWidth', L.double,
+                                Grid.zWidth:get() / Radiation.zNum:get())
+Radiation.cellVolume = L.Global('Radiation.cellVolume', L.double,
+                                Radiation.xCellWidth:get() *
+                                Radiation.yCellWidth:get() *
+                                Radiation.zCellWidth:get())
+Radiation.emissEast  = A.readConfig('Radiation.emissEast', double)
+Radiation.emissWest  = A.readConfig('Radiation.emissWest', double)
+Radiation.emissSouth = A.readConfig('Radiation.emissSouth', double)
+Radiation.emissNorth = A.readConfig('Radiation.emissNorth', double)
+Radiation.emissUp    = A.readConfig('Radiation.emissUp', double)
+Radiation.emissDown  = A.readConfig('Radiation.emissDown', double)
+Radiation.tempEast   = A.readConfig('Radiation.tempEast', double)
+Radiation.tempWest   = A.readConfig('Radiation.tempWest', double)
+Radiation.tempSouth  = A.readConfig('Radiation.tempSouth', double)
+Radiation.tempNorth  = A.readConfig('Radiation.tempNorth', double)
+Radiation.tempUp     = A.readConfig('Radiation.tempUp', double)
+Radiation.tempDown   = A.readConfig('Radiation.tempDown', double)
 
 ------------
 --[[ IO ]]--
@@ -525,58 +487,54 @@ particles:NewField('temperature_t', L.double)
 --[[                        RADIATION PREPROCESSING                      ]]--
 -----------------------------------------------------------------------------
 
-if Radiation.TYPE == 'DOM' then
+local domGrid = GRID.NewGrid{
+  name = 'Radiation',
+  xNum = Radiation.xNum,
+  yNum = Radiation.yNum,
+  zNum = Radiation.zNum,
+  xOrigin = Grid.xOrigin,
+  yOrigin = Grid.yOrigin,
+  zOrigin = Grid.zOrigin,
+  xWidth = Grid.xWidth,
+  yWidth = Grid.yWidth,
+  zWidth = Grid.zWidth,
+  xBnum = Radiation.xBnum,
+  yBnum = Radiation.yBnum,
+  zBnum = Radiation.zBnum,
+  xPeriodic = Radiation.xPeriodic,
+  yPeriodic = Radiation.yPeriodic,
+  zPeriodic = Radiation.zPeriodic,
+}
+fluidGrid:LinkWithCoarse(domGrid, 'to_Radiation')
 
-  domGrid = GRID.NewGrid{
-    name = 'Radiation',
-    xNum = Radiation.xNum,
-    yNum = Radiation.yNum,
-    zNum = Radiation.zNum,
-    xOrigin = Grid.xOrigin,
-    yOrigin = Grid.yOrigin,
-    zOrigin = Grid.zOrigin,
-    xWidth = Grid.xWidth,
-    yWidth = Grid.yWidth,
-    zWidth = Grid.zWidth,
-    xBnum = Radiation.xBnum,
-    yBnum = Radiation.yBnum,
-    zBnum = Radiation.zBnum,
-    xPeriodic = Radiation.xPeriodic,
-    yPeriodic = Radiation.yPeriodic,
-    zPeriodic = Radiation.zPeriodic,
-  }
-  fluidGrid:LinkWithCoarse(domGrid, 'to_Radiation')
+-- cell center intensity per angle
+domGrid:NewField('I_1', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('I_2', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('I_3', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('I_4', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('I_5', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('I_6', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('I_7', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('I_8', L.vector(L.double, Radiation.NUM_ANGLES))
 
-  -- cell center intensity per angle
-  domGrid:NewField('I_1', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('I_2', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('I_3', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('I_4', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('I_5', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('I_6', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('I_7', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('I_8', L.vector(L.double, Radiation.NUM_ANGLES))
+-- iterative intensity per angle
+domGrid:NewField('Iiter_1', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('Iiter_2', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('Iiter_3', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('Iiter_4', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('Iiter_5', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('Iiter_6', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('Iiter_7', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('Iiter_8', L.vector(L.double, Radiation.NUM_ANGLES))
 
-  -- iterative intensity per angle
-  domGrid:NewField('Iiter_1', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('Iiter_2', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('Iiter_3', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('Iiter_4', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('Iiter_5', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('Iiter_6', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('Iiter_7', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('Iiter_8', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('G',     L.double) -- intensity summation over all angles
+domGrid:NewField('S',     L.double) -- source term
+domGrid:NewField('Ib',    L.double) -- blackbody intensity
+domGrid:NewField('sigma', L.double) -- extinction coefficient
 
-  domGrid:NewField('G',     L.double) -- intensity summation over all angles
-  domGrid:NewField('S',     L.double) -- source term
-  domGrid:NewField('Ib',    L.double) -- blackbody intensity
-  domGrid:NewField('sigma', L.double) -- extinction coefficient
-
-  -- partial sums, over particles inside volume
-  domGrid:NewField('acc_d2',   L.double) -- p.diameter^2
-  domGrid:NewField('acc_d2t4', L.double) -- p.diameter^2 * p.temperature^4
-
-end
+-- partial sums, over particles inside volume
+domGrid:NewField('acc_d2',   L.double) -- p.diameter^2
+domGrid:NewField('acc_d2t4', L.double) -- p.diameter^2 * p.temperature^4
 
 -----------------------------------------------------------------------------
 --[[                       BOUNDARY CONFIG CHECK                         ]]--
@@ -765,20 +723,15 @@ M.END()
 --[[                       EXTERNAL REGENT MODULES                       ]]--
 -----------------------------------------------------------------------------
 
-local PARTICLES_INIT =
-  (require 'particlesInit')(particles, fluidGrid,
-                            Grid.xBnum, Grid.yBnum, Grid.zBnum)
+local PARTICLES_INIT = (require 'particlesInit')(
+  particles, fluidGrid, Grid.xBnum, Grid.yBnum, Grid.zBnum)
 
-if Radiation.TYPE == 'Algebraic' then
-  ALGEBRAIC = (require 'algebraic')(particles)
-end
+local ALGEBRAIC = (require 'algebraic')(particles)
 
-if Radiation.TYPE == 'DOM' then
-  DOM = (require 'dom/dom')(
-    domGrid, Radiation.NUM_ANGLES,
-    Radiation.xNum, Radiation.yNum, Radiation.zNum,
-    Radiation.xCellWidth, Radiation.yCellWidth, Radiation.zCellWidth)
-end
+local DOM = (require 'dom/dom')(
+  domGrid, Radiation.NUM_ANGLES,
+  Radiation.xNum, Radiation.yNum, Radiation.zNum,
+  Radiation.xCellWidth, Radiation.yCellWidth, Radiation.zCellWidth)
 
 -----------------------------------------------------------------------------
 --[[                       LOAD DATA FOR RESTART                         ]]--
@@ -2346,64 +2299,60 @@ ebb Particles.UpdateAuxiliaryStep2 (p : particles)
   p.velocity_t = p.velocity_t_ghost
 end
 
-if Radiation.TYPE == 'DOM' then
-
-  ebb Radiation.InitializeCell (c : domGrid)
-    for m = 0,Radiation.NUM_ANGLES do
-      c.I_1[m]     = 0.0
-      c.I_2[m]     = 0.0
-      c.I_3[m]     = 0.0
-      c.I_4[m]     = 0.0
-      c.I_5[m]     = 0.0
-      c.I_6[m]     = 0.0
-      c.I_7[m]     = 0.0
-      c.I_8[m]     = 0.0
-      c.Iiter_1[m] = 0.0
-      c.Iiter_2[m] = 0.0
-      c.Iiter_3[m] = 0.0
-      c.Iiter_4[m] = 0.0
-      c.Iiter_5[m] = 0.0
-      c.Iiter_6[m] = 0.0
-      c.Iiter_7[m] = 0.0
-      c.Iiter_8[m] = 0.0
-    end
-    c.G = 0.0
-    c.S = 0.0
+ebb Radiation.InitializeCell (c : domGrid)
+  for m = 0,Radiation.NUM_ANGLES do
+    c.I_1[m]     = 0.0
+    c.I_2[m]     = 0.0
+    c.I_3[m]     = 0.0
+    c.I_4[m]     = 0.0
+    c.I_5[m]     = 0.0
+    c.I_6[m]     = 0.0
+    c.I_7[m]     = 0.0
+    c.I_8[m]     = 0.0
+    c.Iiter_1[m] = 0.0
+    c.Iiter_2[m] = 0.0
+    c.Iiter_3[m] = 0.0
+    c.Iiter_4[m] = 0.0
+    c.Iiter_5[m] = 0.0
+    c.Iiter_6[m] = 0.0
+    c.Iiter_7[m] = 0.0
+    c.Iiter_8[m] = 0.0
   end
-
-  ebb Radiation.ClearAccumulators (c : domGrid)
-    c.acc_d2 = 0.0
-    c.acc_d2t4 = 0.0
-  end
-
-  ebb Radiation.AccumulateParticleValues (p : particles)
-    p.cell.to_Radiation.acc_d2 +=
-      L.pow(p.diameter,2.0)
-    p.cell.to_Radiation.acc_d2t4 +=
-      L.pow(p.diameter,2.0) * L.pow(p.temperature,4.0)
-  end
-  Radiation.AccumulateParticleValues._MANUAL_PARAL = true
-
-  ebb Radiation.UpdateFieldValues (c : domGrid)
-    c.sigma = c.acc_d2 * pi
-      * (Radiation.qa + Radiation.qs)
-      / (4.0 * Radiation.cellVolume)
-    if c.acc_d2 == 0.0 then
-      c.Ib = 0.0
-    else
-      c.Ib = SB * c.acc_d2t4 / (pi * c.acc_d2)
-    end
-  end
-
-  ebb Particles.AbsorbRadiation (p : particles)
-    var t4 = L.pow(p.temperature,4.0)
-    var alpha = pi * Radiation.qa * L.pow(p.diameter,2.0)
-      * (p.cell.to_Radiation.G - 4.0 * SB * t4) / 4.0
-    p.temperature_t += alpha / (p.mass * Particles.heatCapacity)
-  end
-  Particles.AbsorbRadiation._MANUAL_PARAL = true
-
+  c.G = 0.0
+  c.S = 0.0
 end
+
+ebb Radiation.ClearAccumulators (c : domGrid)
+  c.acc_d2 = 0.0
+  c.acc_d2t4 = 0.0
+end
+
+ebb Radiation.AccumulateParticleValues (p : particles)
+  p.cell.to_Radiation.acc_d2 +=
+    L.pow(p.diameter,2.0)
+  p.cell.to_Radiation.acc_d2t4 +=
+    L.pow(p.diameter,2.0) * L.pow(p.temperature,4.0)
+end
+Radiation.AccumulateParticleValues._MANUAL_PARAL = true
+
+ebb Radiation.UpdateFieldValues (c : domGrid)
+  c.sigma = c.acc_d2 * pi
+    * (Radiation.qa + Radiation.qs)
+    / (4.0 * Radiation.cellVolume)
+  if c.acc_d2 == 0.0 then
+    c.Ib = 0.0
+  else
+    c.Ib = SB * c.acc_d2t4 / (pi * c.acc_d2)
+  end
+end
+
+ebb Particles.AbsorbRadiation (p : particles)
+  var t4 = L.pow(p.temperature,4.0)
+  var alpha = pi * Radiation.qa * L.pow(p.diameter,2.0)
+    * (p.cell.to_Radiation.G - 4.0 * SB * t4) / 4.0
+  p.temperature_t += alpha / (p.mass * Particles.heatCapacity)
+end
+Particles.AbsorbRadiation._MANUAL_PARAL = true
 
 ------------
 -- Collector
@@ -2931,9 +2880,10 @@ function Integrator.ComputeDFunctionDt ()
   particles:foreach(Particles.AddFlowCoupling)
   particles:foreach(Particles.AddBodyForces)
 
-  if Radiation.TYPE == 'Algebraic' then
+  M.IF(M.EQ(Radiation.type, RadiationType.Algebraic))
     M.INLINE(ALGEBRAIC.AddRadiation)
-  elseif Radiation.TYPE == 'DOM' then
+  M.END()
+  M.IF(M.EQ(Radiation.type, RadiationType.DOM))
     -- Compute radiation field values from particles
     domGrid:foreach(Radiation.ClearAccumulators)
     particles:foreach(Radiation.AccumulateParticleValues)
@@ -2941,7 +2891,7 @@ function Integrator.ComputeDFunctionDt ()
     M.INLINE(DOM.ComputeRadiationField)
     -- Absorb radiation into each particle
     particles:foreach(Particles.AbsorbRadiation)
-  end
+  M.END()
 
   -- Compute two-way coupling in momentum and energy
   particles:foreach(Flow.AddParticlesCoupling)
@@ -3098,10 +3048,11 @@ end
 -- Initialize all variables
 Integrator.InitializeVariables()
 Statistics.ComputeSpatialAverages()
-if Radiation.TYPE == 'DOM' then
+M.INLINE(DOM.DeclSymbols)
+M.IF(M.EQ(Radiation.type, RadiationType.DOM))
   domGrid:foreach(Radiation.InitializeCell)
-  M.INLINE(DOM.InitModule)
-end
+  M.INLINE(DOM.InitRegions)
+M.END()
 IO.WriteOutput()
 
 -- Main iteration loop

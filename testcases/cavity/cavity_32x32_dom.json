@@ -75,8 +75,8 @@
     },
 
     "Radiation" : {
-        "TYPE" : "DOM",
-        "NUM_ANGLES" : 14,
+        "type" : "DOM",
+        "intensity" : -1.0,
         "qa" : 0.5,
         "qs" : 0.5,
         "xNum" : 32,

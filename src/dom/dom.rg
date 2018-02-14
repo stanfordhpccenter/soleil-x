@@ -1974,6 +1974,39 @@ local ntx = regentlib.newsymbol('ntx')
 local nty = regentlib.newsymbol('nty')
 local ntz = regentlib.newsymbol('ntz')
 
+local x_faces = {
+  regentlib.newsymbol('x_faces_1'),
+  regentlib.newsymbol('x_faces_2'),
+  regentlib.newsymbol('x_faces_3'),
+  regentlib.newsymbol('x_faces_4'),
+  regentlib.newsymbol('x_faces_5'),
+  regentlib.newsymbol('x_faces_6'),
+  regentlib.newsymbol('x_faces_7'),
+  regentlib.newsymbol('x_faces_8'),
+}
+
+local y_faces = {
+  regentlib.newsymbol('y_faces_1'),
+  regentlib.newsymbol('y_faces_2'),
+  regentlib.newsymbol('y_faces_3'),
+  regentlib.newsymbol('y_faces_4'),
+  regentlib.newsymbol('y_faces_5'),
+  regentlib.newsymbol('y_faces_6'),
+  regentlib.newsymbol('y_faces_7'),
+  regentlib.newsymbol('y_faces_8'),
+}
+
+local z_faces = {
+  regentlib.newsymbol('z_faces_1'),
+  regentlib.newsymbol('z_faces_2'),
+  regentlib.newsymbol('z_faces_3'),
+  regentlib.newsymbol('z_faces_4'),
+  regentlib.newsymbol('z_faces_5'),
+  regentlib.newsymbol('z_faces_6'),
+  regentlib.newsymbol('z_faces_7'),
+  regentlib.newsymbol('z_faces_8'),
+}
+
 local angles = regentlib.newsymbol('angles')
 local x_tiles = regentlib.newsymbol('x_tiles')
 local y_tiles = regentlib.newsymbol('y_tiles')
@@ -2011,7 +2044,7 @@ local p_x_faces_8 = regentlib.newsymbol('p_x_faces_8')
 local p_y_faces_8 = regentlib.newsymbol('p_y_faces_8')
 local p_z_faces_8 = regentlib.newsymbol('p_z_faces_8')
 
-exports.InitModule = rquote
+exports.DeclSymbols = rquote
 
   var [ntx] = config.Grid.xTiles
   var [nty] = config.Grid.yTiles
@@ -2022,33 +2055,32 @@ exports.InitModule = rquote
   var grid_y = ispace(int3d, {x = Nx,   y = Ny+1, z = Nz})
   var grid_z = ispace(int3d, {x = Nx,   y = Ny,   z = Nz+1})
 
-  var x_faces_1 = region(grid_x, face)
-  var x_faces_2 = region(grid_x, face)
-  var x_faces_3 = region(grid_x, face)
-  var x_faces_4 = region(grid_x, face)
-  var x_faces_5 = region(grid_x, face)
-  var x_faces_6 = region(grid_x, face)
-  var x_faces_7 = region(grid_x, face)
-  var x_faces_8 = region(grid_x, face)
+  var [x_faces[1]] = region(grid_x, face)
+  var [x_faces[2]] = region(grid_x, face)
+  var [x_faces[3]] = region(grid_x, face)
+  var [x_faces[4]] = region(grid_x, face)
+  var [x_faces[5]] = region(grid_x, face)
+  var [x_faces[6]] = region(grid_x, face)
+  var [x_faces[7]] = region(grid_x, face)
+  var [x_faces[8]] = region(grid_x, face)
 
-  var y_faces_1 = region(grid_y, face)
-  var y_faces_2 = region(grid_y, face)
-  var y_faces_3 = region(grid_y, face)
-  var y_faces_4 = region(grid_y, face)
-  var y_faces_5 = region(grid_y, face)
-  var y_faces_6 = region(grid_y, face)
-  var y_faces_7 = region(grid_y, face)
-  var y_faces_8 = region(grid_y, face)
+  var [y_faces[1]] = region(grid_y, face)
+  var [y_faces[2]] = region(grid_y, face)
+  var [y_faces[3]] = region(grid_y, face)
+  var [y_faces[4]] = region(grid_y, face)
+  var [y_faces[5]] = region(grid_y, face)
+  var [y_faces[6]] = region(grid_y, face)
+  var [y_faces[7]] = region(grid_y, face)
+  var [y_faces[8]] = region(grid_y, face)
 
-  var z_faces_1 = region(grid_z, face)
-  var z_faces_2 = region(grid_z, face)
-  var z_faces_3 = region(grid_z, face)
-  var z_faces_4 = region(grid_z, face)
-  var z_faces_5 = region(grid_z, face)
-  var z_faces_6 = region(grid_z, face)
-  var z_faces_7 = region(grid_z, face)
-  var z_faces_8 = region(grid_z, face)
-
+  var [z_faces[1]] = region(grid_z, face)
+  var [z_faces[2]] = region(grid_z, face)
+  var [z_faces[3]] = region(grid_z, face)
+  var [z_faces[4]] = region(grid_z, face)
+  var [z_faces[5]] = region(grid_z, face)
+  var [z_faces[6]] = region(grid_z, face)
+  var [z_faces[7]] = region(grid_z, face)
+  var [z_faces[8]] = region(grid_z, face)
 
   -- 1D Region for angle values
   var angle_indices = ispace(int1d, NUM_ANGLES)
@@ -2060,65 +2092,69 @@ exports.InitModule = rquote
   var [y_tiles] = ispace(int3d, {x = ntx,   y = nty+1, z = ntz  })
   var [z_tiles] = ispace(int3d, {x = ntx,   y = nty,   z = ntz+1})
 
-  var [p_x_faces_1] = make_interior_partition_x_lo(x_faces_1, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces_1] = make_interior_partition_y_lo(y_faces_1, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces_1] = make_interior_partition_z_lo(z_faces_1, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces_1] = make_interior_partition_x_lo([x_faces[1]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces_1] = make_interior_partition_y_lo([y_faces[1]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces_1] = make_interior_partition_z_lo([z_faces[1]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces_2] = make_interior_partition_x_lo(x_faces_2, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces_2] = make_interior_partition_y_lo(y_faces_2, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces_2] = make_interior_partition_z_hi(z_faces_2, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces_2] = make_interior_partition_x_lo([x_faces[2]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces_2] = make_interior_partition_y_lo([y_faces[2]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces_2] = make_interior_partition_z_hi([z_faces[2]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces_3] = make_interior_partition_x_lo(x_faces_3, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces_3] = make_interior_partition_y_hi(y_faces_3, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces_3] = make_interior_partition_z_lo(z_faces_3, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces_3] = make_interior_partition_x_lo([x_faces[3]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces_3] = make_interior_partition_y_hi([y_faces[3]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces_3] = make_interior_partition_z_lo([z_faces[3]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces_4] = make_interior_partition_x_lo(x_faces_4, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces_4] = make_interior_partition_y_hi(y_faces_4, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces_4] = make_interior_partition_z_hi(z_faces_4, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces_4] = make_interior_partition_x_lo([x_faces[4]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces_4] = make_interior_partition_y_hi([y_faces[4]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces_4] = make_interior_partition_z_hi([z_faces[4]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces_5] = make_interior_partition_x_hi(x_faces_5, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces_5] = make_interior_partition_y_lo(y_faces_5, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces_5] = make_interior_partition_z_lo(z_faces_5, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces_5] = make_interior_partition_x_hi([x_faces[5]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces_5] = make_interior_partition_y_lo([y_faces[5]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces_5] = make_interior_partition_z_lo([z_faces[5]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces_6] = make_interior_partition_x_hi(x_faces_6, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces_6] = make_interior_partition_y_lo(y_faces_6, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces_6] = make_interior_partition_z_hi(z_faces_6, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces_6] = make_interior_partition_x_hi([x_faces[6]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces_6] = make_interior_partition_y_lo([y_faces[6]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces_6] = make_interior_partition_z_hi([z_faces[6]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces_7] = make_interior_partition_x_hi(x_faces_7, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces_7] = make_interior_partition_y_hi(y_faces_7, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces_7] = make_interior_partition_z_lo(z_faces_7, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces_7] = make_interior_partition_x_hi([x_faces[7]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces_7] = make_interior_partition_y_hi([y_faces[7]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces_7] = make_interior_partition_z_lo([z_faces[7]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces_8] = make_interior_partition_x_hi(x_faces_8, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces_8] = make_interior_partition_y_hi(y_faces_8, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces_8] = make_interior_partition_z_hi(z_faces_8, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces_8] = make_interior_partition_x_hi([x_faces[8]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces_8] = make_interior_partition_y_hi([y_faces[8]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces_8] = make_interior_partition_z_hi([z_faces[8]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+
+end
+
+exports.InitRegions = rquote
 
   -- Initialize face values
-  initialize_faces(x_faces_1)
-  initialize_faces(x_faces_2)
-  initialize_faces(x_faces_3)
-  initialize_faces(x_faces_4)
-  initialize_faces(x_faces_5)
-  initialize_faces(x_faces_6)
-  initialize_faces(x_faces_7)
-  initialize_faces(x_faces_8)
+  initialize_faces([x_faces[1]])
+  initialize_faces([x_faces[2]])
+  initialize_faces([x_faces[3]])
+  initialize_faces([x_faces[4]])
+  initialize_faces([x_faces[5]])
+  initialize_faces([x_faces[6]])
+  initialize_faces([x_faces[7]])
+  initialize_faces([x_faces[8]])
 
-  initialize_faces(y_faces_1)
-  initialize_faces(y_faces_2)
-  initialize_faces(y_faces_3)
-  initialize_faces(y_faces_4)
-  initialize_faces(y_faces_5)
-  initialize_faces(y_faces_6)
-  initialize_faces(y_faces_7)
-  initialize_faces(y_faces_8)
+  initialize_faces([y_faces[1]])
+  initialize_faces([y_faces[2]])
+  initialize_faces([y_faces[3]])
+  initialize_faces([y_faces[4]])
+  initialize_faces([y_faces[5]])
+  initialize_faces([y_faces[6]])
+  initialize_faces([y_faces[7]])
+  initialize_faces([y_faces[8]])
 
-  initialize_faces(z_faces_1)
-  initialize_faces(z_faces_2)
-  initialize_faces(z_faces_3)
-  initialize_faces(z_faces_4)
-  initialize_faces(z_faces_5)
-  initialize_faces(z_faces_6)
-  initialize_faces(z_faces_7)
-  initialize_faces(z_faces_8)
+  initialize_faces([z_faces[1]])
+  initialize_faces([z_faces[2]])
+  initialize_faces([z_faces[3]])
+  initialize_faces([z_faces[4]])
+  initialize_faces([z_faces[5]])
+  initialize_faces([z_faces[6]])
+  initialize_faces([z_faces[7]])
+  initialize_faces([z_faces[8]])
 
   -- Initialize constant values
   initialize_angles(angles)
