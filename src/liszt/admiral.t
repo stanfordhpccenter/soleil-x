@@ -2700,7 +2700,7 @@ function A.translate(xTiles, yTiles, zTiles)
     end
   end
   A.configSymbol():settype(A.configStruct())
-  local task work([A.configSymbol()])
+  local __forbid(__optimize) task work([A.configSymbol()])
     [header]
     __parallelize_with [opts] do [body] end
   end
