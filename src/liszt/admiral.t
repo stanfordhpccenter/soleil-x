@@ -2472,15 +2472,9 @@ function M.AST.While:toRQuote()
   end
 end
 function M.AST.Print:toRQuote()
-  local formals =
-    self.globals:map(function(g) return RG.newsymbol(toRType(g:Type())) end)
-  local task output([formals])
-    C.printf([self.fmt], [formals])
-  end
-  A.registerTask(output, 'output')
-  local actuals = self.globals:map(function(g) return g:varSymbol() end)
   return rquote
-    output([actuals])
+    C.printf([self.fmt],
+             [self.globals:map(function(g) return g:varSymbol() end)])
   end
 end
 function M.AST.Dump:toRQuote()
