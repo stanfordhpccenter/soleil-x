@@ -49,10 +49,6 @@ local newlist = terralib.newlist
 -- Parse config options
 -------------------------------------------------------------------------------
 
-local HDF_HEADER = assert(os.getenv('HDF_HEADER'))
-
-local HDF_LIBNAME = assert(os.getenv('HDF_LIBNAME'))
-
 local USE_HDF = assert(os.getenv('USE_HDF')) ~= '0'
 
 -------------------------------------------------------------------------------
@@ -193,8 +189,8 @@ end
 
 local NAME_CACHE = {} -- map(string, (* -> *) | RG.task)
 
--- RG.task, string, bool? -> ()
-function A.registerTask(tsk, name, inline)
+-- RG.task, string, bool?, bool? -> string
+function A.registerTask(tsk, name, inline, skipDef)
   name = idSanitize(name)
   while NAME_CACHE[name] do
     name = name..'_'
@@ -209,7 +205,10 @@ function A.registerTask(tsk, name, inline)
   if inline then
     print('__demand(__inline)')
   end
-  prettyPrintTask(tsk)
+  if not skipDef then
+    prettyPrintTask(tsk)
+  end
+  return name
 end
 
 -- (* -> *), string -> ()
@@ -1926,192 +1925,48 @@ end
 -- Relation dumping & loading
 -------------------------------------------------------------------------------
 
+-- rawstring -> int8[256]
+local terra concretize(str : rawstring)
+  var res : int8[256]
+  C.strncpy(&(res[0]), str, 256);
+  res[255] = 0
+  return res
+end
+A.registerFun(concretize, 'concretize')
+
 if USE_HDF then
 
-  local HDF5 = terralib.includec(HDF_HEADER)
-
-  -- HACK: Hardcoding missing #define's
-  HDF5.H5F_ACC_TRUNC = 2
-  HDF5.H5P_DEFAULT = 0
+  local HDF = require 'hdf_helper'
+  print('local HDF = require "hdf_helper"')
 
   -- string*, string, RG.rexpr* -> RG.rquote
-  function R.Relation:emitDump(flds, file, vals)
+  function R.Relation:emitDump(flds, filePat, vals)
     local flds = flds:copy()
     if self:isCoupled() then
       assert(flds:find(self:CouplingField():Name()))
       flds:insert('__valid')
     end
-    local terra create(fname : rawstring, xSize : int, ySize : int, zSize: int)
-      var fid = HDF5.H5Fcreate(fname, HDF5.H5F_ACC_TRUNC,
-                               HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT)
-      var dataSpace : int32
-      escape
-        if self:isPlain() or self:isCoupled() then
-          emit quote
-            var sizes : HDF5.hsize_t[1]
-            sizes[0] = xSize
-            dataSpace = HDF5.H5Screate_simple(1, sizes, [&uint64](0))
-          end
-        elseif self:isGrid() then
-          emit quote
-            -- Legion defaults to column-major layout, so we have to reverse.
-            -- This implies that x and z will be flipped in the output file.
-            var sizes : HDF5.hsize_t[3]
-            sizes[2] = xSize
-            sizes[1] = ySize
-            sizes[0] = zSize
-            dataSpace = HDF5.H5Screate_simple(3, sizes, [&uint64](0))
-          end
-        else assert(false) end
-        local header = newlist() -- terralib.quote*
-        local footer = newlist() -- terralib.quote*
-        -- terralib.type -> terralib.quote
-        local function toHType(T)
-          -- TODO: Not supporting: pointers, vectors, non-primitive arrays
-          if T:isprimitive() then
-            return
-              -- HACK: Hardcoding missing #define's
-              (T == int)    and HDF5.H5T_STD_I32LE_g  or
-              (T == int8)   and HDF5.H5T_STD_I8LE_g   or
-              (T == int16)  and HDF5.H5T_STD_I16LE_g  or
-              (T == int32)  and HDF5.H5T_STD_I32LE_g  or
-              (T == int64)  and HDF5.H5T_STD_I64LE_g  or
-              (T == uint)   and HDF5.H5T_STD_U32LE_g  or
-              (T == uint8)  and HDF5.H5T_STD_U8LE_g   or
-              (T == uint16) and HDF5.H5T_STD_U16LE_g  or
-              (T == uint32) and HDF5.H5T_STD_U32LE_g  or
-              (T == uint64) and HDF5.H5T_STD_U64LE_g  or
-              (T == bool)   and HDF5.H5T_STD_U8LE_g   or
-              (T == float)  and HDF5.H5T_IEEE_F32LE_g or
-              (T == double) and HDF5.H5T_IEEE_F64LE_g or
-              assert(false)
-          elseif T:isarray() then
-            local elemType = toHType(T.type)
-            local arrayType = symbol(HDF5.hid_t, 'arrayType')
-            header:insert(quote
-              var dims : HDF5.hsize_t[1]
-              dims[0] = T.N
-              var elemType = [elemType]
-              var [arrayType] = HDF5.H5Tarray_create2(elemType, 1, dims)
-            end)
-            footer:insert(quote
-              HDF5.H5Tclose(arrayType)
-            end)
-            return arrayType
-          else assert(false) end
-        end
-        -- terralib.struct, set(string), string -> ()
-        local function emitFieldDecls(fs, whitelist, prefix)
-          -- TODO: Only supporting pure structs, not fspaces
-          assert(fs:isstruct())
-          for _,e in ipairs(fs.entries) do
-            local name, type = parseStructEntry(e)
-            if whitelist and not whitelist[name] then
-              -- do nothing
-            elseif type == int2d then
-              -- Hardcode special case: int2d structs are stored packed
-              local hName = prefix..name
-              local int2dType = symbol(HDF5.hid_t, 'int2dType')
-              local dataSet = symbol(HDF5.hid_t, 'dataSet')
-              header:insert(quote
-                var [int2dType] = HDF5.H5Tcreate(HDF5.H5T_COMPOUND, 16)
-                HDF5.H5Tinsert(int2dType, "x", 0, HDF5.H5T_STD_I64LE_g)
-                HDF5.H5Tinsert(int2dType, "y", 8, HDF5.H5T_STD_I64LE_g)
-                var [dataSet] = HDF5.H5Dcreate2(
-                  fid, hName, int2dType, dataSpace,
-                  HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT)
-              end)
-              footer:insert(quote
-                HDF5.H5Dclose(dataSet)
-                HDF5.H5Tclose(int2dType)
-              end)
-            elseif type == int3d then
-              -- Hardcode special case: int3d structs are stored packed
-              local hName = prefix..name
-              local int3dType = symbol(HDF5.hid_t, 'int3dType')
-              local dataSet = symbol(HDF5.hid_t, 'dataSet')
-              header:insert(quote
-                var [int3dType] = HDF5.H5Tcreate(HDF5.H5T_COMPOUND, 24)
-                HDF5.H5Tinsert(int3dType, "x", 0, HDF5.H5T_STD_I64LE_g)
-                HDF5.H5Tinsert(int3dType, "y", 8, HDF5.H5T_STD_I64LE_g)
-                HDF5.H5Tinsert(int3dType, "z", 16, HDF5.H5T_STD_I64LE_g)
-                var [dataSet] = HDF5.H5Dcreate2(
-                  fid, hName, int3dType, dataSpace,
-                  HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT)
-              end)
-              footer:insert(quote
-                HDF5.H5Dclose(dataSet)
-                HDF5.H5Tclose(int3dType)
-              end)
-            elseif type:isstruct() then
-              emitFieldDecls(type, nil, prefix..name..'.')
-            else
-              local hName = prefix..name
-              local hType = toHType(type)
-              local dataSet = symbol(HDF5.hid_t, 'dataSet')
-              header:insert(quote
-                var hType = [hType]
-                var [dataSet] = HDF5.H5Dcreate2(
-                  fid, hName, hType, dataSpace,
-                  HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT)
-              end)
-              footer:insert(quote
-                HDF5.H5Dclose(dataSet)
-              end)
-            end
-          end
-        end
-        emitFieldDecls(self:fieldSpace(), flds:toSet(), '')
-        emit quote [header] end
-        emit quote [footer:reverse()] end
-      end
-      HDF5.H5Sclose(dataSpace)
-      HDF5.H5Fclose(fid)
-    end
-    A.registerFun(create, self:Name()..'_hdf5create_'..flds:join('_'))
+    local dump = HDF.mkDump(self:indexType(), int3d, self:fieldSpace(), flds)
+    local taskName =
+      A.registerTask(dump, self:Name()..'_dump_'..flds:join('_'), false, true)
+    local fldsStr = flds:map(function(f) return '"'..f..'"' end):join(',')
+    print(taskName..' = HDF.mkDump('..tostring(self:indexType())..', int3d, '..
+          tostring(self:fieldSpace())..', {'..fldsStr..'})')
+    local colors = A.primColors()
     local r = self:regionSymbol()
     local p_r = self:primPartSymbol()
     local s = self:copyRegionSymbol()
     local p_s = self:copyPrimPartSymbol()
-    local xSize, ySize, zSize -- RG.rexpr
-    if self:isPlain() then
-      xSize = rexpr [self:Size():varSymbol()] end
-      ySize = rexpr -1 end
-      zSize = rexpr -1 end
-    elseif self:isGrid() then
-      local xNum = self:xNum():varSymbol()
-      local yNum = self:yNum():varSymbol()
-      local zNum = self:zNum():varSymbol()
-      local xBnum = self:xBnum():varSymbol()
-      local yBnum = self:yBnum():varSymbol()
-      local zBnum = self:zBnum():varSymbol()
-      xSize = rexpr xNum + 2*xBnum end
-      ySize = rexpr yNum + 2*yBnum end
-      zSize = rexpr zNum + 2*zBnum end
-    elseif self:isCoupled() then
-      xSize = rexpr [self:primPartSize()] * NUM_PRIM_PARTS end
-      ySize = rexpr -1 end
-      zSize = rexpr -1 end
-    else assert(false) end
     return rquote
       var filename = [rawstring](C.malloc(256))
-      C.snprintf(filename, 256, file, vals)
-      create(filename, xSize, ySize, zSize)
-      attach(hdf5, s.[flds], filename, RG.file_read_write)
-      for c in [A.primColors()] do
-        var p_r_c = p_r[c]
-        var p_s_c = p_s[c]
-        acquire(p_s_c.[flds])
-        copy(p_r_c.[flds], p_s_c.[flds])
-        release(p_s_c.[flds])
-      end
-      detach(hdf5, s.[flds])
+      C.snprintf(filename, 256, filePat, vals)
+      dump(colors, concretize(filename), r, s, p_r, p_s)
       C.free(filename)
     end
   end
 
   -- string*, string, RG.rexpr* -> RG.rquote
-  function R.Relation:emitLoad(flds, file, vals)
+  function R.Relation:emitLoad(flds, filePat, vals)
     local flds = flds:copy()
     local primPartQuote = rquote end
     if self:isCoupled() then
@@ -2120,22 +1975,21 @@ if USE_HDF then
       -- XXX: Skipping primary-partition check due to Regent weirdness
       primPartQuote = rquote end
     end
+    local load = HDF.mkLoad(self:indexType(), int3d, self:fieldSpace(), flds)
+    local taskName =
+      A.registerTask(load, self:Name()..'_load_'..flds:join('_'), false, true)
+    local fldsStr = flds:map(function(f) return '"'..f..'"' end):join(',')
+    print(taskName..' = HDF.mkLoad('..tostring(self:indexType())..', int3d, '..
+          tostring(self:fieldSpace())..', {'..fldsStr..'})')
+    local colors = A.primColors()
     local r = self:regionSymbol()
     local p_r = self:primPartSymbol()
     local s = self:copyRegionSymbol()
     local p_s = self:copyPrimPartSymbol()
     return rquote
       var filename = [rawstring](C.malloc(256))
-      C.snprintf(filename, 256, file, vals)
-      attach(hdf5, s.[flds], filename, RG.file_read_only)
-      for c in [A.primColors()] do
-        var p_r_c = p_r[c]
-        var p_s_c = p_s[c]
-        acquire(p_s_c.[flds])
-        copy(p_s_c.[flds], p_r_c.[flds])
-        release(p_s_c.[flds])
-      end
-      detach(hdf5, s.[flds])
+      C.snprintf(filename, 256, filePat, vals)
+      load(colors, concretize(filename), r, s, p_r, p_s)
       C.free(filename);
       [primPartQuote]
     end
@@ -2144,14 +1998,14 @@ if USE_HDF then
 else -- if not USE_HDF
 
   -- string*, string, RG.rexpr* -> RG.rquote
-  function R.Relation:emitDump(flds, file, vals)
+  function R.Relation:emitDump(flds, filePat, vals)
     return rquote
       RG.assert(false, 'HDF I/O not supported; recompile with USE_HDF=1')
     end
   end
 
   -- string*, string, RG.rexpr* -> RG.rquote
-  function R.Relation:emitLoad(flds, file, vals)
+  function R.Relation:emitLoad(flds, filePat, vals)
     return rquote
       RG.assert(false, 'HDF I/O not supported; recompile with USE_HDF=1')
     end
