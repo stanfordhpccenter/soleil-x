@@ -2019,17 +2019,28 @@ end -- if USE_HDF
 
 local JSON = terralib.includec('json.h')
 
-local Enum = {}
+local SCHEMA = (require 'config_helper').processSchema('config_schema.h')
+print('local SCHEMA = (require "config_helper").processSchema("config_schema.h")')
+print('local Config = SCHEMA.Config')
 
--- string* -> Enum
-function A.Enum(...)
-  local enum = setmetatable({}, Enum)
-  enum.__choices = {...}
-  for i,val in ipairs({...}) do
-    assert(type(val) == 'string')
-    enum[val] = i-1
-  end
-  return enum
+-- string -> map(string,int)
+function A.getEnum(name)
+  return SCHEMA[name]
+end
+
+-- () -> RG.symbol
+A.configSymbol = terralib.memoize(function()
+  return RG.newsymbol(A.configStruct(), 'config')
+end)
+
+-- () -> terralib.struct
+function A.configStruct()
+  return SCHEMA.Config
+end
+
+-- string -> M.AST.Expr
+function A.readConfig(name)
+  return M.AST.ReadConfig(name)
 end
 
 -- A -> bool
@@ -2037,192 +2048,27 @@ local function equalsDoubleVec(x)
   return terralib.types.istype(x) and x:isarray() and x.type == double
 end
 
--- ConfigMap = map(string,ConfigKind)
--- ConfigKind = Enum | int | double | double[N] | ConfigMap
-
--- () -> RG.symbol
-A.configSymbol = terralib.memoize(function()
-  return RG.newsymbol(nil, 'config')
-end)
-
--- ConfigMap
-local CONFIG_MAP = {}
-
--- () -> terralib.struct
-A.configStruct = terralib.memoize(function()
-  local function fillStruct(struct_, map)
-    for fld,kind in pairs(map) do
-      if getmetatable(kind) == Enum then
-        struct_.entries:insert({field=fld, type=int})
-      elseif kind == int or kind == double or equalsDoubleVec(kind) then
-        struct_.entries:insert({field=fld, type=kind})
-      else
-        local nested = terralib.types.newstruct(fld)
-        fillStruct(nested, kind)
-        struct_.entries:insert({field=fld, type=nested})
+-- string -> PRE.Global
+function A.globalFromConfig(name)
+  local type = A.configStruct()
+  for _,fld in ipairs(name:split('.')) do
+    local entries = type.entries
+    type = nil
+    for _,e in ipairs(entries) do
+      local subName,subType = parseStructEntry(e)
+      if subName == fld then
+        type = subType
+        break
       end
     end
-    A.registerStruct(struct_)
+    assert(type)
   end
-  local s = terralib.types.newstruct('Config')
-  fillStruct(s, CONFIG_MAP)
-  return s
-end)
-
--- string, terralib.expr? -> terralib.quote
-local function errorOut(msg, name)
-  if name then
-    return quote
-      C.printf('%s for option %s\n', msg, name)
-      C.exit(1)
-    end
-  else
-    return quote
-      C.printf('%s\n', msg)
-      C.exit(1)
-    end
-  end
-end
-
--- terralib.symbol, terralib.expr, terralib.expr, ConfigKind -> terralib.quote
-local function emitValueParser(name, lval, rval, kind)
-  if getmetatable(kind) == Enum then
-    return quote
-      if [rval].type ~= JSON.json_string then
-        [errorOut('Wrong type', name)]
-      end
-      var found = false
-      escape for i,choice in ipairs(kind.__choices) do emit quote
-        if C.strcmp([rval].u.string.ptr, choice) == 0 then
-          [lval] = i-1
-          found = true
-        end
-      end end end
-      if not found then
-        [errorOut('Unexpected value', name)]
-      end
-    end
-  elseif kind == int then
-    return quote
-      if [rval].type ~= JSON.json_integer then
-        [errorOut('Wrong type', name)]
-      end
-      [lval] = [rval].u.integer
-    end
-  elseif kind == double then
-    return quote
-      if [rval].type ~= JSON.json_double then
-        [errorOut('Wrong type', name)]
-      end
-      [lval] = [rval].u.dbl
-    end
-  elseif equalsDoubleVec(kind) then
-    return quote
-      if [rval].type ~= JSON.json_array then
-        [errorOut('Wrong type', name)]
-      end
-      if [rval].u.array.length ~= [kind.N] then
-        [errorOut('Wrong length', name)]
-      end
-      for i = 0,[kind.N] do
-        var rval_i = [rval].u.array.values[i]
-        if rval_i.type ~= JSON.json_double then
-          [errorOut('Wrong element type', name)]
-        end
-        [lval][i] = rval_i.u.dbl
-      end
-    end
-  else
-    return quote
-      var totalParsed = 0
-      if [rval].type ~= JSON.json_object then
-        [errorOut('Wrong type', name)]
-      end
-      for i = 0,[rval].u.object.length do
-        var nodeName = [rval].u.object.values[i].name
-        var nodeValue = [rval].u.object.values[i].value
-        var parsed = false
-        escape for fld,subKind in pairs(kind) do emit quote
-          if C.strcmp(nodeName, fld) == 0 then
-            [emitValueParser(nodeName, `[lval].[fld], nodeValue, subKind)]
-            parsed = true
-          end
-        end end end
-        if parsed then
-          totalParsed = totalParsed + 1
-        else
-          C.printf('Ignoring option %s\n', nodeName)
-        end
-      end
-      -- TODO: Assuming the json file contains no duplicate values
-      if totalParsed < [UTIL.tableSize(kind)] then
-        [errorOut('Missing options from config file')]
-      end
-    end
-  end
-end
-
--- () -> (&int8 -> ...)
-local emitConfigParser = terralib.memoize(function()
-  local configStruct = A.configStruct()
-  local terra parseConfig(filename : &int8) : configStruct
-    var config : configStruct
-    var f = C.fopen(filename, 'r');
-    if f == nil then [errorOut('Cannot open config file')] end
-    var res1 = C.fseek(f, 0, C.SEEK_END);
-    if res1 ~= 0 then [errorOut('Cannot seek to end of config file')] end
-    var len = C.ftell(f);
-    if len < 0 then [errorOut('Cannot ftell config file')] end
-    var res2 = C.fseek(f, 0, C.SEEK_SET);
-    if res2 ~= 0 then [errorOut('Cannot seek to start of config file')] end
-    var buf = [&int8](C.malloc(len));
-    if buf == nil then [errorOut('Malloc error while parsing config')] end
-    var res3 = C.fread(buf, 1, len, f);
-    if res3 < len then [errorOut('Cannot read from config file')] end
-    C.fclose(f);
-    var errMsg : int8[256]
-    var settings = JSON.json_settings{ 0, 0, nil, nil, nil, 0 }
-    settings.settings = JSON.json_enable_comments
-    var root = JSON.json_parse_ex(&settings, buf, len, errMsg)
-    if root == nil then
-      C.printf('JSON parsing error: %s\n', errMsg)
-      C.exit(1)
-    end
-    [emitValueParser('<root>', config, root, CONFIG_MAP)]
-    JSON.json_value_free(root)
-    C.free(buf)
-    return config
-  end
-  A.registerFun(parseConfig, 'parseConfig')
-  return parseConfig
-end)
-
--- string, Enum | int | double | double[N] -> M.AST.Expr
-function A.readConfig(name, type)
-  assert(getmetatable(type) == Enum or type == int or type == double or
-         equalsDoubleVec(type))
-  local map = CONFIG_MAP
-  local fields = name:split('.')
-  for i,fld in ipairs(fields) do
-    if i == #fields then
-      if map[fld] then assert(map[fld] == type) else map[fld] = type end
-    else
-      if not map[fld] then map[fld] = {} end
-      map = map[fld]
-    end
-  end
-  return M.AST.ReadConfig(name)
-end
-
--- string, Enum | int | double | double[N] -> PRE.Global
-function A.globalFromConfig(name, type)
   local lType =
-    getmetatable(type) == Enum and L.int                      or
-    type == int                and L.int                      or
-    type == double             and L.double                   or
-    equalsDoubleVec(type)      and L.vector(L.double, type.N) or
+    type == int           and L.int                      or
+    type == double        and L.double                   or
+    equalsDoubleVec(type) and L.vector(L.double, type.N) or
     assert(false)
-  return L.Global(name, lType, A.readConfig(name, type))
+  return L.Global(name, lType, A.readConfig(name))
 end
 
 -------------------------------------------------------------------------------
@@ -2553,19 +2399,17 @@ function A.translate(xTiles, yTiles, zTiles)
       end
     end
   end
-  A.configSymbol():settype(A.configStruct())
   local __forbid(__optimize) task work([A.configSymbol()])
     [header]
     __parallelize_with [opts] do [body] end
   end
   A.registerTask(work, 'work')
   -- Synthesize main task
-  local parseConfig = emitConfigParser()
   local task main()
     var args = RG.c.legion_runtime_get_input_args()
     for i = 1,args.argc do
       if C.strcmp(args.argv[i], '-i') == 0 and i < args.argc - 1 then
-        work(parseConfig(args.argv[i+1]))
+        work(SCHEMA.parseConfig(args.argv[i+1]))
       end
     end
   end

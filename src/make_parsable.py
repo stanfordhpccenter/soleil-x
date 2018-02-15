@@ -53,6 +53,7 @@ for line in fileinput.input():
     line = line.replace('std.', 'regentlib.')
     line = line.replace('base.', 'regentlib.')
     line = re.sub(r'(_?json_)', r'JSON.\1', line)
+    line = line.replace('parseConfig(', 'SCHEMA.parseConfig(')
     # Remove unparsable terra annotations
     line = re.sub(r'extern global (.*) : \w+', r'\1', line)
     # Fix some terra mis-prints
