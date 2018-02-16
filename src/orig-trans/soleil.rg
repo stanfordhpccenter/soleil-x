@@ -12,7 +12,7 @@ local JSON = terralib.includec("json.h")
       [&int8](res)[255] = [int8](0)
       return res
   end
-
+local HDF = require "hdf_helper"
 local SCHEMA = (require "config_helper").processSchema("config_schema.h")
 local Config = SCHEMA.Config
 struct particles_columns {
@@ -89,49 +89,6 @@ struct Fluid_columns {
   dissipationFlux : double;
   to_Radiation : int3d;
 }
-
-local task Fluid_dump(colors : ispace(int3d),
-                      filename : int8[256],
-                      r : region(ispace(int3d),Fluid_columns),
-                      s : region(ispace(int3d),Fluid_columns),
-                      p_r : partition(disjoint, r, colors),
-                      p_s : partition(disjoint, s, colors))
-  regentlib.assert(false, 'Recompile with USE_HDF=1')
-end
-local task Fluid_load(colors : ispace(int3d),
-                      filename : int8[256],
-                      r : region(ispace(int3d),Fluid_columns),
-                      s : region(ispace(int3d),Fluid_columns),
-                      p_r : partition(disjoint, r, colors),
-                      p_s : partition(disjoint, s, colors))
-  regentlib.assert(false, 'Recompile with USE_HDF=1')
-end
-local task particles_dump(colors : ispace(int3d),
-                          filename : int8[256],
-                          r : region(ispace(int1d),particles_columns),
-                          s : region(ispace(int1d),particles_columns),
-                          p_r : partition(disjoint, r, colors),
-                          p_s : partition(disjoint, s, colors))
-  regentlib.assert(false, 'Recompile with USE_HDF=1')
-end
-local task particles_load(colors : ispace(int3d),
-                          filename : int8[256],
-                          r : region(ispace(int1d),particles_columns),
-                          s : region(ispace(int1d),particles_columns),
-                          p_r : partition(disjoint, r, colors),
-                          p_s : partition(disjoint, s, colors))
-  regentlib.assert(false, 'Recompile with USE_HDF=1')
-end
-local HDF_LIBNAME = assert(os.getenv('HDF_LIBNAME'))
-local USE_HDF = assert(os.getenv('USE_HDF')) ~= '0'
-if USE_HDF then
-  local HDF = require "hdf_helper"
-  Fluid_dump = HDF.mkDump(int3d, int3d, Fluid_columns, {"rho","pressure","velocity"})
-  Fluid_load = HDF.mkLoad(int3d, int3d, Fluid_columns, {"rho","pressure","velocity"})
-  particles_dump = HDF.mkDump(int1d, int3d, particles_columns, {"cell","position","velocity","temperature","diameter","__valid"})
-  particles_load = HDF.mkLoad(int1d, int3d, particles_columns, {"cell","position","velocity","temperature","diameter","__valid"})
-end
-
 __demand(__parallel)
 task InitParticlesUniform(particles : region(ispace(int1d), particles_columns), cells : region(ispace(int3d), Fluid_columns), config : Config, xBnum : int32, yBnum : int32, zBnum : int32)
 where
@@ -1610,6 +1567,7 @@ do
   end
 end
 
+Fluid_load_rho_pressure_velocity = HDF.mkLoad(int3d, int3d, Fluid_columns, {"rho","pressure","velocity"})
    terra dot_double_3(a : double[3],b : double[3]) : double
        return [&double](a)[0] * [&double](b)[0] + [&double](a)[1] * [&double](b)[1] + [&double](a)[2] * [&double](b)[2]
    end
@@ -2251,6 +2209,7 @@ do
   end
 end
 
+particles_load_cell_position_velocity_temperature_diameter___valid = HDF.mkLoad(int1d, int3d, particles_columns, {"cell","position","velocity","temperature","diameter","__valid"})
 __demand(__parallel, __cuda)
 task Particles_InitializeDensity(particles : region(ispace(int1d), particles_columns), Particles_density : double)
 where
@@ -2407,6 +2366,8 @@ do
   end
 end
 
+Fluid_dump_rho_pressure_velocity = HDF.mkDump(int3d, int3d, Fluid_columns, {"rho","pressure","velocity"})
+particles_dump_cell_position_velocity_temperature_diameter___valid = HDF.mkDump(int1d, int3d, particles_columns, {"cell","position","velocity","temperature","diameter","__valid"})
 __demand(__inline)
 task GetSoundSpeed(temperature : double, Flow_gamma : double, Flow_gasConstant : double) : double
   return [regentlib.sqrt(double)](((Flow_gamma*Flow_gasConstant)*temperature))
@@ -5014,6 +4975,8 @@ do
   return acc
 end
 
+Fluid_dump_rho_pressure_velocity_ = HDF.mkDump(int3d, int3d, Fluid_columns, {"rho","pressure","velocity"})
+particles_dump_cell_position_velocity_temperature_diameter___valid_ = HDF.mkDump(int1d, int3d, particles_columns, {"cell","position","velocity","temperature","diameter","__valid"})
 __forbid(__optimize)
 task work(config : Config)
   var NX = config.Grid.xTiles
@@ -6114,7 +6077,7 @@ task work(config : Config)
     if (config.Flow.initCase.__value==1) then
       var filename = [&int8](C.malloc(uint64(256)))
       C.snprintf(filename, uint64(256), "restart_fluid_%d.hdf", config.Integrator.restartIter)
-      Fluid_load(primColors, concretize(filename), Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
+      Fluid_load_rho_pressure_velocity(primColors, concretize(filename), Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
       C.free([&opaque](filename))
     else
     end
@@ -6137,7 +6100,7 @@ task work(config : Config)
     if (config.Particles.initCase.__value==1) then
       var filename = [&int8](C.malloc(uint64(256)))
       C.snprintf(filename, uint64(256), "restart_particles_%d.hdf", config.Integrator.restartIter)
-      particles_load(primColors, concretize(filename), particles, particles_copy, particles_primPart, particles_copy_primPart)
+      particles_load_cell_position_velocity_temperature_diameter___valid(primColors, concretize(filename), particles, particles_copy, particles_primPart, particles_copy_primPart)
       C.free([&opaque](filename))
       Particles_InitializeDensity(particles, Particles_density)
       Particles_number += Particles_CalculateNumber(particles)
@@ -6270,14 +6233,14 @@ task work(config : Config)
       if ((Integrator_timeStep%config.IO.restartEveryTimeSteps)==0) then
         var filename = [&int8](C.malloc(uint64(256)))
         C.snprintf(filename, uint64(256), "restart_fluid_%d.hdf", Integrator_timeStep)
-        Fluid_dump(primColors, concretize(filename), Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
+        Fluid_dump_rho_pressure_velocity(primColors, concretize(filename), Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
         C.free([&opaque](filename))
       else
       end
       if ((Integrator_timeStep%config.IO.restartEveryTimeSteps)==0) then
         var filename = [&int8](C.malloc(uint64(256)))
         C.snprintf(filename, uint64(256), "restart_particles_%d.hdf", Integrator_timeStep)
-        particles_dump(primColors, concretize(filename), particles, particles_copy, particles_primPart, particles_copy_primPart)
+        particles_dump_cell_position_velocity_temperature_diameter___valid(primColors, concretize(filename), particles, particles_copy, particles_primPart, particles_copy_primPart)
         C.free([&opaque](filename))
       else
       end
@@ -6511,14 +6474,14 @@ task work(config : Config)
           if ((Integrator_timeStep%config.IO.restartEveryTimeSteps)==0) then
             var filename = [&int8](C.malloc(uint64(256)))
             C.snprintf(filename, uint64(256), "restart_fluid_%d.hdf", Integrator_timeStep)
-            Fluid_dump(primColors, concretize(filename), Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
+            Fluid_dump_rho_pressure_velocity_(primColors, concretize(filename), Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
             C.free([&opaque](filename))
           else
           end
           if ((Integrator_timeStep%config.IO.restartEveryTimeSteps)==0) then
             var filename = [&int8](C.malloc(uint64(256)))
             C.snprintf(filename, uint64(256), "restart_particles_%d.hdf", Integrator_timeStep)
-            particles_dump(primColors, concretize(filename), particles, particles_copy, particles_primPart, particles_copy_primPart)
+            particles_dump_cell_position_velocity_temperature_diameter___valid_(primColors, concretize(filename), particles, particles_copy, particles_primPart, particles_copy_primPart)
             C.free([&opaque](filename))
           else
           end
@@ -6570,8 +6533,4 @@ task main()
   end
 end
 
-local LIBS = terralib.newlist({"-ljsonparser","-lm"})
-if USE_HDF then
-  LIBS:insert("-l"..HDF_LIBNAME)
-end
-regentlib.saveobj(main, "soleil.exec", "executable", nil, LIBS)
+regentlib.saveobj(main, "soleil.exec", "executable", nil, {"-ljsonparser","-lm","-lhdf5_serial"})
