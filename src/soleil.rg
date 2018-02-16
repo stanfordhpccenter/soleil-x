@@ -1,4 +1,9 @@
 import "regent"
+
+-------------------------------------------------------------------------------
+-- IMPORTS
+-------------------------------------------------------------------------------
+
 local C = terralib.includecstring[[
 #include <math.h>
 #include <stdlib.h>
@@ -6,16 +11,28 @@ local C = terralib.includecstring[[
 #include <string.h>
 ]]
 local JSON = terralib.includec("json.h")
-  terra concretize(str : &int8) : int8[256]
-      var res : int8[256]
-      C.strncpy(&[&int8](res)[0], str, [uint64](256))
-      [&int8](res)[255] = [int8](0)
-      return res
-  end
-
 local SCHEMA = (require "config_helper").processSchema("config_schema.h")
+
+-------------------------------------------------------------------------------
+-- COMPILE-TIME CONFIGURATION
+-------------------------------------------------------------------------------
+
+local HDF_LIBNAME = assert(os.getenv('HDF_LIBNAME'))
+
+local USE_HDF = assert(os.getenv('USE_HDF')) ~= '0'
+
+local LIBS = terralib.newlist({"-ljsonparser","-lm"})
+if USE_HDF then
+  LIBS:insert("-l"..HDF_LIBNAME)
+end
+
+-------------------------------------------------------------------------------
+-- DATA STRUCTURES
+-------------------------------------------------------------------------------
+
 local Config = SCHEMA.Config
-struct particles_columns {
+
+local struct particles_columns {
   cell : int3d;
   position : double[3];
   velocity : double[3];
@@ -38,7 +55,8 @@ struct particles_columns {
   temperature_t : double;
   __valid : bool;
 }
-struct Fluid_columns {
+
+local struct Fluid_columns {
   rho : double;
   pressure : double;
   velocity : double[3];
@@ -90,6 +108,46 @@ struct Fluid_columns {
   to_Radiation : int3d;
 }
 
+struct angle {
+  xi : double;
+  eta : double;
+  mu : double;
+  w : double;
+}
+
+struct face {
+  I : double[14];
+}
+
+struct Radiation_columns {
+  I_1 : double[14];
+  I_2 : double[14];
+  I_3 : double[14];
+  I_4 : double[14];
+  I_5 : double[14];
+  I_6 : double[14];
+  I_7 : double[14];
+  I_8 : double[14];
+  Iiter_1 : double[14];
+  Iiter_2 : double[14];
+  Iiter_3 : double[14];
+  Iiter_4 : double[14];
+  Iiter_5 : double[14];
+  Iiter_6 : double[14];
+  Iiter_7 : double[14];
+  Iiter_8 : double[14];
+  G : double;
+  S : double;
+  Ib : double;
+  sigma : double;
+  acc_d2 : double;
+  acc_d2t4 : double;
+}
+
+-------------------------------------------------------------------------------
+-- I/O ROUTINES
+-------------------------------------------------------------------------------
+
 local task Fluid_dump(colors : ispace(int3d),
                       filename : int8[256],
                       r : region(ispace(int3d),Fluid_columns),
@@ -122,14 +180,24 @@ local task particles_load(colors : ispace(int3d),
                           p_s : partition(disjoint, s, colors))
   regentlib.assert(false, 'Recompile with USE_HDF=1')
 end
-local HDF_LIBNAME = assert(os.getenv('HDF_LIBNAME'))
-local USE_HDF = assert(os.getenv('USE_HDF')) ~= '0'
+
 if USE_HDF then
   local HDF = require "hdf_helper"
   Fluid_dump = HDF.mkDump(int3d, int3d, Fluid_columns, {"rho","pressure","velocity"})
   Fluid_load = HDF.mkLoad(int3d, int3d, Fluid_columns, {"rho","pressure","velocity"})
   particles_dump = HDF.mkDump(int1d, int3d, particles_columns, {"cell","position","velocity","temperature","diameter","__valid"})
   particles_load = HDF.mkLoad(int1d, int3d, particles_columns, {"cell","position","velocity","temperature","diameter","__valid"})
+end
+
+-------------------------------------------------------------------------------
+-- OTHER ROUTINES
+-------------------------------------------------------------------------------
+
+terra concretize(str : &int8) : int8[256]
+  var res : int8[256]
+  C.strncpy(&[&int8](res)[0], str, [uint64](256))
+  [&int8](res)[255] = [int8](0)
+  return res
 end
 
 __demand(__parallel)
@@ -188,55 +256,24 @@ do
   end
 end
 
-struct Radiation_columns {
-  I_1 : double[14];
-  I_2 : double[14];
-  I_3 : double[14];
-  I_4 : double[14];
-  I_5 : double[14];
-  I_6 : double[14];
-  I_7 : double[14];
-  I_8 : double[14];
-  Iiter_1 : double[14];
-  Iiter_2 : double[14];
-  Iiter_3 : double[14];
-  Iiter_4 : double[14];
-  Iiter_5 : double[14];
-  Iiter_6 : double[14];
-  Iiter_7 : double[14];
-  Iiter_8 : double[14];
-  G : double;
-  S : double;
-  Ib : double;
-  sigma : double;
-  acc_d2 : double;
-  acc_d2t4 : double;
-}
-         terra open_quad_file() : &C._IO_FILE
-             var f = C.fopen("LMquads/14.txt", "rb")
-             if f == [&C._IO_FILE](nil) then
-                 C.printf("Error opening angle file\n")
-                 C.exit(1)
-             end
-             return f
-         end
-         terra read_double(f : &C._IO_FILE) : double
-             var val : double
-             if C.fscanf(f, "%lf\n", &val) < 1 then
-                 C.printf("Error while reading angle file\n")
-                 C.exit(1)
-             end
-             return val
-         end
-struct angle {
-  xi : double;
-  eta : double;
-  mu : double;
-  w : double;
-}
-struct face {
-  I : double[14];
-}
+terra open_quad_file() : &C._IO_FILE
+  var f = C.fopen("LMquads/14.txt", "rb")
+  if f == [&C._IO_FILE](nil) then
+    C.printf("Error opening angle file\n")
+    C.exit(1)
+  end
+  return f
+end
+
+terra read_double(f : &C._IO_FILE) : double
+  var val : double
+  if C.fscanf(f, "%lf\n", &val) < 1 then
+    C.printf("Error while reading angle file\n")
+    C.exit(1)
+  end
+  return val
+end
+
 task initialize_faces(faces : region(ispace(int3d), face))
 where
   reads(faces.I), writes(faces.I)
@@ -1554,9 +1591,10 @@ do
   end
 end
 
-   terra vs_mul_double_3(a : double[3],b : double) : double[3]
-       return array([&double](a)[0] * b, [&double](a)[1] * b, [&double](a)[2] * b)
-   end
+terra vs_mul_double_3(a : double[3],b : double) : double[3]
+  return array([&double](a)[0] * b, [&double](a)[1] * b, [&double](a)[2] * b)
+end
+
 __demand(__parallel, __cuda)
 task Flow_InitializeTaylorGreen2D(Fluid : region(ispace(int3d), Fluid_columns), Flow_initParams : double[5], Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double, Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double, Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
 where
@@ -1610,9 +1648,10 @@ do
   end
 end
 
-   terra dot_double_3(a : double[3],b : double[3]) : double
-       return [&double](a)[0] * [&double](b)[0] + [&double](a)[1] * [&double](b)[1] + [&double](a)[2] * [&double](b)[2]
-   end
+terra dot_double_3(a : double[3],b : double[3]) : double
+  return [&double](a)[0] * [&double](b)[0] + [&double](a)[1] * [&double](b)[1] + [&double](a)[2] * [&double](b)[2]
+end
+
 __demand(__parallel, __cuda)
 task Flow_UpdateConservedFromPrimitive(Fluid : region(ispace(int3d), Fluid_columns), Flow_gamma : double, Flow_gasConstant : double, Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
 where
@@ -1631,9 +1670,10 @@ do
   end
 end
 
-   terra vs_div_double_3(a : double[3],b : double) : double[3]
-       return array([&double](a)[0] / b, [&double](a)[1] / b, [&double](a)[2] / b)
-   end
+terra vs_div_double_3(a : double[3],b : double) : double[3]
+  return array([&double](a)[0] / b, [&double](a)[1] / b, [&double](a)[2] / b)
+end
+
 __demand(__parallel, __cuda)
 task Flow_UpdateAuxiliaryVelocity(Fluid : region(ispace(int3d), Fluid_columns), Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
 where
@@ -1650,13 +1690,15 @@ do
   end
 end
 
-   terra vv_mul_double_3(a : double[3],b : double[3]) : double[3]
-       return array([&double](a)[0] * [&double](b)[0], [&double](a)[1] * [&double](b)[1], [&double](a)[2] * [&double](b)[2])
-   end
-   terra vv_add_double_3(a : double[3],b : double[3]) : double[3]
-       return array([&double](a)[0] + [&double](b)[0], [&double](a)[1] + [&double](b)[1], [&double](a)[2] + [&double](b)[2])
-   end
+terra vv_mul_double_3(a : double[3],b : double[3]) : double[3]
+  return array([&double](a)[0] * [&double](b)[0], [&double](a)[1] * [&double](b)[1], [&double](a)[2] * [&double](b)[2])
+end
+
+terra vv_add_double_3(a : double[3],b : double[3]) : double[3]
+  return array([&double](a)[0] + [&double](b)[0], [&double](a)[1] + [&double](b)[1], [&double](a)[2] + [&double](b)[2])
+end
 __demand(__parallel, __cuda)
+
 task Flow_UpdateGhostConservedStep1(Fluid : region(ispace(int3d), Fluid_columns), BC_xNegTemperature : double, BC_xNegVelocity : double[3], BC_xPosTemperature : double, BC_xPosVelocity : double[3], BC_xSign : double[3], BC_yNegTemperature : double, BC_yNegVelocity : double[3], BC_yPosTemperature : double, BC_yPosVelocity : double[3], BC_ySign : double[3], BC_zNegTemperature : double, BC_zNegVelocity : double[3], BC_zPosTemperature : double, BC_zPosVelocity : double[3], BC_zSign : double[3], Flow_gamma : double, Flow_gasConstant : double, Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.pressure), reads(Fluid.rho), reads(Fluid.rhoBoundary), writes(Fluid.rhoBoundary), reads(Fluid.rhoEnergyBoundary), writes(Fluid.rhoEnergyBoundary), reads(Fluid.rhoVelocity), reads(Fluid.rhoVelocityBoundary), writes(Fluid.rhoVelocityBoundary), reads(Fluid.temperature)
@@ -1904,9 +1946,10 @@ do
   end
 end
 
-   terra vv_sub_double_3(a : double[3],b : double[3]) : double[3]
-       return array([&double](a)[0] - [&double](b)[0], [&double](a)[1] - [&double](b)[1], [&double](a)[2] - [&double](b)[2])
-   end
+terra vv_sub_double_3(a : double[3],b : double[3]) : double[3]
+  return array([&double](a)[0] - [&double](b)[0], [&double](a)[1] - [&double](b)[1], [&double](a)[2] - [&double](b)[2])
+end
+
 __demand(__parallel, __cuda)
 task Flow_ComputeVelocityGradientAll(Fluid : region(ispace(int3d), Fluid_columns), Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32, Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32, Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
@@ -3289,25 +3332,28 @@ task Fluid_elemColor(idx : int3d, xNum : int32, yNum : int32, zNum : int32, xBnu
   return int3d({((idx.x-xBnum)/(xNum/NX_)), ((idx.y-yBnum)/(yNum/NY_)), ((idx.z-zBnum)/(zNum/NZ_))})
 end
 
-   terra particles_pushElement(dst : &opaque,idx : int32,src : particles_columns) : {}
-       var ptr = [&int8](dst) + idx * 376
-       C.memcpy([&opaque](ptr), [&opaque](&src), [uint64](376))
-   end
-   terra particles_getBasePointer(pr : regentlib.c.legion_physical_region_t,fid : uint32,runtime : regentlib.c.legion_runtime_t) : &opaque
-       var acc = regentlib.c.legion_physical_region_get_field_accessor_array_1d(pr, fid)
-       var lr = regentlib.c.legion_physical_region_get_logical_region(pr)
-       var domain = regentlib.c.legion_index_space_get_domain(runtime, lr.index_space)
-       var rect = regentlib.c.legion_domain_get_rect_1d(domain)
-       var subrect : regentlib.c.legion_rect_1d_t
-       var offsets : regentlib.c.legion_byte_offset_t[1]
-       var p = regentlib.c.legion_accessor_array_1d_raw_rect_ptr(acc, rect, &subrect, &[&regentlib.c.legion_byte_offset_t](offsets)[0])
-       regentlib.c.legion_accessor_array_1d_destroy(acc)
-       return p
-   end
-   terra particles_getOffset() : int64
-       var x : particles_columns
-       return [&int8](&x.__valid) - [&int8](&x)
-   end
+terra particles_pushElement(dst : &opaque,idx : int32,src : particles_columns) : {}
+  var ptr = [&int8](dst) + idx * 376
+  C.memcpy([&opaque](ptr), [&opaque](&src), [uint64](376))
+end
+
+terra particles_getBasePointer(pr : regentlib.c.legion_physical_region_t,fid : uint32,runtime : regentlib.c.legion_runtime_t) : &opaque
+  var acc = regentlib.c.legion_physical_region_get_field_accessor_array_1d(pr, fid)
+  var lr = regentlib.c.legion_physical_region_get_logical_region(pr)
+  var domain = regentlib.c.legion_index_space_get_domain(runtime, lr.index_space)
+  var rect = regentlib.c.legion_domain_get_rect_1d(domain)
+  var subrect : regentlib.c.legion_rect_1d_t
+  var offsets : regentlib.c.legion_byte_offset_t[1]
+  var p = regentlib.c.legion_accessor_array_1d_raw_rect_ptr(acc, rect, &subrect, &[&regentlib.c.legion_byte_offset_t](offsets)[0])
+  regentlib.c.legion_accessor_array_1d_destroy(acc)
+  return p
+end
+
+terra particles_getOffset() : int64
+  var x : particles_columns
+  return [&int8](&x.__valid) - [&int8](&x)
+end
+
 task particles_pushAll(partColor : int3d, r : region(ispace(int1d), particles_columns), q0 : region(ispace(int1d), int8[376]), q1 : region(ispace(int1d), int8[376]), q2 : region(ispace(int1d), int8[376]), q3 : region(ispace(int1d), int8[376]), q4 : region(ispace(int1d), int8[376]), q5 : region(ispace(int1d), int8[376]), q6 : region(ispace(int1d), int8[376]), q7 : region(ispace(int1d), int8[376]), q8 : region(ispace(int1d), int8[376]), q9 : region(ispace(int1d), int8[376]), q10 : region(ispace(int1d), int8[376]), q11 : region(ispace(int1d), int8[376]), q12 : region(ispace(int1d), int8[376]), q13 : region(ispace(int1d), int8[376]), q14 : region(ispace(int1d), int8[376]), q15 : region(ispace(int1d), int8[376]), q16 : region(ispace(int1d), int8[376]), q17 : region(ispace(int1d), int8[376]), q18 : region(ispace(int1d), int8[376]), q19 : region(ispace(int1d), int8[376]), q20 : region(ispace(int1d), int8[376]), q21 : region(ispace(int1d), int8[376]), q22 : region(ispace(int1d), int8[376]), q23 : region(ispace(int1d), int8[376]), q24 : region(ispace(int1d), int8[376]), q25 : region(ispace(int1d), int8[376]), rngXNum : int32, rngYNum : int32, rngZNum : int32, rngXbnum : int32, rngYbnum : int32, rngZbnum : int32, NX_ : int32, NY_ : int32, NZ_ : int32)
 where
   reads(r), writes(r.__valid), reads(q0), writes(q0), reads(q1), writes(q1), reads(q2), writes(q2), reads(q3), writes(q3), reads(q4), writes(q4), reads(q5), writes(q5), reads(q6), writes(q6), reads(q7), writes(q7), reads(q8), writes(q8), reads(q9), writes(q9), reads(q10), writes(q10), reads(q11), writes(q11), reads(q12), writes(q12), reads(q13), writes(q13), reads(q14), writes(q14), reads(q15), writes(q15), reads(q16), writes(q16), reads(q17), writes(q17), reads(q18), writes(q18), reads(q19), writes(q19), reads(q20), writes(q20), reads(q21), writes(q21), reads(q22), writes(q22), reads(q23), writes(q23), reads(q24), writes(q24), reads(q25), writes(q25)
@@ -3896,11 +3942,12 @@ do
   end
 end
 
-  terra particles_pullElement(src : &int8) : particles_columns
-      var dst : particles_columns
-      C.memcpy([&opaque](&dst), [&opaque](src), [uint64](376))
-      return dst
-  end
+terra particles_pullElement(src : &int8) : particles_columns
+  var dst : particles_columns
+  C.memcpy([&opaque](&dst), [&opaque](src), [uint64](376))
+  return dst
+end
+
 task particles_pullAll(color : int3d, r : region(ispace(int1d), particles_columns), q0 : region(ispace(int1d), int8[376]), q1 : region(ispace(int1d), int8[376]), q2 : region(ispace(int1d), int8[376]), q3 : region(ispace(int1d), int8[376]), q4 : region(ispace(int1d), int8[376]), q5 : region(ispace(int1d), int8[376]), q6 : region(ispace(int1d), int8[376]), q7 : region(ispace(int1d), int8[376]), q8 : region(ispace(int1d), int8[376]), q9 : region(ispace(int1d), int8[376]), q10 : region(ispace(int1d), int8[376]), q11 : region(ispace(int1d), int8[376]), q12 : region(ispace(int1d), int8[376]), q13 : region(ispace(int1d), int8[376]), q14 : region(ispace(int1d), int8[376]), q15 : region(ispace(int1d), int8[376]), q16 : region(ispace(int1d), int8[376]), q17 : region(ispace(int1d), int8[376]), q18 : region(ispace(int1d), int8[376]), q19 : region(ispace(int1d), int8[376]), q20 : region(ispace(int1d), int8[376]), q21 : region(ispace(int1d), int8[376]), q22 : region(ispace(int1d), int8[376]), q23 : region(ispace(int1d), int8[376]), q24 : region(ispace(int1d), int8[376]), q25 : region(ispace(int1d), int8[376]))
 where
   reads(r), writes(r), reads(q0), reads(q1), reads(q2), reads(q3), reads(q4), reads(q5), reads(q6), reads(q7), reads(q8), reads(q9), reads(q10), reads(q11), reads(q12), reads(q13), reads(q14), reads(q15), reads(q16), reads(q17), reads(q18), reads(q19), reads(q20), reads(q21), reads(q22), reads(q23), reads(q24), reads(q25)
@@ -5013,6 +5060,10 @@ do
   end
   return acc
 end
+
+-------------------------------------------------------------------------------
+-- MAIN FUNCTION
+-------------------------------------------------------------------------------
 
 __forbid(__optimize)
 task work(config : Config)
@@ -6570,8 +6621,8 @@ task main()
   end
 end
 
-local LIBS = terralib.newlist({"-ljsonparser","-lm"})
-if USE_HDF then
-  LIBS:insert("-l"..HDF_LIBNAME)
-end
+-------------------------------------------------------------------------------
+-- COMPILATION CALL
+-------------------------------------------------------------------------------
+
 regentlib.saveobj(main, "soleil.exec", "executable", nil, LIBS)
