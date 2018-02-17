@@ -242,7 +242,6 @@ do
       p.density = config.Particles.density
       p.temperature = config.Particles.initTemperature
       p.diameter = config.Particles.diameterMean
-    else
     end
   end
 end
@@ -453,7 +452,6 @@ do
       Fluid[c].rhoVelocity = vs_mul_double_3(Fluid[c].velocity, Fluid[c].rho)
       var cv = (Flow_gasConstant/(Flow_gamma-1.0))
       Fluid[c].rhoEnergy = ((Fluid[c].rho*((cv*tmpTemperature)+(double(0.5)*dot_double_3(velocity, velocity))))+Fluid[c].sgsEnergy)
-    else
     end
   end
 end
@@ -473,7 +471,6 @@ do
       var velocity = vs_div_double_3(Fluid[c].rhoVelocity, Fluid[c].rho)
       Fluid[c].velocity = velocity
       Fluid[c].kineticEnergy = ((double(0.5)*Fluid[c].rho)*dot_double_3(velocity, velocity))
-    else
     end
   end
 end
@@ -509,14 +506,12 @@ do
       temp_wall = Fluid[c_int].temperature
       if (bnd_temperature>0.0) then
         temp_wall = bnd_temperature
-      else
       end
       temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
       rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
       Fluid[c_bnd].rhoBoundary = rho
       Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity__3505, rho)
       Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity__3505, velocity__3505))))
-    else
     end
     if (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0) then
       var c_bnd = int3d(c)
@@ -534,14 +529,12 @@ do
       temp_wall = Fluid[c_int].temperature
       if (bnd_temperature>0.0) then
         temp_wall = bnd_temperature
-      else
       end
       temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
       rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
       Fluid[c_bnd].rhoBoundary = rho
       Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity__3516, rho)
       Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity__3516, velocity__3516))))
-    else
     end
     if (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0) then
       var c_bnd = int3d(c)
@@ -559,14 +552,12 @@ do
       temp_wall = Fluid[c_int].temperature
       if (bnd_temperature>0.0) then
         temp_wall = bnd_temperature
-      else
       end
       temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
       rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
       Fluid[c_bnd].rhoBoundary = rho
       Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity__3527, rho)
       Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity__3527, velocity__3527))))
-    else
     end
     if (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0) then
       var c_bnd = int3d(c)
@@ -584,14 +575,12 @@ do
       temp_wall = Fluid[c_int].temperature
       if (bnd_temperature>0.0) then
         temp_wall = bnd_temperature
-      else
       end
       temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
       rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
       Fluid[c_bnd].rhoBoundary = rho
       Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity__3538, rho)
       Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity__3538, velocity__3538))))
-    else
     end
     if (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0) then
       var c_bnd = int3d(c)
@@ -609,14 +598,12 @@ do
       temp_wall = Fluid[c_int].temperature
       if (bnd_temperature>0.0) then
         temp_wall = bnd_temperature
-      else
       end
       temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
       rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
       Fluid[c_bnd].rhoBoundary = rho
       Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity__3549, rho)
       Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity__3549, velocity__3549))))
-    else
     end
     if (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0) then
       var c_bnd = int3d(c)
@@ -634,14 +621,12 @@ do
       temp_wall = Fluid[c_int].temperature
       if (bnd_temperature>0.0) then
         temp_wall = bnd_temperature
-      else
       end
       temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
       rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
       Fluid[c_bnd].rhoBoundary = rho
       Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity__3560, rho)
       Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity__3560, velocity__3560))))
-    else
     end
   end
 end
@@ -657,7 +642,6 @@ do
       Fluid[c].rho = Fluid[c].rhoBoundary
       Fluid[c].rhoVelocity = Fluid[c].rhoVelocityBoundary
       Fluid[c].rhoEnergy = Fluid[c].rhoEnergyBoundary
-    else
     end
   end
 end
@@ -675,7 +659,6 @@ do
       var sign = BC_xSign
       var bnd_velocity = BC_xNegVelocity
       Fluid[c_bnd].velocityBoundary = vv_add_double_3(vv_mul_double_3(Fluid[c_int].velocity, sign), bnd_velocity)
-    else
     end
     if (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0) then
       var c_bnd = int3d(c)
@@ -683,7 +666,6 @@ do
       var sign = BC_xSign
       var bnd_velocity = BC_xPosVelocity
       Fluid[c_bnd].velocityBoundary = vv_add_double_3(vv_mul_double_3(Fluid[c_int].velocity, sign), bnd_velocity)
-    else
     end
     if (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0) then
       var c_bnd = int3d(c)
@@ -691,7 +673,6 @@ do
       var sign = BC_ySign
       var bnd_velocity = BC_yNegVelocity
       Fluid[c_bnd].velocityBoundary = vv_add_double_3(vv_mul_double_3(Fluid[c_int].velocity, sign), bnd_velocity)
-    else
     end
     if (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0) then
       var c_bnd = int3d(c)
@@ -699,7 +680,6 @@ do
       var sign = BC_ySign
       var bnd_velocity = BC_yPosVelocity
       Fluid[c_bnd].velocityBoundary = vv_add_double_3(vv_mul_double_3(Fluid[c_int].velocity, sign), bnd_velocity)
-    else
     end
     if (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0) then
       var c_bnd = int3d(c)
@@ -707,7 +687,6 @@ do
       var sign = BC_zSign
       var bnd_velocity = BC_zNegVelocity
       Fluid[c_bnd].velocityBoundary = vv_add_double_3(vv_mul_double_3(Fluid[c_int].velocity, sign), bnd_velocity)
-    else
     end
     if (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0) then
       var c_bnd = int3d(c)
@@ -715,7 +694,6 @@ do
       var sign = BC_zSign
       var bnd_velocity = BC_zPosVelocity
       Fluid[c_bnd].velocityBoundary = vv_add_double_3(vv_mul_double_3(Fluid[c_int].velocity, sign), bnd_velocity)
-    else
     end
   end
 end
@@ -729,7 +707,6 @@ do
   for c in Fluid do
     if ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0)) then
       Fluid[c].velocity = Fluid[c].velocityBoundary
-    else
     end
   end
 end
@@ -749,7 +726,6 @@ do
       Fluid[c].velocityGradientX = vs_div_double_3(vs_mul_double_3(vv_sub_double_3(Fluid[((c+{1, 0, 0})%Fluid.bounds)].velocity, Fluid[((c+{-1, 0, 0})%Fluid.bounds)].velocity), double(0.5)), Grid_xCellWidth)
       Fluid[c].velocityGradientY = vs_div_double_3(vs_mul_double_3(vv_sub_double_3(Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocity, Fluid[((c+{0, -1, 0})%Fluid.bounds)].velocity), double(0.5)), Grid_yCellWidth)
       Fluid[c].velocityGradientZ = vs_div_double_3(vs_mul_double_3(vv_sub_double_3(Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity, Fluid[((c+{0, 0, -1})%Fluid.bounds)].velocity), double(0.5)), Grid_zCellWidth)
-    else
     end
   end
 end
@@ -766,7 +742,6 @@ do
       var pressure = ((Flow_gamma-1.0)*(Fluid[c].rhoEnergy-kineticEnergy))
       Fluid[c].pressure = pressure
       Fluid[c].temperature = (pressure/(Flow_gasConstant*Fluid[c].rho))
-    else
     end
   end
 end
@@ -787,12 +762,10 @@ do
       temp_wall = Fluid[c_int].temperature
       if (bnd_temperature>0.0) then
         temp_wall = bnd_temperature
-      else
       end
       temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
       Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
       Fluid[c_bnd].temperatureBoundary = temperature
-    else
     end
     if (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0) then
       var c_bnd = int3d(c)
@@ -803,12 +776,10 @@ do
       temp_wall = Fluid[c_int].temperature
       if (bnd_temperature>0.0) then
         temp_wall = bnd_temperature
-      else
       end
       temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
       Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
       Fluid[c_bnd].temperatureBoundary = temperature
-    else
     end
     if (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0) then
       var c_bnd = int3d(c)
@@ -819,12 +790,10 @@ do
       temp_wall = Fluid[c_int].temperature
       if (bnd_temperature>0.0) then
         temp_wall = bnd_temperature
-      else
       end
       temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
       Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
       Fluid[c_bnd].temperatureBoundary = temperature
-    else
     end
     if (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0) then
       var c_bnd = int3d(c)
@@ -835,12 +804,10 @@ do
       temp_wall = Fluid[c_int].temperature
       if (bnd_temperature>0.0) then
         temp_wall = bnd_temperature
-      else
       end
       temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
       Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
       Fluid[c_bnd].temperatureBoundary = temperature
-    else
     end
     if (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0) then
       var c_bnd = int3d(c)
@@ -851,12 +818,10 @@ do
       temp_wall = Fluid[c_int].temperature
       if (bnd_temperature>0.0) then
         temp_wall = bnd_temperature
-      else
       end
       temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
       Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
       Fluid[c_bnd].temperatureBoundary = temperature
-    else
     end
     if (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0) then
       var c_bnd = int3d(c)
@@ -867,12 +832,10 @@ do
       temp_wall = Fluid[c_int].temperature
       if (bnd_temperature>0.0) then
         temp_wall = bnd_temperature
-      else
       end
       temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
       Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
       Fluid[c_bnd].temperatureBoundary = temperature
-    else
     end
   end
 end
@@ -887,7 +850,6 @@ do
     if ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0)) then
       Fluid[c].pressure = Fluid[c].pressureBoundary
       Fluid[c].temperature = Fluid[c].temperatureBoundary
-    else
     end
   end
 end
@@ -914,7 +876,6 @@ do
       temp_wall = Fluid[c_int].temperature
       if (bnd_temperature>0.0) then
         temp_wall = bnd_temperature
-      else
       end
       temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
       rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
@@ -924,7 +885,6 @@ do
       Fluid[c_bnd].velocityBoundary = velocity
       Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
       Fluid[c_bnd].temperatureBoundary = temperature
-    else
     end
     if (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0) then
       var c_bnd = int3d(c)
@@ -941,7 +901,6 @@ do
       temp_wall = Fluid[c_int].temperature
       if (bnd_temperature>0.0) then
         temp_wall = bnd_temperature
-      else
       end
       temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
       rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
@@ -951,7 +910,6 @@ do
       Fluid[c_bnd].velocityBoundary = velocity
       Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
       Fluid[c_bnd].temperatureBoundary = temperature
-    else
     end
     if (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0) then
       var c_bnd = int3d(c)
@@ -968,7 +926,6 @@ do
       temp_wall = Fluid[c_int].temperature
       if (bnd_temperature>0.0) then
         temp_wall = bnd_temperature
-      else
       end
       temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
       rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
@@ -978,7 +935,6 @@ do
       Fluid[c_bnd].velocityBoundary = velocity
       Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
       Fluid[c_bnd].temperatureBoundary = temperature
-    else
     end
     if (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0) then
       var c_bnd = int3d(c)
@@ -995,7 +951,6 @@ do
       temp_wall = Fluid[c_int].temperature
       if (bnd_temperature>0.0) then
         temp_wall = bnd_temperature
-      else
       end
       temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
       rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
@@ -1005,7 +960,6 @@ do
       Fluid[c_bnd].velocityBoundary = velocity
       Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
       Fluid[c_bnd].temperatureBoundary = temperature
-    else
     end
     if (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0) then
       var c_bnd = int3d(c)
@@ -1022,7 +976,6 @@ do
       temp_wall = Fluid[c_int].temperature
       if (bnd_temperature>0.0) then
         temp_wall = bnd_temperature
-      else
       end
       temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
       rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
@@ -1032,7 +985,6 @@ do
       Fluid[c_bnd].velocityBoundary = velocity
       Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
       Fluid[c_bnd].temperatureBoundary = temperature
-    else
     end
     if (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0) then
       var c_bnd = int3d(c)
@@ -1049,7 +1001,6 @@ do
       temp_wall = Fluid[c_int].temperature
       if (bnd_temperature>0.0) then
         temp_wall = bnd_temperature
-      else
       end
       temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
       rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
@@ -1059,7 +1010,6 @@ do
       Fluid[c_bnd].velocityBoundary = velocity
       Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
       Fluid[c_bnd].temperatureBoundary = temperature
-    else
     end
   end
 end
@@ -1077,7 +1027,6 @@ do
       Fluid[c].rhoEnergy = Fluid[c].rhoEnergyBoundary
       Fluid[c].pressure = Fluid[c].pressureBoundary
       Fluid[c].temperature = Fluid[c].temperatureBoundary
-    else
     end
   end
 end
@@ -1091,7 +1040,6 @@ do
   for p in particles do
     if particles[p].__valid then
       particles[p].density = Particles_density
-    else
     end
   end
 end
@@ -1106,7 +1054,6 @@ do
   for p in particles do
     if particles[p].__valid then
       acc += int64(1)
-    else
     end
   end
   return acc
@@ -1122,7 +1069,6 @@ do
   for c in Fluid do
     if (not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) then
       acc += (Fluid[c].pressure*Grid_cellVolume)
-    else
     end
   end
   return acc
@@ -1138,7 +1084,6 @@ do
   for c in Fluid do
     if (not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) then
       acc += (Fluid[c].temperature*Grid_cellVolume)
-    else
     end
   end
   return acc
@@ -1154,7 +1099,6 @@ do
   for c in Fluid do
     if (not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) then
       acc += (Fluid[c].kineticEnergy*Grid_cellVolume)
-    else
     end
   end
   return acc
@@ -1170,7 +1114,6 @@ do
   for c in Fluid do
     if (not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) then
       acc min= Fluid[c].temperature
-    else
     end
   end
   return acc
@@ -1186,7 +1129,6 @@ do
   for c in Fluid do
     if (not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) then
       acc max= Fluid[c].temperature
-    else
     end
   end
   return acc
@@ -1202,7 +1144,6 @@ do
   for p in particles do
     if particles[p].__valid then
       acc += particles[p].temperature
-    else
     end
   end
   return acc
@@ -1336,7 +1277,6 @@ do
       particles[p].position_new = particles[p].position
       particles[p].velocity_new = particles[p].velocity
       particles[p].temperature_new = particles[p].temperature
-    else
     end
   end
 end
@@ -1366,7 +1306,6 @@ do
       particles[p].position_t = [double[3]](array(0.0, 0.0, 0.0))
       particles[p].velocity_t = [double[3]](array(0.0, 0.0, 0.0))
       particles[p].temperature_t = 0.0
-    else
     end
   end
 end
@@ -1385,7 +1324,6 @@ do
       Fluid[c_bnd].velocityGradientXBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientX)
       Fluid[c_bnd].velocityGradientYBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientY)
       Fluid[c_bnd].velocityGradientZBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientZ)
-    else
     end
     if (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0) then
       var c_bnd = int3d(c)
@@ -1394,7 +1332,6 @@ do
       Fluid[c_bnd].velocityGradientXBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientX)
       Fluid[c_bnd].velocityGradientYBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientY)
       Fluid[c_bnd].velocityGradientZBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientZ)
-    else
     end
     if (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0) then
       var c_bnd = int3d(c)
@@ -1403,7 +1340,6 @@ do
       Fluid[c_bnd].velocityGradientXBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientX)
       Fluid[c_bnd].velocityGradientYBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientY)
       Fluid[c_bnd].velocityGradientZBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientZ)
-    else
     end
     if (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0) then
       var c_bnd = int3d(c)
@@ -1412,7 +1348,6 @@ do
       Fluid[c_bnd].velocityGradientXBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientX)
       Fluid[c_bnd].velocityGradientYBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientY)
       Fluid[c_bnd].velocityGradientZBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientZ)
-    else
     end
     if (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0) then
       var c_bnd = int3d(c)
@@ -1421,7 +1356,6 @@ do
       Fluid[c_bnd].velocityGradientXBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientX)
       Fluid[c_bnd].velocityGradientYBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientY)
       Fluid[c_bnd].velocityGradientZBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientZ)
-    else
     end
     if (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0) then
       var c_bnd = int3d(c)
@@ -1430,7 +1364,6 @@ do
       Fluid[c_bnd].velocityGradientXBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientX)
       Fluid[c_bnd].velocityGradientYBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientY)
       Fluid[c_bnd].velocityGradientZBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientZ)
-    else
     end
   end
 end
@@ -1446,7 +1379,6 @@ do
       Fluid[c].velocityGradientX = Fluid[c].velocityGradientXBoundary
       Fluid[c].velocityGradientY = Fluid[c].velocityGradientYBoundary
       Fluid[c].velocityGradientZ = Fluid[c].velocityGradientZBoundary
-    else
     end
   end
 end
@@ -1625,7 +1557,6 @@ do
       Fluid[c].rhoVelocityFluxX[1] += (-sigmaYX)
       Fluid[c].rhoVelocityFluxX[2] += (-sigmaZX)
       Fluid[c].rhoEnergyFluxX += (-(usigma-heatFlux))
-    else
     end
     if ((not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)==1)) then
       var flux = CenteredInviscidFlux_(int3d(c), ((c+{0, 1, 0})%Fluid.bounds), Fluid)
@@ -1665,7 +1596,6 @@ do
       Fluid[c].rhoVelocityFluxY[1] += (-sigmaYY)
       Fluid[c].rhoVelocityFluxY[2] += (-sigmaZY)
       Fluid[c].rhoEnergyFluxY += (-(usigma-heatFlux))
-    else
     end
     if ((not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)==1)) then
       var flux = CenteredInviscidFlux__(int3d(c), ((c+{0, 0, 1})%Fluid.bounds), Fluid)
@@ -1705,14 +1635,12 @@ do
       Fluid[c].rhoVelocityFluxZ[1] += (-sigmaYZ)
       Fluid[c].rhoVelocityFluxZ[2] += (-sigmaZZ)
       Fluid[c].rhoEnergyFluxZ += (-(usigma-heatFlux))
-    else
     end
     var v = 0
     if (v==1) then
       var tmp1 = Fluid[((c+{-1, 0, 0})%Fluid.bounds)].velocity[0]
       var tmp2 = Fluid[((c+{0, -1, 0})%Fluid.bounds)].velocity[1]
       var tmp3 = Fluid[((c+{0, 0, -1})%Fluid.bounds)].velocity[2]
-    else
     end
   end
 end
@@ -1749,7 +1677,6 @@ do
       v__7147[2] += tmp__7146[2]
       Fluid[c].rhoVelocity_t = v__7147
       Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxZ-Fluid[((c+{0, 0, -1})%Fluid.bounds)].rhoEnergyFluxZ))/Grid_zCellWidth)
-    else
     end
   end
 end
@@ -1769,7 +1696,6 @@ do
       v[2] += tmp[2]
       Fluid[c].rhoVelocity_t = v
       Fluid[c].rhoEnergy_t += (Fluid[c].rho*dot_double_3(Flow_bodyForce, Fluid[c].velocity))
-    else
     end
   end
 end
@@ -1785,7 +1711,6 @@ do
       var divU = double(0.0)
       divU = ((Fluid[c].velocityGradientX[0]+Fluid[c].velocityGradientY[1])+Fluid[c].velocityGradientZ[2])
       Fluid[c].PD = (divU*Fluid[c].pressure)
-    else
     end
   end
 end
@@ -1837,7 +1762,6 @@ do
       var sigmaZX = (muFace*(velocityZ_XFace+velocityX_ZFace))
       var usigma = (((velocityFace[0]*sigmaXX)+(velocityFace[1]*sigmaYX))+(velocityFace[2]*sigmaZX))
       Fluid[c].dissipationFlux = usigma
-    else
     end
   end
 end
@@ -1851,7 +1775,6 @@ do
   for c in Fluid do
     if (not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) then
       Fluid[c].dissipation += ((Fluid[c].dissipationFlux-Fluid[((c+{-1, 0, 0})%Fluid.bounds)].dissipationFlux)/Grid_xCellWidth)
-    else
     end
   end
 end
@@ -1892,7 +1815,6 @@ do
       var sigmaZY = (muFace*(velocityZ_YFace+velocityY_ZFace))
       var usigma = (((velocityFace[0]*sigmaXY)+(velocityFace[1]*sigmaYY))+(velocityFace[2]*sigmaZY))
       Fluid[c].dissipationFlux = usigma
-    else
     end
   end
 end
@@ -1906,7 +1828,6 @@ do
   for c in Fluid do
     if (not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) then
       Fluid[c].dissipation += ((Fluid[c].dissipationFlux-Fluid[((c+{0, -1, 0})%Fluid.bounds)].dissipationFlux)/Grid_yCellWidth)
-    else
     end
   end
 end
@@ -1947,7 +1868,6 @@ do
       var sigmaZZ = ((muFace*(((4.0*velocityZ_ZFace)-(2.0*velocityX_XFace))-(2.0*velocityY_YFace)))/3.0)
       var usigma = (((velocityFace[0]*sigmaXZ)+(velocityFace[1]*sigmaYZ))+(velocityFace[2]*sigmaZZ))
       Fluid[c].dissipationFlux = usigma
-    else
     end
   end
 end
@@ -1961,7 +1881,6 @@ do
   for c in Fluid do
     if (not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) then
       Fluid[c].dissipation += ((Fluid[c].dissipationFlux-Fluid[((c+{0, 0, -1})%Fluid.bounds)].dissipationFlux)/Grid_zCellWidth)
-    else
     end
   end
 end
@@ -1976,7 +1895,6 @@ do
   for c in Fluid do
     if (not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) then
       acc += (Fluid[c].PD*Grid_cellVolume)
-    else
     end
   end
   return acc
@@ -1992,7 +1910,6 @@ do
   for c in Fluid do
     if (not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) then
       acc += (Fluid[c].dissipation*Grid_cellVolume)
-    else
     end
   end
   return acc
@@ -2008,7 +1925,6 @@ do
   for c in Fluid do
     if (not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) then
       acc += (((double(0.5)*Fluid[c].rho)*dot_double_3(Fluid[c].velocity, Fluid[c].velocity))*Grid_cellVolume)
-    else
     end
   end
   return acc
@@ -2043,7 +1959,6 @@ do
       Fluid[c].rhoVelocity_t = v
       Fluid[c].rhoEnergy_t += dot_double_3(force, Fluid[c].velocity)
       acc += (dot_double_3(force, Fluid[c].velocity)*Grid_cellVolume)
-    else
     end
   end
   return acc
@@ -2058,7 +1973,6 @@ do
   for c in Fluid do
     if (not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) then
       Fluid[c].rhoEnergy_t += (-Flow_averageFe)
-    else
     end
   end
 end
@@ -2107,7 +2021,6 @@ do
   for p in particles do
     if particles[p].__valid then
       particles[p].cell = locate(particles[p].position, BC_xBCPeriodic, BC_yBCPeriodic, BC_zBCPeriodic, Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth, Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth, Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
-    else
     end
   end
 end
@@ -2264,12 +2177,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q0[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2282,12 +2193,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q1[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2300,12 +2209,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q2[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2318,12 +2225,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q3[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2336,12 +2241,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q4[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2354,12 +2257,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q5[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2372,12 +2273,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q6[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2390,12 +2289,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q7[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2408,12 +2305,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q8[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2426,12 +2321,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q9[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2444,12 +2337,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q10[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2462,12 +2353,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q11[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2480,12 +2369,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q12[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2498,12 +2385,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q13[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2516,12 +2401,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q14[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2534,12 +2417,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q15[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2552,12 +2433,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q16[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2570,12 +2449,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q17[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2588,12 +2465,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q18[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2606,12 +2481,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q19[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2624,12 +2497,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q20[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2642,12 +2513,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q21[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2660,12 +2529,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q22[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2678,12 +2545,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q23[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2696,12 +2561,10 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q24[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         do
@@ -2714,18 +2577,14 @@ do
                 rPtr.__valid = false
                 regentlib.assert(bool(q25[qPtr][368LL]), "Element did not get copied properly")
                 break
-              else
               end
               idx += 1
             end
             regentlib.assert((not rPtr.__valid), "Transfer queue ran out of space")
-          else
           end
         end
         regentlib.assert((not rPtr.__valid), "Element moved past predicted stencil")
-      else
       end
-    else
     end
   end
 end
@@ -2749,11 +2608,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q1 do
@@ -2765,11 +2622,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q2 do
@@ -2781,11 +2636,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q3 do
@@ -2797,11 +2650,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q4 do
@@ -2813,11 +2664,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q5 do
@@ -2829,11 +2678,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q6 do
@@ -2845,11 +2692,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q7 do
@@ -2861,11 +2706,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q8 do
@@ -2877,11 +2720,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q9 do
@@ -2893,11 +2734,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q10 do
@@ -2909,11 +2748,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q11 do
@@ -2925,11 +2762,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q12 do
@@ -2941,11 +2776,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q13 do
@@ -2957,11 +2790,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q14 do
@@ -2973,11 +2804,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q15 do
@@ -2989,11 +2818,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q16 do
@@ -3005,11 +2832,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q17 do
@@ -3021,11 +2846,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q18 do
@@ -3037,11 +2860,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q19 do
@@ -3053,11 +2874,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q20 do
@@ -3069,11 +2888,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q21 do
@@ -3085,11 +2902,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q22 do
@@ -3101,11 +2916,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q23 do
@@ -3117,11 +2930,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q24 do
@@ -3133,11 +2944,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
   for qPtr in q25 do
@@ -3149,11 +2958,9 @@ do
           copied = true
           regentlib.assert(r[rPtr].__valid, "Pulled particle was not copied correctly")
           break
-        else
         end
       end
       regentlib.assert(copied, "Ran out of space on sub-partition")
-    else
     end
   end
 end
@@ -3444,7 +3251,6 @@ do
       v__10497[2] += tmp__10496[2]
       particles[p].velocity_t = v__10497
       particles[p].temperature_t += (particles[p].deltaTemperatureTerm/((((PI*C.pow(particles[p].diameter, 3.0))/6.0)*particles[p].density)*Particles_heatCapacity))
-    else
     end
   end
 end
@@ -3463,7 +3269,6 @@ do
       v[1] += tmp[1]
       v[2] += tmp[2]
       particles[p].velocity_t = v
-    else
     end
   end
 end
@@ -3490,7 +3295,6 @@ do
     if particles[p].__valid then
       Radiation[Fluid[particles[p].cell].to_Radiation].acc_d2 += C.pow(particles[p].diameter, 2.0)
       Radiation[Fluid[particles[p].cell].to_Radiation].acc_d2t4 += (C.pow(particles[p].diameter, 2.0)*C.pow(particles[p].temperature, 4.0))
-    else
     end
   end
 end
@@ -3522,7 +3326,6 @@ do
       var t4 = C.pow(particles[p].temperature, 4.0)
       var alpha = ((((PI*Radiation_qa)*C.pow(particles[p].diameter, 2.0))*(Radiation[Fluid[particles[p].cell].to_Radiation].G-((4.0*double(5.67e-08))*t4)))/4.0)
       particles[p].temperature_t += (alpha/((((PI*C.pow(particles[p].diameter, 3.0))/6.0)*particles[p].density)*Particles_heatCapacity))
-    else
     end
   end
 end
@@ -3542,7 +3345,6 @@ do
       v[2] += tmp[2]
       Fluid[particles[p].cell].rhoVelocity_t = v
       Fluid[particles[p].cell].rhoEnergy_t += ((-particles[p].deltaTemperatureTerm)/Grid_cellVolume)
-    else
     end
   end
 end
@@ -3672,7 +3474,6 @@ do
           end
         end
       end
-    else
     end
   end
 end
@@ -3702,15 +3503,12 @@ do
           var impulse = ((-(1.0+Particles_restitutionCoeff))*particles[p].velocity[0])
           if (impulse<=0.0) then
             particles[p].velocity_ghost[0] += impulse
-          else
           end
           var contact_force = (double(-1)*particles[p].velocity_t[0])
           if (contact_force>0.0) then
             particles[p].velocity_t_ghost[0] += contact_force
-          else
           end
         end
-      else
       end
       if (particles[p].position[0]>(Grid_xOrigin+Grid_xWidth)) then
         if (BC_xBCRightParticles==0) then
@@ -3720,15 +3518,12 @@ do
           var impulse = ((-(1.0+Particles_restitutionCoeff))*particles[p].velocity[0])
           if (impulse>=0.0) then
             particles[p].velocity_ghost[0] += impulse
-          else
           end
           var contact_force = (double(-1)*particles[p].velocity_t[0])
           if (contact_force<0.0) then
             particles[p].velocity_t_ghost[0] += contact_force
-          else
           end
         end
-      else
       end
       if (particles[p].position[1]<Grid_yOrigin) then
         if (BC_yBCLeftParticles==0) then
@@ -3738,15 +3533,12 @@ do
           var impulse = ((-(1.0+Particles_restitutionCoeff))*particles[p].velocity[1])
           if (impulse<=0.0) then
             particles[p].velocity_ghost[1] += impulse
-          else
           end
           var contact_force = (double(-1)*particles[p].velocity_t[1])
           if (contact_force>0.0) then
             particles[p].velocity_t_ghost[1] += contact_force
-          else
           end
         end
-      else
       end
       if (particles[p].position[1]>(Grid_yOrigin+Grid_yWidth)) then
         if (BC_yBCRightParticles==0) then
@@ -3756,15 +3548,12 @@ do
           var impulse = ((-(1.0+Particles_restitutionCoeff))*particles[p].velocity[1])
           if (impulse>=0.0) then
             particles[p].velocity_ghost[1] += impulse
-          else
           end
           var contact_force = (double(-1)*particles[p].velocity_t[1])
           if (contact_force<0.0) then
             particles[p].velocity_t_ghost[1] += contact_force
-          else
           end
         end
-      else
       end
       if (particles[p].position[2]<Grid_zOrigin) then
         if (BC_zBCLeftParticles==0) then
@@ -3774,15 +3563,12 @@ do
           var impulse = ((-(1.0+Particles_restitutionCoeff))*particles[p].velocity[2])
           if (impulse<=0.0) then
             particles[p].velocity_ghost[2] += impulse
-          else
           end
           var contact_force = (double(-1)*particles[p].velocity_t[2])
           if (contact_force>0.0) then
             particles[p].velocity_t_ghost[2] += contact_force
-          else
           end
         end
-      else
       end
       if (particles[p].position[2]>(Grid_zOrigin+Grid_zWidth)) then
         if (BC_zBCRightParticles==0) then
@@ -3792,17 +3578,13 @@ do
           var impulse = ((-(1.0+Particles_restitutionCoeff))*particles[p].velocity[2])
           if (impulse>=0.0) then
             particles[p].velocity_ghost[2] += impulse
-          else
           end
           var contact_force = (double(-1)*particles[p].velocity_t[2])
           if (contact_force<0.0) then
             particles[p].velocity_t_ghost[2] += contact_force
-          else
           end
         end
-      else
       end
-    else
     end
   end
 end
@@ -3818,7 +3600,6 @@ do
       particles[p].position = particles[p].position_ghost
       particles[p].velocity = particles[p].velocity_ghost
       particles[p].velocity_t = particles[p].velocity_t_ghost
-    else
     end
   end
 end
@@ -3841,9 +3622,7 @@ do
       if ((((((pos[0]>max_x) or (pos[0]<min_x)) or (pos[1]>max_y)) or (pos[1]<min_y)) or (pos[2]>max_z)) or (pos[2]<min_z)) then
         particles[p].__valid = false
         acc += (-int64(1))
-      else
       end
-    else
     end
   end
   return acc
@@ -3858,8 +3637,6 @@ task work(config : Config)
   var NX = config.Grid.xTiles
   var NY = config.Grid.yTiles
   var NZ = config.Grid.zTiles
-  var ZERO = 0.0
-  var ONE = 1.0
   var Grid_xNum = config.Grid.xNum
   var Grid_yNum = config.Grid.yNum
   var Grid_zNum = config.Grid.zNum
@@ -3982,27 +3759,21 @@ task work(config : Config)
     var rect = rect3d({lo = int3d({x = (Grid_xBnum+((Grid_xNum/NX)*c.x)), y = (Grid_yBnum+((Grid_yNum/NY)*c.y)), z = (Grid_zBnum+((Grid_zNum/NZ)*c.z))}), hi = int3d({x = ((Grid_xBnum+((Grid_xNum/NX)*(c.x+1)))-1), y = ((Grid_yBnum+((Grid_yNum/NY)*(c.y+1)))-1), z = ((Grid_zBnum+((Grid_zNum/NZ)*(c.z+1)))-1)})})
     if (c.x==0) then
       rect.lo.x -= Grid_xBnum
-    else
     end
     if (c.x==(NX-1)) then
       rect.hi.x += Grid_xBnum
-    else
     end
     if (c.y==0) then
       rect.lo.y -= Grid_yBnum
-    else
     end
     if (c.y==(NY-1)) then
       rect.hi.y += Grid_yBnum
-    else
     end
     if (c.z==0) then
       rect.lo.z -= Grid_zBnum
-    else
     end
     if (c.z==(NZ-1)) then
       rect.hi.z += Grid_zBnum
-    else
     end
     regentlib.c.legion_domain_point_coloring_color_domain(coloring, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
   end
@@ -4762,27 +4533,21 @@ task work(config : Config)
     var rect = rect3d({lo = int3d({x = (Radiation_xBnum+((Radiation_xNum/NX)*c.x)), y = (Radiation_yBnum+((Radiation_yNum/NY)*c.y)), z = (Radiation_zBnum+((Radiation_zNum/NZ)*c.z))}), hi = int3d({x = ((Radiation_xBnum+((Radiation_xNum/NX)*(c.x+1)))-1), y = ((Radiation_yBnum+((Radiation_yNum/NY)*(c.y+1)))-1), z = ((Radiation_zBnum+((Radiation_zNum/NZ)*(c.z+1)))-1)})})
     if (c.x==0) then
       rect.lo.x -= Radiation_xBnum
-    else
     end
     if (c.x==(NX-1)) then
       rect.hi.x += Radiation_xBnum
-    else
     end
     if (c.y==0) then
       rect.lo.y -= Radiation_yBnum
-    else
     end
     if (c.y==(NY-1)) then
       rect.hi.y += Radiation_yBnum
-    else
     end
     if (c.z==0) then
       rect.lo.z -= Radiation_zBnum
-    else
     end
     if (c.z==(NZ-1)) then
       rect.hi.z += Radiation_zBnum
-    else
     end
     regentlib.c.legion_domain_point_coloring_color_domain(coloring__12110, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
   end
@@ -4793,172 +4558,144 @@ task work(config : Config)
     particles_initValidField(particles)
     if ((not ((Grid_xNum%Radiation_xNum)==0)) or ((not ((Grid_yNum%Radiation_yNum)==0)) or (not ((Grid_zNum%Radiation_zNum)==0)))) then
       regentlib.assert(false, "Inexact coarsening factor")
-    else
     end
     SetCoarseningField(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum, Radiation_xBnum, Radiation_xNum, Radiation_yBnum, Radiation_yNum, Radiation_zBnum, Radiation_zNum)
     if ((config.BC.xBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.xBCRight == SCHEMA.FlowBC_Periodic)) then
-      BC_xSign = array(ONE, ONE, ONE)
-      BC_xPosVelocity = array(ZERO, ZERO, ZERO)
-      BC_xNegVelocity = array(ZERO, ZERO, ZERO)
-      BC_xPosTemperature = (-ONE)
-      BC_xNegTemperature = (-ONE)
+      BC_xSign = array(1.0, 1.0, 1.0)
+      BC_xPosVelocity = array(0.0, 0.0, 0.0)
+      BC_xNegVelocity = array(0.0, 0.0, 0.0)
+      BC_xPosTemperature = -1.0
+      BC_xNegTemperature = -1.0
       BC_xBCLeftParticles = 0
       BC_xBCRightParticles = 0
+    elseif ((config.BC.xBCLeft == SCHEMA.FlowBC_Symmetry) and (config.BC.xBCRight == SCHEMA.FlowBC_Symmetry)) then
+      BC_xSign = array(-1.0, 1.0, 1.0)
+      BC_xPosVelocity = array(0.0, 0.0, 0.0)
+      BC_xNegVelocity = array(0.0, 0.0, 0.0)
+      BC_xPosTemperature = -1.0
+      BC_xNegTemperature = -1.0
+      BC_xBCLeftParticles = 1
+      BC_xBCRightParticles = 1
+    elseif ((config.BC.xBCLeft == SCHEMA.FlowBC_AdiabaticWall) and (config.BC.xBCRight == SCHEMA.FlowBC_AdiabaticWall)) then
+      BC_xSign = array(-1.0, -1.0, -1.0)
+      BC_xPosVelocity = array((2*config.BC.xBCRightVel[0]), (2*config.BC.xBCRightVel[1]), (2*config.BC.xBCRightVel[2]))
+      BC_xNegVelocity = array((2*config.BC.xBCLeftVel[0]), (2*config.BC.xBCLeftVel[1]), (2*config.BC.xBCLeftVel[2]))
+      BC_xPosTemperature = -1.0
+      BC_xNegTemperature = -1.0
+      BC_xBCLeftParticles = 1
+      BC_xBCRightParticles = 1
+    elseif ((config.BC.xBCLeft == SCHEMA.FlowBC_IsothermalWall) and (config.BC.xBCRight == SCHEMA.FlowBC_IsothermalWall)) then
+      BC_xSign = array(-1.0, -1.0, -1.0)
+      BC_xPosVelocity = array((2*config.BC.xBCRightVel[0]), (2*config.BC.xBCRightVel[1]), (2*config.BC.xBCRightVel[2]))
+      BC_xNegVelocity = array((2*config.BC.xBCLeftVel[0]), (2*config.BC.xBCLeftVel[1]), (2*config.BC.xBCLeftVel[2]))
+      BC_xPosTemperature = config.BC.xBCRightTemp
+      BC_xNegTemperature = config.BC.xBCLeftTemp
+      BC_xBCLeftParticles = 1
+      BC_xBCRightParticles = 1
     else
-      if ((config.BC.xBCLeft == SCHEMA.FlowBC_Symmetry) and (config.BC.xBCRight == SCHEMA.FlowBC_Symmetry)) then
-        BC_xSign = array((-ONE), ONE, ONE)
-        BC_xPosVelocity = array(ZERO, ZERO, ZERO)
-        BC_xNegVelocity = array(ZERO, ZERO, ZERO)
-        BC_xPosTemperature = (-ONE)
-        BC_xNegTemperature = (-ONE)
-        BC_xBCLeftParticles = 1
-        BC_xBCRightParticles = 1
-      else
-        if ((config.BC.xBCLeft == SCHEMA.FlowBC_AdiabaticWall) and (config.BC.xBCRight == SCHEMA.FlowBC_AdiabaticWall)) then
-          BC_xSign = array((-ONE), (-ONE), (-ONE))
-          BC_xPosVelocity = array((2*config.BC.xBCRightVel[0]), (2*config.BC.xBCRightVel[1]), (2*config.BC.xBCRightVel[2]))
-          BC_xNegVelocity = array((2*config.BC.xBCLeftVel[0]), (2*config.BC.xBCLeftVel[1]), (2*config.BC.xBCLeftVel[2]))
-          BC_xPosTemperature = (-ONE)
-          BC_xNegTemperature = (-ONE)
-          BC_xBCLeftParticles = 1
-          BC_xBCRightParticles = 1
-        else
-          if ((config.BC.xBCLeft == SCHEMA.FlowBC_IsothermalWall) and (config.BC.xBCRight == SCHEMA.FlowBC_IsothermalWall)) then
-            BC_xSign = array((-ONE), (-ONE), (-ONE))
-            BC_xPosVelocity = array((2*config.BC.xBCRightVel[0]), (2*config.BC.xBCRightVel[1]), (2*config.BC.xBCRightVel[2]))
-            BC_xNegVelocity = array((2*config.BC.xBCLeftVel[0]), (2*config.BC.xBCLeftVel[1]), (2*config.BC.xBCLeftVel[2]))
-            BC_xPosTemperature = config.BC.xBCRightTemp
-            BC_xNegTemperature = config.BC.xBCLeftTemp
-            BC_xBCLeftParticles = 1
-            BC_xBCRightParticles = 1
-          else
-            regentlib.assert(false, "Boundary conditions in x not implemented")
-          end
-        end
-      end
+      regentlib.assert(false, "Boundary conditions in x not implemented")
     end
     if ((config.BC.yBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.yBCRight == SCHEMA.FlowBC_Periodic)) then
-      BC_ySign = array(ONE, ONE, ONE)
-      BC_yPosVelocity = array(ZERO, ZERO, ZERO)
-      BC_yNegVelocity = array(ZERO, ZERO, ZERO)
-      BC_yPosTemperature = (-ONE)
-      BC_yNegTemperature = (-ONE)
+      BC_ySign = array(1.0, 1.0, 1.0)
+      BC_yPosVelocity = array(0.0, 0.0, 0.0)
+      BC_yNegVelocity = array(0.0, 0.0, 0.0)
+      BC_yPosTemperature = -1.0
+      BC_yNegTemperature = -1.0
       BC_yBCLeftParticles = 0
       BC_yBCRightParticles = 0
+    elseif ((config.BC.yBCLeft == SCHEMA.FlowBC_Symmetry) and (config.BC.yBCRight == SCHEMA.FlowBC_Symmetry)) then
+      BC_ySign = array(1.0, -1.0, 1.0)
+      BC_yPosVelocity = array(0.0, 0.0, 0.0)
+      BC_yNegVelocity = array(0.0, 0.0, 0.0)
+      BC_yPosTemperature = -1.0
+      BC_yNegTemperature = -1.0
+      BC_yBCLeftParticles = 1
+      BC_yBCRightParticles = 1
+    elseif ((config.BC.yBCLeft == SCHEMA.FlowBC_AdiabaticWall) and (config.BC.yBCRight == SCHEMA.FlowBC_AdiabaticWall)) then
+      BC_ySign = array(-1.0, -1.0, -1.0)
+      BC_yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
+      BC_yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
+      BC_yPosTemperature = -1.0
+      BC_yNegTemperature = -1.0
+      BC_yBCLeftParticles = 1
+      BC_yBCRightParticles = 1
+    elseif ((config.BC.yBCLeft == SCHEMA.FlowBC_IsothermalWall) and (config.BC.yBCRight == SCHEMA.FlowBC_IsothermalWall)) then
+      BC_ySign = array(-1.0, -1.0, -1.0)
+      BC_yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
+      BC_yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
+      BC_yPosTemperature = config.BC.yBCRightTemp
+      BC_yNegTemperature = config.BC.yBCLeftTemp
+      BC_yBCLeftParticles = 1
+      BC_yBCRightParticles = 1
     else
-      if ((config.BC.yBCLeft == SCHEMA.FlowBC_Symmetry) and (config.BC.yBCRight == SCHEMA.FlowBC_Symmetry)) then
-        BC_ySign = array(ONE, (-ONE), ONE)
-        BC_yPosVelocity = array(ZERO, ZERO, ZERO)
-        BC_yNegVelocity = array(ZERO, ZERO, ZERO)
-        BC_yPosTemperature = (-ONE)
-        BC_yNegTemperature = (-ONE)
-        BC_yBCLeftParticles = 1
-        BC_yBCRightParticles = 1
-      else
-        if ((config.BC.yBCLeft == SCHEMA.FlowBC_AdiabaticWall) and (config.BC.yBCRight == SCHEMA.FlowBC_AdiabaticWall)) then
-          BC_ySign = array((-ONE), (-ONE), (-ONE))
-          BC_yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
-          BC_yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
-          BC_yPosTemperature = (-ONE)
-          BC_yNegTemperature = (-ONE)
-          BC_yBCLeftParticles = 1
-          BC_yBCRightParticles = 1
-        else
-          if ((config.BC.yBCLeft == SCHEMA.FlowBC_IsothermalWall) and (config.BC.yBCRight == SCHEMA.FlowBC_IsothermalWall)) then
-            BC_ySign = array((-ONE), (-ONE), (-ONE))
-            BC_yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
-            BC_yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
-            BC_yPosTemperature = config.BC.yBCRightTemp
-            BC_yNegTemperature = config.BC.yBCLeftTemp
-            BC_yBCLeftParticles = 1
-            BC_yBCRightParticles = 1
-          else
-            regentlib.assert(false, "Boundary conditions in y not implemented")
-          end
-        end
-      end
+      regentlib.assert(false, "Boundary conditions in y not implemented")
     end
     if ((config.BC.zBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.zBCRight == SCHEMA.FlowBC_Periodic)) then
-      BC_zSign = array(ONE, ONE, ONE)
-      BC_zPosVelocity = array(ZERO, ZERO, ZERO)
-      BC_zNegVelocity = array(ZERO, ZERO, ZERO)
-      BC_zPosTemperature = (-ONE)
-      BC_zNegTemperature = (-ONE)
+      BC_zSign = array(1.0, 1.0, 1.0)
+      BC_zPosVelocity = array(0.0, 0.0, 0.0)
+      BC_zNegVelocity = array(0.0, 0.0, 0.0)
+      BC_zPosTemperature = -1.0
+      BC_zNegTemperature = -1.0
       BC_zBCLeftParticles = 0
       BC_zBCRightParticles = 0
+    elseif ((config.BC.zBCLeft == SCHEMA.FlowBC_Symmetry) and (config.BC.zBCRight == SCHEMA.FlowBC_Symmetry)) then
+      BC_zSign = array(1.0, 1.0, -1.0)
+      BC_zPosVelocity = array(0.0, 0.0, 0.0)
+      BC_zNegVelocity = array(0.0, 0.0, 0.0)
+      BC_zPosTemperature = -1.0
+      BC_zNegTemperature = -1.0
+      BC_zBCLeftParticles = 1
+      BC_zBCRightParticles = 1
+    elseif ((config.BC.zBCLeft == SCHEMA.FlowBC_AdiabaticWall) and (config.BC.zBCRight == SCHEMA.FlowBC_AdiabaticWall)) then
+      BC_zSign = array(-1.0, -1.0, -1.0)
+      BC_zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
+      BC_zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
+      BC_zPosTemperature = -1.0
+      BC_zNegTemperature = -1.0
+      BC_zBCLeftParticles = 1
+      BC_zBCRightParticles = 1
+    elseif ((config.BC.zBCLeft == SCHEMA.FlowBC_IsothermalWall) and (config.BC.zBCRight == SCHEMA.FlowBC_IsothermalWall)) then
+      BC_zSign = array(-1.0, -1.0, -1.0)
+      BC_zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
+      BC_zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
+      BC_zPosTemperature = config.BC.zBCRightTemp
+      BC_zNegTemperature = config.BC.zBCLeftTemp
+      BC_zBCLeftParticles = 1
+      BC_zBCRightParticles = 1
     else
-      if ((config.BC.zBCLeft == SCHEMA.FlowBC_Symmetry) and (config.BC.zBCRight == SCHEMA.FlowBC_Symmetry)) then
-        BC_zSign = array(ONE, ONE, (-ONE))
-        BC_zPosVelocity = array(ZERO, ZERO, ZERO)
-        BC_zNegVelocity = array(ZERO, ZERO, ZERO)
-        BC_zPosTemperature = (-ONE)
-        BC_zNegTemperature = (-ONE)
-        BC_zBCLeftParticles = 1
-        BC_zBCRightParticles = 1
-      else
-        if ((config.BC.zBCLeft == SCHEMA.FlowBC_AdiabaticWall) and (config.BC.zBCRight == SCHEMA.FlowBC_AdiabaticWall)) then
-          BC_zSign = array((-ONE), (-ONE), (-ONE))
-          BC_zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
-          BC_zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
-          BC_zPosTemperature = (-ONE)
-          BC_zNegTemperature = (-ONE)
-          BC_zBCLeftParticles = 1
-          BC_zBCRightParticles = 1
-        else
-          if ((config.BC.zBCLeft == SCHEMA.FlowBC_IsothermalWall) and (config.BC.zBCRight == SCHEMA.FlowBC_IsothermalWall)) then
-            BC_zSign = array((-ONE), (-ONE), (-ONE))
-            BC_zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
-            BC_zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
-            BC_zPosTemperature = config.BC.zBCRightTemp
-            BC_zNegTemperature = config.BC.zBCLeftTemp
-            BC_zBCLeftParticles = 1
-            BC_zBCRightParticles = 1
-          else
-            regentlib.assert(false, "Boundary conditions in z not implemented")
-          end
-        end
-      end
+      regentlib.assert(false, "Boundary conditions in z not implemented")
     end
     if (not (((config.BC.xBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.xBCRight == SCHEMA.FlowBC_Periodic)) or ((not (config.BC.xBCLeft == SCHEMA.FlowBC_Periodic)) and (not (config.BC.xBCRight == SCHEMA.FlowBC_Periodic))))) then
       regentlib.assert(false, "Boundary conditions in x should match for periodicity")
-    else
     end
     if (not (((config.BC.yBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.yBCRight == SCHEMA.FlowBC_Periodic)) or ((not (config.BC.yBCLeft == SCHEMA.FlowBC_Periodic)) and (not (config.BC.yBCRight == SCHEMA.FlowBC_Periodic))))) then
       regentlib.assert(false, "Boundary conditions in y should match for periodicity")
-    else
     end
     if (not (((config.BC.zBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.zBCRight == SCHEMA.FlowBC_Periodic)) or ((not (config.BC.zBCLeft == SCHEMA.FlowBC_Periodic)) and (not (config.BC.zBCRight == SCHEMA.FlowBC_Periodic))))) then
       regentlib.assert(false, "Boundary conditions in z should match for periodicity")
-    else
     end
     if (config.Flow.initCase == SCHEMA.FlowInitCase_Restart) then
       Integrator_timeStep = config.Integrator.restartIter
-    else
     end
     Flow_InitializeCell(Fluid)
     Flow_InitializeCenterCoordinates(Fluid, Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth, Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth, Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
     if (config.Flow.initCase == SCHEMA.FlowInitCase_Uniform) then
       Flow_InitializeUniform(Fluid, Flow_initParams)
-    else
     end
     if (config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen2DVortex) then
       Flow_InitializeTaylorGreen2D(Fluid, Flow_initParams, Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth, Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth, Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
-    else
     end
     if (config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen3DVortex) then
       Flow_InitializeTaylorGreen3D(Fluid, Flow_initParams, Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth, Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth, Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
-    else
     end
     if (config.Flow.initCase == SCHEMA.FlowInitCase_Perturbed) then
       Flow_InitializePerturbed(Fluid, Flow_initParams)
-    else
     end
     if (config.Flow.initCase == SCHEMA.FlowInitCase_Restart) then
       var filename = [&int8](C.malloc(uint64(256)))
       C.snprintf(filename, uint64(256), "restart_fluid_%d.hdf", config.Integrator.restartIter)
       Fluid_load(primColors, concretize(filename), Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
       C.free([&opaque](filename))
-    else
     end
     Flow_UpdateConservedFromPrimitive(Fluid, Flow_gamma, Flow_gasConstant, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
     Flow_UpdateAuxiliaryVelocity(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
@@ -4974,7 +4711,6 @@ task work(config : Config)
     Flow_UpdateGhostFieldsStep2(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
     if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Random) then
       regentlib.assert(false, "Random particle initialization is disabled")
-    else
     end
     if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart) then
       var filename = [&int8](C.malloc(uint64(256)))
@@ -4983,12 +4719,10 @@ task work(config : Config)
       C.free([&opaque](filename))
       Particles_InitializeDensity(particles, Particles_density)
       Particles_number += Particles_CalculateNumber(particles)
-    else
     end
     if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform) then
       InitParticlesUniform(particles, Fluid, config, Grid_xBnum, Grid_yBnum, Grid_zBnum)
       Particles_number = int64(((config.Particles.initNum/((config.Grid.xTiles*config.Grid.yTiles)*config.Grid.zTiles))*((config.Grid.xTiles*config.Grid.yTiles)*config.Grid.zTiles)))
-    else
     end
     Flow_averagePressure = 0.0
     Flow_averageTemperature = 0.0
@@ -5012,7 +4746,6 @@ task work(config : Config)
     if (config.Radiation.type == SCHEMA.RadiationType_DOM) then
       Radiation_InitializeCell(Radiation);
       [DOM.InitRegions()];
-    else
     end
     if ((Integrator_timeStep%config.IO.consoleFrequency)==0) then
       if ((Integrator_timeStep%config.IO.headerFrequency)==0) then
@@ -5021,10 +4754,8 @@ task work(config : Config)
         C.printf(" Current number of particles: %d.\n", Particles_number)
         C.printf("\n")
         C.printf("    Iter     Time(s)   Avg Press    Avg Temp      Avg KE  Particle T\n")
-      else
       end
       C.printf("%8d %11.6f %11.6f %11.6f %11.6f %11.6f\n", Integrator_timeStep, Integrator_simTime, Flow_averagePressure, Flow_averageTemperature, Flow_averageKineticEnergy, Particles_averageTemperature)
-    else
     end
     if (config.IO.wrtRestart == SCHEMA.OnOrOff_ON) then
       if ((Integrator_timeStep%config.IO.restartEveryTimeSteps)==0) then
@@ -5032,16 +4763,13 @@ task work(config : Config)
         C.snprintf(filename, uint64(256), "restart_fluid_%d.hdf", Integrator_timeStep)
         Fluid_dump(primColors, concretize(filename), Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
         C.free([&opaque](filename))
-      else
       end
       if ((Integrator_timeStep%config.IO.restartEveryTimeSteps)==0) then
         var filename = [&int8](C.malloc(uint64(256)))
         C.snprintf(filename, uint64(256), "restart_particles_%d.hdf", Integrator_timeStep)
         particles_dump(primColors, concretize(filename), particles, particles_copy, particles_primPart, particles_copy_primPart)
         C.free([&opaque](filename))
-      else
       end
-    else
     end
     while ((Integrator_simTime<config.Integrator.finalTime) and (Integrator_timeStep<config.Integrator.maxIter)) do
       if (config.Integrator.cfl<0) then
@@ -5086,34 +4814,31 @@ task work(config : Config)
           Flow_averageFe += Flow_AddTurbulentSource(Fluid, Flow_averageDissipation, Flow_averageK, Flow_averagePD, Grid_cellVolume, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
           Flow_averageFe = (Flow_averageFe/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
           Flow_AdjustTurbulentSource(Fluid, Flow_averageFe, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-        else
         end
         for c in primColors do
-          Particles_LocateInCells(particles_primPart[int3d(c)], BC_xBCPeriodic, BC_yBCPeriodic, BC_zBCPeriodic, Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth, Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth, Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
+          Particles_LocateInCells(particles_primPart[c], BC_xBCPeriodic, BC_yBCPeriodic, BC_zBCPeriodic, Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth, Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth, Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
         end
         for c in primColors do
-          particles_pushAll(int3d(c), particles_primPart[int3d(c)], particles_qSrcPart_0[int3d(c)], particles_qSrcPart_1[int3d(c)], particles_qSrcPart_2[int3d(c)], particles_qSrcPart_3[int3d(c)], particles_qSrcPart_4[int3d(c)], particles_qSrcPart_5[int3d(c)], particles_qSrcPart_6[int3d(c)], particles_qSrcPart_7[int3d(c)], particles_qSrcPart_8[int3d(c)], particles_qSrcPart_9[int3d(c)], particles_qSrcPart_10[int3d(c)], particles_qSrcPart_11[int3d(c)], particles_qSrcPart_12[int3d(c)], particles_qSrcPart_13[int3d(c)], particles_qSrcPart_14[int3d(c)], particles_qSrcPart_15[int3d(c)], particles_qSrcPart_16[int3d(c)], particles_qSrcPart_17[int3d(c)], particles_qSrcPart_18[int3d(c)], particles_qSrcPart_19[int3d(c)], particles_qSrcPart_20[int3d(c)], particles_qSrcPart_21[int3d(c)], particles_qSrcPart_22[int3d(c)], particles_qSrcPart_23[int3d(c)], particles_qSrcPart_24[int3d(c)], particles_qSrcPart_25[int3d(c)], Grid_xNum, Grid_yNum, Grid_zNum, Grid_xBnum, Grid_yBnum, Grid_zBnum, NX, NY, NZ)
+          particles_pushAll(c, particles_primPart[c], particles_qSrcPart_0[c], particles_qSrcPart_1[c], particles_qSrcPart_2[c], particles_qSrcPart_3[c], particles_qSrcPart_4[c], particles_qSrcPart_5[c], particles_qSrcPart_6[c], particles_qSrcPart_7[c], particles_qSrcPart_8[c], particles_qSrcPart_9[c], particles_qSrcPart_10[c], particles_qSrcPart_11[c], particles_qSrcPart_12[c], particles_qSrcPart_13[c], particles_qSrcPart_14[c], particles_qSrcPart_15[c], particles_qSrcPart_16[c], particles_qSrcPart_17[c], particles_qSrcPart_18[c], particles_qSrcPart_19[c], particles_qSrcPart_20[c], particles_qSrcPart_21[c], particles_qSrcPart_22[c], particles_qSrcPart_23[c], particles_qSrcPart_24[c], particles_qSrcPart_25[c], Grid_xNum, Grid_yNum, Grid_zNum, Grid_xBnum, Grid_yBnum, Grid_zBnum, NX, NY, NZ)
         end
         for c in primColors do
-          particles_pullAll(int3d(c), particles_primPart[int3d(c)], particles_qDstPart_0[int3d(c)], particles_qDstPart_1[int3d(c)], particles_qDstPart_2[int3d(c)], particles_qDstPart_3[int3d(c)], particles_qDstPart_4[int3d(c)], particles_qDstPart_5[int3d(c)], particles_qDstPart_6[int3d(c)], particles_qDstPart_7[int3d(c)], particles_qDstPart_8[int3d(c)], particles_qDstPart_9[int3d(c)], particles_qDstPart_10[int3d(c)], particles_qDstPart_11[int3d(c)], particles_qDstPart_12[int3d(c)], particles_qDstPart_13[int3d(c)], particles_qDstPart_14[int3d(c)], particles_qDstPart_15[int3d(c)], particles_qDstPart_16[int3d(c)], particles_qDstPart_17[int3d(c)], particles_qDstPart_18[int3d(c)], particles_qDstPart_19[int3d(c)], particles_qDstPart_20[int3d(c)], particles_qDstPart_21[int3d(c)], particles_qDstPart_22[int3d(c)], particles_qDstPart_23[int3d(c)], particles_qDstPart_24[int3d(c)], particles_qDstPart_25[int3d(c)])
+          particles_pullAll(c, particles_primPart[c], particles_qDstPart_0[c], particles_qDstPart_1[c], particles_qDstPart_2[c], particles_qDstPart_3[c], particles_qDstPart_4[c], particles_qDstPart_5[c], particles_qDstPart_6[c], particles_qDstPart_7[c], particles_qDstPart_8[c], particles_qDstPart_9[c], particles_qDstPart_10[c], particles_qDstPart_11[c], particles_qDstPart_12[c], particles_qDstPart_13[c], particles_qDstPart_14[c], particles_qDstPart_15[c], particles_qDstPart_16[c], particles_qDstPart_17[c], particles_qDstPart_18[c], particles_qDstPart_19[c], particles_qDstPart_20[c], particles_qDstPart_21[c], particles_qDstPart_22[c], particles_qDstPart_23[c], particles_qDstPart_24[c], particles_qDstPart_25[c])
         end
         Particles_AddFlowCoupling(particles, Fluid, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin, Particles_convectiveCoeff, Particles_heatCapacity)
         Particles_AddBodyForces(particles, Particles_bodyForce)
         if (config.Radiation.type == SCHEMA.RadiationType_Algebraic) then
           AddRadiation(particles, config)
-        else
         end
         if (config.Radiation.type == SCHEMA.RadiationType_DOM) then
           Radiation_ClearAccumulators(Radiation)
           for c in primColors do
-            Radiation_AccumulateParticleValues(particles_primPart[int3d(c)], Fluid_primPart[int3d(c)], Radiation_primPart[int3d(c)])
+            Radiation_AccumulateParticleValues(particles_primPart[c], Fluid_primPart[c], Radiation_primPart[c])
           end
           Radiation_UpdateFieldValues(Radiation, Radiation_cellVolume, Radiation_qa, Radiation_qs);
           [DOM.ComputeRadiationField(config, primColors, Radiation_primPart)];
           for c in primColors do
-            Particles_AbsorbRadiation(particles_primPart[int3d(c)], Fluid_primPart[int3d(c)], Radiation_primPart[int3d(c)], Particles_heatCapacity, Radiation_qa)
+            Particles_AbsorbRadiation(particles_primPart[c], Fluid_primPart[c], Radiation_primPart[c], Particles_heatCapacity, Radiation_qa)
           end
-        else
         end
         Flow_AddParticlesCoupling(particles, Fluid, Grid_cellVolume)
         Flow_UpdateVars(Fluid, Integrator_deltaTime, Integrator_stage)
@@ -5132,7 +4857,7 @@ task work(config : Config)
         Integrator_simTime = (Integrator_time_old+((double(0.5)*(1+(Integrator_stage/3)))*Integrator_deltaTime))
         Integrator_stage = (Integrator_stage+1)
         for c in primColors do
-          Particles_number += Particles_DeleteEscapingParticles(particles_primPart[int3d(c)], Grid_xRealOrigin, Grid_xRealWidth, Grid_yRealOrigin, Grid_yRealWidth, Grid_zRealOrigin, Grid_zRealWidth)
+          Particles_number += Particles_DeleteEscapingParticles(particles_primPart[c], Grid_xRealOrigin, Grid_xRealWidth, Grid_yRealOrigin, Grid_yRealWidth, Grid_zRealOrigin, Grid_zRealWidth)
         end
       end
       Integrator_timeStep = (Integrator_timeStep+1)
@@ -5162,10 +4887,8 @@ task work(config : Config)
             C.printf(" Current number of particles: %d.\n", Particles_number)
             C.printf("\n")
             C.printf("    Iter     Time(s)   Avg Press    Avg Temp      Avg KE  Particle T\n")
-          else
           end
           C.printf("%8d %11.6f %11.6f %11.6f %11.6f %11.6f\n", Integrator_timeStep, Integrator_simTime, Flow_averagePressure, Flow_averageTemperature, Flow_averageKineticEnergy, Particles_averageTemperature)
-        else
         end
         if (config.IO.wrtRestart == SCHEMA.OnOrOff_ON) then
           if ((Integrator_timeStep%config.IO.restartEveryTimeSteps)==0) then
@@ -5173,18 +4896,14 @@ task work(config : Config)
             C.snprintf(filename, uint64(256), "restart_fluid_%d.hdf", Integrator_timeStep)
             Fluid_dump(primColors, concretize(filename), Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
             C.free([&opaque](filename))
-          else
           end
           if ((Integrator_timeStep%config.IO.restartEveryTimeSteps)==0) then
             var filename = [&int8](C.malloc(uint64(256)))
             C.snprintf(filename, uint64(256), "restart_particles_%d.hdf", Integrator_timeStep)
             particles_dump(primColors, concretize(filename), particles, particles_copy, particles_primPart, particles_copy_primPart)
             C.free([&opaque](filename))
-          else
           end
-        else
         end
-      else
       end
     end
     Flow_averagePressure = 0.0
@@ -5212,10 +4931,8 @@ task work(config : Config)
         C.printf(" Current number of particles: %d.\n", Particles_number)
         C.printf("\n")
         C.printf("    Iter     Time(s)   Avg Press    Avg Temp      Avg KE  Particle T\n")
-      else
       end
       C.printf("%8d %11.6f %11.6f %11.6f %11.6f %11.6f\n", Integrator_timeStep, Integrator_simTime, Flow_averagePressure, Flow_averageTemperature, Flow_averageKineticEnergy, Particles_averageTemperature)
-    else
     end
   end
 end
