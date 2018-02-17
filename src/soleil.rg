@@ -5222,11 +5222,16 @@ end
 
 task main()
   var args = regentlib.c.legion_runtime_get_input_args()
-  for i : int32 = 1, args.argc do
-    if ((C.strcmp(args.argv[i], "-i")==0) and (i<(args.argc-1))) then
-      work(SCHEMA.parseConfig(args.argv[(i+1)]))
-    else
+  var launched = false
+  for i = 1, args.argc do
+    if C.strcmp(args.argv[i],"-i") == 0 and i < args.argc-1 then
+      work(SCHEMA.parseConfig(args.argv[i+1]))
+      launched = true
     end
+  end
+  if not launched then
+    C.printf("No testcases supplied.\n")
+    C.printf("Usage: %s -i config1.json [-i config2.json ...]\n", args.argv[0])
   end
 end
 
