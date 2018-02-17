@@ -184,7 +184,31 @@ function Exports.processSchema(schemaHdr)
           enumT[choice] = val
         end
       end
-      enumT.metamethods.__eq = macro(function(a,b) return `a.__value == b end)
+      local function lower(x)
+        return x:gettype() == enumT and (`x.__value) or x
+      end
+      enumT.metamethods.__eq =
+        macro(function(a,b) return `[lower(a)] == [lower(b)] end)
+      enumT.metamethods.__ne =
+        macro(function(a,b) return `[lower(a)] ~= [lower(b)] end)
+      enumT.metamethods.__lt =
+        macro(function(a,b) return `[lower(a)] < [lower(b)] end)
+      enumT.metamethods.__le =
+        macro(function(a,b) return `[lower(a)] <= [lower(b)] end)
+      enumT.metamethods.__gt =
+        macro(function(a,b) return `[lower(a)] > [lower(b)] end)
+      enumT.metamethods.__ge =
+        macro(function(a,b) return `[lower(a)] >= [lower(b)] end)
+      enumT.metamethods.__add =
+        macro(function(a,b) return `[lower(a)] + [lower(b)] end)
+      enumT.metamethods.__sub =
+        macro(function(a,b) return `[lower(a)] - [lower(b)] end)
+      enumT.metamethods.__mul =
+        macro(function(a,b) return `[lower(a)] * [lower(b)] end)
+      enumT.metamethods.__div =
+        macro(function(a,b) return `[lower(a)] / [lower(b)] end)
+      enumT.metamethods.__mod =
+        macro(function(a,b) return `[lower(a)] % [lower(b)] end)
     end
   end
   configMod.parseConfig = emitConfigParser(configMod.Config)

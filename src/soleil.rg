@@ -1258,12 +1258,12 @@ do
 end
 
 __demand(__inline)
-task GetDynamicViscosity(temperature : double, Flow_constantVisc : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel___value : int32) : double
+task GetDynamicViscosity(temperature : double, Flow_constantVisc : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel : SCHEMA.ViscosityModel) : double
   var viscosity = double(0.0)
-  if (Flow_viscosityModel___value==0) then
+  if (Flow_viscosityModel == SCHEMA.ViscosityModel_Constant) then
     viscosity = Flow_constantVisc
   else
-    if (Flow_viscosityModel___value==1) then
+    if (Flow_viscosityModel == SCHEMA.ViscosityModel_PowerLaw) then
       viscosity = (Flow_powerlawViscRef*C.pow((temperature/Flow_powerlawTempRef), double(0.75)))
     else
       viscosity = ((Flow_sutherlandViscRef*C.pow((temperature/Flow_sutherlandTempRef), (3.0/2.0)))*((Flow_sutherlandTempRef+Flow_sutherlandSRef)/(temperature+Flow_sutherlandSRef)))
@@ -1273,14 +1273,14 @@ task GetDynamicViscosity(temperature : double, Flow_constantVisc : double, Flow_
 end
 
 __demand(__parallel)
-task CalculateViscousSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns), Flow_constantVisc : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel___value : int32, Grid_dXYZInverseSquare : double) : double
+task CalculateViscousSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns), Flow_constantVisc : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel : SCHEMA.ViscosityModel, Grid_dXYZInverseSquare : double) : double
 where
   reads(Fluid.rho), reads(Fluid.sgsEddyViscosity), reads(Fluid.temperature), reads(Fluid.viscousSpectralRadius), writes(Fluid.viscousSpectralRadius)
 do
   var acc = -math.huge
   __demand(__openmp)
   for c in Fluid do
-    var dynamicViscosity = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel___value)
+    var dynamicViscosity = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
     var eddyViscosity = Fluid[c].sgsEddyViscosity
     Fluid[c].viscousSpectralRadius = ((((2.0*(dynamicViscosity+eddyViscosity))/Fluid[c].rho)*Grid_dXYZInverseSquare)*4.0)
     acc max= Fluid[c].viscousSpectralRadius
@@ -1289,14 +1289,14 @@ do
 end
 
 __demand(__parallel)
-task CalculateHeatConductionSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns), Flow_constantVisc : double, Flow_gamma : double, Flow_gasConstant : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_prandtl : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel___value : int32, Grid_dXYZInverseSquare : double) : double
+task CalculateHeatConductionSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns), Flow_constantVisc : double, Flow_gamma : double, Flow_gasConstant : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_prandtl : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel : SCHEMA.ViscosityModel, Grid_dXYZInverseSquare : double) : double
 where
   reads(Fluid.heatConductionSpectralRadius), writes(Fluid.heatConductionSpectralRadius), reads(Fluid.rho), reads(Fluid.sgsEddyKappa), reads(Fluid.temperature)
 do
   var acc = -math.huge
   __demand(__openmp)
   for c in Fluid do
-    var dynamicViscosity = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel___value)
+    var dynamicViscosity = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
     var cv = (Flow_gasConstant/(Flow_gamma-1.0))
     var cp = (Flow_gamma*cv)
     var kappa = ((cp/Flow_prandtl)*dynamicViscosity)
@@ -1581,7 +1581,7 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_AddGetFlux(Fluid : region(ispace(int3d), Fluid_columns), Flow_constantVisc : double, Flow_gamma : double, Flow_gasConstant : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_prandtl : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel___value : int32, Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32, Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32, Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
+task Flow_AddGetFlux(Fluid : region(ispace(int3d), Fluid_columns), Flow_constantVisc : double, Flow_gamma : double, Flow_gasConstant : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_prandtl : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel : SCHEMA.ViscosityModel, Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32, Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32, Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
   reads(Fluid.pressure), reads(Fluid.rho), reads(Fluid.rhoEnergyFluxX), writes(Fluid.rhoEnergyFluxX), reads(Fluid.rhoEnergyFluxX), writes(Fluid.rhoEnergyFluxX), reads(Fluid.rhoEnergyFluxY), writes(Fluid.rhoEnergyFluxY), reads(Fluid.rhoEnergyFluxY), writes(Fluid.rhoEnergyFluxY), reads(Fluid.rhoEnergyFluxZ), writes(Fluid.rhoEnergyFluxZ), reads(Fluid.rhoEnergyFluxZ), writes(Fluid.rhoEnergyFluxZ), reads(Fluid.rhoEnthalpy), reads(Fluid.rhoFluxX), writes(Fluid.rhoFluxX), reads(Fluid.rhoFluxY), writes(Fluid.rhoFluxY), reads(Fluid.rhoFluxZ), writes(Fluid.rhoFluxZ), reads(Fluid.rhoVelocity), reads(Fluid.rhoVelocityFluxX), writes(Fluid.rhoVelocityFluxX), reads(Fluid.rhoVelocityFluxX), writes(Fluid.rhoVelocityFluxX), reads(Fluid.rhoVelocityFluxY), writes(Fluid.rhoVelocityFluxY), reads(Fluid.rhoVelocityFluxY), writes(Fluid.rhoVelocityFluxY), reads(Fluid.rhoVelocityFluxZ), writes(Fluid.rhoVelocityFluxZ), reads(Fluid.rhoVelocityFluxZ), writes(Fluid.rhoVelocityFluxZ), reads(Fluid.temperature), reads(Fluid.velocity), reads(Fluid.velocityGradientX), reads(Fluid.velocityGradientY), reads(Fluid.velocityGradientZ)
 do
@@ -1592,7 +1592,7 @@ do
       Fluid[c].rhoFluxX = flux[0]
       Fluid[c].rhoVelocityFluxX = array(flux[1], flux[2], flux[3])
       Fluid[c].rhoEnergyFluxX = flux[4]
-      var muFace = (double(0.5)*(GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel___value)+GetDynamicViscosity(Fluid[((c+{1, 0, 0})%Fluid.bounds)].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel___value)))
+      var muFace = (double(0.5)*(GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)+GetDynamicViscosity(Fluid[((c+{1, 0, 0})%Fluid.bounds)].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)))
       var velocityFace = [double[3]](array(0.0, 0.0, 0.0))
       var velocityX_YFace = double(0.0)
       var velocityX_ZFace = double(0.0)
@@ -1632,7 +1632,7 @@ do
       Fluid[c].rhoFluxY = flux[0]
       Fluid[c].rhoVelocityFluxY = array(flux[1], flux[2], flux[3])
       Fluid[c].rhoEnergyFluxY = flux[4]
-      var muFace = (double(0.5)*(GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel___value)+GetDynamicViscosity(Fluid[((c+{0, 1, 0})%Fluid.bounds)].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel___value)))
+      var muFace = (double(0.5)*(GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)+GetDynamicViscosity(Fluid[((c+{0, 1, 0})%Fluid.bounds)].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)))
       var velocityFace = [double[3]](array(0.0, 0.0, 0.0))
       var velocityY_XFace = double(0.0)
       var velocityY_ZFace = double(0.0)
@@ -1672,7 +1672,7 @@ do
       Fluid[c].rhoFluxZ = flux[0]
       Fluid[c].rhoVelocityFluxZ = array(flux[1], flux[2], flux[3])
       Fluid[c].rhoEnergyFluxZ = flux[4]
-      var muFace = (double(0.5)*(GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel___value)+GetDynamicViscosity(Fluid[((c+{0, 0, 1})%Fluid.bounds)].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel___value)))
+      var muFace = (double(0.5)*(GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)+GetDynamicViscosity(Fluid[((c+{0, 0, 1})%Fluid.bounds)].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)))
       var velocityFace = [double[3]](array(0.0, 0.0, 0.0))
       var velocityZ_XFace = double(0.0)
       var velocityZ_YFace = double(0.0)
@@ -1802,14 +1802,14 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_ComputeDissipationX(Fluid : region(ispace(int3d), Fluid_columns), Flow_constantVisc : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel___value : int32, Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_ComputeDissipationX(Fluid : region(ispace(int3d), Fluid_columns), Flow_constantVisc : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel : SCHEMA.ViscosityModel, Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.dissipationFlux), writes(Fluid.dissipationFlux), reads(Fluid.temperature), reads(Fluid.velocity), reads(Fluid.velocityGradientY), reads(Fluid.velocityGradientZ)
 do
   __demand(__openmp)
   for c in Fluid do
     if ((not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) or (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)==1)) then
-      var muFace = (double(0.5)*(GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel___value)+GetDynamicViscosity(Fluid[((c+{1, 0, 0})%Fluid.bounds)].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel___value)))
+      var muFace = (double(0.5)*(GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)+GetDynamicViscosity(Fluid[((c+{1, 0, 0})%Fluid.bounds)].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)))
       var velocityFace = [double[3]](array(0.0, 0.0, 0.0))
       var velocityX_YFace = double(0.0)
       var velocityX_ZFace = double(0.0)
@@ -1857,14 +1857,14 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_ComputeDissipationY(Fluid : region(ispace(int3d), Fluid_columns), Flow_constantVisc : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel___value : int32, Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_ComputeDissipationY(Fluid : region(ispace(int3d), Fluid_columns), Flow_constantVisc : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel : SCHEMA.ViscosityModel, Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.dissipationFlux), writes(Fluid.dissipationFlux), reads(Fluid.temperature), reads(Fluid.velocity), reads(Fluid.velocityGradientX), reads(Fluid.velocityGradientZ)
 do
   __demand(__openmp)
   for c in Fluid do
     if ((not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)==1)) then
-      var muFace = (double(0.5)*(GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel___value)+GetDynamicViscosity(Fluid[((c+{0, 1, 0})%Fluid.bounds)].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel___value)))
+      var muFace = (double(0.5)*(GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)+GetDynamicViscosity(Fluid[((c+{0, 1, 0})%Fluid.bounds)].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)))
       var velocityFace = [double[3]](array(0.0, 0.0, 0.0))
       var velocityY_XFace = double(0.0)
       var velocityY_ZFace = double(0.0)
@@ -1912,14 +1912,14 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_ComputeDissipationZ(Fluid : region(ispace(int3d), Fluid_columns), Flow_constantVisc : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel___value : int32, Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
+task Flow_ComputeDissipationZ(Fluid : region(ispace(int3d), Fluid_columns), Flow_constantVisc : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel : SCHEMA.ViscosityModel, Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
   reads(Fluid.dissipationFlux), writes(Fluid.dissipationFlux), reads(Fluid.temperature), reads(Fluid.velocity), reads(Fluid.velocityGradientX), reads(Fluid.velocityGradientY)
 do
   __demand(__openmp)
   for c in Fluid do
     if ((not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)==1)) then
-      var muFace = (double(0.5)*(GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel___value)+GetDynamicViscosity(Fluid[((c+{0, 0, 1})%Fluid.bounds)].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel___value)))
+      var muFace = (double(0.5)*(GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)+GetDynamicViscosity(Fluid[((c+{0, 0, 1})%Fluid.bounds)].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)))
       var velocityFace = [double[3]](array(0.0, 0.0, 0.0))
       var velocityZ_XFace = double(0.0)
       var velocityZ_YFace = double(0.0)
@@ -3417,7 +3417,7 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Particles_AddFlowCoupling(particles : region(ispace(int1d), particles_columns), Fluid : region(ispace(int3d), Fluid_columns), Flow_constantVisc : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel___value : int32, Grid_xCellWidth : double, Grid_xRealOrigin : double, Grid_yCellWidth : double, Grid_yRealOrigin : double, Grid_zCellWidth : double, Grid_zRealOrigin : double, Particles_convectiveCoeff : double, Particles_heatCapacity : double)
+task Particles_AddFlowCoupling(particles : region(ispace(int1d), particles_columns), Fluid : region(ispace(int3d), Fluid_columns), Flow_constantVisc : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel : SCHEMA.ViscosityModel, Grid_xCellWidth : double, Grid_xRealOrigin : double, Grid_yCellWidth : double, Grid_yRealOrigin : double, Grid_zCellWidth : double, Grid_zRealOrigin : double, Particles_convectiveCoeff : double, Particles_heatCapacity : double)
 where
   reads(Fluid.centerCoordinates), reads(Fluid.temperature), reads(Fluid.velocity), reads(particles.cell), reads(particles.deltaTemperatureTerm), writes(particles.deltaTemperatureTerm), reads(particles.deltaVelocityOverRelaxationTime), writes(particles.deltaVelocityOverRelaxationTime), reads(particles.density), reads(particles.diameter), reads(particles.position), reads(particles.position_t), writes(particles.position_t), reads(particles.temperature), reads(particles.temperature_t), writes(particles.temperature_t), reads(particles.velocity), reads(particles.velocity_t), writes(particles.velocity_t), reads(particles.__valid)
 do
@@ -3426,7 +3426,7 @@ do
     if particles[p].__valid then
       var flowVelocity = InterpolateTriVelocity(particles[p].cell, particles[p].position, Fluid, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin)
       var flowTemperature = InterpolateTriTemp(particles[p].cell, particles[p].position, Fluid, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin)
-      var flowDynamicViscosity = GetDynamicViscosity(flowTemperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel___value)
+      var flowDynamicViscosity = GetDynamicViscosity(flowTemperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
       var tmp = particles[p].velocity
       var v = particles[p].position_t
       v[0] += tmp[0]
@@ -3874,19 +3874,19 @@ task work(config : Config)
   var Grid_zCellWidth = (Grid_zWidth/Grid_zNum)
   var Grid_cellVolume = ((Grid_xCellWidth*Grid_yCellWidth)*Grid_zCellWidth)
   var Grid_dXYZInverseSquare = (((((1/Grid_xCellWidth)*1)/Grid_xCellWidth)+(((1/Grid_yCellWidth)*1)/Grid_yCellWidth))+(((1/Grid_zCellWidth)*1)/Grid_zCellWidth))
-  var BC_xBCPeriodic = (config.BC.xBCLeft.__value==0)
+  var BC_xBCPeriodic = (config.BC.xBCLeft == SCHEMA.FlowBC_Periodic)
   var BC_xSign = array(double(0.1), double(0.1), double(0.1))
   var BC_xPosVelocity = array(double(0.1), double(0.1), double(0.1))
   var BC_xNegVelocity = array(double(0.1), double(0.1), double(0.1))
   var BC_xPosTemperature = 0.0
   var BC_xNegTemperature = 0.0
-  var BC_yBCPeriodic = (config.BC.yBCLeft.__value==0)
+  var BC_yBCPeriodic = (config.BC.yBCLeft == SCHEMA.FlowBC_Periodic)
   var BC_ySign = array(double(0.1), double(0.1), double(0.1))
   var BC_yPosVelocity = array(double(0.1), double(0.1), double(0.1))
   var BC_yNegVelocity = array(double(0.1), double(0.1), double(0.1))
   var BC_yPosTemperature = 0.0
   var BC_yNegTemperature = 0.0
-  var BC_zBCPeriodic = (config.BC.zBCLeft.__value==0)
+  var BC_zBCPeriodic = (config.BC.zBCLeft == SCHEMA.FlowBC_Periodic)
   var BC_zSign = array(double(0.1), double(0.1), double(0.1))
   var BC_zPosVelocity = array(double(0.1), double(0.1), double(0.1))
   var BC_zNegVelocity = array(double(0.1), double(0.1), double(0.1))
@@ -3898,9 +3898,12 @@ task work(config : Config)
   var BC_yBCRightParticles = int32(-1)
   var BC_zBCLeftParticles = int32(-1)
   var BC_zBCRightParticles = int32(-1)
-  var Grid_xBnum = min(1, ((config.BC.xBCLeft.__value-0)*(config.BC.xBCLeft.__value-0)))
-  var Grid_yBnum = min(1, ((config.BC.yBCLeft.__value-0)*(config.BC.yBCLeft.__value-0)))
-  var Grid_zBnum = min(1, ((config.BC.zBCLeft.__value-0)*(config.BC.zBCLeft.__value-0)))
+  var Grid_xBnum = 1
+  if BC_xBCPeriodic then Grid_xBnum = 0 end
+  var Grid_yBnum = 1
+  if BC_yBCPeriodic then Grid_yBnum = 0 end
+  var Grid_zBnum = 1
+  if BC_zBCPeriodic then Grid_zBnum = 0 end
   var Grid_xRealOrigin = (Grid_xOrigin-(Grid_xCellWidth*Grid_xBnum))
   var Grid_yRealOrigin = (Grid_yOrigin-(Grid_yCellWidth*Grid_yBnum))
   var Grid_zRealOrigin = (Grid_zOrigin-(Grid_zCellWidth*Grid_zBnum))
@@ -3918,7 +3921,7 @@ task work(config : Config)
   var Flow_gasConstant = config.Flow.gasConstant
   var Flow_gamma = config.Flow.gamma
   var Flow_prandtl = config.Flow.prandtl
-  var Flow_viscosityModel___value = config.Flow.viscosityModel.__value
+  var Flow_viscosityModel = config.Flow.viscosityModel
   var Flow_constantVisc = config.Flow.constantVisc
   var Flow_powerlawViscRef = config.Flow.powerlawViscRef
   var Flow_powerlawTempRef = config.Flow.powerlawTempRef
@@ -4793,7 +4796,7 @@ task work(config : Config)
     else
     end
     SetCoarseningField(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum, Radiation_xBnum, Radiation_xNum, Radiation_yBnum, Radiation_yNum, Radiation_zBnum, Radiation_zNum)
-    if ((config.BC.xBCLeft.__value==0) and (config.BC.xBCRight.__value==0)) then
+    if ((config.BC.xBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.xBCRight == SCHEMA.FlowBC_Periodic)) then
       BC_xSign = array(ONE, ONE, ONE)
       BC_xPosVelocity = array(ZERO, ZERO, ZERO)
       BC_xNegVelocity = array(ZERO, ZERO, ZERO)
@@ -4802,7 +4805,7 @@ task work(config : Config)
       BC_xBCLeftParticles = 0
       BC_xBCRightParticles = 0
     else
-      if ((config.BC.xBCLeft.__value==1) and (config.BC.xBCRight.__value==1)) then
+      if ((config.BC.xBCLeft == SCHEMA.FlowBC_Symmetry) and (config.BC.xBCRight == SCHEMA.FlowBC_Symmetry)) then
         BC_xSign = array((-ONE), ONE, ONE)
         BC_xPosVelocity = array(ZERO, ZERO, ZERO)
         BC_xNegVelocity = array(ZERO, ZERO, ZERO)
@@ -4811,7 +4814,7 @@ task work(config : Config)
         BC_xBCLeftParticles = 1
         BC_xBCRightParticles = 1
       else
-        if ((config.BC.xBCLeft.__value==2) and (config.BC.xBCRight.__value==2)) then
+        if ((config.BC.xBCLeft == SCHEMA.FlowBC_AdiabaticWall) and (config.BC.xBCRight == SCHEMA.FlowBC_AdiabaticWall)) then
           BC_xSign = array((-ONE), (-ONE), (-ONE))
           BC_xPosVelocity = array((2*config.BC.xBCRightVel[0]), (2*config.BC.xBCRightVel[1]), (2*config.BC.xBCRightVel[2]))
           BC_xNegVelocity = array((2*config.BC.xBCLeftVel[0]), (2*config.BC.xBCLeftVel[1]), (2*config.BC.xBCLeftVel[2]))
@@ -4820,7 +4823,7 @@ task work(config : Config)
           BC_xBCLeftParticles = 1
           BC_xBCRightParticles = 1
         else
-          if ((config.BC.xBCLeft.__value==3) and (config.BC.xBCRight.__value==3)) then
+          if ((config.BC.xBCLeft == SCHEMA.FlowBC_IsothermalWall) and (config.BC.xBCRight == SCHEMA.FlowBC_IsothermalWall)) then
             BC_xSign = array((-ONE), (-ONE), (-ONE))
             BC_xPosVelocity = array((2*config.BC.xBCRightVel[0]), (2*config.BC.xBCRightVel[1]), (2*config.BC.xBCRightVel[2]))
             BC_xNegVelocity = array((2*config.BC.xBCLeftVel[0]), (2*config.BC.xBCLeftVel[1]), (2*config.BC.xBCLeftVel[2]))
@@ -4834,7 +4837,7 @@ task work(config : Config)
         end
       end
     end
-    if ((config.BC.yBCLeft.__value==0) and (config.BC.yBCRight.__value==0)) then
+    if ((config.BC.yBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.yBCRight == SCHEMA.FlowBC_Periodic)) then
       BC_ySign = array(ONE, ONE, ONE)
       BC_yPosVelocity = array(ZERO, ZERO, ZERO)
       BC_yNegVelocity = array(ZERO, ZERO, ZERO)
@@ -4843,7 +4846,7 @@ task work(config : Config)
       BC_yBCLeftParticles = 0
       BC_yBCRightParticles = 0
     else
-      if ((config.BC.yBCLeft.__value==1) and (config.BC.yBCRight.__value==1)) then
+      if ((config.BC.yBCLeft == SCHEMA.FlowBC_Symmetry) and (config.BC.yBCRight == SCHEMA.FlowBC_Symmetry)) then
         BC_ySign = array(ONE, (-ONE), ONE)
         BC_yPosVelocity = array(ZERO, ZERO, ZERO)
         BC_yNegVelocity = array(ZERO, ZERO, ZERO)
@@ -4852,7 +4855,7 @@ task work(config : Config)
         BC_yBCLeftParticles = 1
         BC_yBCRightParticles = 1
       else
-        if ((config.BC.yBCLeft.__value==2) and (config.BC.yBCRight.__value==2)) then
+        if ((config.BC.yBCLeft == SCHEMA.FlowBC_AdiabaticWall) and (config.BC.yBCRight == SCHEMA.FlowBC_AdiabaticWall)) then
           BC_ySign = array((-ONE), (-ONE), (-ONE))
           BC_yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
           BC_yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
@@ -4861,7 +4864,7 @@ task work(config : Config)
           BC_yBCLeftParticles = 1
           BC_yBCRightParticles = 1
         else
-          if ((config.BC.yBCLeft.__value==3) and (config.BC.yBCRight.__value==3)) then
+          if ((config.BC.yBCLeft == SCHEMA.FlowBC_IsothermalWall) and (config.BC.yBCRight == SCHEMA.FlowBC_IsothermalWall)) then
             BC_ySign = array((-ONE), (-ONE), (-ONE))
             BC_yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
             BC_yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
@@ -4875,7 +4878,7 @@ task work(config : Config)
         end
       end
     end
-    if ((config.BC.zBCLeft.__value==0) and (config.BC.zBCRight.__value==0)) then
+    if ((config.BC.zBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.zBCRight == SCHEMA.FlowBC_Periodic)) then
       BC_zSign = array(ONE, ONE, ONE)
       BC_zPosVelocity = array(ZERO, ZERO, ZERO)
       BC_zNegVelocity = array(ZERO, ZERO, ZERO)
@@ -4884,7 +4887,7 @@ task work(config : Config)
       BC_zBCLeftParticles = 0
       BC_zBCRightParticles = 0
     else
-      if ((config.BC.zBCLeft.__value==1) and (config.BC.zBCRight.__value==1)) then
+      if ((config.BC.zBCLeft == SCHEMA.FlowBC_Symmetry) and (config.BC.zBCRight == SCHEMA.FlowBC_Symmetry)) then
         BC_zSign = array(ONE, ONE, (-ONE))
         BC_zPosVelocity = array(ZERO, ZERO, ZERO)
         BC_zNegVelocity = array(ZERO, ZERO, ZERO)
@@ -4893,7 +4896,7 @@ task work(config : Config)
         BC_zBCLeftParticles = 1
         BC_zBCRightParticles = 1
       else
-        if ((config.BC.zBCLeft.__value==2) and (config.BC.zBCRight.__value==2)) then
+        if ((config.BC.zBCLeft == SCHEMA.FlowBC_AdiabaticWall) and (config.BC.zBCRight == SCHEMA.FlowBC_AdiabaticWall)) then
           BC_zSign = array((-ONE), (-ONE), (-ONE))
           BC_zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
           BC_zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
@@ -4902,7 +4905,7 @@ task work(config : Config)
           BC_zBCLeftParticles = 1
           BC_zBCRightParticles = 1
         else
-          if ((config.BC.zBCLeft.__value==3) and (config.BC.zBCRight.__value==3)) then
+          if ((config.BC.zBCLeft == SCHEMA.FlowBC_IsothermalWall) and (config.BC.zBCRight == SCHEMA.FlowBC_IsothermalWall)) then
             BC_zSign = array((-ONE), (-ONE), (-ONE))
             BC_zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
             BC_zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
@@ -4916,41 +4919,41 @@ task work(config : Config)
         end
       end
     end
-    if (not (((config.BC.xBCLeft.__value==0) and (config.BC.xBCRight.__value==0)) or ((not (config.BC.xBCLeft.__value==0)) and (not (config.BC.xBCRight.__value==0))))) then
+    if (not (((config.BC.xBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.xBCRight == SCHEMA.FlowBC_Periodic)) or ((not (config.BC.xBCLeft == SCHEMA.FlowBC_Periodic)) and (not (config.BC.xBCRight == SCHEMA.FlowBC_Periodic))))) then
       regentlib.assert(false, "Boundary conditions in x should match for periodicity")
     else
     end
-    if (not (((config.BC.yBCLeft.__value==0) and (config.BC.yBCRight.__value==0)) or ((not (config.BC.yBCLeft.__value==0)) and (not (config.BC.yBCRight.__value==0))))) then
+    if (not (((config.BC.yBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.yBCRight == SCHEMA.FlowBC_Periodic)) or ((not (config.BC.yBCLeft == SCHEMA.FlowBC_Periodic)) and (not (config.BC.yBCRight == SCHEMA.FlowBC_Periodic))))) then
       regentlib.assert(false, "Boundary conditions in y should match for periodicity")
     else
     end
-    if (not (((config.BC.zBCLeft.__value==0) and (config.BC.zBCRight.__value==0)) or ((not (config.BC.zBCLeft.__value==0)) and (not (config.BC.zBCRight.__value==0))))) then
+    if (not (((config.BC.zBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.zBCRight == SCHEMA.FlowBC_Periodic)) or ((not (config.BC.zBCLeft == SCHEMA.FlowBC_Periodic)) and (not (config.BC.zBCRight == SCHEMA.FlowBC_Periodic))))) then
       regentlib.assert(false, "Boundary conditions in z should match for periodicity")
     else
     end
-    if (config.Flow.initCase.__value==1) then
+    if (config.Flow.initCase == SCHEMA.FlowInitCase_Restart) then
       Integrator_timeStep = config.Integrator.restartIter
     else
     end
     Flow_InitializeCell(Fluid)
     Flow_InitializeCenterCoordinates(Fluid, Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth, Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth, Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
-    if (config.Flow.initCase.__value==0) then
+    if (config.Flow.initCase == SCHEMA.FlowInitCase_Uniform) then
       Flow_InitializeUniform(Fluid, Flow_initParams)
     else
     end
-    if (config.Flow.initCase.__value==3) then
+    if (config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen2DVortex) then
       Flow_InitializeTaylorGreen2D(Fluid, Flow_initParams, Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth, Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth, Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
     else
     end
-    if (config.Flow.initCase.__value==4) then
+    if (config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen3DVortex) then
       Flow_InitializeTaylorGreen3D(Fluid, Flow_initParams, Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth, Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth, Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
     else
     end
-    if (config.Flow.initCase.__value==2) then
+    if (config.Flow.initCase == SCHEMA.FlowInitCase_Perturbed) then
       Flow_InitializePerturbed(Fluid, Flow_initParams)
     else
     end
-    if (config.Flow.initCase.__value==1) then
+    if (config.Flow.initCase == SCHEMA.FlowInitCase_Restart) then
       var filename = [&int8](C.malloc(uint64(256)))
       C.snprintf(filename, uint64(256), "restart_fluid_%d.hdf", config.Integrator.restartIter)
       Fluid_load(primColors, concretize(filename), Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
@@ -4969,11 +4972,11 @@ task work(config : Config)
     Flow_UpdateGhostThermodynamicsStep2(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
     Flow_UpdateGhostFieldsStep1(Fluid, BC_xNegTemperature, BC_xNegVelocity, BC_xPosTemperature, BC_xPosVelocity, BC_xSign, BC_yNegTemperature, BC_yNegVelocity, BC_yPosTemperature, BC_yPosVelocity, BC_ySign, BC_zNegTemperature, BC_zNegVelocity, BC_zPosTemperature, BC_zPosVelocity, BC_zSign, Flow_gamma, Flow_gasConstant, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
     Flow_UpdateGhostFieldsStep2(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-    if (config.Particles.initCase.__value==0) then
+    if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Random) then
       regentlib.assert(false, "Random particle initialization is disabled")
     else
     end
-    if (config.Particles.initCase.__value==1) then
+    if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart) then
       var filename = [&int8](C.malloc(uint64(256)))
       C.snprintf(filename, uint64(256), "restart_particles_%d.hdf", config.Integrator.restartIter)
       particles_load(primColors, concretize(filename), particles, particles_copy, particles_primPart, particles_copy_primPart)
@@ -4982,7 +4985,7 @@ task work(config : Config)
       Particles_number += Particles_CalculateNumber(particles)
     else
     end
-    if (config.Particles.initCase.__value==2) then
+    if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform) then
       InitParticlesUniform(particles, Fluid, config, Grid_xBnum, Grid_yBnum, Grid_zBnum)
       Particles_number = int64(((config.Particles.initNum/((config.Grid.xTiles*config.Grid.yTiles)*config.Grid.zTiles))*((config.Grid.xTiles*config.Grid.yTiles)*config.Grid.zTiles)))
     else
@@ -5006,7 +5009,7 @@ task work(config : Config)
     Flow_averageKineticEnergy = (Flow_averageKineticEnergy/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
     Particles_averageTemperature = (Particles_averageTemperature/Particles_number);
     [DOM.DeclSymbols(config)];
-    if (config.Radiation.type.__value==2) then
+    if (config.Radiation.type == SCHEMA.RadiationType_DOM) then
       Radiation_InitializeCell(Radiation);
       [DOM.InitRegions()];
     else
@@ -5023,7 +5026,7 @@ task work(config : Config)
       C.printf("%8d %11.6f %11.6f %11.6f %11.6f %11.6f\n", Integrator_timeStep, Integrator_simTime, Flow_averagePressure, Flow_averageTemperature, Flow_averageKineticEnergy, Particles_averageTemperature)
     else
     end
-    if (config.IO.wrtRestart.__value==1) then
+    if (config.IO.wrtRestart == SCHEMA.OnOrOff_ON) then
       if ((Integrator_timeStep%config.IO.restartEveryTimeSteps)==0) then
         var filename = [&int8](C.malloc(uint64(256)))
         C.snprintf(filename, uint64(256), "restart_fluid_%d.hdf", Integrator_timeStep)
@@ -5045,8 +5048,8 @@ task work(config : Config)
         Integrator_deltaTime = config.Integrator.fixedDeltaTime
       else
         Integrator_maxConvectiveSpectralRadius max= CalculateConvectiveSpectralRadius(Fluid, Flow_gamma, Flow_gasConstant, Grid_dXYZInverseSquare, Grid_xCellWidth, Grid_yCellWidth, Grid_zCellWidth)
-        Integrator_maxViscousSpectralRadius max= CalculateViscousSpectralRadius(Fluid, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel___value, Grid_dXYZInverseSquare)
-        Integrator_maxHeatConductionSpectralRadius max= CalculateHeatConductionSpectralRadius(Fluid, Flow_constantVisc, Flow_gamma, Flow_gasConstant, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_prandtl, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel___value, Grid_dXYZInverseSquare)
+        Integrator_maxViscousSpectralRadius max= CalculateViscousSpectralRadius(Fluid, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel, Grid_dXYZInverseSquare)
+        Integrator_maxHeatConductionSpectralRadius max= CalculateHeatConductionSpectralRadius(Fluid, Flow_constantVisc, Flow_gamma, Flow_gasConstant, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_prandtl, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel, Grid_dXYZInverseSquare)
         Integrator_deltaTime = (config.Integrator.cfl/max(Integrator_maxConvectiveSpectralRadius, max(Integrator_maxViscousSpectralRadius, Integrator_maxHeatConductionSpectralRadius)))
       end
       Flow_InitializeTemporaries(Fluid)
@@ -5058,21 +5061,21 @@ task work(config : Config)
         Particles_InitializeTimeDerivatives(particles)
         Flow_UpdateGhostVelocityGradientStep1(Fluid, BC_xSign, BC_ySign, BC_zSign, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
         Flow_UpdateGhostVelocityGradientStep2(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-        Flow_AddGetFlux(Fluid, Flow_constantVisc, Flow_gamma, Flow_gasConstant, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_prandtl, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel___value, Grid_xBnum, Grid_xCellWidth, Grid_xNum, Grid_yBnum, Grid_yCellWidth, Grid_yNum, Grid_zBnum, Grid_zCellWidth, Grid_zNum)
+        Flow_AddGetFlux(Fluid, Flow_constantVisc, Flow_gamma, Flow_gasConstant, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_prandtl, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel, Grid_xBnum, Grid_xCellWidth, Grid_xNum, Grid_yBnum, Grid_yCellWidth, Grid_yNum, Grid_zBnum, Grid_zCellWidth, Grid_zNum)
         Flow_AddUpdateUsingFlux(Fluid, Grid_xBnum, Grid_xCellWidth, Grid_xNum, Grid_yBnum, Grid_yCellWidth, Grid_yNum, Grid_zBnum, Grid_zCellWidth, Grid_zNum)
         Flow_AddBodyForces(Fluid, Flow_bodyForce, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-        if (config.Flow.turbForcing.__value==1) then
+        if (config.Flow.turbForcing == SCHEMA.OnOrOff_ON) then
           Flow_averagePD = 0.0
           Flow_averageDissipation = 0.0
           Flow_averageFe = 0.0
           Flow_averageK = 0.0
           Flow_UpdatePD(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
           Flow_ResetDissipation(Fluid)
-          Flow_ComputeDissipationX(Fluid, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel___value, Grid_xBnum, Grid_xCellWidth, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
+          Flow_ComputeDissipationX(Fluid, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel, Grid_xBnum, Grid_xCellWidth, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
           Flow_UpdateDissipationX(Fluid, Grid_xBnum, Grid_xCellWidth, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-          Flow_ComputeDissipationY(Fluid, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel___value, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yCellWidth, Grid_yNum, Grid_zBnum, Grid_zNum)
+          Flow_ComputeDissipationY(Fluid, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yCellWidth, Grid_yNum, Grid_zBnum, Grid_zNum)
           Flow_UpdateDissipationY(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yCellWidth, Grid_yNum, Grid_zBnum, Grid_zNum)
-          Flow_ComputeDissipationZ(Fluid, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel___value, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zCellWidth, Grid_zNum)
+          Flow_ComputeDissipationZ(Fluid, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zCellWidth, Grid_zNum)
           Flow_UpdateDissipationZ(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zCellWidth, Grid_zNum)
           Flow_averagePD += CalculateAveragePD(Fluid, Grid_cellVolume, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
           Flow_averagePD = (Flow_averagePD/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
@@ -5094,13 +5097,13 @@ task work(config : Config)
         for c in primColors do
           particles_pullAll(int3d(c), particles_primPart[int3d(c)], particles_qDstPart_0[int3d(c)], particles_qDstPart_1[int3d(c)], particles_qDstPart_2[int3d(c)], particles_qDstPart_3[int3d(c)], particles_qDstPart_4[int3d(c)], particles_qDstPart_5[int3d(c)], particles_qDstPart_6[int3d(c)], particles_qDstPart_7[int3d(c)], particles_qDstPart_8[int3d(c)], particles_qDstPart_9[int3d(c)], particles_qDstPart_10[int3d(c)], particles_qDstPart_11[int3d(c)], particles_qDstPart_12[int3d(c)], particles_qDstPart_13[int3d(c)], particles_qDstPart_14[int3d(c)], particles_qDstPart_15[int3d(c)], particles_qDstPart_16[int3d(c)], particles_qDstPart_17[int3d(c)], particles_qDstPart_18[int3d(c)], particles_qDstPart_19[int3d(c)], particles_qDstPart_20[int3d(c)], particles_qDstPart_21[int3d(c)], particles_qDstPart_22[int3d(c)], particles_qDstPart_23[int3d(c)], particles_qDstPart_24[int3d(c)], particles_qDstPart_25[int3d(c)])
         end
-        Particles_AddFlowCoupling(particles, Fluid, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel___value, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin, Particles_convectiveCoeff, Particles_heatCapacity)
+        Particles_AddFlowCoupling(particles, Fluid, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin, Particles_convectiveCoeff, Particles_heatCapacity)
         Particles_AddBodyForces(particles, Particles_bodyForce)
-        if (config.Radiation.type.__value==1) then
+        if (config.Radiation.type == SCHEMA.RadiationType_Algebraic) then
           AddRadiation(particles, config)
         else
         end
-        if (config.Radiation.type.__value==2) then
+        if (config.Radiation.type == SCHEMA.RadiationType_DOM) then
           Radiation_ClearAccumulators(Radiation)
           for c in primColors do
             Radiation_AccumulateParticleValues(particles_primPart[int3d(c)], Fluid_primPart[int3d(c)], Radiation_primPart[int3d(c)])
@@ -5164,7 +5167,7 @@ task work(config : Config)
           C.printf("%8d %11.6f %11.6f %11.6f %11.6f %11.6f\n", Integrator_timeStep, Integrator_simTime, Flow_averagePressure, Flow_averageTemperature, Flow_averageKineticEnergy, Particles_averageTemperature)
         else
         end
-        if (config.IO.wrtRestart.__value==1) then
+        if (config.IO.wrtRestart == SCHEMA.OnOrOff_ON) then
           if ((Integrator_timeStep%config.IO.restartEveryTimeSteps)==0) then
             var filename = [&int8](C.malloc(uint64(256)))
             C.snprintf(filename, uint64(256), "restart_fluid_%d.hdf", Integrator_timeStep)
