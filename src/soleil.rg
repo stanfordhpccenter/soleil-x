@@ -210,9 +210,13 @@ terra concretize(str : &int8) : int8[256]
 end
 
 __demand(__parallel)
-task InitParticlesUniform(particles : region(ispace(int1d), particles_columns), cells : region(ispace(int3d), Fluid_columns), config : Config, xBnum : int32, yBnum : int32, zBnum : int32)
+task InitParticlesUniform(particles : region(ispace(int1d), particles_columns),
+                          cells : region(ispace(int3d), Fluid_columns),
+                          config : Config,
+                          xBnum : int32, yBnum : int32, zBnum : int32)
 where
-  reads(particles), writes(particles), reads(cells.velocity), reads(cells.centerCoordinates)
+  reads(cells.{centerCoordinates, velocity}),
+  reads writes(particles)
 do
   var pBase = 0
   for p in particles do
@@ -247,9 +251,11 @@ do
 end
 
 __demand(__parallel, __cuda)
-task AddRadiation(particles : region(ispace(int1d), particles_columns), config : Config)
+task AddRadiation(particles : region(ispace(int1d), particles_columns),
+                  config : Config)
 where
-  reads(particles.density), reads(particles.diameter), reads(particles.temperature_t), writes(particles.temperature_t)
+  reads(particles.{density, diameter}),
+  reads writes(particles.temperature_t)
 do
   var absorptivity = config.Particles.absorptivity
   var intensity = config.Radiation.intensity
@@ -276,9 +282,15 @@ do
 end
 
 __demand(__parallel, __cuda)
-task SetCoarseningField(Fluid : region(ispace(int3d), Fluid_columns), Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32, Radiation_xBnum : int32, Radiation_xNum : int32, Radiation_yBnum : int32, Radiation_yNum : int32, Radiation_zBnum : int32, Radiation_zNum : int32)
+task SetCoarseningField(Fluid : region(ispace(int3d), Fluid_columns),
+                        Grid_xBnum : int32, Grid_xNum : int32,
+                        Grid_yBnum : int32, Grid_yNum : int32,
+                        Grid_zBnum : int32, Grid_zNum : int32,
+                        Radiation_xBnum : int32, Radiation_xNum : int32,
+                        Radiation_yBnum : int32, Radiation_yNum : int32,
+                        Radiation_zBnum : int32, Radiation_zNum : int32)
 where
-  reads(Fluid.to_Radiation), writes(Fluid.to_Radiation)
+  reads writes(Fluid.to_Radiation)
 do
   __demand(__openmp)
   for f in Fluid do
@@ -296,7 +308,46 @@ end
 __demand(__parallel, __cuda)
 task Flow_InitializeCell(Fluid : region(ispace(int3d), Fluid_columns))
 where
-  reads(Fluid.PD), writes(Fluid.PD), reads(Fluid.centerCoordinates), writes(Fluid.centerCoordinates), reads(Fluid.convectiveSpectralRadius), writes(Fluid.convectiveSpectralRadius), reads(Fluid.dissipation), writes(Fluid.dissipation), reads(Fluid.dissipationFlux), writes(Fluid.dissipationFlux), reads(Fluid.heatConductionSpectralRadius), writes(Fluid.heatConductionSpectralRadius), reads(Fluid.kineticEnergy), writes(Fluid.kineticEnergy), reads(Fluid.pressure), writes(Fluid.pressure), reads(Fluid.pressureBoundary), writes(Fluid.pressureBoundary), reads(Fluid.rho), writes(Fluid.rho), reads(Fluid.rhoBoundary), writes(Fluid.rhoBoundary), reads(Fluid.rhoEnergy), writes(Fluid.rhoEnergy), reads(Fluid.rhoEnergyBoundary), writes(Fluid.rhoEnergyBoundary), reads(Fluid.rhoEnergyFluxX), writes(Fluid.rhoEnergyFluxX), reads(Fluid.rhoEnergyFluxY), writes(Fluid.rhoEnergyFluxY), reads(Fluid.rhoEnergyFluxZ), writes(Fluid.rhoEnergyFluxZ), reads(Fluid.rhoEnergy_new), writes(Fluid.rhoEnergy_new), reads(Fluid.rhoEnergy_old), writes(Fluid.rhoEnergy_old), reads(Fluid.rhoEnergy_t), writes(Fluid.rhoEnergy_t), reads(Fluid.rhoEnthalpy), writes(Fluid.rhoEnthalpy), reads(Fluid.rhoFluxX), writes(Fluid.rhoFluxX), reads(Fluid.rhoFluxY), writes(Fluid.rhoFluxY), reads(Fluid.rhoFluxZ), writes(Fluid.rhoFluxZ), reads(Fluid.rhoVelocity), writes(Fluid.rhoVelocity), reads(Fluid.rhoVelocityBoundary), writes(Fluid.rhoVelocityBoundary), reads(Fluid.rhoVelocityFluxX), writes(Fluid.rhoVelocityFluxX), reads(Fluid.rhoVelocityFluxY), writes(Fluid.rhoVelocityFluxY), reads(Fluid.rhoVelocityFluxZ), writes(Fluid.rhoVelocityFluxZ), reads(Fluid.rhoVelocity_new), writes(Fluid.rhoVelocity_new), reads(Fluid.rhoVelocity_old), writes(Fluid.rhoVelocity_old), reads(Fluid.rhoVelocity_t), writes(Fluid.rhoVelocity_t), reads(Fluid.rho_new), writes(Fluid.rho_new), reads(Fluid.rho_old), writes(Fluid.rho_old), reads(Fluid.rho_t), writes(Fluid.rho_t), reads(Fluid.sgsEddyKappa), writes(Fluid.sgsEddyKappa), reads(Fluid.sgsEddyViscosity), writes(Fluid.sgsEddyViscosity), reads(Fluid.sgsEnergy), writes(Fluid.sgsEnergy), reads(Fluid.temperature), writes(Fluid.temperature), reads(Fluid.temperatureBoundary), writes(Fluid.temperatureBoundary), reads(Fluid.velocity), writes(Fluid.velocity), reads(Fluid.velocityBoundary), writes(Fluid.velocityBoundary), reads(Fluid.velocityGradientX), writes(Fluid.velocityGradientX), reads(Fluid.velocityGradientXBoundary), writes(Fluid.velocityGradientXBoundary), reads(Fluid.velocityGradientY), writes(Fluid.velocityGradientY), reads(Fluid.velocityGradientYBoundary), writes(Fluid.velocityGradientYBoundary), reads(Fluid.velocityGradientZ), writes(Fluid.velocityGradientZ), reads(Fluid.velocityGradientZBoundary), writes(Fluid.velocityGradientZBoundary), reads(Fluid.viscousSpectralRadius), writes(Fluid.viscousSpectralRadius)
+  writes(Fluid.PD),
+  writes(Fluid.centerCoordinates),
+  writes(Fluid.convectiveSpectralRadius),
+  writes(Fluid.dissipation),
+  writes(Fluid.dissipationFlux),
+  writes(Fluid.heatConductionSpectralRadius),
+  writes(Fluid.kineticEnergy),
+  writes(Fluid.pressure),
+  writes(Fluid.pressureBoundary),
+  writes(Fluid.rho),
+  writes(Fluid.rhoBoundary),
+  writes(Fluid.rhoEnergy),
+  writes(Fluid.rhoEnergyBoundary),
+  writes(Fluid.{rhoEnergyFluxX, rhoEnergyFluxY, rhoEnergyFluxZ}),
+  writes(Fluid.rhoEnergy_new),
+  writes(Fluid.rhoEnergy_old),
+  writes(Fluid.rhoEnergy_t),
+  writes(Fluid.rhoEnthalpy),
+  writes(Fluid.rhoFluxX),
+  writes(Fluid.rhoFluxY),
+  writes(Fluid.rhoFluxZ),
+  writes(Fluid.rhoVelocity),
+  writes(Fluid.rhoVelocityBoundary),
+  writes(Fluid.{rhoVelocityFluxX, rhoVelocityFluxY, rhoVelocityFluxZ}),
+  writes(Fluid.rhoVelocity_new),
+  writes(Fluid.rhoVelocity_old),
+  writes(Fluid.rhoVelocity_t),
+  writes(Fluid.rho_new),
+  writes(Fluid.rho_old),
+  writes(Fluid.rho_t),
+  writes(Fluid.sgsEddyKappa),
+  writes(Fluid.sgsEddyViscosity),
+  writes(Fluid.sgsEnergy),
+  writes(Fluid.temperature),
+  writes(Fluid.temperatureBoundary),
+  writes(Fluid.velocity),
+  writes(Fluid.velocityBoundary),
+  writes(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ}),
+  writes(Fluid.{velocityGradientXBoundary, velocityGradientYBoundary, velocityGradientZBoundary}),
+  writes(Fluid.viscousSpectralRadius)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -352,9 +403,12 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_InitializeCenterCoordinates(Fluid : region(ispace(int3d), Fluid_columns), Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double, Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double, Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
+task Flow_InitializeCenterCoordinates(Fluid : region(ispace(int3d), Fluid_columns),
+                                      Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
+                                      Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
+                                      Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
 where
-  reads(Fluid.centerCoordinates), writes(Fluid.centerCoordinates)
+  writes(Fluid.centerCoordinates)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -366,7 +420,8 @@ end
 __demand(__parallel, __cuda)
 task Flow_InitializeUniform(Fluid : region(ispace(int3d), Fluid_columns), Flow_initParams : double[5])
 where
-  reads(Fluid.pressure), writes(Fluid.pressure), reads(Fluid.rho), writes(Fluid.rho), reads(Fluid.velocity), writes(Fluid.velocity)
+  writes(Fluid.{rho, pressure}),
+  reads writes(Fluid.velocity)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -382,10 +437,15 @@ terra vs_mul_double_3(a : double[3],b : double) : double[3]
   return array([&double](a)[0] * b, [&double](a)[1] * b, [&double](a)[2] * b)
 end
 
+-- CHANGE do not compute xy instead just pass in cell center since it is computed before this task will be called
 __demand(__parallel, __cuda)
-task Flow_InitializeTaylorGreen2D(Fluid : region(ispace(int3d), Fluid_columns), Flow_initParams : double[5], Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double, Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double, Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
+task Flow_InitializeTaylorGreen2D(Fluid : region(ispace(int3d), Fluid_columns),
+                                  Flow_initParams : double[5],
+                                  Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
+                                  Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
+                                  Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
 where
-  reads(Fluid.pressure), writes(Fluid.pressure), reads(Fluid.rho), writes(Fluid.rho), reads(Fluid.velocity), writes(Fluid.velocity)
+  writes(Fluid.{rho, velocity, pressure})
 do
   __demand(__openmp)
   for c in Fluid do
@@ -402,10 +462,15 @@ do
   end
 end
 
+-- CHANGE do not compute xy instead just pass in cell center since it is computed before this task will be called
 __demand(__parallel, __cuda)
-task Flow_InitializeTaylorGreen3D(Fluid : region(ispace(int3d), Fluid_columns), Flow_initParams : double[5], Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double, Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double, Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
+task Flow_InitializeTaylorGreen3D(Fluid : region(ispace(int3d), Fluid_columns),
+                                  Flow_initParams : double[5],
+                                  Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
+                                  Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
+                                  Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
 where
-  reads(Fluid.pressure), writes(Fluid.pressure), reads(Fluid.rho), writes(Fluid.rho), reads(Fluid.velocity), writes(Fluid.velocity)
+  writes(Fluid.{rho, velocity, pressure})
 do
   __demand(__openmp)
   for c in Fluid do
@@ -422,9 +487,11 @@ do
 end
 
 __demand(__parallel)
-task Flow_InitializePerturbed(Fluid : region(ispace(int3d), Fluid_columns), Flow_initParams : double[5])
+task Flow_InitializePerturbed(Fluid : region(ispace(int3d), Fluid_columns),
+                              Flow_initParams : double[5])
 where
-  reads(Fluid.pressure), writes(Fluid.pressure), reads(Fluid.rho), writes(Fluid.rho), reads(Fluid.velocity), writes(Fluid.velocity)
+  writes(Fluid.{rho, pressure}),
+  reads writes(Fluid.velocity)
 do
   for c in Fluid do
     Fluid[c].rho = Flow_initParams[0]
@@ -440,9 +507,13 @@ terra dot_double_3(a : double[3],b : double[3]) : double
 end
 
 __demand(__parallel, __cuda)
-task Flow_UpdateConservedFromPrimitive(Fluid : region(ispace(int3d), Fluid_columns), Flow_gamma : double, Flow_gasConstant : double, Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_UpdateConservedFromPrimitive(Fluid : region(ispace(int3d), Fluid_columns),
+                                       Flow_gamma : double,
+                                       Flow_gasConstant : double,
+                                       Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.pressure), reads(Fluid.rho), reads(Fluid.rhoEnergy), writes(Fluid.rhoEnergy), reads(Fluid.rhoVelocity), writes(Fluid.rhoVelocity), reads(Fluid.sgsEnergy), reads(Fluid.velocity)
+  reads(Fluid.{rho, velocity, pressure, sgsEnergy}),
+  writes(Fluid.{rhoVelocity, rhoEnergy})
 do
   __demand(__openmp)
   for c in Fluid do
@@ -461,9 +532,13 @@ terra vs_div_double_3(a : double[3],b : double) : double[3]
 end
 
 __demand(__parallel, __cuda)
-task Flow_UpdateAuxiliaryVelocity(Fluid : region(ispace(int3d), Fluid_columns), Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_UpdateAuxiliaryVelocity(Fluid : region(ispace(int3d), Fluid_columns),
+                                  Grid_xBnum : int32, Grid_xNum : int32,
+                                  Grid_yBnum : int32, Grid_yNum : int32,
+                                  Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.kineticEnergy), writes(Fluid.kineticEnergy), reads(Fluid.rho), reads(Fluid.rhoVelocity), reads(Fluid.velocity), writes(Fluid.velocity)
+  reads(Fluid.{rho, rhoVelocity}),
+  writes(Fluid.{velocity, kineticEnergy})
 do
   __demand(__openmp)
   for c in Fluid do
@@ -482,11 +557,20 @@ end
 terra vv_add_double_3(a : double[3],b : double[3]) : double[3]
   return array([&double](a)[0] + [&double](b)[0], [&double](a)[1] + [&double](b)[1], [&double](a)[2] + [&double](b)[2])
 end
-__demand(__parallel, __cuda)
 
-task Flow_UpdateGhostConservedStep1(Fluid : region(ispace(int3d), Fluid_columns), BC_xNegTemperature : double, BC_xNegVelocity : double[3], BC_xPosTemperature : double, BC_xPosVelocity : double[3], BC_xSign : double[3], BC_yNegTemperature : double, BC_yNegVelocity : double[3], BC_yPosTemperature : double, BC_yPosVelocity : double[3], BC_ySign : double[3], BC_zNegTemperature : double, BC_zNegVelocity : double[3], BC_zPosTemperature : double, BC_zPosVelocity : double[3], BC_zSign : double[3], Flow_gamma : double, Flow_gasConstant : double, Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
+__demand(__parallel, __cuda)
+task Flow_UpdateGhostConservedStep1(Fluid : region(ispace(int3d), Fluid_columns),
+                                    BC_xNegTemperature : double, BC_xNegVelocity : double[3], BC_xPosTemperature : double, BC_xPosVelocity : double[3], BC_xSign : double[3],
+                                    BC_yNegTemperature : double, BC_yNegVelocity : double[3], BC_yPosTemperature : double, BC_yPosVelocity : double[3], BC_ySign : double[3],
+                                    BC_zNegTemperature : double, BC_zNegVelocity : double[3], BC_zPosTemperature : double, BC_zPosVelocity : double[3], BC_zSign : double[3],
+                                    Flow_gamma : double,
+                                    Flow_gasConstant : double,
+                                    Grid_xBnum : int32, Grid_xNum : int32,
+                                    Grid_yBnum : int32, Grid_yNum : int32,
+                                    Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.pressure), reads(Fluid.rho), reads(Fluid.rhoBoundary), writes(Fluid.rhoBoundary), reads(Fluid.rhoEnergyBoundary), writes(Fluid.rhoEnergyBoundary), reads(Fluid.rhoVelocity), reads(Fluid.rhoVelocityBoundary), writes(Fluid.rhoVelocityBoundary), reads(Fluid.temperature)
+  reads(Fluid.{rho, pressure, rhoVelocity, temperature}),
+  reads writes(Fluid.{rhoBoundary, rhoEnergyBoundary, rhoVelocityBoundary})
 do
   __demand(__openmp)
   for c in Fluid do
@@ -632,9 +716,13 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_UpdateGhostConservedStep2(Fluid : region(ispace(int3d), Fluid_columns), Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_UpdateGhostConservedStep2(Fluid : region(ispace(int3d), Fluid_columns),
+                                    Grid_xBnum : int32, Grid_xNum : int32,
+                                    Grid_yBnum : int32, Grid_yNum : int32,
+                                    Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.rho), writes(Fluid.rho), reads(Fluid.rhoBoundary), reads(Fluid.rhoEnergy), writes(Fluid.rhoEnergy), reads(Fluid.rhoEnergyBoundary), reads(Fluid.rhoVelocity), writes(Fluid.rhoVelocity), reads(Fluid.rhoVelocityBoundary)
+  reads(Fluid.{rhoBoundary, rhoVelocityBoundary, rhoEnergyBoundary}),
+  writes(Fluid.{rho, rhoVelocity, rhoEnergy})
 do
   __demand(__openmp)
   for c in Fluid do
@@ -647,9 +735,16 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_UpdateGhostVelocityStep1(Fluid : region(ispace(int3d), Fluid_columns), BC_xNegVelocity : double[3], BC_xPosVelocity : double[3], BC_xSign : double[3], BC_yNegVelocity : double[3], BC_yPosVelocity : double[3], BC_ySign : double[3], BC_zNegVelocity : double[3], BC_zPosVelocity : double[3], BC_zSign : double[3], Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_UpdateGhostVelocityStep1(Fluid : region(ispace(int3d), Fluid_columns),
+                                   BC_xNegVelocity : double[3], BC_xPosVelocity : double[3], BC_xSign : double[3],
+                                   BC_yNegVelocity : double[3], BC_yPosVelocity : double[3], BC_ySign : double[3],
+                                   BC_zNegVelocity : double[3], BC_zPosVelocity : double[3], BC_zSign : double[3],
+                                   Grid_xBnum : int32, Grid_xNum : int32,
+                                   Grid_yBnum : int32, Grid_yNum : int32,
+                                   Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.velocity), reads(Fluid.velocityBoundary), writes(Fluid.velocityBoundary)
+  reads(Fluid.velocity),
+  writes(Fluid.velocityBoundary)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -699,9 +794,13 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_UpdateGhostVelocityStep2(Fluid : region(ispace(int3d), Fluid_columns), Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_UpdateGhostVelocityStep2(Fluid : region(ispace(int3d), Fluid_columns),
+                                   Grid_xBnum : int32, Grid_xNum : int32,
+                                   Grid_yBnum : int32, Grid_yNum : int32,
+                                   Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.velocity), writes(Fluid.velocity), reads(Fluid.velocityBoundary)
+  reads(Fluid.velocityBoundary),
+  writes(Fluid.velocity)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -716,9 +815,15 @@ terra vv_sub_double_3(a : double[3],b : double[3]) : double[3]
 end
 
 __demand(__parallel, __cuda)
-task Flow_ComputeVelocityGradientAll(Fluid : region(ispace(int3d), Fluid_columns), Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32, Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32, Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
+task Flow_ComputeVelocityGradientAll(Fluid : region(ispace(int3d), Fluid_columns),
+                                     Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
+                                     Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
+                                     Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
-  reads(Fluid.velocity), reads(Fluid.velocityGradientX), writes(Fluid.velocityGradientX), reads(Fluid.velocityGradientY), writes(Fluid.velocityGradientY), reads(Fluid.velocityGradientZ), writes(Fluid.velocityGradientZ)
+  reads(Fluid.velocity),
+  writes(Fluid.velocityGradientX),
+  writes(Fluid.velocityGradientY),
+  writes(Fluid.velocityGradientZ)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -731,9 +836,15 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_UpdateAuxiliaryThermodynamics(Fluid : region(ispace(int3d), Fluid_columns), Flow_gamma : double, Flow_gasConstant : double, Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_UpdateAuxiliaryThermodynamics(Fluid : region(ispace(int3d), Fluid_columns),
+                                        Flow_gamma : double,
+                                        Flow_gasConstant : double,
+                                        Grid_xBnum : int32, Grid_xNum : int32,
+                                        Grid_yBnum : int32, Grid_yNum : int32,
+                                        Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.pressure), writes(Fluid.pressure), reads(Fluid.rho), reads(Fluid.rhoEnergy), reads(Fluid.temperature), writes(Fluid.temperature), reads(Fluid.velocity)
+  reads(Fluid.{rho, velocity, rhoEnergy}),
+  writes(Fluid.{pressure, temperature})
 do
   __demand(__openmp)
   for c in Fluid do
@@ -747,9 +858,16 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_UpdateGhostThermodynamicsStep1(Fluid : region(ispace(int3d), Fluid_columns), BC_xNegTemperature : double, BC_xPosTemperature : double, BC_yNegTemperature : double, BC_yPosTemperature : double, BC_zNegTemperature : double, BC_zPosTemperature : double, Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_UpdateGhostThermodynamicsStep1(Fluid : region(ispace(int3d), Fluid_columns),
+                                         BC_xNegTemperature : double, BC_xPosTemperature : double,
+                                         BC_yNegTemperature : double, BC_yPosTemperature : double,
+                                         BC_zNegTemperature : double, BC_zPosTemperature : double,
+                                         Grid_xBnum : int32, Grid_xNum : int32,
+                                         Grid_yBnum : int32, Grid_yNum : int32,
+                                         Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.pressure), reads(Fluid.pressureBoundary), writes(Fluid.pressureBoundary), reads(Fluid.temperature), reads(Fluid.temperatureBoundary), writes(Fluid.temperatureBoundary)
+  reads(Fluid.{pressure, temperature}),
+  writes(Fluid.{pressureBoundary, temperatureBoundary})
 do
   __demand(__openmp)
   for c in Fluid do
@@ -841,9 +959,13 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_UpdateGhostThermodynamicsStep2(Fluid : region(ispace(int3d), Fluid_columns), Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_UpdateGhostThermodynamicsStep2(Fluid : region(ispace(int3d), Fluid_columns),
+                                         Grid_xBnum : int32, Grid_xNum : int32,
+                                         Grid_yBnum : int32, Grid_yNum : int32,
+                                         Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.pressure), writes(Fluid.pressure), reads(Fluid.pressureBoundary), reads(Fluid.temperature), writes(Fluid.temperature), reads(Fluid.temperatureBoundary)
+  reads(Fluid.{pressureBoundary, temperatureBoundary}),
+  writes(Fluid.{pressure, temperature})
 do
   __demand(__openmp)
   for c in Fluid do
@@ -855,9 +977,18 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_UpdateGhostFieldsStep1(Fluid : region(ispace(int3d), Fluid_columns), BC_xNegTemperature : double, BC_xNegVelocity : double[3], BC_xPosTemperature : double, BC_xPosVelocity : double[3], BC_xSign : double[3], BC_yNegTemperature : double, BC_yNegVelocity : double[3], BC_yPosTemperature : double, BC_yPosVelocity : double[3], BC_ySign : double[3], BC_zNegTemperature : double, BC_zNegVelocity : double[3], BC_zPosTemperature : double, BC_zPosVelocity : double[3], BC_zSign : double[3], Flow_gamma : double, Flow_gasConstant : double, Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_UpdateGhostFieldsStep1(Fluid : region(ispace(int3d), Fluid_columns),
+                                 BC_xNegTemperature : double, BC_xNegVelocity : double[3], BC_xPosTemperature : double, BC_xPosVelocity : double[3], BC_xSign : double[3],
+                                 BC_yNegTemperature : double, BC_yNegVelocity : double[3], BC_yPosTemperature : double, BC_yPosVelocity : double[3], BC_ySign : double[3],
+                                 BC_zNegTemperature : double, BC_zNegVelocity : double[3], BC_zPosTemperature : double, BC_zPosVelocity : double[3], BC_zSign : double[3],
+                                 Flow_gamma : double,
+                                 Flow_gasConstant : double,
+                                 Grid_xBnum : int32, Grid_xNum : int32,
+                                 Grid_yBnum : int32, Grid_yNum : int32,
+                                 Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.pressure), reads(Fluid.pressureBoundary), writes(Fluid.pressureBoundary), reads(Fluid.rho), reads(Fluid.rhoBoundary), writes(Fluid.rhoBoundary), reads(Fluid.rhoEnergyBoundary), writes(Fluid.rhoEnergyBoundary), reads(Fluid.rhoVelocity), reads(Fluid.rhoVelocityBoundary), writes(Fluid.rhoVelocityBoundary), reads(Fluid.temperature), reads(Fluid.temperatureBoundary), writes(Fluid.temperatureBoundary), reads(Fluid.velocityBoundary), writes(Fluid.velocityBoundary)
+  reads(Fluid.{rho, rhoVelocity, pressure, temperature}),
+  writes(Fluid.{rhoBoundary, velocityBoundary, pressureBoundary, rhoVelocityBoundary, rhoEnergyBoundary, temperatureBoundary})
 do
   __demand(__openmp)
   for c in Fluid do
@@ -1015,9 +1146,13 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_UpdateGhostFieldsStep2(Fluid : region(ispace(int3d), Fluid_columns), Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_UpdateGhostFieldsStep2(Fluid : region(ispace(int3d), Fluid_columns),
+                                 Grid_xBnum : int32, Grid_xNum : int32,
+                                 Grid_yBnum : int32, Grid_yNum : int32,
+                                 Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.pressure), writes(Fluid.pressure), reads(Fluid.pressureBoundary), reads(Fluid.rho), writes(Fluid.rho), reads(Fluid.rhoBoundary), reads(Fluid.rhoEnergy), writes(Fluid.rhoEnergy), reads(Fluid.rhoEnergyBoundary), reads(Fluid.rhoVelocity), writes(Fluid.rhoVelocity), reads(Fluid.rhoVelocityBoundary), reads(Fluid.temperature), writes(Fluid.temperature), reads(Fluid.temperatureBoundary)
+  reads(Fluid.{rhoBoundary, rhoVelocityBoundary, pressureBoundary, rhoEnergyBoundary, temperatureBoundary}),
+  writes(Fluid.{rho, pressure, rhoEnergy, rhoVelocity, temperature})
 do
   __demand(__openmp)
   for c in Fluid do
@@ -1032,9 +1167,11 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Particles_InitializeDensity(particles : region(ispace(int1d), particles_columns), Particles_density : double)
+task Particles_InitializeDensity(particles : region(ispace(int1d), particles_columns),
+                                 Particles_density : double)
 where
-  reads(particles.density), writes(particles.density), reads(particles.__valid)
+  reads(particles.__valid),
+  writes(particles.density)
 do
   __demand(__openmp)
   for p in particles do
@@ -1060,7 +1197,11 @@ do
 end
 
 __demand(__parallel)
-task CalculateAveragePressure(Fluid : region(ispace(int3d), Fluid_columns), Grid_cellVolume : double, Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32) : double
+task CalculateAveragePressure(Fluid : region(ispace(int3d), Fluid_columns),
+                              Grid_cellVolume : double,
+                              Grid_xBnum : int32, Grid_xNum : int32,
+                              Grid_yBnum : int32, Grid_yNum : int32,
+                              Grid_zBnum : int32, Grid_zNum : int32) : double
 where
   reads(Fluid.pressure)
 do
@@ -1075,7 +1216,11 @@ do
 end
 
 __demand(__parallel)
-task CalculateAverageTemperature(Fluid : region(ispace(int3d), Fluid_columns), Grid_cellVolume : double, Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32) : double
+task CalculateAverageTemperature(Fluid : region(ispace(int3d), Fluid_columns),
+                                 Grid_cellVolume : double,
+                                 Grid_xBnum : int32, Grid_xNum : int32,
+                                 Grid_yBnum : int32, Grid_yNum : int32,
+                                 Grid_zBnum : int32, Grid_zNum : int32) : double
 where
   reads(Fluid.temperature)
 do
@@ -1090,7 +1235,11 @@ do
 end
 
 __demand(__parallel)
-task CalculateAverageKineticEnergy(Fluid : region(ispace(int3d), Fluid_columns), Grid_cellVolume : double, Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32) : double
+task CalculateAverageKineticEnergy(Fluid : region(ispace(int3d), Fluid_columns),
+                                   Grid_cellVolume : double,
+                                   Grid_xBnum : int32, Grid_xNum : int32,
+                                   Grid_yBnum : int32, Grid_yNum : int32,
+                                   Grid_zBnum : int32, Grid_zNum : int32) : double
 where
   reads(Fluid.kineticEnergy)
 do
@@ -1105,7 +1254,10 @@ do
 end
 
 __demand(__parallel)
-task CalculateMinTemperature(Fluid : region(ispace(int3d), Fluid_columns), Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32) : double
+task CalculateMinTemperature(Fluid : region(ispace(int3d), Fluid_columns),
+                             Grid_xBnum : int32, Grid_xNum : int32,
+                             Grid_yBnum : int32, Grid_yNum : int32,
+                             Grid_zBnum : int32, Grid_zNum : int32) : double
 where
   reads(Fluid.temperature)
 do
@@ -1120,7 +1272,10 @@ do
 end
 
 __demand(__parallel)
-task CalculateMaxTemperature(Fluid : region(ispace(int3d), Fluid_columns), Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32) : double
+task CalculateMaxTemperature(Fluid : region(ispace(int3d), Fluid_columns),
+                             Grid_xBnum : int32, Grid_xNum : int32,
+                             Grid_yBnum : int32, Grid_yNum : int32,
+                             Grid_zBnum : int32, Grid_zNum : int32) : double
 where
   reads(Fluid.temperature)
 do
@@ -1137,7 +1292,7 @@ end
 __demand(__parallel)
 task Particles_IntegrateQuantities(particles : region(ispace(int1d), particles_columns)) : double
 where
-  reads(particles.temperature), reads(particles.__valid)
+  reads(particles.{temperature, __valid})
 do
   var acc = 0.0
   __demand(__openmp)
@@ -1152,7 +1307,24 @@ end
 __demand(__parallel, __cuda)
 task Radiation_InitializeCell(Radiation : region(ispace(int3d), Radiation_columns))
 where
-  reads(Radiation.G), writes(Radiation.G), reads(Radiation.I_1), writes(Radiation.I_1), reads(Radiation.I_2), writes(Radiation.I_2), reads(Radiation.I_3), writes(Radiation.I_3), reads(Radiation.I_4), writes(Radiation.I_4), reads(Radiation.I_5), writes(Radiation.I_5), reads(Radiation.I_6), writes(Radiation.I_6), reads(Radiation.I_7), writes(Radiation.I_7), reads(Radiation.I_8), writes(Radiation.I_8), reads(Radiation.Iiter_1), writes(Radiation.Iiter_1), reads(Radiation.Iiter_2), writes(Radiation.Iiter_2), reads(Radiation.Iiter_3), writes(Radiation.Iiter_3), reads(Radiation.Iiter_4), writes(Radiation.Iiter_4), reads(Radiation.Iiter_5), writes(Radiation.Iiter_5), reads(Radiation.Iiter_6), writes(Radiation.Iiter_6), reads(Radiation.Iiter_7), writes(Radiation.Iiter_7), reads(Radiation.Iiter_8), writes(Radiation.Iiter_8), reads(Radiation.S), writes(Radiation.S)
+  reads(Radiation.G), writes(Radiation.G),
+  reads(Radiation.I_1), writes(Radiation.I_1),
+  reads(Radiation.I_2), writes(Radiation.I_2),
+  reads(Radiation.I_3), writes(Radiation.I_3),
+  reads(Radiation.I_4), writes(Radiation.I_4),
+  reads(Radiation.I_5), writes(Radiation.I_5),
+  reads(Radiation.I_6), writes(Radiation.I_6),
+  reads(Radiation.I_7), writes(Radiation.I_7),
+  reads(Radiation.I_8), writes(Radiation.I_8),
+  reads(Radiation.Iiter_1), writes(Radiation.Iiter_1),
+  reads(Radiation.Iiter_2), writes(Radiation.Iiter_2),
+  reads(Radiation.Iiter_3), writes(Radiation.Iiter_3),
+  reads(Radiation.Iiter_4), writes(Radiation.Iiter_4),
+  reads(Radiation.Iiter_5), writes(Radiation.Iiter_5),
+  reads(Radiation.Iiter_6), writes(Radiation.Iiter_6),
+  reads(Radiation.Iiter_7), writes(Radiation.Iiter_7),
+  reads(Radiation.Iiter_8), writes(Radiation.Iiter_8),
+  reads(Radiation.S), writes(Radiation.S)
 do
   __demand(__openmp)
   for c in Radiation do
@@ -1185,9 +1357,14 @@ task GetSoundSpeed(temperature : double, Flow_gamma : double, Flow_gasConstant :
 end
 
 __demand(__parallel)
-task CalculateConvectiveSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns), Flow_gamma : double, Flow_gasConstant : double, Grid_dXYZInverseSquare : double, Grid_xCellWidth : double, Grid_yCellWidth : double, Grid_zCellWidth : double) : double
+task CalculateConvectiveSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
+                                       Flow_gamma : double,
+                                       Flow_gasConstant : double,
+                                       Grid_dXYZInverseSquare : double,
+                                       Grid_xCellWidth : double, Grid_yCellWidth : double, Grid_zCellWidth : double) : double
 where
-  reads(Fluid.convectiveSpectralRadius), writes(Fluid.convectiveSpectralRadius), reads(Fluid.temperature), reads(Fluid.velocity)
+  reads(Fluid.{velocity, temperature}),
+  reads writes(Fluid.convectiveSpectralRadius)
 do
   var acc = -math.huge
   __demand(__openmp)
@@ -1199,7 +1376,11 @@ do
 end
 
 __demand(__inline)
-task GetDynamicViscosity(temperature : double, Flow_constantVisc : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel : SCHEMA.ViscosityModel) : double
+task GetDynamicViscosity(temperature : double,
+                         Flow_constantVisc : double,
+                         Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                         Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                         Flow_viscosityModel : SCHEMA.ViscosityModel) : double
   var viscosity = double(0.0)
   if (Flow_viscosityModel == SCHEMA.ViscosityModel_Constant) then
     viscosity = Flow_constantVisc
@@ -1214,9 +1395,15 @@ task GetDynamicViscosity(temperature : double, Flow_constantVisc : double, Flow_
 end
 
 __demand(__parallel)
-task CalculateViscousSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns), Flow_constantVisc : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel : SCHEMA.ViscosityModel, Grid_dXYZInverseSquare : double) : double
+task CalculateViscousSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
+                                    Flow_constantVisc : double,
+                                    Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                                    Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                                    Flow_viscosityModel : SCHEMA.ViscosityModel,
+                                    Grid_dXYZInverseSquare : double) : double
 where
-  reads(Fluid.rho), reads(Fluid.sgsEddyViscosity), reads(Fluid.temperature), reads(Fluid.viscousSpectralRadius), writes(Fluid.viscousSpectralRadius)
+  reads(Fluid.{rho, temperature, sgsEddyViscosity}),
+  reads writes(Fluid.viscousSpectralRadius)
 do
   var acc = -math.huge
   __demand(__openmp)
@@ -1230,9 +1417,18 @@ do
 end
 
 __demand(__parallel)
-task CalculateHeatConductionSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns), Flow_constantVisc : double, Flow_gamma : double, Flow_gasConstant : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_prandtl : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel : SCHEMA.ViscosityModel, Grid_dXYZInverseSquare : double) : double
+task CalculateHeatConductionSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
+                                           Flow_constantVisc : double,
+                                           Flow_gamma : double,
+                                           Flow_gasConstant : double,
+                                           Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                                           Flow_prandtl : double,
+                                           Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                                           Flow_viscosityModel : SCHEMA.ViscosityModel,
+                                           Grid_dXYZInverseSquare : double) : double
 where
-  reads(Fluid.heatConductionSpectralRadius), writes(Fluid.heatConductionSpectralRadius), reads(Fluid.rho), reads(Fluid.sgsEddyKappa), reads(Fluid.temperature)
+  reads(Fluid.{rho, temperature, sgsEddyKappa}),
+  reads writes(Fluid.heatConductionSpectralRadius)
 do
   var acc = -math.huge
   __demand(__openmp)
@@ -1250,7 +1446,8 @@ end
 __demand(__parallel, __cuda)
 task Flow_InitializeTemporaries(Fluid : region(ispace(int3d), Fluid_columns))
 where
-  reads(Fluid.rho), reads(Fluid.rhoEnergy), reads(Fluid.rhoEnergy_new), writes(Fluid.rhoEnergy_new), reads(Fluid.rhoEnergy_old), writes(Fluid.rhoEnergy_old), reads(Fluid.rhoVelocity), reads(Fluid.rhoVelocity_new), writes(Fluid.rhoVelocity_new), reads(Fluid.rhoVelocity_old), writes(Fluid.rhoVelocity_old), reads(Fluid.rho_new), writes(Fluid.rho_new), reads(Fluid.rho_old), writes(Fluid.rho_old)
+  reads(Fluid.{rho, rhoEnergy, rhoVelocity}),
+  writes(Fluid.{rhoEnergy_new, rhoEnergy_old, rhoVelocity_new, rhoVelocity_old, rho_new, rho_old})
 do
   __demand(__openmp)
   for c in Fluid do
@@ -1266,7 +1463,8 @@ end
 __demand(__parallel, __cuda)
 task Particles_InitializeTemporaries(particles : region(ispace(int1d), particles_columns))
 where
-  reads(particles.position), reads(particles.position_new), writes(particles.position_new), reads(particles.position_old), writes(particles.position_old), reads(particles.temperature), reads(particles.temperature_new), writes(particles.temperature_new), reads(particles.temperature_old), writes(particles.temperature_old), reads(particles.velocity), reads(particles.velocity_new), writes(particles.velocity_new), reads(particles.velocity_old), writes(particles.velocity_old), reads(particles.__valid)
+  reads(particles.{position, velocity, temperature, __valid}),
+  writes(particles.{position_new, position_old, temperature_new, temperature_old, velocity_new, velocity_old})
 do
   __demand(__openmp)
   for p in particles do
@@ -1284,7 +1482,8 @@ end
 __demand(__parallel, __cuda)
 task Flow_InitializeTimeDerivatives(Fluid : region(ispace(int3d), Fluid_columns))
 where
-  reads(Fluid.pressure), reads(Fluid.rhoEnergy), reads(Fluid.rhoEnergy_t), writes(Fluid.rhoEnergy_t), reads(Fluid.rhoEnthalpy), writes(Fluid.rhoEnthalpy), reads(Fluid.rhoVelocity_t), writes(Fluid.rhoVelocity_t), reads(Fluid.rho_t), writes(Fluid.rho_t)
+  reads(Fluid.{pressure, rhoEnergy}),
+  writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t, rhoEnthalpy})
 do
   __demand(__openmp)
   for c in Fluid do
@@ -1298,7 +1497,8 @@ end
 __demand(__parallel, __cuda)
 task Particles_InitializeTimeDerivatives(particles : region(ispace(int1d), particles_columns))
 where
-  reads(particles.position_t), writes(particles.position_t), reads(particles.temperature_t), writes(particles.temperature_t), reads(particles.velocity_t), writes(particles.velocity_t), reads(particles.__valid)
+  reads(particles.__valid),
+  writes(particles.{position_t, velocity_t, temperature_t})
 do
   __demand(__openmp)
   for p in particles do
@@ -1311,9 +1511,14 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_UpdateGhostVelocityGradientStep1(Fluid : region(ispace(int3d), Fluid_columns), BC_xSign : double[3], BC_ySign : double[3], BC_zSign : double[3], Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_UpdateGhostVelocityGradientStep1(Fluid : region(ispace(int3d), Fluid_columns),
+                                           BC_xSign : double[3], BC_ySign : double[3], BC_zSign : double[3],
+                                           Grid_xBnum : int32, Grid_xNum : int32,
+                                           Grid_yBnum : int32, Grid_yNum : int32,
+                                           Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.velocityGradientX), reads(Fluid.velocityGradientXBoundary), writes(Fluid.velocityGradientXBoundary), reads(Fluid.velocityGradientY), reads(Fluid.velocityGradientYBoundary), writes(Fluid.velocityGradientYBoundary), reads(Fluid.velocityGradientZ), reads(Fluid.velocityGradientZBoundary), writes(Fluid.velocityGradientZBoundary)
+  reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ}),
+  writes(Fluid.{velocityGradientXBoundary, velocityGradientYBoundary, velocityGradientZBoundary})
 do
   __demand(__openmp)
   for c in Fluid do
@@ -1369,9 +1574,13 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_UpdateGhostVelocityGradientStep2(Fluid : region(ispace(int3d), Fluid_columns), Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_UpdateGhostVelocityGradientStep2(Fluid : region(ispace(int3d), Fluid_columns),
+                                           Grid_xBnum : int32, Grid_xNum : int32,
+                                           Grid_yBnum : int32, Grid_yNum : int32,
+                                           Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.velocityGradientX), writes(Fluid.velocityGradientX), reads(Fluid.velocityGradientXBoundary), reads(Fluid.velocityGradientY), writes(Fluid.velocityGradientY), reads(Fluid.velocityGradientYBoundary), reads(Fluid.velocityGradientZ), writes(Fluid.velocityGradientZ), reads(Fluid.velocityGradientZBoundary)
+  reads(Fluid.{velocityGradientXBoundary, velocityGradientYBoundary, velocityGradientZBoundary}),
+  writes(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ})
 do
   __demand(__openmp)
   for c in Fluid do
@@ -1384,9 +1593,11 @@ do
 end
 
 __demand(__inline)
-task CenteredInviscidFlux(c_l : int3d, c_r : int3d, Fluid : region(ispace(int3d), Fluid_columns)) : double[5]
+task CenteredInviscidFlux(c_l : int3d,
+                          c_r : int3d,
+                          Fluid : region(ispace(int3d), Fluid_columns)) : double[5]
 where
-  reads(Fluid.pressure), reads(Fluid.rho), reads(Fluid.rhoEnthalpy), reads(Fluid.rhoVelocity), reads(Fluid.velocity)
+  reads(Fluid.{rho, velocity, pressure, rhoVelocity, rhoEnthalpy})
 do
   var rhoFactorDiagonal = double(0.0)
   var rhoVelocityFactorDiagonal = [double[3]](array(0.0, 0.0, 0.0))
@@ -1427,9 +1638,11 @@ do
 end
 
 __demand(__inline)
-task CenteredInviscidFlux_(c_l : int3d, c_r : int3d, Fluid : region(ispace(int3d), Fluid_columns)) : double[5]
+task CenteredInviscidFlux_(c_l : int3d,
+                           c_r : int3d,
+                           Fluid : region(ispace(int3d), Fluid_columns)) : double[5]
 where
-  reads(Fluid.pressure), reads(Fluid.rho), reads(Fluid.rhoEnthalpy), reads(Fluid.rhoVelocity), reads(Fluid.velocity)
+  reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnthalpy})
 do
   var rhoFactorDiagonal = double(0.0)
   var rhoVelocityFactorDiagonal = [double[3]](array(0.0, 0.0, 0.0))
@@ -1470,9 +1683,11 @@ do
 end
 
 __demand(__inline)
-task CenteredInviscidFlux__(c_l : int3d, c_r : int3d, Fluid : region(ispace(int3d), Fluid_columns)) : double[5]
+task CenteredInviscidFlux__(c_l : int3d,
+                            c_r : int3d,
+                            Fluid : region(ispace(int3d), Fluid_columns)) : double[5]
 where
-  reads(Fluid.pressure), reads(Fluid.rho), reads(Fluid.rhoEnthalpy), reads(Fluid.rhoVelocity), reads(Fluid.velocity)
+  reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnthalpy})
 do
   var rhoFactorDiagonal = double(0.0)
   var rhoVelocityFactorDiagonal = [double[3]](array(0.0, 0.0, 0.0))
@@ -1513,9 +1728,23 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_AddGetFlux(Fluid : region(ispace(int3d), Fluid_columns), Flow_constantVisc : double, Flow_gamma : double, Flow_gasConstant : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_prandtl : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel : SCHEMA.ViscosityModel, Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32, Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32, Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
+task Flow_AddGetFlux(Fluid : region(ispace(int3d), Fluid_columns),
+                     Flow_constantVisc : double,
+                     Flow_gamma : double,
+                     Flow_gasConstant : double,
+                     Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                     Flow_prandtl : double,
+                     Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                     Flow_viscosityModel : SCHEMA.ViscosityModel,
+                     Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
+                     Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
+                     Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
-  reads(Fluid.pressure), reads(Fluid.rho), reads(Fluid.rhoEnergyFluxX), writes(Fluid.rhoEnergyFluxX), reads(Fluid.rhoEnergyFluxX), writes(Fluid.rhoEnergyFluxX), reads(Fluid.rhoEnergyFluxY), writes(Fluid.rhoEnergyFluxY), reads(Fluid.rhoEnergyFluxY), writes(Fluid.rhoEnergyFluxY), reads(Fluid.rhoEnergyFluxZ), writes(Fluid.rhoEnergyFluxZ), reads(Fluid.rhoEnergyFluxZ), writes(Fluid.rhoEnergyFluxZ), reads(Fluid.rhoEnthalpy), reads(Fluid.rhoFluxX), writes(Fluid.rhoFluxX), reads(Fluid.rhoFluxY), writes(Fluid.rhoFluxY), reads(Fluid.rhoFluxZ), writes(Fluid.rhoFluxZ), reads(Fluid.rhoVelocity), reads(Fluid.rhoVelocityFluxX), writes(Fluid.rhoVelocityFluxX), reads(Fluid.rhoVelocityFluxX), writes(Fluid.rhoVelocityFluxX), reads(Fluid.rhoVelocityFluxY), writes(Fluid.rhoVelocityFluxY), reads(Fluid.rhoVelocityFluxY), writes(Fluid.rhoVelocityFluxY), reads(Fluid.rhoVelocityFluxZ), writes(Fluid.rhoVelocityFluxZ), reads(Fluid.rhoVelocityFluxZ), writes(Fluid.rhoVelocityFluxZ), reads(Fluid.temperature), reads(Fluid.velocity), reads(Fluid.velocityGradientX), reads(Fluid.velocityGradientY), reads(Fluid.velocityGradientZ)
+  reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnthalpy, temperature}),
+  reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ}),
+  reads writes(Fluid.{rhoEnergyFluxX, rhoEnergyFluxY, rhoEnergyFluxZ}),
+  reads writes(Fluid.{rhoFluxX, rhoFluxY, rhoFluxZ}),
+  reads writes(Fluid.{rhoVelocityFluxX, rhoVelocityFluxY, rhoVelocityFluxZ})
 do
   __demand(__openmp)
   for c in Fluid do
@@ -1646,9 +1875,15 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_AddUpdateUsingFlux(Fluid : region(ispace(int3d), Fluid_columns), Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32, Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32, Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
+task Flow_AddUpdateUsingFlux(Fluid : region(ispace(int3d), Fluid_columns),
+                             Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
+                             Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
+                             Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
-  reads(Fluid.rhoEnergyFluxX), reads(Fluid.rhoEnergyFluxY), reads(Fluid.rhoEnergyFluxZ), reads(Fluid.rhoEnergy_t), writes(Fluid.rhoEnergy_t), reads(Fluid.rhoFluxX), reads(Fluid.rhoFluxY), reads(Fluid.rhoFluxZ), reads(Fluid.rhoVelocityFluxX), reads(Fluid.rhoVelocityFluxY), reads(Fluid.rhoVelocityFluxZ), reads(Fluid.rhoVelocity_t), writes(Fluid.rhoVelocity_t), reads(Fluid.rho_t), writes(Fluid.rho_t)
+  reads(Fluid.{rhoFluxX, rhoFluxY, rhoFluxZ}),
+  reads(Fluid.{rhoVelocityFluxX, rhoVelocityFluxY, rhoVelocityFluxZ}),
+  reads(Fluid.{rhoEnergyFluxX, rhoEnergyFluxY, rhoEnergyFluxZ}),
+  reads writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
   __demand(__openmp)
   for c in Fluid do
@@ -1682,9 +1917,14 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_AddBodyForces(Fluid : region(ispace(int3d), Fluid_columns), Flow_bodyForce : double[3], Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_AddBodyForces(Fluid : region(ispace(int3d), Fluid_columns),
+                        Flow_bodyForce : double[3],
+                        Grid_xBnum : int32, Grid_xNum : int32,
+                        Grid_yBnum : int32, Grid_yNum : int32,
+                        Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.rho), reads(Fluid.rhoEnergy_t), writes(Fluid.rhoEnergy_t), reads(Fluid.rhoVelocity_t), writes(Fluid.rhoVelocity_t), reads(Fluid.velocity)
+  reads(Fluid.{rho, velocity}),
+  reads writes(Fluid.{rhoEnergy_t, rhoVelocity_t})
 do
   __demand(__openmp)
   for c in Fluid do
@@ -1701,9 +1941,13 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_UpdatePD(Fluid : region(ispace(int3d), Fluid_columns), Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_UpdatePD(Fluid : region(ispace(int3d), Fluid_columns),
+                   Grid_xBnum : int32, Grid_xNum : int32,
+                   Grid_yBnum : int32, Grid_yNum : int32,
+                   Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.PD), writes(Fluid.PD), reads(Fluid.pressure), reads(Fluid.velocityGradientX), reads(Fluid.velocityGradientY), reads(Fluid.velocityGradientZ)
+  reads(Fluid.{pressure, velocityGradientX, velocityGradientY, velocityGradientZ}),
+  reads writes(Fluid.PD)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -1718,7 +1962,7 @@ end
 __demand(__parallel, __cuda)
 task Flow_ResetDissipation(Fluid : region(ispace(int3d), Fluid_columns))
 where
-  reads(Fluid.dissipation), writes(Fluid.dissipation)
+  writes(Fluid.dissipation)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -1727,9 +1971,17 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_ComputeDissipationX(Fluid : region(ispace(int3d), Fluid_columns), Flow_constantVisc : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel : SCHEMA.ViscosityModel, Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_ComputeDissipationX(Fluid : region(ispace(int3d), Fluid_columns),
+                              Flow_constantVisc : double,
+                              Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                              Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                              Flow_viscosityModel : SCHEMA.ViscosityModel,
+                              Grid_xBnum : int32, Grid_xNum : int32, Grid_xCellWidth : double,
+                              Grid_yBnum : int32, Grid_yNum : int32,
+                              Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.dissipationFlux), writes(Fluid.dissipationFlux), reads(Fluid.temperature), reads(Fluid.velocity), reads(Fluid.velocityGradientY), reads(Fluid.velocityGradientZ)
+  reads(Fluid.{velocity, temperature, velocityGradientY, velocityGradientZ}),
+  reads writes(Fluid.dissipationFlux)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -1766,10 +2018,15 @@ do
   end
 end
 
+-- CHANGE to reduces
 __demand(__parallel, __cuda)
-task Flow_UpdateDissipationX(Fluid : region(ispace(int3d), Fluid_columns), Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_UpdateDissipationX(Fluid : region(ispace(int3d), Fluid_columns),
+                             Grid_xBnum : int32, Grid_xNum : int32, Grid_xCellWidth : double,
+                             Grid_yBnum : int32, Grid_yNum : int32,
+                             Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.dissipation), writes(Fluid.dissipation), reads(Fluid.dissipationFlux)
+  reads(Fluid.dissipationFlux),
+  reads writes(Fluid.dissipation)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -1780,9 +2037,17 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_ComputeDissipationY(Fluid : region(ispace(int3d), Fluid_columns), Flow_constantVisc : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel : SCHEMA.ViscosityModel, Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_ComputeDissipationY(Fluid : region(ispace(int3d), Fluid_columns),
+                              Flow_constantVisc : double,
+                              Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                              Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                              Flow_viscosityModel : SCHEMA.ViscosityModel,
+                              Grid_xBnum : int32, Grid_xNum : int32,
+                              Grid_yBnum : int32, Grid_yNum : int32, Grid_yCellWidth : double,
+                              Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.dissipationFlux), writes(Fluid.dissipationFlux), reads(Fluid.temperature), reads(Fluid.velocity), reads(Fluid.velocityGradientX), reads(Fluid.velocityGradientZ)
+  reads(Fluid.{velocity, temperature, velocityGradientX, velocityGradientZ}),
+  reads writes(Fluid.dissipationFlux)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -1820,9 +2085,13 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_UpdateDissipationY(Fluid : region(ispace(int3d), Fluid_columns), Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_UpdateDissipationY(Fluid : region(ispace(int3d), Fluid_columns),
+                             Grid_xBnum : int32, Grid_xNum : int32,
+                             Grid_yBnum : int32, Grid_yNum : int32, Grid_yCellWidth : double,
+                             Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.dissipation), writes(Fluid.dissipation), reads(Fluid.dissipationFlux)
+  reads(Fluid.dissipationFlux),
+  reads writes(Fluid.dissipation)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -1833,9 +2102,17 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_ComputeDissipationZ(Fluid : region(ispace(int3d), Fluid_columns), Flow_constantVisc : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel : SCHEMA.ViscosityModel, Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
+task Flow_ComputeDissipationZ(Fluid : region(ispace(int3d), Fluid_columns),
+                              Flow_constantVisc : double,
+                              Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                              Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                              Flow_viscosityModel : SCHEMA.ViscosityModel,
+                              Grid_xBnum : int32, Grid_xNum : int32,
+                              Grid_yBnum : int32, Grid_yNum : int32,
+                              Grid_zBnum : int32, Grid_zNum : int32, Grid_zCellWidth : double)
 where
-  reads(Fluid.dissipationFlux), writes(Fluid.dissipationFlux), reads(Fluid.temperature), reads(Fluid.velocity), reads(Fluid.velocityGradientX), reads(Fluid.velocityGradientY)
+  reads(Fluid.{velocity, temperature, velocityGradientX, velocityGradientY}),
+  writes(Fluid.dissipationFlux)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -1873,9 +2150,13 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_UpdateDissipationZ(Fluid : region(ispace(int3d), Fluid_columns), Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
+task Flow_UpdateDissipationZ(Fluid : region(ispace(int3d), Fluid_columns),
+                             Grid_xBnum : int32, Grid_xNum : int32,
+                             Grid_yBnum : int32, Grid_yNum : int32,
+                             Grid_zBnum : int32, Grid_zNum : int32, Grid_zCellWidth : double)
 where
-  reads(Fluid.dissipation), writes(Fluid.dissipation), reads(Fluid.dissipationFlux)
+  reads(Fluid.dissipationFlux),
+  reads writes(Fluid.dissipation)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -1886,7 +2167,11 @@ do
 end
 
 __demand(__parallel)
-task CalculateAveragePD(Fluid : region(ispace(int3d), Fluid_columns), Grid_cellVolume : double, Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32) : double
+task CalculateAveragePD(Fluid : region(ispace(int3d), Fluid_columns),
+                        Grid_cellVolume : double,
+                        Grid_xBnum : int32, Grid_xNum : int32,
+                        Grid_yBnum : int32, Grid_yNum : int32,
+                        Grid_zBnum : int32, Grid_zNum : int32) : double
 where
   reads(Fluid.PD)
 do
@@ -1901,7 +2186,11 @@ do
 end
 
 __demand(__parallel)
-task CalculateAverageDissipation(Fluid : region(ispace(int3d), Fluid_columns), Grid_cellVolume : double, Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32) : double
+task CalculateAverageDissipation(Fluid : region(ispace(int3d), Fluid_columns),
+                                 Grid_cellVolume : double,
+                                 Grid_xBnum : int32, Grid_xNum : int32,
+                                 Grid_yBnum : int32, Grid_yNum : int32,
+                                 Grid_zBnum : int32, Grid_zNum : int32) : double
 where
   reads(Fluid.dissipation)
 do
@@ -1916,9 +2205,13 @@ do
 end
 
 __demand(__parallel)
-task CalculateAverageK(Fluid : region(ispace(int3d), Fluid_columns), Grid_cellVolume : double, Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32) : double
+task CalculateAverageK(Fluid : region(ispace(int3d), Fluid_columns),
+                       Grid_cellVolume : double,
+                       Grid_xBnum : int32, Grid_xNum : int32,
+                       Grid_yBnum : int32, Grid_yNum : int32,
+                       Grid_zBnum : int32, Grid_zNum : int32) : double
 where
-  reads(Fluid.rho), reads(Fluid.velocity)
+  reads(Fluid.{rho, velocity})
 do
   var acc = 0.0
   __demand(__openmp)
@@ -1931,9 +2224,17 @@ do
 end
 
 __demand(__parallel)
-task Flow_AddTurbulentSource(Fluid : region(ispace(int3d), Fluid_columns), Flow_averageDissipation : double, Flow_averageK : double, Flow_averagePD : double, Grid_cellVolume : double, Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32) : double
+task Flow_AddTurbulentSource(Fluid : region(ispace(int3d), Fluid_columns),
+                             Flow_averageDissipation : double,
+                             Flow_averageK : double,
+                             Flow_averagePD : double,
+                             Grid_cellVolume : double,
+                             Grid_xBnum : int32, Grid_xNum : int32,
+                             Grid_yBnum : int32, Grid_yNum : int32,
+                             Grid_zBnum : int32, Grid_zNum : int32) : double
 where
-  reads(Fluid.rho), reads(Fluid.rhoEnergy_t), writes(Fluid.rhoEnergy_t), reads(Fluid.rhoVelocity_t), writes(Fluid.rhoVelocity_t), reads(Fluid.velocity)
+  reads(Fluid.{rho, velocity}),
+  reads writes(Fluid.{rhoVelocity_t, rhoEnergy_t})
 do
   var acc = 0.0
   __demand(__openmp)
@@ -1964,10 +2265,15 @@ do
   return acc
 end
 
+-- CHANGE to reduces+?
 __demand(__parallel, __cuda)
-task Flow_AdjustTurbulentSource(Fluid : region(ispace(int3d), Fluid_columns), Flow_averageFe : double, Grid_xBnum : int32, Grid_xNum : int32, Grid_yBnum : int32, Grid_yNum : int32, Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_AdjustTurbulentSource(Fluid : region(ispace(int3d), Fluid_columns),
+                                Flow_averageFe : double,
+                                Grid_xBnum : int32, Grid_xNum : int32,
+                                Grid_yBnum : int32, Grid_yNum : int32,
+                                Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.rhoEnergy_t), writes(Fluid.rhoEnergy_t)
+  reads writes(Fluid.rhoEnergy_t)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -1978,7 +2284,11 @@ do
 end
 
 __demand(__inline)
-task locate(pos : double[3], BC_xBCPeriodic : bool, BC_yBCPeriodic : bool, BC_zBCPeriodic : bool, Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double, Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double, Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double) : int3d
+task locate(pos : double[3],
+            BC_xBCPeriodic : bool, BC_yBCPeriodic : bool, BC_zBCPeriodic : bool,
+            Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
+            Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
+            Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double) : int3d
   var xcw = (Grid_xWidth/double(Grid_xNum))
   var xro = (Grid_xOrigin-(double(Grid_xBnum)*xcw))
   var xpos = ((pos[0]-xro)/xcw)
@@ -2013,9 +2323,14 @@ task locate(pos : double[3], BC_xBCPeriodic : bool, BC_yBCPeriodic : bool, BC_zB
 end
 
 __demand(__cuda)
-task Particles_LocateInCells(particles : region(ispace(int1d), particles_columns), BC_xBCPeriodic : bool, BC_yBCPeriodic : bool, BC_zBCPeriodic : bool, Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double, Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double, Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
+task Particles_LocateInCells(particles : region(ispace(int1d), particles_columns),
+                             BC_xBCPeriodic : bool, BC_yBCPeriodic : bool, BC_zBCPeriodic : bool,
+                             Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
+                             Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
+                             Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
 where
-  reads(particles.cell), writes(particles.cell), reads(particles.position), reads(particles.__valid)
+  reads(particles.{position, __valid}),
+  writes(particles.cell)
 do
   __demand(__openmp)
   for p in particles do
@@ -2026,7 +2341,10 @@ do
 end
 
 __demand(__inline)
-task Fluid_elemColor(idx : int3d, xNum : int32, yNum : int32, zNum : int32, xBnum : int32, yBnum : int32, zBnum : int32, NX_ : int32, NY_ : int32, NZ_ : int32) : int3d
+task Fluid_elemColor(idx : int3d,
+                     xNum  : int32, yNum  : int32, zNum  : int32,
+                     xBnum : int32, yBnum : int32, zBnum : int32,
+                     NX_   : int32, NY_   : int32, NZ_   : int32) : int3d
   idx.x = min(max(idx.x, xBnum), ((xNum+xBnum)-1))
   idx.y = min(max(idx.y, yBnum), ((yNum+yBnum)-1))
   idx.z = min(max(idx.z, zBnum), ((zNum+zBnum)-1))
@@ -2055,9 +2373,66 @@ terra particles_getOffset() : int64
   return [&int8](&x.__valid) - [&int8](&x)
 end
 
-task particles_pushAll(partColor : int3d, r : region(ispace(int1d), particles_columns), q0 : region(ispace(int1d), int8[376]), q1 : region(ispace(int1d), int8[376]), q2 : region(ispace(int1d), int8[376]), q3 : region(ispace(int1d), int8[376]), q4 : region(ispace(int1d), int8[376]), q5 : region(ispace(int1d), int8[376]), q6 : region(ispace(int1d), int8[376]), q7 : region(ispace(int1d), int8[376]), q8 : region(ispace(int1d), int8[376]), q9 : region(ispace(int1d), int8[376]), q10 : region(ispace(int1d), int8[376]), q11 : region(ispace(int1d), int8[376]), q12 : region(ispace(int1d), int8[376]), q13 : region(ispace(int1d), int8[376]), q14 : region(ispace(int1d), int8[376]), q15 : region(ispace(int1d), int8[376]), q16 : region(ispace(int1d), int8[376]), q17 : region(ispace(int1d), int8[376]), q18 : region(ispace(int1d), int8[376]), q19 : region(ispace(int1d), int8[376]), q20 : region(ispace(int1d), int8[376]), q21 : region(ispace(int1d), int8[376]), q22 : region(ispace(int1d), int8[376]), q23 : region(ispace(int1d), int8[376]), q24 : region(ispace(int1d), int8[376]), q25 : region(ispace(int1d), int8[376]), rngXNum : int32, rngYNum : int32, rngZNum : int32, rngXbnum : int32, rngYbnum : int32, rngZbnum : int32, NX_ : int32, NY_ : int32, NZ_ : int32)
+task particles_pushAll(partColor : int3d, 
+                       r : region(ispace(int1d), particles_columns),
+                       q0 : region(ispace(int1d), int8[376]),
+                       q1 : region(ispace(int1d), int8[376]),
+                       q2 : region(ispace(int1d), int8[376]),
+                       q3 : region(ispace(int1d), int8[376]),
+                       q4 : region(ispace(int1d), int8[376]),
+                       q5 : region(ispace(int1d), int8[376]),
+                       q6 : region(ispace(int1d), int8[376]),
+                       q7 : region(ispace(int1d), int8[376]),
+                       q8 : region(ispace(int1d), int8[376]),
+                       q9 : region(ispace(int1d), int8[376]),
+                       q10 : region(ispace(int1d), int8[376]),
+                       q11 : region(ispace(int1d), int8[376]),
+                       q12 : region(ispace(int1d), int8[376]),
+                       q13 : region(ispace(int1d), int8[376]),
+                       q14 : region(ispace(int1d), int8[376]),
+                       q15 : region(ispace(int1d), int8[376]),
+                       q16 : region(ispace(int1d), int8[376]),
+                       q17 : region(ispace(int1d), int8[376]),
+                       q18 : region(ispace(int1d), int8[376]),
+                       q19 : region(ispace(int1d), int8[376]),
+                       q20 : region(ispace(int1d), int8[376]),
+                       q21 : region(ispace(int1d), int8[376]),
+                       q22 : region(ispace(int1d), int8[376]),
+                       q23 : region(ispace(int1d), int8[376]),
+                       q24 : region(ispace(int1d), int8[376]),
+                       q25 : region(ispace(int1d), int8[376]),
+                       rngXNum : int32,  rngYNum  : int32, rngZNum  : int32,
+                       rngXbnum : int32, rngYbnum : int32, rngZbnum : int32,
+                       NX_ : int32, NY_ : int32, NZ_ : int32)
 where
-  reads(r), writes(r.__valid), reads(q0), writes(q0), reads(q1), writes(q1), reads(q2), writes(q2), reads(q3), writes(q3), reads(q4), writes(q4), reads(q5), writes(q5), reads(q6), writes(q6), reads(q7), writes(q7), reads(q8), writes(q8), reads(q9), writes(q9), reads(q10), writes(q10), reads(q11), writes(q11), reads(q12), writes(q12), reads(q13), writes(q13), reads(q14), writes(q14), reads(q15), writes(q15), reads(q16), writes(q16), reads(q17), writes(q17), reads(q18), writes(q18), reads(q19), writes(q19), reads(q20), writes(q20), reads(q21), writes(q21), reads(q22), writes(q22), reads(q23), writes(q23), reads(q24), writes(q24), reads(q25), writes(q25)
+  reads(r),
+  writes(r.__valid),
+  reads writes(q0),
+  reads writes(q1),
+  reads writes(q2),
+  reads writes(q3),
+  reads writes(q4),
+  reads writes(q5),
+  reads writes(q6),
+  reads writes(q7),
+  reads writes(q8),
+  reads writes(q9),
+  reads writes(q10),
+  reads writes(q11),
+  reads writes(q12),
+  reads writes(q13),
+  reads writes(q14),
+  reads writes(q15),
+  reads writes(q16),
+  reads writes(q17),
+  reads writes(q18),
+  reads writes(q19),
+  reads writes(q20),
+  reads writes(q21),
+  reads writes(q22),
+  reads writes(q23),
+  reads writes(q24),
+  reads writes(q25)
 do
   for qPtr in q0 do
     q0[qPtr][368LL] = int8(false)
@@ -2595,9 +2970,62 @@ terra particles_pullElement(src : &int8) : particles_columns
   return dst
 end
 
-task particles_pullAll(color : int3d, r : region(ispace(int1d), particles_columns), q0 : region(ispace(int1d), int8[376]), q1 : region(ispace(int1d), int8[376]), q2 : region(ispace(int1d), int8[376]), q3 : region(ispace(int1d), int8[376]), q4 : region(ispace(int1d), int8[376]), q5 : region(ispace(int1d), int8[376]), q6 : region(ispace(int1d), int8[376]), q7 : region(ispace(int1d), int8[376]), q8 : region(ispace(int1d), int8[376]), q9 : region(ispace(int1d), int8[376]), q10 : region(ispace(int1d), int8[376]), q11 : region(ispace(int1d), int8[376]), q12 : region(ispace(int1d), int8[376]), q13 : region(ispace(int1d), int8[376]), q14 : region(ispace(int1d), int8[376]), q15 : region(ispace(int1d), int8[376]), q16 : region(ispace(int1d), int8[376]), q17 : region(ispace(int1d), int8[376]), q18 : region(ispace(int1d), int8[376]), q19 : region(ispace(int1d), int8[376]), q20 : region(ispace(int1d), int8[376]), q21 : region(ispace(int1d), int8[376]), q22 : region(ispace(int1d), int8[376]), q23 : region(ispace(int1d), int8[376]), q24 : region(ispace(int1d), int8[376]), q25 : region(ispace(int1d), int8[376]))
+task particles_pullAll(color : int3d,
+                       r : region(ispace(int1d), particles_columns),
+                       q0 : region(ispace(int1d), int8[376]),
+                       q1 : region(ispace(int1d), int8[376]),
+                       q2 : region(ispace(int1d), int8[376]),
+                       q3 : region(ispace(int1d), int8[376]),
+                       q4 : region(ispace(int1d), int8[376]),
+                       q5 : region(ispace(int1d), int8[376]),
+                       q6 : region(ispace(int1d), int8[376]),
+                       q7 : region(ispace(int1d), int8[376]),
+                       q8 : region(ispace(int1d), int8[376]),
+                       q9 : region(ispace(int1d), int8[376]),
+                       q10 : region(ispace(int1d), int8[376]),
+                       q11 : region(ispace(int1d), int8[376]),
+                       q12 : region(ispace(int1d), int8[376]),
+                       q13 : region(ispace(int1d), int8[376]),
+                       q14 : region(ispace(int1d), int8[376]),
+                       q15 : region(ispace(int1d), int8[376]),
+                       q16 : region(ispace(int1d), int8[376]),
+                       q17 : region(ispace(int1d), int8[376]),
+                       q18 : region(ispace(int1d), int8[376]),
+                       q19 : region(ispace(int1d), int8[376]),
+                       q20 : region(ispace(int1d), int8[376]),
+                       q21 : region(ispace(int1d), int8[376]),
+                       q22 : region(ispace(int1d), int8[376]),
+                       q23 : region(ispace(int1d), int8[376]),
+                       q24 : region(ispace(int1d), int8[376]),
+                       q25 : region(ispace(int1d), int8[376]))
 where
-  reads(r), writes(r), reads(q0), reads(q1), reads(q2), reads(q3), reads(q4), reads(q5), reads(q6), reads(q7), reads(q8), reads(q9), reads(q10), reads(q11), reads(q12), reads(q13), reads(q14), reads(q15), reads(q16), reads(q17), reads(q18), reads(q19), reads(q20), reads(q21), reads(q22), reads(q23), reads(q24), reads(q25)
+  reads writes(r),
+  reads writes(q0),
+  reads writes(q1),
+  reads writes(q2),
+  reads writes(q3),
+  reads writes(q4),
+  reads writes(q5),
+  reads writes(q6),
+  reads writes(q7),
+  reads writes(q8),
+  reads writes(q9),
+  reads writes(q10),
+  reads writes(q11),
+  reads writes(q12),
+  reads writes(q13),
+  reads writes(q14),
+  reads writes(q15),
+  reads writes(q16),
+  reads writes(q17),
+  reads writes(q18),
+  reads writes(q19),
+  reads writes(q20),
+  reads writes(q21),
+  reads writes(q22),
+  reads writes(q23),
+  reads writes(q24),
+  reads writes(q25)
 do
   for qPtr in q0 do
     if bool(q0[qPtr][368LL]) then
@@ -2966,7 +3394,18 @@ do
 end
 
 __demand(__inline)
-task TrilinearInterpolateVelocity(xyz : double[3], c000 : double[3], c100 : double[3], c010 : double[3], c110 : double[3], c001 : double[3], c101 : double[3], c011 : double[3], c111 : double[3], Grid_xCellWidth : double, Grid_xRealOrigin : double, Grid_yCellWidth : double, Grid_yRealOrigin : double, Grid_zCellWidth : double, Grid_zRealOrigin : double) : double[3]
+task TrilinearInterpolateVelocity(xyz : double[3],
+                                  c000 : double[3],
+                                  c100 : double[3],
+                                  c010 : double[3],
+                                  c110 : double[3],
+                                  c001 : double[3],
+                                  c101 : double[3],
+                                  c011 : double[3],
+                                  c111 : double[3],
+                                  Grid_xCellWidth : double, Grid_xRealOrigin : double,
+                                  Grid_yCellWidth : double, Grid_yRealOrigin : double,
+                                  Grid_zCellWidth : double, Grid_zRealOrigin : double) : double[3]
   var dX = C.fmod((((xyz[0]-Grid_xRealOrigin)/Grid_xCellWidth)+double(0.5)), 1.0)
   var dY = C.fmod((((xyz[1]-Grid_yRealOrigin)/Grid_yCellWidth)+double(0.5)), 1.0)
   var dZ = C.fmod((((xyz[2]-Grid_zRealOrigin)/Grid_zCellWidth)+double(0.5)), 1.0)
@@ -2983,9 +3422,14 @@ task TrilinearInterpolateVelocity(xyz : double[3], c000 : double[3], c100 : doub
 end
 
 __demand(__inline)
-task InterpolateTriVelocity(c : int3d, xyz : double[3], Fluid : region(ispace(int3d), Fluid_columns), Grid_xCellWidth : double, Grid_xRealOrigin : double, Grid_yCellWidth : double, Grid_yRealOrigin : double, Grid_zCellWidth : double, Grid_zRealOrigin : double) : double[3]
+task InterpolateTriVelocity(c : int3d,
+                            xyz : double[3],
+                            Fluid : region(ispace(int3d), Fluid_columns),
+                            Grid_xCellWidth : double, Grid_xRealOrigin : double,
+                            Grid_yCellWidth : double, Grid_yRealOrigin : double,
+                            Grid_zCellWidth : double, Grid_zRealOrigin : double) : double[3]
 where
-  reads(Fluid.centerCoordinates), reads(Fluid.velocity)
+  reads(Fluid.{centerCoordinates, velocity})
 do
   var velocity000 = [double[3]](array(0.0, 0.0, 0.0))
   var velocity100 = [double[3]](array(0.0, 0.0, 0.0))
@@ -3095,7 +3539,18 @@ do
 end
 
 __demand(__inline)
-task TrilinearInterpolateTemp(xyz : double[3], c000 : double, c100 : double, c010 : double, c110 : double, c001 : double, c101 : double, c011 : double, c111 : double, Grid_xCellWidth : double, Grid_xRealOrigin : double, Grid_yCellWidth : double, Grid_yRealOrigin : double, Grid_zCellWidth : double, Grid_zRealOrigin : double) : double
+task TrilinearInterpolateTemp(xyz : double[3],
+                              c000 : double,
+                              c100 : double,
+                              c010 : double,
+                              c110 : double,
+                              c001 : double,
+                              c101 : double,
+                              c011 : double,
+                              c111 : double,
+                              Grid_xCellWidth : double, Grid_xRealOrigin : double,
+                              Grid_yCellWidth : double, Grid_yRealOrigin : double,
+                              Grid_zCellWidth : double, Grid_zRealOrigin : double) : double
   var dX = C.fmod((((xyz[0]-Grid_xRealOrigin)/Grid_xCellWidth)+double(0.5)), 1.0)
   var dY = C.fmod((((xyz[1]-Grid_yRealOrigin)/Grid_yCellWidth)+double(0.5)), 1.0)
   var dZ = C.fmod((((xyz[2]-Grid_zRealOrigin)/Grid_zCellWidth)+double(0.5)), 1.0)
@@ -3112,9 +3567,14 @@ task TrilinearInterpolateTemp(xyz : double[3], c000 : double, c100 : double, c01
 end
 
 __demand(__inline)
-task InterpolateTriTemp(c : int3d, xyz : double[3], Fluid : region(ispace(int3d), Fluid_columns), Grid_xCellWidth : double, Grid_xRealOrigin : double, Grid_yCellWidth : double, Grid_yRealOrigin : double, Grid_zCellWidth : double, Grid_zRealOrigin : double) : double
+task InterpolateTriTemp(c : int3d,
+                        xyz : double[3],
+                        Fluid : region(ispace(int3d), Fluid_columns),
+                        Grid_xCellWidth : double, Grid_xRealOrigin : double,
+                        Grid_yCellWidth : double, Grid_yRealOrigin : double,
+                        Grid_zCellWidth : double, Grid_zRealOrigin : double) : double
 where
-  reads(Fluid.centerCoordinates), reads(Fluid.temperature)
+  reads(Fluid.{centerCoordinates, temperature})
 do
   var temp000 = double(0.0)
   var temp100 = double(0.0)
@@ -3224,9 +3684,21 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Particles_AddFlowCoupling(particles : region(ispace(int1d), particles_columns), Fluid : region(ispace(int3d), Fluid_columns), Flow_constantVisc : double, Flow_powerlawTempRef : double, Flow_powerlawViscRef : double, Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double, Flow_viscosityModel : SCHEMA.ViscosityModel, Grid_xCellWidth : double, Grid_xRealOrigin : double, Grid_yCellWidth : double, Grid_yRealOrigin : double, Grid_zCellWidth : double, Grid_zRealOrigin : double, Particles_convectiveCoeff : double, Particles_heatCapacity : double)
+task Particles_AddFlowCoupling(particles : region(ispace(int1d), particles_columns),
+                               Fluid : region(ispace(int3d), Fluid_columns),
+                               Flow_constantVisc : double,
+                               Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                               Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                               Flow_viscosityModel : SCHEMA.ViscosityModel,
+                               Grid_xCellWidth : double, Grid_xRealOrigin : double,
+                               Grid_yCellWidth : double, Grid_yRealOrigin : double,
+                               Grid_zCellWidth : double, Grid_zRealOrigin : double,
+                               Particles_convectiveCoeff : double,
+                               Particles_heatCapacity : double)
 where
-  reads(Fluid.centerCoordinates), reads(Fluid.temperature), reads(Fluid.velocity), reads(particles.cell), reads(particles.deltaTemperatureTerm), writes(particles.deltaTemperatureTerm), reads(particles.deltaVelocityOverRelaxationTime), writes(particles.deltaVelocityOverRelaxationTime), reads(particles.density), reads(particles.diameter), reads(particles.position), reads(particles.position_t), writes(particles.position_t), reads(particles.temperature), reads(particles.temperature_t), writes(particles.temperature_t), reads(particles.velocity), reads(particles.velocity_t), writes(particles.velocity_t), reads(particles.__valid)
+  reads(Fluid.{centerCoordinates, velocity, temperature}),
+  reads(particles.{cell, position, velocity, diameter, density, temperature, __valid}),
+  reads writes(particles.{position_t, velocity_t, temperature_t, deltaTemperatureTerm, deltaVelocityOverRelaxationTime})
 do
   __demand(__openmp)
   for p in particles do
@@ -3256,9 +3728,11 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Particles_AddBodyForces(particles : region(ispace(int1d), particles_columns), Particles_bodyForce : double[3])
+task Particles_AddBodyForces(particles : region(ispace(int1d), particles_columns),
+                             Particles_bodyForce : double[3])
 where
-  reads(particles.velocity_t), writes(particles.velocity_t), reads(particles.__valid)
+  reads(particles.__valid),
+  reads writes(particles.velocity_t)
 do
   __demand(__openmp)
   for p in particles do
@@ -3276,7 +3750,7 @@ end
 __demand(__parallel, __cuda)
 task Radiation_ClearAccumulators(Radiation : region(ispace(int3d), Radiation_columns))
 where
-  reads(Radiation.acc_d2), writes(Radiation.acc_d2), reads(Radiation.acc_d2t4), writes(Radiation.acc_d2t4)
+  reads writes(Radiation.{acc_d2, acc_d2t4})
 do
   __demand(__openmp)
   for c in Radiation do
@@ -3286,9 +3760,13 @@ do
 end
 
 __demand(__cuda)
-task Radiation_AccumulateParticleValues(particles : region(ispace(int1d), particles_columns), Fluid : region(ispace(int3d), Fluid_columns), Radiation : region(ispace(int3d), Radiation_columns))
+task Radiation_AccumulateParticleValues(particles : region(ispace(int1d), particles_columns),
+                                        Fluid : region(ispace(int3d), Fluid_columns),
+                                        Radiation : region(ispace(int3d), Radiation_columns))
 where
-  reads(Fluid.to_Radiation), reads(Radiation.acc_d2), writes(Radiation.acc_d2), reads(Radiation.acc_d2t4), writes(Radiation.acc_d2t4), reads(particles.cell), reads(particles.diameter), reads(particles.temperature), reads(particles.__valid)
+  reads(Fluid.to_Radiation),
+  reads(particles.{cell, diameter, temperature, __valid}),
+  reads writes(Radiation.{acc_d2, acc_d2t4})
 do
   __demand(__openmp)
   for p in particles do
@@ -3300,9 +3778,13 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Radiation_UpdateFieldValues(Radiation : region(ispace(int3d), Radiation_columns), Radiation_cellVolume : double, Radiation_qa : double, Radiation_qs : double)
+task Radiation_UpdateFieldValues(Radiation : region(ispace(int3d), Radiation_columns),
+                                 Radiation_cellVolume : double,
+                                 Radiation_qa : double,
+                                 Radiation_qs : double)
 where
-  reads(Radiation.Ib), writes(Radiation.Ib), reads(Radiation.acc_d2), reads(Radiation.acc_d2t4), reads(Radiation.sigma), writes(Radiation.sigma)
+  reads writes(Radiation.{Ib, sigma}),
+  reads(Radiation.{acc_d2, acc_d2t4})
 do
   __demand(__openmp)
   for c in Radiation do
@@ -3316,9 +3798,16 @@ do
 end
 
 __demand(__cuda)
-task Particles_AbsorbRadiation(particles : region(ispace(int1d), particles_columns), Fluid : region(ispace(int3d), Fluid_columns), Radiation : region(ispace(int3d), Radiation_columns), Particles_heatCapacity : double, Radiation_qa : double)
+task Particles_AbsorbRadiation(particles : region(ispace(int1d), particles_columns),
+                               Fluid : region(ispace(int3d), Fluid_columns),
+                               Radiation : region(ispace(int3d), Radiation_columns),
+                               Particles_heatCapacity : double,
+                               Radiation_qa : double)
 where
-  reads(Fluid.to_Radiation), reads(Radiation.G), reads(particles.cell), reads(particles.density), reads(particles.diameter), reads(particles.temperature), reads(particles.temperature_t), writes(particles.temperature_t), reads(particles.__valid)
+  reads(Fluid.to_Radiation),
+  reads(Radiation.G),
+  reads(particles.{cell, density, diameter, temperature, __valid}),
+  reads writes(particles.temperature_t)
 do
   __demand(__openmp)
   for p in particles do
@@ -3331,9 +3820,12 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_AddParticlesCoupling(particles : region(ispace(int1d), particles_columns), Fluid : region(ispace(int3d), Fluid_columns), Grid_cellVolume : double)
+task Flow_AddParticlesCoupling(particles : region(ispace(int1d), particles_columns),
+                               Fluid : region(ispace(int3d), Fluid_columns),
+                               Grid_cellVolume : double)
 where
-  reads(Fluid.rhoEnergy_t), writes(Fluid.rhoEnergy_t), reads(Fluid.rhoVelocity_t), writes(Fluid.rhoVelocity_t), reads(particles.cell), reads(particles.deltaTemperatureTerm), reads(particles.deltaVelocityOverRelaxationTime), reads(particles.density), reads(particles.diameter), reads(particles.__valid)
+  reads writes(Fluid.{rhoVelocity_t, rhoEnergy_t}),
+  reads(particles.{cell, diameter, density, deltaTemperatureTerm, deltaVelocityOverRelaxationTime, __valid})
 do
   __demand(__openmp)
   for p in particles do
@@ -3350,9 +3842,17 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_UpdateVars(Fluid : region(ispace(int3d), Fluid_columns), Integrator_deltaTime : double, Integrator_stage : int32)
+task Flow_UpdateVars(Fluid : region(ispace(int3d), Fluid_columns),
+                     Integrator_deltaTime : double,
+                     Integrator_stage : int32)
 where
-  reads(Fluid.rho), writes(Fluid.rho), reads(Fluid.rhoEnergy), writes(Fluid.rhoEnergy), reads(Fluid.rhoEnergy_new), reads(Fluid.rhoEnergy_new), writes(Fluid.rhoEnergy_new), reads(Fluid.rhoEnergy_old), reads(Fluid.rhoEnergy_t), reads(Fluid.rhoVelocity), writes(Fluid.rhoVelocity), reads(Fluid.rhoVelocity_new), reads(Fluid.rhoVelocity_new), writes(Fluid.rhoVelocity_new), reads(Fluid.rhoVelocity_old), reads(Fluid.rhoVelocity_t), reads(Fluid.rho_new), reads(Fluid.rho_new), writes(Fluid.rho_new), reads(Fluid.rho_old), reads(Fluid.rho_t)
+  reads(Fluid.{rhoEnergy_old, rhoEnergy_new}),
+  reads(Fluid.{rhoVelocity_old, rhoVelocity_new}),
+  reads(Fluid.{rho_old, rho_new}),
+  reads(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t}),
+  reads writes(Fluid.{rho, rho_new}),
+  reads writes(Fluid.{rhoEnergy, rhoEnergy_new}),
+  reads writes(Fluid.{rhoVelocity, rhoVelocity_new})
 do
   __demand(__openmp)
   for c in Fluid do
@@ -3406,9 +3906,15 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Particles_UpdateVars(particles : region(ispace(int1d), particles_columns), Integrator_deltaTime : double, Integrator_stage : int32)
+task Particles_UpdateVars(particles : region(ispace(int1d), particles_columns),
+                          Integrator_deltaTime : double,
+                          Integrator_stage : int32)
 where
-  reads(particles.position), writes(particles.position), reads(particles.position_new), reads(particles.position_new), writes(particles.position_new), reads(particles.position_old), reads(particles.position_t), reads(particles.temperature), writes(particles.temperature), reads(particles.temperature_new), reads(particles.temperature_new), writes(particles.temperature_new), reads(particles.temperature_old), reads(particles.temperature_t), reads(particles.velocity), writes(particles.velocity), reads(particles.velocity_new), reads(particles.velocity_new), writes(particles.velocity_new), reads(particles.velocity_old), reads(particles.velocity_t), reads(particles.__valid)
+  reads(particles.{position_old, velocity_old, temperature_old}),
+  reads(particles.{position_t, velocity_t, temperature_t, __valid}),
+  reads writes(particles.{position, position_new}),
+  reads writes(particles.{temperature, temperature_new}),
+  reads writes(particles.{velocity, velocity_new})
 do
   __demand(__openmp)
   for p in particles do
@@ -3479,9 +3985,17 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Particles_UpdateAuxiliaryStep1(particles : region(ispace(int1d), particles_columns), BC_xBCLeftParticles : int32, BC_xBCRightParticles : int32, BC_yBCLeftParticles : int32, BC_yBCRightParticles : int32, BC_zBCLeftParticles : int32, BC_zBCRightParticles : int32, Grid_xOrigin : double, Grid_xWidth : double, Grid_yOrigin : double, Grid_yWidth : double, Grid_zOrigin : double, Grid_zWidth : double, Particles_restitutionCoeff : double)
+task Particles_UpdateAuxiliaryStep1(particles : region(ispace(int1d), particles_columns),
+                                    BC_xBCLeftParticles : int32, BC_xBCRightParticles : int32,
+                                    BC_yBCLeftParticles : int32, BC_yBCRightParticles : int32,
+                                    BC_zBCLeftParticles : int32, BC_zBCRightParticles : int32,
+                                    Grid_xOrigin : double, Grid_xWidth : double,
+                                    Grid_yOrigin : double, Grid_yWidth : double,
+                                    Grid_zOrigin : double, Grid_zWidth : double,
+                                    Particles_restitutionCoeff : double)
 where
-  reads(particles.position), reads(particles.position_ghost), writes(particles.position_ghost), reads(particles.velocity), reads(particles.velocity_ghost), writes(particles.velocity_ghost), reads(particles.velocity_ghost), writes(particles.velocity_ghost), reads(particles.velocity_t), reads(particles.velocity_t_ghost), writes(particles.velocity_t_ghost), reads(particles.velocity_t_ghost), writes(particles.velocity_t_ghost), reads(particles.__valid)
+  reads(particles.{position, velocity, velocity_t, __valid}),
+  reads writes(particles.{position_ghost, velocity_ghost, velocity_t_ghost})
 do
   __demand(__openmp)
   for p in particles do
@@ -3592,7 +4106,8 @@ end
 __demand(__parallel, __cuda)
 task Particles_UpdateAuxiliaryStep2(particles : region(ispace(int1d), particles_columns))
 where
-  reads(particles.position), writes(particles.position), reads(particles.position_ghost), reads(particles.velocity), writes(particles.velocity), reads(particles.velocity_ghost), reads(particles.velocity_t), writes(particles.velocity_t), reads(particles.velocity_t_ghost), reads(particles.__valid)
+  reads(particles.{position_ghost, velocity_ghost, velocity_t_ghost, __valid}),
+  reads writes(particles.{position, velocity, velocity_t})
 do
   __demand(__openmp)
   for p in particles do
@@ -3604,9 +4119,13 @@ do
   end
 end
 
-task Particles_DeleteEscapingParticles(particles : region(ispace(int1d), particles_columns), Grid_xRealOrigin : double, Grid_xRealWidth : double, Grid_yRealOrigin : double, Grid_yRealWidth : double, Grid_zRealOrigin : double, Grid_zRealWidth : double) : int64
+task Particles_DeleteEscapingParticles(particles : region(ispace(int1d), particles_columns),
+                                       Grid_xRealOrigin : double, Grid_xRealWidth : double,
+                                       Grid_yRealOrigin : double, Grid_yRealWidth : double,
+                                       Grid_zRealOrigin : double, Grid_zRealWidth : double) : int64
 where
-  reads(particles.position), reads(particles.__valid), writes(particles.__valid), reads(particles.__valid)
+  reads(particles.position),
+  reads writes(particles.__valid)
 do
   var acc = int64(0)
   __demand(__openmp)
