@@ -2373,7 +2373,7 @@ terra particles_getOffset() : int64
   return [&int8](&x.__valid) - [&int8](&x)
 end
 
-task particles_pushAll(partColor : int3d, 
+task particles_pushAll(partColor : int3d,
                        r : region(ispace(int1d), particles_columns),
                        q0 : region(ispace(int1d), int8[376]),
                        q1 : region(ispace(int1d), int8[376]),
@@ -3431,111 +3431,132 @@ task InterpolateTriVelocity(c : int3d,
 where
   reads(Fluid.{centerCoordinates, velocity})
 do
-  var velocity000 = [double[3]](array(0.0, 0.0, 0.0))
-  var velocity100 = [double[3]](array(0.0, 0.0, 0.0))
-  var velocity010 = [double[3]](array(0.0, 0.0, 0.0))
-  var velocity110 = [double[3]](array(0.0, 0.0, 0.0))
-  var velocity001 = [double[3]](array(0.0, 0.0, 0.0))
-  var velocity101 = [double[3]](array(0.0, 0.0, 0.0))
-  var velocity011 = [double[3]](array(0.0, 0.0, 0.0))
-  var velocity111 = [double[3]](array(0.0, 0.0, 0.0))
-  var velocity0 = Fluid[c].velocity
+  var i000 = Fluid[c].velocity
+  var i001 = Fluid[((c+{ 0, 0, 1})%Fluid.bounds)].velocity
+  var i00_ = Fluid[((c+{ 0, 0,-1})%Fluid.bounds)].velocity
+  var i010 = Fluid[((c+{ 0, 1, 0})%Fluid.bounds)].velocity
+  var i011 = Fluid[((c+{ 0, 1, 1})%Fluid.bounds)].velocity
+  var i01_ = Fluid[((c+{ 0, 1,-1})%Fluid.bounds)].velocity
+  var i0_0 = Fluid[((c+{ 0,-1, 0})%Fluid.bounds)].velocity
+  var i0_1 = Fluid[((c+{ 0,-1, 1})%Fluid.bounds)].velocity
+  var i0__ = Fluid[((c+{ 0,-1,-1})%Fluid.bounds)].velocity
+
+  var i100 = Fluid[((c+{ 1, 0, 0})%Fluid.bounds)].velocity
+  var i101 = Fluid[((c+{ 1, 0, 1})%Fluid.bounds)].velocity
+  var i10_ = Fluid[((c+{ 1, 0,-1})%Fluid.bounds)].velocity
+  var i110 = Fluid[((c+{ 1, 1, 0})%Fluid.bounds)].velocity
+  var i111 = Fluid[((c+{ 1, 1, 1})%Fluid.bounds)].velocity
+  var i11_ = Fluid[((c+{ 1, 1,-1})%Fluid.bounds)].velocity
+  var i1_0 = Fluid[((c+{ 1,-1, 0})%Fluid.bounds)].velocity
+  var i1_1 = Fluid[((c+{ 1,-1, 1})%Fluid.bounds)].velocity
+  var i1__ = Fluid[((c+{ 1,-1,-1})%Fluid.bounds)].velocity
+
+  var i_00 = Fluid[((c+{-1, 0, 0})%Fluid.bounds)].velocity
+  var i_01 = Fluid[((c+{-1, 0, 1})%Fluid.bounds)].velocity
+  var i_0_ = Fluid[((c+{-1, 0,-1})%Fluid.bounds)].velocity
+  var i_10 = Fluid[((c+{-1, 1, 0})%Fluid.bounds)].velocity
+  var i_11 = Fluid[((c+{-1, 1, 1})%Fluid.bounds)].velocity
+  var i_1_ = Fluid[((c+{-1, 1,-1})%Fluid.bounds)].velocity
+  var i__0 = Fluid[((c+{-1,-1, 0})%Fluid.bounds)].velocity
+  var i__1 = Fluid[((c+{-1,-1, 1})%Fluid.bounds)].velocity
+  var i___ = Fluid[((c+{-1,-1,-1})%Fluid.bounds)].velocity
+
+  var v000 = array(0.0, 0.0, 0.0)
+  var v001 = array(0.0, 0.0, 0.0)
+  var v010 = array(0.0, 0.0, 0.0)
+  var v011 = array(0.0, 0.0, 0.0)
+  var v100 = array(0.0, 0.0, 0.0)
+  var v101 = array(0.0, 0.0, 0.0)
+  var v110 = array(0.0, 0.0, 0.0)
+  var v111 = array(0.0, 0.0, 0.0)
+
   if (xyz[0]>Fluid[c].centerCoordinates[0]) then
-    var velocityb = Fluid[((c+{1, 0, 0})%Fluid.bounds)].velocity
     if (xyz[1]>Fluid[c].centerCoordinates[1]) then
-      var velocityaa = Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocity
-      var velocityab = Fluid[((c+{1, 1, 0})%Fluid.bounds)].velocity
       if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        velocity000 = velocity0
-        velocity100 = velocityb
-        velocity010 = velocityaa
-        velocity110 = velocityab
-        velocity001 = Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity
-        velocity101 = Fluid[((c+{1, 0, 1})%Fluid.bounds)].velocity
-        velocity011 = Fluid[((c+{0, 1, 1})%Fluid.bounds)].velocity
-        velocity111 = Fluid[((c+{1, 1, 1})%Fluid.bounds)].velocity
+        v000 = i000
+        v001 = i001
+        v010 = i010
+        v011 = i011
+        v100 = i100
+        v101 = i101
+        v110 = i110
+        v111 = i111
       else
-        velocity000 = Fluid[((c+{0, 0, -1})%Fluid.bounds)].velocity
-        velocity100 = Fluid[((c+{1, 0, -1})%Fluid.bounds)].velocity
-        velocity010 = Fluid[((c+{0, 1, -1})%Fluid.bounds)].velocity
-        velocity110 = Fluid[((c+{1, 1, -1})%Fluid.bounds)].velocity
-        velocity001 = velocity0
-        velocity101 = velocityb
-        velocity011 = velocityaa
-        velocity111 = velocityab
+        v000 = i00_
+        v001 = i000
+        v010 = i01_
+        v011 = i010
+        v100 = i10_
+        v101 = i100
+        v110 = i11_
+        v111 = i110
       end
     else
-      var velocityaa = Fluid[((c+{0, -1, 0})%Fluid.bounds)].velocity
-      var velocityab = Fluid[((c+{1, -1, 0})%Fluid.bounds)].velocity
       if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        velocity000 = velocityaa
-        velocity100 = velocityab
-        velocity010 = velocity0
-        velocity110 = velocityb
-        velocity001 = Fluid[((c+{0, -1, 1})%Fluid.bounds)].velocity
-        velocity101 = Fluid[((c+{1, -1, 1})%Fluid.bounds)].velocity
-        velocity011 = Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity
-        velocity111 = Fluid[((c+{1, 0, 1})%Fluid.bounds)].velocity
+        v000 = i0_0
+        v001 = i0_1
+        v010 = i000
+        v011 = i001
+        v100 = i1_0
+        v101 = i1_1
+        v110 = i100
+        v111 = i101
       else
-        velocity000 = Fluid[((c+{0, -1, -1})%Fluid.bounds)].velocity
-        velocity100 = Fluid[((c+{1, -1, -1})%Fluid.bounds)].velocity
-        velocity010 = Fluid[((c+{0, 0, -1})%Fluid.bounds)].velocity
-        velocity110 = Fluid[((c+{1, 0, -1})%Fluid.bounds)].velocity
-        velocity001 = velocityaa
-        velocity101 = velocityab
-        velocity011 = velocity0
-        velocity111 = velocityb
+        v000 = i0__
+        v001 = i0_0
+        v010 = i00_
+        v011 = i000
+        v100 = i1__
+        v101 = i1_0
+        v110 = i10_
+        v111 = i100
       end
     end
   else
-    var velocitya = Fluid[((c+{-1, 0, 0})%Fluid.bounds)].velocity
     if (xyz[1]>Fluid[c].centerCoordinates[1]) then
-      var velocityaa = Fluid[((c+{-1, 1, 0})%Fluid.bounds)].velocity
-      var velocityab = Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocity
       if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        velocity000 = velocitya
-        velocity100 = velocity0
-        velocity010 = velocityaa
-        velocity110 = velocityab
-        velocity001 = Fluid[((c+{-1, 0, 1})%Fluid.bounds)].velocity
-        velocity101 = Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity
-        velocity011 = Fluid[((c+{-1, 1, 1})%Fluid.bounds)].velocity
-        velocity111 = Fluid[((c+{0, 1, 1})%Fluid.bounds)].velocity
+        v000 = i_00
+        v001 = i_01
+        v010 = i_10
+        v011 = i_11
+        v100 = i000
+        v101 = i001
+        v110 = i010
+        v111 = i011
       else
-        velocity000 = Fluid[((c+{-1, 0, -1})%Fluid.bounds)].velocity
-        velocity100 = Fluid[((c+{0, 0, -1})%Fluid.bounds)].velocity
-        velocity010 = Fluid[((c+{-1, 1, -1})%Fluid.bounds)].velocity
-        velocity110 = Fluid[((c+{0, 1, -1})%Fluid.bounds)].velocity
-        velocity001 = velocitya
-        velocity101 = velocity0
-        velocity011 = velocityaa
-        velocity111 = velocityab
+        v000 = i_0_
+        v001 = i_00
+        v010 = i_1_
+        v011 = i_10
+        v100 = i00_
+        v101 = i000
+        v110 = i01_
+        v111 = i010
       end
     else
-      var velocityaa = Fluid[((c+{-1, -1, 0})%Fluid.bounds)].velocity
-      var velocityab = Fluid[((c+{0, -1, 0})%Fluid.bounds)].velocity
       if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        velocity000 = velocityaa
-        velocity100 = velocityab
-        velocity010 = velocitya
-        velocity110 = velocity0
-        velocity001 = Fluid[((c+{-1, -1, 1})%Fluid.bounds)].velocity
-        velocity101 = Fluid[((c+{0, -1, 1})%Fluid.bounds)].velocity
-        velocity011 = Fluid[((c+{-1, 0, 1})%Fluid.bounds)].velocity
-        velocity111 = Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity
+        v000 = i__0
+        v001 = i__1
+        v010 = i_00
+        v011 = i_01
+        v100 = i0_0
+        v101 = i0_1
+        v110 = i000
+        v111 = i001
       else
-        velocity000 = Fluid[((c+{-1, -1, -1})%Fluid.bounds)].velocity
-        velocity100 = Fluid[((c+{0, -1, -1})%Fluid.bounds)].velocity
-        velocity010 = Fluid[((c+{-1, 0, -1})%Fluid.bounds)].velocity
-        velocity110 = Fluid[((c+{0, 0, -1})%Fluid.bounds)].velocity
-        velocity001 = velocityaa
-        velocity101 = velocityab
-        velocity011 = velocitya
-        velocity111 = velocity0
+        v000 = i___
+        v001 = i__0
+        v010 = i_0_
+        v011 = i_00
+        v100 = i0__
+        v101 = i0_0
+        v110 = i00_
+        v111 = i000
       end
     end
   end
-  return TrilinearInterpolateVelocity(xyz, velocity000, velocity100, velocity010, velocity110, velocity001, velocity101, velocity011, velocity111, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin)
+
+  return TrilinearInterpolateVelocity(xyz, v000, v100, v010, v110, v001, v101, v011, v111, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin)
 end
 
 __demand(__inline)
@@ -3576,111 +3597,132 @@ task InterpolateTriTemp(c : int3d,
 where
   reads(Fluid.{centerCoordinates, temperature})
 do
-  var temp000 = double(0.0)
-  var temp100 = double(0.0)
-  var temp010 = double(0.0)
-  var temp110 = double(0.0)
-  var temp001 = double(0.0)
-  var temp101 = double(0.0)
-  var temp011 = double(0.0)
-  var temp111 = double(0.0)
-  var temp0 = Fluid[c].temperature
+  var i000 = Fluid[c].temperature
+  var i001 = Fluid[((c+{ 0, 0, 1})%Fluid.bounds)].temperature
+  var i00_ = Fluid[((c+{ 0, 0,-1})%Fluid.bounds)].temperature
+  var i010 = Fluid[((c+{ 0, 1, 0})%Fluid.bounds)].temperature
+  var i011 = Fluid[((c+{ 0, 1, 1})%Fluid.bounds)].temperature
+  var i01_ = Fluid[((c+{ 0, 1,-1})%Fluid.bounds)].temperature
+  var i0_0 = Fluid[((c+{ 0,-1, 0})%Fluid.bounds)].temperature
+  var i0_1 = Fluid[((c+{ 0,-1, 1})%Fluid.bounds)].temperature
+  var i0__ = Fluid[((c+{ 0,-1,-1})%Fluid.bounds)].temperature
+
+  var i100 = Fluid[((c+{ 1, 0, 0})%Fluid.bounds)].temperature
+  var i101 = Fluid[((c+{ 1, 0, 1})%Fluid.bounds)].temperature
+  var i10_ = Fluid[((c+{ 1, 0,-1})%Fluid.bounds)].temperature
+  var i110 = Fluid[((c+{ 1, 1, 0})%Fluid.bounds)].temperature
+  var i111 = Fluid[((c+{ 1, 1, 1})%Fluid.bounds)].temperature
+  var i11_ = Fluid[((c+{ 1, 1,-1})%Fluid.bounds)].temperature
+  var i1_0 = Fluid[((c+{ 1,-1, 0})%Fluid.bounds)].temperature
+  var i1_1 = Fluid[((c+{ 1,-1, 1})%Fluid.bounds)].temperature
+  var i1__ = Fluid[((c+{ 1,-1,-1})%Fluid.bounds)].temperature
+
+  var i_00 = Fluid[((c+{-1, 0, 0})%Fluid.bounds)].temperature
+  var i_01 = Fluid[((c+{-1, 0, 1})%Fluid.bounds)].temperature
+  var i_0_ = Fluid[((c+{-1, 0,-1})%Fluid.bounds)].temperature
+  var i_10 = Fluid[((c+{-1, 1, 0})%Fluid.bounds)].temperature
+  var i_11 = Fluid[((c+{-1, 1, 1})%Fluid.bounds)].temperature
+  var i_1_ = Fluid[((c+{-1, 1,-1})%Fluid.bounds)].temperature
+  var i__0 = Fluid[((c+{-1,-1, 0})%Fluid.bounds)].temperature
+  var i__1 = Fluid[((c+{-1,-1, 1})%Fluid.bounds)].temperature
+  var i___ = Fluid[((c+{-1,-1,-1})%Fluid.bounds)].temperature
+
+  var v000 = 0.0
+  var v001 = 0.0
+  var v010 = 0.0
+  var v011 = 0.0
+  var v100 = 0.0
+  var v101 = 0.0
+  var v110 = 0.0
+  var v111 = 0.0
+
   if (xyz[0]>Fluid[c].centerCoordinates[0]) then
-    var tempb = Fluid[((c+{1, 0, 0})%Fluid.bounds)].temperature
     if (xyz[1]>Fluid[c].centerCoordinates[1]) then
-      var tempaa = Fluid[((c+{0, 1, 0})%Fluid.bounds)].temperature
-      var tempab = Fluid[((c+{1, 1, 0})%Fluid.bounds)].temperature
       if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        temp000 = temp0
-        temp100 = tempb
-        temp010 = tempaa
-        temp110 = tempab
-        temp001 = Fluid[((c+{0, 0, 1})%Fluid.bounds)].temperature
-        temp101 = Fluid[((c+{1, 0, 1})%Fluid.bounds)].temperature
-        temp011 = Fluid[((c+{0, 1, 1})%Fluid.bounds)].temperature
-        temp111 = Fluid[((c+{1, 1, 1})%Fluid.bounds)].temperature
+        v000 = i000
+        v001 = i001
+        v010 = i010
+        v011 = i011
+        v100 = i100
+        v101 = i101
+        v110 = i110
+        v111 = i111
       else
-        temp000 = Fluid[((c+{0, 0, -1})%Fluid.bounds)].temperature
-        temp100 = Fluid[((c+{1, 0, -1})%Fluid.bounds)].temperature
-        temp010 = Fluid[((c+{0, 1, -1})%Fluid.bounds)].temperature
-        temp110 = Fluid[((c+{1, 1, -1})%Fluid.bounds)].temperature
-        temp001 = temp0
-        temp101 = tempb
-        temp011 = tempaa
-        temp111 = tempab
+        v000 = i00_
+        v001 = i000
+        v010 = i01_
+        v011 = i010
+        v100 = i10_
+        v101 = i100
+        v110 = i11_
+        v111 = i110
       end
     else
-      var tempaa = Fluid[((c+{0, -1, 0})%Fluid.bounds)].temperature
-      var tempab = Fluid[((c+{1, -1, 0})%Fluid.bounds)].temperature
       if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        temp000 = tempaa
-        temp100 = tempab
-        temp010 = temp0
-        temp110 = tempb
-        temp001 = Fluid[((c+{0, -1, 1})%Fluid.bounds)].temperature
-        temp101 = Fluid[((c+{1, -1, 1})%Fluid.bounds)].temperature
-        temp011 = Fluid[((c+{0, 0, 1})%Fluid.bounds)].temperature
-        temp111 = Fluid[((c+{1, 0, 1})%Fluid.bounds)].temperature
+        v000 = i0_0
+        v001 = i0_1
+        v010 = i000
+        v011 = i001
+        v100 = i1_0
+        v101 = i1_1
+        v110 = i100
+        v111 = i101
       else
-        temp000 = Fluid[((c+{0, -1, -1})%Fluid.bounds)].temperature
-        temp100 = Fluid[((c+{1, -1, -1})%Fluid.bounds)].temperature
-        temp010 = Fluid[((c+{0, 0, -1})%Fluid.bounds)].temperature
-        temp110 = Fluid[((c+{1, 0, -1})%Fluid.bounds)].temperature
-        temp001 = tempaa
-        temp101 = tempab
-        temp011 = temp0
-        temp111 = tempb
+        v000 = i0__
+        v001 = i0_0
+        v010 = i00_
+        v011 = i000
+        v100 = i1__
+        v101 = i1_0
+        v110 = i10_
+        v111 = i100
       end
     end
   else
-    var tempa = Fluid[((c+{-1, 0, 0})%Fluid.bounds)].temperature
     if (xyz[1]>Fluid[c].centerCoordinates[1]) then
-      var tempaa = Fluid[((c+{-1, 1, 0})%Fluid.bounds)].temperature
-      var tempab = Fluid[((c+{0, 1, 0})%Fluid.bounds)].temperature
       if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        temp000 = tempa
-        temp100 = temp0
-        temp010 = tempaa
-        temp110 = tempab
-        temp001 = Fluid[((c+{-1, 0, 1})%Fluid.bounds)].temperature
-        temp101 = Fluid[((c+{0, 0, 1})%Fluid.bounds)].temperature
-        temp011 = Fluid[((c+{-1, 1, 1})%Fluid.bounds)].temperature
-        temp111 = Fluid[((c+{0, 1, 1})%Fluid.bounds)].temperature
+        v000 = i_00
+        v001 = i_01
+        v010 = i_10
+        v011 = i_11
+        v100 = i000
+        v101 = i001
+        v110 = i010
+        v111 = i011
       else
-        temp000 = Fluid[((c+{-1, 0, -1})%Fluid.bounds)].temperature
-        temp100 = Fluid[((c+{0, 0, -1})%Fluid.bounds)].temperature
-        temp010 = Fluid[((c+{-1, 1, -1})%Fluid.bounds)].temperature
-        temp110 = Fluid[((c+{0, 1, -1})%Fluid.bounds)].temperature
-        temp001 = tempa
-        temp101 = temp0
-        temp011 = tempaa
-        temp111 = tempab
+        v000 = i_0_
+        v001 = i_00
+        v010 = i_1_
+        v011 = i_10
+        v100 = i00_
+        v101 = i000
+        v110 = i01_
+        v111 = i010
       end
     else
-      var tempaa = Fluid[((c+{-1, -1, 0})%Fluid.bounds)].temperature
-      var tempab = Fluid[((c+{0, -1, 0})%Fluid.bounds)].temperature
       if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        temp000 = tempaa
-        temp100 = tempab
-        temp010 = tempa
-        temp110 = temp0
-        temp001 = Fluid[((c+{-1, -1, 1})%Fluid.bounds)].temperature
-        temp101 = Fluid[((c+{0, -1, 1})%Fluid.bounds)].temperature
-        temp011 = Fluid[((c+{-1, 0, 1})%Fluid.bounds)].temperature
-        temp111 = Fluid[((c+{0, 0, 1})%Fluid.bounds)].temperature
+        v000 = i__0
+        v001 = i__1
+        v010 = i_00
+        v011 = i_01
+        v100 = i0_0
+        v101 = i0_1
+        v110 = i000
+        v111 = i001
       else
-        temp000 = Fluid[((c+{-1, -1, -1})%Fluid.bounds)].temperature
-        temp100 = Fluid[((c+{0, -1, -1})%Fluid.bounds)].temperature
-        temp010 = Fluid[((c+{-1, 0, -1})%Fluid.bounds)].temperature
-        temp110 = Fluid[((c+{0, 0, -1})%Fluid.bounds)].temperature
-        temp001 = tempaa
-        temp101 = tempab
-        temp011 = tempa
-        temp111 = temp0
+        v000 = i___
+        v001 = i__0
+        v010 = i_0_
+        v011 = i_00
+        v100 = i0__
+        v101 = i0_0
+        v110 = i00_
+        v111 = i000
       end
     end
   end
-  return TrilinearInterpolateTemp(xyz, temp000, temp100, temp010, temp110, temp001, temp101, temp011, temp111, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin)
+
+  return TrilinearInterpolateTemp(xyz, v000, v100, v010, v110, v001, v101, v011, v111, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin)
 end
 
 __demand(__parallel, __cuda)
