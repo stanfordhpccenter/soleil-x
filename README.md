@@ -43,7 +43,7 @@ or (if not using GASNET, or it's already installed system-wide):
 
 ```
 $ cd "$LEGION_DIR"/language
-$ git clone -b luajit2.1 https://github.com/magnatelee/terra.git terra.build
+$ git clone -b luajit2.1 https://github.com/StanfordLegion/terra.git terra.build
 $ ln -s terra.build terra
 $ cd "$LEGION_DIR"/language/terra
 $ make all -j
@@ -99,7 +99,7 @@ module load mpi/openmpi/1.8.2
 module load gasnet/1.22.4-openmpi
 module load cuda/8.0
 # Legion build config
-CONDUIT=ibv
+export CONDUIT=ibv
 # Path setup
 export LEGION_DIR=???
 export LG_RT_DIR="$LEGION_DIR"/runtime
@@ -132,6 +132,8 @@ $ USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 ./install.py
 Setup (Certainty @ Stanford)
 ==========================
 
+There's an issue currently on Certainty preventing the use of git over HTTPS. Until that is fixed, you will need to use git over SSH. This requires you to [set up an SSH key pair on github](https://help.github.com/articles/connecting-to-github-with-ssh/).
+
 ### Add to shell startup
 
 ```
@@ -141,12 +143,14 @@ module load openmpi/1.10.2-gnu-5.2
 module load cuda/7.5.18
 module load hdf5/1.10.1-gnu-5.2
 module load python/2.7.8
+# Legion build config
+export CC=gcc
+export CXX=g++
+export CONDUIT=ibv
 # Path setup
 export LEGION_DIR=???
 export LG_RT_DIR="$LEGION_DIR"/runtime
 export SOLEIL_DIR=???
-# HDF config
-export HDF_ROOT=/share/apps/lib/hdf5/1.10.1/gnu-5.2/
 # CUDA config
 export CUDA_HOME=/usr/local/cuda-7.5/
 export CUDA="$CUDA_HOME"
@@ -156,8 +160,8 @@ export GPU_ARCH=fermi
 ### Download software
 
 ```
-$ git clone -b master https://github.com/StanfordLegion/legion.git "$LEGION_DIR"
-$ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
+$ git clone -b master git@github.com:StanfordLegion/legion.git "$LEGION_DIR"
+$ git clone git@github.com:stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 
 ### Install Legion
@@ -165,7 +169,10 @@ $ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 $ cd "$LEGION_DIR"/language
 $ unset LG_RT_DIR
-$ USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+$ git clone -b luajit2.1 git@github.com:StanfordLegion/terra.git terra.build
+$ sed -i 's|https://github.com/|git@github.com:|g' terra.build/Makefile
+$ sed -i 's|https://github.com/|git@github.com:|g' scripts/setup_env.py
+$ USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --terra-url 'git@github.com:StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
 Setup (Titan @ Oak Ridge)
@@ -189,8 +196,6 @@ export HOST_CXX=g++
 export LEGION_DIR=???
 export LG_RT_DIR="$LEGION_DIR"/runtime
 export SOLEIL_DIR=???
-# HDF config
-export HDF_ROOT=/opt/cray/hdf5/1.10.0.1/GNU/4.9
 # CUDA config
 export CUDA_HOME=/opt/nvidia/cudatoolkit7.5/7.5.18-1.0502.10743.2.1
 export CUDA="$CUDA_HOME"
