@@ -5,13 +5,21 @@ import "regent"
 -------------------------------------------------------------------------------
 
 local C = terralib.includecstring[[
-#include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 ]]
 local JSON = terralib.includec("json.h")
 local SCHEMA = (require "config_helper").processSchema("config_schema.h")
+
+local acos = regentlib.acos(double)
+local ceil = regentlib.ceil(double)
+local cos = regentlib.cos(double)
+local fabs = regentlib.fabs(double)
+local fmod = regentlib.fmod(double)
+local pow = regentlib.pow(double)
+local sin = regentlib.sin(double)
+local sqrt = regentlib.sqrt(double)
 
 -------------------------------------------------------------------------------
 -- COMPILE-TIME CONFIGURATION
@@ -262,8 +270,8 @@ do
   var heatCapacity = config.Particles.heatCapacity
   __demand(__openmp)
   for p in particles do
-    var crossSectionArea = (((2*C.acos(0))*C.pow(p.diameter, 2))/4)
-    var volume = (((2*C.acos(0))*C.pow(p.diameter, 3))/6)
+    var crossSectionArea = (((2*acos(0))*pow(p.diameter, 2))/4)
+    var volume = (((2*acos(0))*pow(p.diameter, 3))/6)
     var mass = (volume*p.density)
     var absorbedRadiationIntensity = ((absorptivity*intensity)*crossSectionArea)
     p.temperature_t += (absorbedRadiationIntensity/(mass*heatCapacity))
@@ -455,10 +463,10 @@ do
     var xy = [double[3]](array((Grid_xOrigin+((Grid_xWidth/double(Grid_xNum))*(double((int3d(c).x-uint64(Grid_xBnum)))+double(0.5)))), (Grid_yOrigin+((Grid_yWidth/double(Grid_yNum))*(double((int3d(c).y-uint64(Grid_yBnum)))+double(0.5)))), (Grid_zOrigin+((Grid_zWidth/double(Grid_zNum))*(double((int3d(c).z-uint64(Grid_zBnum)))+double(0.5))))))
     var coorZ = 0
     Fluid[c].rho = taylorGreenDensity
-    Fluid[c].velocity = vs_mul_double_3([double[3]](array((([regentlib.sin(double)](xy[0])*[regentlib.cos(double)](xy[1]))*[regentlib.cos(double)](coorZ)), (((-[regentlib.cos(double)](xy[0]))*[regentlib.sin(double)](xy[1]))*[regentlib.cos(double)](coorZ)), 0.0)), taylorGreenVelocity)
-    var factorA = ([regentlib.cos(double)]((2.0*double(coorZ)))+2.0)
-    var factorB = ([regentlib.cos(double)]((2.0*xy[0]))+[regentlib.cos(double)]((2.0*xy[1])))
-    Fluid[c].pressure = (taylorGreenPressure+((((taylorGreenDensity*C.pow(taylorGreenVelocity, 2.0))/16.0)*factorA)*factorB))
+    Fluid[c].velocity = vs_mul_double_3([double[3]](array(((sin(xy[0])*cos(xy[1]))*cos(coorZ)), (((-cos(xy[0]))*sin(xy[1]))*cos(coorZ)), 0.0)), taylorGreenVelocity)
+    var factorA = (cos((2.0*double(coorZ)))+2.0)
+    var factorB = (cos((2.0*xy[0]))+cos((2.0*xy[1])))
+    Fluid[c].pressure = (taylorGreenPressure+((((taylorGreenDensity*pow(taylorGreenVelocity, 2.0))/16.0)*factorA)*factorB))
   end
 end
 
@@ -479,10 +487,10 @@ do
     var taylorGreenVelocity = Flow_initParams[2]
     var xy = [double[3]](array((Grid_xOrigin+((Grid_xWidth/double(Grid_xNum))*(double((int3d(c).x-uint64(Grid_xBnum)))+double(0.5)))), (Grid_yOrigin+((Grid_yWidth/double(Grid_yNum))*(double((int3d(c).y-uint64(Grid_yBnum)))+double(0.5)))), (Grid_zOrigin+((Grid_zWidth/double(Grid_zNum))*(double((int3d(c).z-uint64(Grid_zBnum)))+double(0.5))))))
     Fluid[c].rho = taylorGreenDensity
-    Fluid[c].velocity = vs_mul_double_3([double[3]](array((([regentlib.sin(double)](xy[0])*[regentlib.cos(double)](xy[1]))*[regentlib.cos(double)](xy[2])), (((-[regentlib.cos(double)](xy[0]))*[regentlib.sin(double)](xy[1]))*[regentlib.cos(double)](xy[2])), 0.0)), taylorGreenVelocity)
-    var factorA = ([regentlib.cos(double)]((2.0*xy[2]))+2.0)
-    var factorB = ([regentlib.cos(double)]((2.0*xy[0]))+[regentlib.cos(double)]((2.0*xy[1])))
-    Fluid[c].pressure = (taylorGreenPressure+((((taylorGreenDensity*C.pow(taylorGreenVelocity, 2.0))/16.0)*factorA)*factorB))
+    Fluid[c].velocity = vs_mul_double_3([double[3]](array(((sin(xy[0])*cos(xy[1]))*cos(xy[2])), (((-cos(xy[0]))*sin(xy[1]))*cos(xy[2])), 0.0)), taylorGreenVelocity)
+    var factorA = (cos((2.0*xy[2]))+2.0)
+    var factorB = (cos((2.0*xy[0]))+cos((2.0*xy[1])))
+    Fluid[c].pressure = (taylorGreenPressure+((((taylorGreenDensity*pow(taylorGreenVelocity, 2.0))/16.0)*factorA)*factorB))
   end
 end
 
@@ -1353,7 +1361,7 @@ end
 
 __demand(__inline)
 task GetSoundSpeed(temperature : double, Flow_gamma : double, Flow_gasConstant : double) : double
-  return [regentlib.sqrt(double)](((Flow_gamma*Flow_gasConstant)*temperature))
+  return sqrt(((Flow_gamma*Flow_gasConstant)*temperature))
 end
 
 __demand(__parallel)
@@ -1369,7 +1377,7 @@ do
   var acc = -math.huge
   __demand(__openmp)
   for c in Fluid do
-    Fluid[c].convectiveSpectralRadius = (((([regentlib.fabs(double)](Fluid[c].velocity[0])/Grid_xCellWidth)+([regentlib.fabs(double)](Fluid[c].velocity[1])/Grid_yCellWidth))+([regentlib.fabs(double)](Fluid[c].velocity[2])/Grid_zCellWidth))+(GetSoundSpeed(Fluid[c].temperature, Flow_gamma, Flow_gasConstant)*[regentlib.sqrt(double)](Grid_dXYZInverseSquare)))
+    Fluid[c].convectiveSpectralRadius = ((((fabs(Fluid[c].velocity[0])/Grid_xCellWidth)+(fabs(Fluid[c].velocity[1])/Grid_yCellWidth))+(fabs(Fluid[c].velocity[2])/Grid_zCellWidth))+(GetSoundSpeed(Fluid[c].temperature, Flow_gamma, Flow_gasConstant)*sqrt(Grid_dXYZInverseSquare)))
     acc max= Fluid[c].convectiveSpectralRadius
   end
   return acc
@@ -1386,9 +1394,9 @@ task GetDynamicViscosity(temperature : double,
     viscosity = Flow_constantVisc
   else
     if (Flow_viscosityModel == SCHEMA.ViscosityModel_PowerLaw) then
-      viscosity = (Flow_powerlawViscRef*C.pow((temperature/Flow_powerlawTempRef), double(0.75)))
+      viscosity = (Flow_powerlawViscRef*pow((temperature/Flow_powerlawTempRef), double(0.75)))
     else
-      viscosity = ((Flow_sutherlandViscRef*C.pow((temperature/Flow_sutherlandTempRef), (3.0/2.0)))*((Flow_sutherlandTempRef+Flow_sutherlandSRef)/(temperature+Flow_sutherlandSRef)))
+      viscosity = ((Flow_sutherlandViscRef*pow((temperature/Flow_sutherlandTempRef), (3.0/2.0)))*((Flow_sutherlandTempRef+Flow_sutherlandSRef)/(temperature+Flow_sutherlandSRef)))
     end
   end
   return viscosity
@@ -2295,7 +2303,7 @@ task locate(pos : double[3],
   var xrnum = (Grid_xNum+(2*Grid_xBnum))
   var xidx : uint64
   if BC_xBCPeriodic then
-    xidx = (uint64((C.fmod(xpos, double(xrnum))+double(xrnum)))%uint64(xrnum))
+    xidx = (uint64((fmod(xpos, double(xrnum))+double(xrnum)))%uint64(xrnum))
   else
     xidx = uint64(max(0.0, min(double((xrnum-1)), xpos)))
   end
@@ -2305,7 +2313,7 @@ task locate(pos : double[3],
   var yrnum = (Grid_yNum+(2*Grid_yBnum))
   var yidx : uint64
   if BC_yBCPeriodic then
-    yidx = (uint64((C.fmod(ypos, double(yrnum))+double(yrnum)))%uint64(yrnum))
+    yidx = (uint64((fmod(ypos, double(yrnum))+double(yrnum)))%uint64(yrnum))
   else
     yidx = uint64(max(0.0, min(double((yrnum-1)), ypos)))
   end
@@ -2315,7 +2323,7 @@ task locate(pos : double[3],
   var zrnum = (Grid_zNum+(2*Grid_zBnum))
   var zidx : uint64
   if BC_zBCPeriodic then
-    zidx = (uint64((C.fmod(zpos, double(zrnum))+double(zrnum)))%uint64(zrnum))
+    zidx = (uint64((fmod(zpos, double(zrnum))+double(zrnum)))%uint64(zrnum))
   else
     zidx = uint64(max(0.0, min(double((zrnum-1)), zpos)))
   end
@@ -3406,9 +3414,9 @@ task TrilinearInterpolateVelocity(xyz : double[3],
                                   Grid_xCellWidth : double, Grid_xRealOrigin : double,
                                   Grid_yCellWidth : double, Grid_yRealOrigin : double,
                                   Grid_zCellWidth : double, Grid_zRealOrigin : double) : double[3]
-  var dX = C.fmod((((xyz[0]-Grid_xRealOrigin)/Grid_xCellWidth)+double(0.5)), 1.0)
-  var dY = C.fmod((((xyz[1]-Grid_yRealOrigin)/Grid_yCellWidth)+double(0.5)), 1.0)
-  var dZ = C.fmod((((xyz[2]-Grid_zRealOrigin)/Grid_zCellWidth)+double(0.5)), 1.0)
+  var dX = fmod((((xyz[0]-Grid_xRealOrigin)/Grid_xCellWidth)+double(0.5)), 1.0)
+  var dY = fmod((((xyz[1]-Grid_yRealOrigin)/Grid_yCellWidth)+double(0.5)), 1.0)
+  var dZ = fmod((((xyz[2]-Grid_zRealOrigin)/Grid_zCellWidth)+double(0.5)), 1.0)
   var oneMinusdX = (1.0-dX)
   var oneMinusdY = (1.0-dY)
   var oneMinusdZ = (1.0-dZ)
@@ -3572,9 +3580,9 @@ task TrilinearInterpolateTemp(xyz : double[3],
                               Grid_xCellWidth : double, Grid_xRealOrigin : double,
                               Grid_yCellWidth : double, Grid_yRealOrigin : double,
                               Grid_zCellWidth : double, Grid_zRealOrigin : double) : double
-  var dX = C.fmod((((xyz[0]-Grid_xRealOrigin)/Grid_xCellWidth)+double(0.5)), 1.0)
-  var dY = C.fmod((((xyz[1]-Grid_yRealOrigin)/Grid_yCellWidth)+double(0.5)), 1.0)
-  var dZ = C.fmod((((xyz[2]-Grid_zRealOrigin)/Grid_zCellWidth)+double(0.5)), 1.0)
+  var dX = fmod((((xyz[0]-Grid_xRealOrigin)/Grid_xCellWidth)+double(0.5)), 1.0)
+  var dY = fmod((((xyz[1]-Grid_yRealOrigin)/Grid_yCellWidth)+double(0.5)), 1.0)
+  var dZ = fmod((((xyz[2]-Grid_zRealOrigin)/Grid_zCellWidth)+double(0.5)), 1.0)
   var oneMinusdX = (1.0-dX)
   var oneMinusdY = (1.0-dY)
   var oneMinusdZ = (1.0-dZ)
@@ -3755,16 +3763,16 @@ do
       v[2] += tmp[2]
       particles[p].position_t = v
       var particleReynoldsNumber = 0.0
-      var relaxationTime = (((particles[p].density*C.pow(particles[p].diameter, 2.0))/(18.0*flowDynamicViscosity))/(1.0+(double(0.15)*C.pow(particleReynoldsNumber, double(0.687)))))
+      var relaxationTime = (((particles[p].density*pow(particles[p].diameter, 2.0))/(18.0*flowDynamicViscosity))/(1.0+(double(0.15)*pow(particleReynoldsNumber, double(0.687)))))
       particles[p].deltaVelocityOverRelaxationTime = vs_div_double_3(vv_sub_double_3(flowVelocity, particles[p].velocity), relaxationTime)
-      particles[p].deltaTemperatureTerm = (((PI*C.pow(particles[p].diameter, 2.0))*Particles_convectiveCoeff)*(flowTemperature-particles[p].temperature))
+      particles[p].deltaTemperatureTerm = (((PI*pow(particles[p].diameter, 2.0))*Particles_convectiveCoeff)*(flowTemperature-particles[p].temperature))
       var tmp__10496 = particles[p].deltaVelocityOverRelaxationTime
       var v__10497 = particles[p].velocity_t
       v__10497[0] += tmp__10496[0]
       v__10497[1] += tmp__10496[1]
       v__10497[2] += tmp__10496[2]
       particles[p].velocity_t = v__10497
-      particles[p].temperature_t += (particles[p].deltaTemperatureTerm/((((PI*C.pow(particles[p].diameter, 3.0))/6.0)*particles[p].density)*Particles_heatCapacity))
+      particles[p].temperature_t += (particles[p].deltaTemperatureTerm/((((PI*pow(particles[p].diameter, 3.0))/6.0)*particles[p].density)*Particles_heatCapacity))
     end
   end
 end
@@ -3813,8 +3821,8 @@ do
   __demand(__openmp)
   for p in particles do
     if particles[p].__valid then
-      Radiation[Fluid[particles[p].cell].to_Radiation].acc_d2 += C.pow(particles[p].diameter, 2.0)
-      Radiation[Fluid[particles[p].cell].to_Radiation].acc_d2t4 += (C.pow(particles[p].diameter, 2.0)*C.pow(particles[p].temperature, 4.0))
+      Radiation[Fluid[particles[p].cell].to_Radiation].acc_d2 += pow(particles[p].diameter, 2.0)
+      Radiation[Fluid[particles[p].cell].to_Radiation].acc_d2t4 += (pow(particles[p].diameter, 2.0)*pow(particles[p].temperature, 4.0))
     end
   end
 end
@@ -3854,9 +3862,9 @@ do
   __demand(__openmp)
   for p in particles do
     if particles[p].__valid then
-      var t4 = C.pow(particles[p].temperature, 4.0)
-      var alpha = ((((PI*Radiation_qa)*C.pow(particles[p].diameter, 2.0))*(Radiation[Fluid[particles[p].cell].to_Radiation].G-((4.0*double(5.67e-08))*t4)))/4.0)
-      particles[p].temperature_t += (alpha/((((PI*C.pow(particles[p].diameter, 3.0))/6.0)*particles[p].density)*Particles_heatCapacity))
+      var t4 = pow(particles[p].temperature, 4.0)
+      var alpha = ((((PI*Radiation_qa)*pow(particles[p].diameter, 2.0))*(Radiation[Fluid[particles[p].cell].to_Radiation].G-((4.0*double(5.67e-08))*t4)))/4.0)
+      particles[p].temperature_t += (alpha/((((PI*pow(particles[p].diameter, 3.0))/6.0)*particles[p].density)*Particles_heatCapacity))
     end
   end
 end
@@ -3872,7 +3880,7 @@ do
   __demand(__openmp)
   for p in particles do
     if particles[p].__valid then
-      var tmp = vs_div_double_3(vs_mul_double_3(particles[p].deltaVelocityOverRelaxationTime, (-(((PI*C.pow(particles[p].diameter, 3.0))/6.0)*particles[p].density))), Grid_cellVolume)
+      var tmp = vs_div_double_3(vs_mul_double_3(particles[p].deltaVelocityOverRelaxationTime, (-(((PI*pow(particles[p].diameter, 3.0))/6.0)*particles[p].density))), Grid_cellVolume)
       var v = Fluid[particles[p].cell].rhoVelocity_t
       v[0] += tmp[0]
       v[1] += tmp[1]
@@ -4305,7 +4313,7 @@ task work(config : Config)
   var is = ispace(int3d, int3d({x = (Grid_xNum+(2*Grid_xBnum)), y = (Grid_yNum+(2*Grid_yBnum)), z = (Grid_zNum+(2*Grid_zBnum))}))
   var Fluid = region(is, Fluid_columns)
   var Fluid_copy = region(is, Fluid_columns)
-  var is__11726 = ispace(int1d, int1d((C.ceil(((Particles_maxNum/((NX*NY)*NZ))*Particles_maxSkew))*((NX*NY)*NZ))))
+  var is__11726 = ispace(int1d, int1d((ceil(((Particles_maxNum/((NX*NY)*NZ))*Particles_maxSkew))*((NX*NY)*NZ))))
   var particles = region(is__11726, particles_columns)
   var particles_copy = region(is__11726, particles_columns)
   var is__11729 = ispace(int3d, int3d({x = (Radiation_xNum+(2*Radiation_xBnum)), y = (Radiation_yNum+(2*Radiation_yBnum)), z = (Radiation_zNum+(2*Radiation_zBnum))}))
@@ -4348,10 +4356,10 @@ task work(config : Config)
       for x : int32 = 0, NX do
         var rBase : int64
         for rStart in particles do
-          rBase = int64((rStart+(((((z*NX)*NY)+(y*NX))+x)*C.ceil(((Particles_maxNum/((NX*NY)*NZ))*Particles_maxSkew)))))
+          rBase = int64((rStart+(((((z*NX)*NY)+(y*NX))+x)*ceil(((Particles_maxNum/((NX*NY)*NZ))*Particles_maxSkew)))))
           break
         end
-        regentlib.c.legion_domain_point_coloring_color_domain(coloring__11738, regentlib.c.legion_domain_point_t(int3d({x, y, z})), regentlib.c.legion_domain_t(rect1d({rBase, ((rBase+C.ceil(((Particles_maxNum/((NX*NY)*NZ))*Particles_maxSkew)))-1)})))
+        regentlib.c.legion_domain_point_coloring_color_domain(coloring__11738, regentlib.c.legion_domain_point_t(int3d({x, y, z})), regentlib.c.legion_domain_t(rect1d({rBase, ((rBase+ceil(((Particles_maxNum/((NX*NY)*NZ))*Particles_maxSkew)))-1)})))
       end
     end
   end

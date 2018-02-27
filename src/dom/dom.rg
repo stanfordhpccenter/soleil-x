@@ -12,17 +12,22 @@ return function(NUM_ANGLES, pointsFSpace)
 
 -- C imports
 
-local c     = regentlib.c
-local cmath = terralib.includec('math.h')
+local c = regentlib.c
 
--- Some math definitions
+-- Math imports
 
-local min = regentlib.fmin
+local fabs = regentlib.fabs(double)
 local max = regentlib.fmax
+local min = regentlib.fmin
 local pow = regentlib.pow(double)
-local pi  = 2.0*cmath.acos(0.0)
+local sqrt = regentlib.sqrt(double)
+
+-- Math Constants
+
+local pi = 3.1415926535898
 
 -- Quadrature file name
+
 local quad_file = 'LMquads/'..NUM_ANGLES..'.txt'
 
 -- Wall temperatures
@@ -392,7 +397,7 @@ do
           else
             face_value = faces_8[{limits.lo.x,j,k}].I[m]
           end
-          reflect += (1.0-epsw)/pi*angles[m].w*cmath.fabs(angles[m].xi)*face_value
+          reflect += (1.0-epsw)/pi*angles[m].w*fabs(angles[m].xi)*face_value
         end
       end
 
@@ -608,7 +613,7 @@ do
           else
             face_value = faces_8[{i,limits.lo.y,k}].I[m]
           end
-          reflect += (1.0-epsw)/pi*angles[m].w*cmath.fabs(angles[m].eta)*face_value
+          reflect += (1.0-epsw)/pi*angles[m].w*fabs(angles[m].eta)*face_value
         end
       end
 
@@ -680,7 +685,7 @@ do
           else
             face_value = faces_8[{i,j,limits.lo.z}].I[m]
           end
-          reflect += (1.0-epsw)/pi*angles[m].w*cmath.fabs(angles[m].mu)*face_value
+          reflect += (1.0-epsw)/pi*angles[m].w*fabs(angles[m].mu)*face_value
         end
       end
 
@@ -885,13 +890,13 @@ do
             -- Integrate to compute cell-centered value of I.
 
             points[{i,j,k}].I_1[m] = (points[{i,j,k}].S * dV
-                                        + cmath.fabs(angles[m].xi) * dAx * upwind_x_value/gamma
-                                        + cmath.fabs(angles[m].eta) * dAy * upwind_y_value/gamma
-                                        + cmath.fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+                                        + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
+                                        + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
+                                        + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
               /(points[{i,j,k}].sigma * dV
-                  + cmath.fabs(angles[m].xi) * dAx/gamma
-                  + cmath.fabs(angles[m].eta) * dAy/gamma
-                  + cmath.fabs(angles[m].mu) * dAz/gamma)
+                  + fabs(angles[m].xi) * dAx/gamma
+                  + fabs(angles[m].eta) * dAy/gamma
+                  + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -1013,13 +1018,13 @@ do
             -- Integrate to compute cell-centered value of I.
 
             points[{i,j,k}].I_2[m] = (points[{i,j,k}].S * dV
-                                        + cmath.fabs(angles[m].xi) * dAx * upwind_x_value/gamma
-                                        + cmath.fabs(angles[m].eta) * dAy * upwind_y_value/gamma
-                                        + cmath.fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+                                        + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
+                                        + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
+                                        + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
               /(points[{i,j,k}].sigma * dV
-                  + cmath.fabs(angles[m].xi) * dAx/gamma
-                  + cmath.fabs(angles[m].eta) * dAy/gamma
-                  + cmath.fabs(angles[m].mu) * dAz/gamma)
+                  + fabs(angles[m].xi) * dAx/gamma
+                  + fabs(angles[m].eta) * dAy/gamma
+                  + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -1141,13 +1146,13 @@ do
             -- Integrate to compute cell-centered value of I.
 
             points[{i,j,k}].I_3[m] = (points[{i,j,k}].S * dV
-                                        + cmath.fabs(angles[m].xi) * dAx * upwind_x_value/gamma
-                                        + cmath.fabs(angles[m].eta) * dAy * upwind_y_value/gamma
-                                        + cmath.fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+                                        + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
+                                        + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
+                                        + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
               /(points[{i,j,k}].sigma * dV
-                  + cmath.fabs(angles[m].xi) * dAx/gamma
-                  + cmath.fabs(angles[m].eta) * dAy/gamma
-                  + cmath.fabs(angles[m].mu) * dAz/gamma)
+                  + fabs(angles[m].xi) * dAx/gamma
+                  + fabs(angles[m].eta) * dAy/gamma
+                  + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -1269,13 +1274,13 @@ do
             -- Integrate to compute cell-centered value of I.
 
             points[{i,j,k}].I_4[m] = (points[{i,j,k}].S * dV
-                                        + cmath.fabs(angles[m].xi) * dAx * upwind_x_value/gamma
-                                        + cmath.fabs(angles[m].eta) * dAy * upwind_y_value/gamma
-                                        + cmath.fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+                                        + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
+                                        + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
+                                        + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
               /(points[{i,j,k}].sigma * dV
-                  + cmath.fabs(angles[m].xi) * dAx/gamma
-                  + cmath.fabs(angles[m].eta) * dAy/gamma
-                  + cmath.fabs(angles[m].mu) * dAz/gamma)
+                  + fabs(angles[m].xi) * dAx/gamma
+                  + fabs(angles[m].eta) * dAy/gamma
+                  + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -1397,13 +1402,13 @@ do
             -- Integrate to compute cell-centered value of I.
 
             points[{i,j,k}].I_5[m] = (points[{i,j,k}].S * dV
-                                        + cmath.fabs(angles[m].xi) * dAx * upwind_x_value/gamma
-                                        + cmath.fabs(angles[m].eta) * dAy * upwind_y_value/gamma
-                                        + cmath.fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+                                        + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
+                                        + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
+                                        + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
               /(points[{i,j,k}].sigma * dV
-                  + cmath.fabs(angles[m].xi) * dAx/gamma
-                  + cmath.fabs(angles[m].eta) * dAy/gamma
-                  + cmath.fabs(angles[m].mu) * dAz/gamma)
+                  + fabs(angles[m].xi) * dAx/gamma
+                  + fabs(angles[m].eta) * dAy/gamma
+                  + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -1525,13 +1530,13 @@ do
             -- Integrate to compute cell-centered value of I.
 
             points[{i,j,k}].I_6[m] = (points[{i,j,k}].S * dV
-                                        + cmath.fabs(angles[m].xi) * dAx * upwind_x_value/gamma
-                                        + cmath.fabs(angles[m].eta) * dAy * upwind_y_value/gamma
-                                        + cmath.fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+                                        + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
+                                        + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
+                                        + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
               /(points[{i,j,k}].sigma * dV
-                  + cmath.fabs(angles[m].xi) * dAx/gamma
-                  + cmath.fabs(angles[m].eta) * dAy/gamma
-                  + cmath.fabs(angles[m].mu) * dAz/gamma)
+                  + fabs(angles[m].xi) * dAx/gamma
+                  + fabs(angles[m].eta) * dAy/gamma
+                  + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -1653,13 +1658,13 @@ do
             -- Integrate to compute cell-centered value of I.
 
             points[{i,j,k}].I_7[m] = (points[{i,j,k}].S * dV
-                                        + cmath.fabs(angles[m].xi) * dAx * upwind_x_value/gamma
-                                        + cmath.fabs(angles[m].eta) * dAy * upwind_y_value/gamma
-                                        + cmath.fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+                                        + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
+                                        + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
+                                        + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
               /(points[{i,j,k}].sigma * dV
-                  + cmath.fabs(angles[m].xi) * dAx/gamma
-                  + cmath.fabs(angles[m].eta) * dAy/gamma
-                  + cmath.fabs(angles[m].mu) * dAz/gamma)
+                  + fabs(angles[m].xi) * dAx/gamma
+                  + fabs(angles[m].eta) * dAy/gamma
+                  + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -1781,13 +1786,13 @@ do
             -- Integrate to compute cell-centered value of I.
 
             points[{i,j,k}].I_8[m] = (points[{i,j,k}].S * dV
-                                        + cmath.fabs(angles[m].xi) * dAx * upwind_x_value/gamma
-                                        + cmath.fabs(angles[m].eta) * dAy * upwind_y_value/gamma
-                                        + cmath.fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+                                        + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
+                                        + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
+                                        + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
               /(points[{i,j,k}].sigma * dV
-                  + cmath.fabs(angles[m].xi) * dAx/gamma
-                  + cmath.fabs(angles[m].eta) * dAy/gamma
-                  + cmath.fabs(angles[m].mu) * dAz/gamma)
+                  + fabs(angles[m].xi) * dAx/gamma
+                  + fabs(angles[m].eta) * dAy/gamma
+                  + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -2332,7 +2337,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     for color in tiles do
       res += residual(p_points[color], Nx, Ny, Nz)
     end
-    res = cmath.sqrt(res)
+    res = sqrt(res)
 
     -- Update the intensities and the iteration number
     for color in tiles do
