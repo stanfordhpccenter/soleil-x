@@ -325,9 +325,9 @@ end
 
 -- Loop over all angles and grid cells to compute the source term
 -- for the current iteration.
-task source_term(points : region(ispace(int3d), pointsFSpace),
-                 angles : region(ispace(int1d), angle),
-                 omega : double)
+local task source_term(points : region(ispace(int3d), pointsFSpace),
+                       angles : region(ispace(int1d), angle),
+                       omega : double)
 where
   reads (points.{Iiter_1, Iiter_2, Iiter_3, Iiter_4,
                  Iiter_5, Iiter_6, Iiter_7, Iiter_8,
@@ -1806,8 +1806,8 @@ do
 end
 
 -- Compute the residual after each iteration and return the value.
-task residual(points : region(ispace(int3d), pointsFSpace),
-              Nx : int, Ny : int, Nz : int)
+local task residual(points : region(ispace(int3d), pointsFSpace),
+                    Nx : int, Ny : int, Nz : int)
 where
   reads (points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8,
                  Iiter_1, Iiter_2, Iiter_3, Iiter_4,
@@ -1874,7 +1874,7 @@ do
 end
 
 -- Update the intensity before moving to the next iteration.
-task update(points : region(ispace(int3d), pointsFSpace))
+local task update(points : region(ispace(int3d), pointsFSpace))
 where
   reads (points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8}),
   reads writes (points.{Iiter_1, Iiter_2, Iiter_3, Iiter_4,
@@ -1896,8 +1896,8 @@ do
 end
 
 -- Reduce the intensity to summation over all angles
-task reduce_intensity(points : region(ispace(int3d), pointsFSpace),
-                      angles : region(ispace(int1d), angle))
+local task reduce_intensity(points : region(ispace(int3d), pointsFSpace),
+                            angles : region(ispace(int1d), angle))
 where
   reads (points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8}, angles.w),
   reads writes (points.G)
