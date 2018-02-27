@@ -325,7 +325,6 @@ end
 
 -- Loop over all angles and grid cells to compute the source term
 -- for the current iteration.
-local __demand(__cuda)
 task source_term(points : region(ispace(int3d), pointsFSpace),
                  angles : region(ispace(int1d), angle),
                  omega : double)
@@ -1807,7 +1806,6 @@ do
 end
 
 -- Compute the residual after each iteration and return the value.
-local __demand(__cuda)
 task residual(points : region(ispace(int3d), pointsFSpace),
               Nx : int, Ny : int, Nz : int)
 where
@@ -1876,7 +1874,6 @@ do
 end
 
 -- Update the intensity before moving to the next iteration.
-local __demand(__cuda)
 task update(points : region(ispace(int3d), pointsFSpace))
 where
   reads (points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8}),
@@ -1899,7 +1896,6 @@ do
 end
 
 -- Reduce the intensity to summation over all angles
-local __demand(__cuda)
 task reduce_intensity(points : region(ispace(int3d), pointsFSpace),
                       angles : region(ispace(int1d), angle))
 where
