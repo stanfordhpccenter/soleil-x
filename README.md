@@ -14,7 +14,7 @@ Normally you'd need to edit file `~/.bashrc`.
 export LEGION_DIR=???
 export LG_RT_DIR="$LEGION_DIR"/runtime
 export SOLEIL_DIR=???
-# HDF config (if using HDF and the machine has an unusual HDF installation)
+# HDF config (if using HDF, and the machine has an unusual HDF installation)
 export HDF_HEADER=???
 export HDF_LIBNAME=???
 export HDF_ROOT=???
@@ -39,7 +39,7 @@ $ unset LG_RT_DIR
 $ USE_CUDA=? USE_OPENMP=? USE_GASNET=? USE_HDF=? scripts/setup_env.py --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
-or (if not using GASNET, or it's already installed system-wide):
+or (if LLVM is installed system-wide, and you're not using GASNET):
 
 ```
 $ cd "$LEGION_DIR"/language
@@ -71,6 +71,7 @@ export HDF_LIBNAME=hdf5_serial
 ### Download software
 
 ```
+$ sudo apt-get install llvm-3.8-dev clang-3.8
 $ sudo apt-get install libhdf5-serial-dev
 $ git clone -b master https://github.com/StanfordLegion/legion.git "$LEGION_DIR"
 $ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
@@ -172,7 +173,9 @@ $ unset LG_RT_DIR
 $ git clone -b luajit2.1 git@github.com:StanfordLegion/terra.git terra.build
 $ sed -i 's|https://github.com/|git@github.com:|g' terra.build/Makefile
 $ sed -i 's|https://github.com/|git@github.com:|g' scripts/setup_env.py
-$ USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --terra-url 'git@github.com:StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+$ sed -i 's|~eslaught|~manolis|g' scripts/setup_env.py
+$ sed -i 's|85faf7cbd518dabeafc4d3f7e909338fc1dab3c4|c29dc69803e07c43c3654ace58e98368857e1669|g' scripts/setup_env.py
+$ USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 35 --terra-url 'git@github.com:StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
 Setup (Titan @ Oak Ridge)
