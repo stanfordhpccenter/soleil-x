@@ -13,7 +13,7 @@ cp "$LEGION_DIR"/bindings/regent/libregent.so "$SCRATCH_DIR"
 cp -r "$SOLEIL_DIR"/src/LMquads "$SCRATCH_DIR"
 # Put the scratch directory first, to make sure our custom shared libs are
 # read from there.
-export LD_LIBRARY_PATH="$SCRATCH_DIR:$LD_LIBRARY_PATH"
+export LD_LIBRARY_PATH="$SCRATCH_DIR:${LD_LIBRARY_PATH:-}"
 
 # HACK: LLVM installs a bad ELF interpreter on the executable, use the one in ld.so
 aprun -n 2 -cc numa_node -S 1 \
