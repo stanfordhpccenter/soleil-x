@@ -75,8 +75,8 @@ local struct angle {
 
 local struct face {
   I : double[NUM_ANGLES],
-  private_color : uint64     -- Used for partition_by_field
-  shared_color : uint64     -- Used for partition_by_field
+  private_color : uint64,      -- Used for partition_by_field
+  shared_color : uint64,       -- Used for partition_by_field
 }
 
 -------------------------------------------------------------------------------
