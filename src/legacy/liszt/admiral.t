@@ -49,20 +49,7 @@ local newlist = terralib.newlist
 -- Parse config options
 -------------------------------------------------------------------------------
 
-local DUMP_REGENT = os.getenv('DUMP_REGENT') == '1'
-
-local LIBS = newlist({'-ljsonparser', '-lm'})
-
-local OBJNAME = os.getenv('OBJNAME') or 'a.out'
-
-local HDF_LIBNAME = os.getenv('HDF_LIBNAME') or 'hdf5'
-
-local HDF_HEADER = os.getenv('HDF_HEADER') or 'hdf5.h'
-
-local USE_HDF = not (os.getenv('USE_HDF') == '0')
-if USE_HDF then
-  LIBS:insert('-l'..HDF_LIBNAME)
-end
+local USE_HDF = assert(os.getenv('USE_HDF')) ~= '0'
 
 -------------------------------------------------------------------------------
 -- Helper functions
@@ -183,7 +170,11 @@ end
 
 -- terralib.struct -> ()
 local function prettyPrintStruct(s)
-  print('struct '..s.name..' {')
+  if s.name:sub(1,4) == 'anon' then
+    print('struct {')
+  else
+    print('struct '..s.name..' {')
+  end
   for _,e in ipairs(s.entries) do
     local name, type = parseStructEntry(e)
     print('  '..name..' : '..tostring(type)..';')
@@ -198,8 +189,8 @@ end
 
 local NAME_CACHE = {} -- map(string, (* -> *) | RG.task)
 
--- RG.task, string -> ()
-function A.registerTask(tsk, name)
+-- RG.task, string, bool?, bool? -> string
+function A.registerTask(tsk, name, inline, skipDef)
   name = idSanitize(name)
   while NAME_CACHE[name] do
     name = name..'_'
@@ -211,9 +202,13 @@ function A.registerTask(tsk, name)
     parallel_task:set_name(name)
   end
   tsk:get_primary_variant():get_ast().name[1] = name -- XXX: Dangerous
-  if DUMP_REGENT then
+  if inline then
+    print('__demand(__inline)')
+  end
+  if not skipDef then
     prettyPrintTask(tsk)
   end
+  return name
 end
 
 -- (* -> *), string -> ()
@@ -224,16 +219,12 @@ function A.registerFun(fun, name)
   end
   NAME_CACHE[name] = fun
   fun:setname(name)
-  if DUMP_REGENT then
-    prettyPrintFun(fun)
-  end
+  prettyPrintFun(fun)
 end
 
 -- terralib.struct -> ()
 function A.registerStruct(s)
-  if DUMP_REGENT then
-    prettyPrintStruct(s)
-  end
+  prettyPrintStruct(s)
 end
 
 -------------------------------------------------------------------------------
@@ -842,10 +833,10 @@ R.Relation.emitElemColor = terralib.memoize(function(self)
   local NZ_ = RG.newsymbol(int, 'NZ_')
   local elemColor
   if self:isGrid() then
-    __demand(__inline) task elemColor(idx : int3d,
-                                      xNum : int, yNum : int, zNum : int,
-                                      xBnum : int, yBnum : int, zBnum : int,
-                                      [NX_], [NY_], [NZ_])
+    task elemColor(idx : int3d,
+                   xNum : int, yNum : int, zNum : int,
+                   xBnum : int, yBnum : int, zBnum : int,
+                   [NX_], [NY_], [NZ_])
       idx.x = min( max( idx.x, xBnum ), xNum + xBnum - 1 )
       idx.y = min( max( idx.y, yBnum ), yNum + yBnum - 1 )
       idx.z = min( max( idx.z, zBnum ), zNum + zBnum - 1 )
@@ -859,7 +850,7 @@ R.Relation.emitElemColor = terralib.memoize(function(self)
     -- calculate offsets.
     assert(false)
   end
-  A.registerTask(elemColor, self:Name()..'_elemColor')
+  A.registerTask(elemColor, self:Name()..'_elemColor', true)
   return elemColor
 end)
 
@@ -1363,12 +1354,13 @@ function AST.UserFunction:toTask(info)
         where [ctxt.privileges] do [body] end
       end
     end
+    A.registerTask(tsk, info.name)
   else
-    __demand(__inline) task tsk([ctxt:signature()])
+    task tsk([ctxt:signature()])
     where [ctxt.privileges] do [body] end
+    A.registerTask(tsk, info.name, true)
   end
   -- Finalize task
-  A.registerTask(tsk, info.name)
   return tsk, ctxt
 end
 
@@ -1933,192 +1925,48 @@ end
 -- Relation dumping & loading
 -------------------------------------------------------------------------------
 
+-- rawstring -> int8[256]
+local terra concretize(str : rawstring)
+  var res : int8[256]
+  C.strncpy(&(res[0]), str, 256);
+  res[255] = 0
+  return res
+end
+A.registerFun(concretize, 'concretize')
+
 if USE_HDF then
 
-  local HDF5 = terralib.includec(HDF_HEADER)
-
-  -- HACK: Hardcoding missing #define's
-  HDF5.H5F_ACC_TRUNC = 2
-  HDF5.H5P_DEFAULT = 0
+  local HDF = require 'hdf_helper'
+  print('local HDF = require "hdf_helper"')
 
   -- string*, string, RG.rexpr* -> RG.rquote
-  function R.Relation:emitDump(flds, file, vals)
+  function R.Relation:emitDump(flds, filePat, vals)
     local flds = flds:copy()
     if self:isCoupled() then
       assert(flds:find(self:CouplingField():Name()))
       flds:insert('__valid')
     end
-    local terra create(fname : rawstring, xSize : int, ySize : int, zSize: int)
-      var fid = HDF5.H5Fcreate(fname, HDF5.H5F_ACC_TRUNC,
-                               HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT)
-      var dataSpace : int32
-      escape
-        if self:isPlain() or self:isCoupled() then
-          emit quote
-            var sizes : HDF5.hsize_t[1]
-            sizes[0] = xSize
-            dataSpace = HDF5.H5Screate_simple(1, sizes, [&uint64](0))
-          end
-        elseif self:isGrid() then
-          emit quote
-            -- Legion defaults to column-major layout, so we have to reverse.
-            -- This implies that x and z will be flipped in the output file.
-            var sizes : HDF5.hsize_t[3]
-            sizes[2] = xSize
-            sizes[1] = ySize
-            sizes[0] = zSize
-            dataSpace = HDF5.H5Screate_simple(3, sizes, [&uint64](0))
-          end
-        else assert(false) end
-        local header = newlist() -- terralib.quote*
-        local footer = newlist() -- terralib.quote*
-        -- terralib.type -> terralib.quote
-        local function toHType(T)
-          -- TODO: Not supporting: pointers, vectors, non-primitive arrays
-          if T:isprimitive() then
-            return
-              -- HACK: Hardcoding missing #define's
-              (T == int)    and HDF5.H5T_STD_I32LE_g  or
-              (T == int8)   and HDF5.H5T_STD_I8LE_g   or
-              (T == int16)  and HDF5.H5T_STD_I16LE_g  or
-              (T == int32)  and HDF5.H5T_STD_I32LE_g  or
-              (T == int64)  and HDF5.H5T_STD_I64LE_g  or
-              (T == uint)   and HDF5.H5T_STD_U32LE_g  or
-              (T == uint8)  and HDF5.H5T_STD_U8LE_g   or
-              (T == uint16) and HDF5.H5T_STD_U16LE_g  or
-              (T == uint32) and HDF5.H5T_STD_U32LE_g  or
-              (T == uint64) and HDF5.H5T_STD_U64LE_g  or
-              (T == bool)   and HDF5.H5T_STD_U8LE_g   or
-              (T == float)  and HDF5.H5T_IEEE_F32LE_g or
-              (T == double) and HDF5.H5T_IEEE_F64LE_g or
-              assert(false)
-          elseif T:isarray() then
-            local elemType = toHType(T.type)
-            local arrayType = symbol(HDF5.hid_t, 'arrayType')
-            header:insert(quote
-              var dims : HDF5.hsize_t[1]
-              dims[0] = T.N
-              var elemType = [elemType]
-              var [arrayType] = HDF5.H5Tarray_create2(elemType, 1, dims)
-            end)
-            footer:insert(quote
-              HDF5.H5Tclose(arrayType)
-            end)
-            return arrayType
-          else assert(false) end
-        end
-        -- terralib.struct, set(string), string -> ()
-        local function emitFieldDecls(fs, whitelist, prefix)
-          -- TODO: Only supporting pure structs, not fspaces
-          assert(fs:isstruct())
-          for _,e in ipairs(fs.entries) do
-            local name, type = parseStructEntry(e)
-            if whitelist and not whitelist[name] then
-              -- do nothing
-            elseif type == int2d then
-              -- Hardcode special case: int2d structs are stored packed
-              local hName = prefix..name
-              local int2dType = symbol(HDF5.hid_t, 'int2dType')
-              local dataSet = symbol(HDF5.hid_t, 'dataSet')
-              header:insert(quote
-                var [int2dType] = HDF5.H5Tcreate(HDF5.H5T_COMPOUND, 16)
-                HDF5.H5Tinsert(int2dType, "x", 0, HDF5.H5T_STD_I64LE_g)
-                HDF5.H5Tinsert(int2dType, "y", 8, HDF5.H5T_STD_I64LE_g)
-                var [dataSet] = HDF5.H5Dcreate2(
-                  fid, hName, int2dType, dataSpace,
-                  HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT)
-              end)
-              footer:insert(quote
-                HDF5.H5Dclose(dataSet)
-                HDF5.H5Tclose(int2dType)
-              end)
-            elseif type == int3d then
-              -- Hardcode special case: int3d structs are stored packed
-              local hName = prefix..name
-              local int3dType = symbol(HDF5.hid_t, 'int3dType')
-              local dataSet = symbol(HDF5.hid_t, 'dataSet')
-              header:insert(quote
-                var [int3dType] = HDF5.H5Tcreate(HDF5.H5T_COMPOUND, 24)
-                HDF5.H5Tinsert(int3dType, "x", 0, HDF5.H5T_STD_I64LE_g)
-                HDF5.H5Tinsert(int3dType, "y", 8, HDF5.H5T_STD_I64LE_g)
-                HDF5.H5Tinsert(int3dType, "z", 16, HDF5.H5T_STD_I64LE_g)
-                var [dataSet] = HDF5.H5Dcreate2(
-                  fid, hName, int3dType, dataSpace,
-                  HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT)
-              end)
-              footer:insert(quote
-                HDF5.H5Dclose(dataSet)
-                HDF5.H5Tclose(int3dType)
-              end)
-            elseif type:isstruct() then
-              emitFieldDecls(type, nil, prefix..name..'.')
-            else
-              local hName = prefix..name
-              local hType = toHType(type)
-              local dataSet = symbol(HDF5.hid_t, 'dataSet')
-              header:insert(quote
-                var hType = [hType]
-                var [dataSet] = HDF5.H5Dcreate2(
-                  fid, hName, hType, dataSpace,
-                  HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT)
-              end)
-              footer:insert(quote
-                HDF5.H5Dclose(dataSet)
-              end)
-            end
-          end
-        end
-        emitFieldDecls(self:fieldSpace(), flds:toSet(), '')
-        emit quote [header] end
-        emit quote [footer:reverse()] end
-      end
-      HDF5.H5Sclose(dataSpace)
-      HDF5.H5Fclose(fid)
-    end
-    A.registerFun(create, self:Name()..'_hdf5create_'..flds:join('_'))
+    local dump = HDF.mkDump(self:indexType(), int3d, self:fieldSpace(), flds)
+    local taskName =
+      A.registerTask(dump, self:Name()..'_dump_'..flds:join('_'), false, true)
+    local fldsStr = flds:map(function(f) return '"'..f..'"' end):join(',')
+    print(taskName..' = HDF.mkDump('..tostring(self:indexType())..', int3d, '..
+          tostring(self:fieldSpace())..', {'..fldsStr..'})')
+    local colors = A.primColors()
     local r = self:regionSymbol()
     local p_r = self:primPartSymbol()
     local s = self:copyRegionSymbol()
     local p_s = self:copyPrimPartSymbol()
-    local xSize, ySize, zSize -- RG.rexpr
-    if self:isPlain() then
-      xSize = rexpr [self:Size():varSymbol()] end
-      ySize = rexpr -1 end
-      zSize = rexpr -1 end
-    elseif self:isGrid() then
-      local xNum = self:xNum():varSymbol()
-      local yNum = self:yNum():varSymbol()
-      local zNum = self:zNum():varSymbol()
-      local xBnum = self:xBnum():varSymbol()
-      local yBnum = self:yBnum():varSymbol()
-      local zBnum = self:zBnum():varSymbol()
-      xSize = rexpr xNum + 2*xBnum end
-      ySize = rexpr yNum + 2*yBnum end
-      zSize = rexpr zNum + 2*zBnum end
-    elseif self:isCoupled() then
-      xSize = rexpr [self:primPartSize()] * NUM_PRIM_PARTS end
-      ySize = rexpr -1 end
-      zSize = rexpr -1 end
-    else assert(false) end
     return rquote
       var filename = [rawstring](C.malloc(256))
-      C.snprintf(filename, 256, file, vals)
-      create(filename, xSize, ySize, zSize)
-      attach(hdf5, s.[flds], filename, RG.file_read_write)
-      for c in [A.primColors()] do
-        var p_r_c = p_r[c]
-        var p_s_c = p_s[c]
-        acquire(p_s_c.[flds])
-        copy(p_r_c.[flds], p_s_c.[flds])
-        release(p_s_c.[flds])
-      end
-      detach(hdf5, s.[flds])
+      C.snprintf(filename, 256, filePat, vals)
+      dump(colors, concretize(filename), r, s, p_r, p_s)
       C.free(filename)
     end
   end
 
   -- string*, string, RG.rexpr* -> RG.rquote
-  function R.Relation:emitLoad(flds, file, vals)
+  function R.Relation:emitLoad(flds, filePat, vals)
     local flds = flds:copy()
     local primPartQuote = rquote end
     if self:isCoupled() then
@@ -2127,22 +1975,21 @@ if USE_HDF then
       -- XXX: Skipping primary-partition check due to Regent weirdness
       primPartQuote = rquote end
     end
+    local load = HDF.mkLoad(self:indexType(), int3d, self:fieldSpace(), flds)
+    local taskName =
+      A.registerTask(load, self:Name()..'_load_'..flds:join('_'), false, true)
+    local fldsStr = flds:map(function(f) return '"'..f..'"' end):join(',')
+    print(taskName..' = HDF.mkLoad('..tostring(self:indexType())..', int3d, '..
+          tostring(self:fieldSpace())..', {'..fldsStr..'})')
+    local colors = A.primColors()
     local r = self:regionSymbol()
     local p_r = self:primPartSymbol()
     local s = self:copyRegionSymbol()
     local p_s = self:copyPrimPartSymbol()
     return rquote
       var filename = [rawstring](C.malloc(256))
-      C.snprintf(filename, 256, file, vals)
-      attach(hdf5, s.[flds], filename, RG.file_read_only)
-      for c in [A.primColors()] do
-        var p_r_c = p_r[c]
-        var p_s_c = p_s[c]
-        acquire(p_s_c.[flds])
-        copy(p_s_c.[flds], p_r_c.[flds])
-        release(p_s_c.[flds])
-      end
-      detach(hdf5, s.[flds])
+      C.snprintf(filename, 256, filePat, vals)
+      load(colors, concretize(filename), r, s, p_r, p_s)
       C.free(filename);
       [primPartQuote]
     end
@@ -2151,14 +1998,14 @@ if USE_HDF then
 else -- if not USE_HDF
 
   -- string*, string, RG.rexpr* -> RG.rquote
-  function R.Relation:emitDump(flds, file, vals)
+  function R.Relation:emitDump(flds, filePat, vals)
     return rquote
       RG.assert(false, 'HDF I/O not supported; recompile with USE_HDF=1')
     end
   end
 
   -- string*, string, RG.rexpr* -> RG.rquote
-  function R.Relation:emitLoad(flds, file, vals)
+  function R.Relation:emitLoad(flds, filePat, vals)
     return rquote
       RG.assert(false, 'HDF I/O not supported; recompile with USE_HDF=1')
     end
@@ -2172,17 +2019,28 @@ end -- if USE_HDF
 
 local JSON = terralib.includec('json.h')
 
-local Enum = {}
+local SCHEMA = (require 'config_helper').processSchema('config_schema.h')
+print('local SCHEMA = (require "config_helper").processSchema("config_schema.h")')
+print('local Config = SCHEMA.Config')
 
--- string* -> Enum
-function A.Enum(...)
-  local enum = setmetatable({}, Enum)
-  enum.__choices = {...}
-  for i,val in ipairs({...}) do
-    assert(type(val) == 'string')
-    enum[val] = i-1
-  end
-  return enum
+-- string -> map(string,int)
+function A.getEnum(name)
+  return SCHEMA[name]
+end
+
+-- () -> RG.symbol
+A.configSymbol = terralib.memoize(function()
+  return RG.newsymbol(A.configStruct(), 'config')
+end)
+
+-- () -> terralib.struct
+function A.configStruct()
+  return SCHEMA.Config
+end
+
+-- string -> M.AST.Expr
+function A.readConfig(name)
+  return M.AST.ReadConfig(name)
 end
 
 -- A -> bool
@@ -2190,192 +2048,27 @@ local function equalsDoubleVec(x)
   return terralib.types.istype(x) and x:isarray() and x.type == double
 end
 
--- ConfigMap = map(string,ConfigKind)
--- ConfigKind = Enum | int | double | double[N] | ConfigMap
-
--- () -> RG.symbol
-A.configSymbol = terralib.memoize(function()
-  return RG.newsymbol(nil, 'config')
-end)
-
--- ConfigMap
-local CONFIG_MAP = {}
-
--- () -> terralib.struct
-A.configStruct = terralib.memoize(function()
-  local function fillStruct(struct_, map)
-    for fld,kind in pairs(map) do
-      if getmetatable(kind) == Enum then
-        struct_.entries:insert({field=fld, type=int})
-      elseif kind == int or kind == double or equalsDoubleVec(kind) then
-        struct_.entries:insert({field=fld, type=kind})
-      else
-        local nested = terralib.types.newstruct(fld)
-        fillStruct(nested, kind)
-        struct_.entries:insert({field=fld, type=nested})
+-- string -> PRE.Global
+function A.globalFromConfig(name)
+  local type = A.configStruct()
+  for _,fld in ipairs(name:split('.')) do
+    local entries = type.entries
+    type = nil
+    for _,e in ipairs(entries) do
+      local subName,subType = parseStructEntry(e)
+      if subName == fld then
+        type = subType
+        break
       end
     end
-    A.registerStruct(struct_)
+    assert(type)
   end
-  local s = terralib.types.newstruct('Config')
-  fillStruct(s, CONFIG_MAP)
-  return s
-end)
-
--- string, terralib.expr? -> terralib.quote
-local function errorOut(msg, name)
-  if name then
-    return quote
-      C.printf('%s for option %s\n', msg, name)
-      C.exit(1)
-    end
-  else
-    return quote
-      C.printf('%s\n', msg)
-      C.exit(1)
-    end
-  end
-end
-
--- terralib.symbol, terralib.expr, terralib.expr, ConfigKind -> terralib.quote
-local function emitValueParser(name, lval, rval, kind)
-  if getmetatable(kind) == Enum then
-    return quote
-      if [rval].type ~= JSON.json_string then
-        [errorOut('Wrong type', name)]
-      end
-      var found = false
-      escape for i,choice in ipairs(kind.__choices) do emit quote
-        if C.strcmp([rval].u.string.ptr, choice) == 0 then
-          [lval] = i-1
-          found = true
-        end
-      end end end
-      if not found then
-        [errorOut('Unexpected value', name)]
-      end
-    end
-  elseif kind == int then
-    return quote
-      if [rval].type ~= JSON.json_integer then
-        [errorOut('Wrong type', name)]
-      end
-      [lval] = [rval].u.integer
-    end
-  elseif kind == double then
-    return quote
-      if [rval].type ~= JSON.json_double then
-        [errorOut('Wrong type', name)]
-      end
-      [lval] = [rval].u.dbl
-    end
-  elseif equalsDoubleVec(kind) then
-    return quote
-      if [rval].type ~= JSON.json_array then
-        [errorOut('Wrong type', name)]
-      end
-      if [rval].u.array.length ~= [kind.N] then
-        [errorOut('Wrong length', name)]
-      end
-      for i = 0,[kind.N] do
-        var rval_i = [rval].u.array.values[i]
-        if rval_i.type ~= JSON.json_double then
-          [errorOut('Wrong element type', name)]
-        end
-        [lval][i] = rval_i.u.dbl
-      end
-    end
-  else
-    return quote
-      var totalParsed = 0
-      if [rval].type ~= JSON.json_object then
-        [errorOut('Wrong type', name)]
-      end
-      for i = 0,[rval].u.object.length do
-        var nodeName = [rval].u.object.values[i].name
-        var nodeValue = [rval].u.object.values[i].value
-        var parsed = false
-        escape for fld,subKind in pairs(kind) do emit quote
-          if C.strcmp(nodeName, fld) == 0 then
-            [emitValueParser(nodeName, `[lval].[fld], nodeValue, subKind)]
-            parsed = true
-          end
-        end end end
-        if parsed then
-          totalParsed = totalParsed + 1
-        else
-          C.printf('Ignoring option %s\n', nodeName)
-        end
-      end
-      -- TODO: Assuming the json file contains no duplicate values
-      if totalParsed < [UTIL.tableSize(kind)] then
-        [errorOut('Missing options from config file')]
-      end
-    end
-  end
-end
-
--- () -> (&int8 -> ...)
-local emitConfigParser = terralib.memoize(function()
-  local configStruct = A.configStruct()
-  local terra parseConfig(filename : &int8) : configStruct
-    var config : configStruct
-    var f = C.fopen(filename, 'r');
-    if f == nil then [errorOut('Cannot open config file')] end
-    var res1 = C.fseek(f, 0, C.SEEK_END);
-    if res1 ~= 0 then [errorOut('Cannot seek to end of config file')] end
-    var len = C.ftell(f);
-    if len < 0 then [errorOut('Cannot ftell config file')] end
-    var res2 = C.fseek(f, 0, C.SEEK_SET);
-    if res2 ~= 0 then [errorOut('Cannot seek to start of config file')] end
-    var buf = [&int8](C.malloc(len));
-    if buf == nil then [errorOut('Malloc error while parsing config')] end
-    var res3 = C.fread(buf, 1, len, f);
-    if res3 < len then [errorOut('Cannot read from config file')] end
-    C.fclose(f);
-    var errMsg : int8[256]
-    var settings = JSON.json_settings{ 0, 0, nil, nil, nil, 0 }
-    settings.settings = JSON.json_enable_comments
-    var root = JSON.json_parse_ex(&settings, buf, len, errMsg)
-    if root == nil then
-      C.printf('JSON parsing error: %s\n', errMsg)
-      C.exit(1)
-    end
-    [emitValueParser('<root>', config, root, CONFIG_MAP)]
-    JSON.json_value_free(root)
-    C.free(buf)
-    return config
-  end
-  A.registerFun(parseConfig, 'parseConfig')
-  return parseConfig
-end)
-
--- string, Enum | int | double | double[N] -> M.AST.Expr
-function A.readConfig(name, type)
-  assert(getmetatable(type) == Enum or type == int or type == double or
-         equalsDoubleVec(type))
-  local map = CONFIG_MAP
-  local fields = name:split('.')
-  for i,fld in ipairs(fields) do
-    if i == #fields then
-      if map[fld] then assert(map[fld] == type) else map[fld] = type end
-    else
-      if not map[fld] then map[fld] = {} end
-      map = map[fld]
-    end
-  end
-  return M.AST.ReadConfig(name)
-end
-
--- string, Enum | int | double | double[N] -> PRE.Global
-function A.globalFromConfig(name, type)
   local lType =
-    getmetatable(type) == Enum and L.int                      or
-    type == int                and L.int                      or
-    type == double             and L.double                   or
-    equalsDoubleVec(type)      and L.vector(L.double, type.N) or
+    type == int           and L.int                      or
+    type == double        and L.double                   or
+    equalsDoubleVec(type) and L.vector(L.double, type.N) or
     assert(false)
-  return L.Global(name, lType, A.readConfig(name, type))
+  return L.Global(name, lType, A.readConfig(name))
 end
 
 -------------------------------------------------------------------------------
@@ -2472,47 +2165,16 @@ function M.AST.SetGlobal:toRQuote()
   end
 end
 function M.AST.While:toRQuote()
-  if self.spmd then
-    return rquote
-      __demand(__spmd)
-      while [self.cond:toRExpr()] do
-        [self.body:toRQuote()]
-      end
-    end
-  else
-    return rquote
-      while [self.cond:toRExpr()] do
-        [self.body:toRQuote()]
-      end
-    end
-  end
-end
-function M.AST.Do:toRQuote()
-  if self.spmd then
-    return rquote
-      __demand(__spmd)
-      do
-        [self.body:toRQuote()]
-      end
-    end
-  else
-    return rquote
-      do
-        [self.body:toRQuote()]
-      end
+  return rquote
+    while [self.cond:toRExpr()] do
+      [self.body:toRQuote()]
     end
   end
 end
 function M.AST.Print:toRQuote()
-  local formals =
-    self.globals:map(function(g) return RG.newsymbol(toRType(g:Type())) end)
-  local task output([formals])
-    C.printf([self.fmt], [formals])
-  end
-  A.registerTask(output, 'output')
-  local actuals = self.globals:map(function(g) return g:varSymbol() end)
   return rquote
-    output([actuals])
+    C.printf([self.fmt],
+             [self.globals:map(function(g) return g:varSymbol() end)])
   end
 end
 function M.AST.Dump:toRQuote()
@@ -2737,23 +2399,19 @@ function A.translate(xTiles, yTiles, zTiles)
       end
     end
   end
-  A.configSymbol():settype(A.configStruct())
-  local task work([A.configSymbol()])
+  local __forbid(__optimize) task work([A.configSymbol()])
     [header]
     __parallelize_with [opts] do [body] end
   end
   A.registerTask(work, 'work')
   -- Synthesize main task
-  local parseConfig = emitConfigParser()
   local task main()
     var args = RG.c.legion_runtime_get_input_args()
     for i = 1,args.argc do
       if C.strcmp(args.argv[i], '-i') == 0 and i < args.argc - 1 then
-        work(parseConfig(args.argv[i+1]))
+        work(SCHEMA.parseConfig(args.argv[i+1]))
       end
     end
   end
   A.registerTask(main, 'main')
-  -- Emit to executable
-  RG.saveobj(main, OBJNAME, 'executable', nil, LIBS)
 end

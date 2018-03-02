@@ -19,7 +19,7 @@ General Public License for more details.
 You should have received a copy of the GNU General Public
 License along with this program; if not, write to the Free
 Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-nBoston, MA 02110-1301 USA.
+Boston, MA 02110-1301 USA.
 
 -----------------------------------------------------------------------------
 ]]--
@@ -29,7 +29,6 @@ import 'ebb'
 
 local A    = require 'admiral'
 local GRID = require 'ebb.domains.grid'
-local JSON = require 'json'
 local L    = require 'ebblib'
 local M    = require 'ebb.src.main'
 
@@ -43,37 +42,6 @@ local C = terralib.includecstring [[
 #include <time.h>
 #include <stdio.h>
 ]]
-
-----------------------------------------------------------------------------
---[[                      COMPILE-TIME OPTIONS                           ]]--
------------------------------------------------------------------------------
-
-local function PrintUsageAndExit ()
-  print("Usage : $LISZT_PATH/liszt-legion.sh $SOLEIL_PATH/src/soleil-x.t")
-  print("          -i <config.json> (** required **)")
-  os.exit(1)
-end
-
-do
-  local configFileName
-  local i = 1
-  while i <= #arg do
-    if arg[i] == '-i' then
-      if i == #arg then PrintUsageAndExit() end
-      configFileName = arg[i+1]
-      break
-    end
-    i = i + 1
-  end
-  if not configFileName then PrintUsageAndExit() end
-  local f = io.open(configFileName, 'r')
-  if not f then PrintUsageAndExit() end
-  local content = f:read('*all')
-  if not content then PrintUsageAndExit() end
-  f:close()
-  config = JSON.decode(content)
-  if not config then PrintUsageAndExit() end
-end
 
 -----------------------------------------------------------------------------
 --[[                            CONSTANTS                                ]]--
@@ -109,23 +77,23 @@ local IO = {}
 ---------------------------------
 
 -- Number of cells in the x, y, & z directions
-Grid.xNum = A.globalFromConfig('Grid.xNum', int)
-Grid.yNum = A.globalFromConfig('Grid.yNum', int)
-Grid.zNum = A.globalFromConfig('Grid.zNum', int)
+Grid.xNum = A.globalFromConfig('Grid.xNum')
+Grid.yNum = A.globalFromConfig('Grid.yNum')
+Grid.zNum = A.globalFromConfig('Grid.zNum')
 -- Number of tiles in each direction
-Grid.xTiles = A.readConfig('Grid.xTiles', int)
-Grid.yTiles = A.readConfig('Grid.yTiles', int)
-Grid.zTiles = A.readConfig('Grid.zTiles', int)
+Grid.xTiles = A.readConfig('Grid.xTiles')
+Grid.yTiles = A.readConfig('Grid.yTiles')
+Grid.zTiles = A.readConfig('Grid.zTiles')
 Grid.numTiles = Grid.xTiles * Grid.yTiles * Grid.zTiles
 -- Origin of the computational domain (meters)
-Grid.origin = A.readConfig('Grid.origin', double[3])
+Grid.origin = A.readConfig('Grid.origin')
 Grid.xOrigin = L.Global('Grid.xOrigin', L.double, Grid.origin[0])
 Grid.yOrigin = L.Global('Grid.yOrigin', L.double, Grid.origin[1])
 Grid.zOrigin = L.Global('Grid.zOrigin', L.double, Grid.origin[2])
 -- Width of the computational domain in the x, y, & z directions (meters)
-Grid.xWidth = A.globalFromConfig('Grid.xWidth', double)
-Grid.yWidth = A.globalFromConfig('Grid.yWidth', double)
-Grid.zWidth = A.globalFromConfig('Grid.zWidth', double)
+Grid.xWidth = A.globalFromConfig('Grid.xWidth')
+Grid.yWidth = A.globalFromConfig('Grid.yWidth')
+Grid.zWidth = A.globalFromConfig('Grid.zWidth')
 -- Width of each cell in the x, y, & z directions (meters)
 Grid.xCellWidth = L.Global('Grid.xCellWidth', L.double, Grid.xWidth:get() / Grid.xNum:get())
 Grid.yCellWidth = L.Global('Grid.yCellWidth', L.double, Grid.yWidth:get() / Grid.yNum:get())
@@ -149,15 +117,15 @@ Grid.dXYZInverseSquare =
 -- Boundary conditions for each face of the block and possible
 -- wall velocity, if no-slip.
 
-local FlowBC = A.Enum('Periodic','Symmetry','AdiabaticWall','IsothermalWall')
+local FlowBC = A.getEnum('FlowBC')
 
 -- X
-BC.xBCLeft         = A.readConfig('BC.xBCLeft', FlowBC)
-BC.xBCLeftVel      = A.readConfig('BC.xBCLeftVel', double[3])
-BC.xBCLeftTemp     = A.readConfig('BC.xBCLeftTemp', double)
-BC.xBCRight        = A.readConfig('BC.xBCRight', FlowBC)
-BC.xBCRightVel     = A.readConfig('BC.xBCRightVel', double[3])
-BC.xBCRightTemp    = A.readConfig('BC.xBCRightTemp', double)
+BC.xBCLeft         = A.readConfig('BC.xBCLeft.__value')
+BC.xBCLeftVel      = A.readConfig('BC.xBCLeftVel')
+BC.xBCLeftTemp     = A.readConfig('BC.xBCLeftTemp')
+BC.xBCRight        = A.readConfig('BC.xBCRight.__value')
+BC.xBCRightVel     = A.readConfig('BC.xBCRightVel')
+BC.xBCRightTemp    = A.readConfig('BC.xBCRightTemp')
 BC.xBCPeriodic     = L.Global('BC.xBCPeriodic', L.bool,
                               M.COND2EXPR(M.EQ(BC.xBCLeft, FlowBC.Periodic)))
 BC.xSign           = L.Global('BC.xSign', L.vec3d, {0.1,0.1,0.1})
@@ -167,12 +135,12 @@ BC.xPosTemperature = L.Global('BC.xPosTemperature', L.double, 0.0)
 BC.xNegTemperature = L.Global('BC.xNegTemperature', L.double, 0.0)
 
 -- Y
-BC.yBCLeft         = A.readConfig('BC.yBCLeft', FlowBC)
-BC.yBCLeftVel      = A.readConfig('BC.yBCLeftVel', double[3])
-BC.yBCLeftTemp     = A.readConfig('BC.yBCLeftTemp', double)
-BC.yBCRight        = A.readConfig('BC.yBCRight', FlowBC)
-BC.yBCRightVel     = A.readConfig('BC.yBCRightVel', double[3])
-BC.yBCRightTemp    = A.readConfig('BC.yBCRightTemp', double)
+BC.yBCLeft         = A.readConfig('BC.yBCLeft.__value')
+BC.yBCLeftVel      = A.readConfig('BC.yBCLeftVel')
+BC.yBCLeftTemp     = A.readConfig('BC.yBCLeftTemp')
+BC.yBCRight        = A.readConfig('BC.yBCRight.__value')
+BC.yBCRightVel     = A.readConfig('BC.yBCRightVel')
+BC.yBCRightTemp    = A.readConfig('BC.yBCRightTemp')
 BC.yBCPeriodic     = L.Global('BC.yBCPeriodic', L.bool,
                               M.COND2EXPR(M.EQ(BC.yBCLeft, FlowBC.Periodic)))
 BC.ySign           = L.Global('BC.ySign', L.vec3d, {0.1,0.1,0.1})
@@ -182,12 +150,12 @@ BC.yPosTemperature = L.Global('BC.yPosTemperature', L.double, 0.0)
 BC.yNegTemperature = L.Global('BC.yNegTemperature', L.double, 0.0)
 
 -- Z
-BC.zBCLeft         = A.readConfig('BC.zBCLeft', FlowBC)
-BC.zBCLeftVel      = A.readConfig('BC.zBCLeftVel', double[3])
-BC.zBCLeftTemp     = A.readConfig('BC.zBCLeftTemp', double)
-BC.zBCRight        = A.readConfig('BC.zBCRight', FlowBC)
-BC.zBCRightVel     = A.readConfig('BC.zBCRightVel', double[3])
-BC.zBCRightTemp    = A.readConfig('BC.zBCRightTemp', double)
+BC.zBCLeft         = A.readConfig('BC.zBCLeft.__value')
+BC.zBCLeftVel      = A.readConfig('BC.zBCLeftVel')
+BC.zBCLeftTemp     = A.readConfig('BC.zBCLeftTemp')
+BC.zBCRight        = A.readConfig('BC.zBCRight.__value')
+BC.zBCRightVel     = A.readConfig('BC.zBCRightVel')
+BC.zBCRightTemp    = A.readConfig('BC.zBCRightTemp')
 BC.zBCPeriodic     = L.Global('BC.zBCPeriodic', L.bool,
                               M.COND2EXPR(M.EQ(BC.zBCLeft, FlowBC.Periodic)))
 BC.zSign           = L.Global('BC.zSign', L.vec3d, {0.1,0.1,0.1})
@@ -198,7 +166,7 @@ BC.zNegTemperature = L.Global('BC.zNegTemperature', L.double, 0.0)
 
 -- Particle boundary conditions
 
-local ParticleBC = A.Enum('Permeable','Solid')
+local ParticleBC = A.getEnum('ParticleBC')
 
 BC.xBCLeftParticles  = L.Global('BC.xBCLeftParticles', L.int, -1)
 BC.xBCRightParticles = L.Global('BC.xBCRightParticles', L.int, -1)
@@ -246,11 +214,11 @@ Grid.zRealWidth = L.Global('Grid.zRealWidth', L.double, Grid.zWidth:get() + 2*Gr
 Integrator.SPLIT = 0.5 -- Splitting parameter
 
 -- Time integration
-Integrator.finalTime      = A.readConfig('Integrator.finalTime', double)
-Integrator.restartIter    = A.readConfig('Integrator.restartIter', int)
-Integrator.maxIter        = A.readConfig('Integrator.maxIter', int)
-Integrator.cfl            = A.readConfig('Integrator.cfl', double)
-Integrator.fixedDeltaTime = A.readConfig('Integrator.fixedDeltaTime', double)
+Integrator.finalTime      = A.readConfig('Integrator.finalTime')
+Integrator.restartIter    = A.readConfig('Integrator.restartIter')
+Integrator.maxIter        = A.readConfig('Integrator.maxIter')
+Integrator.cfl            = A.readConfig('Integrator.cfl')
+Integrator.fixedDeltaTime = A.readConfig('Integrator.fixedDeltaTime')
 Integrator.simTime        = L.Global('Integrator.simTime', L.double, 0.0)
 Integrator.time_old       = L.Global('Integrator.time_old', L.double, 0.0)
 Integrator.timeStep       = L.Global('Integrator.timeStep', L.int, 0)
@@ -269,28 +237,27 @@ Integrator.maxHeatConductionSpectralRadius =
 --[[ Flow ]]--
 --------------
 
-Flow.gasConstant = A.globalFromConfig('Flow.gasConstant', double)
-Flow.gamma       = A.globalFromConfig('Flow.gamma', double)
-Flow.prandtl     = A.globalFromConfig('Flow.prandtl', double)
+Flow.gasConstant = A.globalFromConfig('Flow.gasConstant')
+Flow.gamma       = A.globalFromConfig('Flow.gamma')
+Flow.prandtl     = A.globalFromConfig('Flow.prandtl')
 
-local ViscosityModel = A.Enum('Constant','PowerLaw','Sutherland')
+local ViscosityModel = A.getEnum('ViscosityModel')
 
-Flow.viscosityModel    = A.globalFromConfig('Flow.viscosityModel', ViscosityModel)
-Flow.constantVisc      = A.globalFromConfig('Flow.constantVisc', double)
-Flow.powerlawViscRef   = A.globalFromConfig('Flow.powerlawViscRef', double)
-Flow.powerlawTempRef   = A.globalFromConfig('Flow.powerlawTempRef', double)
-Flow.sutherlandViscRef = A.globalFromConfig('Flow.sutherlandViscRef', double)
-Flow.sutherlandTempRef = A.globalFromConfig('Flow.sutherlandTempRef', double)
-Flow.sutherlandSRef    = A.globalFromConfig('Flow.sutherlandSRef', double)
+Flow.viscosityModel    = A.globalFromConfig('Flow.viscosityModel.__value')
+Flow.constantVisc      = A.globalFromConfig('Flow.constantVisc')
+Flow.powerlawViscRef   = A.globalFromConfig('Flow.powerlawViscRef')
+Flow.powerlawTempRef   = A.globalFromConfig('Flow.powerlawTempRef')
+Flow.sutherlandViscRef = A.globalFromConfig('Flow.sutherlandViscRef')
+Flow.sutherlandTempRef = A.globalFromConfig('Flow.sutherlandTempRef')
+Flow.sutherlandSRef    = A.globalFromConfig('Flow.sutherlandSRef')
 
-local FlowInitCase = A.Enum('Uniform','Restart','Perturbed',
-                            'TaylorGreen2DVortex','TaylorGreen3DVortex')
-local OnOrOff = A.Enum('OFF','ON')
+local FlowInitCase = A.getEnum('FlowInitCase')
+local OnOrOff = A.getEnum('OnOrOff')
 
-Flow.initCase    = A.readConfig('Flow.initCase', FlowInitCase)
-Flow.initParams  = A.globalFromConfig('Flow.initParams', double[5])
-Flow.bodyForce   = A.globalFromConfig('Flow.bodyForce', double[3])
-Flow.turbForcing = A.readConfig('Flow.turbForcing', OnOrOff)
+Flow.initCase    = A.readConfig('Flow.initCase.__value')
+Flow.initParams  = A.globalFromConfig('Flow.initParams')
+Flow.bodyForce   = A.globalFromConfig('Flow.bodyForce')
+Flow.turbForcing = A.readConfig('Flow.turbForcing.__value')
 
 Flow.averagePressure      = L.Global('Flow.averagePressure', L.double, 0.0)
 Flow.averageTemperature   = L.Global('Flow.averageTemperature', L.double, 0.0)
@@ -306,22 +273,22 @@ Flow.averageK             = L.Global('Flow.averageK', L.double, 0.0)
 --[[ Particles ]]--
 -------------------
 
-local ParticlesInitCase = A.Enum('Random','Restart','Uniform')
+local ParticlesInitCase = A.getEnum('ParticlesInitCase')
 
 -- Define the initial number of particles and insertion/deletion
-Particles.initCase           = A.readConfig('Particles.initCase', ParticlesInitCase)
-Particles.initNum            = A.readConfig('Particles.initNum', int)
-Particles.maxNum             = A.globalFromConfig('Particles.maxNum', int)
-Particles.restitutionCoeff   = A.globalFromConfig('Particles.restitutionCoeff', double)
-Particles.convectiveCoeff    = A.globalFromConfig('Particles.convectiveCoeff', double)
-Particles.absorptivity       = A.readConfig('Particles.absorptivity', double)
-Particles.heatCapacity       = A.globalFromConfig('Particles.heatCapacity', double)
-Particles.initTemperature    = A.readConfig('Particles.initTemperature', double)
-Particles.density            = A.globalFromConfig('Particles.density', double)
-Particles.diameterMean       = A.readConfig('Particles.diameterMean', double)
-Particles.bodyForce          = A.globalFromConfig('Particles.bodyForce', double[3])
-Particles.maxSkew            = A.globalFromConfig('Particles.maxSkew', double)
-Particles.maxXferNum         = A.globalFromConfig('Particles.maxXferNum', int)
+Particles.initCase           = A.readConfig('Particles.initCase.__value')
+Particles.initNum            = A.readConfig('Particles.initNum')
+Particles.maxNum             = A.globalFromConfig('Particles.maxNum')
+Particles.restitutionCoeff   = A.globalFromConfig('Particles.restitutionCoeff')
+Particles.convectiveCoeff    = A.globalFromConfig('Particles.convectiveCoeff')
+Particles.absorptivity       = A.readConfig('Particles.absorptivity')
+Particles.heatCapacity       = A.globalFromConfig('Particles.heatCapacity')
+Particles.initTemperature    = A.readConfig('Particles.initTemperature')
+Particles.density            = A.globalFromConfig('Particles.density')
+Particles.diameterMean       = A.readConfig('Particles.diameterMean')
+Particles.bodyForce          = A.globalFromConfig('Particles.bodyForce')
+Particles.maxSkew            = A.globalFromConfig('Particles.maxSkew')
+Particles.maxXferNum         = A.globalFromConfig('Particles.maxXferNum')
 Particles.averageTemperature = L.Global('Particles.averageTemperature', L.double, 0.0)
 Particles.number             = L.Global('Particles.number', L.int64, 0)
 
@@ -329,60 +296,54 @@ Particles.number             = L.Global('Particles.number', L.int64, 0)
 --[[ Radiation ]]--
 -------------------
 
-Radiation.TYPE = config.Radiation.TYPE
-assert(Radiation.TYPE == 'OFF' or
-       Radiation.TYPE == 'Algebraic' or
-       Radiation.TYPE == 'DOM')
+Radiation.NUM_ANGLES = 14 -- Compile-time parameter
 
-if Radiation.TYPE == 'Algebraic' then
-  Radiation.intensity = A.readConfig('Radiation.intensity', double)
-end
+local RadiationType = A.getEnum('RadiationType')
 
-if Radiation.TYPE == 'DOM' then
-  Radiation.NUM_ANGLES = config.Radiation.NUM_ANGLES
-  Radiation.qa         = A.globalFromConfig('Radiation.qa', double)
-  Radiation.qs         = A.globalFromConfig('Radiation.qs', double)
-  Radiation.xNum       = A.globalFromConfig('Radiation.xNum', int)
-  Radiation.yNum       = A.globalFromConfig('Radiation.yNum', int)
-  Radiation.zNum       = A.globalFromConfig('Radiation.zNum', int)
-  Radiation.xBnum      = L.Global('Radiation.xBnum', L.int, 0)
-  Radiation.yBnum      = L.Global('Radiation.yBnum', L.int, 0)
-  Radiation.zBnum      = L.Global('Radiation.zBnum', L.int, 0)
-  Radiation.xPeriodic  = L.Global('Radiation.xPeriodic', L.bool, false)
-  Radiation.yPeriodic  = L.Global('Radiation.yPeriodic', L.bool, false)
-  Radiation.zPeriodic  = L.Global('Radiation.zPeriodic', L.bool, false)
-  Radiation.xCellWidth = L.Global('Radiation.xCellWidth', L.double,
-                                  Grid.xWidth:get() / Radiation.xNum:get())
-  Radiation.yCellWidth = L.Global('Radiation.yCellWidth', L.double,
-                                  Grid.yWidth:get() / Radiation.yNum:get())
-  Radiation.zCellWidth = L.Global('Radiation.zCellWidth', L.double,
-                                  Grid.zWidth:get() / Radiation.zNum:get())
-  Radiation.cellVolume = L.Global('Radiation.cellVolume', L.double,
-                                  Radiation.xCellWidth:get() *
-                                  Radiation.yCellWidth:get() *
-                                  Radiation.zCellWidth:get())
-  Radiation.emissEast  = A.readConfig('Radiation.emissEast', double)
-  Radiation.emissWest  = A.readConfig('Radiation.emissWest', double)
-  Radiation.emissSouth = A.readConfig('Radiation.emissSouth', double)
-  Radiation.emissNorth = A.readConfig('Radiation.emissNorth', double)
-  Radiation.emissUp    = A.readConfig('Radiation.emissUp', double)
-  Radiation.emissDown  = A.readConfig('Radiation.emissDown', double)
-  Radiation.tempEast  = A.readConfig('Radiation.tempEast', double)
-  Radiation.tempWest  = A.readConfig('Radiation.tempWest', double)
-  Radiation.tempSouth = A.readConfig('Radiation.tempSouth', double)
-  Radiation.tempNorth = A.readConfig('Radiation.tempNorth', double)
-  Radiation.tempUp    = A.readConfig('Radiation.tempUp', double)
-  Radiation.tempDown  = A.readConfig('Radiation.tempDown', double)
-end
+Radiation.type       = A.readConfig('Radiation.type.__value')
+Radiation.intensity  = A.readConfig('Radiation.intensity')
+Radiation.qa         = A.globalFromConfig('Radiation.qa')
+Radiation.qs         = A.globalFromConfig('Radiation.qs')
+Radiation.xNum       = A.globalFromConfig('Radiation.xNum')
+Radiation.yNum       = A.globalFromConfig('Radiation.yNum')
+Radiation.zNum       = A.globalFromConfig('Radiation.zNum')
+Radiation.xBnum      = L.Global('Radiation.xBnum', L.int, 0)
+Radiation.yBnum      = L.Global('Radiation.yBnum', L.int, 0)
+Radiation.zBnum      = L.Global('Radiation.zBnum', L.int, 0)
+Radiation.xPeriodic  = L.Global('Radiation.xPeriodic', L.bool, false)
+Radiation.yPeriodic  = L.Global('Radiation.yPeriodic', L.bool, false)
+Radiation.zPeriodic  = L.Global('Radiation.zPeriodic', L.bool, false)
+Radiation.xCellWidth = L.Global('Radiation.xCellWidth', L.double,
+                                Grid.xWidth:get() / Radiation.xNum:get())
+Radiation.yCellWidth = L.Global('Radiation.yCellWidth', L.double,
+                                Grid.yWidth:get() / Radiation.yNum:get())
+Radiation.zCellWidth = L.Global('Radiation.zCellWidth', L.double,
+                                Grid.zWidth:get() / Radiation.zNum:get())
+Radiation.cellVolume = L.Global('Radiation.cellVolume', L.double,
+                                Radiation.xCellWidth:get() *
+                                Radiation.yCellWidth:get() *
+                                Radiation.zCellWidth:get())
+Radiation.emissEast  = A.readConfig('Radiation.emissEast')
+Radiation.emissWest  = A.readConfig('Radiation.emissWest')
+Radiation.emissSouth = A.readConfig('Radiation.emissSouth')
+Radiation.emissNorth = A.readConfig('Radiation.emissNorth')
+Radiation.emissUp    = A.readConfig('Radiation.emissUp')
+Radiation.emissDown  = A.readConfig('Radiation.emissDown')
+Radiation.tempEast   = A.readConfig('Radiation.tempEast')
+Radiation.tempWest   = A.readConfig('Radiation.tempWest')
+Radiation.tempSouth  = A.readConfig('Radiation.tempSouth')
+Radiation.tempNorth  = A.readConfig('Radiation.tempNorth')
+Radiation.tempUp     = A.readConfig('Radiation.tempUp')
+Radiation.tempDown   = A.readConfig('Radiation.tempDown')
 
 ------------
 --[[ IO ]]--
 ------------
 
-IO.wrtRestart            = A.readConfig('IO.wrtRestart', OnOrOff)
-IO.restartEveryTimeSteps = A.readConfig('IO.restartEveryTimeSteps', int)
-IO.headerFrequency       = A.readConfig('IO.headerFrequency', int)
-IO.consoleFrequency      = A.readConfig('IO.consoleFrequency', int)
+IO.wrtRestart            = A.readConfig('IO.wrtRestart.__value')
+IO.restartEveryTimeSteps = A.readConfig('IO.restartEveryTimeSteps')
+IO.headerFrequency       = A.readConfig('IO.headerFrequency')
+IO.consoleFrequency      = A.readConfig('IO.consoleFrequency')
 
 -----------------------------------------------------------------------------
 --[[                           FLUID GRID                                ]]--
@@ -525,58 +486,54 @@ particles:NewField('temperature_t', L.double)
 --[[                        RADIATION PREPROCESSING                      ]]--
 -----------------------------------------------------------------------------
 
-if Radiation.TYPE == 'DOM' then
+local domGrid = GRID.NewGrid{
+  name = 'Radiation',
+  xNum = Radiation.xNum,
+  yNum = Radiation.yNum,
+  zNum = Radiation.zNum,
+  xOrigin = Grid.xOrigin,
+  yOrigin = Grid.yOrigin,
+  zOrigin = Grid.zOrigin,
+  xWidth = Grid.xWidth,
+  yWidth = Grid.yWidth,
+  zWidth = Grid.zWidth,
+  xBnum = Radiation.xBnum,
+  yBnum = Radiation.yBnum,
+  zBnum = Radiation.zBnum,
+  xPeriodic = Radiation.xPeriodic,
+  yPeriodic = Radiation.yPeriodic,
+  zPeriodic = Radiation.zPeriodic,
+}
+fluidGrid:LinkWithCoarse(domGrid, 'to_Radiation')
 
-  domGrid = GRID.NewGrid{
-    name = 'Radiation',
-    xNum = Radiation.xNum,
-    yNum = Radiation.yNum,
-    zNum = Radiation.zNum,
-    xOrigin = Grid.xOrigin,
-    yOrigin = Grid.yOrigin,
-    zOrigin = Grid.zOrigin,
-    xWidth = Grid.xWidth,
-    yWidth = Grid.yWidth,
-    zWidth = Grid.zWidth,
-    xBnum = Radiation.xBnum,
-    yBnum = Radiation.yBnum,
-    zBnum = Radiation.zBnum,
-    xPeriodic = Radiation.xPeriodic,
-    yPeriodic = Radiation.yPeriodic,
-    zPeriodic = Radiation.zPeriodic,
-  }
-  fluidGrid:LinkWithCoarse(domGrid, 'to_Radiation')
+-- cell center intensity per angle
+domGrid:NewField('I_1', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('I_2', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('I_3', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('I_4', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('I_5', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('I_6', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('I_7', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('I_8', L.vector(L.double, Radiation.NUM_ANGLES))
 
-  -- cell center intensity per angle
-  domGrid:NewField('I_1', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('I_2', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('I_3', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('I_4', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('I_5', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('I_6', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('I_7', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('I_8', L.vector(L.double, Radiation.NUM_ANGLES))
+-- iterative intensity per angle
+domGrid:NewField('Iiter_1', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('Iiter_2', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('Iiter_3', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('Iiter_4', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('Iiter_5', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('Iiter_6', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('Iiter_7', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('Iiter_8', L.vector(L.double, Radiation.NUM_ANGLES))
 
-  -- iterative intensity per angle
-  domGrid:NewField('Iiter_1', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('Iiter_2', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('Iiter_3', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('Iiter_4', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('Iiter_5', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('Iiter_6', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('Iiter_7', L.vector(L.double, Radiation.NUM_ANGLES))
-  domGrid:NewField('Iiter_8', L.vector(L.double, Radiation.NUM_ANGLES))
+domGrid:NewField('G',     L.double) -- intensity summation over all angles
+domGrid:NewField('S',     L.double) -- source term
+domGrid:NewField('Ib',    L.double) -- blackbody intensity
+domGrid:NewField('sigma', L.double) -- extinction coefficient
 
-  domGrid:NewField('G',     L.double) -- intensity summation over all angles
-  domGrid:NewField('S',     L.double) -- source term
-  domGrid:NewField('Ib',    L.double) -- blackbody intensity
-  domGrid:NewField('sigma', L.double) -- extinction coefficient
-
-  -- partial sums, over particles inside volume
-  domGrid:NewField('acc_d2',   L.double) -- p.diameter^2
-  domGrid:NewField('acc_d2t4', L.double) -- p.diameter^2 * p.temperature^4
-
-end
+-- partial sums, over particles inside volume
+domGrid:NewField('acc_d2',   L.double) -- p.diameter^2
+domGrid:NewField('acc_d2t4', L.double) -- p.diameter^2 * p.temperature^4
 
 -----------------------------------------------------------------------------
 --[[                       BOUNDARY CONFIG CHECK                         ]]--
@@ -765,20 +722,15 @@ M.END()
 --[[                       EXTERNAL REGENT MODULES                       ]]--
 -----------------------------------------------------------------------------
 
-local PARTICLES_INIT =
-  (require 'particlesInit')(particles, fluidGrid,
-                            Grid.xBnum, Grid.yBnum, Grid.zBnum)
+local PARTICLES_INIT = (require 'particlesInit')(
+  particles, fluidGrid, Grid.xBnum, Grid.yBnum, Grid.zBnum)
 
-if Radiation.TYPE == 'Algebraic' then
-  ALGEBRAIC = (require 'algebraic')(particles)
-end
+local ALGEBRAIC = (require 'algebraic')(particles)
 
-if Radiation.TYPE == 'DOM' then
-  DOM = (require 'dom/dom')(
-    domGrid, Radiation.NUM_ANGLES,
-    Radiation.xNum, Radiation.yNum, Radiation.zNum,
-    Radiation.xCellWidth, Radiation.yCellWidth, Radiation.zCellWidth)
-end
+local DOM = (require 'dom/dom')(
+  domGrid, Radiation.NUM_ANGLES,
+  Radiation.xNum, Radiation.yNum, Radiation.zNum,
+  Radiation.xCellWidth, Radiation.yCellWidth, Radiation.zCellWidth)
 
 -----------------------------------------------------------------------------
 --[[                       LOAD DATA FOR RESTART                         ]]--
@@ -1527,21 +1479,21 @@ end
 
 ebb Flow.UpdateDissipationX (c : fluidGrid)
   if c.in_interior then
-    c.dissipation += (c( 0,0,0).dissipationFlux -
+    c.dissipation += (c.dissipationFlux -
                       c(-1,0,0).dissipationFlux)/Grid.xCellWidth
   end
 end
 
 ebb Flow.UpdateDissipationY (c : fluidGrid)
   if c.in_interior then
-    c.dissipation += (c(0, 0,0).dissipationFlux -
+    c.dissipation += (c.dissipationFlux -
                       c(0,-1,0).dissipationFlux)/Grid.yCellWidth
   end
 end
 
 ebb Flow.UpdateDissipationZ (c : fluidGrid)
   if c.in_interior then
-    c.dissipation += (c(0,0, 0).dissipationFlux -
+    c.dissipation += (c.dissipationFlux -
                       c(0,0,-1).dissipationFlux)/Grid.zCellWidth
   end
 end
@@ -2346,64 +2298,60 @@ ebb Particles.UpdateAuxiliaryStep2 (p : particles)
   p.velocity_t = p.velocity_t_ghost
 end
 
-if Radiation.TYPE == 'DOM' then
-
-  ebb Radiation.InitializeCell (c : domGrid)
-    for m = 0,Radiation.NUM_ANGLES do
-      c.I_1[m]     = 0.0
-      c.I_2[m]     = 0.0
-      c.I_3[m]     = 0.0
-      c.I_4[m]     = 0.0
-      c.I_5[m]     = 0.0
-      c.I_6[m]     = 0.0
-      c.I_7[m]     = 0.0
-      c.I_8[m]     = 0.0
-      c.Iiter_1[m] = 0.0
-      c.Iiter_2[m] = 0.0
-      c.Iiter_3[m] = 0.0
-      c.Iiter_4[m] = 0.0
-      c.Iiter_5[m] = 0.0
-      c.Iiter_6[m] = 0.0
-      c.Iiter_7[m] = 0.0
-      c.Iiter_8[m] = 0.0
-    end
-    c.G = 0.0
-    c.S = 0.0
+ebb Radiation.InitializeCell (c : domGrid)
+  for m = 0,Radiation.NUM_ANGLES do
+    c.I_1[m]     = 0.0
+    c.I_2[m]     = 0.0
+    c.I_3[m]     = 0.0
+    c.I_4[m]     = 0.0
+    c.I_5[m]     = 0.0
+    c.I_6[m]     = 0.0
+    c.I_7[m]     = 0.0
+    c.I_8[m]     = 0.0
+    c.Iiter_1[m] = 0.0
+    c.Iiter_2[m] = 0.0
+    c.Iiter_3[m] = 0.0
+    c.Iiter_4[m] = 0.0
+    c.Iiter_5[m] = 0.0
+    c.Iiter_6[m] = 0.0
+    c.Iiter_7[m] = 0.0
+    c.Iiter_8[m] = 0.0
   end
-
-  ebb Radiation.ClearAccumulators (c : domGrid)
-    c.acc_d2 = 0.0
-    c.acc_d2t4 = 0.0
-  end
-
-  ebb Radiation.AccumulateParticleValues (p : particles)
-    p.cell.to_Radiation.acc_d2 +=
-      L.pow(p.diameter,2.0)
-    p.cell.to_Radiation.acc_d2t4 +=
-      L.pow(p.diameter,2.0) * L.pow(p.temperature,4.0)
-  end
-  Radiation.AccumulateParticleValues._MANUAL_PARAL = true
-
-  ebb Radiation.UpdateFieldValues (c : domGrid)
-    c.sigma = c.acc_d2 * pi
-      * (Radiation.qa + Radiation.qs)
-      / (4.0 * Radiation.cellVolume)
-    if c.acc_d2 == 0.0 then
-      c.Ib = 0.0
-    else
-      c.Ib = SB * c.acc_d2t4 / (pi * c.acc_d2)
-    end
-  end
-
-  ebb Particles.AbsorbRadiation (p : particles)
-    var t4 = L.pow(p.temperature,4.0)
-    var alpha = pi * Radiation.qa * L.pow(p.diameter,2.0)
-      * (p.cell.to_Radiation.G - 4.0 * SB * t4) / 4.0
-    p.temperature_t += alpha / (p.mass * Particles.heatCapacity)
-  end
-  Particles.AbsorbRadiation._MANUAL_PARAL = true
-
+  c.G = 0.0
+  c.S = 0.0
 end
+
+ebb Radiation.ClearAccumulators (c : domGrid)
+  c.acc_d2 = 0.0
+  c.acc_d2t4 = 0.0
+end
+
+ebb Radiation.AccumulateParticleValues (p : particles)
+  p.cell.to_Radiation.acc_d2 +=
+    L.pow(p.diameter,2.0)
+  p.cell.to_Radiation.acc_d2t4 +=
+    L.pow(p.diameter,2.0) * L.pow(p.temperature,4.0)
+end
+Radiation.AccumulateParticleValues._MANUAL_PARAL = true
+
+ebb Radiation.UpdateFieldValues (c : domGrid)
+  c.sigma = c.acc_d2 * pi
+    * (Radiation.qa + Radiation.qs)
+    / (4.0 * Radiation.cellVolume)
+  if c.acc_d2 == 0.0 then
+    c.Ib = 0.0
+  else
+    c.Ib = SB * c.acc_d2t4 / (pi * c.acc_d2)
+  end
+end
+
+ebb Particles.AbsorbRadiation (p : particles)
+  var t4 = L.pow(p.temperature,4.0)
+  var alpha = pi * Radiation.qa * L.pow(p.diameter,2.0)
+    * (p.cell.to_Radiation.G - 4.0 * SB * t4) / 4.0
+  p.temperature_t += alpha / (p.mass * Particles.heatCapacity)
+end
+Particles.AbsorbRadiation._MANUAL_PARAL = true
 
 ------------
 -- Collector
@@ -2783,27 +2731,27 @@ end
 ebb Flow.AddUpdateUsingFlux (c : fluidGrid)
   --if c.in_interior or c.xneg_depth == 1 then
   if c.in_interior then --or c.xneg_depth == 1 then
-    c.rho_t += -(c( 0,0,0).rhoFluxX -
+    c.rho_t += -(c.rhoFluxX -
                  c(-1,0,0).rhoFluxX)/Grid.xCellWidth
-    c.rhoVelocity_t += -(c( 0,0,0).rhoVelocityFluxX -
+    c.rhoVelocity_t += -(c.rhoVelocityFluxX -
                          c(-1,0,0).rhoVelocityFluxX)/Grid.xCellWidth
-    c.rhoEnergy_t += -(c( 0,0,0).rhoEnergyFluxX -
+    c.rhoEnergy_t += -(c.rhoEnergyFluxX -
                        c(-1,0,0).rhoEnergyFluxX)/Grid.xCellWidth
   --end
   --if c.in_interior or c.zneg_depth == 1 then
-    c.rho_t += -(c(0, 0,0).rhoFluxY -
+    c.rho_t += -(c.rhoFluxY -
                  c(0,-1,0).rhoFluxY)/Grid.yCellWidth
-    c.rhoVelocity_t += -(c(0, 0,0).rhoVelocityFluxY -
+    c.rhoVelocity_t += -(c.rhoVelocityFluxY -
                          c(0,-1,0).rhoVelocityFluxY)/Grid.yCellWidth
-    c.rhoEnergy_t += -(c(0, 0,0).rhoEnergyFluxY -
+    c.rhoEnergy_t += -(c.rhoEnergyFluxY -
                        c(0,-1,0).rhoEnergyFluxY)/Grid.yCellWidth
   --end
   --if c.in_interior or c.zneg_depth == 1 then
-    c.rho_t += -(c(0,0, 0).rhoFluxZ -
+    c.rho_t += -(c.rhoFluxZ -
                  c(0,0,-1).rhoFluxZ)/Grid.zCellWidth
-    c.rhoVelocity_t += -(c(0,0, 0).rhoVelocityFluxZ -
+    c.rhoVelocity_t += -(c.rhoVelocityFluxZ -
                          c(0,0,-1).rhoVelocityFluxZ)/Grid.zCellWidth
-    c.rhoEnergy_t += -(c(0,0, 0).rhoEnergyFluxZ -
+    c.rhoEnergy_t += -(c.rhoEnergyFluxZ -
                        c(0,0,-1).rhoEnergyFluxZ)/Grid.zCellWidth
   end
 end
@@ -2931,9 +2879,10 @@ function Integrator.ComputeDFunctionDt ()
   particles:foreach(Particles.AddFlowCoupling)
   particles:foreach(Particles.AddBodyForces)
 
-  if Radiation.TYPE == 'Algebraic' then
+  M.IF(M.EQ(Radiation.type, RadiationType.Algebraic))
     M.INLINE(ALGEBRAIC.AddRadiation)
-  elseif Radiation.TYPE == 'DOM' then
+  M.END()
+  M.IF(M.EQ(Radiation.type, RadiationType.DOM))
     -- Compute radiation field values from particles
     domGrid:foreach(Radiation.ClearAccumulators)
     particles:foreach(Radiation.AccumulateParticleValues)
@@ -2941,7 +2890,7 @@ function Integrator.ComputeDFunctionDt ()
     M.INLINE(DOM.ComputeRadiationField)
     -- Absorb radiation into each particle
     particles:foreach(Particles.AbsorbRadiation)
-  end
+  M.END()
 
   -- Compute two-way coupling in momentum and energy
   particles:foreach(Flow.AddParticlesCoupling)
@@ -3098,32 +3047,28 @@ end
 -- Initialize all variables
 Integrator.InitializeVariables()
 Statistics.ComputeSpatialAverages()
-if Radiation.TYPE == 'DOM' then
+M.INLINE(DOM.DeclSymbols)
+M.IF(M.EQ(Radiation.type, RadiationType.DOM))
   domGrid:foreach(Radiation.InitializeCell)
-  M.INLINE(DOM.InitModule)
-end
+  M.INLINE(DOM.InitRegions)
+M.END()
 IO.WriteOutput()
 
 -- Main iteration loop
 
 M.WHILE(M.AND(M.LT(Integrator.simTime:get(), Integrator.finalTime),
-              M.LT(Integrator.timeStep:get(), Integrator.maxIter)),
-        true)
+              M.LT(Integrator.timeStep:get(), Integrator.maxIter)))
   Integrator.CalculateDeltaTime()
   Integrator.AdvanceTimeStep()
-  if not regentlib.config['flow-spmd'] then
-    M.IF(M.EQ(Integrator.timeStep:get() % IO.consoleFrequency, 0))
-      Statistics.ComputeSpatialAverages()
-      IO.WriteOutput()
-    M.END()
-  end
+  M.IF(M.EQ(Integrator.timeStep:get() % IO.consoleFrequency, 0))
+    Statistics.ComputeSpatialAverages()
+    IO.WriteOutput()
+  M.END()
 M.END()
 
 -- Final stats printing
 
-if regentlib.config['flow-spmd'] then
-  Statistics.ComputeSpatialAverages()
-end
+Statistics.ComputeSpatialAverages()
 IO.WriteConsoleOutput()
 
 A.translate(Grid.xTiles, Grid.yTiles, Grid.zTiles)

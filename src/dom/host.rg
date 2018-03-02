@@ -8,10 +8,6 @@
 
 import 'regent'
 
-local A = require 'admiral' -- We proxy this module
-
-local cmath = terralib.includec("math.h")
-
 -------------------------------------------------------------------------------
 -- Proxy runtime configuration object
 -------------------------------------------------------------------------------
@@ -21,14 +17,14 @@ struct Config {
     xTiles : int,
     yTiles : int,
     zTiles : int,
+    xWidth : double,
+    yWidth : double,
+    zWidth : double,
   },
   Radiation : struct {
     xNum : int,
     yNum : int,
     zNum : int,
-    xCellWidth : double,
-    yCellWidth : double,
-    zCellWidth : double,
     qa : double,
     qs : double,
     emissWest  : double,
@@ -55,12 +51,12 @@ local terra readConfig() : Config
   config.Grid.xTiles = 2
   config.Grid.yTiles = 2
   config.Grid.zTiles = 1
+  config.Grid.xWidth = 1.0
+  config.Grid.yWidth = 1.0
+  config.Grid.zWidth = 1.0/32.0
   config.Radiation.xNum = 32
   config.Radiation.yNum = 32
   config.Radiation.zNum = 1
-  config.Radiation.xCellWidth = 1.0/32.0
-  config.Radiation.yCellWidth = 1.0/32.0
-  config.Radiation.zCellWidth = 1.0/32.0
   config.Radiation.qa = 0.5
   config.Radiation.qs = 0.5
   config.Radiation.emissWest  = 1.0
@@ -79,36 +75,6 @@ local terra readConfig() : Config
 end
 
 local NUM_ANGLES = 14
-
--------------------------------------------------------------------------------
--- Proxy globals
--------------------------------------------------------------------------------
-
-local NxGlobal = {}
-NxGlobal.varSymbol = terralib.memoize(function(self)
-  return regentlib.newsymbol()
-end)
-local NyGlobal = {}
-NyGlobal.varSymbol = terralib.memoize(function(self)
-  return regentlib.newsymbol()
-end)
-local NzGlobal = {}
-NzGlobal.varSymbol = terralib.memoize(function(self)
-  return regentlib.newsymbol()
-end)
-
-local dxGlobal = {}
-dxGlobal.varSymbol = terralib.memoize(function(self)
-  return regentlib.newsymbol()
-end)
-local dyGlobal = {}
-dyGlobal.varSymbol = terralib.memoize(function(self)
-  return regentlib.newsymbol()
-end)
-local dzGlobal = {}
-dzGlobal.varSymbol = terralib.memoize(function(self)
-  return regentlib.newsymbol()
-end)
 
 -------------------------------------------------------------------------------
 -- Proxy radiation grid
@@ -137,34 +103,19 @@ struct Point {
     sigma : double;
 }
 
-local pointsRel = {}
-
-pointsRel.regionSymbol = terralib.memoize(function(self)
-  return regentlib.newsymbol()
-end)
-
-pointsRel.primPartSymbol = terralib.memoize(function(self)
-  return regentlib.newsymbol()
-end)
-
-function pointsRel:regionType()
-  return region(ispace(int3d),Point)
-end
-
 -------------------------------------------------------------------------------
 -- Import DOM module
 -------------------------------------------------------------------------------
 
-local domMod = (require 'dom')(pointsRel, NUM_ANGLES,
-                               NxGlobal, NyGlobal, NzGlobal,
-                               dxGlobal, dyGlobal, dzGlobal)
+local domMod = (require 'dom')(NUM_ANGLES, Point)
 
 -------------------------------------------------------------------------------
 -- Proxy tasks
 -------------------------------------------------------------------------------
 
 local SB = 5.67e-8
-local pi = 2.0*cmath.acos(0.0)
+local pi = 3.1415926535898
+local pow = regentlib.pow(double)
 
 local task InitPoints(points : region(ispace(int3d),Point))
 where reads writes(points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8,
@@ -192,7 +143,7 @@ where reads writes(points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8,
     end
     p.G = 0.0
     p.S = 0.0
-    p.Ib = (SB/pi) * cmath.pow(1000.0, 4.0)
+    p.Ib = (SB/pi) * pow(1000.0, 4.0)
     p.sigma = 5.0
   end
 end
@@ -219,38 +170,19 @@ end
 -- Proxy main
 -------------------------------------------------------------------------------
 
-local config = A.configSymbol()
-
-local Nx = NxGlobal:varSymbol()
-local Ny = NyGlobal:varSymbol()
-local Nz = NzGlobal:varSymbol()
-
-local dx = dxGlobal:varSymbol()
-local dy = dyGlobal:varSymbol()
-local dz = dzGlobal:varSymbol()
-
-local points = pointsRel:regionSymbol()
-local colors = A.primColors()
-local p_points = pointsRel:primPartSymbol()
-
 local task main()
   -- "Read" configuration
-  var [config] = readConfig()
+  var config = readConfig()
   -- Initialize symbols
-  var [Nx] = config.Radiation.xNum
-  var [Ny] = config.Radiation.yNum
-  var [Nz] = config.Radiation.zNum
-  var [dx] = config.Radiation.xCellWidth
-  var [dy] = config.Radiation.yCellWidth
-  var [dz] = config.Radiation.zCellWidth
-  var is = ispace(int3d, {Nx,Ny,Nz})
-  var [points] = region(is, Point)
-  var [colors] = ispace(int3d, {config.Grid.xTiles, config.Grid.yTiles, config.Grid.zTiles})
-  var [p_points] = partition(equal, points, colors);
+  var is = ispace(int3d, {config.Radiation.xNum, config.Radiation.yNum, config.Radiation.zNum})
+  var points = region(is, Point)
+  var colors = ispace(int3d, {config.Grid.xTiles, config.Grid.yTiles, config.Grid.zTiles})
+  var p_points = partition(equal, points, colors);
   -- Inline quotes from external module
-  [domMod.InitModule]
+  [domMod.DeclSymbols(config)];
+  [domMod.InitRegions()];
   InitPoints(points);
-  [domMod.ComputeRadiationField]
+  [domMod.ComputeRadiationField(config, colors, p_points)];
   writeIntensity(points)
 end
 

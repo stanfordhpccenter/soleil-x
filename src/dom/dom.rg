@@ -1,29 +1,10 @@
 import 'regent'
 
-local A = require 'admiral'
-
 -------------------------------------------------------------------------------
 -- MODULE PARAMETERS
 -------------------------------------------------------------------------------
 
-return function(radiationRel, NUM_ANGLES,
-                NxGlobal, NyGlobal, NzGlobal,
-                dxGlobal, dyGlobal, dzGlobal)
-
-local points = radiationRel:regionSymbol()
-local p_points = radiationRel:primPartSymbol()
-local pointsType = radiationRel:regionType()
-local tiles = A.primColors()
-
-local Nx = NxGlobal:varSymbol()
-local Ny = NyGlobal:varSymbol()
-local Nz = NzGlobal:varSymbol()
-
-local dx = dxGlobal:varSymbol()
-local dy = dyGlobal:varSymbol()
-local dz = dzGlobal:varSymbol()
-
-local config = A.configSymbol()
+return function(NUM_ANGLES, pointsFSpace)
 
 -------------------------------------------------------------------------------
 -- COMPILE-TIME COMPUTATION
@@ -31,17 +12,22 @@ local config = A.configSymbol()
 
 -- C imports
 
-local c     = regentlib.c
-local cmath = terralib.includec('math.h')
+local c = regentlib.c
 
--- Some math definitions
+-- Math imports
 
-local min = regentlib.fmin
+local fabs = regentlib.fabs(double)
 local max = regentlib.fmax
+local min = regentlib.fmin
 local pow = regentlib.pow(double)
-local pi  = 2.0*cmath.acos(0.0)
+local sqrt = regentlib.sqrt(double)
+
+-- Math Constants
+
+local pi = 3.1415926535898
 
 -- Quadrature file name
+
 local quad_file = 'LMquads/'..NUM_ANGLES..'.txt'
 
 -- Wall temperatures
@@ -61,7 +47,6 @@ local terra open_quad_file() : &c.FILE
   end
   return f
 end
-A.registerFun(open_quad_file, 'open_quad_file')
 
 local terra read_double(f : &c.FILE) : double
   var val : double
@@ -71,7 +56,6 @@ local terra read_double(f : &c.FILE) : double
   end
   return val
 end
-A.registerFun(read_double, 'read_double')
 
 -------------------------------------------------------------------------------
 -- MODULE-LOCAL FIELD SPACES
@@ -88,12 +72,10 @@ local struct angle {
   mu  : double,
   w   : double,
 }
-A.registerStruct(angle)
 
 local struct face {
   I : double[NUM_ANGLES],
 }
-A.registerStruct(face)
 
 -------------------------------------------------------------------------------
 -- MODULE-LOCAL TASKS
@@ -110,7 +92,6 @@ do
     end
   end
 end
-A.registerTask(initialize_faces, 'initialize_faces')
 
 -- Initialize angle quads
 local task initialize_angles(angles : region(ispace(int1d), angle))
@@ -143,7 +124,6 @@ do
   c.fclose(f)
 
 end
-A.registerTask(initialize_angles, 'initialize_angles')
 
 ----------------------------------------------------------------------------
 
@@ -351,7 +331,6 @@ local task make_interior_partition_x_hi(faces : region(ispace(int3d), face),
   c.legion_domain_point_coloring_destroy(coloring)
   return p
 end
-A.registerTask(make_interior_partition_x_hi, 'make_interior_partition_x_hi')
 
 local task make_interior_partition_x_lo(faces : region(ispace(int3d), face),
                                         x_tiles : ispace(int3d),
@@ -385,7 +364,6 @@ local task make_interior_partition_x_lo(faces : region(ispace(int3d), face),
   c.legion_domain_point_coloring_destroy(coloring)
   return p
 end
-A.registerTask(make_interior_partition_x_lo, 'make_interior_partition_x_lo')
 
 local task make_interior_partition_y_hi(faces : region(ispace(int3d), face),
                                         y_tiles : ispace(int3d),
@@ -419,7 +397,6 @@ local task make_interior_partition_y_hi(faces : region(ispace(int3d), face),
   c.legion_domain_point_coloring_destroy(coloring)
   return p
 end
-A.registerTask(make_interior_partition_y_hi, 'make_interior_partition_y_hi')
 
 local task make_interior_partition_y_lo(faces : region(ispace(int3d), face),
                                         y_tiles : ispace(int3d),
@@ -453,7 +430,6 @@ local task make_interior_partition_y_lo(faces : region(ispace(int3d), face),
   c.legion_domain_point_coloring_destroy(coloring)
   return p
 end
-A.registerTask(make_interior_partition_y_lo, 'make_interior_partition_y_lo')
 
 local task make_interior_partition_z_hi(faces : region(ispace(int3d), face),
                                         z_tiles : ispace(int3d),
@@ -487,7 +463,6 @@ local task make_interior_partition_z_hi(faces : region(ispace(int3d), face),
   c.legion_domain_point_coloring_destroy(coloring)
   return p
 end
-A.registerTask(make_interior_partition_z_hi, 'make_interior_partition_z_hi')
 
 local task make_interior_partition_z_lo(faces : region(ispace(int3d), face),
                                         z_tiles : ispace(int3d),
@@ -521,14 +496,12 @@ local task make_interior_partition_z_lo(faces : region(ispace(int3d), face),
   c.legion_domain_point_coloring_destroy(coloring)
   return p
 end
-A.registerTask(make_interior_partition_z_lo, 'make_interior_partition_z_lo')
 
 -- Loop over all angles and grid cells to compute the source term
 -- for the current iteration.
-local __demand(__cuda)
-task source_term(points : pointsType,
-                 angles : region(ispace(int1d), angle),
-                 omega : double)
+local task source_term(points : region(ispace(int3d), pointsFSpace),
+                       angles : region(ispace(int1d), angle),
+                       omega : double)
 where
   reads (points.{Iiter_1, Iiter_2, Iiter_3, Iiter_4,
                  Iiter_5, Iiter_6, Iiter_7, Iiter_8,
@@ -551,7 +524,6 @@ do
     end
   end
 end
-A.registerTask(source_term, 'source_term')
 
 local task west_bound(faces_1 : region(ispace(int3d), face),
                       faces_2 : region(ispace(int3d), face),
@@ -600,7 +572,7 @@ do
           else
             face_value = faces_8[{limits.lo.x,j,k}].I[m]
           end
-          reflect += (1.0-epsw)/pi*angles[m].w*cmath.fabs(angles[m].xi)*face_value
+          reflect += (1.0-epsw)/pi*angles[m].w*fabs(angles[m].xi)*face_value
         end
       end
 
@@ -625,7 +597,6 @@ do
   end
 
 end
-A.registerTask(west_bound, 'west_bound')
 
 local task east_bound(faces_1 : region(ispace(int3d), face),
                       faces_2 : region(ispace(int3d), face),
@@ -699,7 +670,6 @@ do
   end
 
 end
-A.registerTask(east_bound, 'east_bound')
 
 local task north_bound(faces_1 : region(ispace(int3d), face),
                        faces_2 : region(ispace(int3d), face),
@@ -774,7 +744,6 @@ do
   end
 
 end
-A.registerTask(north_bound, 'north_bound')
 
 local task south_bound(faces_1 : region(ispace(int3d), face),
                        faces_2 : region(ispace(int3d), face),
@@ -823,7 +792,7 @@ do
           else
             face_value = faces_8[{i,limits.lo.y,k}].I[m]
           end
-          reflect += (1.0-epsw)/pi*angles[m].w*cmath.fabs(angles[m].eta)*face_value
+          reflect += (1.0-epsw)/pi*angles[m].w*fabs(angles[m].eta)*face_value
         end
       end
 
@@ -849,7 +818,6 @@ do
   end
 
 end
-A.registerTask(south_bound, 'south_bound')
 
 local task up_bound(faces_1 : region(ispace(int3d), face),
                     faces_2 : region(ispace(int3d), face),
@@ -898,7 +866,7 @@ do
           else
             face_value = faces_8[{i,j,limits.lo.z}].I[m]
           end
-          reflect += (1.0-epsw)/pi*angles[m].w*cmath.fabs(angles[m].mu)*face_value
+          reflect += (1.0-epsw)/pi*angles[m].w*fabs(angles[m].mu)*face_value
         end
       end
 
@@ -924,7 +892,6 @@ do
   end
 
 end
-A.registerTask(up_bound, 'up_bound')
 
 local task down_bound(faces_1 : region(ispace(int3d), face),
                       faces_2 : region(ispace(int3d), face),
@@ -997,11 +964,8 @@ do
     end
   end
 end
-A.registerTask(down_bound, 'down_bound')
 
--- Sweeps are all exactly the same except for array read/written to in points
-
-local task sweep_1(points : pointsType,
+local task sweep_1(points : region(ispace(int3d), pointsFSpace),
                    x_faces : region(ispace(int3d), face),
                    y_faces : region(ispace(int3d), face),
                    z_faces : region(ispace(int3d), face),
@@ -1106,13 +1070,13 @@ do
             -- Integrate to compute cell-centered value of I.
 
             points[{i,j,k}].I_1[m] = (points[{i,j,k}].S * dV
-                                        + cmath.fabs(angles[m].xi) * dAx * upwind_x_value/gamma
-                                        + cmath.fabs(angles[m].eta) * dAy * upwind_y_value/gamma
-                                        + cmath.fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+                                        + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
+                                        + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
+                                        + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
               /(points[{i,j,k}].sigma * dV
-                  + cmath.fabs(angles[m].xi) * dAx/gamma
-                  + cmath.fabs(angles[m].eta) * dAy/gamma
-                  + cmath.fabs(angles[m].mu) * dAz/gamma)
+                  + fabs(angles[m].xi) * dAx/gamma
+                  + fabs(angles[m].eta) * dAy/gamma
+                  + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -1143,9 +1107,8 @@ do
     end
   end
 end
-A.registerTask(sweep_1, 'sweep_1')
 
-local task sweep_2(points : pointsType,
+local task sweep_2(points : region(ispace(int3d), pointsFSpace),
                    x_faces : region(ispace(int3d), face),
                    y_faces : region(ispace(int3d), face),
                    z_faces : region(ispace(int3d), face),
@@ -1250,13 +1213,13 @@ do
             -- Integrate to compute cell-centered value of I.
 
             points[{i,j,k}].I_2[m] = (points[{i,j,k}].S * dV
-                                        + cmath.fabs(angles[m].xi) * dAx * upwind_x_value/gamma
-                                        + cmath.fabs(angles[m].eta) * dAy * upwind_y_value/gamma
-                                        + cmath.fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+                                        + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
+                                        + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
+                                        + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
               /(points[{i,j,k}].sigma * dV
-                  + cmath.fabs(angles[m].xi) * dAx/gamma
-                  + cmath.fabs(angles[m].eta) * dAy/gamma
-                  + cmath.fabs(angles[m].mu) * dAz/gamma)
+                  + fabs(angles[m].xi) * dAx/gamma
+                  + fabs(angles[m].eta) * dAy/gamma
+                  + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -1287,9 +1250,8 @@ do
     end
   end
 end
-A.registerTask(sweep_2, 'sweep_2')
 
-local task sweep_3(points : pointsType,
+local task sweep_3(points : region(ispace(int3d), pointsFSpace),
                    x_faces : region(ispace(int3d), face),
                    y_faces : region(ispace(int3d), face),
                    z_faces : region(ispace(int3d), face),
@@ -1394,13 +1356,13 @@ do
             -- Integrate to compute cell-centered value of I.
 
             points[{i,j,k}].I_3[m] = (points[{i,j,k}].S * dV
-                                        + cmath.fabs(angles[m].xi) * dAx * upwind_x_value/gamma
-                                        + cmath.fabs(angles[m].eta) * dAy * upwind_y_value/gamma
-                                        + cmath.fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+                                        + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
+                                        + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
+                                        + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
               /(points[{i,j,k}].sigma * dV
-                  + cmath.fabs(angles[m].xi) * dAx/gamma
-                  + cmath.fabs(angles[m].eta) * dAy/gamma
-                  + cmath.fabs(angles[m].mu) * dAz/gamma)
+                  + fabs(angles[m].xi) * dAx/gamma
+                  + fabs(angles[m].eta) * dAy/gamma
+                  + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -1431,9 +1393,8 @@ do
     end
   end
 end
-A.registerTask(sweep_3, 'sweep_3')
 
-local task sweep_4(points : pointsType,
+local task sweep_4(points : region(ispace(int3d), pointsFSpace),
                    x_faces : region(ispace(int3d), face),
                    y_faces : region(ispace(int3d), face),
                    z_faces : region(ispace(int3d), face),
@@ -1538,13 +1499,13 @@ do
             -- Integrate to compute cell-centered value of I.
 
             points[{i,j,k}].I_4[m] = (points[{i,j,k}].S * dV
-                                        + cmath.fabs(angles[m].xi) * dAx * upwind_x_value/gamma
-                                        + cmath.fabs(angles[m].eta) * dAy * upwind_y_value/gamma
-                                        + cmath.fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+                                        + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
+                                        + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
+                                        + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
               /(points[{i,j,k}].sigma * dV
-                  + cmath.fabs(angles[m].xi) * dAx/gamma
-                  + cmath.fabs(angles[m].eta) * dAy/gamma
-                  + cmath.fabs(angles[m].mu) * dAz/gamma)
+                  + fabs(angles[m].xi) * dAx/gamma
+                  + fabs(angles[m].eta) * dAy/gamma
+                  + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -1575,9 +1536,8 @@ do
     end
   end
 end
-A.registerTask(sweep_4, 'sweep_4')
 
-local task sweep_5(points : pointsType,
+local task sweep_5(points : region(ispace(int3d), pointsFSpace),
                    x_faces : region(ispace(int3d), face),
                    y_faces : region(ispace(int3d), face),
                    z_faces : region(ispace(int3d), face),
@@ -1682,13 +1642,13 @@ do
             -- Integrate to compute cell-centered value of I.
 
             points[{i,j,k}].I_5[m] = (points[{i,j,k}].S * dV
-                                        + cmath.fabs(angles[m].xi) * dAx * upwind_x_value/gamma
-                                        + cmath.fabs(angles[m].eta) * dAy * upwind_y_value/gamma
-                                        + cmath.fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+                                        + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
+                                        + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
+                                        + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
               /(points[{i,j,k}].sigma * dV
-                  + cmath.fabs(angles[m].xi) * dAx/gamma
-                  + cmath.fabs(angles[m].eta) * dAy/gamma
-                  + cmath.fabs(angles[m].mu) * dAz/gamma)
+                  + fabs(angles[m].xi) * dAx/gamma
+                  + fabs(angles[m].eta) * dAy/gamma
+                  + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -1719,9 +1679,8 @@ do
     end
   end
 end
-A.registerTask(sweep_5, 'sweep_5')
 
-local task sweep_6(points : pointsType,
+local task sweep_6(points : region(ispace(int3d), pointsFSpace),
                    x_faces : region(ispace(int3d), face),
                    y_faces : region(ispace(int3d), face),
                    z_faces : region(ispace(int3d), face),
@@ -1826,13 +1785,13 @@ do
             -- Integrate to compute cell-centered value of I.
 
             points[{i,j,k}].I_6[m] = (points[{i,j,k}].S * dV
-                                        + cmath.fabs(angles[m].xi) * dAx * upwind_x_value/gamma
-                                        + cmath.fabs(angles[m].eta) * dAy * upwind_y_value/gamma
-                                        + cmath.fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+                                        + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
+                                        + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
+                                        + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
               /(points[{i,j,k}].sigma * dV
-                  + cmath.fabs(angles[m].xi) * dAx/gamma
-                  + cmath.fabs(angles[m].eta) * dAy/gamma
-                  + cmath.fabs(angles[m].mu) * dAz/gamma)
+                  + fabs(angles[m].xi) * dAx/gamma
+                  + fabs(angles[m].eta) * dAy/gamma
+                  + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -1863,9 +1822,8 @@ do
     end
   end
 end
-A.registerTask(sweep_6, 'sweep_6')
 
-local task sweep_7(points : pointsType,
+local task sweep_7(points : region(ispace(int3d), pointsFSpace),
                    x_faces : region(ispace(int3d), face),
                    y_faces : region(ispace(int3d), face),
                    z_faces : region(ispace(int3d), face),
@@ -1970,13 +1928,13 @@ do
             -- Integrate to compute cell-centered value of I.
 
             points[{i,j,k}].I_7[m] = (points[{i,j,k}].S * dV
-                                        + cmath.fabs(angles[m].xi) * dAx * upwind_x_value/gamma
-                                        + cmath.fabs(angles[m].eta) * dAy * upwind_y_value/gamma
-                                        + cmath.fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+                                        + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
+                                        + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
+                                        + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
               /(points[{i,j,k}].sigma * dV
-                  + cmath.fabs(angles[m].xi) * dAx/gamma
-                  + cmath.fabs(angles[m].eta) * dAy/gamma
-                  + cmath.fabs(angles[m].mu) * dAz/gamma)
+                  + fabs(angles[m].xi) * dAx/gamma
+                  + fabs(angles[m].eta) * dAy/gamma
+                  + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -2007,9 +1965,8 @@ do
     end
   end
 end
-A.registerTask(sweep_7, 'sweep_7')
 
-local task sweep_8(points : pointsType,
+local task sweep_8(points : region(ispace(int3d), pointsFSpace),
                    x_faces : region(ispace(int3d), face),
                    y_faces : region(ispace(int3d), face),
                    z_faces : region(ispace(int3d), face),
@@ -2114,13 +2071,13 @@ do
             -- Integrate to compute cell-centered value of I.
 
             points[{i,j,k}].I_8[m] = (points[{i,j,k}].S * dV
-                                        + cmath.fabs(angles[m].xi) * dAx * upwind_x_value/gamma
-                                        + cmath.fabs(angles[m].eta) * dAy * upwind_y_value/gamma
-                                        + cmath.fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+                                        + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
+                                        + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
+                                        + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
               /(points[{i,j,k}].sigma * dV
-                  + cmath.fabs(angles[m].xi) * dAx/gamma
-                  + cmath.fabs(angles[m].eta) * dAy/gamma
-                  + cmath.fabs(angles[m].mu) * dAz/gamma)
+                  + fabs(angles[m].xi) * dAx/gamma
+                  + fabs(angles[m].eta) * dAy/gamma
+                  + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -2151,11 +2108,10 @@ do
     end
   end
 end
-A.registerTask(sweep_8, 'sweep_8')
 
 -- Compute the residual after each iteration and return the value.
-local __demand(__cuda)
-task residual(points : pointsType, Nx : int, Ny : int, Nz : int)
+local task residual(points : region(ispace(int3d), pointsFSpace),
+                    Nx : int, Ny : int, Nz : int)
 where
   reads (points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8,
                  Iiter_1, Iiter_2, Iiter_3, Iiter_4,
@@ -2220,10 +2176,9 @@ do
 
   return res
 end
-A.registerTask(residual, 'residual')
 
 -- Update the intensity before moving to the next iteration.
-local __demand(__cuda) task update(points : pointsType)
+local task update(points : region(ispace(int3d), pointsFSpace))
 where
   reads (points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8}),
   reads writes (points.{Iiter_1, Iiter_2, Iiter_3, Iiter_4,
@@ -2243,12 +2198,10 @@ do
     end
   end
 end
-A.registerTask(update, 'update')
 
 -- Reduce the intensity to summation over all angles
-local __demand(__cuda)
-task reduce_intensity(points : pointsType,
-                      angles : region(ispace(int1d), angle))
+local task reduce_intensity(points : region(ispace(int3d), pointsFSpace),
+                            angles : region(ispace(int1d), angle))
 where
   reads (points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8}, angles.w),
   reads writes (points.G)
@@ -2267,9 +2220,8 @@ do
     end
   end
 end
-A.registerTask(reduce_intensity, 'reduce_intensity')
 
-local task write_intensity(points : pointsType)
+local task write_intensity(points : region(ispace(int3d), pointsFSpace))
 where
   reads (points.G)
 do
@@ -2288,7 +2240,7 @@ do
 end
 
 -- for debugging
-local task print_final_intensities(points : pointsType)
+local task print_final_intensities(points : region(ispace(int3d), pointsFSpace))
 where
   reads (points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8})
 
@@ -2346,12 +2298,50 @@ end
 -- EXPORTED QUOTES
 -------------------------------------------------------------------------------
 
-local exports = {}
+local Exports = {}
 
 -- Symbols shared between quotes
+
+local Nx = regentlib.newsymbol('Nx')
+local Ny = regentlib.newsymbol('Ny')
+local Nz = regentlib.newsymbol('Nz')
+
 local ntx = regentlib.newsymbol('ntx')
 local nty = regentlib.newsymbol('nty')
 local ntz = regentlib.newsymbol('ntz')
+
+local x_faces = {
+  regentlib.newsymbol('x_faces_1'),
+  regentlib.newsymbol('x_faces_2'),
+  regentlib.newsymbol('x_faces_3'),
+  regentlib.newsymbol('x_faces_4'),
+  regentlib.newsymbol('x_faces_5'),
+  regentlib.newsymbol('x_faces_6'),
+  regentlib.newsymbol('x_faces_7'),
+  regentlib.newsymbol('x_faces_8'),
+}
+
+local y_faces = {
+  regentlib.newsymbol('y_faces_1'),
+  regentlib.newsymbol('y_faces_2'),
+  regentlib.newsymbol('y_faces_3'),
+  regentlib.newsymbol('y_faces_4'),
+  regentlib.newsymbol('y_faces_5'),
+  regentlib.newsymbol('y_faces_6'),
+  regentlib.newsymbol('y_faces_7'),
+  regentlib.newsymbol('y_faces_8'),
+}
+
+local z_faces = {
+  regentlib.newsymbol('z_faces_1'),
+  regentlib.newsymbol('z_faces_2'),
+  regentlib.newsymbol('z_faces_3'),
+  regentlib.newsymbol('z_faces_4'),
+  regentlib.newsymbol('z_faces_5'),
+  regentlib.newsymbol('z_faces_6'),
+  regentlib.newsymbol('z_faces_7'),
+  regentlib.newsymbol('z_faces_8'),
+}
 
 local angles = regentlib.newsymbol('angles')
 local x_tiles = regentlib.newsymbol('x_tiles')
@@ -2430,7 +2420,11 @@ s_x_faces[8] = regentlib.newsymbol('s_x_faces_8')
 s_y_faces[8] = regentlib.newsymbol('s_y_faces_8')
 s_z_faces[8] = regentlib.newsymbol('s_z_faces_8')
 
-exports.InitModule = rquote
+function Exports.DeclSymbols(config) return rquote
+
+  var [Nx] = config.Radiation.xNum
+  var [Ny] = config.Radiation.yNum
+  var [Nz] = config.Radiation.zNum
 
   var [ntx] = config.Grid.xTiles
   var [nty] = config.Grid.yTiles
@@ -2441,33 +2435,32 @@ exports.InitModule = rquote
   var grid_y = ispace(int3d, {x = Nx,   y = Ny+1, z = Nz})
   var grid_z = ispace(int3d, {x = Nx,   y = Ny,   z = Nz+1})
 
-  var x_faces_1 = region(grid_x, face)
-  var x_faces_2 = region(grid_x, face)
-  var x_faces_3 = region(grid_x, face)
-  var x_faces_4 = region(grid_x, face)
-  var x_faces_5 = region(grid_x, face)
-  var x_faces_6 = region(grid_x, face)
-  var x_faces_7 = region(grid_x, face)
-  var x_faces_8 = region(grid_x, face)
+  var [x_faces[1]] = region(grid_x, face)
+  var [x_faces[2]] = region(grid_x, face)
+  var [x_faces[3]] = region(grid_x, face)
+  var [x_faces[4]] = region(grid_x, face)
+  var [x_faces[5]] = region(grid_x, face)
+  var [x_faces[6]] = region(grid_x, face)
+  var [x_faces[7]] = region(grid_x, face)
+  var [x_faces[8]] = region(grid_x, face)
 
-  var y_faces_1 = region(grid_y, face)
-  var y_faces_2 = region(grid_y, face)
-  var y_faces_3 = region(grid_y, face)
-  var y_faces_4 = region(grid_y, face)
-  var y_faces_5 = region(grid_y, face)
-  var y_faces_6 = region(grid_y, face)
-  var y_faces_7 = region(grid_y, face)
-  var y_faces_8 = region(grid_y, face)
+  var [y_faces[1]] = region(grid_y, face)
+  var [y_faces[2]] = region(grid_y, face)
+  var [y_faces[3]] = region(grid_y, face)
+  var [y_faces[4]] = region(grid_y, face)
+  var [y_faces[5]] = region(grid_y, face)
+  var [y_faces[6]] = region(grid_y, face)
+  var [y_faces[7]] = region(grid_y, face)
+  var [y_faces[8]] = region(grid_y, face)
 
-  var z_faces_1 = region(grid_z, face)
-  var z_faces_2 = region(grid_z, face)
-  var z_faces_3 = region(grid_z, face)
-  var z_faces_4 = region(grid_z, face)
-  var z_faces_5 = region(grid_z, face)
-  var z_faces_6 = region(grid_z, face)
-  var z_faces_7 = region(grid_z, face)
-  var z_faces_8 = region(grid_z, face)
-
+  var [z_faces[1]] = region(grid_z, face)
+  var [z_faces[2]] = region(grid_z, face)
+  var [z_faces[3]] = region(grid_z, face)
+  var [z_faces[4]] = region(grid_z, face)
+  var [z_faces[5]] = region(grid_z, face)
+  var [z_faces[6]] = region(grid_z, face)
+  var [z_faces[7]] = region(grid_z, face)
+  var [z_faces[8]] = region(grid_z, face)
 
   -- 1D Region for angle values
   var angle_indices = ispace(int1d, NUM_ANGLES)
@@ -2485,76 +2478,112 @@ exports.InitModule = rquote
   -- Partition x_faces_1 private/shared
   -- Partition private and shared into tiles
   
-  var [p_x_faces[1]] = make_private_partition_x(x_faces_1, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[1]] = make_private_partition_y(y_faces_1, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[1]] = make_private_partition_z(z_faces_1, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces[1]] = make_private_partition_x([x_faces[1]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[1]] = make_private_partition_y([y_faces[1]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[1]] = make_private_partition_z([z_faces[1]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [s_x_faces[1]] = make_shared_partition_x(x_faces_1, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_y_faces[1]] = make_shared_partition_y(y_faces_1, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_z_faces[1]] = make_shared_partition_z(z_faces_1, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_x_faces[1]] = make_shared_partition_x([x_faces[1]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_y_faces[1]] = make_shared_partition_y([y_faces[1]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_z_faces[1]] = make_shared_partition_z([z_faces[1]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces[2]] = make_private_partition_x(x_faces_2, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[2]] = make_private_partition_y(y_faces_2, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[2]] = make_private_partition_z(z_faces_2, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces[2]] = make_private_partition_x([x_faces[2]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[2]] = make_private_partition_y([y_faces[2]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[2]] = make_private_partition_z([z_faces[2]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [s_x_faces[2]] = make_shared_partition_x(x_faces_2, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_y_faces[2]] = make_shared_partition_y(y_faces_2, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_z_faces[2]] = make_shared_partition_z(z_faces_2, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_x_faces[2]] = make_shared_partition_x([x_faces[2]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_y_faces[2]] = make_shared_partition_y([y_faces[2]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_z_faces[2]] = make_shared_partition_z([z_faces[2]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces[3]] = make_private_partition_x(x_faces_3, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[3]] = make_private_partition_y(y_faces_3, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[3]] = make_private_partition_z(z_faces_3, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces[3]] = make_private_partition_x([x_faces[3]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[3]] = make_private_partition_y([y_faces[3]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[3]] = make_private_partition_z([z_faces[3]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [s_x_faces[3]] = make_shared_partition_x(x_faces_3, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_y_faces[3]] = make_shared_partition_y(y_faces_3, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_z_faces[3]] = make_shared_partition_z(z_faces_3, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_x_faces[3]] = make_shared_partition_x([x_faces[3]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_y_faces[3]] = make_shared_partition_y([y_faces[3]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_z_faces[3]] = make_shared_partition_z([z_faces[3]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces[4]] = make_private_partition_x(x_faces_4, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[4]] = make_private_partition_y(y_faces_4, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[4]] = make_private_partition_z(z_faces_4, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces[4]] = make_private_partition_x([x_faces[4]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[4]] = make_private_partition_y([y_faces[4]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[4]] = make_private_partition_z([z_faces[4]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [s_x_faces[4]] = make_shared_partition_x(x_faces_4, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_y_faces[4]] = make_shared_partition_y(y_faces_4, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_z_faces[4]] = make_shared_partition_z(z_faces_4, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_x_faces[4]] = make_shared_partition_x([x_faces[4]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_y_faces[4]] = make_shared_partition_y([y_faces[4]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_z_faces[4]] = make_shared_partition_z([z_faces[4]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces[5]] = make_private_partition_x(x_faces_5, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[5]] = make_private_partition_y(y_faces_5, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[5]] = make_private_partition_z(z_faces_5, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces[5]] = make_private_partition_x([x_faces[5]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[5]] = make_private_partition_y([y_faces[5]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[5]] = make_private_partition_z([z_faces[5]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [s_x_faces[5]] = make_shared_partition_x(x_faces_5, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_y_faces[5]] = make_shared_partition_y(y_faces_5, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_z_faces[5]] = make_shared_partition_z(z_faces_5, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_x_faces[5]] = make_shared_partition_x([x_faces[5]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_y_faces[5]] = make_shared_partition_y([y_faces[5]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_z_faces[5]] = make_shared_partition_z([z_faces[5]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces[6]] = make_private_partition_x(x_faces_6, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[6]] = make_private_partition_y(y_faces_6, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[6]] = make_private_partition_z(z_faces_6, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces[6]] = make_private_partition_x([x_faces[6]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[6]] = make_private_partition_y([y_faces[6]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[6]] = make_private_partition_z([z_faces[6]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [s_x_faces[6]] = make_shared_partition_x(x_faces_6, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_y_faces[6]] = make_shared_partition_y(y_faces_6, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_z_faces[6]] = make_shared_partition_z(z_faces_6, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_x_faces[6]] = make_shared_partition_x([x_faces[6]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_y_faces[6]] = make_shared_partition_y([y_faces[6]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_z_faces[6]] = make_shared_partition_z([z_faces[6]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces[7]] = make_private_partition_x(x_faces_7, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[7]] = make_private_partition_y(y_faces_7, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[7]] = make_private_partition_z(z_faces_7, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces[7]] = make_private_partition_x([x_faces[7]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[7]] = make_private_partition_y([y_faces[7]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[7]] = make_private_partition_z([z_faces[7]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [s_x_faces[7]] = make_shared_partition_x(x_faces_7, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_y_faces[7]] = make_shared_partition_y(y_faces_7, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_z_faces[7]] = make_shared_partition_z(z_faces_7, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_x_faces[7]] = make_shared_partition_x([x_faces[7]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_y_faces[7]] = make_shared_partition_y([y_faces[7]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_z_faces[7]] = make_shared_partition_z([z_faces[7]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces[8]] = make_private_partition_x(x_faces_8, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[8]] = make_private_partition_y(y_faces_8, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[8]] = make_private_partition_z(z_faces_8, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces[8]] = make_private_partition_x([x_faces[8]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[8]] = make_private_partition_y([y_faces[8]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[8]] = make_private_partition_z([z_faces[8]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [s_x_faces[8]] = make_shared_partition_x(x_faces_8, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_y_faces[8]] = make_shared_partition_y(y_faces_8, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_z_faces[8]] = make_shared_partition_z(z_faces_8, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_x_faces[8]] = make_shared_partition_x([x_faces[8]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_y_faces[8]] = make_shared_partition_y([y_faces[8]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [s_z_faces[8]] = make_shared_partition_z([z_faces[8]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+
+end end
+
+function Exports.InitRegions() return rquote
+
+  -- Initialize face values
+  initialize_faces([x_faces[1]])
+  initialize_faces([x_faces[2]])
+  initialize_faces([x_faces[3]])
+  initialize_faces([x_faces[4]])
+  initialize_faces([x_faces[5]])
+  initialize_faces([x_faces[6]])
+  initialize_faces([x_faces[7]])
+  initialize_faces([x_faces[8]])
+
+  initialize_faces([y_faces[1]])
+  initialize_faces([y_faces[2]])
+  initialize_faces([y_faces[3]])
+  initialize_faces([y_faces[4]])
+  initialize_faces([y_faces[5]])
+  initialize_faces([y_faces[6]])
+  initialize_faces([y_faces[7]])
+  initialize_faces([y_faces[8]])
+
+  initialize_faces([z_faces[1]])
+  initialize_faces([z_faces[2]])
+  initialize_faces([z_faces[3]])
+  initialize_faces([z_faces[4]])
+  initialize_faces([z_faces[5]])
+  initialize_faces([z_faces[6]])
+  initialize_faces([z_faces[7]])
+  initialize_faces([z_faces[8]])
 
   -- Initialize constant values
   initialize_angles(angles)
 
-end
+end end
 
-exports.ComputeRadiationField = rquote
+function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
+
+  var dx = config.Grid.xWidth / config.Radiation.xNum
+  var dy = config.Grid.yWidth / config.Radiation.yNum
+  var dz = config.Grid.zWidth / config.Radiation.zNum
 
   var t : int64  = 1
   var omega = config.Radiation.qs/(config.Radiation.qa+config.Radiation.qs)
@@ -2775,7 +2804,7 @@ exports.ComputeRadiationField = rquote
     for color in tiles do
       res += residual(p_points[color], Nx, Ny, Nz)
     end
-    res = cmath.sqrt(res)
+    res = sqrt(res)
 
     -- Update the intensities and the iteration number
     for color in tiles do
@@ -2799,14 +2828,14 @@ exports.ComputeRadiationField = rquote
   end
   
   -- Debugging
-  write_intensity(points)
-  -- print_final_intensities(points)
+  -- write_intensity(p_points)
+  -- print_final_intensities(p_points)
 
-end
+end end
 
 -------------------------------------------------------------------------------
 -- MODULE EXPORTS
 -------------------------------------------------------------------------------
 
-return exports
+return Exports
 end

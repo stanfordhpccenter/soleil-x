@@ -75,8 +75,25 @@
     },
 
     "Radiation" : {
-        "TYPE" : "Algebraic",
+        "type" : "Algebraic",
         "intensity" : 1e3,
+        "qa" : -1.0,
+        "qs" : -1.0,
+        "xNum" : 4,
+        "yNum" : 4,
+        "zNum" : 4,
+        "emissEast"  : -1.0,
+        "emissWest"  : -1.0,
+        "emissSouth" : -1.0,
+        "emissNorth" : -1.0,
+        "emissUp"    : -1.0,
+        "emissDown"  : -1.0,
+        "tempEast"  : -1.0,
+        "tempWest"  : -1.0,
+        "tempSouth" : -1.0,
+        "tempNorth" : -1.0,
+        "tempUp"    : -1.0,
+        "tempDown"  : -1.0,
     },
 
     "IO" : {
