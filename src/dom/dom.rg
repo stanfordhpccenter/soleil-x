@@ -75,6 +75,7 @@ local struct angle {
 
 local struct face {
   I : double[NUM_ANGLES],
+  color : uint64     -- Used for partition_by_field
 }
 
 -------------------------------------------------------------------------------
@@ -125,36 +126,68 @@ do
 
 end
 
-----------------------------------------------------------------------------
-
 
 local task make_private_partition_x(faces : region(ispace(int3d), face),
                                         x_tiles : ispace(int3d),
                                         Nx : int, Ny : int, Nz : int,
                                         ntx : int, nty : int, ntz : int)
+  where
+    reads writes (faces)
+  do
+
+  var limits = faces.bounds
+  
+
+  for i = limits.lo.x, limits.lo.x + 1 do
+    for j = limits.lo.y, limits.hi.y + 1 do
+      for k = limits.lo.z, limits.hi.z + 1 do
+
+        var face = faces[{i,j,k}]
+        face.color = -1
+        
+
+      end
+    end
+  end
 
   var coloring = c.legion_domain_point_coloring_create()
-  for tile in x_tiles do
-
-    var lo = int3d { x = tile.x     * Nx / ntx + 1,
-                     y = tile.y     * Ny / nty,
-                     z = tile.z     * Nz / ntz}
-    var hi = int3d { x = (tile.x+1) * Nx / ntx - 1,
-                     y = (tile.y+1) * Ny / nty - 1,
-                     z = (tile.z+1) * Nz / ntz - 1}
-
-    if hi.x < Nx+1 then               
-
-      var rect = rect3d {lo = lo, hi = hi}
-      c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
-    end                
-    
-  end
-  var p = partition(disjoint, faces, coloring, x_tiles)
+  var p = partition(faces.color, coloring)
   c.legion_domain_point_coloring_destroy(coloring)
   return p
 
 end
+
+
+----------------------------------------------------------------------------
+
+
+-- local task make_private_partition_x(faces : region(ispace(int3d), face),
+--                                         x_tiles : ispace(int3d),
+--                                         Nx : int, Ny : int, Nz : int,
+--                                         ntx : int, nty : int, ntz : int)
+
+--   var coloring = c.legion_domain_point_coloring_create()
+--   for tile in x_tiles do
+
+--     var lo = int3d { x = tile.x     * Nx / ntx + 1,
+--                      y = tile.y     * Ny / nty,
+--                      z = tile.z     * Nz / ntz}
+--     var hi = int3d { x = (tile.x+1) * Nx / ntx - 1,
+--                      y = (tile.y+1) * Ny / nty - 1,
+--                      z = (tile.z+1) * Nz / ntz - 1}
+
+--     if hi.x < Nx+1 then               
+
+--       var rect = rect3d {lo = lo, hi = hi}
+--       c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
+--     end                
+    
+--   end
+--   var p = partition(disjoint, faces, coloring, x_tiles)
+--   c.legion_domain_point_coloring_destroy(coloring)
+--   return p
+
+-- end
 
 -- 1 - 2 - 3
 local task make_shared_partition_x(faces : region(ispace(int3d), face),
