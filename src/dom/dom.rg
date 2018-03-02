@@ -149,7 +149,9 @@ A.registerTask(initialize_angles, 'initialize_angles')
 
 
 local task make_private_partition_x(faces : region(ispace(int3d), face),
-                                        x_tiles : ispace(int3d))
+                                        x_tiles : ispace(int3d),
+                                        Nx : int, Ny : int, Nz : int,
+                                        ntx : int, nty : int, ntz : int)
 
   var coloring = c.legion_domain_point_coloring_create()
   for tile in x_tiles do
@@ -176,7 +178,9 @@ end
 
 -- 1 - 2 - 3
 local task make_shared_partition_x(faces : region(ispace(int3d), face),
-                                        x_tiles : ispace(int3d))
+                                        x_tiles : ispace(int3d),
+                                        Nx : int, Ny : int, Nz : int,
+                                        ntx : int, nty : int, ntz : int)
 
   var coloring = c.legion_domain_point_coloring_create()
   for tile in x_tiles do
@@ -202,7 +206,9 @@ end
 
 
 local task make_private_partition_y(faces : region(ispace(int3d), face),
-                                        y_tiles : ispace(int3d))
+                                        y_tiles : ispace(int3d),
+                                        Nx : int, Ny : int, Nz : int,
+                                        ntx : int, nty : int, ntz : int)
 
   var coloring = c.legion_domain_point_coloring_create()
   for tile in y_tiles do
@@ -229,7 +235,9 @@ end
 
 -- 1 - 2 - 3
 local task make_shared_partition_y(faces : region(ispace(int3d), face),
-                                        y_tiles : ispace(int3d))
+                                        y_tiles : ispace(int3d),
+                                        Nx : int, Ny : int, Nz : int,
+                                        ntx : int, nty : int, ntz : int)
 
   var coloring = c.legion_domain_point_coloring_create()
   for tile in y_tiles do
@@ -255,7 +263,9 @@ end
 
 
 local task make_private_partition_z(faces : region(ispace(int3d), face),
-                                        z_tiles : ispace(int3d))
+                                        z_tiles : ispace(int3d),
+                                        Nx : int, Ny : int, Nz : int,
+                                        ntx : int, nty : int, ntz : int)
 
   var coloring = c.legion_domain_point_coloring_create()
   for tile in z_tiles do
@@ -282,7 +292,9 @@ end
 
 -- 1 - 2 - 3
 local task make_shared_partition_z(faces : region(ispace(int3d), face),
-                                        z_tiles : ispace(int3d))
+                                        z_tiles : ispace(int3d),
+                                        Nx : int, Ny : int, Nz : int,
+                                        ntx : int, nty : int, ntz : int)
 
   var coloring = c.legion_domain_point_coloring_create()
   for tile in z_tiles do
@@ -2286,7 +2298,7 @@ do
     for i = limits.lo.x, limits.hi.x+1 do
       for j = limits.lo.y, limits.hi.y+1 do
         for k = limits.lo.z, limits.hi.z+1 do
-            for m = 0, N_angles do
+            for m = 0, NUM_ANGLES do
 
               if points[{i,j,k}].I_1[m] > 0 then
                 c.printf("1 x=%d,y=%d,z=%d,angle=%d I = %lf", i, j, k, m, points[{i,j,k}].I_1[m])
@@ -2350,65 +2362,69 @@ local s_x_faces = {}
 local s_y_faces = {}
 local s_z_faces = {}
 
-local p_x_faces_1 = regentlib.newsymbol('p_x_faces_1')
-local p_y_faces_1 = regentlib.newsymbol('p_y_faces_1')
-local p_z_faces_1 = regentlib.newsymbol('p_z_faces_1')
+local p_x_faces = {}
+local p_y_faces = {}
+local p_z_faces = {}
+
+p_x_faces[1] = regentlib.newsymbol('p_x_faces_1')
+p_y_faces[1] = regentlib.newsymbol('p_y_faces_1')
+p_z_faces[1] = regentlib.newsymbol('p_z_faces_1')
 
 s_x_faces[1] = regentlib.newsymbol('s_x_faces_1')
 s_y_faces[1] = regentlib.newsymbol('s_y_faces_1')
 s_z_faces[1] = regentlib.newsymbol('s_z_faces_1')
 
-local p_x_faces_2 = regentlib.newsymbol('p_x_faces_2')
-local p_y_faces_2 = regentlib.newsymbol('p_y_faces_2')
-local p_z_faces_2 = regentlib.newsymbol('p_z_faces_2')
+p_x_faces[2] = regentlib.newsymbol('p_x_faces_2')
+p_y_faces[2] = regentlib.newsymbol('p_y_faces_2')
+p_z_faces[2] = regentlib.newsymbol('p_z_faces_2')
 
 s_x_faces[2] = regentlib.newsymbol('s_x_faces_2')
 s_y_faces[2] = regentlib.newsymbol('s_y_faces_2')
 s_z_faces[2] = regentlib.newsymbol('s_z_faces_2')
 
-local p_x_faces_3 = regentlib.newsymbol('p_x_faces_3')
-local p_y_faces_3 = regentlib.newsymbol('p_y_faces_3')
-local p_z_faces_3 = regentlib.newsymbol('p_z_faces_3')
+p_x_faces[3] = regentlib.newsymbol('p_x_faces_3')
+p_y_faces[3] = regentlib.newsymbol('p_y_faces_3')
+p_z_faces[3] = regentlib.newsymbol('p_z_faces_3')
 
 s_x_faces[3] = regentlib.newsymbol('s_x_faces_3')
 s_y_faces[3] = regentlib.newsymbol('s_y_faces_3')
 s_z_faces[3] = regentlib.newsymbol('s_z_faces_3')
 
-local p_x_faces_4 = regentlib.newsymbol('p_x_faces_4')
-local p_y_faces_4 = regentlib.newsymbol('p_y_faces_4')
-local p_z_faces_4 = regentlib.newsymbol('p_z_faces_4')
+p_x_faces[4] = regentlib.newsymbol('p_x_faces_4')
+p_y_faces[4] = regentlib.newsymbol('p_y_faces_4')
+p_z_faces[4] = regentlib.newsymbol('p_z_faces_4')
 
 s_x_faces[4] = regentlib.newsymbol('s_x_faces_4')
 s_y_faces[4] = regentlib.newsymbol('s_y_faces_4')
 s_z_faces[4] = regentlib.newsymbol('s_z_faces_4')
 
-local p_x_faces_5 = regentlib.newsymbol('p_x_faces_5')
-local p_y_faces_5 = regentlib.newsymbol('p_y_faces_5')
-local p_z_faces_5 = regentlib.newsymbol('p_z_faces_5')
+p_x_faces[5] = regentlib.newsymbol('p_x_faces_5')
+p_y_faces[5] = regentlib.newsymbol('p_y_faces_5')
+p_z_faces[5] = regentlib.newsymbol('p_z_faces_5')
 
 s_x_faces[5] = regentlib.newsymbol('s_x_faces_5')
 s_y_faces[5] = regentlib.newsymbol('s_y_faces_5')
 s_z_faces[5] = regentlib.newsymbol('s_z_faces_5')
 
-local p_x_faces_6 = regentlib.newsymbol('p_x_faces_6')
-local p_y_faces_6 = regentlib.newsymbol('p_y_faces_6')
-local p_z_faces_6 = regentlib.newsymbol('p_z_faces_6')
+p_x_faces[6] = regentlib.newsymbol('p_x_faces_6')
+p_y_faces[6] = regentlib.newsymbol('p_y_faces_6')
+p_z_faces[6] = regentlib.newsymbol('p_z_faces_6')
 
 s_x_faces[6] = regentlib.newsymbol('s_x_faces_6')
 s_y_faces[6] = regentlib.newsymbol('s_y_faces_6')
 s_z_faces[6] = regentlib.newsymbol('s_z_faces_6')
 
-local p_x_faces_7 = regentlib.newsymbol('p_x_faces_7')
-local p_y_faces_7 = regentlib.newsymbol('p_y_faces_7')
-local p_z_faces_7 = regentlib.newsymbol('p_z_faces_7')
+p_x_faces[7] = regentlib.newsymbol('p_x_faces_7')
+p_y_faces[7] = regentlib.newsymbol('p_y_faces_7')
+p_z_faces[7] = regentlib.newsymbol('p_z_faces_7')
 
 s_x_faces[7] = regentlib.newsymbol('s_x_faces_7')
 s_y_faces[7] = regentlib.newsymbol('s_y_faces_7')
 s_z_faces[7] = regentlib.newsymbol('s_z_faces_7')
 
-local p_x_faces_8 = regentlib.newsymbol('p_x_faces_8')
-local p_y_faces_8 = regentlib.newsymbol('p_y_faces_8')
-local p_z_faces_8 = regentlib.newsymbol('p_z_faces_8')
+p_x_faces[8] = regentlib.newsymbol('p_x_faces_8')
+p_y_faces[8] = regentlib.newsymbol('p_y_faces_8')
+p_z_faces[8] = regentlib.newsymbol('p_z_faces_8')
 
 s_x_faces[8] = regentlib.newsymbol('s_x_faces_8')
 s_y_faces[8] = regentlib.newsymbol('s_y_faces_8')
@@ -2469,65 +2485,65 @@ exports.InitModule = rquote
   -- Partition x_faces_1 private/shared
   -- Partition private and shared into tiles
   
-  var [p_x_faces_1] = make_private_partition_x(x_faces_1, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces_1] = make_private_partition_y(y_faces_1, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces_1] = make_private_partition_z(z_faces_1, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces[1]] = make_private_partition_x(x_faces_1, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[1]] = make_private_partition_y(y_faces_1, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[1]] = make_private_partition_z(z_faces_1, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
   var [s_x_faces[1]] = make_shared_partition_x(x_faces_1, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
   var [s_y_faces[1]] = make_shared_partition_y(y_faces_1, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
   var [s_z_faces[1]] = make_shared_partition_z(z_faces_1, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces_2] = make_private_partition_x(x_faces_2, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces_2] = make_private_partition_y(y_faces_2, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces_2] = make_private_partition_z(z_faces_2, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces[2]] = make_private_partition_x(x_faces_2, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[2]] = make_private_partition_y(y_faces_2, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[2]] = make_private_partition_z(z_faces_2, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
   var [s_x_faces[2]] = make_shared_partition_x(x_faces_2, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
   var [s_y_faces[2]] = make_shared_partition_y(y_faces_2, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
   var [s_z_faces[2]] = make_shared_partition_z(z_faces_2, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces_3] = make_private_partition_x(x_faces_3, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces_3] = make_private_partition_y(y_faces_3, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces_3] = make_private_partition_z(z_faces_3, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces[3]] = make_private_partition_x(x_faces_3, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[3]] = make_private_partition_y(y_faces_3, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[3]] = make_private_partition_z(z_faces_3, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
   var [s_x_faces[3]] = make_shared_partition_x(x_faces_3, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
   var [s_y_faces[3]] = make_shared_partition_y(y_faces_3, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
   var [s_z_faces[3]] = make_shared_partition_z(z_faces_3, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces_4] = make_private_partition_x(x_faces_4, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces_4] = make_private_partition_y(y_faces_4, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces_4] = make_private_partition_z(z_faces_4, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces[4]] = make_private_partition_x(x_faces_4, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[4]] = make_private_partition_y(y_faces_4, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[4]] = make_private_partition_z(z_faces_4, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
   var [s_x_faces[4]] = make_shared_partition_x(x_faces_4, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
   var [s_y_faces[4]] = make_shared_partition_y(y_faces_4, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
   var [s_z_faces[4]] = make_shared_partition_z(z_faces_4, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces_5] = make_private_partition_x(x_faces_5, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces_5] = make_private_partition_y(y_faces_5, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces_5] = make_private_partition_z(z_faces_5, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces[5]] = make_private_partition_x(x_faces_5, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[5]] = make_private_partition_y(y_faces_5, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[5]] = make_private_partition_z(z_faces_5, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
   var [s_x_faces[5]] = make_shared_partition_x(x_faces_5, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
   var [s_y_faces[5]] = make_shared_partition_y(y_faces_5, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
   var [s_z_faces[5]] = make_shared_partition_z(z_faces_5, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces_6] = make_private_partition_x(x_faces_6, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces_6] = make_private_partition_y(y_faces_6, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces_6] = make_private_partition_z(z_faces_6, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces[6]] = make_private_partition_x(x_faces_6, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[6]] = make_private_partition_y(y_faces_6, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[6]] = make_private_partition_z(z_faces_6, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
   var [s_x_faces[6]] = make_shared_partition_x(x_faces_6, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
   var [s_y_faces[6]] = make_shared_partition_y(y_faces_6, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
   var [s_z_faces[6]] = make_shared_partition_z(z_faces_6, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces_7] = make_private_partition_x(x_faces_7, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces_7] = make_private_partition_y(y_faces_7, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces_7] = make_private_partition_z(z_faces_7, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces[7]] = make_private_partition_x(x_faces_7, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[7]] = make_private_partition_y(y_faces_7, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[7]] = make_private_partition_z(z_faces_7, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
   var [s_x_faces[7]] = make_shared_partition_x(x_faces_7, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
   var [s_y_faces[7]] = make_shared_partition_y(y_faces_7, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
   var [s_z_faces[7]] = make_shared_partition_z(z_faces_7, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
-  var [p_x_faces_8] = make_private_partition_x(x_faces_8, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces_8] = make_private_partition_y(y_faces_8, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces_8] = make_private_partition_z(z_faces_8, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces[8]] = make_private_partition_x(x_faces_8, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[8]] = make_private_partition_y(y_faces_8, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[8]] = make_private_partition_z(z_faces_8, z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
 
   var [s_x_faces[8]] = make_shared_partition_x(x_faces_8, x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
   var [s_y_faces[8]] = make_shared_partition_y(y_faces_8, y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
@@ -2647,7 +2663,7 @@ exports.ComputeRadiationField = rquote
       for j = 0, nty do
         for k = 0, ntz do
           sweep_1(p_points[{i,j,k}],
-                  p_x_faces_1[{i,j,k}], p_y_faces_1[{i,j,k}], p_z_faces_1[{i,j,k}],
+                  [p_x_faces[1]][{i,j,k}], [p_y_faces[1]][{i,j,k}], [p_z_faces[1]][{i,j,k}],
                   [s_x_faces[1]][{i,j,k}], [s_x_faces[1]][{i+1,j,k}],
                   [s_y_faces[1]][{i,j,k}], [s_y_faces[1]][{i,j+1,k}],
                   [s_z_faces[1]][{i,j,k}], [s_z_faces[1]][{i,j,k+1}],
@@ -2661,7 +2677,7 @@ exports.ComputeRadiationField = rquote
       for j = 0, nty do
         for k = ntz-1, -1, -1 do
           sweep_2(p_points[{i,j,k}],
-                  p_x_faces_2[{i,j,k}], p_y_faces_2[{i,j,k}], p_z_faces_2[{i,j,k}],
+                  [p_x_faces[2]][{i,j,k}], [p_y_faces[2]][{i,j,k}], [p_z_faces[2]][{i,j,k}],
                   [s_x_faces[2]][{i,j,k}], [s_x_faces[2]][{i+1,j,k}],
                   [s_y_faces[2]][{i,j,k}], [s_y_faces[2]][{i,j+1,k}],
                   [s_z_faces[2]][{i,j,k+1}], [s_z_faces[2]][{i,j,k}],
@@ -2675,7 +2691,7 @@ exports.ComputeRadiationField = rquote
       for j = nty-1, -1, -1 do
         for k = 0, ntz do
           sweep_3(p_points[{i,j,k}],
-                  p_x_faces_3[{i,j,k}], p_y_faces_3[{i,j,k}], p_z_faces_3[{i,j,k}],
+                  [p_x_faces[3]][{i,j,k}], [p_y_faces[3]][{i,j,k}], [p_z_faces[3]][{i,j,k}],
                   [s_x_faces[3]][{i,j,k}], [s_x_faces[3]][{i+1,j,k}],
                   [s_y_faces[3]][{i,j+1,k}], [s_y_faces[3]][{i,j,k}],
                   [s_z_faces[3]][{i,j,k}], [s_z_faces[3]][{i,j,k+1}],
@@ -2689,7 +2705,7 @@ exports.ComputeRadiationField = rquote
       for j = nty-1, -1, -1 do
         for k = ntz-1, -1, -1 do
           sweep_4(p_points[{i,j,k}],
-                  p_x_faces_4[{i,j,k}], p_y_faces_4[{i,j,k}], p_z_faces_4[{i,j,k}],
+                  [p_x_faces[4]][{i,j,k}], [p_y_faces[4]][{i,j,k}], [p_z_faces[4]][{i,j,k}],
                   [s_x_faces[4]][{i,j,k}], [s_x_faces[4]][{i+1,j,k}],
                   [s_y_faces[4]][{i,j+1,k}], [s_y_faces[4]][{i,j,k}],
                   [s_z_faces[4]][{i,j,k+1}], [s_z_faces[4]][{i,j,k}],
@@ -2703,7 +2719,7 @@ exports.ComputeRadiationField = rquote
       for j = 0, nty do
         for k = 0, ntz do
           sweep_5(p_points[{i,j,k}],
-                  p_x_faces_5[{i,j,k}], p_y_faces_5[{i,j,k}], p_z_faces_5[{i,j,k}],
+                  [p_x_faces[5]][{i,j,k}], [p_y_faces[5]][{i,j,k}], [p_z_faces[5]][{i,j,k}],
                   [s_x_faces[5]][{i+1,j,k}], [s_x_faces[5]][{i,j,k}],
                   [s_y_faces[5]][{i,j,k}], [s_y_faces[5]][{i,j+1,k}],
                   [s_z_faces[5]][{i,j,k}], [s_z_faces[5]][{i,j,k+1}],
@@ -2717,7 +2733,7 @@ exports.ComputeRadiationField = rquote
       for j = 0, nty do
         for k = ntz-1, -1, -1 do
           sweep_6(p_points[{i,j,k}],
-                  p_x_faces_6[{i,j,k}], p_y_faces_6[{i,j,k}], p_z_faces_6[{i,j,k}],
+                  [p_x_faces[6]][{i,j,k}], [p_y_faces[6]][{i,j,k}], [p_z_faces[6]][{i,j,k}],
                   [s_x_faces[6]][{i+1,j,k}], [s_x_faces[6]][{i,j,k}],
                   [s_y_faces[6]][{i,j,k}], [s_y_faces[6]][{i,j+1,k}],
                   [s_z_faces[6]][{i,j,k+1}], [s_z_faces[6]][{i,j,k}],
@@ -2731,7 +2747,7 @@ exports.ComputeRadiationField = rquote
       for j = nty-1, -1, -1 do
         for k = 0, ntz do
           sweep_7(p_points[{i,j,k}],
-                  p_x_faces_7[{i,j,k}], p_y_faces_7[{i,j,k}], p_z_faces_7[{i,j,k}],
+                  [p_x_faces[7]][{i,j,k}], [p_y_faces[7]][{i,j,k}], [p_z_faces[7]][{i,j,k}],
                   [s_x_faces[7]][{i+1,j,k}], [s_x_faces[7]][{i,j,k}],
                   [s_y_faces[7]][{i,j+1,k}], [s_y_faces[7]][{i,j,k}],
                   [s_z_faces[7]][{i,j,k}], [s_z_faces[7]][{i,j,k+1}],
@@ -2745,7 +2761,7 @@ exports.ComputeRadiationField = rquote
       for j = nty-1, -1, -1 do
         for k = ntz-1, -1, -1 do
           sweep_8(p_points[{i,j,k}],
-                  p_x_faces_8[{i,j,k}], p_y_faces_8[{i,j,k}], p_z_faces_8[{i,j,k}],
+                  [p_x_faces[8]][{i,j,k}], [p_y_faces[8]][{i,j,k}], [p_z_faces[8]][{i,j,k}],
                   [s_x_faces[8]][{i+1,j,k}], [s_x_faces[8]][{i,j,k}],
                   [s_y_faces[8]][{i,j+1,k}], [s_y_faces[8]][{i,j,k}],
                   [s_z_faces[8]][{i,j,k+1}], [s_z_faces[8]][{i,j,k}],
