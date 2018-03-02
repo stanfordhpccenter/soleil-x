@@ -75,7 +75,8 @@ local struct angle {
 
 local struct face {
   I : double[NUM_ANGLES],
-  color : uint64     -- Used for partition_by_field
+  private_color : uint64     -- Used for partition_by_field
+  shared_color : uint64     -- Used for partition_by_field
 }
 
 -------------------------------------------------------------------------------
@@ -143,6 +144,7 @@ local task make_private_partition_x(faces : region(ispace(int3d), face),
       for k = limits.lo.z, limits.hi.z + 1 do
 
         var face = faces[{i,j,k}]
+        if 
         face.color = -1
         
 
