@@ -10,7 +10,7 @@ local C = terralib.includecstring[[
 #include <string.h>
 ]]
 local JSON = terralib.includec("json.h")
-local SCHEMA = (require "config_helper").processSchema("config_schema.h")
+local SCHEMA = terralib.includec("config_schema.h")
 
 local acos = regentlib.acos(double)
 local ceil = regentlib.ceil(double)
@@ -29,7 +29,7 @@ local HDF_LIBNAME = assert(os.getenv('HDF_LIBNAME'))
 
 local USE_HDF = assert(os.getenv('USE_HDF')) ~= '0'
 
-local LIBS = terralib.newlist({"-ljsonparser","-lm"})
+local LIBS = terralib.newlist({"config_schema.o", "json.o", "-lm"})
 if USE_HDF then
   LIBS:insert("-l"..HDF_LIBNAME)
 end
@@ -5511,7 +5511,7 @@ task main()
   var launched = false
   for i = 1, args.argc do
     if C.strcmp(args.argv[i],"-i") == 0 and i < args.argc-1 then
-      work(SCHEMA.parseConfig(args.argv[i+1]))
+      work(SCHEMA.parse_config(args.argv[i+1]))
       launched = true
     end
   end

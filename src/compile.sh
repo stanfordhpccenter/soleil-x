@@ -19,7 +19,7 @@ export REGENT_FLAGS="-fflow 0 -fopenmp 1 -fcuda 1 -fcuda-offline 1"
 
 # Build libraries
 gcc -g -O2 -c -o json.o json.c
-ar rcs libjsonparser.a json.o
+"$LEGION_DIR"/language/regent.py config_helper.rg config_schema.lua
 
-# Compile Regent
+# Compile Soleil
 "$LEGION_DIR"/language/regent.py soleil.rg $REGENT_FLAGS
