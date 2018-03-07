@@ -9,7 +9,7 @@ local C = terralib.includecstring[[
 #include <stdio.h>
 #include <string.h>
 ]]
-local JSON = terralib.includec("json.h")
+local MAPPER = terralib.includec("soleil_mapper.h")
 local SCHEMA = terralib.includec("config_schema.h")
 
 local acos = regentlib.acos(double)
@@ -25,14 +25,7 @@ local sqrt = regentlib.sqrt(double)
 -- COMPILE-TIME CONFIGURATION
 -------------------------------------------------------------------------------
 
-local HDF_LIBNAME = assert(os.getenv('HDF_LIBNAME'))
-
 local USE_HDF = assert(os.getenv('USE_HDF')) ~= '0'
-
-local LIBS = terralib.newlist({"config_schema.o", "json.o", "-lm"})
-if USE_HDF then
-  LIBS:insert("-l"..HDF_LIBNAME)
-end
 
 local NUM_ANGLES = 14
 
@@ -5525,4 +5518,4 @@ end
 -- COMPILATION CALL
 -------------------------------------------------------------------------------
 
-regentlib.saveobj(main, "soleil.exec", "executable", nil, LIBS)
+regentlib.saveobj(main, "soleil.o", "object", MAPPER.register_mappers)
