@@ -25,6 +25,9 @@ LINK_FLAGS += -Bdynamic
 LINK_FLAGS += $(CRAY_UGNI_POST_LINK_OPTS) -lugni
 LINK_FLAGS += $(CRAY_UDREG_POST_LINK_OPTS) -ludreg
 endif
+ifdef CUDA_HOME
+LINK_FLAGS += -L$(CUDA_HOME)/lib64/stubs -lcuda
+endif
 LINK_FLAGS += -L$(LG_RT_DIR)/../bindings/regent -lregent
 ifdef HDF_ROOT
 LINK_FLAGS += -L$(HDF_ROOT)/lib -l$(HDF_LIBNAME)
