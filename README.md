@@ -225,8 +225,8 @@ Running
 
 ```
 $ cd "$SOLEIL_DIR"/src
-$ ./compile.sh
+$ make
 $ ./run.sh
 ```
 
-Edit the `compile.sh` and `run.sh` scripts to choose a different testcase, edit runtime options etc.
+Edit the `run.sh` script to choose a different testcase, edit runtime options etc.
