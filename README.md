@@ -1,9 +1,11 @@
 Setup (generic)
 ===============
 
+See below for instructions targeting specific systems.
+
 ### Add to shell startup
 
-Normally you'd need to edit file `~/.bashrc`.
+Normally you'd need to edit file `~/.bashrc`. Replace the `???` depending on your system.
 
 ```
 # Module loads (if necessary)
@@ -26,29 +28,33 @@ export GPU_ARCH=???
 
 ### Download software
 
+Always use the `master` branch for Legion; the default `sta(b)le` branch tends to lag behind.
+
 ```
-$ git clone -b master https://github.com/StanfordLegion/legion.git "$LEGION_DIR"
-$ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
+git clone -b master https://github.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 
 ### Install Legion
 
+Replace the `?` depending on your system's capabilities. We need to use a custom branch of Terra, which uses LuaJIT2.1 instead of LuaJIT2.0, because the latter exhibits a spurious out-of-memory error.
+
 ```
-$ cd "$LEGION_DIR"/language
-$ unset LG_RT_DIR
-$ USE_CUDA=? USE_OPENMP=? USE_GASNET=? USE_HDF=? scripts/setup_env.py --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+cd "$LEGION_DIR"/language
+unset LG_RT_DIR # Need to set it again before building/running
+USE_CUDA=? USE_OPENMP=? USE_GASNET=? USE_HDF=? scripts/setup_env.py --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
 or (if LLVM is installed system-wide, and you're not using GASNET):
 
 ```
-$ cd "$LEGION_DIR"/language
-$ git clone -b luajit2.1 https://github.com/StanfordLegion/terra.git terra.build
-$ ln -s terra.build terra
-$ cd "$LEGION_DIR"/language/terra
-$ make all -j
-$ cd "$LEGION_DIR"/language
-$ USE_CUDA=? USE_OPENMP=? USE_GASNET=? USE_HDF=? ./install.py
+cd "$LEGION_DIR"/language
+git clone -b luajit2.1 https://github.com/StanfordLegion/terra.git terra.build
+ln -s terra.build terra
+cd "$LEGION_DIR"/language/terra
+make all -j
+cd "$LEGION_DIR"/language
+USE_CUDA=? USE_OPENMP=? USE_GASNET=? USE_HDF=? ./install.py
 ```
 
 See [Elliott's instructions](https://docs.google.com/document/d/1Qkl6r-1ZIb8WyH1f_WZbKgjp3due_Q8UiWKLh_nG1ec/edit) for more help.
@@ -71,22 +77,22 @@ export HDF_LIBNAME=hdf5_serial
 ### Download software
 
 ```
-$ sudo apt-get install llvm-3.8-dev clang-3.8
-$ sudo apt-get install libhdf5-serial-dev
-$ git clone -b master https://github.com/StanfordLegion/legion.git "$LEGION_DIR"
-$ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
+sudo apt-get install llvm-3.8-dev clang-3.8
+sudo apt-get install libhdf5-serial-dev
+git clone -b master https://github.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 
 ### Install Legion
 
 ```
-$ cd "$LEGION_DIR"/language
-$ git clone -b luajit2.1 https://github.com/StanfordLegion/terra.git terra.build
-$ ln -s terra.build terra
-$ cd "$LEGION_DIR"/language/terra
-$ make all -j
-$ cd "$LEGION_DIR"/language
-$ USE_CUDA=0 USE_OPENMP=1 USE_GASNET=0 USE_HDF=1 ./install.py
+cd "$LEGION_DIR"/language
+git clone -b luajit2.1 https://github.com/StanfordLegion/terra.git terra.build
+ln -s terra.build terra
+cd "$LEGION_DIR"/language/terra
+make all -j
+cd "$LEGION_DIR"/language
+USE_CUDA=0 USE_OPENMP=1 USE_GASNET=0 USE_HDF=1 ./install.py
 ```
 
 Setup (Sapling @ Stanford)
@@ -114,20 +120,20 @@ export GPU_ARCH=fermi
 ### Download software
 
 ```
-$ git clone -b master https://github.com/StanfordLegion/legion.git "$LEGION_DIR"
-$ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
+git clone -b master https://github.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 
 ### Install Legion
 
 ```
-$ cd "$LEGION_DIR"/language
-$ git clone -b luajit2.1 https://github.com/StanfordLegion/terra.git terra.build
-$ ln -s terra.build terra
-$ cd "$LEGION_DIR"/language/terra
-$ make all -j
-$ cd "$LEGION_DIR"/language
-$ USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 ./install.py
+cd "$LEGION_DIR"/language
+git clone -b luajit2.1 https://github.com/StanfordLegion/terra.git terra.build
+ln -s terra.build terra
+cd "$LEGION_DIR"/language/terra
+make all -j
+cd "$LEGION_DIR"/language
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 ./install.py
 ```
 
 Setup (Certainty @ Stanford)
@@ -161,27 +167,32 @@ export GPU_ARCH=fermi
 ### Download software
 
 ```
-$ git clone -b master git@github.com:StanfordLegion/legion.git "$LEGION_DIR"
-$ git clone git@github.com:stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
+git clone -b master git@github.com:StanfordLegion/legion.git "$LEGION_DIR"
+git clone git@github.com:stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 
 ### Install Legion
 
 ```
-$ cd "$LEGION_DIR"/language
-$ unset LG_RT_DIR
-$ git clone -b luajit2.1 git@github.com:StanfordLegion/terra.git terra.build
-$ sed -i 's|https://github.com/|git@github.com:|g' terra.build/Makefile
-$ sed -i 's|https://github.com/|git@github.com:|g' scripts/setup_env.py
-$ sed -i 's|~eslaught|~manolis|g' scripts/setup_env.py
-$ sed -i 's|85faf7cbd518dabeafc4d3f7e909338fc1dab3c4|c29dc69803e07c43c3654ace58e98368857e1669|g' scripts/setup_env.py
-$ USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 35 --terra-url 'git@github.com:StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+cd "$LEGION_DIR"/language
+unset LG_RT_DIR
+# Replace all github https links with ssh links.
+git clone -b luajit2.1 git@github.com:StanfordLegion/terra.git terra.build
+sed -i 's|https://github.com/|git@github.com:|g' terra.build/Makefile
+sed -i 's|https://github.com/|git@github.com:|g' scripts/setup_env.py
+# Use a patched version of LLVM3.5, which fixes some compilation issues with GCC5.2.
+sed -i 's|~eslaught|~manolis|g' scripts/setup_env.py
+sed -i 's|85faf7cbd518dabeafc4d3f7e909338fc1dab3c4|c29dc69803e07c43c3654ace58e98368857e1669|g' scripts/setup_env.py
+# Use LLVM3.5, because later versions won't work with CUDA7.5.
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 35 --terra-url 'git@github.com:StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
 Setup (Titan @ Oak Ridge)
 =========================
 
 ### Add to shell startup
+
+We set `MARCH` to an appropriate version, so that `libregent.so` can run on both the compute nodes and the head node (both the Regent compiler and the final executable need to link against this library).
 
 ```
 # Module loads
@@ -208,25 +219,25 @@ export GPU_ARCH=kepler
 ### Download software
 
 ```
-$ git clone -b master https://github.com/StanfordLegion/legion.git "$LEGION_DIR"
-$ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
+git clone -b master https://github.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 
 ### Install Legion
 
 ```
-$ cd "$LEGION_DIR"/language
-$ unset LG_RT_DIR
-$ USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+cd "$LEGION_DIR"/language
+unset LG_RT_DIR
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
 Running
 =======
 
 ```
-$ cd "$SOLEIL_DIR"/src
-$ make
-$ ./run.sh
+cd "$SOLEIL_DIR"/src
+make
+./run.sh
 ```
 
 Edit the `run.sh` script to choose a different testcase, edit runtime options etc.
