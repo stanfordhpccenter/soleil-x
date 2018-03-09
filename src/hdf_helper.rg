@@ -12,9 +12,10 @@ import 'regent'
 
 local Exports = {}
 
+local C = regentlib.c
+local HDF5 = terralib.includec(assert(os.getenv('HDF_HEADER')))
 local UTIL = require 'util'
 
-local HDF5 = terralib.includec(assert(os.getenv('HDF_HEADER')))
 -- HACK: Hardcoding missing #define's
 HDF5.H5F_ACC_TRUNC = 2
 HDF5.H5P_DEFAULT = 0
@@ -28,9 +29,29 @@ HDF5.H5P_DEFAULT = 0
 function Exports.mkDump(indexType, colorType, fSpace, flds)
   flds = terralib.newlist(flds)
 
+  -- string, string? -> terralib.quote
+  local function err(action, fld)
+    if fld then
+      return quote
+        var stderr = C.fdopen(2, 'w')
+        C.fprintf(stderr, 'HDF5: Cannot %s for field %s\n', action, fld)
+        C.fflush(stderr)
+        C.exit(1)
+      end
+    else
+      return quote
+        var stderr = C.fdopen(2, 'w')
+        C.fprintf(stderr, 'HDF5: Cannot %s\n', action)
+        C.fflush(stderr)
+        C.exit(1)
+      end
+    end
+  end
+
   local terra create(fname : rawstring, hiBound : indexType)
     var fid = HDF5.H5Fcreate(fname, HDF5.H5F_ACC_TRUNC,
                              HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT)
+    if fid < 0 then [err('create file')] end
     var dataSpace : int32
     escape
       if indexType == int1d then
@@ -38,6 +59,7 @@ function Exports.mkDump(indexType, colorType, fSpace, flds)
           var sizes : HDF5.hsize_t[1]
           sizes[0] = hiBound.__ptr + 1
           dataSpace = HDF5.H5Screate_simple(1, sizes, [&uint64](0))
+          if dataSpace < 0 then [err('create 1d dataspace')] end
         end
       elseif indexType == int2d then
         emit quote
@@ -46,6 +68,7 @@ function Exports.mkDump(indexType, colorType, fSpace, flds)
           sizes[1] = hiBound.__ptr.x + 1
           sizes[0] = hiBound.__ptr.y + 1
           dataSpace = HDF5.H5Screate_simple(2, sizes, [&uint64](0))
+          if dataSpace < 0 then [err('create 2d dataspace')] end
         end
       elseif indexType == int3d then
         emit quote
@@ -55,6 +78,7 @@ function Exports.mkDump(indexType, colorType, fSpace, flds)
           sizes[1] = hiBound.__ptr.y + 1
           sizes[0] = hiBound.__ptr.z + 1
           dataSpace = HDF5.H5Screate_simple(3, sizes, [&uint64](0))
+          if dataSpace < 0 then [err('create 3d dataspace')] end
         end
       else assert(false) end
       local header = terralib.newlist() -- terralib.quote*
@@ -87,6 +111,7 @@ function Exports.mkDump(indexType, colorType, fSpace, flds)
             dims[0] = T.N
             var elemType = [elemType]
             var [arrayType] = HDF5.H5Tarray_create2(elemType, 1, dims)
+            if arrayType < 0 then [err('create array type')] end
           end)
           footer:insert(quote
             HDF5.H5Tclose(arrayType)
@@ -109,11 +134,15 @@ function Exports.mkDump(indexType, colorType, fSpace, flds)
             local dataSet = symbol(HDF5.hid_t, 'dataSet')
             header:insert(quote
               var [int2dType] = HDF5.H5Tcreate(HDF5.H5T_COMPOUND, 16)
-              HDF5.H5Tinsert(int2dType, "x", 0, HDF5.H5T_STD_I64LE_g)
-              HDF5.H5Tinsert(int2dType, "y", 8, HDF5.H5T_STD_I64LE_g)
+              if int2dType < 0 then [err('create 2d array type', name)] end
+              var x = HDF5.H5Tinsert(int2dType, "x", 0, HDF5.H5T_STD_I64LE_g)
+              if x < 0 then [err('add x to 2d array type', name)] end
+              var y = HDF5.H5Tinsert(int2dType, "y", 8, HDF5.H5T_STD_I64LE_g)
+              if y < 0 then [err('add y to 2d array type', name)] end
               var [dataSet] = HDF5.H5Dcreate2(
                 fid, hName, int2dType, dataSpace,
                 HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT)
+              if dataSet < 0 then [err('register 2d array type', name)] end
             end)
             footer:insert(quote
               HDF5.H5Dclose(dataSet)
@@ -126,12 +155,17 @@ function Exports.mkDump(indexType, colorType, fSpace, flds)
             local dataSet = symbol(HDF5.hid_t, 'dataSet')
             header:insert(quote
               var [int3dType] = HDF5.H5Tcreate(HDF5.H5T_COMPOUND, 24)
-              HDF5.H5Tinsert(int3dType, "x", 0, HDF5.H5T_STD_I64LE_g)
-              HDF5.H5Tinsert(int3dType, "y", 8, HDF5.H5T_STD_I64LE_g)
-              HDF5.H5Tinsert(int3dType, "z", 16, HDF5.H5T_STD_I64LE_g)
+              if int3dType < 0 then [err('create 3d array type', name)] end
+              var x = HDF5.H5Tinsert(int3dType, "x", 0, HDF5.H5T_STD_I64LE_g)
+              if x < 0 then [err('add x to 3d array type', name)] end
+              var y = HDF5.H5Tinsert(int3dType, "y", 8, HDF5.H5T_STD_I64LE_g)
+              if y < 0 then [err('add y to 3d array type', name)] end
+              var z = HDF5.H5Tinsert(int3dType, "z", 16, HDF5.H5T_STD_I64LE_g)
+              if z < 0 then [err('add z to 3d array type', name)] end
               var [dataSet] = HDF5.H5Dcreate2(
                 fid, hName, int3dType, dataSpace,
                 HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT)
+              if dataSet < 0 then [err('register 3d array type', name)] end
             end)
             footer:insert(quote
               HDF5.H5Dclose(dataSet)
@@ -148,6 +182,7 @@ function Exports.mkDump(indexType, colorType, fSpace, flds)
               var [dataSet] = HDF5.H5Dcreate2(
                 fid, hName, hType, dataSpace,
                 HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT)
+              if dataSet < 0 then [err('register type', name)] end
             end)
             footer:insert(quote
               HDF5.H5Dclose(dataSet)

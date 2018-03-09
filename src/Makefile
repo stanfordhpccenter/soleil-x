@@ -3,7 +3,7 @@ $(error LG_RT_DIR is not set)
 endif
 
 # HDF options
-export USE_HDF ?= 0
+export USE_HDF ?= 1
 export HDF_HEADER ?= hdf5.h
 HDF_LIBNAME ?= hdf5
 
@@ -30,7 +30,10 @@ LINK_FLAGS += -L$(CUDA_HOME)/lib64/stubs -lcuda
 endif
 LINK_FLAGS += -L$(LG_RT_DIR)/../bindings/regent -lregent
 ifdef HDF_ROOT
-LINK_FLAGS += -L$(HDF_ROOT)/lib -l$(HDF_LIBNAME)
+LINK_FLAGS += -L$(HDF_ROOT)/lib
+endif
+ifeq ($(USE_HDF), 1)
+LINK_FLAGS += -l$(HDF_LIBNAME)
 endif
 LINK_FLAGS += -lm
 
