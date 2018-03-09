@@ -40,13 +40,16 @@ Exports.RadiationType = {
 
 -- Main config struct
 Exports.Config = {
+  Mapping = {
+    xTiles = int,
+    yTiles = int,
+    zTiles = int,
+    sampleId = int,
+  },
   Grid = {
     xNum = int,
     yNum = int,
     zNum = int,
-    xTiles = int,
-    yTiles = int,
-    zTiles = int,
     origin = double[3],
     xWidth = double,
     yWidth = double,

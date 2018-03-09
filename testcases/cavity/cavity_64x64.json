@@ -1,11 +1,15 @@
 {
+    "Mapping" : {
+        "xTiles" : 2,
+        "yTiles" : 2,
+        "zTiles" : 1,
+        "sampleId" : -1,
+    },
+
     "Grid" : {
         "xNum" : 64,
         "yNum" : 64,
         "zNum" : 1,
-        "xTiles" : 2,
-        "yTiles" : 2,
-        "zTiles" : 1,
         "origin" : [0.0, 0.0, 0.0],
         "xWidth" : 1.0,
         "yWidth" : 1.0,

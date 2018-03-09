@@ -183,7 +183,7 @@ end
 
 local ext = '.lua'
 if #arg < 1 or not arg[1]:endswith(ext) then
-  print('Usage: '..arg[0]..' schema'..ext)
+  print('Usage: '..arg[0]..' <schema'..ext..'>')
   os.exit(1)
 end
 local baseName = arg[1]:sub(1, arg[1]:len() - ext:len())
@@ -206,7 +206,13 @@ for name,typ in pairs(SCHEMA) do
   end
 end
 hdrFile:write('\n')
+hdrFile:write('#ifdef __cplusplus\n')
+hdrFile:write('extern "C" {\n')
+hdrFile:write('#endif\n')
 hdrFile:write('struct Config parse_config(char* filename);\n')
+hdrFile:write('#ifdef __cplusplus\n')
+hdrFile:write('}\n')
+hdrFile:write('#endif\n')
 hdrFile:close()
 
 local terra parse_config(filename : &int8) : configStruct

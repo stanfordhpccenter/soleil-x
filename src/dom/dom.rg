@@ -2009,9 +2009,9 @@ function Exports.DeclSymbols(config) return rquote
   var [Ny] = config.Radiation.yNum
   var [Nz] = config.Radiation.zNum
 
-  var [ntx] = config.Grid.xTiles
-  var [nty] = config.Grid.yTiles
-  var [ntz] = config.Grid.zTiles
+  var [ntx] = config.Mapping.xTiles
+  var [nty] = config.Mapping.yTiles
+  var [ntz] = config.Mapping.zTiles
 
   -- Regions for faces (+1 in one direction)
   var grid_x = ispace(int3d, {x = Nx+1, y = Ny,   z = Nz})

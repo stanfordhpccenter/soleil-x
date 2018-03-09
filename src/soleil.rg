@@ -234,7 +234,7 @@ do
   hi.z = min(hi.z, ((config.Grid.zNum+zBnum)-1))
   var xSize = ((hi.x-lo.x)+1)
   var ySize = ((hi.y-lo.y)+1)
-  var particlesPerTask = (config.Particles.initNum/((config.Grid.xTiles*config.Grid.yTiles)*config.Grid.zTiles))
+  var particlesPerTask = (config.Particles.initNum/((config.Mapping.xTiles*config.Mapping.yTiles)*config.Mapping.zTiles))
   __demand(__openmp)
   for p in particles do
     if ((int32(p)-pBase)<particlesPerTask) then
@@ -4196,9 +4196,9 @@ end
 
 __forbid(__optimize)
 task work(config : Config)
-  var NX = config.Grid.xTiles
-  var NY = config.Grid.yTiles
-  var NZ = config.Grid.zTiles
+  var NX = config.Mapping.xTiles
+  var NY = config.Mapping.yTiles
+  var NZ = config.Mapping.zTiles
   var Grid_xNum = config.Grid.xNum
   var Grid_yNum = config.Grid.yNum
   var Grid_zNum = config.Grid.zNum
@@ -5284,7 +5284,7 @@ task work(config : Config)
     end
     if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform) then
       InitParticlesUniform(particles, Fluid, config, Grid_xBnum, Grid_yBnum, Grid_zBnum)
-      Particles_number = int64(((config.Particles.initNum/((config.Grid.xTiles*config.Grid.yTiles)*config.Grid.zTiles))*((config.Grid.xTiles*config.Grid.yTiles)*config.Grid.zTiles)))
+      Particles_number = int64(((config.Particles.initNum/((config.Mapping.xTiles*config.Mapping.yTiles)*config.Mapping.zTiles))*((config.Mapping.xTiles*config.Mapping.yTiles)*config.Mapping.zTiles)))
     end
     Flow_averagePressure = 0.0
     Flow_averageTemperature = 0.0
@@ -5501,16 +5501,21 @@ end
 
 task main()
   var args = regentlib.c.legion_runtime_get_input_args()
-  var launched = false
+  var launched = 0
   for i = 1, args.argc do
     if C.strcmp(args.argv[i],"-i") == 0 and i < args.argc-1 then
-      work(SCHEMA.parse_config(args.argv[i+1]))
-      launched = true
+      var config = SCHEMA.parse_config(args.argv[i+1])
+      config.Mapping.sampleId = launched
+      work(config)
+      launched += 1
     end
   end
-  if not launched then
-    C.printf("No testcases supplied.\n")
-    C.printf("Usage: %s -i config1.json [-i config2.json ...]\n", args.argv[0])
+  if launched < 1 then
+    var stderr = C.fdopen(2, 'w')
+    C.fprintf(stderr, "No testcases supplied.\n")
+    C.fprintf(stderr, "Usage: %s -i config1.json [-i config2.json ...]\n", args.argv[0])
+    C.fflush(stderr)
+    C.exit(1)
   end
 end
 
