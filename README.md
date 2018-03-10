@@ -141,6 +141,8 @@ Setup (Certainty @ Stanford)
 
 There's an issue currently on Certainty preventing the use of git over HTTPS. Until that is fixed, you will need to use git over SSH. This requires you to [set up an SSH key pair on github](https://help.github.com/articles/connecting-to-github-with-ssh/).
 
+There's an issue currently on login node `certainty-b` preventing CUDA compilation. For now, use one of the other login nodes (just log out and ssh back in, until you get a different login node).
+
 ### Add to shell startup
 
 ```
