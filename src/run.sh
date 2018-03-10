@@ -16,7 +16,8 @@ elif [[ $(uname -n) == *"sapling"* ]]; then
     mpiexec -H n0000 --bind-to none -x LD_LIBRARY_PATH \
         ./soleil.exec \
         -i ../testcases/tgv_64x64x64.json \
-        -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 -ll:gpu 1
+        -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 -ll:gpu 1 \
+        -ll:csize 20000 -ll:fsize 2048
 else
     ./soleil.exec \
         -i ../testcases/tgv_64x64x64.json \
