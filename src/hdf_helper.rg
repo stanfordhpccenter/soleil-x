@@ -52,7 +52,7 @@ function Exports.mkDump(indexType, colorType, fSpace, flds)
     var fid = HDF5.H5Fcreate(fname, HDF5.H5F_ACC_TRUNC,
                              HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT)
     if fid < 0 then [err('create file')] end
-    var dataSpace : int32
+    var dataSpace : HDF5.hid_t
     escape
       if indexType == int1d then
         emit quote
