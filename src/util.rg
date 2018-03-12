@@ -1,4 +1,12 @@
+import 'regent'
+
 local Exports = {}
+
+local C = regentlib.c
+local UNIX = terralib.includecstring([[
+#include <sys/stat.h>
+#include <sys/types.h>
+]])
 
 -------------------------------------------------------------------------------
 -- Tables
@@ -149,6 +157,13 @@ function string:endswith(subStr)
   return self:sub(self:len() - subStr:len() + 1, self:len()) == subStr
 end
 
+terra Exports.concretize(str : &int8) : int8[256]
+  var res : int8[256]
+  C.strncpy(&[&int8](res)[0], str, [uint64](256))
+  [&int8](res)[255] = [int8](0)
+  return res
+end
+
 -------------------------------------------------------------------------------
 -- Terra type helpers
 -------------------------------------------------------------------------------
@@ -209,6 +224,23 @@ function Exports.prettyPrintStruct(s, cStyle, indent)
   end
   lines:insert(indent..'}')
   return lines:join('\n')
+end
+
+-------------------------------------------------------------------------------
+-- Filesystem
+-------------------------------------------------------------------------------
+
+terra Exports.mkdir(name : rawstring)
+  var mode = 493 -- octal 0755 = rwxr-xr-x
+  var res = UNIX.mkdir(name, mode);
+  if res < 0 then
+    var stderr = C.fdopen(2, 'w')
+    C.fprintf(stderr, 'Cannot create directory %s: ', name)
+    C.fflush(stderr)
+    C.perror('')
+    C.fflush(stderr)
+    C.exit(1)
+  end
 end
 
 -------------------------------------------------------------------------------

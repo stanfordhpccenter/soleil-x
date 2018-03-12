@@ -159,7 +159,7 @@ local PI = 3.1415926535898
 -------------------------------------------------------------------------------
 
 local task Fluid_dump(colors : ispace(int3d),
-                      filename : int8[256],
+                      filename : rawstring,
                       r : region(ispace(int3d),Fluid_columns),
                       s : region(ispace(int3d),Fluid_columns),
                       p_r : partition(disjoint, r, colors),
@@ -167,7 +167,7 @@ local task Fluid_dump(colors : ispace(int3d),
   regentlib.assert(false, 'Recompile with USE_HDF=1')
 end
 local task Fluid_load(colors : ispace(int3d),
-                      filename : int8[256],
+                      filename : rawstring,
                       r : region(ispace(int3d),Fluid_columns),
                       s : region(ispace(int3d),Fluid_columns),
                       p_r : partition(disjoint, r, colors),
@@ -175,7 +175,7 @@ local task Fluid_load(colors : ispace(int3d),
   regentlib.assert(false, 'Recompile with USE_HDF=1')
 end
 local task particles_dump(colors : ispace(int3d),
-                          filename : int8[256],
+                          filename : rawstring,
                           r : region(ispace(int1d),particles_columns),
                           s : region(ispace(int1d),particles_columns),
                           p_r : partition(disjoint, r, colors),
@@ -183,7 +183,7 @@ local task particles_dump(colors : ispace(int3d),
   regentlib.assert(false, 'Recompile with USE_HDF=1')
 end
 local task particles_load(colors : ispace(int3d),
-                          filename : int8[256],
+                          filename : rawstring,
                           r : region(ispace(int1d),particles_columns),
                           s : region(ispace(int1d),particles_columns),
                           p_r : partition(disjoint, r, colors),
@@ -193,22 +193,17 @@ end
 
 if USE_HDF then
   local HDF = require "hdf_helper"
-  Fluid_dump = HDF.mkDump(int3d, int3d, Fluid_columns, {"rho","pressure","velocity"})
-  Fluid_load = HDF.mkLoad(int3d, int3d, Fluid_columns, {"rho","pressure","velocity"})
-  particles_dump = HDF.mkDump(int1d, int3d, particles_columns, {"cell","position","velocity","temperature","diameter","__valid"})
-  particles_load = HDF.mkLoad(int1d, int3d, particles_columns, {"cell","position","velocity","temperature","diameter","__valid"})
+  Fluid_dump, Fluid_load = HDF.mkHDFTasks(
+    int3d, int3d, Fluid_columns,
+    {"rho","pressure","velocity"})
+  particles_dump, particles_load = HDF.mkHDFTasks(
+    int1d, int3d, particles_columns,
+    {"cell","position","velocity","temperature","diameter","__valid"})
 end
 
 -------------------------------------------------------------------------------
 -- OTHER ROUTINES
 -------------------------------------------------------------------------------
-
-terra concretize(str : &int8) : int8[256]
-  var res : int8[256]
-  C.strncpy(&[&int8](res)[0], str, [uint64](256))
-  [&int8](res)[255] = [int8](0)
-  return res
-end
 
 __demand(__parallel)
 task InitParticlesUniform(particles : region(ispace(int1d), particles_columns),
@@ -5254,10 +5249,10 @@ task work(config : Config)
       Flow_InitializePerturbed(Fluid, Flow_initParams)
     end
     if (config.Flow.initCase == SCHEMA.FlowInitCase_Restart) then
-      var filename = [&int8](C.malloc(uint64(256)))
-      C.snprintf(filename, uint64(256), "restart_fluid_%d.hdf", config.Integrator.restartIter)
-      Fluid_load(primColors, concretize(filename), Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
-      C.free([&opaque](filename))
+      var dirname = [&int8](C.malloc(256))
+      C.snprintf(dirname, 256, "fluid_sample%d_iter%d", config.Mapping.sampleId, config.Integrator.restartIter)
+      Fluid_load(primColors, dirname, Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
+      C.free([&opaque](dirname))
     end
     Flow_UpdateConservedFromPrimitive(Fluid, Flow_gamma, Flow_gasConstant, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
     Flow_UpdateAuxiliaryVelocity(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
@@ -5275,10 +5270,10 @@ task work(config : Config)
       regentlib.assert(false, "Random particle initialization is disabled")
     end
     if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart) then
-      var filename = [&int8](C.malloc(uint64(256)))
-      C.snprintf(filename, uint64(256), "restart_particles_%d.hdf", config.Integrator.restartIter)
-      particles_load(primColors, concretize(filename), particles, particles_copy, particles_primPart, particles_copy_primPart)
-      C.free([&opaque](filename))
+      var dirname = [&int8](C.malloc(256))
+      C.snprintf(dirname, 256, "particles_sample%d_iter%d", config.Mapping.sampleId, config.Integrator.restartIter)
+      particles_load(primColors, dirname, particles, particles_copy, particles_primPart, particles_copy_primPart)
+      C.free([&opaque](dirname))
       Particles_InitializeDensity(particles, Particles_density)
       Particles_number += Particles_CalculateNumber(particles)
     end
@@ -5318,20 +5313,6 @@ task work(config : Config)
         C.printf("    Iter     Time(s)   Avg Press    Avg Temp      Avg KE  Particle T\n")
       end
       C.printf("%8d %11.6f %11.6f %11.6f %11.6f %11.6f\n", Integrator_timeStep, Integrator_simTime, Flow_averagePressure, Flow_averageTemperature, Flow_averageKineticEnergy, Particles_averageTemperature)
-    end
-    if (config.IO.wrtRestart == SCHEMA.OnOrOff_ON) then
-      if ((Integrator_timeStep%config.IO.restartEveryTimeSteps)==0) then
-        var filename = [&int8](C.malloc(uint64(256)))
-        C.snprintf(filename, uint64(256), "restart_fluid_%d.hdf", Integrator_timeStep)
-        Fluid_dump(primColors, concretize(filename), Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
-        C.free([&opaque](filename))
-      end
-      if ((Integrator_timeStep%config.IO.restartEveryTimeSteps)==0) then
-        var filename = [&int8](C.malloc(uint64(256)))
-        C.snprintf(filename, uint64(256), "restart_particles_%d.hdf", Integrator_timeStep)
-        particles_dump(primColors, concretize(filename), particles, particles_copy, particles_primPart, particles_copy_primPart)
-        C.free([&opaque](filename))
-      end
     end
     while ((Integrator_simTime<config.Integrator.finalTime) and (Integrator_timeStep<config.Integrator.maxIter)) do
       if (config.Integrator.cfl<0) then
@@ -5454,16 +5435,16 @@ task work(config : Config)
         end
         if (config.IO.wrtRestart == SCHEMA.OnOrOff_ON) then
           if ((Integrator_timeStep%config.IO.restartEveryTimeSteps)==0) then
-            var filename = [&int8](C.malloc(uint64(256)))
-            C.snprintf(filename, uint64(256), "restart_fluid_%d.hdf", Integrator_timeStep)
-            Fluid_dump(primColors, concretize(filename), Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
-            C.free([&opaque](filename))
+            var dirname = [&int8](C.malloc(256))
+            C.snprintf(dirname, 256, "fluid_sample%d_iter%d", config.Mapping.sampleId, Integrator_timeStep)
+            Fluid_dump(primColors, dirname, Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
+            C.free([&opaque](dirname))
           end
           if ((Integrator_timeStep%config.IO.restartEveryTimeSteps)==0) then
-            var filename = [&int8](C.malloc(uint64(256)))
-            C.snprintf(filename, uint64(256), "restart_particles_%d.hdf", Integrator_timeStep)
-            particles_dump(primColors, concretize(filename), particles, particles_copy, particles_primPart, particles_copy_primPart)
-            C.free([&opaque](filename))
+            var dirname = [&int8](C.malloc(256))
+            C.snprintf(dirname, 256, "particles_sample%d_iter%d", config.Mapping.sampleId, Integrator_timeStep)
+            particles_dump(primColors, dirname, particles, particles_copy, particles_primPart, particles_copy_primPart)
+            C.free([&opaque](dirname))
           end
         end
       end
