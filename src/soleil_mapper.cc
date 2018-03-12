@@ -97,16 +97,24 @@ public:
   // Farm index-space launches made by work tasks across all the nodes
   // allocated to the corresponding sample.
   // TODO: Cache the decision.
+  // TODO: Handle the case where each node contains multiple GPUs.
   virtual void slice_task(const MapperContext ctx,
                           const Task& task,
                           const SliceTaskInput& input,
                           SliceTaskOutput& output) {
+    output.verify_correctness = false;
     if (task.parent_task == NULL ||
         strcmp(task.parent_task->get_task_name(), "work") != 0) {
-      DefaultMapper::slice_task(ctx, task, input, output);
+      // Don't slice other index-space launches.
+      TaskSlice slice;
+      slice.domain_is = input.domain_is;
+      slice.domain = input.domain;
+      slice.proc = task.target_proc;
+      slice.recurse = false;
+      slice.stealable = false;
+      output.slices.push_back(slice);
       return;
     }
-    output.verify_correctness = false;
     const char* ptr = static_cast<const char*>(task.parent_task->args);
     const Config* config =
       reinterpret_cast<const Config*>(ptr + sizeof(uint64_t));
@@ -118,9 +126,23 @@ public:
                 "top-level tiling.");
       assert(false);
     }
+    // Select the 1st (and only) processor of the same kind as the original
+    // target, on all nodes allocated to this sample.
     std::vector<Processor> procs;
     for (unsigned i = 0; i < mapping.num_tiles; ++i) {
-      procs.push_back(remote_cpus[mapping.first_node + i]);
+      switch (task.target_proc.kind()) {
+      case Processor::LOC_PROC:
+        procs.push_back(remote_cpus[mapping.first_node + i]);
+        break;
+      case Processor::TOC_PROC:
+        procs.push_back(remote_gpus[mapping.first_node + i]);
+        break;
+      case Processor::OMP_PROC:
+        procs.push_back(remote_omps[mapping.first_node + i]);
+        break;
+      default:
+        assert(false);
+      }
     }
     DomainT<3,coord_t> point_space = input.domain;
     Point<3,coord_t> blocking =
