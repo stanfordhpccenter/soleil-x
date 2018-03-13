@@ -1,9 +1,9 @@
-import 'regent'
-
 local Exports = {}
 
-local C = regentlib.c
-local UNIX = terralib.includecstring([[
+local C = terralib.includecstring([[
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 ]])
@@ -232,7 +232,7 @@ end
 
 terra Exports.mkdir(name : rawstring)
   var mode = 493 -- octal 0755 = rwxr-xr-x
-  var res = UNIX.mkdir(name, mode);
+  var res = C.mkdir(name, mode);
   if res < 0 then
     var stderr = C.fdopen(2, 'w')
     C.fprintf(stderr, 'Cannot create directory %s: ', name)
