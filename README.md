@@ -239,7 +239,7 @@ Running
 ```
 cd "$SOLEIL_DIR"/src
 make
-./run.sh
+./run.sh -i ../testcases/???.json
 ```
 
-Edit the `run.sh` script to choose a different testcase, edit runtime options etc.
+The `run.sh` script forwards all arguments to the soleil executable (currently only the `-i` option is read; each instance of this option specifies an additional case to run), and the Legion runtime.

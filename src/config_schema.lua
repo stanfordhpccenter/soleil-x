@@ -44,7 +44,8 @@ Exports.Config = {
     xTiles = int,
     yTiles = int,
     zTiles = int,
-    sampleId = int,
+    sampleId = int, -- initial value is irrelevant, will be set by the code
+    wallTime = int, -- in minutes
   },
   Grid = {
     xNum = int,

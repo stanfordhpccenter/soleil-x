@@ -72,7 +72,9 @@ public:
     return target_proc;
   }
 
-  // TODO: Select RDMA memory for parallelizer-created ghost partitions.
+  // TODO: Select appropriate memories for instances that will be communicated,
+  // (e.g. parallelizer-created ghost partitions), such as RDMA memory,
+  // zero-copy memory.
   virtual Memory default_policy_select_target_memory(
                               MapperContext ctx,
                               Processor target_proc,

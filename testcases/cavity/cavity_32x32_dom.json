@@ -4,6 +4,7 @@
         "yTiles" : 2,
         "zTiles" : 1,
         "sampleId" : -1,
+        "wallTime" : 60
     },
 
     "Grid" : {
@@ -13,7 +14,7 @@
         "origin" : [0.0, 0.0, 0.0],
         "xWidth" : 1.0,
         "yWidth" : 1.0,
-        "zWidth" : 0.03125,
+        "zWidth" : 0.03125
     },
 
     "BC" : {
@@ -34,7 +35,7 @@
         "zBCLeftTemp" : 0.0,
         "zBCRight" : "Symmetry",
         "zBCRightVel" : [0.0, 0.0, 0.0],
-        "zBCRightTemp" : 0.0,
+        "zBCRightTemp" : 0.0
     },
 
     "Integrator" : {
@@ -42,7 +43,7 @@
         "restartIter" : -1,
         "maxIter" : 100,
         "cfl" : 2.0,
-        "fixedDeltaTime" : -1.0,
+        "fixedDeltaTime" : -1.0
     },
 
     "Flow" : {
@@ -59,7 +60,7 @@
         "initCase" : "Uniform",
         "initParams" : [0.000525805, 43.4923, 0.0, 0.0, 0.0],
         "bodyForce" : [0.0, 0.0, 0.0],
-        "turbForcing" : "OFF",
+        "turbForcing" : "OFF"
     },
 
     "Particles" : {
@@ -75,7 +76,7 @@
         "diameterMean" : 0.00001,
         "bodyForce" : [0.0, 0.0, 0.0],
         "maxSkew" : 1.5,
-        "maxXferNum" : 10,
+        "maxXferNum" : 10
     },
 
     "Radiation" : {
@@ -97,13 +98,13 @@
         "tempSouth" : 300.0,
         "tempNorth" : 300.0,
         "tempUp"    : 300.0,
-        "tempDown"  : 300.0,
+        "tempDown"  : 300.0
     },
 
     "IO" : {
         "wrtRestart" : "OFF",
         "restartEveryTimeSteps" : -1,
         "consoleFrequency" : 1,
-        "headerFrequency" : 10,
-    },
+        "headerFrequency" : 10
+    }
 }
