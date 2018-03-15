@@ -41,17 +41,26 @@ Exports.RadiationType = {
 -- Main config struct
 Exports.Config = {
   Mapping = {
+    -- number of tiles in which to split the domain, on the x,y,z dimensions;
+    -- each tile will occupy a different node
     xTiles = int,
     yTiles = int,
     zTiles = int,
-    sampleId = int, -- initial value is irrelevant, will be set by the code
-    wallTime = int, -- in minutes
+    -- unique id assigned to each sample, according to its order in the command
+    -- line (first sample is 0, second is 1 etc.); the initial value of this
+    -- option is irrelevant, it will be overriden by the code
+    sampleId = int,
+    -- expected wall-clock execution time, in minutes
+    wallTime = int,
   },
   Grid = {
+    -- number of cells in the fluid grid, on the x,y,z dimensions
     xNum = int,
     yNum = int,
     zNum = int,
+    -- coordinates of the fluid grid's origin, in meters
     origin = double[3],
+    -- width of the fluid grid, on the x,y,z dimensions, in meters
     xWidth = double,
     yWidth = double,
     zWidth = double,
@@ -119,6 +128,7 @@ Exports.Config = {
     intensity = double,
     qa = double,
     qs = double,
+    -- number of cells in the radiation grid, on the x,y,z dimensions
     xNum = int,
     yNum = int,
     zNum = int,
@@ -136,8 +146,11 @@ Exports.Config = {
     tempDown = double,
   },
   IO = {
+    -- whether to write restart files (requires compiling with HDF support)
     wrtRestart = Exports.OnOrOff,
+    -- how often to write restart files
     restartEveryTimeSteps = int,
+    -- how often to write intermediate statistics to the console
     consoleFrequency = int,
     headerFrequency = int,
   },

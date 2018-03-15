@@ -137,7 +137,7 @@ USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 ./install.py
 ```
 
 Setup (Certainty @ Stanford)
-==========================
+============================
 
 There's an issue currently on Certainty preventing the use of git over HTTPS. Until that is fixed, you will need to use git over SSH. This requires you to [set up an SSH key pair on github](https://help.github.com/articles/connecting-to-github-with-ssh/).
 
@@ -189,12 +189,12 @@ sed -i 's|85faf7cbd518dabeafc4d3f7e909338fc1dab3c4|c29dc69803e07c43c3654ace58e98
 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 35 --terra-url 'git@github.com:StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
-Setup (Titan @ Oak Ridge)
-=========================
+Setup (Titan @ ORNL)
+====================
 
 ### Add to shell startup
 
-We set `MARCH` to an appropriate version, so that `libregent.so` can run on both the compute nodes and the head node (both the Regent compiler and the final executable need to link against this library).
+We set `MARCH`, the processor architecture that Legion will be built for, to one that is compatible with both the login node and the compute nodes. This is done so that `libregent.so` can be used by both the final executable, when it's executing on a compute node, and the Regent compiler, which needs to link against it while compiling Soleil on the login node.
 
 ```
 # Module loads
@@ -242,4 +242,4 @@ make
 ./run.sh -i ../testcases/???.json
 ```
 
-The `run.sh` script forwards all arguments to the soleil executable (currently only the `-i` option is read; each instance of this option specifies an additional case to run), and the Legion runtime.
+The `run.sh` script forwards all arguments to the `soleil.exec` executable. This includes any options that Soleil itself expects, and any additional options to the Legion runtime. Currently, the only option read by Soleil is `-i`; each instance of this option specifies an additional configuration file, to be run as an additional sample. See [src/config_schema.lua](src/config_schema.lua) for documentation on the available configuration options.
