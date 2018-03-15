@@ -28,10 +28,8 @@ export GPU_ARCH=???
 
 ### Download software
 
-Always use the `master` branch for Legion; the default `sta(b)le` branch tends to lag behind.
-
 ```
-git clone -b master https://github.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
 git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 
@@ -79,7 +77,7 @@ export HDF_LIBNAME=hdf5_serial
 ```
 sudo apt-get install llvm-3.8-dev clang-3.8
 sudo apt-get install libhdf5-serial-dev
-git clone -b master https://github.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
 git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 
@@ -120,7 +118,7 @@ export GPU_ARCH=fermi
 ### Download software
 
 ```
-git clone -b master https://github.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
 git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 
@@ -139,9 +137,9 @@ USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 ./install.py
 Setup (Certainty @ Stanford)
 ============================
 
-There's an issue currently on Certainty preventing the use of git over HTTPS. Until that is fixed, you will need to use git over SSH. This requires you to [set up an SSH key pair on github](https://help.github.com/articles/connecting-to-github-with-ssh/).
+There's an issue currently on Certainty preventing communication with github over HTTPS. Until that is fixed, you will need to use SSH to connect to github. This requires you to [set up an SSH key pair on github](https://help.github.com/articles/connecting-to-github-with-ssh/).
 
-There's an issue currently on login node `certainty-b` preventing CUDA compilation. For now, use one of the other login nodes (just log out and ssh back in, until you get a different login node).
+There's an issue currently on login node `certainty-b` preventing CUDA compilation (the library `/usr/lib64/libcuda.so` is missing). For now, use one of the other login nodes (just log out and ssh back in, until you get a different login node).
 
 ### Add to shell startup
 
@@ -169,7 +167,7 @@ export GPU_ARCH=fermi
 ### Download software
 
 ```
-git clone -b master git@github.com:StanfordLegion/legion.git "$LEGION_DIR"
+git clone https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
 git clone git@github.com:stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 
@@ -221,7 +219,7 @@ export GPU_ARCH=kepler
 ### Download software
 
 ```
-git clone -b master https://github.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
 git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 
