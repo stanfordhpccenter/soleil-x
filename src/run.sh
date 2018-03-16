@@ -50,7 +50,7 @@ done
 if (( NUM_NODES < 1 )); then
     quit "Usage: $0 -i <config1.json> [-i <config2.json> ...]"
 fi
-WALLTIME=$((WALLTIME/60)):$((WALLTIME%60)):00
+WALLTIME=$(printf "%02d:%02d:00" $((WALLTIME/60)) $((WALLTIME%60)))
 
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:$LEGION_DIR/bindings/regent/"
 if [ ! -z "${HDF_ROOT:-}" ]; then
