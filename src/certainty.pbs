@@ -3,13 +3,6 @@
 
 cd "$SOLEIL_DIR"/src
 
-while read NODE; do
-    if grep -Fxq "$NODE" "$PBS_NODEFILE"; then
-        echo "Running on bad node $NODE, please try again" >&2
-        exit 1
-    fi
-done < blacklist/certainty.txt
-
 mpiexec -np $NUM_NODES --bind-to none -x LD_LIBRARY_PATH \
     ./soleil.exec $ARGS \
     -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 11 -ll:gpu 4 \

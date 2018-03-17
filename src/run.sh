@@ -29,6 +29,7 @@ print xTiles * yTiles * zTiles"
 
 ###############################################################################
 
+# Command-line arguments are passed directly to the job script.
 for (( i = 1; i <= $#; i++ )); do
     if [[ "${!i}" != "${!i%[[:space:]]*}" ]]; then
         quit "Cannot handle spaces in command line arguments"
@@ -36,6 +37,8 @@ for (( i = 1; i <= $#; i++ )); do
 done
 export ARGS=$@
 
+# Total wall-clock time is the maximum across all samples.
+# Total number of nodes is the sum of all sample node requirements.
 WALLTIME=0
 export NUM_NODES=0
 for (( i = 1; i <= $#; i++ )); do
@@ -64,10 +67,17 @@ if [[ $(uname -n) == *"titan"* ]]; then
         -l nodes=$NUM_NODES -l walltime=$WALLTIME -q debug \
         titan.pbs
 elif [[ $(uname -n) == *"certainty"* ]]; then
+    # HACK: Torque doesn't support node exclusion, so we just list all free
+    # GPU nodes, pick $NUM_NODES that aren't on the blacklist, and request
+    # those specifically.
+    NODES="$(pbsnodes -l free | grep gpu | awk '{print $1}' | sort |
+             comm -23 - blacklist/certainty.txt | head -n $NUM_NODES |
+             paste -sd '+' -)"
     qsub -v LD_LIBRARY_PATH,ARGS,NUM_NODES \
-        -l nodes=$NUM_NODES:ppn=24 -l walltime=$WALLTIME -q gpu \
+        -l nodes=$NODES:ppn=24 -l walltime=$WALLTIME -q gpu \
         certainty.pbs
 elif [[ $(uname -n) == *"sapling"* ]]; then
+    # Allocate up to 4 nodes, from n0000 up to n0003
     if (( NUM_NODES > 4 )); then
         quit "Too many nodes requested"
     fi
