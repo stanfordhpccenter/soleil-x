@@ -118,8 +118,8 @@ There's an issue currently on login node `certainty-b` preventing CUDA compilati
 
 ```
 # Module loads
-module load gnu/5.2
-module load openmpi/1.10.2-gnu-5.2
+module load gnu/4.9.2
+module load openmpi/1.10.2-gnu-4.9.2
 module load cuda/7.5.18
 module load python/2.7.8
 # Legion build config
@@ -153,9 +153,6 @@ unset LG_RT_DIR
 git clone -b luajit2.1 git@github.com:StanfordLegion/terra.git terra.build
 sed -i 's|https://github.com/|git@github.com:|g' terra.build/Makefile
 sed -i 's|https://github.com/|git@github.com:|g' scripts/setup_env.py
-# Use a patched version of LLVM3.5, which fixes some compilation issues with GCC5.2.
-sed -i 's|~eslaught|~manolis|g' scripts/setup_env.py
-sed -i 's|85faf7cbd518dabeafc4d3f7e909338fc1dab3c4|c29dc69803e07c43c3654ace58e98368857e1669|g' scripts/setup_env.py
 # Use LLVM3.5, because later versions won't work with CUDA7.5.
 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 35 --terra-url 'git@github.com:StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
