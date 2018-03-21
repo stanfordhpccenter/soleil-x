@@ -15,11 +15,8 @@ Normally you'd need to edit file `~/.bashrc`. Replace the `???` depending on you
 # Path setup (mandatory)
 export LEGION_DIR=???
 export LG_RT_DIR="$LEGION_DIR"/runtime
+export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
-# HDF config (if using HDF, and the machine has an unusual HDF installation)
-export HDF_HEADER=???
-export HDF_LIBNAME=???
-export HDF_ROOT=???
 # CUDA config (if using CUDA code generation)
 export CUDA_HOME=???
 export CUDA="$CUDA_HOME"
@@ -43,18 +40,6 @@ unset LG_RT_DIR # Need to set it again before building/running
 USE_CUDA=? USE_OPENMP=? USE_GASNET=? USE_HDF=? scripts/setup_env.py --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
-or (if LLVM is installed system-wide, and you're not using GASNET):
-
-```
-cd "$LEGION_DIR"/language
-git clone -b luajit2.1 https://github.com/StanfordLegion/terra.git terra.build
-ln -s terra.build terra
-cd "$LEGION_DIR"/language/terra
-make all -j
-cd "$LEGION_DIR"/language
-USE_CUDA=? USE_OPENMP=? USE_GASNET=? USE_HDF=? ./install.py
-```
-
 See [Elliott's instructions](https://docs.google.com/document/d/1Qkl6r-1ZIb8WyH1f_WZbKgjp3due_Q8UiWKLh_nG1ec/edit) for more help.
 
 Setup (local Ubuntu machine w/o GPU)
@@ -66,17 +51,13 @@ Setup (local Ubuntu machine w/o GPU)
 # Path setup
 export LEGION_DIR=???
 export LG_RT_DIR="$LEGION_DIR"/runtime
+export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
-# HDF config
-export HDF_HEADER=hdf5/serial/hdf5.h
-export HDF_LIBNAME=hdf5_serial
 ```
 
 ### Download software
 
 ```
-sudo apt-get install llvm-3.8-dev clang-3.8
-sudo apt-get install libhdf5-serial-dev
 git clone https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
 git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
@@ -85,12 +66,8 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ```
 cd "$LEGION_DIR"/language
-git clone -b luajit2.1 https://github.com/StanfordLegion/terra.git terra.build
-ln -s terra.build terra
-cd "$LEGION_DIR"/language/terra
-make all -j
-cd "$LEGION_DIR"/language
-USE_CUDA=0 USE_OPENMP=1 USE_GASNET=0 USE_HDF=1 ./install.py
+unset LG_RT_DIR
+USE_CUDA=0 USE_OPENMP=1 USE_GASNET=0 USE_HDF=1 scripts/setup_env.py --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
 Setup (Sapling @ Stanford)
@@ -101,13 +78,13 @@ Setup (Sapling @ Stanford)
 ```
 # Module loads
 module load mpi/openmpi/1.8.2
-module load gasnet/1.22.4-openmpi
 module load cuda/8.0
 # Legion build config
 export CONDUIT=ibv
 # Path setup
 export LEGION_DIR=???
 export LG_RT_DIR="$LEGION_DIR"/runtime
+export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
 # CUDA config
 export CUDA_HOME=/usr/local/cuda-8.0
@@ -126,12 +103,8 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ```
 cd "$LEGION_DIR"/language
-git clone -b luajit2.1 https://github.com/StanfordLegion/terra.git terra.build
-ln -s terra.build terra
-cd "$LEGION_DIR"/language/terra
-make all -j
-cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 ./install.py
+unset LG_RT_DIR
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
 Setup (Certainty @ Stanford)
@@ -148,7 +121,6 @@ There's an issue currently on login node `certainty-b` preventing CUDA compilati
 module load gnu/5.2
 module load openmpi/1.10.2-gnu-5.2
 module load cuda/7.5.18
-module load hdf5/1.10.1-gnu-5.2
 module load python/2.7.8
 # Legion build config
 export CC=gcc
@@ -157,6 +129,7 @@ export CONDUIT=ibv
 # Path setup
 export LEGION_DIR=???
 export LG_RT_DIR="$LEGION_DIR"/runtime
+export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
 # CUDA config
 export CUDA_HOME=/usr/local/cuda-7.5/
@@ -197,7 +170,6 @@ We set `MARCH`, the processor architecture that Legion will be built for, to one
 ```
 # Module loads
 module load python/2.7.9
-module load cray-hdf5/1.10.0.1
 module load cudatoolkit/7.5.18-1.0502.10743.2.1
 module swap PrgEnv-pgi PrgEnv-gnu
 # Legion build config
@@ -209,6 +181,7 @@ export HOST_CXX=g++
 # Path setup
 export LEGION_DIR=???
 export LG_RT_DIR="$LEGION_DIR"/runtime
+export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
 # CUDA config
 export CUDA_HOME=/opt/nvidia/cudatoolkit7.5/7.5.18-1.0502.10743.2.1

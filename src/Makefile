@@ -16,7 +16,7 @@ export INCLUDE_PATH := .
 ifdef HDF_ROOT
 export INCLUDE_PATH := $(INCLUDE_PATH);$(HDF_ROOT)/include
 endif
-REGENT := $(LG_RT_DIR)/../language/regent.py
+REGENT := $(LG_RT_DIR)/../language/regent.py -g
 REGENT_FLAGS := -fflow 0 -fopenmp 1 -fcuda 1 -fcuda-offline 1
 
 # Link flags
@@ -28,6 +28,7 @@ endif
 LINK_FLAGS += -L$(LG_RT_DIR)/../bindings/regent -lregent
 ifdef HDF_ROOT
 LINK_FLAGS += -L$(HDF_ROOT)/lib
+export LD_LIBRARY_PATH := $(LD_LIBRARY_PATH):$(HDF_ROOT)/lib
 endif
 ifeq ($(USE_HDF), 1)
 LINK_FLAGS += -l$(HDF_LIBNAME)
