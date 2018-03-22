@@ -210,7 +210,7 @@ Running
 ```
 cd "$SOLEIL_DIR"/src
 make
-./run.sh -i ../testcases/???.json
+[QUEUE=???] ./run.sh -i ../testcases/???.json
 ```
 
 The `run.sh` script forwards all arguments to the `soleil.exec` executable. This includes any options that Soleil itself expects, and any additional options to the Legion runtime. Currently, the only option read by Soleil is `-i`; each instance of this option specifies an additional configuration file, to be run as an additional sample. See [src/config_schema.lua](src/config_schema.lua) for documentation on the available configuration options.
