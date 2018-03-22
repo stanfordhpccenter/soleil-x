@@ -48,6 +48,9 @@ Setup (local Ubuntu machine w/o GPU)
 ### Add to shell startup
 
 ```
+# Legion build config
+export CC=gcc
+export CXX=g++
 # Path setup
 export LEGION_DIR=???
 export LG_RT_DIR="$LEGION_DIR"/runtime
