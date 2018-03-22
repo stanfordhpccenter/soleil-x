@@ -153,7 +153,6 @@ void SoleilMapper::select_task_options(const MapperContext    ctx,
   output.inline_task = false;
   output.stealable = stealing_enabled;
   output.map_locally = true;
-  output.memoize = task.has_trace();
 }
 
 void SoleilMapper::default_policy_rank_processor_kinds(MapperContext ctx,
