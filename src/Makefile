@@ -17,7 +17,7 @@ ifdef HDF_ROOT
 export INCLUDE_PATH := $(INCLUDE_PATH);$(HDF_ROOT)/include
 endif
 REGENT := $(LG_RT_DIR)/../language/regent.py -g
-REGENT_FLAGS := -fflow 0 -fopenmp 1 -fcuda 1 -fcuda-offline 1
+REGENT_FLAGS := -fflow 0 -fopenmp 1 -fcuda 0 -fcuda-offline 0
 
 # Link flags
 ifdef CRAYPE_VERSION

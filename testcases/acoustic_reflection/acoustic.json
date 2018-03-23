@@ -1,0 +1,110 @@
+{
+    "Mapping" : {
+        "xTiles" : 1,
+        "yTiles" : 1,
+        "zTiles" : 1,
+        "sampleId" : -1,
+        "wallTime" : 60
+    },
+
+    "Grid" : {
+        "xNum" : 100,
+        "yNum" : 4,
+        "zNum" : 4,
+        "origin" : [0.0, 0.0, 0.0],
+        "xWidth" : 0.1,
+        "yWidth" : 5.0,
+        "zWidth" : 5.0
+    },
+
+    "BC" : {
+        "xBCLeft"  : "AdiabaticWall",
+        "xBCLeftVel" : [0.0, 0.0, 0.0],
+        "xBCLeftTemp" : 0.0,
+        "xBCRight" : "AdiabaticWall",
+        "xBCRightVel" : [0.0, 0.0, 0.0],
+        "xBCRightTemp" : 0.0,
+        "yBCLeft"  : "Periodic",
+        "yBCLeftVel" : [0.0, 0.0, 0.0],
+        "yBCLeftTemp" : 0.0,
+        "yBCRight" : "Periodic",
+        "yBCRightVel" : [0.0, 0.0, 0.0],
+        "yBCRightTemp" : 0.0,
+        "zBCLeft"  : "Periodic",
+        "zBCLeftVel" : [0.0, 0.0, 0.0],
+        "zBCLeftTemp" : 0.0,
+        "zBCRight" : "Periodic",
+        "zBCRightVel" : [0.0, 0.0, 0.0],
+        "zBCRightTemp" : 0.0
+    },
+
+    "Integrator" : {
+        "finalTime" : 20.00001,
+        "restartIter" : 1,
+        "maxIter" : 500,
+        "cfl" : 0.8,
+        "fixedDeltaTime" : -1.0
+    },
+
+    "Flow" : {
+        "gasConstant" : 287.0,
+        "gamma" : 1.4,
+        "prandtl" : 0.7,
+        "viscosityModel" : "PowerLaw",
+        "constantVisc" : 0.004491,
+        "powerlawViscRef" : 0.00044,
+        "powerlawTempRef" : 1.0,
+        "sutherlandViscRef" : 1.716E-5,
+        "sutherlandTempRef" : 273.15,
+        "sutherlandSRef" : 110.4,
+        "initCase" : "Restart",
+        "initParams" : [1.2, 1.0e5, 0.0, 0.0, 0.0],
+        "bodyForce" : [0.0, 0.0, 0.0],
+        "turbForcing" : "OFF"
+    },
+
+    "Particles" : {
+        "initCase" : "Uniform",
+        "initNum" : 1,
+        "maxNum" : 1000,
+        "restitutionCoeff" : 1.0,
+        "convectiveCoeff" : 0.7,
+        "absorptivity" : 1.0,
+        "heatCapacity" : 0.7,
+        "initTemperature" : 250.0,
+        "density" : 8900.0,
+        "diameterMean" : 5e-3,
+        "bodyForce" : [0.0, 0.0, 0.0],
+        "maxSkew" : 1.5,
+        "maxXferNum" : 100
+    },
+
+    "Radiation" : {
+        "type" : "Algebraic",
+        "intensity" : 1e3,
+        "qa" : -1.0,
+        "qs" : -1.0,
+        "xNum" : 4,
+        "yNum" : 4,
+        "zNum" : 4,
+        "emissEast"  : -1.0,
+        "emissWest"  : -1.0,
+        "emissSouth" : -1.0,
+        "emissNorth" : -1.0,
+        "emissUp"    : -1.0,
+        "emissDown"  : -1.0,
+        "tempEast"  : -1.0,
+        "tempWest"  : -1.0,
+        "tempSouth" : -1.0,
+        "tempNorth" : -1.0,
+        "tempUp"    : -1.0,
+        "tempDown"  : -1.0
+    },
+
+    "IO" : {
+        "wrtRestart" : "ON",
+        "restartEveryTimeSteps" : 5,
+        "consoleFrequency" : 1,
+        "headerFrequency" : 10
+    }
+}
