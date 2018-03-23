@@ -1,11 +1,7 @@
 #!/bin/bash -eu
 #PBS -N soleil
 
-
-source ~/PSAAP_DEF/PROJETX/source
-
 cd "$SOLEIL_DIR"/src
-
 
 GPUS=
 if [[ "$QUEUE" == "gpu" ]]; then
