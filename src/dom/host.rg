@@ -13,10 +13,12 @@ import 'regent'
 -------------------------------------------------------------------------------
 
 struct Config {
-  Grid : struct {
+  Mapping : struct {
     xTiles : int,
     yTiles : int,
     zTiles : int,
+  },
+  Grid : struct {
     xWidth : double,
     yWidth : double,
     zWidth : double,
@@ -48,9 +50,9 @@ struct Config {
 
 local terra readConfig() : Config
   var config : Config
-  config.Grid.xTiles = 2
-  config.Grid.yTiles = 2
-  config.Grid.zTiles = 2
+  config.Mapping.xTiles = 2
+  config.Mapping.yTiles = 2
+  config.Mapping.zTiles = 2
   config.Grid.xWidth = 1.0
   config.Grid.yWidth = 1.0
   config.Grid.zWidth = 1.0
@@ -176,7 +178,7 @@ local task main()
   -- Initialize symbols
   var is = ispace(int3d, {config.Radiation.xNum, config.Radiation.yNum, config.Radiation.zNum})
   var points = region(is, Point)
-  var colors = ispace(int3d, {config.Grid.xTiles, config.Grid.yTiles, config.Grid.zTiles})
+  var colors = ispace(int3d, {config.Mapping.xTiles, config.Mapping.yTiles, config.Mapping.zTiles})
   var p_points = partition(equal, points, colors);
   -- Inline quotes from external module
   [domMod.DeclSymbols(config)];

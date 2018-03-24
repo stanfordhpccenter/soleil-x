@@ -9,8 +9,8 @@ local C = terralib.includecstring[[
 #include <stdio.h>
 #include <string.h>
 ]]
-local JSON = terralib.includec("json.h")
-local SCHEMA = (require "config_helper").processSchema("config_schema.h")
+local MAPPER = terralib.includec("soleil_mapper.h")
+local SCHEMA = terralib.includec("config_schema.h")
 
 local acos = regentlib.acos(double)
 local ceil = regentlib.ceil(double)
@@ -25,14 +25,7 @@ local sqrt = regentlib.sqrt(double)
 -- COMPILE-TIME CONFIGURATION
 -------------------------------------------------------------------------------
 
-local HDF_LIBNAME = assert(os.getenv('HDF_LIBNAME'))
-
 local USE_HDF = assert(os.getenv('USE_HDF')) ~= '0'
-
-local LIBS = terralib.newlist({"-ljsonparser","-lm"})
-if USE_HDF then
-  LIBS:insert("-l"..HDF_LIBNAME)
-end
 
 local NUM_ANGLES = 14
 
@@ -166,7 +159,7 @@ local PI = 3.1415926535898
 -------------------------------------------------------------------------------
 
 local task Fluid_dump(colors : ispace(int3d),
-                      filename : int8[256],
+                      filename : rawstring,
                       r : region(ispace(int3d),Fluid_columns),
                       s : region(ispace(int3d),Fluid_columns),
                       p_r : partition(disjoint, r, colors),
@@ -174,7 +167,7 @@ local task Fluid_dump(colors : ispace(int3d),
   regentlib.assert(false, 'Recompile with USE_HDF=1')
 end
 local task Fluid_load(colors : ispace(int3d),
-                      filename : int8[256],
+                      filename : rawstring,
                       r : region(ispace(int3d),Fluid_columns),
                       s : region(ispace(int3d),Fluid_columns),
                       p_r : partition(disjoint, r, colors),
@@ -182,7 +175,7 @@ local task Fluid_load(colors : ispace(int3d),
   regentlib.assert(false, 'Recompile with USE_HDF=1')
 end
 local task particles_dump(colors : ispace(int3d),
-                          filename : int8[256],
+                          filename : rawstring,
                           r : region(ispace(int1d),particles_columns),
                           s : region(ispace(int1d),particles_columns),
                           p_r : partition(disjoint, r, colors),
@@ -190,7 +183,7 @@ local task particles_dump(colors : ispace(int3d),
   regentlib.assert(false, 'Recompile with USE_HDF=1')
 end
 local task particles_load(colors : ispace(int3d),
-                          filename : int8[256],
+                          filename : rawstring,
                           r : region(ispace(int1d),particles_columns),
                           s : region(ispace(int1d),particles_columns),
                           p_r : partition(disjoint, r, colors),
@@ -200,22 +193,17 @@ end
 
 if USE_HDF then
   local HDF = require "hdf_helper"
-  Fluid_dump = HDF.mkDump(int3d, int3d, Fluid_columns, {"rho","pressure","velocity"})
-  Fluid_load = HDF.mkLoad(int3d, int3d, Fluid_columns, {"rho","pressure","velocity"})
-  particles_dump = HDF.mkDump(int1d, int3d, particles_columns, {"cell","position","velocity","temperature","diameter","__valid"})
-  particles_load = HDF.mkLoad(int1d, int3d, particles_columns, {"cell","position","velocity","temperature","diameter","__valid"})
+  Fluid_dump, Fluid_load = HDF.mkHDFTasks(
+    int3d, int3d, Fluid_columns,
+    {"rho","pressure","velocity"})
+  particles_dump, particles_load = HDF.mkHDFTasks(
+    int1d, int3d, particles_columns,
+    {"cell","position","velocity","temperature","diameter","__valid"})
 end
 
 -------------------------------------------------------------------------------
 -- OTHER ROUTINES
 -------------------------------------------------------------------------------
-
-terra concretize(str : &int8) : int8[256]
-  var res : int8[256]
-  C.strncpy(&[&int8](res)[0], str, [uint64](256))
-  [&int8](res)[255] = [int8](0)
-  return res
-end
 
 __demand(__parallel)
 task InitParticlesUniform(particles : region(ispace(int1d), particles_columns),
@@ -241,7 +229,7 @@ do
   hi.z = min(hi.z, ((config.Grid.zNum+zBnum)-1))
   var xSize = ((hi.x-lo.x)+1)
   var ySize = ((hi.y-lo.y)+1)
-  var particlesPerTask = (config.Particles.initNum/((config.Grid.xTiles*config.Grid.yTiles)*config.Grid.zTiles))
+  var particlesPerTask = (config.Particles.initNum/((config.Mapping.xTiles*config.Mapping.yTiles)*config.Mapping.zTiles))
   __demand(__openmp)
   for p in particles do
     if ((int32(p)-pBase)<particlesPerTask) then
@@ -4203,9 +4191,9 @@ end
 
 __forbid(__optimize)
 task work(config : Config)
-  var NX = config.Grid.xTiles
-  var NY = config.Grid.yTiles
-  var NZ = config.Grid.zTiles
+  var NX = config.Mapping.xTiles
+  var NY = config.Mapping.yTiles
+  var NZ = config.Mapping.zTiles
   var Grid_xNum = config.Grid.xNum
   var Grid_yNum = config.Grid.yNum
   var Grid_zNum = config.Grid.zNum
@@ -4320,9 +4308,9 @@ task work(config : Config)
   var Radiation = region(is__11729, Radiation_columns)
   var Radiation_copy = region(is__11729, Radiation_columns)
   var primColors = ispace(int3d, int3d({NX, NY, NZ}))
-  regentlib.assert(((Grid_xNum%NX)==0), "Uneven partitioning")
-  regentlib.assert(((Grid_yNum%NY)==0), "Uneven partitioning")
-  regentlib.assert(((Grid_zNum%NZ)==0), "Uneven partitioning")
+  regentlib.assert(((Grid_xNum%NX)==0), "Uneven partitioning of fluid grid on x")
+  regentlib.assert(((Grid_yNum%NY)==0), "Uneven partitioning of fluid grid on y")
+  regentlib.assert(((Grid_zNum%NZ)==0), "Uneven partitioning of fluid grid on z")
   var coloring = regentlib.c.legion_domain_point_coloring_create()
   for c in primColors do
     var rect = rect3d({lo = int3d({x = (Grid_xBnum+((Grid_xNum/NX)*c.x)), y = (Grid_yBnum+((Grid_yNum/NY)*c.y)), z = (Grid_zBnum+((Grid_zNum/NZ)*c.z))}), hi = int3d({x = ((Grid_xBnum+((Grid_xNum/NX)*(c.x+1)))-1), y = ((Grid_yBnum+((Grid_yNum/NY)*(c.y+1)))-1), z = ((Grid_zBnum+((Grid_zNum/NZ)*(c.z+1)))-1)})})
@@ -4349,7 +4337,7 @@ task work(config : Config)
   var Fluid_primPart = partition(disjoint, Fluid, coloring, primColors)
   var Fluid_copy_primPart = partition(disjoint, Fluid_copy, coloring, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(coloring)
-  regentlib.assert(((Particles_maxNum%((NX*NY)*NZ))==0), "Uneven partitioning")
+  regentlib.assert(((Particles_maxNum%((NX*NY)*NZ))==0), "Uneven partitioning of particles")
   var coloring__11738 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -5094,9 +5082,9 @@ task work(config : Config)
   end
   var particles_qDstPart_25 = partition(aliased, particles_queue_25, dstColoring__12104, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__12104)
-  regentlib.assert(((Radiation_xNum%NX)==0), "Uneven partitioning")
-  regentlib.assert(((Radiation_yNum%NY)==0), "Uneven partitioning")
-  regentlib.assert(((Radiation_zNum%NZ)==0), "Uneven partitioning")
+  regentlib.assert(((Radiation_xNum%NX)==0), "Uneven partitioning of radiation grid on x")
+  regentlib.assert(((Radiation_yNum%NY)==0), "Uneven partitioning of radiation grid on y")
+  regentlib.assert(((Radiation_zNum%NZ)==0), "Uneven partitioning of radiation grid on z")
   var coloring__12110 = regentlib.c.legion_domain_point_coloring_create()
   for c in primColors do
     var rect = rect3d({lo = int3d({x = (Radiation_xBnum+((Radiation_xNum/NX)*c.x)), y = (Radiation_yBnum+((Radiation_yNum/NY)*c.y)), z = (Radiation_zBnum+((Radiation_zNum/NZ)*c.z))}), hi = int3d({x = ((Radiation_xBnum+((Radiation_xNum/NX)*(c.x+1)))-1), y = ((Radiation_yBnum+((Radiation_yNum/NY)*(c.y+1)))-1), z = ((Radiation_zBnum+((Radiation_zNum/NZ)*(c.z+1)))-1)})})
@@ -5261,10 +5249,10 @@ task work(config : Config)
       Flow_InitializePerturbed(Fluid, Flow_initParams)
     end
     if (config.Flow.initCase == SCHEMA.FlowInitCase_Restart) then
-      var filename = [&int8](C.malloc(uint64(256)))
-      C.snprintf(filename, uint64(256), "restart_fluid_%d.hdf", config.Integrator.restartIter)
-      Fluid_load(primColors, concretize(filename), Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
-      C.free([&opaque](filename))
+      var dirname = [&int8](C.malloc(256))
+      C.snprintf(dirname, 256, "fluid_sample%d_iter%d", config.Mapping.sampleId, config.Integrator.restartIter)
+      Fluid_load(primColors, dirname, Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
+      C.free([&opaque](dirname))
     end
     Flow_UpdateConservedFromPrimitive(Fluid, Flow_gamma, Flow_gasConstant, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
     Flow_UpdateAuxiliaryVelocity(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
@@ -5282,16 +5270,16 @@ task work(config : Config)
       regentlib.assert(false, "Random particle initialization is disabled")
     end
     if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart) then
-      var filename = [&int8](C.malloc(uint64(256)))
-      C.snprintf(filename, uint64(256), "restart_particles_%d.hdf", config.Integrator.restartIter)
-      particles_load(primColors, concretize(filename), particles, particles_copy, particles_primPart, particles_copy_primPart)
-      C.free([&opaque](filename))
+      var dirname = [&int8](C.malloc(256))
+      C.snprintf(dirname, 256, "particles_sample%d_iter%d", config.Mapping.sampleId, config.Integrator.restartIter)
+      particles_load(primColors, dirname, particles, particles_copy, particles_primPart, particles_copy_primPart)
+      C.free([&opaque](dirname))
       Particles_InitializeDensity(particles, Particles_density)
       Particles_number += Particles_CalculateNumber(particles)
     end
     if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform) then
       InitParticlesUniform(particles, Fluid, config, Grid_xBnum, Grid_yBnum, Grid_zBnum)
-      Particles_number = int64(((config.Particles.initNum/((config.Grid.xTiles*config.Grid.yTiles)*config.Grid.zTiles))*((config.Grid.xTiles*config.Grid.yTiles)*config.Grid.zTiles)))
+      Particles_number = int64(((config.Particles.initNum/((config.Mapping.xTiles*config.Mapping.yTiles)*config.Mapping.zTiles))*((config.Mapping.xTiles*config.Mapping.yTiles)*config.Mapping.zTiles)))
     end
     Flow_averagePressure = 0.0
     Flow_averageTemperature = 0.0
@@ -5325,20 +5313,6 @@ task work(config : Config)
         C.printf("    Iter     Time(s)   Avg Press    Avg Temp      Avg KE  Particle T\n")
       end
       C.printf("%8d %11.6f %11.6f %11.6f %11.6f %11.6f\n", Integrator_timeStep, Integrator_simTime, Flow_averagePressure, Flow_averageTemperature, Flow_averageKineticEnergy, Particles_averageTemperature)
-    end
-    if (config.IO.wrtRestart == SCHEMA.OnOrOff_ON) then
-      if ((Integrator_timeStep%config.IO.restartEveryTimeSteps)==0) then
-        var filename = [&int8](C.malloc(uint64(256)))
-        C.snprintf(filename, uint64(256), "restart_fluid_%d.hdf", Integrator_timeStep)
-        Fluid_dump(primColors, concretize(filename), Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
-        C.free([&opaque](filename))
-      end
-      if ((Integrator_timeStep%config.IO.restartEveryTimeSteps)==0) then
-        var filename = [&int8](C.malloc(uint64(256)))
-        C.snprintf(filename, uint64(256), "restart_particles_%d.hdf", Integrator_timeStep)
-        particles_dump(primColors, concretize(filename), particles, particles_copy, particles_primPart, particles_copy_primPart)
-        C.free([&opaque](filename))
-      end
     end
     while ((Integrator_simTime<config.Integrator.finalTime) and (Integrator_timeStep<config.Integrator.maxIter)) do
       if (config.Integrator.cfl<0) then
@@ -5461,16 +5435,16 @@ task work(config : Config)
         end
         if (config.IO.wrtRestart == SCHEMA.OnOrOff_ON) then
           if ((Integrator_timeStep%config.IO.restartEveryTimeSteps)==0) then
-            var filename = [&int8](C.malloc(uint64(256)))
-            C.snprintf(filename, uint64(256), "restart_fluid_%d.hdf", Integrator_timeStep)
-            Fluid_dump(primColors, concretize(filename), Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
-            C.free([&opaque](filename))
+            var dirname = [&int8](C.malloc(256))
+            C.snprintf(dirname, 256, "fluid_sample%d_iter%d", config.Mapping.sampleId, Integrator_timeStep)
+            Fluid_dump(primColors, dirname, Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
+            C.free([&opaque](dirname))
           end
           if ((Integrator_timeStep%config.IO.restartEveryTimeSteps)==0) then
-            var filename = [&int8](C.malloc(uint64(256)))
-            C.snprintf(filename, uint64(256), "restart_particles_%d.hdf", Integrator_timeStep)
-            particles_dump(primColors, concretize(filename), particles, particles_copy, particles_primPart, particles_copy_primPart)
-            C.free([&opaque](filename))
+            var dirname = [&int8](C.malloc(256))
+            C.snprintf(dirname, 256, "particles_sample%d_iter%d", config.Mapping.sampleId, Integrator_timeStep)
+            particles_dump(primColors, dirname, particles, particles_copy, particles_primPart, particles_copy_primPart)
+            C.free([&opaque](dirname))
           end
         end
       end
@@ -5508,16 +5482,21 @@ end
 
 task main()
   var args = regentlib.c.legion_runtime_get_input_args()
-  var launched = false
+  var launched = 0
   for i = 1, args.argc do
     if C.strcmp(args.argv[i],"-i") == 0 and i < args.argc-1 then
-      work(SCHEMA.parseConfig(args.argv[i+1]))
-      launched = true
+      var config = SCHEMA.parse_config(args.argv[i+1])
+      config.Mapping.sampleId = launched
+      work(config)
+      launched += 1
     end
   end
-  if not launched then
-    C.printf("No testcases supplied.\n")
-    C.printf("Usage: %s -i config1.json [-i config2.json ...]\n", args.argv[0])
+  if launched < 1 then
+    var stderr = C.fdopen(2, 'w')
+    C.fprintf(stderr, "No testcases supplied.\n")
+    C.fprintf(stderr, "Usage: %s -i config1.json [-i config2.json ...]\n", args.argv[0])
+    C.fflush(stderr)
+    C.exit(1)
   end
 end
 
@@ -5525,4 +5504,4 @@ end
 -- COMPILATION CALL
 -------------------------------------------------------------------------------
 
-regentlib.saveobj(main, "soleil.exec", "executable", nil, LIBS)
+regentlib.saveobj(main, "soleil.o", "object", MAPPER.register_mappers)

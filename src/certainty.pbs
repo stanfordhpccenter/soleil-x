@@ -1,16 +1,14 @@
 #!/bin/bash -eu
 #PBS -N soleil
-#PBS -l walltime=00:05:00
-#PBS -l nodes=1:ppn=24
-#PBS -q gpu
 
 cd "$SOLEIL_DIR"/src
 
-echo "Running on nodes:"
-cat "$PBS_NODEFILE"
+GPUS=
+if [[ "$QUEUE" == "gpu" ]]; then
+    GPUS="-ll:gpu 4"
+fi
 
-mpiexec -np 1 --bind-to none -x LD_LIBRARY_PATH \
-    ./soleil.exec \
-    -i ../testcases/tgv_64x64x64.json \
-    -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 11 -ll:gpu 4 \
-    -ll:show_rsrv
+mpiexec -np $NUM_NODES --bind-to none -x LD_LIBRARY_PATH \
+    ./soleil.exec $ARGS \
+    -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 11 $GPUS \
+    -ll:csize 30000

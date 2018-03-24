@@ -10,3 +10,5 @@
 *.DS_Store
 *.dat
 *.csv
+
+src/config_schema.h

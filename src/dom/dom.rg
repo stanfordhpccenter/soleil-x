@@ -2159,9 +2159,9 @@ function Exports.DeclSymbols(config) return rquote
   var [Nz] = config.Radiation.zNum
 
   -- Number of tiles in each dimension
-  var [ntx] = config.Grid.xTiles
-  var [nty] = config.Grid.yTiles
-  var [ntz] = config.Grid.zTiles
+  var [ntx] = config.Mapping.xTiles
+  var [nty] = config.Mapping.yTiles
+  var [ntz] = config.Mapping.zTiles
 
   -- Regions for faces (+1 in one direction since one more face than points)
   var grid_x = ispace(int3d, {x = Nx+1, y = Ny,   z = Nz})

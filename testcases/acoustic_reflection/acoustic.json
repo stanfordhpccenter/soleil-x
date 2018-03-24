@@ -1,20 +1,20 @@
 {
     "Mapping" : {
-        "xTiles" : 2,
-        "yTiles" : 2,
+        "xTiles" : 1,
+        "yTiles" : 1,
         "zTiles" : 1,
         "sampleId" : -1,
         "wallTime" : 60
     },
 
     "Grid" : {
-        "xNum" : 64,
-        "yNum" : 64,
-        "zNum" : 1,
+        "xNum" : 100,
+        "yNum" : 4,
+        "zNum" : 4,
         "origin" : [0.0, 0.0, 0.0],
-        "xWidth" : 1.0,
-        "yWidth" : 1.0,
-        "zWidth" : 0.015625
+        "xWidth" : 0.1,
+        "yWidth" : 5.0,
+        "zWidth" : 5.0
     },
 
     "BC" : {
@@ -24,48 +24,48 @@
         "xBCRight" : "AdiabaticWall",
         "xBCRightVel" : [0.0, 0.0, 0.0],
         "xBCRightTemp" : 0.0,
-        "yBCLeft"  : "AdiabaticWall",
+        "yBCLeft"  : "Periodic",
         "yBCLeftVel" : [0.0, 0.0, 0.0],
         "yBCLeftTemp" : 0.0,
-        "yBCRight" : "AdiabaticWall",
-        "yBCRightVel" : [34.03, 0.0, 0.0],
+        "yBCRight" : "Periodic",
+        "yBCRightVel" : [0.0, 0.0, 0.0],
         "yBCRightTemp" : 0.0,
-        "zBCLeft"  : "Symmetry",
+        "zBCLeft"  : "Periodic",
         "zBCLeftVel" : [0.0, 0.0, 0.0],
         "zBCLeftTemp" : 0.0,
-        "zBCRight" : "Symmetry",
+        "zBCRight" : "Periodic",
         "zBCRightVel" : [0.0, 0.0, 0.0],
         "zBCRightTemp" : 0.0
     },
 
     "Integrator" : {
         "finalTime" : 20.00001,
-        "restartIter" : -1,
-        "maxIter" : 100,
-        "cfl" : 2.0,
+        "restartIter" : 1,
+        "maxIter" : 500,
+        "cfl" : 0.8,
         "fixedDeltaTime" : -1.0
     },
 
     "Flow" : {
-        "gasConstant" : 287.058,
+        "gasConstant" : 287.0,
         "gamma" : 1.4,
-        "prandtl" : 0.72,
-        "viscosityModel" : "Sutherland",
-        "constantVisc" : -1.0,
-        "powerlawViscRef" : -1.0,
-        "powerlawTempRef" : -1.0,
-        "sutherlandViscRef" : 0.00001716,
+        "prandtl" : 0.7,
+        "viscosityModel" : "PowerLaw",
+        "constantVisc" : 0.004491,
+        "powerlawViscRef" : 0.00044,
+        "powerlawTempRef" : 1.0,
+        "sutherlandViscRef" : 1.716E-5,
         "sutherlandTempRef" : 273.15,
         "sutherlandSRef" : 110.4,
-        "initCase" : "Uniform",
-        "initParams" : [0.000525805, 43.4923, 0.0, 0.0, 0.0],
+        "initCase" : "Restart",
+        "initParams" : [1.2, 1.0e5, 0.0, 0.0, 0.0],
         "bodyForce" : [0.0, 0.0, 0.0],
         "turbForcing" : "OFF"
     },
 
     "Particles" : {
         "initCase" : "Uniform",
-        "initNum" : 100,
+        "initNum" : 1,
         "maxNum" : 1000,
         "restitutionCoeff" : 1.0,
         "convectiveCoeff" : 0.7,
@@ -73,15 +73,15 @@
         "heatCapacity" : 0.7,
         "initTemperature" : 250.0,
         "density" : 8900.0,
-        "diameterMean" : 0.00001,
+        "diameterMean" : 5e-3,
         "bodyForce" : [0.0, 0.0, 0.0],
         "maxSkew" : 1.5,
-        "maxXferNum" : 10
+        "maxXferNum" : 100
     },
 
     "Radiation" : {
         "type" : "Algebraic",
-        "intensity" : 10.0,
+        "intensity" : 1e3,
         "qa" : -1.0,
         "qs" : -1.0,
         "xNum" : 4,
@@ -102,8 +102,8 @@
     },
 
     "IO" : {
-        "wrtRestart" : "OFF",
-        "restartEveryTimeSteps" : -1,
+        "wrtRestart" : "ON",
+        "restartEveryTimeSteps" : 5,
         "consoleFrequency" : 1,
         "headerFrequency" : 10
     }

@@ -12,49 +12,71 @@ import 'regent'
 
 local Exports = {}
 
+local C = regentlib.c
+local HDF5 = terralib.includec(assert(os.getenv('HDF_HEADER')))
 local UTIL = require 'util'
 
-local HDF5 = terralib.includec(assert(os.getenv('HDF_HEADER')))
 -- HACK: Hardcoding missing #define's
 HDF5.H5F_ACC_TRUNC = 2
 HDF5.H5P_DEFAULT = 0
 
 -------------------------------------------------------------------------------
--- Dumping
--------------------------------------------------------------------------------
 
 -- regentlib.index_type, regentlib.index_type, terralib.struct, string*
---   -> regentlib.task
-function Exports.mkDump(indexType, colorType, fSpace, flds)
+--   -> regentlib.task, regentlib.task
+function Exports.mkHDFTasks(indexType, colorType, fSpace, flds)
   flds = terralib.newlist(flds)
 
-  local terra create(fname : rawstring, hiBound : indexType)
+  -- string, string? -> terralib.quote
+  local function err(action, fld)
+    if fld then
+      return quote
+        var stderr = C.fdopen(2, 'w')
+        C.fprintf(stderr, 'HDF5: Cannot %s for field %s\n', action, fld)
+        C.fflush(stderr)
+        C.exit(1)
+      end
+    else
+      return quote
+        var stderr = C.fdopen(2, 'w')
+        C.fprintf(stderr, 'HDF5: Cannot %s\n', action)
+        C.fflush(stderr)
+        C.exit(1)
+      end
+    end
+  end
+
+  local terra create(fname : rawstring, size : indexType)
     var fid = HDF5.H5Fcreate(fname, HDF5.H5F_ACC_TRUNC,
                              HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT)
-    var dataSpace : int32
+    if fid < 0 then [err('create file')] end
+    var dataSpace : HDF5.hid_t
     escape
       if indexType == int1d then
         emit quote
           var sizes : HDF5.hsize_t[1]
-          sizes[0] = hiBound.__ptr + 1
+          sizes[0] = size.__ptr
           dataSpace = HDF5.H5Screate_simple(1, sizes, [&uint64](0))
+          if dataSpace < 0 then [err('create 1d dataspace')] end
         end
       elseif indexType == int2d then
         emit quote
           -- Legion defaults to column-major layout, so we have to reverse.
           var sizes : HDF5.hsize_t[2]
-          sizes[1] = hiBound.__ptr.x + 1
-          sizes[0] = hiBound.__ptr.y + 1
+          sizes[1] = size.__ptr.x
+          sizes[0] = size.__ptr.y
           dataSpace = HDF5.H5Screate_simple(2, sizes, [&uint64](0))
+          if dataSpace < 0 then [err('create 2d dataspace')] end
         end
       elseif indexType == int3d then
         emit quote
           -- Legion defaults to column-major layout, so we have to reverse.
           var sizes : HDF5.hsize_t[3]
-          sizes[2] = hiBound.__ptr.x + 1
-          sizes[1] = hiBound.__ptr.y + 1
-          sizes[0] = hiBound.__ptr.z + 1
+          sizes[2] = size.__ptr.x
+          sizes[1] = size.__ptr.y
+          sizes[0] = size.__ptr.z
           dataSpace = HDF5.H5Screate_simple(3, sizes, [&uint64](0))
+          if dataSpace < 0 then [err('create 3d dataspace')] end
         end
       else assert(false) end
       local header = terralib.newlist() -- terralib.quote*
@@ -87,6 +109,7 @@ function Exports.mkDump(indexType, colorType, fSpace, flds)
             dims[0] = T.N
             var elemType = [elemType]
             var [arrayType] = HDF5.H5Tarray_create2(elemType, 1, dims)
+            if arrayType < 0 then [err('create array type')] end
           end)
           footer:insert(quote
             HDF5.H5Tclose(arrayType)
@@ -109,11 +132,15 @@ function Exports.mkDump(indexType, colorType, fSpace, flds)
             local dataSet = symbol(HDF5.hid_t, 'dataSet')
             header:insert(quote
               var [int2dType] = HDF5.H5Tcreate(HDF5.H5T_COMPOUND, 16)
-              HDF5.H5Tinsert(int2dType, "x", 0, HDF5.H5T_STD_I64LE_g)
-              HDF5.H5Tinsert(int2dType, "y", 8, HDF5.H5T_STD_I64LE_g)
+              if int2dType < 0 then [err('create 2d array type', name)] end
+              var x = HDF5.H5Tinsert(int2dType, "x", 0, HDF5.H5T_STD_I64LE_g)
+              if x < 0 then [err('add x to 2d array type', name)] end
+              var y = HDF5.H5Tinsert(int2dType, "y", 8, HDF5.H5T_STD_I64LE_g)
+              if y < 0 then [err('add y to 2d array type', name)] end
               var [dataSet] = HDF5.H5Dcreate2(
                 fid, hName, int2dType, dataSpace,
                 HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT)
+              if dataSet < 0 then [err('register 2d array type', name)] end
             end)
             footer:insert(quote
               HDF5.H5Dclose(dataSet)
@@ -126,12 +153,17 @@ function Exports.mkDump(indexType, colorType, fSpace, flds)
             local dataSet = symbol(HDF5.hid_t, 'dataSet')
             header:insert(quote
               var [int3dType] = HDF5.H5Tcreate(HDF5.H5T_COMPOUND, 24)
-              HDF5.H5Tinsert(int3dType, "x", 0, HDF5.H5T_STD_I64LE_g)
-              HDF5.H5Tinsert(int3dType, "y", 8, HDF5.H5T_STD_I64LE_g)
-              HDF5.H5Tinsert(int3dType, "z", 16, HDF5.H5T_STD_I64LE_g)
+              if int3dType < 0 then [err('create 3d array type', name)] end
+              var x = HDF5.H5Tinsert(int3dType, "x", 0, HDF5.H5T_STD_I64LE_g)
+              if x < 0 then [err('add x to 3d array type', name)] end
+              var y = HDF5.H5Tinsert(int3dType, "y", 8, HDF5.H5T_STD_I64LE_g)
+              if y < 0 then [err('add y to 3d array type', name)] end
+              var z = HDF5.H5Tinsert(int3dType, "z", 16, HDF5.H5T_STD_I64LE_g)
+              if z < 0 then [err('add z to 3d array type', name)] end
               var [dataSet] = HDF5.H5Dcreate2(
                 fid, hName, int3dType, dataSpace,
                 HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT)
+              if dataSet < 0 then [err('register 3d array type', name)] end
             end)
             footer:insert(quote
               HDF5.H5Dclose(dataSet)
@@ -148,6 +180,7 @@ function Exports.mkDump(indexType, colorType, fSpace, flds)
               var [dataSet] = HDF5.H5Dcreate2(
                 fid, hName, hType, dataSpace,
                 HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT)
+              if dataSet < 0 then [err('register type', name)] end
             end)
             footer:insert(quote
               HDF5.H5Dclose(dataSet)
@@ -163,58 +196,92 @@ function Exports.mkDump(indexType, colorType, fSpace, flds)
     HDF5.H5Fclose(fid)
   end
 
-  local task dump(colors : ispace(colorType),
-                  filename : int8[256],
-                  r : region(ispace(indexType),fSpace),
-                  s : region(ispace(indexType),fSpace),
-                  p_r : partition(disjoint, r, colors),
-                  p_s : partition(disjoint, s, colors))
+  local terra tileFilename(dirname : int8[256],
+                           bounds : regentlib.rect_type(indexType))
+    var filename : int8[256]
+    escape
+      if indexType == int1d then emit quote
+        C.snprintf(&(filename[0]), 256,
+                   '%s/%ld-%ld.hdf', &(dirname[0]),
+                   bounds.lo.__ptr,
+                   bounds.hi.__ptr)
+      end elseif indexType == int2d then emit quote
+        C.snprintf(&(filename[0]), 256,
+                   '%s/%ld,%ld-%ld,%ld.hdf', &(dirname[0]),
+                   bounds.lo.__ptr.x, bounds.lo.__ptr.y,
+                   bounds.hi.__ptr.x, bounds.hi.__ptr.y)
+      end elseif indexType == int3d then emit quote
+        C.snprintf(&(filename[0]), 256,
+                   '%s/%ld,%ld,%ld-%ld,%ld,%ld.hdf', &(dirname[0]),
+                   bounds.lo.__ptr.x, bounds.lo.__ptr.y, bounds.lo.__ptr.z,
+                   bounds.hi.__ptr.x, bounds.hi.__ptr.y, bounds.hi.__ptr.z)
+      end else assert(false) end
+    end
+    return filename
+  end
+
+  local one =
+    indexType == int1d and rexpr 1 end or
+    indexType == int2d and rexpr {1,1} end or
+    indexType == int3d and rexpr {1,1,1} end or
+    assert(false)
+
+  local task dumpTile(dirname : int8[256],
+                      r : region(ispace(indexType),fSpace),
+                      s : region(ispace(indexType),fSpace))
   where reads(r.[flds]), reads writes(s.[flds]), r * s do
-    -- TODO: Sanity checks: bounds.lo == 0, same size
-    create(filename, r.bounds.hi)
+    var filename = tileFilename(dirname, r.bounds)
+    create(filename, r.bounds.hi - r.bounds.lo + one)
     attach(hdf5, s.[flds], filename, regentlib.file_read_write)
-    for c in colors do
-      var p_r_c = p_r[c]
-      var p_s_c = p_s[c]
-      acquire(p_s_c.[flds])
-      copy(p_r_c.[flds], p_s_c.[flds])
-      release(p_s_c.[flds])
-    end
+    acquire(s.[flds])
+    copy(r.[flds], s.[flds])
+    release(s.[flds])
     detach(hdf5, s.[flds])
   end
 
-  return dump
-end
+  local __demand(__inline)
+  task dump(colors : ispace(colorType),
+            dirname : rawstring,
+            r : region(ispace(indexType),fSpace),
+            s : region(ispace(indexType),fSpace),
+            p_r : partition(disjoint, r, colors),
+            p_s : partition(disjoint, s, colors))
+  where reads(r.[flds]), reads writes(s.[flds]), r * s do
+    -- TODO: Sanity checks: bounds.lo == 0, same size, compatible partitions
+    UTIL.mkdir(dirname)
+    for c in colors do
+      dumpTile(UTIL.concretize(dirname), p_r[c], p_s[c])
+    end
+  end
 
--------------------------------------------------------------------------------
--- Loading
--------------------------------------------------------------------------------
-
--- regentlib.index_type, regentlib.index_type, terralib.struct, string*
---   -> regentlib.task
-function Exports.mkLoad(indexType, colorType, fSpace, flds)
-  flds = terralib.newlist(flds)
-
-  local task load(colors : ispace(colorType),
-                  filename : int8[256],
-                  r : region(ispace(indexType),fSpace),
-                  s : region(ispace(indexType),fSpace),
-                  p_r : partition(disjoint, r, colors),
-                  p_s : partition(disjoint, s, colors))
+  local task loadTile(dirname : int8[256],
+                      r : region(ispace(indexType),fSpace),
+                      s : region(ispace(indexType),fSpace))
   where reads writes(r.[flds]), reads writes(s.[flds]), r * s do
-    -- TODO: Sanity checks: bounds.lo == 0, same size
+    var filename = tileFilename(dirname, r.bounds)
     attach(hdf5, s.[flds], filename, regentlib.file_read_only)
-    for c in colors do
-      var p_r_c = p_r[c]
-      var p_s_c = p_s[c]
-      acquire(p_s_c.[flds])
-      copy(p_s_c.[flds], p_r_c.[flds])
-      release(p_s_c.[flds])
-    end
+    acquire(s.[flds])
+    copy(s.[flds], r.[flds])
+    release(s.[flds])
     detach(hdf5, s.[flds])
   end
 
-  return load
+  local __demand(__inline)
+  task load(colors : ispace(colorType),
+            dirname : rawstring,
+            r : region(ispace(indexType),fSpace),
+            s : region(ispace(indexType),fSpace),
+            p_r : partition(disjoint, r, colors),
+            p_s : partition(disjoint, s, colors))
+  where reads writes(r.[flds]), reads writes(s.[flds]), r * s do
+    -- TODO: Sanity checks: bounds.lo == 0, same size, compatible partitions
+    -- TODO: Check that the file has the correct size etc.
+    for c in colors do
+      loadTile(UTIL.concretize(dirname), p_r[c], p_s[c])
+    end
+  end
+
+  return dump, load
 end
 
 -------------------------------------------------------------------------------
