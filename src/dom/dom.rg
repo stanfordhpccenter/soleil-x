@@ -75,8 +75,8 @@ local struct angle {
 
 local struct face {
   I : double[NUM_ANGLES],
-  private_color : uint64,      -- Used for partition_by_field
-  shared_color : uint64,       -- Used for partition_by_field
+  private_color : int3d,      -- Used for partition_by_field
+  shared_color : int3d,       -- Used for partition_by_field
 }
 
 -------------------------------------------------------------------------------
@@ -127,9 +127,21 @@ do
 
 end
 
+-- Nx = 8 (num x) but contains 9 since Nx + 1
+-- ntx = 2 (tiles) 
+-- x_tiles contains ntx+1 in x direction for extra shared (3 tiles)
+-- s -- p -- p -- p -- s -- p -- p -- p -- s
+-- 0                   4                   8
 
-local task make_private_partition_x(faces : region(ispace(int3d), face),
-                                        x_tiles : ispace(int3d),
+-- Nx = 6 
+-- ntx = 2 (tiles) 
+-- s -- p -- p -- s -- p -- p -- s
+-- 0              3              6
+
+-- shared = i % (Nx/ntx) == 0
+-- private 
+
+local task color_faces_x(faces : region(ispace(int3d), face),
                                         Nx : int, Ny : int, Nz : int,
                                         ntx : int, nty : int, ntz : int)
   where
@@ -137,399 +149,83 @@ local task make_private_partition_x(faces : region(ispace(int3d), face),
   do
 
   var limits = faces.bounds
-  
 
-  for i = limits.lo.x, limits.lo.x + 1 do
+  for i = limits.lo.x, limits.hi.x + 1 do
+    var x_tile = i / (Nx/ntx)
     for j = limits.lo.y, limits.hi.y + 1 do
+      var y_tile = j / (Ny/nty)
       for k = limits.lo.z, limits.hi.z + 1 do
+        var z_tile = k / (Nz/ntz)
 
-        var face = faces[{i,j,k}]
-        if 
-        face.color = -1
-        
-
+        var color = {x = x_tile, y = y_tile, z = z_tile}
+        if i % (Nx/ntx) == 0 then
+          faces[{i,j,k}].shared_color = color
+          faces[{i,j,k}].private_color = {x=-1, y=-1, z=-1}
+        else
+          faces[{i,j,k}].shared_color = {x=-1, y=-1, z=-1}
+          faces[{i,j,k}].private_color = color
+        end
       end
     end
   end
-
-  var coloring = c.legion_domain_point_coloring_create()
-  var p = partition(faces.color, coloring)
-  c.legion_domain_point_coloring_destroy(coloring)
-  return p
-
 end
 
-
-----------------------------------------------------------------------------
-
-
--- local task make_private_partition_x(faces : region(ispace(int3d), face),
---                                         x_tiles : ispace(int3d),
---                                         Nx : int, Ny : int, Nz : int,
---                                         ntx : int, nty : int, ntz : int)
-
---   var coloring = c.legion_domain_point_coloring_create()
---   for tile in x_tiles do
-
---     var lo = int3d { x = tile.x     * Nx / ntx + 1,
---                      y = tile.y     * Ny / nty,
---                      z = tile.z     * Nz / ntz}
---     var hi = int3d { x = (tile.x+1) * Nx / ntx - 1,
---                      y = (tile.y+1) * Ny / nty - 1,
---                      z = (tile.z+1) * Nz / ntz - 1}
-
---     if hi.x < Nx+1 then               
-
---       var rect = rect3d {lo = lo, hi = hi}
---       c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
---     end                
-    
---   end
---   var p = partition(disjoint, faces, coloring, x_tiles)
---   c.legion_domain_point_coloring_destroy(coloring)
---   return p
-
--- end
-
--- 1 - 2 - 3
-local task make_shared_partition_x(faces : region(ispace(int3d), face),
-                                        x_tiles : ispace(int3d),
+local task color_faces_y(faces : region(ispace(int3d), face),
                                         Nx : int, Ny : int, Nz : int,
                                         ntx : int, nty : int, ntz : int)
+  where
+    reads writes (faces)
+  do
 
-  var coloring = c.legion_domain_point_coloring_create()
-  for tile in x_tiles do
+  var limits = faces.bounds
 
+  for i = limits.lo.x, limits.hi.x + 1 do
+    var x_tile = i / (Nx/ntx)
+    for j = limits.lo.y, limits.hi.y + 1 do
+      var y_tile = j / (Ny/nty)
+      for k = limits.lo.z, limits.hi.z + 1 do
+        var z_tile = k / (Nz/ntz)
 
-    var lo = int3d { x = tile.x     * Nx / ntx,
-                     y = tile.y     * Ny / nty,
-                     z = tile.z     * Nz / ntz}
-    var hi = int3d { x = lo.x,
-                     y = (tile.y+1) * Ny / nty - 1,
-                     z = (tile.z+1) * Nz / ntz - 1}             
-
-    var rect = rect3d {lo = lo, hi = hi}
-    c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
-  end
-  var p = partition(disjoint, faces, coloring, x_tiles)
-  c.legion_domain_point_coloring_destroy(coloring)
-  return p
-
-end
-
-----------------------------------------------------------------------------
-
-
-local task make_private_partition_y(faces : region(ispace(int3d), face),
-                                        y_tiles : ispace(int3d),
-                                        Nx : int, Ny : int, Nz : int,
-                                        ntx : int, nty : int, ntz : int)
-
-  var coloring = c.legion_domain_point_coloring_create()
-  for tile in y_tiles do
-
-    var lo = int3d { x = tile.x     * Nx / ntx,
-                     y = tile.y     * Ny / nty + 1,
-                     z = tile.z     * Nz / ntz}
-    var hi = int3d { x = (tile.x+1) * Nx / ntx - 1,
-                     y = (tile.y+1) * Ny / nty - 1,
-                     z = (tile.z+1) * Nz / ntz - 1}
-
-    if hi.y < Ny+1 then             
-
-      var rect = rect3d {lo = lo, hi = hi}
-      c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
-    end                
-    
-  end
-  var p = partition(disjoint, faces, coloring, y_tiles)
-  c.legion_domain_point_coloring_destroy(coloring)
-  return p
-
-end
-
--- 1 - 2 - 3
-local task make_shared_partition_y(faces : region(ispace(int3d), face),
-                                        y_tiles : ispace(int3d),
-                                        Nx : int, Ny : int, Nz : int,
-                                        ntx : int, nty : int, ntz : int)
-
-  var coloring = c.legion_domain_point_coloring_create()
-  for tile in y_tiles do
-
-
-    var lo = int3d { x = tile.x     * Nx / ntx,
-                     y = tile.y     * Ny / nty,
-                     z = tile.z     * Nz / ntz}
-    var hi = int3d { x = (tile.x+1) * Nx / ntx - 1,
-                     y = lo.y,
-                     z = (tile.z+1) * Nz / ntz - 1}     
-
-    var rect = rect3d {lo = lo, hi = hi}
-    c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
-  end
-  var p = partition(disjoint, faces, coloring, y_tiles)
-  c.legion_domain_point_coloring_destroy(coloring)
-  return p
-
-end
-
-----------------------------------------------------------------------------
-
-
-local task make_private_partition_z(faces : region(ispace(int3d), face),
-                                        z_tiles : ispace(int3d),
-                                        Nx : int, Ny : int, Nz : int,
-                                        ntx : int, nty : int, ntz : int)
-
-  var coloring = c.legion_domain_point_coloring_create()
-  for tile in z_tiles do
-
-    var lo = int3d { x = tile.x     * Nx / ntx,
-                     y = tile.y     * Ny / nty,
-                     z = tile.z     * Nz / ntz + 1}
-    var hi = int3d { x = (tile.x+1) * Nx / ntx - 1,
-                     y = (tile.y+1) * Ny / nty - 1,
-                     z = (tile.z+1) * Nz / ntz - 1}
-
-    if hi.z < Nz+1 then                 
-
-      var rect = rect3d {lo = lo, hi = hi}
-      c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
-    end                
-    
-  end
-  var p = partition(disjoint, faces, coloring, z_tiles)
-  c.legion_domain_point_coloring_destroy(coloring)
-  return p
-
-end
-
--- 1 - 2 - 3
-local task make_shared_partition_z(faces : region(ispace(int3d), face),
-                                        z_tiles : ispace(int3d),
-                                        Nx : int, Ny : int, Nz : int,
-                                        ntx : int, nty : int, ntz : int)
-
-  var coloring = c.legion_domain_point_coloring_create()
-  for tile in z_tiles do
-
-
-    var lo = int3d { x = tile.x     * Nx / ntx,
-                     y = tile.y     * Ny / nty,
-                     z = tile.z     * Nz / ntz}
-    var hi = int3d { x = (tile.x+1) * Nx / ntx - 1,
-                     y = (tile.y+1) * Ny / nty - 1,
-                     z = lo.z}              
-
-    var rect = rect3d {lo = lo, hi = hi}
-    c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
-  end
-  var p = partition(disjoint, faces, coloring, z_tiles)
-  c.legion_domain_point_coloring_destroy(coloring)
-  return p
-
-end
-
-----------------------------------------------------------------------------
-
-
-local task make_interior_partition_x_hi(faces : region(ispace(int3d), face),
-                                        x_tiles : ispace(int3d),
-                                        Nx : int, Ny : int, Nz : int,
-                                        ntx : int, nty : int, ntz : int)
-
-  var coloring = c.legion_domain_point_coloring_create()
-  for tile in x_tiles do
-
-    -- include extra face in last partition
-    var val : int = -1
-    if tile.x == x_tiles.bounds.hi.x-1 then val = 0 end
-
-    var lo = int3d { x = tile.x     * Nx / ntx,
-                     y = tile.y     * Ny / nty,
-                     z = tile.z     * Nz / ntz}
-    var hi = int3d { x = (tile.x+1) * Nx / ntx + val,
-                     y = (tile.y+1) * Ny / nty - 1,
-                     z = (tile.z+1) * Nz / ntz - 1}
-
-    -- Create an empty partition
-    if hi.x >= Nx+1 then
-      lo.x = 1
-      hi.x = 0
+        var color = {x = x_tile, y = y_tile, z = z_tile}
+        if j % (Ny/nty) == 0 then
+          faces[{i,j,k}].shared_color = color
+          faces[{i,j,k}].private_color = {x=-1, y=-1, z=-1}
+        else
+          faces[{i,j,k}].shared_color = {x=-1, y=-1, z=-1}
+          faces[{i,j,k}].private_color = color
+        end
+      end
     end
-
-    var rect = rect3d {lo = lo, hi = hi}
-    c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
   end
-  var p = partition(disjoint, faces, coloring, x_tiles)
-  c.legion_domain_point_coloring_destroy(coloring)
-  return p
 end
 
-local task make_interior_partition_x_lo(faces : region(ispace(int3d), face),
-                                        x_tiles : ispace(int3d),
+local task color_faces_z(faces : region(ispace(int3d), face),
                                         Nx : int, Ny : int, Nz : int,
                                         ntx : int, nty : int, ntz : int)
+  where
+    reads writes (faces)
+  do
 
-  var coloring = c.legion_domain_point_coloring_create()
-  for tile in x_tiles do
+  var limits = faces.bounds
 
-    -- include extra face in first partition
-    var val : int = 1
-    if tile.x == 1 then val = 0 end
+  for i = limits.lo.x, limits.hi.x + 1 do
+    var x_tile = i / (Nx/ntx)
+    for j = limits.lo.y, limits.hi.y + 1 do
+      var y_tile = j / (Ny/nty)
+      for k = limits.lo.z, limits.hi.z + 1 do
+        var z_tile = k / (Nz/ntz)
 
-    var lo = int3d { x = (tile.x-1) * Nx / ntx + val,
-                     y = tile.y     * Ny / nty,
-                     z = tile.z     * Nz / ntz}
-    var hi = int3d { x = tile.x     * Nx / ntx,
-                     y = (tile.y+1) * Ny / nty - 1,
-                     z = (tile.z+1) * Nz / ntz - 1}
-
-    -- Create an empty partition
-    if lo.x < 0 then
-      lo.x = 1
-      hi.x = 0
+        var color = {x = x_tile, y = y_tile, z = z_tile}
+        if k % (Nz/ntz) == 0 then
+          faces[{i,j,k}].shared_color = color
+          faces[{i,j,k}].private_color = {x=-1, y=-1, z=-1}
+        else
+          faces[{i,j,k}].shared_color = {x=-1, y=-1, z=-1}
+          faces[{i,j,k}].private_color = color
+        end
+      end
     end
-
-    var rect = rect3d {lo = lo, hi = hi}
-    c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
   end
-  var p = partition(disjoint, faces, coloring, x_tiles)
-  c.legion_domain_point_coloring_destroy(coloring)
-  return p
-end
-
-local task make_interior_partition_y_hi(faces : region(ispace(int3d), face),
-                                        y_tiles : ispace(int3d),
-                                        Nx : int, Ny : int, Nz : int,
-                                        ntx : int, nty : int, ntz : int)
-
-  var coloring = c.legion_domain_point_coloring_create()
-  for tile in y_tiles do
-
-    -- include extra face in last partition
-    var val : int = -1
-    if tile.y == y_tiles.bounds.hi.y-1 then val = 0 end
-
-    var lo = int3d { x = tile.x     * Nx / ntx,
-                     y = tile.y     * Ny / nty,
-                     z = tile.z     * Nz / ntz}
-    var hi = int3d { x = (tile.x+1) * Nx / ntx - 1,
-                     y = (tile.y+1) * Ny / nty + val,
-                     z = (tile.z+1) * Nz / ntz - 1}
-
-    -- Create an empty partition
-    if hi.y >= Ny+1 then
-      lo.y = 1
-      hi.y = 0
-    end
-
-    var rect = rect3d {lo = lo, hi = hi}
-    c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
-  end
-  var p = partition(disjoint, faces, coloring, y_tiles)
-  c.legion_domain_point_coloring_destroy(coloring)
-  return p
-end
-
-local task make_interior_partition_y_lo(faces : region(ispace(int3d), face),
-                                        y_tiles : ispace(int3d),
-                                        Nx : int, Ny : int, Nz : int,
-                                        ntx : int, nty : int, ntz : int)
-
-  var coloring = c.legion_domain_point_coloring_create()
-  for tile in y_tiles do
-
-    -- include extra face in first partition
-    var val : int = 1
-    if tile.y == 1 then val = 0 end
-
-    var lo = int3d { x = tile.x     * Nx / ntx,
-                     y = (tile.y-1) * Ny / nty + val,
-                     z = tile.z     * Nz / ntz}
-    var hi = int3d { x = (tile.x+1) * Nx / ntx - 1,
-                     y = tile.y     * Ny / nty,
-                     z = (tile.z+1) * Nz / ntz - 1}
-
-    -- Create an empty partition
-    if lo.y < 0 then
-      lo.y = 1
-      hi.y = 0
-    end
-
-    var rect = rect3d {lo = lo, hi = hi}
-    c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
-  end
-  var p = partition(disjoint, faces, coloring, y_tiles)
-  c.legion_domain_point_coloring_destroy(coloring)
-  return p
-end
-
-local task make_interior_partition_z_hi(faces : region(ispace(int3d), face),
-                                        z_tiles : ispace(int3d),
-                                        Nx : int, Ny : int, Nz : int,
-                                        ntx : int, nty : int, ntz : int)
-
-  var coloring = c.legion_domain_point_coloring_create()
-  for tile in z_tiles do
-
-    -- include extra face in last partition
-    var val : int = -1
-    if tile.z == z_tiles.bounds.hi.z-1 then val = 0 end
-
-    var lo = int3d { x = tile.x     * Nx / ntx,
-                     y = tile.y     * Ny / nty,
-                     z = tile.z     * Nz / ntz}
-    var hi = int3d { x = (tile.x+1) * Nx / ntx - 1,
-                     y = (tile.y+1) * Ny / nty - 1,
-                     z = (tile.z+1) * Nz / ntz + val}
-
-    -- Create an empty partition
-    if hi.z >= Nz+1 then
-      lo.z = 1
-      hi.z = 0
-    end
-
-    var rect = rect3d {lo = lo, hi = hi}
-    c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
-  end
-  var p = partition(disjoint, faces, coloring, z_tiles)
-  c.legion_domain_point_coloring_destroy(coloring)
-  return p
-end
-
-local task make_interior_partition_z_lo(faces : region(ispace(int3d), face),
-                                        z_tiles : ispace(int3d),
-                                        Nx : int, Ny : int, Nz : int,
-                                        ntx : int, nty : int, ntz : int)
-
-  var coloring = c.legion_domain_point_coloring_create()
-  for tile in z_tiles do
-
-    -- include extra face in first partition
-    var val : int = 1
-    if tile.z == 1 then val = 0 end
-
-    var lo = int3d { x = tile.x     * Nx / ntx,
-                     y = tile.y     * Ny / nty,
-                     z = (tile.z-1) * Nz / ntz + val}
-    var hi = int3d { x = (tile.x+1) * Nx / ntx - 1,
-                     y = (tile.y+1) * Ny / nty - 1,
-                     z = tile.z     * Nz / ntz}
-
-    -- Create an empty partition
-    if lo.z < 0 then
-      lo.z = 1
-      hi.z = 0
-    end
-
-    var rect = rect3d {lo = lo, hi = hi}
-    c.legion_domain_point_coloring_color_domain(coloring, tile, rect)
-  end
-  var p = partition(disjoint, faces, coloring, z_tiles)
-  c.legion_domain_point_coloring_destroy(coloring)
-  return p
 end
 
 -- Loop over all angles and grid cells to compute the source term
@@ -1019,6 +715,7 @@ where
   reads writes(points.I_1, x_faces.I, y_faces.I, z_faces.I, 
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
+  
   var dAx = dy*dz;
   var dAy = dx*dz;
   var dAz = dx*dy;
@@ -1081,23 +778,21 @@ do
 
             var upwind_x_value : double = 0.0
             if indx < x_faces.bounds.lo.x or indx > x_faces.bounds.hi.x then
-              upwind_x_value = shared_x_faces_upwind[{0,j,k}].I[m]
+              upwind_x_value = shared_x_faces_upwind[{indx,j,k}].I[m]
             else
               upwind_x_value = x_faces[{indx,j,k}].I[m]
             end
 
-            ---
-
             var upwind_y_value : double = 0.0
             if indy < y_faces.bounds.lo.y or indy > y_faces.bounds.hi.y then
-              upwind_y_value = shared_y_faces_upwind[{i,0,k}].I[m]
+              upwind_y_value = shared_y_faces_upwind[{i,indy,k}].I[m]
             else
               upwind_y_value = y_faces[{i,indy,k}].I[m]
             end
 
             var upwind_z_value : double = 0.0
             if indz < z_faces.bounds.lo.z or indz > z_faces.bounds.hi.z then
-              upwind_z_value = shared_z_faces_upwind[{i,j,0}].I[m]
+              upwind_z_value = shared_z_faces_upwind[{i,j,indz}].I[m]
             else
               upwind_z_value = z_faces[{i,j,indz}].I[m]
             end
@@ -1108,10 +803,10 @@ do
                                         + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
                                         + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
                                         + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
-              /(points[{i,j,k}].sigma * dV
-                  + fabs(angles[m].xi) * dAx/gamma
-                  + fabs(angles[m].eta) * dAy/gamma
-                  + fabs(angles[m].mu) * dAz/gamma)
+                                    /(points[{i,j,k}].sigma * dV
+                                        + fabs(angles[m].xi) * dAx/gamma
+                                        + fabs(angles[m].eta) * dAy/gamma
+                                        + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -1251,10 +946,10 @@ do
                                         + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
                                         + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
                                         + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
-              /(points[{i,j,k}].sigma * dV
-                  + fabs(angles[m].xi) * dAx/gamma
-                  + fabs(angles[m].eta) * dAy/gamma
-                  + fabs(angles[m].mu) * dAz/gamma)
+                                    /(points[{i,j,k}].sigma * dV
+                                        + fabs(angles[m].xi) * dAx/gamma
+                                        + fabs(angles[m].eta) * dAy/gamma
+                                        + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -1394,10 +1089,10 @@ do
                                         + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
                                         + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
                                         + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
-              /(points[{i,j,k}].sigma * dV
-                  + fabs(angles[m].xi) * dAx/gamma
-                  + fabs(angles[m].eta) * dAy/gamma
-                  + fabs(angles[m].mu) * dAz/gamma)
+                                    /(points[{i,j,k}].sigma * dV
+                                        + fabs(angles[m].xi) * dAx/gamma
+                                        + fabs(angles[m].eta) * dAy/gamma
+                                        + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -1537,10 +1232,10 @@ do
                                         + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
                                         + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
                                         + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
-              /(points[{i,j,k}].sigma * dV
-                  + fabs(angles[m].xi) * dAx/gamma
-                  + fabs(angles[m].eta) * dAy/gamma
-                  + fabs(angles[m].mu) * dAz/gamma)
+                                    /(points[{i,j,k}].sigma * dV
+                                        + fabs(angles[m].xi) * dAx/gamma
+                                        + fabs(angles[m].eta) * dAy/gamma
+                                        + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -1680,10 +1375,10 @@ do
                                         + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
                                         + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
                                         + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
-              /(points[{i,j,k}].sigma * dV
-                  + fabs(angles[m].xi) * dAx/gamma
-                  + fabs(angles[m].eta) * dAy/gamma
-                  + fabs(angles[m].mu) * dAz/gamma)
+                                    /(points[{i,j,k}].sigma * dV
+                                        + fabs(angles[m].xi) * dAx/gamma
+                                        + fabs(angles[m].eta) * dAy/gamma
+                                        + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -1823,10 +1518,10 @@ do
                                         + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
                                         + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
                                         + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
-              /(points[{i,j,k}].sigma * dV
-                  + fabs(angles[m].xi) * dAx/gamma
-                  + fabs(angles[m].eta) * dAy/gamma
-                  + fabs(angles[m].mu) * dAz/gamma)
+                                    /(points[{i,j,k}].sigma * dV
+                                        + fabs(angles[m].xi) * dAx/gamma
+                                        + fabs(angles[m].eta) * dAy/gamma
+                                        + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -1966,10 +1661,10 @@ do
                                         + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
                                         + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
                                         + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
-              /(points[{i,j,k}].sigma * dV
-                  + fabs(angles[m].xi) * dAx/gamma
-                  + fabs(angles[m].eta) * dAy/gamma
-                  + fabs(angles[m].mu) * dAz/gamma)
+                                    /(points[{i,j,k}].sigma * dV
+                                        + fabs(angles[m].xi) * dAx/gamma
+                                        + fabs(angles[m].eta) * dAy/gamma
+                                        + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -2109,10 +1804,10 @@ do
                                         + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
                                         + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
                                         + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
-              /(points[{i,j,k}].sigma * dV
-                  + fabs(angles[m].xi) * dAx/gamma
-                  + fabs(angles[m].eta) * dAy/gamma
-                  + fabs(angles[m].mu) * dAz/gamma)
+                                    /(points[{i,j,k}].sigma * dV
+                                        + fabs(angles[m].xi) * dAx/gamma
+                                        + fabs(angles[m].eta) * dAy/gamma
+                                        + fabs(angles[m].mu) * dAz/gamma)
 
             -- Compute intensities on downwind faces
 
@@ -2379,9 +2074,10 @@ local z_faces = {
 }
 
 local angles = regentlib.newsymbol('angles')
-local x_tiles = regentlib.newsymbol('x_tiles')
-local y_tiles = regentlib.newsymbol('y_tiles')
-local z_tiles = regentlib.newsymbol('z_tiles')
+local tiles_private = regentlib.newsymbol('tiles_private')
+local x_tiles_shared = regentlib.newsymbol('x_tiles_shared')
+local y_tiles_shared = regentlib.newsymbol('y_tiles_shared')
+local z_tiles_shared = regentlib.newsymbol('z_tiles_shared')
 
 local s_x_faces = {}
 local s_y_faces = {}
@@ -2457,15 +2153,17 @@ s_z_faces[8] = regentlib.newsymbol('s_z_faces_8')
 
 function Exports.DeclSymbols(config) return rquote
 
+  -- Number of points in each dimension
   var [Nx] = config.Radiation.xNum
   var [Ny] = config.Radiation.yNum
   var [Nz] = config.Radiation.zNum
 
+  -- Number of tiles in each dimension
   var [ntx] = config.Grid.xTiles
   var [nty] = config.Grid.yTiles
   var [ntz] = config.Grid.zTiles
 
-  -- Regions for faces (+1 in one direction)
+  -- Regions for faces (+1 in one direction since one more face than points)
   var grid_x = ispace(int3d, {x = Nx+1, y = Ny,   z = Nz})
   var grid_y = ispace(int3d, {x = Nx,   y = Ny+1, z = Nz})
   var grid_z = ispace(int3d, {x = Nx,   y = Ny,   z = Nz+1})
@@ -2503,79 +2201,115 @@ function Exports.DeclSymbols(config) return rquote
 
   -- Partition faces
   -- extra tile required for shared edge
-  var [x_tiles] = ispace(int3d, {x = ntx+1, y = nty,   z = ntz  })
-  var [y_tiles] = ispace(int3d, {x = ntx,   y = nty+1, z = ntz  })
-  var [z_tiles] = ispace(int3d, {x = ntx,   y = nty,   z = ntz+1})
+  var [tiles_private] = ispace(int3d, {x = ntx, y = nty,   z = ntz  })
+  var [x_tiles_shared] = ispace(int3d, {x = ntx+1, y = nty,   z = ntz  })
+  var [y_tiles_shared] = ispace(int3d, {x = ntx,   y = nty+1, z = ntz  })
+  var [z_tiles_shared] = ispace(int3d, {x = ntx,   y = nty,   z = ntz+1})
 
   c.printf("ntx = %d, nty = %d, ntz = %d \n", ntx, nty, ntz)
   c.printf("Nx = %d, Ny = %d, Nz = %d \n", Nx, Ny, Nz)
 
-  -- Partition x_faces_1 private/shared
-  -- Partition private and shared into tiles
+  -- x
   
-  var [p_x_faces[1]] = make_private_partition_x([x_faces[1]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[1]] = make_private_partition_y([y_faces[1]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[1]] = make_private_partition_z([z_faces[1]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  color_faces_x([x_faces[1]], Nx, Ny, Nz, ntx, nty, ntz)         
+  var [p_x_faces[1]] = partition([x_faces[1]].private_color, [tiles_private])
+  var [s_x_faces[1]] = partition([x_faces[1]].shared_color, [x_tiles_shared])
 
-  var [s_x_faces[1]] = make_shared_partition_x([x_faces[1]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_y_faces[1]] = make_shared_partition_y([y_faces[1]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_z_faces[1]] = make_shared_partition_z([z_faces[1]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  color_faces_x([x_faces[2]], Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces[2]] = partition([x_faces[2]].private_color, [tiles_private])
+  var [s_x_faces[2]] = partition([x_faces[2]].shared_color, [x_tiles_shared])
 
-  var [p_x_faces[2]] = make_private_partition_x([x_faces[2]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[2]] = make_private_partition_y([y_faces[2]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[2]] = make_private_partition_z([z_faces[2]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  color_faces_x([x_faces[3]], Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces[3]] = partition([x_faces[3]].private_color, [tiles_private])
+  var [s_x_faces[3]] = partition([x_faces[3]].shared_color, [x_tiles_shared])
 
-  var [s_x_faces[2]] = make_shared_partition_x([x_faces[2]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_y_faces[2]] = make_shared_partition_y([y_faces[2]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_z_faces[2]] = make_shared_partition_z([z_faces[2]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  color_faces_x([x_faces[4]], Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces[4]] = partition([x_faces[4]].private_color, [tiles_private])
+  var [s_x_faces[4]] = partition([x_faces[4]].shared_color, [x_tiles_shared])
 
-  var [p_x_faces[3]] = make_private_partition_x([x_faces[3]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[3]] = make_private_partition_y([y_faces[3]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[3]] = make_private_partition_z([z_faces[3]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  color_faces_x([x_faces[5]], Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces[5]] = partition([x_faces[5]].private_color, [tiles_private])
+  var [s_x_faces[5]] = partition([x_faces[5]].shared_color, [x_tiles_shared])
 
-  var [s_x_faces[3]] = make_shared_partition_x([x_faces[3]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_y_faces[3]] = make_shared_partition_y([y_faces[3]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_z_faces[3]] = make_shared_partition_z([z_faces[3]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  color_faces_x([x_faces[6]], Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces[6]] = partition([x_faces[6]].private_color, [tiles_private])
+  var [s_x_faces[6]] = partition([x_faces[6]].shared_color, [x_tiles_shared])
 
-  var [p_x_faces[4]] = make_private_partition_x([x_faces[4]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[4]] = make_private_partition_y([y_faces[4]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[4]] = make_private_partition_z([z_faces[4]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  color_faces_x([x_faces[7]], Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces[7]] = partition([x_faces[7]].private_color, [tiles_private])
+  var [s_x_faces[7]] = partition([x_faces[7]].shared_color, [x_tiles_shared])
 
-  var [s_x_faces[4]] = make_shared_partition_x([x_faces[4]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_y_faces[4]] = make_shared_partition_y([y_faces[4]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_z_faces[4]] = make_shared_partition_z([z_faces[4]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  color_faces_x([x_faces[8]], Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_x_faces[8]] = partition([x_faces[8]].private_color, [tiles_private])
+  var [s_x_faces[8]] = partition([x_faces[8]].shared_color, [x_tiles_shared])
 
-  var [p_x_faces[5]] = make_private_partition_x([x_faces[5]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[5]] = make_private_partition_y([y_faces[5]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[5]] = make_private_partition_z([z_faces[5]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  -- y
 
-  var [s_x_faces[5]] = make_shared_partition_x([x_faces[5]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_y_faces[5]] = make_shared_partition_y([y_faces[5]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_z_faces[5]] = make_shared_partition_z([z_faces[5]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  color_faces_y([y_faces[1]], Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[1]] = partition([y_faces[1]].private_color, [tiles_private])
+  var [s_y_faces[1]] = partition([y_faces[1]].shared_color, [y_tiles_shared])
 
-  var [p_x_faces[6]] = make_private_partition_x([x_faces[6]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[6]] = make_private_partition_y([y_faces[6]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[6]] = make_private_partition_z([z_faces[6]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  color_faces_y([y_faces[2]], Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[2]] = partition([y_faces[2]].private_color, [tiles_private])
+  var [s_y_faces[2]] = partition([y_faces[2]].shared_color, [y_tiles_shared])
 
-  var [s_x_faces[6]] = make_shared_partition_x([x_faces[6]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_y_faces[6]] = make_shared_partition_y([y_faces[6]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_z_faces[6]] = make_shared_partition_z([z_faces[6]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  color_faces_y([y_faces[3]], Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[3]] = partition([y_faces[3]].private_color, [tiles_private])
+  var [s_y_faces[3]] = partition([y_faces[3]].shared_color, [y_tiles_shared])
 
-  var [p_x_faces[7]] = make_private_partition_x([x_faces[7]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[7]] = make_private_partition_y([y_faces[7]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[7]] = make_private_partition_z([z_faces[7]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  color_faces_y([y_faces[4]], Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[4]] = partition([y_faces[4]].private_color, [tiles_private])
+  var [s_y_faces[4]] = partition([y_faces[4]].shared_color, [y_tiles_shared])
 
-  var [s_x_faces[7]] = make_shared_partition_x([x_faces[7]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_y_faces[7]] = make_shared_partition_y([y_faces[7]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_z_faces[7]] = make_shared_partition_z([z_faces[7]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  color_faces_y([y_faces[5]], Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[5]] = partition([y_faces[5]].private_color, [tiles_private])
+  var [s_y_faces[5]] = partition([y_faces[5]].shared_color, [y_tiles_shared])
 
-  var [p_x_faces[8]] = make_private_partition_x([x_faces[8]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[8]] = make_private_partition_y([y_faces[8]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[8]] = make_private_partition_z([z_faces[8]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  color_faces_y([y_faces[6]], Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[6]] = partition([y_faces[6]].private_color, [tiles_private])
+  var [s_y_faces[6]] = partition([y_faces[6]].shared_color, [y_tiles_shared])
 
-  var [s_x_faces[8]] = make_shared_partition_x([x_faces[8]], x_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_y_faces[8]] = make_shared_partition_y([y_faces[8]], y_tiles, Nx, Ny, Nz, ntx, nty, ntz)
-  var [s_z_faces[8]] = make_shared_partition_z([z_faces[8]], z_tiles, Nx, Ny, Nz, ntx, nty, ntz)
+  color_faces_y([y_faces[7]], Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[7]] = partition([y_faces[7]].private_color, [tiles_private])
+  var [s_y_faces[7]] = partition([y_faces[7]].shared_color, [y_tiles_shared])
+
+  color_faces_y([y_faces[8]], Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_y_faces[8]] = partition([y_faces[8]].private_color, [tiles_private])
+  var [s_y_faces[8]] = partition([y_faces[8]].shared_color, [y_tiles_shared])
+
+  -- z
+
+  color_faces_z([z_faces[1]], Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[1]] = partition([z_faces[1]].private_color, [tiles_private])
+  var [s_z_faces[1]] = partition([z_faces[1]].shared_color, [z_tiles_shared])
+
+  color_faces_z([z_faces[2]], Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[2]] = partition([z_faces[2]].private_color, [tiles_private])
+  var [s_z_faces[2]] = partition([z_faces[2]].shared_color, [z_tiles_shared])
+
+  color_faces_z([z_faces[3]], Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[3]] = partition([z_faces[3]].private_color, [tiles_private])
+  var [s_z_faces[3]] = partition([z_faces[3]].shared_color, [z_tiles_shared])
+
+  color_faces_z([z_faces[4]], Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[4]] = partition([z_faces[4]].private_color, [tiles_private])
+  var [s_z_faces[4]] = partition([z_faces[4]].shared_color, [z_tiles_shared])
+
+  color_faces_z([z_faces[5]], Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[5]] = partition([z_faces[5]].private_color, [tiles_private])
+  var [s_z_faces[5]] = partition([z_faces[5]].shared_color, [z_tiles_shared])
+
+  color_faces_z([z_faces[6]], Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[6]] = partition([z_faces[6]].private_color, [tiles_private])
+  var [s_z_faces[6]] = partition([z_faces[6]].shared_color, [z_tiles_shared])
+
+  color_faces_z([z_faces[7]], Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[7]] = partition([z_faces[7]].private_color, [tiles_private])
+  var [s_z_faces[7]] = partition([z_faces[7]].shared_color, [z_tiles_shared])
+
+  color_faces_z([z_faces[8]], Nx, Ny, Nz, ntx, nty, ntz)
+  var [p_z_faces[8]] = partition([z_faces[8]].private_color, [tiles_private])
+  var [s_z_faces[8]] = partition([z_faces[8]].shared_color, [z_tiles_shared])
 
 end end
 
@@ -2633,10 +2367,8 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     end
 
     -- Update the grid boundary intensities
-    -- Update x faces
     for j = 0, nty do
       for k = 0, ntz do
-        -- Avoid empty partitions (index 0 for lo, index ntx for hi)
         west_bound([s_x_faces[1]][{0,j,k}],
                    [s_x_faces[2]][{0,j,k}],
                    [s_x_faces[3]][{0,j,k}],

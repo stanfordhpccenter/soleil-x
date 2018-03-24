@@ -50,13 +50,13 @@ local terra readConfig() : Config
   var config : Config
   config.Grid.xTiles = 2
   config.Grid.yTiles = 2
-  config.Grid.zTiles = 1
+  config.Grid.zTiles = 2
   config.Grid.xWidth = 1.0
   config.Grid.yWidth = 1.0
-  config.Grid.zWidth = 1.0/32.0
-  config.Radiation.xNum = 32
-  config.Radiation.yNum = 32
-  config.Radiation.zNum = 1
+  config.Grid.zWidth = 1.0
+  config.Radiation.xNum = 6
+  config.Radiation.yNum = 6
+  config.Radiation.zNum = 6
   config.Radiation.qa = 0.5
   config.Radiation.qs = 0.5
   config.Radiation.emissWest  = 1.0
