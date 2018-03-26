@@ -158,9 +158,9 @@ local function emitValueParser(name, lval, rval, typ)
         var nodeName = [rval].u.object.values[i].name
         var nodeValue = [rval].u.object.values[i].value
         var parsed = false
-        escape for fld,subType in pairs(typ) do emit quote
+        escape for fld,subTyp in pairs(typ) do emit quote
           if C.strcmp(nodeName, fld) == 0 then
-            [emitValueParser(nodeName, `[lval].[fld], nodeValue, subType)]
+            [emitValueParser(name..'.'..fld, `[lval].[fld], nodeValue, subTyp)]
             parsed = true
           end
         end end end
@@ -168,7 +168,8 @@ local function emitValueParser(name, lval, rval, typ)
           totalParsed = totalParsed + 1
         else
           var stderr = C.fdopen(2, 'w')
-          C.fprintf(stderr, 'Warning: Ignoring option %s\n', nodeName)
+          C.fprintf(
+            stderr, ['Warning: Ignoring option '..name..'.%s\n'], nodeName)
         end
       end
       -- TODO: Assuming the json file contains no duplicate values
@@ -238,7 +239,7 @@ local terra parse_config(filename : &int8) : configStruct
     C.printf('JSON parsing error: %s\n', errMsg)
     C.exit(1)
   end
-  [emitValueParser('<root>', config, root, SCHEMA.Config)]
+  [emitValueParser('Config', config, root, SCHEMA.Config)]
   JSON.json_value_free(root)
   C.free(buf)
   return config
