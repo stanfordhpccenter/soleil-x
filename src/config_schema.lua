@@ -1,42 +1,13 @@
 local Exports = {}
 
 -- Enumeration constants
-Exports.FlowBC = {
-  Periodic = 0,
-  Symmetry = 1,
-  AdiabaticWall = 2,
-  IsothermalWall = 3,
-}
-Exports.ParticleBC = {
-  Permeable = 0,
-  Solid = 1,
-}
-Exports.ViscosityModel = {
-  Constant = 0,
-  PowerLaw = 1,
-  Sutherland = 2,
-}
-Exports.FlowInitCase = {
-  Uniform = 0,
-  Restart = 1,
-  Perturbed = 2,
-  TaylorGreen2DVortex = 3,
-  TaylorGreen3DVortex = 4,
-}
-Exports.OnOrOff = {
-  OFF = 0,
-  ON = 1,
-}
-Exports.ParticlesInitCase = {
-  Random = 0,
-  Restart = 1,
-  Uniform = 2,
-}
-Exports.RadiationType = {
-  OFF = 0,
-  Algebraic = 1,
-  DOM = 2,
-}
+Exports.FlowBC = Enum('Periodic','Symmetry','AdiabaticWall','IsothermalWall')
+Exports.ParticleBC = Enum('Permeable','Solid')
+Exports.ViscosityModel = Enum('Constant','PowerLaw','Sutherland')
+Exports.FlowInitCase = Enum('Uniform','Restart','Perturbed','TaylorGreen2DVortex','TaylorGreen3DVortex')
+Exports.OnOrOff = Enum('OFF','ON')
+Exports.ParticlesInitCase = Enum('Random','Restart','Uniform')
+Exports.RadiationType = Enum('OFF','Algebraic','DOM')
 
 -- Main config struct
 Exports.Config = {
@@ -59,7 +30,7 @@ Exports.Config = {
     yNum = int,
     zNum = int,
     -- coordinates of the fluid grid's origin, in meters
-    origin = double[3],
+    origin = Array(3,double),
     -- width of the fluid grid, on the x,y,z dimensions, in meters
     xWidth = double,
     yWidth = double,
@@ -67,22 +38,22 @@ Exports.Config = {
   },
   BC = {
     xBCLeft = Exports.FlowBC,
-    xBCLeftVel = double[3],
+    xBCLeftVel = Array(3,double),
     xBCLeftTemp = double,
     xBCRight = Exports.FlowBC,
-    xBCRightVel = double[3],
+    xBCRightVel = Array(3,double),
     xBCRightTemp = double,
     yBCLeft = Exports.FlowBC,
-    yBCLeftVel = double[3],
+    yBCLeftVel = Array(3,double),
     yBCLeftTemp = double,
     yBCRight = Exports.FlowBC,
-    yBCRightVel = double[3],
+    yBCRightVel = Array(3,double),
     yBCRightTemp = double,
     zBCLeft = Exports.FlowBC,
-    zBCLeftVel = double[3],
+    zBCLeftVel = Array(3,double),
     zBCLeftTemp = double,
     zBCRight = Exports.FlowBC,
-    zBCRightVel = double[3],
+    zBCRightVel = Array(3,double),
     zBCRightTemp = double,
   },
   Integrator = {
@@ -104,8 +75,8 @@ Exports.Config = {
     sutherlandTempRef = double,
     sutherlandSRef = double,
     initCase = Exports.FlowInitCase,
-    initParams = double[5],
-    bodyForce = double[3],
+    initParams = Array(5,double),
+    bodyForce = Array(3,double),
     turbForcing = Exports.OnOrOff,
   },
   Particles = {
@@ -119,7 +90,7 @@ Exports.Config = {
     initTemperature = double,
     density = double,
     diameterMean = double,
-    bodyForce = double[3],
+    bodyForce = Array(3,double),
     maxSkew = double,
     maxXferNum = int,
   },

@@ -8,30 +8,46 @@ local UTIL = require 'util'
 
 -------------------------------------------------------------------------------
 
--- Enum = map(string,int)
--- Array = SchemaT[N]
--- Struct = map(string,SchemaT)
--- SchemaT = 'bool' | 'int' | 'double' | Enum | Array | Struct
-
 local isSchemaT
+
+local EnumMT = {}
+EnumMT.__index = EnumMT
+
+-- NOTE: Put this in the global namespace, so the schema file can access it.
+function Enum(...)
+  local enum = {}
+  for i,choice in ipairs({...}) do
+    assert(type(choice) == 'string')
+    enum[choice] = i-1
+  end
+  return setmetatable(enum, EnumMT)
+end
 
 -- SchemaT -> bool
 local function isEnum(typ)
-  if type(typ) ~= 'table' then
-    return false
-  end
-  for k,v in pairs(typ) do
-    if type(k) ~= 'string' or type(v) ~= 'number' or v ~= math.floor(v) then
-      return false
-    end
-  end
-  return true
+  return type(typ) == 'table' and getmetatable(typ) == EnumMT
+end
+
+local ArrayMT = {}
+ArrayMT.__index = ArrayMT
+
+-- NOTE: Put this in the global namespace, so the schema file can access it.
+-- int, SchemaT -> Array
+function Array(num, elemType)
+  assert(type(num) == 'number' and num == math.floor(num) and num > 0)
+  assert(isSchemaT(elemType))
+  return setmetatable({
+    num = num,
+    elemType = elemType,
+  }, ArrayMT)
 end
 
 -- SchemaT -> bool
 local function isArray(typ)
-  return terralib.types.istype(typ) and typ:isarray() and isSchemaT(typ.type)
+  return type(typ) == 'table' and getmetatable(typ) == ArrayMT
 end
+
+-- Struct = map(string,SchemaT)
 
 -- SchemaT -> bool
 local function isStruct(typ)
@@ -45,6 +61,8 @@ local function isStruct(typ)
   end
   return true
 end
+
+-- SchemaT = 'bool' | 'int' | 'double' | Enum | Array | Struct
 
 -- A -> bool
 function isSchemaT(typ)
@@ -70,7 +88,7 @@ local function convertSchemaT(typ)
   elseif isEnum(typ) then
     return int
   elseif isArray(typ) then
-    return convertSchemaT(typ.type)[typ.N]
+    return convertSchemaT(typ.elemType)[typ.num]
   elseif isStruct(typ) then
     local s = terralib.types.newstruct()
     for n,t in pairs(typ) do
@@ -143,12 +161,12 @@ local function emitValueParser(name, lval, rval, typ)
       if [rval].type ~= JSON.json_array then
         [errorOut('Wrong type', name)]
       end
-      if [rval].u.array.length ~= [typ.N] then
+      if [rval].u.array.length ~= [typ.num] then
         [errorOut('Wrong length', name)]
       end
-      for i = 0,[typ.N] do
+      for i = 0,[typ.num] do
         var rval_i = [rval].u.array.values[i]
-        [emitValueParser(name..'[i]', `[lval][i], rval_i, typ.type)]
+        [emitValueParser(name..'[i]', `[lval][i], rval_i, typ.elemType)]
       end
     end
   elseif isStruct(typ) then
