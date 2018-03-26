@@ -178,24 +178,34 @@ function Exports.parseStructEntry(entry)
   else assert(false) end
 end
 
--- terralib.type -> string, string
-local function cTypeDecl(typ)
+-- map(terralib.type,string)
+local cBaseType = {
+  [int]    = 'int',
+  [int8]   = 'int8_t',
+  [int16]  = 'int16_t',
+  [int32]  = 'int32_t',
+  [int64]  = 'int64_t',
+  [uint]   = 'unsigned',
+  [uint8]  = 'uint8_t',
+  [uint16] = 'uint16_t',
+  [uint32] = 'uint32_t',
+  [uint64] = 'uint64_t',
+  [bool]   = 'bool',
+  [float]  = 'float',
+  [double] = 'double',
+}
+
+-- terralib.type, bool, string -> string, string
+local function typeDecl(typ, cStyle, indent)
   if typ:isarray() then
-    local decl, mods = cTypeDecl(typ.type)
-    return decl, '['..tostring(typ.N)..']'..mods
-  elseif typ == int    then return 'int',      ''
-  elseif typ == int8   then return 'int8_t',   ''
-  elseif typ == int16  then return 'int16_t',  ''
-  elseif typ == int32  then return 'int32_t',  ''
-  elseif typ == int64  then return 'int64_t',  ''
-  elseif typ == uint   then return 'unsigned', ''
-  elseif typ == uint8  then return 'uint8_t',  ''
-  elseif typ == uint16 then return 'uint16_t', ''
-  elseif typ == uint32 then return 'uint32_t', ''
-  elseif typ == uint64 then return 'uint64_t', ''
-  elseif typ == bool   then return 'bool',     ''
-  elseif typ == float  then return 'float',    ''
-  elseif typ == double then return 'double',   ''
+    local decl, mods = typeDecl(typ.type, cStyle, indent)
+    decl = cStyle and decl or decl..'['..tostring(typ.N)..']'
+    mods = cStyle and '['..tostring(typ.N)..']'..mods or mods
+    return decl, mods
+  elseif typ:isstruct() then
+    return Exports.prettyPrintStruct(typ, cStyle, indent), ''
+  elseif typ:isprimitive() then
+    return (cStyle and cBaseType[typ] or tostring(typ)), ''
   else assert(false) end
 end
 
@@ -212,14 +222,7 @@ function Exports.prettyPrintStruct(s, cStyle, indent)
     local name, typ = Exports.parseStructEntry(e)
     local s1 = cStyle and '' or (name..' : ')
     local s3 = cStyle and (' '..name) or ''
-    local s2, s4 = '', ''
-    if typ:isstruct() then
-      s2 = Exports.prettyPrintStruct(typ, cStyle, indent..'  ')
-    elseif cStyle then
-      s2, s4 = cTypeDecl(typ)
-    else
-      s2 = tostring(typ)
-    end
+    local s2, s4 = typeDecl(typ, cStyle, indent..'  ')
     lines:insert(indent..'  '..s1..s2..s3..s4..';')
   end
   lines:insert(indent..'}')
