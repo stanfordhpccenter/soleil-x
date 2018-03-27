@@ -1357,12 +1357,14 @@ end
 
 -- Initialize temporaries
 ebb Flow.InitializeTemporaries (c : fluidGrid)
-  c.rho_old         = c.rho
-  c.rhoVelocity_old = c.rhoVelocity
-  c.rhoEnergy_old   = c.rhoEnergy
-  c.rho_new         = c.rho
-  c.rhoVelocity_new = c.rhoVelocity
-  c.rhoEnergy_new   = c.rhoEnergy
+  if TimeIntegrator.stage == 1 then
+    c.rho_old         = c.rho
+    c.rhoVelocity_old = c.rhoVelocity
+    c.rhoEnergy_old   = c.rhoEnergy
+    c.rho_new         = c.rho
+    c.rhoVelocity_new = c.rhoVelocity
+    c.rhoEnergy_new   = c.rhoEnergy
+  end
 end
 
 -- Initialize derivatives
@@ -2202,12 +2204,14 @@ if particles_options.modeParticles then
 
   -- Initialize temporaries for time stepper
   ebb Particles.InitializeTemporaries (p : particles)
-    p.position_old    = p.position
-    p.velocity_old    = p.particle_velocity
-    p.temperature_old = p.particle_temperature
-    p.position_new    = p.position
-    p.velocity_new    = p.particle_velocity
-    p.temperature_new = p.particle_temperature
+    if TimeIntegrator.stage == 1 then
+      p.position_old    = p.position
+      p.velocity_old    = p.particle_velocity
+      p.temperature_old = p.particle_temperature
+      p.position_new    = p.position
+      p.velocity_new    = p.particle_velocity
+      p.temperature_new = p.particle_temperature
+    end
   end
 
   ----------------
@@ -3161,13 +3165,12 @@ function TimeIntegrator.UpdateSolution()
 end
 
 function TimeIntegrator.AdvanceTimeStep()
-  M.TRACE()
-
-    TimeIntegrator.SetupTimeStep()
     TimeIntegrator.timeOld:set(TimeIntegrator.simTime:get())
 
     TimeIntegrator.stage:set(1)
     M.WHILE(M.LT(TimeIntegrator.stage:get(), 5))
+      M.TRACE()
+      TimeIntegrator.SetupTimeStep()
       TimeIntegrator.InitializeTimeDerivatives()
       TimeIntegrator.ComputeDFunctionDt()
       TimeIntegrator.UpdateSolution()
@@ -3177,11 +3180,10 @@ function TimeIntegrator.AdvanceTimeStep()
       -- HACK: Move escaping particle deletion here, to appease the SPMD
       -- transformation. It should be fine to do this multiple times.
       TimeIntegrator.ConcludeTimeStep()
+      M.END()
     M.END()
 
     TimeIntegrator.timeStep:set(TimeIntegrator.timeStep:get() + 1)
-
-  M.END()
 end
 
 function TimeIntegrator.CalculateDeltaTime()
