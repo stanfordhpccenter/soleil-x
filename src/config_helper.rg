@@ -8,12 +8,14 @@ local UTIL = require 'util'
 
 -------------------------------------------------------------------------------
 
+-- NOTE: Type constructors are placed in the global namespace, so the schema
+-- file can access them without imports.
+
 local isSchemaT
 
 local EnumMT = {}
 EnumMT.__index = EnumMT
 
--- NOTE: Put this in the global namespace, so the schema file can access it.
 function Enum(...)
   local enum = {}
   for i,choice in ipairs({...}) do
@@ -31,7 +33,6 @@ end
 local ArrayMT = {}
 ArrayMT.__index = ArrayMT
 
--- NOTE: Put this in the global namespace, so the schema file can access it.
 -- int, SchemaT -> Array
 function Array(num, elemType)
   assert(type(num) == 'number' and num == math.floor(num) and num > 0)
@@ -45,6 +46,24 @@ end
 -- SchemaT -> bool
 local function isArray(typ)
   return type(typ) == 'table' and getmetatable(typ) == ArrayMT
+end
+
+local UpToMT = {}
+UpToMT.__index = UpToMT
+
+-- int, SchemaT -> UpTo
+function UpTo(max, elemType)
+  assert(type(max) == 'number' and max == math.floor(max) and max > 0)
+  assert(isSchemaT(elemType))
+  return setmetatable({
+    max = max,
+    elemType = elemType,
+  }, UpToMT)
+end
+
+-- SchemaT -> bool
+local function isUpTo(typ)
+  return type(typ) == 'table' and getmetatable(typ) == UpToMT
 end
 
 -- Struct = map(string,SchemaT)
@@ -62,7 +81,7 @@ local function isStruct(typ)
   return true
 end
 
--- SchemaT = 'bool' | 'int' | 'double' | Enum | Array | Struct
+-- SchemaT = 'bool' | 'int' | 'double' | Enum | Array | UpTo | Struct
 
 -- A -> bool
 function isSchemaT(typ)
@@ -72,6 +91,7 @@ function isSchemaT(typ)
     typ == double or
     isEnum(typ) or
     isArray(typ) or
+    isUpTo(typ) or
     isStruct(typ)
 end
 
@@ -89,6 +109,11 @@ local function convertSchemaT(typ)
     return int
   elseif isArray(typ) then
     return convertSchemaT(typ.elemType)[typ.num]
+  elseif isUpTo(typ) then
+    return struct {
+      length : uint32;
+      values : convertSchemaT(typ.elemType)[typ.max];
+    }
   elseif isStruct(typ) then
     local s = terralib.types.newstruct()
     for n,t in pairs(typ) do
@@ -167,6 +192,20 @@ local function emitValueParser(name, lval, rval, typ)
       for i = 0,[typ.num] do
         var rval_i = [rval].u.array.values[i]
         [emitValueParser(name..'[i]', `[lval][i], rval_i, typ.elemType)]
+      end
+    end
+  elseif isUpTo(typ) then
+    return quote
+      if [rval].type ~= JSON.json_array then
+        [errorOut('Wrong type', name)]
+      end
+      if [rval].u.array.length > [typ.max] then
+        [errorOut('Too many values', name)]
+      end
+      [lval].length = [rval].u.array.length
+      for i = 0,[rval].u.array.length do
+        var rval_i = [rval].u.array.values[i]
+        [emitValueParser(name..'[i]', `[lval].values[i], rval_i, typ.elemType)]
       end
     end
   elseif isStruct(typ) then
