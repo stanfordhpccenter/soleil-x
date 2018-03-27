@@ -81,7 +81,7 @@ double rand_gauss() {
 -- Use the built in rand() function from Liszt
 local rand_float = L.rand
 
-local TPRUNE = 5
+local TPRUNE = 10
 
 -----------------------------------------------------------------------------
 --[[                       MAPPER CONFIGURATION                          ]]--
@@ -1393,7 +1393,7 @@ ebb Flow.Initialize (c : fluidGrid)
   c.rhoEnthalpy = c.rhoEnergy + c.pressure
 end
 
-Flow.InitializeTimeDerivatives.timing = {
+Flow.Initialize.timing = {
   kind = "pre",
   variable = TimeIntegrator.timeStep,
   target = TPRUNE,
