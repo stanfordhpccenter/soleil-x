@@ -36,7 +36,9 @@ LINK_FLAGS += -l$(HDF_LIBNAME)
 endif
 LINK_FLAGS += -lm
 
-.PHONY: all clean
+.PHONY: default all clean
+
+default: soleil.exec
 
 all: soleil.exec dom_host.exec
 
