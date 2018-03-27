@@ -123,6 +123,10 @@ Exports.Config = {
     -- how often to write intermediate statistics to the console
     consoleFrequency = int,
     headerFrequency = int,
+    probes = UpTo(5,{
+      coords = Array(3,int),
+      frequency = int,
+    }),
   },
 }
 

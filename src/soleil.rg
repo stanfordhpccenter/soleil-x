@@ -148,6 +148,8 @@ local DOM = (require 'dom/dom')(NUM_ANGLES, Radiation_columns)
 
 local PI = 3.1415926535898
 
+local FILE_PTR_SIZE = sizeof(&C.FILE)
+
 -------------------------------------------------------------------------------
 -- MACROS
 -------------------------------------------------------------------------------
@@ -5280,6 +5282,29 @@ task work(config : Config)
       Radiation_InitializeCell(Radiation);
       [DOM.InitRegions()];
     end
+    -- Open long-running files
+    var probeFiles = [&&C.FILE](C.malloc(config.IO.probes.length * FILE_PTR_SIZE))
+    for i = 0,config.IO.probes.length do
+      var filename = [&int8](C.malloc(32))
+      C.snprintf(filename, 32, 'probe%d.csv', i)
+      if C.fopen(filename, 'r') ~= [&C.FILE](0) then
+        var stderr = C.fdopen(2, 'w')
+        C.fprintf(stderr, 'Probe file %s already exists.\n', filename)
+        C.fflush(stderr)
+        C.exit(1)
+      end
+      probeFiles[i] = C.fopen(filename, 'w')
+      if probeFiles[i] == [&C.FILE](0) then
+        var stderr = C.fdopen(2, 'w')
+        C.fprintf(stderr, 'Cannot open file %s for writing.\n', filename)
+        C.fflush(stderr)
+        C.exit(1)
+      end
+      C.fprintf(probeFiles[i], 'timeStep\ttemperature\n')
+      C.fflush(probeFiles[i])
+      C.free(filename)
+    end
+
     -- Main time-step loop
     while true do
       -- Calculate exit condition, but don't exit yet
@@ -5324,6 +5349,15 @@ task work(config : Config)
           C.free([&opaque](dirname))
         end
       end
+      for i = 0,config.IO.probes.length do
+        var probe = config.IO.probes.values[i]
+        if exitCond or Integrator_timeStep % probe.frequency == 0 then
+          var temp = Fluid[int3d{probe.coords[0],probe.coords[1],probe.coords[2]}].temperature
+          C.fprintf(probeFiles[i], '%d\t%lf\n', Integrator_timeStep, temp)
+          C.fflush(probeFiles[i])
+        end
+      end
+
       -- Check exit condition after I/O
       if exitCond then
         break
@@ -5418,6 +5452,13 @@ task work(config : Config)
       end
       Integrator_timeStep = (Integrator_timeStep+1)
     end
+
+    -- Close long-running files
+    for i = 0,config.IO.probes.length do
+      C.fclose(probeFiles[i])
+    end
+    C.free(probeFiles)
+
   end
 end
 

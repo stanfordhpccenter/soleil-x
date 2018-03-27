@@ -105,6 +105,7 @@
         "wrtRestart" : true,
         "restartEveryTimeSteps" : 100,
         "consoleFrequency" : 1,
-        "headerFrequency" : 100
+        "headerFrequency" : 100,
+        "probes" : []
     }
 }
