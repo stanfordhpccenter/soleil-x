@@ -140,7 +140,7 @@ struct Radiation_columns {
 -- EXTERNAL MODULE IMPORTS
 -------------------------------------------------------------------------------
 
-local DOM = (require 'dom/dom')(NUM_ANGLES, Radiation_columns)
+local DOM = (require 'dom')(NUM_ANGLES, Radiation_columns)
 
 -------------------------------------------------------------------------------
 -- CONSTANTS
