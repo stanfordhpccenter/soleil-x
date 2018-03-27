@@ -5,7 +5,6 @@ Exports.FlowBC = Enum('Periodic','Symmetry','AdiabaticWall','IsothermalWall')
 Exports.ParticleBC = Enum('Permeable','Solid')
 Exports.ViscosityModel = Enum('Constant','PowerLaw','Sutherland')
 Exports.FlowInitCase = Enum('Uniform','Restart','Perturbed','TaylorGreen2DVortex','TaylorGreen3DVortex')
-Exports.OnOrOff = Enum('OFF','ON')
 Exports.ParticlesInitCase = Enum('Random','Restart','Uniform')
 Exports.RadiationType = Enum('OFF','Algebraic','DOM')
 
@@ -77,7 +76,7 @@ Exports.Config = {
     initCase = Exports.FlowInitCase,
     initParams = Array(5,double),
     bodyForce = Array(3,double),
-    turbForcing = Exports.OnOrOff,
+    turbForcing = bool,
   },
   Particles = {
     initCase = Exports.ParticlesInitCase,
@@ -118,7 +117,7 @@ Exports.Config = {
   },
   IO = {
     -- whether to write restart files (requires compiling with HDF support)
-    wrtRestart = Exports.OnOrOff,
+    wrtRestart = bool,
     -- how often to write restart files
     restartEveryTimeSteps = int,
     -- how often to write intermediate statistics to the console

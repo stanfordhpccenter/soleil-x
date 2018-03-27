@@ -60,7 +60,7 @@
         "initCase" : "Uniform",
         "initParams" : [1.0, 100000.0, 1.0, 0.0, 0.0],
         "bodyForce" : [1.2, 0.0, 0.0],
-        "turbForcing" : "OFF"
+        "turbForcing" : false
     },
 
     "Particles" : {
@@ -102,7 +102,7 @@
     },
 
     "IO" : {
-        "wrtRestart" : "ON",
+        "wrtRestart" : true,
         "restartEveryTimeSteps" : 100,
         "consoleFrequency" : 1,
         "headerFrequency" : 100

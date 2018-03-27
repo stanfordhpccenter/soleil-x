@@ -5335,7 +5335,7 @@ task work(config : Config)
         Flow_AddGetFlux(Fluid, Flow_constantVisc, Flow_gamma, Flow_gasConstant, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_prandtl, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel, Grid_xBnum, Grid_xCellWidth, Grid_xNum, Grid_yBnum, Grid_yCellWidth, Grid_yNum, Grid_zBnum, Grid_zCellWidth, Grid_zNum)
         Flow_AddUpdateUsingFlux(Fluid, Grid_xBnum, Grid_xCellWidth, Grid_xNum, Grid_yBnum, Grid_yCellWidth, Grid_yNum, Grid_zBnum, Grid_zCellWidth, Grid_zNum)
         Flow_AddBodyForces(Fluid, Flow_bodyForce, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-        if (config.Flow.turbForcing == SCHEMA.OnOrOff_ON) then
+        if config.Flow.turbForcing then
           Flow_averagePD = 0.0
           Flow_averageDissipation = 0.0
           Flow_averageFe = 0.0
@@ -5433,7 +5433,7 @@ task work(config : Config)
           end
           C.printf("%8d %11.6f %11.6f %11.6f %11.6f %11.6f\n", Integrator_timeStep, Integrator_simTime, Flow_averagePressure, Flow_averageTemperature, Flow_averageKineticEnergy, Particles_averageTemperature)
         end
-        if (config.IO.wrtRestart == SCHEMA.OnOrOff_ON) then
+        if config.IO.wrtRestart then
           if ((Integrator_timeStep%config.IO.restartEveryTimeSteps)==0) then
             var dirname = [&int8](C.malloc(256))
             C.snprintf(dirname, 256, "fluid_sample%d_iter%d", config.Mapping.sampleId, Integrator_timeStep)

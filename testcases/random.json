@@ -63,7 +63,7 @@
         "initCase" : "Uniform",
         "initParams" : [0.4472728, 0.4001904, 0.3713178, 0.6807681, 0.4900506],
         "bodyForce" : [0.7751856, 0.7816449, 0.1264908],
-        "turbForcing" : "OFF"
+        "turbForcing" : false
     },
 
     "Particles" : {
@@ -105,7 +105,7 @@
     },
 
     "IO" : {
-        "wrtRestart" : "ON",
+        "wrtRestart" : true,
         "restartEveryTimeSteps" : 444,
         "consoleFrequency" : 333,
         "headerFrequency" : 555

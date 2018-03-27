@@ -60,7 +60,7 @@
         "initCase" : "Restart",
         "initParams" : [1.2, 1.0e5, 0.0, 0.0, 0.0],
         "bodyForce" : [0.0, 0.0, 0.0],
-        "turbForcing" : "OFF"
+        "turbForcing" : false
     },
 
     "Particles" : {
@@ -102,7 +102,7 @@
     },
 
     "IO" : {
-        "wrtRestart" : "ON",
+        "wrtRestart" : true,
         "restartEveryTimeSteps" : 5,
         "consoleFrequency" : 1,
         "headerFrequency" : 10
