@@ -60,7 +60,9 @@ fi
 ###############################################################################
 
 function run_titan {
-    qsub -v LD_LIBRARY_PATH,ARGS,NUM_NODES \
+    if (( MINUTES > 60 )); then quit "Walltime too long"; fi
+    export CURR_DIR="$(pwd)"
+    qsub -v LD_LIBRARY_PATH,ARGS,NUM_NODES,CURR_DIR \
         -l nodes=$NUM_NODES -l walltime=$WALLTIME -q debug \
         "$SOLEIL_DIR"/src/titan.pbs
 }

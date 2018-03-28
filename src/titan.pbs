@@ -2,20 +2,35 @@
 #PBS -A CSC188
 #PBS -N soleil
 
+# First switch to the directory where this job was launched, to make sure
+# any relative paths in the arguments are valid.
+cd "$CURR_DIR"
+
+# Create a scratch directory on the Lustre filesystem, for I/O.
 SCRATCH_DIR="$PROJWORK"/csc188/stanford/$PBS_JOBID
 mkdir "$SCRATCH_DIR"
-cd "$SCRATCH_DIR"
 
-# Copy custom shared libs and input files to scratch directory
-cp "$LEGION_DIR"/bindings/regent/libregent.so "$SCRATCH_DIR"
+# Copy input files to scratch directory.
 cp -r "$SOLEIL_DIR"/src/LMquads "$SCRATCH_DIR"
-# Put the scratch directory first, to make sure our custom shared libs are
-# read from there.
-export LD_LIBRARY_PATH="$SCRATCH_DIR:${LD_LIBRARY_PATH:-}"
+_ARGS=
+CONFIGFILE_FOLLOWS=false
+for ARG in $ARGS; do
+    if [[ $CONFIGFILE_FOLLOWS == true ]]; then
+	cp $ARG "$SCRATCH_DIR"
+	CONFIGFILE_FOLLOWS=false
+	_ARGS="$_ARGS ${ARG##*/}"
+    else
+	if [[ $ARG == "-i" ]]; then
+	    CONFIGFILE_FOLLOWS=true
+	fi
+	_ARGS="$_ARGS $ARG"
+    fi
+done
 
+# Start the job inside the scratch directory.
+cd "$SCRATCH_DIR"
 # HACK: LLVM installs a bad ELF interpreter on the executable, so we run it
 # through ld.so.
-aprun -n $NUM_NODES -N 1 /lib64/ld-linux-x86-64.so.2 \
-    "$SOLEIL_DIR"/src/soleil.exec $ARGS \
-    -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 \
-    -ll:csize 40000
+aprun -n $NUM_NODES -N 1 -cc none /lib64/ld-linux-x86-64.so.2 \
+    "$SOLEIL_DIR"/src/soleil.exec $_ARGS \
+    -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8
