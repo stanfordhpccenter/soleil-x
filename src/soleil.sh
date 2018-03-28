@@ -1,8 +1,5 @@
 #!/bin/bash -eu
 
-SOLEIL_SRC="$(cd "$(dirname "$(perl -MCwd -le 'print Cwd::abs_path(shift)' "${BASH_SOURCE[0]}")")" && pwd)"
-cd "$SOLEIL_SRC"
-
 ###############################################################################
 
 function quit {
@@ -65,7 +62,7 @@ fi
 function run_titan {
     qsub -v LD_LIBRARY_PATH,ARGS,NUM_NODES \
         -l nodes=$NUM_NODES -l walltime=$WALLTIME -q debug \
-        titan.pbs
+        "$SOLEIL_DIR"/src/titan.pbs
 }
 
 function run_certainty {
@@ -82,13 +79,14 @@ function run_certainty {
         # GPU nodes, pick $NUM_NODES that aren't on the blacklist, and request
         # those specifically.
         NUM_AVAIL="$(pbsnodes -l free | grep gpu | awk '{print $1}' | sort |
-                     comm -23 - blacklist/certainty.txt | wc -l)"
+                     comm -23 - "$SOLEIL_DIR"/src/blacklist/certainty.txt |
+                     wc -l)"
         if (( NUM_AVAIL < NUM_NODES )); then
 	    quit "Too many nodes requested"
 	fi
         NODES="$(pbsnodes -l free | grep gpu | awk '{print $1}' | sort |
-                 comm -23 - blacklist/certainty.txt | head -n $NUM_NODES |
-                 paste -sd '+' -)"
+                 comm -23 - "$SOLEIL_DIR"/src/blacklist/certainty.txt |
+                 head -n $NUM_NODES | paste -sd '+' -)"
     elif [[ "$QUEUE" == "largemem" ]]; then
 	if (( MINUTES > 7 * 24 * 60 )); then quit "Walltime too long"; fi
 	NODES=$NUM_NODES:ppn=24
@@ -102,7 +100,7 @@ function run_certainty {
     fi
     qsub -v LD_LIBRARY_PATH,ARGS,NUM_NODES,QUEUE \
         -l nodes=$NODES -l walltime=$WALLTIME -q $QUEUE \
-        certainty.pbs
+        "$SOLEIL_DIR"/src/certainty.pbs
 }
 
 function run_sapling {
@@ -113,13 +111,13 @@ function run_sapling {
         NODES=$NODES,n000$i
     done
     mpiexec -H $NODES --bind-to none -x LD_LIBRARY_PATH \
-        ./soleil.exec $ARGS \
+        "$SOLEIL_DIR"/src/soleil.exec $ARGS \
         -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 -ll:gpu 1 \
         -ll:csize 20000 -ll:fsize 2048
 }
 
 function run_local {
-    ./soleil.exec $ARGS \
+    "$SOLEIL_DIR"/src/soleil.exec $ARGS \
         -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 3 \
         -ll:csize 9000
 }
