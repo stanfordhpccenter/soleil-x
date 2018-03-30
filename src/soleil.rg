@@ -11,6 +11,7 @@ local C = terralib.includecstring[[
 ]]
 local MAPPER = terralib.includec("soleil_mapper.h")
 local SCHEMA = terralib.includec("config_schema.h")
+local UTIL = require 'util'
 
 local acos = regentlib.acos(double)
 local ceil = regentlib.ceil(double)
@@ -5246,9 +5247,9 @@ task work(config : Config)
     end
     if (config.Flow.initCase == SCHEMA.FlowInitCase_Restart) then
       var dirname = [&int8](C.malloc(256))
-      C.snprintf(dirname, 256, "fluid_sample%d_iter%d", config.Mapping.sampleId, config.Integrator.restartIter)
+      C.snprintf(dirname, 256, "sample%d/fluid_iter%d", config.Mapping.sampleId, config.Integrator.restartIter)
       Fluid_load(primColors, dirname, Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
-      C.free([&opaque](dirname))
+      C.free(dirname)
     end
     Flow_UpdateConservedFromPrimitive(Fluid, Flow_gamma, Flow_gasConstant, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
     Flow_UpdateAuxiliaryVelocity(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
@@ -5267,9 +5268,9 @@ task work(config : Config)
     end
     if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart) then
       var dirname = [&int8](C.malloc(256))
-      C.snprintf(dirname, 256, "particles_sample%d_iter%d", config.Mapping.sampleId, config.Integrator.restartIter)
+      C.snprintf(dirname, 256, "sample%d/particles_iter%d", config.Mapping.sampleId, config.Integrator.restartIter)
       particles_load(primColors, dirname, particles, particles_copy, particles_primPart, particles_copy_primPart)
-      C.free([&opaque](dirname))
+      C.free(dirname)
       Particles_InitializeDensity(particles, Particles_density)
       Particles_number += Particles_CalculateNumber(particles)
     end
@@ -5286,7 +5287,7 @@ task work(config : Config)
     var probeFiles = [&&C.FILE](C.malloc(config.IO.probes.length * FILE_PTR_SIZE))
     for i = 0,config.IO.probes.length do
       var filename = [&int8](C.malloc(32))
-      C.snprintf(filename, 32, 'probe%d.csv', i)
+      C.snprintf(filename, 32, 'sample%d/probe%d.csv', config.Mapping.sampleId, i)
       if C.fopen(filename, 'r') ~= [&C.FILE](0) then
         var stderr = C.fdopen(2, 'w')
         C.fprintf(stderr, 'Probe file %s already exists.\n', filename)
@@ -5300,7 +5301,7 @@ task work(config : Config)
         C.fflush(stderr)
         C.exit(1)
       end
-      C.fprintf(probeFiles[i], 'timeStep\ttemperature\n')
+      C.fprintf(probeFiles[i], 'TimeStep\tTemperature\n')
       C.fflush(probeFiles[i])
       C.free(filename)
     end
@@ -5342,11 +5343,11 @@ task work(config : Config)
       if config.IO.wrtRestart then
         if exitCond or Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 then
           var dirname = [&int8](C.malloc(256))
-          C.snprintf(dirname, 256, "fluid_sample%d_iter%d", config.Mapping.sampleId, Integrator_timeStep)
+          C.snprintf(dirname, 256, "sample%d/fluid_iter%d", config.Mapping.sampleId, Integrator_timeStep)
           Fluid_dump(primColors, dirname, Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
-          C.snprintf(dirname, 256, "particles_sample%d_iter%d", config.Mapping.sampleId, Integrator_timeStep)
+          C.snprintf(dirname, 256, "sample%d/particles_iter%d", config.Mapping.sampleId, Integrator_timeStep)
           particles_dump(primColors, dirname, particles, particles_copy, particles_primPart, particles_copy_primPart)
-          C.free([&opaque](dirname))
+          C.free(dirname)
         end
       end
       for i = 0,config.IO.probes.length do
@@ -5469,6 +5470,10 @@ task main()
     if C.strcmp(args.argv[i],"-i") == 0 and i < args.argc-1 then
       var config = SCHEMA.parse_config(args.argv[i+1])
       config.Mapping.sampleId = launched
+      var dirname = [&int8](C.malloc(256))
+      C.snprintf(dirname, 256, "sample%d", config.Mapping.sampleId)
+      UTIL.mkdir(dirname)
+      C.free(dirname)
       work(config)
       launched += 1
     end
