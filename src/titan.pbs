@@ -14,11 +14,14 @@ mkdir "$SCRATCH_DIR"
 cp -r "$SOLEIL_DIR"/src/LMquads "$SCRATCH_DIR"
 _ARGS=
 CONFIGFILE_FOLLOWS=false
+NUM_SAMPLES=0
 for ARG in $ARGS; do
-    if [[ $CONFIGFILE_FOLLOWS == true ]]; then
-	cp $ARG "$SCRATCH_DIR"
+    if [[ "$CONFIGFILE_FOLLOWS" == true ]]; then
 	CONFIGFILE_FOLLOWS=false
-	_ARGS="$_ARGS ${ARG##*/}"
+	_ARG="$SCRATCH_DIR/sample$NUM_SAMPLES.json"
+	NUM_SAMPLES=$(( NUM_SAMPLES + 1 ))
+	cp "$ARG" "$_ARG"
+	_ARGS="$_ARGS $_ARG"
     else
 	if [[ "$ARG" == "-i" ]]; then
 	    CONFIGFILE_FOLLOWS=true
