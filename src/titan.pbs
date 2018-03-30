@@ -7,10 +7,10 @@
 cd "$CURR_DIR"
 
 # Create a scratch directory on the Lustre filesystem, for I/O.
-SCRATCH_DIR="$PROJWORK"/csc188/stanford/$PBS_JOBID
+SCRATCH_DIR="$PROJWORK"/csc188/stanford/"$PBS_JOBID"
 mkdir "$SCRATCH_DIR"
 
-# Copy input files to scratch directory.
+# Copy input files to the scratch directory.
 cp -r "$SOLEIL_DIR"/src/LMquads "$SCRATCH_DIR"
 _ARGS=
 CONFIGFILE_FOLLOWS=false
@@ -20,7 +20,7 @@ for ARG in $ARGS; do
 	CONFIGFILE_FOLLOWS=false
 	_ARGS="$_ARGS ${ARG##*/}"
     else
-	if [[ $ARG == "-i" ]]; then
+	if [[ "$ARG" == "-i" ]]; then
 	    CONFIGFILE_FOLLOWS=true
 	fi
 	_ARGS="$_ARGS $ARG"
@@ -31,6 +31,6 @@ done
 cd "$SCRATCH_DIR"
 # HACK: LLVM installs a bad ELF interpreter on the executable, so we run it
 # through ld.so.
-aprun -n $NUM_NODES -N 1 -cc none /lib64/ld-linux-x86-64.so.2 \
+aprun -n "$NUM_NODES" -N 1 -cc none /lib64/ld-linux-x86-64.so.2 \
     "$SOLEIL_DIR"/src/soleil.exec $_ARGS \
     -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8

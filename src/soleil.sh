@@ -41,16 +41,16 @@ export NUM_NODES=0
 for (( i = 1; i <= $#; i++ )); do
     if [[ "${!i}" == "-i" ]] && (( $i < $# )); then
         j=$((i+1))
-        _MINUTES=$(get_walltime "${!j}")
+        _MINUTES="$(get_walltime "${!j}")"
         MINUTES=$(( MINUTES > _MINUTES ? MINUTES : _MINUTES ))
-        _NUM_NODES=$(get_num_nodes "${!j}")
+        _NUM_NODES="$(get_num_nodes "${!j}")"
         export NUM_NODES=$(( NUM_NODES + _NUM_NODES ))
     fi
 done
 if (( NUM_NODES < 1 )); then
     quit "Usage: $0 -i <config1.json> [-i <config2.json> ...]"
 fi
-WALLTIME=$(printf "%02d:%02d:00" $((MINUTES/60)) $((MINUTES%60)))
+WALLTIME="$(printf "%02d:%02d:00" $((MINUTES/60)) $((MINUTES%60)))"
 
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:$LEGION_DIR/bindings/regent/"
 if [ ! -z "${HDF_ROOT:-}" ]; then
@@ -63,7 +63,7 @@ function run_titan {
     if (( MINUTES > 60 )); then quit "Walltime too long"; fi
     export CURR_DIR="$(pwd)"
     qsub -v LD_LIBRARY_PATH,ARGS,NUM_NODES,CURR_DIR \
-        -l nodes=$NUM_NODES -l walltime=$WALLTIME -q debug \
+        -l nodes="$NUM_NODES" -l walltime="$WALLTIME" -q debug \
         "$SOLEIL_DIR"/src/titan.pbs
 }
 
@@ -72,10 +72,10 @@ function run_certainty {
     # TODO: Only supporting blacklist on gpu queue
     if [[ "$QUEUE" == "default" ]]; then
 	if (( MINUTES > 2 * 24 * 60 )); then quit "Walltime too long"; fi
-	NODES=$NUM_NODES:ppn=32
+	NODES="$NUM_NODES:ppn=32"
     elif [[ "$QUEUE" == "debug" ]]; then
 	if (( MINUTES > 4 * 60 )); then quit "Walltime too long"; fi
-	NODES=$NUM_NODES:ppn=24
+	NODES="$NUM_NODES:ppn=24"
     elif [[ "$QUEUE" == "gpu" ]]; then
         # HACK: Torque doesn't support node exclusion, so we just list all free
         # GPU nodes, pick $NUM_NODES that aren't on the blacklist, and request
@@ -91,17 +91,17 @@ function run_certainty {
                  head -n $NUM_NODES | paste -sd '+' -)"
     elif [[ "$QUEUE" == "largemem" ]]; then
 	if (( MINUTES > 7 * 24 * 60 )); then quit "Walltime too long"; fi
-	NODES=$NUM_NODES:ppn=24
+	NODES="$NUM_NODES:ppn=24"
     elif [[ "$QUEUE" == "long" ]]; then
-	NODES=$NUM_NODES:ppn=24
+	NODES="$NUM_NODES:ppn=24"
     elif [[ "$QUEUE" == "quick" ]]; then
 	if (( MINUTES > 24 * 60 )); then quit "Walltime too long"; fi
-	NODES=$NUM_NODES:ppn=16
+	NODES="$NUM_NODES:ppn=16"
     else
 	quit "Unrecognized queue $QUEUE"
     fi
     qsub -v LD_LIBRARY_PATH,ARGS,NUM_NODES,QUEUE \
-        -l nodes=$NODES -l walltime=$WALLTIME -q $QUEUE \
+        -l nodes="$NODES" -l walltime="$WALLTIME" -q "$QUEUE" \
         "$SOLEIL_DIR"/src/certainty.pbs
 }
 
@@ -110,9 +110,9 @@ function run_sapling {
     if (( NUM_NODES > 4 )); then quit "Too many nodes requested"; fi
     NODES=n0000
     for (( i = 1; i < NUM_NODES; i++ )); do
-        NODES=$NODES,n000$i
+        NODES="$NODES,n000$i"
     done
-    mpiexec -H $NODES --bind-to none -x LD_LIBRARY_PATH \
+    mpiexec -H "$NODES" --bind-to none -x LD_LIBRARY_PATH \
         "$SOLEIL_DIR"/src/soleil.exec $ARGS \
         -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 -ll:gpu 1 \
         -ll:csize 20000 -ll:fsize 2048
@@ -126,11 +126,11 @@ function run_local {
 
 ###############################################################################
 
-if [[ $(uname -n) == *"titan"* ]]; then
+if [[ "$(uname -n)" == *"titan"* ]]; then
     run_titan
-elif [[ $(uname -n) == *"certainty"* ]]; then
+elif [[ "$(uname -n)" == *"certainty"* ]]; then
     run_certainty
-elif [[ $(uname -n) == *"sapling"* ]]; then
+elif [[ "$(uname -n)" == *"sapling"* ]]; then
     run_sapling
 else
     run_local
