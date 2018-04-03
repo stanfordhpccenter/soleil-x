@@ -58,7 +58,7 @@
         "sutherlandTempRef" : -1.0,
         "sutherlandSRef"    : -1.0,
         "initCase"          : "Uniform",
-        "initParams"        : [1.0,101325,15.0,0.0,0.0],
+        "initParams"        : [1.0, 101325.0, 15.0, 0.0, 0.0],
         "bodyForce"         : [1.0, 0.0, 0.0],
         "turbForcing"       : false
     },
@@ -70,13 +70,13 @@
         "restitutionCoeff" : 1.0,
         "convectiveCoeff"  : 65000.0,
         "absorptivity"     : 1.0,
-        "heatCapacity"     : 450,
+        "heatCapacity"     : 450.0,
         "initTemperature"  : 300.0,
         "density"          : 10000.0,
         "diameterMean"     : 0.000848528,
         "bodyForce"        : [0.0, 0.0, 0.0],
-        "maxSkew" : 1.2,
-        "maxXferNum" : 100
+        "maxSkew"          : 1.2,
+        "maxXferNum"       : 100
     },
 
     "Radiation" : {
@@ -95,7 +95,7 @@
         "emissDown"  : 1.0,
         "tempEast"   : 0.0,
         "tempWest"   : 0.0,
-        "tempSouth"  : 300.0,
+        "tempSouth"  : 1000.0,
         "tempNorth"  : 0.0,
         "tempUp"     : 0.0,
         "tempDown"   : 0.0
