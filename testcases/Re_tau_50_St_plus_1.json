@@ -1,0 +1,111 @@
+{
+    "Mapping" : {
+        "xTiles"   : 1,
+        "yTiles"   : 1,
+        "zTiles"   : 1,
+        "sampleId" : -1,
+        "wallTime" : 60
+    },
+
+    "Grid" : {
+        "xNum"   : 64,
+        "yNum"   : 32,
+        "zNum"   : 32,
+        "origin" : [0.0, 0.0, 0.0],
+        "xWidth" : 3.141592654,
+        "yWidth" : 2.0,
+        "zWidth" : 1.047197551
+    },
+
+    "BC" : {
+        "xBCLeft"      : "Periodic",
+        "xBCLeftVel"   : [0.0, 0.0, 0.0],
+        "xBCLeftTemp"  : 300.0,
+        "xBCRight"     : "Periodic",
+        "xBCRightVel"  : [0.0, 0.0, 0.0],
+        "xBCRightTemp" : 300.0,
+        "yBCLeft"      : "AdiabaticWall",
+        "yBCLeftVel"   : [0.0, 0.0, 0.0],
+        "yBCLeftTemp"  : 300.0,
+        "yBCRight"     : "AdiabaticWall",
+        "yBCRightVel"  : [0.0, 0.0, 0.0],
+        "yBCRightTemp" : 300.0,
+        "zBCLeft"      : "Periodic",
+        "zBCLeftVel"   : [0.0, 0.0, 0.0],
+        "zBCLeftTemp"  : 300.0,
+        "zBCRight"     : "Periodic",
+        "zBCRightVel"  : [0.0, 0.0, 0.0],
+        "zBCRightTemp" : 300.0
+    },
+
+    "Integrator" : {
+        "finalTime"      : 1.0,
+        "restartIter"    : -1,
+        "maxIter"        : 200,
+        "cfl"            : -1.0,
+        "fixedDeltaTime" : 0.001
+    },
+
+    "Flow" : {
+        "gasConstant"       : 287.0,
+        "gamma"             : 1.4,
+        "prandtl"           : 0.71,
+        "viscosityModel"    : "Constant",
+        "constantVisc"      : 0.02,
+        "powerlawViscRef"   : -1.0,
+        "powerlawTempRef"   : -1.0,
+        "sutherlandViscRef" : -1.0,
+        "sutherlandTempRef" : -1.0,
+        "sutherlandSRef"    : -1.0,
+        "initCase"          : "Uniform",
+        "initParams"        : [1.0,101325,15.0,0.0,0.0],
+        "bodyForce"         : [1.0, 0.0, 0.0],
+        "turbForcing"       : false
+    },
+
+    "Particles" : {
+        "initCase"         : "Uniform",
+        "initNum"          : 100000,
+        "maxNum"           : 100000,
+        "restitutionCoeff" : 1.0,
+        "convectiveCoeff"  : 65000.0,
+        "absorptivity"     : 1.0,
+        "heatCapacity"     : 450,
+        "initTemperature"  : 300.0,
+        "density"          : 10000.0,
+        "diameterMean"     : 0.000848528,
+        "bodyForce"        : [0.0, 0.0, 0.0],
+        "maxSkew" : 1.2,
+        "maxXferNum" : 100
+    },
+
+    "Radiation" : {
+        "type"       : "DOM",
+        "intensity"  : -1.0,
+        "qa"         : 0.5,
+        "qs"         : 0.5,
+        "xNum"       : 64,
+        "yNum"       : 32,
+        "zNum"       : 32,
+        "emissEast"  : 1.0,
+        "emissWest"  : 1.0,
+        "emissSouth" : 1.0,
+        "emissNorth" : 1.0,
+        "emissUp"    : 1.0,
+        "emissDown"  : 1.0,
+        "tempEast"   : 0.0,
+        "tempWest"   : 0.0,
+        "tempSouth"  : 300.0,
+        "tempNorth"  : 0.0,
+        "tempUp"     : 0.0,
+        "tempDown"   : 0.0
+    },
+
+   "IO" : {
+        "wrtRestart"            : true,
+        "restartEveryTimeSteps" : 20,
+        "consoleFrequency"      : 1,
+        "headerFrequency"       : 10,
+        "probes"                : [{"coords" : [63,16,16], "frequency" : 1}]
+    }
+}
