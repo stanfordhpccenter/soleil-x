@@ -60,10 +60,19 @@ fi
 ###############################################################################
 
 function run_titan {
-    if (( MINUTES > 60 )); then quit "Walltime too long"; fi
+    export QUEUE="${QUEUE:-debug}"
+    if [[ "$QUEUE" == "batch" ]]; then
+	true
+    elif [[ "$QUEUE" == "killable" ]]; then
+	true
+    elif [[ "$QUEUE" == "debug" ]]; then
+        true
+    else
+	quit "Unrecognized queue $QUEUE"
+    fi
     export CURR_DIR="$(pwd)"
     qsub -v LD_LIBRARY_PATH,ARGS,NUM_NODES,CURR_DIR \
-        -l nodes="$NUM_NODES" -l walltime="$WALLTIME" -q debug \
+        -l nodes="$NUM_NODES" -l walltime="$WALLTIME" -q "$QUEUE" \
         "$SOLEIL_DIR"/src/titan.pbs
 }
 
