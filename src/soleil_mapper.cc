@@ -1,4 +1,6 @@
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "mappers/default_mapper.h"
 #include "realm/logging.h"
@@ -28,6 +30,10 @@ public:
                Machine machine,
                Processor local)
     : DefaultMapper(rt, machine, local, "soleil_mapper") {
+    // Set the umask of the process to clear S_IWGRP and S_IWOTH.
+    umask(022);
+    // Assign nodes sequentially to samples, each sample getting one node for
+    // each tile.
     InputArgs args = Runtime::get_input_args();
     unsigned allocated_nodes = 0;
     for (int i = 0; i < args.argc; ++i) {

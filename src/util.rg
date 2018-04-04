@@ -235,7 +235,7 @@ end
 
 terra Exports.mkdir(name : rawstring)
   var mode = 493 -- octal 0755 = rwxr-xr-x
-  var res = C.mkdir(name, mode);
+  var res = C.mkdir(name, mode)
   if res < 0 then
     var stderr = C.fdopen(2, 'w')
     C.fprintf(stderr, 'Cannot create directory %s: ', name)

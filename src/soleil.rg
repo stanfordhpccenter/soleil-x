@@ -5,8 +5,8 @@ import "regent"
 -------------------------------------------------------------------------------
 
 local C = terralib.includecstring[[
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 ]]
 local MAPPER = terralib.includec("soleil_mapper.h")
