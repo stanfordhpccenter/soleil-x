@@ -8,36 +8,68 @@ local UTIL = require 'util'
 
 -------------------------------------------------------------------------------
 
--- Enum = map(string,int)
--- SchemaT = Enum | bool | int | double | double[N] | map(string,SchemaT)
+-- NOTE: Type constructors are placed in the global namespace, so the schema
+-- file can access them without imports.
+
+local isSchemaT
+
+local EnumMT = {}
+EnumMT.__index = EnumMT
+
+function Enum(...)
+  local enum = {}
+  for i,choice in ipairs({...}) do
+    assert(type(choice) == 'string')
+    enum[choice] = i-1
+  end
+  return setmetatable(enum, EnumMT)
+end
 
 -- SchemaT -> bool
 local function isEnum(typ)
-  if type(typ) ~= 'table' then
-    return false
-  end
-  for k,v in pairs(typ) do
-    if type(k) ~= 'string' or type(v) ~= 'number' or v ~= math.floor(v) then
-      return false
-    end
-  end
-  return true
+  return type(typ) == 'table' and getmetatable(typ) == EnumMT
+end
+
+local ArrayMT = {}
+ArrayMT.__index = ArrayMT
+
+-- int, SchemaT -> Array
+function Array(num, elemType)
+  assert(type(num) == 'number' and num == math.floor(num) and num > 0)
+  assert(isSchemaT(elemType))
+  return setmetatable({
+    num = num,
+    elemType = elemType,
+  }, ArrayMT)
 end
 
 -- SchemaT -> bool
-local function isDoubleVecT(typ)
-  return terralib.types.istype(typ) and typ:isarray() and typ.type == double
+local function isArray(typ)
+  return type(typ) == 'table' and getmetatable(typ) == ArrayMT
 end
 
--- A -> bool
-local function isSchemaT(typ)
-  if isEnum(typ) or
-     typ == bool or
-     typ == int or
-     typ == double or
-     isDoubleVecT(typ) then
-    return true
-  end
+local UpToMT = {}
+UpToMT.__index = UpToMT
+
+-- int, SchemaT -> UpTo
+function UpTo(max, elemType)
+  assert(type(max) == 'number' and max == math.floor(max) and max > 0)
+  assert(isSchemaT(elemType))
+  return setmetatable({
+    max = max,
+    elemType = elemType,
+  }, UpToMT)
+end
+
+-- SchemaT -> bool
+local function isUpTo(typ)
+  return type(typ) == 'table' and getmetatable(typ) == UpToMT
+end
+
+-- Struct = map(string,SchemaT)
+
+-- SchemaT -> bool
+local function isStruct(typ)
   if type(typ) ~= 'table' then
     return false
   end
@@ -49,28 +81,46 @@ local function isSchemaT(typ)
   return true
 end
 
+-- SchemaT = 'bool' | 'int' | 'double' | Enum | Array | UpTo | Struct
+
+-- A -> bool
+function isSchemaT(typ)
+  return
+    typ == bool or
+    typ == int or
+    typ == double or
+    isEnum(typ) or
+    isArray(typ) or
+    isUpTo(typ) or
+    isStruct(typ)
+end
+
 -------------------------------------------------------------------------------
 
 -- SchemaT -> terralib.type
 local function convertSchemaT(typ)
-  assert(isSchemaT(typ))
-  if isEnum(typ) then
-    return int
-  elseif typ == bool then
+  if typ == bool then
     return bool
   elseif typ == int then
     return int
   elseif typ == double then
     return double
-  elseif isDoubleVecT(typ) then
-    return double[typ.N]
-  else
+  elseif isEnum(typ) then
+    return int
+  elseif isArray(typ) then
+    return convertSchemaT(typ.elemType)[typ.num]
+  elseif isUpTo(typ) then
+    return struct {
+      length : uint32;
+      values : convertSchemaT(typ.elemType)[typ.max];
+    }
+  elseif isStruct(typ) then
     local s = terralib.types.newstruct()
     for n,t in pairs(typ) do
       s.entries:insert({field=n, type=convertSchemaT(t)})
     end
     return s
-  end
+  else assert(false) end
 end
 
 -- string, terralib.expr? -> terralib.quote
@@ -94,29 +144,12 @@ end
 
 -- terralib.symbol, terralib.expr, terralib.expr, SchemaT -> terralib.quote
 local function emitValueParser(name, lval, rval, typ)
-  assert(isSchemaT(typ))
-  if isEnum(typ) then
-    return quote
-      if [rval].type ~= JSON.json_string then
-        [errorOut('Wrong type', name)]
-      end
-      var found = false
-      escape for choice,value in pairs(typ) do emit quote
-        if C.strcmp([rval].u.string.ptr, choice) == 0 then
-          [lval] = value
-          found = true
-        end
-      end end end
-      if not found then
-        [errorOut('Unexpected value', name)]
-      end
-    end
-  elseif typ == bool then
+  if typ == bool then
     return quote
       if [rval].type ~= JSON.json_boolean then
         [errorOut('Wrong type', name)]
       end
-      [lval] = [rval].u.boolean
+      [lval] = [bool]([rval].u.boolean)
     end
   elseif typ == int then
     return quote
@@ -132,23 +165,50 @@ local function emitValueParser(name, lval, rval, typ)
       end
       [lval] = [rval].u.dbl
     end
-  elseif isDoubleVecT(typ) then
+  elseif isEnum(typ) then
+    return quote
+      if [rval].type ~= JSON.json_string then
+        [errorOut('Wrong type', name)]
+      end
+      var found = false
+      escape for choice,value in pairs(typ) do emit quote
+        if C.strcmp([rval].u.string.ptr, choice) == 0 then
+          [lval] = value
+          found = true
+        end
+      end end end
+      if not found then
+        [errorOut('Unexpected value', name)]
+      end
+    end
+  elseif isArray(typ) then
     return quote
       if [rval].type ~= JSON.json_array then
         [errorOut('Wrong type', name)]
       end
-      if [rval].u.array.length ~= [typ.N] then
+      if [rval].u.array.length ~= [typ.num] then
         [errorOut('Wrong length', name)]
       end
-      for i = 0,[typ.N] do
+      for i = 0,[typ.num] do
         var rval_i = [rval].u.array.values[i]
-        if rval_i.type ~= JSON.json_double then
-          [errorOut('Wrong element type', name)]
-        end
-        [lval][i] = rval_i.u.dbl
+        [emitValueParser(name..'[i]', `[lval][i], rval_i, typ.elemType)]
       end
     end
-  else
+  elseif isUpTo(typ) then
+    return quote
+      if [rval].type ~= JSON.json_array then
+        [errorOut('Wrong type', name)]
+      end
+      if [rval].u.array.length > [typ.max] then
+        [errorOut('Too many values', name)]
+      end
+      [lval].length = [rval].u.array.length
+      for i = 0,[rval].u.array.length do
+        var rval_i = [rval].u.array.values[i]
+        [emitValueParser(name..'[i]', `[lval].values[i], rval_i, typ.elemType)]
+      end
+    end
+  elseif isStruct(typ) then
     return quote
       var totalParsed = 0
       if [rval].type ~= JSON.json_object then
@@ -158,9 +218,9 @@ local function emitValueParser(name, lval, rval, typ)
         var nodeName = [rval].u.object.values[i].name
         var nodeValue = [rval].u.object.values[i].value
         var parsed = false
-        escape for fld,subType in pairs(typ) do emit quote
+        escape for fld,subTyp in pairs(typ) do emit quote
           if C.strcmp(nodeName, fld) == 0 then
-            [emitValueParser(nodeName, `[lval].[fld], nodeValue, subType)]
+            [emitValueParser(name..'.'..fld, `[lval].[fld], nodeValue, subTyp)]
             parsed = true
           end
         end end end
@@ -168,7 +228,8 @@ local function emitValueParser(name, lval, rval, typ)
           totalParsed = totalParsed + 1
         else
           var stderr = C.fdopen(2, 'w')
-          C.fprintf(stderr, 'Warning: Ignoring option %s\n', nodeName)
+          C.fprintf(
+            stderr, ['Warning: Ignoring option '..name..'.%s\n'], nodeName)
         end
       end
       -- TODO: Assuming the json file contains no duplicate values
@@ -176,7 +237,7 @@ local function emitValueParser(name, lval, rval, typ)
         [errorOut('Missing options from config file')]
       end
     end
-  end
+  else assert(false) end
 end
 
 -------------------------------------------------------------------------------
@@ -194,6 +255,9 @@ local configStruct = convertSchemaT(SCHEMA.Config)
 configStruct.name = 'Config'
 local hdrFile = io.open(baseName..'.h', 'w')
 hdrFile:write('// DO NOT EDIT THIS FILE, IT IS AUTOMATICALLY GENERATED\n')
+hdrFile:write('\n')
+hdrFile:write('#include <stdbool.h>\n')
+hdrFile:write('#include <stdint.h>\n')
 hdrFile:write('\n')
 hdrFile:write(UTIL.prettyPrintStruct(configStruct, true)..';\n')
 for name,typ in pairs(SCHEMA) do
@@ -238,7 +302,7 @@ local terra parse_config(filename : &int8) : configStruct
     C.printf('JSON parsing error: %s\n', errMsg)
     C.exit(1)
   end
-  [emitValueParser('<root>', config, root, SCHEMA.Config)]
+  [emitValueParser('Config', config, root, SCHEMA.Config)]
   JSON.json_value_free(root)
   C.free(buf)
   return config

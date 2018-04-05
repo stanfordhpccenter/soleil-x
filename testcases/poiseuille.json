@@ -41,6 +41,7 @@
     "Integrator" : {
         "finalTime" : 2000.00001,
         "restartIter" : -1,
+        "restartTime" : -1.0,
         "maxIter" : 1000,
         "cfl" : 2.5,
         "fixedDeltaTime" : 1e-4
@@ -60,7 +61,7 @@
         "initCase" : "Uniform",
         "initParams" : [1.0, 100000.0, 1.0, 0.0, 0.0],
         "bodyForce" : [1.2, 0.0, 0.0],
-        "turbForcing" : "OFF"
+        "turbForcing" : false
     },
 
     "Particles" : {
@@ -102,9 +103,10 @@
     },
 
     "IO" : {
-        "wrtRestart" : "ON",
+        "wrtRestart" : true,
         "restartEveryTimeSteps" : 100,
         "consoleFrequency" : 1,
-        "headerFrequency" : 100
+        "headerFrequency" : 100,
+        "probes" : []
     }
 }

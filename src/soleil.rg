@@ -5,12 +5,13 @@ import "regent"
 -------------------------------------------------------------------------------
 
 local C = terralib.includecstring[[
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 ]]
 local MAPPER = terralib.includec("soleil_mapper.h")
 local SCHEMA = terralib.includec("config_schema.h")
+local UTIL = require 'util'
 
 local acos = regentlib.acos(double)
 local ceil = regentlib.ceil(double)
@@ -140,13 +141,15 @@ struct Radiation_columns {
 -- EXTERNAL MODULE IMPORTS
 -------------------------------------------------------------------------------
 
-local DOM = (require 'dom/dom')(NUM_ANGLES, Radiation_columns)
+local DOM = (require 'dom')(NUM_ANGLES, Radiation_columns)
 
 -------------------------------------------------------------------------------
 -- CONSTANTS
 -------------------------------------------------------------------------------
 
 local PI = 3.1415926535898
+
+local FILE_PTR_SIZE = sizeof(&C.FILE)
 
 -------------------------------------------------------------------------------
 -- MACROS
@@ -4264,11 +4267,6 @@ task work(config : Config)
   var Flow_sutherlandSRef = config.Flow.sutherlandSRef
   var Flow_initParams = config.Flow.initParams
   var Flow_bodyForce = config.Flow.bodyForce
-  var Flow_averagePressure = 0.0
-  var Flow_averageTemperature = 0.0
-  var Flow_averageKineticEnergy = 0.0
-  var Flow_minTemperature = 0.0
-  var Flow_maxTemperature = 0.0
   var Flow_averagePD = 0.0
   var Flow_averageDissipation = 0.0
   var Flow_averageFe = 0.0
@@ -4281,7 +4279,6 @@ task work(config : Config)
   var Particles_bodyForce = config.Particles.bodyForce
   var Particles_maxSkew = config.Particles.maxSkew
   var Particles_maxXferNum = config.Particles.maxXferNum
-  var Particles_averageTemperature = 0.0
   var Particles_number = int64(0)
   var Radiation_qa = config.Radiation.qa
   var Radiation_qs = config.Radiation.qs
@@ -5233,6 +5230,7 @@ task work(config : Config)
     end
     if (config.Flow.initCase == SCHEMA.FlowInitCase_Restart) then
       Integrator_timeStep = config.Integrator.restartIter
+      Integrator_simTime = config.Integrator.restartTime
     end
     Flow_InitializeCell(Fluid)
     Flow_InitializeCenterCoordinates(Fluid, Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth, Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth, Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
@@ -5250,9 +5248,9 @@ task work(config : Config)
     end
     if (config.Flow.initCase == SCHEMA.FlowInitCase_Restart) then
       var dirname = [&int8](C.malloc(256))
-      C.snprintf(dirname, 256, "fluid_sample%d_iter%d", config.Mapping.sampleId, config.Integrator.restartIter)
+      C.snprintf(dirname, 256, "sample%d/fluid_iter%d", config.Mapping.sampleId, config.Integrator.restartIter)
       Fluid_load(primColors, dirname, Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
-      C.free([&opaque](dirname))
+      C.free(dirname)
     end
     Flow_UpdateConservedFromPrimitive(Fluid, Flow_gamma, Flow_gasConstant, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
     Flow_UpdateAuxiliaryVelocity(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
@@ -5271,9 +5269,9 @@ task work(config : Config)
     end
     if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart) then
       var dirname = [&int8](C.malloc(256))
-      C.snprintf(dirname, 256, "particles_sample%d_iter%d", config.Mapping.sampleId, config.Integrator.restartIter)
+      C.snprintf(dirname, 256, "sample%d/particles_iter%d", config.Mapping.sampleId, config.Integrator.restartIter)
       particles_load(primColors, dirname, particles, particles_copy, particles_primPart, particles_copy_primPart)
-      C.free([&opaque](dirname))
+      C.free(dirname)
       Particles_InitializeDensity(particles, Particles_density)
       Particles_number += Particles_CalculateNumber(particles)
     end
@@ -5281,40 +5279,85 @@ task work(config : Config)
       InitParticlesUniform(particles, Fluid, config, Grid_xBnum, Grid_yBnum, Grid_zBnum)
       Particles_number = int64(((config.Particles.initNum/((config.Mapping.xTiles*config.Mapping.yTiles)*config.Mapping.zTiles))*((config.Mapping.xTiles*config.Mapping.yTiles)*config.Mapping.zTiles)))
     end
-    Flow_averagePressure = 0.0
-    Flow_averageTemperature = 0.0
-    Flow_averageKineticEnergy = 0.0
-    Flow_minTemperature = double(int32(math.huge))
-    Flow_maxTemperature = double(int32(-math.huge))
-    Flow_averagePD = 0.0
-    Flow_averageDissipation = 0.0
-    Particles_averageTemperature = 0.0
-    Flow_averagePressure += CalculateAveragePressure(Fluid, Grid_cellVolume, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-    Flow_averageTemperature += CalculateAverageTemperature(Fluid, Grid_cellVolume, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-    Flow_averageKineticEnergy += CalculateAverageKineticEnergy(Fluid, Grid_cellVolume, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-    Flow_minTemperature min= CalculateMinTemperature(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-    Flow_maxTemperature max= CalculateMaxTemperature(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-    Particles_averageTemperature += Particles_IntegrateQuantities(particles)
-    Flow_averagePressure = (Flow_averagePressure/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
-    Flow_averageTemperature = (Flow_averageTemperature/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
-    Flow_averageKineticEnergy = (Flow_averageKineticEnergy/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
-    Particles_averageTemperature = (Particles_averageTemperature/Particles_number);
     [DOM.DeclSymbols(config)];
     if (config.Radiation.type == SCHEMA.RadiationType_DOM) then
       Radiation_InitializeCell(Radiation);
       [DOM.InitRegions()];
     end
-    if ((Integrator_timeStep%config.IO.consoleFrequency)==0) then
-      if ((Integrator_timeStep%config.IO.headerFrequency)==0) then
-        C.printf("\n Current time step: %2.6e s.\n", Integrator_deltaTime)
-        C.printf(" Min Flow Temp: %11.6f K. Max Flow Temp: %11.6f K.\n", Flow_minTemperature, Flow_maxTemperature)
-        C.printf(" Current number of particles: %d.\n", Particles_number)
-        C.printf("\n")
-        C.printf("    Iter     Time(s)   Avg Press    Avg Temp      Avg KE  Particle T\n")
-      end
-      C.printf("%8d %11.6f %11.6f %11.6f %11.6f %11.6f\n", Integrator_timeStep, Integrator_simTime, Flow_averagePressure, Flow_averageTemperature, Flow_averageKineticEnergy, Particles_averageTemperature)
+    -- Open long-running files
+    var consoleFile = [&int8](C.malloc(32))
+    C.snprintf(consoleFile, 32, 'sample%d/console.txt', config.Mapping.sampleId)
+    var console = UTIL.createFile(consoleFile)
+    C.free(consoleFile)
+    var probeFiles = [&&C.FILE](C.malloc(config.IO.probes.length * FILE_PTR_SIZE))
+    for i = 0,config.IO.probes.length do
+      var filename = [&int8](C.malloc(32))
+      C.snprintf(filename, 32, 'sample%d/probe%d.csv', config.Mapping.sampleId, i)
+      probeFiles[i] = UTIL.createFile(filename)
+      C.free(filename)
+      C.fprintf(probeFiles[i], 'TimeStep\tTemperature\n')
+      C.fflush(probeFiles[i])
     end
-    while ((Integrator_simTime<config.Integrator.finalTime) and (Integrator_timeStep<config.Integrator.maxIter)) do
+
+    -- Main time-step loop
+    while true do
+      -- Calculate exit condition, but don't exit yet
+      var exitCond =
+        Integrator_simTime >= config.Integrator.finalTime or
+        Integrator_timeStep >= config.Integrator.maxIter
+      -- Perform IO (on user-requested timesteps, and always on the last one)
+      if exitCond or Integrator_timeStep % config.IO.headerFrequency == 0 then
+        var Flow_minTemperature = math.huge
+        var Flow_maxTemperature = -math.huge
+        Flow_minTemperature min= CalculateMinTemperature(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
+        Flow_maxTemperature max= CalculateMaxTemperature(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
+        C.fprintf(console, "\n")
+        C.fprintf(console, " Current time step: %2.6e s.\n", Integrator_deltaTime)
+        C.fprintf(console, " Min Flow Temp: %11.6f K. Max Flow Temp: %11.6f K.\n", Flow_minTemperature, Flow_maxTemperature)
+        C.fprintf(console, " Current number of particles: %d.\n", Particles_number)
+        C.fprintf(console, "\n")
+        C.fprintf(console, "    Iter     Time(s)   Avg Press    Avg Temp      Avg KE  Particle T\n")
+        C.fflush(console)
+      end
+      if exitCond or Integrator_timeStep % config.IO.consoleFrequency == 0 then
+        var Flow_averagePressure = 0.0
+        var Flow_averageTemperature = 0.0
+        var Flow_averageKineticEnergy = 0.0
+        var Particles_averageTemperature = 0.0
+        Flow_averagePressure += CalculateAveragePressure(Fluid, Grid_cellVolume, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
+        Flow_averageTemperature += CalculateAverageTemperature(Fluid, Grid_cellVolume, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
+        Flow_averageKineticEnergy += CalculateAverageKineticEnergy(Fluid, Grid_cellVolume, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
+        Particles_averageTemperature += Particles_IntegrateQuantities(particles)
+        Flow_averagePressure = (Flow_averagePressure/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
+        Flow_averageTemperature = (Flow_averageTemperature/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
+        Flow_averageKineticEnergy = (Flow_averageKineticEnergy/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
+        Particles_averageTemperature = (Particles_averageTemperature/Particles_number)
+        C.fprintf(console, "%8d %11.6f %11.6f %11.6f %11.6f %11.6f\n", Integrator_timeStep, Integrator_simTime, Flow_averagePressure, Flow_averageTemperature, Flow_averageKineticEnergy, Particles_averageTemperature)
+        C.fflush(console)
+      end
+      if config.IO.wrtRestart then
+        if exitCond or Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 then
+          var dirname = [&int8](C.malloc(256))
+          C.snprintf(dirname, 256, "sample%d/fluid_iter%d", config.Mapping.sampleId, Integrator_timeStep)
+          Fluid_dump(primColors, dirname, Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
+          C.snprintf(dirname, 256, "sample%d/particles_iter%d", config.Mapping.sampleId, Integrator_timeStep)
+          particles_dump(primColors, dirname, particles, particles_copy, particles_primPart, particles_copy_primPart)
+          C.free(dirname)
+        end
+      end
+      for i = 0,config.IO.probes.length do
+        var probe = config.IO.probes.values[i]
+        if exitCond or Integrator_timeStep % probe.frequency == 0 then
+          var temp = Fluid[int3d{probe.coords[0],probe.coords[1],probe.coords[2]}].temperature
+          C.fprintf(probeFiles[i], '%d\t%lf\n', Integrator_timeStep, temp)
+          C.fflush(probeFiles[i])
+        end
+      end
+
+      -- Check exit condition after I/O
+      if exitCond then
+        break
+      end
       if (config.Integrator.cfl<0) then
         Integrator_deltaTime = config.Integrator.fixedDeltaTime
       else
@@ -5335,7 +5378,7 @@ task work(config : Config)
         Flow_AddGetFlux(Fluid, Flow_constantVisc, Flow_gamma, Flow_gasConstant, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_prandtl, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel, Grid_xBnum, Grid_xCellWidth, Grid_xNum, Grid_yBnum, Grid_yCellWidth, Grid_yNum, Grid_zBnum, Grid_zCellWidth, Grid_zNum)
         Flow_AddUpdateUsingFlux(Fluid, Grid_xBnum, Grid_xCellWidth, Grid_xNum, Grid_yBnum, Grid_yCellWidth, Grid_yNum, Grid_zBnum, Grid_zCellWidth, Grid_zNum)
         Flow_AddBodyForces(Fluid, Flow_bodyForce, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-        if (config.Flow.turbForcing == SCHEMA.OnOrOff_ON) then
+        if config.Flow.turbForcing then
           Flow_averagePD = 0.0
           Flow_averageDissipation = 0.0
           Flow_averageFe = 0.0
@@ -5404,79 +5447,14 @@ task work(config : Config)
         end
       end
       Integrator_timeStep = (Integrator_timeStep+1)
-      if ((Integrator_timeStep%config.IO.consoleFrequency)==0) then
-        Flow_averagePressure = 0.0
-        Flow_averageTemperature = 0.0
-        Flow_averageKineticEnergy = 0.0
-        Flow_minTemperature = double(int32(math.huge))
-        Flow_maxTemperature = double(int32(-math.huge))
-        Flow_averagePD = 0.0
-        Flow_averageDissipation = 0.0
-        Particles_averageTemperature = 0.0
-        Flow_averagePressure += CalculateAveragePressure(Fluid, Grid_cellVolume, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-        Flow_averageTemperature += CalculateAverageTemperature(Fluid, Grid_cellVolume, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-        Flow_averageKineticEnergy += CalculateAverageKineticEnergy(Fluid, Grid_cellVolume, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-        Flow_minTemperature min= CalculateMinTemperature(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-        Flow_maxTemperature max= CalculateMaxTemperature(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-        Particles_averageTemperature += Particles_IntegrateQuantities(particles)
-        Flow_averagePressure = (Flow_averagePressure/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
-        Flow_averageTemperature = (Flow_averageTemperature/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
-        Flow_averageKineticEnergy = (Flow_averageKineticEnergy/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
-        Particles_averageTemperature = (Particles_averageTemperature/Particles_number)
-        if ((Integrator_timeStep%config.IO.consoleFrequency)==0) then
-          if ((Integrator_timeStep%config.IO.headerFrequency)==0) then
-            C.printf("\n Current time step: %2.6e s.\n", Integrator_deltaTime)
-            C.printf(" Min Flow Temp: %11.6f K. Max Flow Temp: %11.6f K.\n", Flow_minTemperature, Flow_maxTemperature)
-            C.printf(" Current number of particles: %d.\n", Particles_number)
-            C.printf("\n")
-            C.printf("    Iter     Time(s)   Avg Press    Avg Temp      Avg KE  Particle T\n")
-          end
-          C.printf("%8d %11.6f %11.6f %11.6f %11.6f %11.6f\n", Integrator_timeStep, Integrator_simTime, Flow_averagePressure, Flow_averageTemperature, Flow_averageKineticEnergy, Particles_averageTemperature)
-        end
-        if (config.IO.wrtRestart == SCHEMA.OnOrOff_ON) then
-          if ((Integrator_timeStep%config.IO.restartEveryTimeSteps)==0) then
-            var dirname = [&int8](C.malloc(256))
-            C.snprintf(dirname, 256, "fluid_sample%d_iter%d", config.Mapping.sampleId, Integrator_timeStep)
-            Fluid_dump(primColors, dirname, Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
-            C.free([&opaque](dirname))
-          end
-          if ((Integrator_timeStep%config.IO.restartEveryTimeSteps)==0) then
-            var dirname = [&int8](C.malloc(256))
-            C.snprintf(dirname, 256, "particles_sample%d_iter%d", config.Mapping.sampleId, Integrator_timeStep)
-            particles_dump(primColors, dirname, particles, particles_copy, particles_primPart, particles_copy_primPart)
-            C.free([&opaque](dirname))
-          end
-        end
-      end
     end
-    Flow_averagePressure = 0.0
-    Flow_averageTemperature = 0.0
-    Flow_averageKineticEnergy = 0.0
-    Flow_minTemperature = double(int32(math.huge))
-    Flow_maxTemperature = double(int32(-math.huge))
-    Flow_averagePD = 0.0
-    Flow_averageDissipation = 0.0
-    Particles_averageTemperature = 0.0
-    Flow_averagePressure += CalculateAveragePressure(Fluid, Grid_cellVolume, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-    Flow_averageTemperature += CalculateAverageTemperature(Fluid, Grid_cellVolume, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-    Flow_averageKineticEnergy += CalculateAverageKineticEnergy(Fluid, Grid_cellVolume, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-    Flow_minTemperature min= CalculateMinTemperature(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-    Flow_maxTemperature max= CalculateMaxTemperature(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-    Particles_averageTemperature += Particles_IntegrateQuantities(particles)
-    Flow_averagePressure = (Flow_averagePressure/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
-    Flow_averageTemperature = (Flow_averageTemperature/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
-    Flow_averageKineticEnergy = (Flow_averageKineticEnergy/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
-    Particles_averageTemperature = (Particles_averageTemperature/Particles_number)
-    if ((Integrator_timeStep%config.IO.consoleFrequency)==0) then
-      if ((Integrator_timeStep%config.IO.headerFrequency)==0) then
-        C.printf("\n Current time step: %2.6e s.\n", Integrator_deltaTime)
-        C.printf(" Min Flow Temp: %11.6f K. Max Flow Temp: %11.6f K.\n", Flow_minTemperature, Flow_maxTemperature)
-        C.printf(" Current number of particles: %d.\n", Particles_number)
-        C.printf("\n")
-        C.printf("    Iter     Time(s)   Avg Press    Avg Temp      Avg KE  Particle T\n")
-      end
-      C.printf("%8d %11.6f %11.6f %11.6f %11.6f %11.6f\n", Integrator_timeStep, Integrator_simTime, Flow_averagePressure, Flow_averageTemperature, Flow_averageKineticEnergy, Particles_averageTemperature)
+
+    -- Close long-running files
+    for i = 0,config.IO.probes.length do
+      C.fclose(probeFiles[i])
     end
+    C.free(probeFiles)
+
   end
 end
 
@@ -5487,6 +5465,10 @@ task main()
     if C.strcmp(args.argv[i],"-i") == 0 and i < args.argc-1 then
       var config = SCHEMA.parse_config(args.argv[i+1])
       config.Mapping.sampleId = launched
+      var dirname = [&int8](C.malloc(256))
+      C.snprintf(dirname, 256, "sample%d", config.Mapping.sampleId)
+      UTIL.createDir(dirname)
+      C.free(dirname)
       work(config)
       launched += 1
     end

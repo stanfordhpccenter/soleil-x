@@ -84,6 +84,8 @@ module load mpi/openmpi/1.8.2
 module load cuda/8.0
 # Legion build config
 export CONDUIT=ibv
+export CC=gcc
+export CXX=g++
 # Path setup
 export LEGION_DIR=???
 export LG_RT_DIR="$LEGION_DIR"/runtime
@@ -165,6 +167,8 @@ Setup (Titan @ ORNL)
 
 ### Add to shell startup
 
+Install Legion and Soleil-X on the `/ccs/proj` filesystem, not your home directory (home directories are not mounted on the compute nodes).
+
 We set `MARCH`, the processor architecture that Legion will be built for, to one that is compatible with both the login node and the compute nodes. This is done so that `libregent.so` can be used by both the final executable, when it's executing on a compute node, and the Regent compiler, which needs to link against it while compiling Soleil on the login node.
 
 ```
@@ -210,7 +214,7 @@ Running
 ```
 cd "$SOLEIL_DIR"/src
 make
-[QUEUE=???] ./run.sh -i ../testcases/???.json
+[QUEUE=???] ./soleil.sh -i ../testcases/???.json
 ```
 
 The `run.sh` script forwards all arguments to the `soleil.exec` executable. This includes any options that Soleil itself expects, and any additional options to the Legion runtime. Currently, the only option read by Soleil is `-i`; each instance of this option specifies an additional configuration file, to be run as an additional sample. See [src/config_schema.lua](src/config_schema.lua) for documentation on the available configuration options.

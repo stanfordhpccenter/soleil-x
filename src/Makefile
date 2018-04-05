@@ -17,7 +17,8 @@ ifdef HDF_ROOT
 export INCLUDE_PATH := $(INCLUDE_PATH);$(HDF_ROOT)/include
 endif
 REGENT := $(LG_RT_DIR)/../language/regent.py -g
-REGENT_FLAGS := -fflow 0 -fopenmp 1 -fcuda 1 -fcuda-offline 1
+SOLEIL_FLAGS := -fflow 0 -fopenmp 1 -fcuda 1 -fcuda-offline 1
+DOM_HOST_FLAGS := -fflow 0
 
 # Link flags
 ifdef CRAYPE_VERSION
@@ -35,18 +36,27 @@ LINK_FLAGS += -l$(HDF_LIBNAME)
 endif
 LINK_FLAGS += -lm
 
-.PHONY: default clean
+.PHONY: default all clean
 
 default: soleil.exec
 
+all: soleil.exec dom_host.exec
+
 clean:
-	$(RM) soleil.exec soleil.o soleil_mapper.o config_schema.o config_schema.h json.o
+	$(RM) soleil.exec soleil.o dom_host.exec dom_host.o \
+		soleil_mapper.o config_schema.o config_schema.h json.o
 
 soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o
 	$(CXX) -o $@ $^ $(LINK_FLAGS)
 
-soleil.o: soleil.rg soleil_mapper.h config_schema.h hdf_helper.rg dom/dom.rg util.rg
-	$(REGENT) soleil.rg $(REGENT_FLAGS)
+soleil.o: soleil.rg soleil_mapper.h config_schema.h hdf_helper.rg dom.rg util.rg
+	$(REGENT) soleil.rg $(SOLEIL_FLAGS)
+
+dom_host.exec: dom_host.o config_schema.o json.o
+	$(CXX) -o $@ $^ $(LINK_FLAGS)
+
+dom_host.o: dom_host.rg config_schema.h dom.rg util.rg
+	$(REGENT) dom_host.rg $(DOM_HOST_FLAGS)
 
 soleil_mapper.o: soleil_mapper.cc soleil_mapper.h config_schema.h
 	$(CXX) $(CXXFLAGS) -c -o  $@ $<
