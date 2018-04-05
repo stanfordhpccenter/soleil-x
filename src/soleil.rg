@@ -5247,10 +5247,7 @@ task work(config : Config)
       Flow_InitializePerturbed(Fluid, Flow_initParams)
     end
     if (config.Flow.initCase == SCHEMA.FlowInitCase_Restart) then
-      var dirname = [&int8](C.malloc(256))
-      C.snprintf(dirname, 256, "sample%d/fluid_iter%d", config.Mapping.sampleId, config.Integrator.restartIter)
-      Fluid_load(primColors, dirname, Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
-      C.free(dirname)
+      Fluid_load(primColors, config.Flow.restartDir, Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
     end
     Flow_UpdateConservedFromPrimitive(Fluid, Flow_gamma, Flow_gasConstant, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
     Flow_UpdateAuxiliaryVelocity(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
@@ -5268,10 +5265,7 @@ task work(config : Config)
       regentlib.assert(false, "Random particle initialization is disabled")
     end
     if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart) then
-      var dirname = [&int8](C.malloc(256))
-      C.snprintf(dirname, 256, "sample%d/particles_iter%d", config.Mapping.sampleId, config.Integrator.restartIter)
-      particles_load(primColors, dirname, particles, particles_copy, particles_primPart, particles_copy_primPart)
-      C.free(dirname)
+      particles_load(primColors, config.Particles.restartDir, particles, particles_copy, particles_primPart, particles_copy_primPart)
       Particles_InitializeDensity(particles, Particles_density)
       Particles_number += Particles_CalculateNumber(particles)
     end

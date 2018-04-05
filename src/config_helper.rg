@@ -13,9 +13,30 @@ local UTIL = require 'util'
 
 local isSchemaT
 
+-------------------------------------------------------------------------------
+
+local StringMT = {}
+StringMT.__index = StringMT
+
+-- int -> String
+function String(maxLen)
+  assert(UTIL.isPosInt(maxLen))
+  return setmetatable({
+    maxLen = maxLen,
+  }, StringMT)
+end
+
+-- SchemaT -> bool
+local function isString(typ)
+  return type(typ) == 'table' and getmetatable(typ) == StringMT
+end
+
+-------------------------------------------------------------------------------
+
 local EnumMT = {}
 EnumMT.__index = EnumMT
 
+-- string* -> Enum
 function Enum(...)
   local enum = {}
   for i,choice in ipairs({...}) do
@@ -30,12 +51,14 @@ local function isEnum(typ)
   return type(typ) == 'table' and getmetatable(typ) == EnumMT
 end
 
+-------------------------------------------------------------------------------
+
 local ArrayMT = {}
 ArrayMT.__index = ArrayMT
 
 -- int, SchemaT -> Array
 function Array(num, elemType)
-  assert(type(num) == 'number' and num == math.floor(num) and num > 0)
+  assert(UTIL.isPosInt(num))
   assert(isSchemaT(elemType))
   return setmetatable({
     num = num,
@@ -48,12 +71,14 @@ local function isArray(typ)
   return type(typ) == 'table' and getmetatable(typ) == ArrayMT
 end
 
+-------------------------------------------------------------------------------
+
 local UpToMT = {}
 UpToMT.__index = UpToMT
 
 -- int, SchemaT -> UpTo
 function UpTo(max, elemType)
-  assert(type(max) == 'number' and max == math.floor(max) and max > 0)
+  assert(UTIL.isPosInt(max))
   assert(isSchemaT(elemType))
   return setmetatable({
     max = max,
@@ -65,6 +90,8 @@ end
 local function isUpTo(typ)
   return type(typ) == 'table' and getmetatable(typ) == UpToMT
 end
+
+-------------------------------------------------------------------------------
 
 -- Struct = map(string,SchemaT)
 
@@ -81,7 +108,9 @@ local function isStruct(typ)
   return true
 end
 
--- SchemaT = 'bool' | 'int' | 'double' | Enum | Array | UpTo | Struct
+-------------------------------------------------------------------------------
+
+-- SchemaT = 'bool' | 'int' | 'double' | String | Enum | Array | UpTo | Struct
 
 -- A -> bool
 function isSchemaT(typ)
@@ -89,6 +118,7 @@ function isSchemaT(typ)
     typ == bool or
     typ == int or
     typ == double or
+    isString(typ) or
     isEnum(typ) or
     isArray(typ) or
     isUpTo(typ) or
@@ -105,6 +135,8 @@ local function convertSchemaT(typ)
     return int
   elseif typ == double then
     return double
+  elseif isString(typ) then
+    return int8[typ.maxLen]
   elseif isEnum(typ) then
     return int
   elseif isArray(typ) then
@@ -164,6 +196,16 @@ local function emitValueParser(name, lval, rval, typ)
         [errorOut('Wrong type', name)]
       end
       [lval] = [rval].u.dbl
+    end
+  elseif isString(typ) then
+    return quote
+      if [rval].type ~= JSON.json_string then
+        [errorOut('Wrong type', name)]
+      end
+      if [rval].u.string.length >= [typ.maxLen] then
+        [errorOut('String too long', name)]
+      end
+      C.strncpy([lval], [rval].u.string.ptr, [typ.maxLen])
     end
   elseif isEnum(typ) then
     return quote

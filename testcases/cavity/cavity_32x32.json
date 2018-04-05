@@ -59,6 +59,7 @@
         "sutherlandTempRef" : 273.15,
         "sutherlandSRef" : 110.4,
         "initCase" : "Uniform",
+        "restartDir" : "",
         "initParams" : [0.000525805, 43.4923, 0.0, 0.0, 0.0],
         "bodyForce" : [0.0, 0.0, 0.0],
         "turbForcing" : false
@@ -66,6 +67,7 @@
 
     "Particles" : {
         "initCase" : "Uniform",
+        "restartDir" : "",
         "initNum" : 100,
         "maxNum" : 1000,
         "restitutionCoeff" : 1.0,
