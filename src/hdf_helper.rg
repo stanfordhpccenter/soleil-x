@@ -248,7 +248,7 @@ function Exports.mkHDFTasks(indexType, colorType, fSpace, flds)
             p_s : partition(disjoint, s, colors))
   where reads(r.[flds]), reads writes(s.[flds]), r * s do
     -- TODO: Sanity checks: bounds.lo == 0, same size, compatible partitions
-    UTIL.mkdir(dirname)
+    UTIL.createDir(dirname)
     for c in colors do
       dumpTile(UTIL.concretize(dirname), p_r[c], p_s[c])
     end

@@ -5285,26 +5285,18 @@ task work(config : Config)
       [DOM.InitRegions()];
     end
     -- Open long-running files
+    var consoleFile = [&int8](C.malloc(32))
+    C.snprintf(consoleFile, 32, 'sample%d/console.txt', config.Mapping.sampleId)
+    var console = UTIL.createFile(consoleFile)
+    C.free(consoleFile)
     var probeFiles = [&&C.FILE](C.malloc(config.IO.probes.length * FILE_PTR_SIZE))
     for i = 0,config.IO.probes.length do
       var filename = [&int8](C.malloc(32))
       C.snprintf(filename, 32, 'sample%d/probe%d.csv', config.Mapping.sampleId, i)
-      if C.fopen(filename, 'r') ~= [&C.FILE](0) then
-        var stderr = C.fdopen(2, 'w')
-        C.fprintf(stderr, 'Probe file %s already exists.\n', filename)
-        C.fflush(stderr)
-        C.exit(1)
-      end
-      probeFiles[i] = C.fopen(filename, 'w')
-      if probeFiles[i] == [&C.FILE](0) then
-        var stderr = C.fdopen(2, 'w')
-        C.fprintf(stderr, 'Cannot open file %s for writing.\n', filename)
-        C.fflush(stderr)
-        C.exit(1)
-      end
+      probeFiles[i] = UTIL.createFile(filename)
+      C.free(filename)
       C.fprintf(probeFiles[i], 'TimeStep\tTemperature\n')
       C.fflush(probeFiles[i])
-      C.free(filename)
     end
 
     -- Main time-step loop
@@ -5319,12 +5311,13 @@ task work(config : Config)
         var Flow_maxTemperature = -math.huge
         Flow_minTemperature min= CalculateMinTemperature(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
         Flow_maxTemperature max= CalculateMaxTemperature(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-        C.printf("\n")
-        C.printf(" Current time step: %2.6e s.\n", Integrator_deltaTime)
-        C.printf(" Min Flow Temp: %11.6f K. Max Flow Temp: %11.6f K.\n", Flow_minTemperature, Flow_maxTemperature)
-        C.printf(" Current number of particles: %d.\n", Particles_number)
-        C.printf("\n")
-        C.printf("    Iter     Time(s)   Avg Press    Avg Temp      Avg KE  Particle T\n")
+        C.fprintf(console, "\n")
+        C.fprintf(console, " Current time step: %2.6e s.\n", Integrator_deltaTime)
+        C.fprintf(console, " Min Flow Temp: %11.6f K. Max Flow Temp: %11.6f K.\n", Flow_minTemperature, Flow_maxTemperature)
+        C.fprintf(console, " Current number of particles: %d.\n", Particles_number)
+        C.fprintf(console, "\n")
+        C.fprintf(console, "    Iter     Time(s)   Avg Press    Avg Temp      Avg KE  Particle T\n")
+        C.fflush(console)
       end
       if exitCond or Integrator_timeStep % config.IO.consoleFrequency == 0 then
         var Flow_averagePressure = 0.0
@@ -5339,7 +5332,8 @@ task work(config : Config)
         Flow_averageTemperature = (Flow_averageTemperature/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
         Flow_averageKineticEnergy = (Flow_averageKineticEnergy/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
         Particles_averageTemperature = (Particles_averageTemperature/Particles_number)
-        C.printf("%8d %11.6f %11.6f %11.6f %11.6f %11.6f\n", Integrator_timeStep, Integrator_simTime, Flow_averagePressure, Flow_averageTemperature, Flow_averageKineticEnergy, Particles_averageTemperature)
+        C.fprintf(console, "%8d %11.6f %11.6f %11.6f %11.6f %11.6f\n", Integrator_timeStep, Integrator_simTime, Flow_averagePressure, Flow_averageTemperature, Flow_averageKineticEnergy, Particles_averageTemperature)
+        C.fflush(console)
       end
       if config.IO.wrtRestart then
         if exitCond or Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 then
@@ -5473,7 +5467,7 @@ task main()
       config.Mapping.sampleId = launched
       var dirname = [&int8](C.malloc(256))
       C.snprintf(dirname, 256, "sample%d", config.Mapping.sampleId)
-      UTIL.mkdir(dirname)
+      UTIL.createDir(dirname)
       C.free(dirname)
       work(config)
       launched += 1

@@ -233,7 +233,7 @@ end
 -- Filesystem
 -------------------------------------------------------------------------------
 
-terra Exports.mkdir(name : rawstring)
+terra Exports.createDir(name : rawstring)
   var mode = 493 -- octal 0755 = rwxr-xr-x
   var res = C.mkdir(name, mode)
   if res < 0 then
@@ -244,6 +244,19 @@ terra Exports.mkdir(name : rawstring)
     C.fflush(stderr)
     C.exit(1)
   end
+end
+
+terra Exports.createFile(name : rawstring) : &C.FILE
+  var file = C.fopen(name, 'w')
+  if file == nil then
+    var stderr = C.fdopen(2, 'w')
+    C.fprintf(stderr, 'Cannot open file %s for writing: ', name)
+    C.fflush(stderr)
+    C.perror('')
+    C.fflush(stderr)
+    C.exit(1)
+  end
+  return file
 end
 
 -------------------------------------------------------------------------------
