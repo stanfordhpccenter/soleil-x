@@ -58,6 +58,7 @@ Exports.Config = {
   Integrator = {
     finalTime = double,
     restartIter = int,
+    restartTime = double,
     maxIter = int,
     cfl = double,
     fixedDeltaTime = double,

@@ -41,6 +41,7 @@
     "Integrator" : {
         "finalTime" : 20.00001,
         "restartIter" : -1,
+        "restartTime" : -1.0,
         "maxIter" : 100,
         "cfl" : 2.0,
         "fixedDeltaTime" : -1.0

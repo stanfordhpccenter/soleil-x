@@ -5230,6 +5230,7 @@ task work(config : Config)
     end
     if (config.Flow.initCase == SCHEMA.FlowInitCase_Restart) then
       Integrator_timeStep = config.Integrator.restartIter
+      Integrator_simTime = config.Integrator.restartTime
     end
     Flow_InitializeCell(Fluid)
     Flow_InitializeCenterCoordinates(Fluid, Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth, Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth, Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
