@@ -1,3 +1,4 @@
+#include <iostream>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -109,10 +110,15 @@ public:
         default_find_preferred_variant(task, ctx, false/*needs tight*/);
       const std::vector<Processor>& procs = remote_procs(info.proc_kind);
       // Assign tasks to this sample's nodes in row-major order.
-      return procs[mapping.first_node +
-                   tile[2] +
-                   config->Mapping.zTiles * tile[1] +
-                   config->Mapping.zTiles * config->Mapping.yTiles * tile[0]];
+      int node =
+	mapping.first_node +
+	tile[2] +
+	config->Mapping.zTiles * tile[1] +
+	config->Mapping.zTiles * config->Mapping.yTiles * tile[0];
+      LOG.debug() << "Sequential launch: Task " << task.get_task_name()
+		  << " on tile " << tile
+		  << " mapped to node " << node;
+      return procs[node];
     }
     // Send each work task to the first in the set of nodes allocated to the
     // corresponding sample.
@@ -124,6 +130,9 @@ public:
       assert(sample_id < sample_mappings_.size());
       AddressSpace target_node = sample_mappings_[sample_id].first_node;
       Processor target_proc = remote_cpus[target_node];
+      LOG.debug() << "Sequential launch: Work task"
+		  << " for sample " << sample_id
+		  << " mapped to node " << target_node;
       return target_proc;
     }
     // For other tasks, defer to the default mapping policy.
@@ -177,6 +186,9 @@ public:
                                  task.target_proc,
                                  false /*recurse*/,
                                  false /*stealable*/);
+      LOG.debug() << "Index-space launch: Task " << task.get_task_name()
+		  << " (not sliced)"
+		  << " mapped to node " << task.target_proc.address_space();
       return;
     }
     // Retrieve sample information from parent task.
@@ -208,6 +220,9 @@ public:
                                      procs[next_node],
                                      false /*recurse*/,
                                      false /*stealable*/);
+	  LOG.debug() << "Index-space launch: Task " << task.get_task_name()
+		      << " on tile (" << x << "," << y << "," << z << ")"
+		      << " mapped to node " << next_node;
           next_node++;
         }
       }
