@@ -125,6 +125,11 @@ function run_sapling {
         "$SOLEIL_DIR"/src/soleil.exec $ARGS \
         -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 -ll:gpu 1 \
         -ll:csize 20000 -ll:fsize 2048
+    # Resources:
+    # 2 NUMA domains per node
+    # 4 cores per NUMA
+    # 2 GPUs per node, with 6GB FB each
+    # 40230MB RAM per node
 }
 
 function run_local {
