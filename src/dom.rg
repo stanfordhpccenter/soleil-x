@@ -800,21 +800,21 @@ do
 
             var x_face_val = (points[{i,j,k}].I_1[m] - (1-gamma)*upwind_x_value)/gamma
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
-              shared_x_faces_downwind[{0, j, k}].I[m] = x_face_val
+              shared_x_faces_downwind[{indx+dindx, j, k}].I[m] = x_face_val
             else
               x_faces[{indx+dindx, j, k}].I[m] = x_face_val
             end
 
             var y_face_val = (points[{i,j,k}].I_1[m] - (1-gamma)*upwind_y_value)/gamma
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
-              shared_y_faces_downwind[{i, 0, k}].I[m] = y_face_val
+              shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
               y_faces[{i, indy+dindy, k}].I[m] = y_face_val
             end
 
             var z_face_val = (points[{i,j,k}].I_1[m] - (1-gamma)*upwind_z_value)/gamma
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
-              shared_z_faces_downwind[{i, j, 0}].I[m] = z_face_val
+              shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
               z_faces[{i, j, indz+dindz}].I[m] = z_face_val
             end
@@ -907,7 +907,7 @@ do
 
             var upwind_x_value : double = 0.0
             if indx < x_faces.bounds.lo.x or indx > x_faces.bounds.hi.x then
-              upwind_x_value = shared_x_faces_upwind[{0,j,k}].I[m]
+              upwind_x_value = shared_x_faces_upwind[{indx,j,k}].I[m]
             else
               upwind_x_value = x_faces[{indx,j,k}].I[m]
             end
@@ -916,14 +916,14 @@ do
 
             var upwind_y_value : double = 0.0
             if indy < y_faces.bounds.lo.y or indy > y_faces.bounds.hi.y then
-              upwind_y_value = shared_y_faces_upwind[{i,0,k}].I[m]
+              upwind_y_value = shared_y_faces_upwind[{i,indy,k}].I[m]
             else
               upwind_y_value = y_faces[{i,indy,k}].I[m]
             end
 
             var upwind_z_value : double = 0.0
             if indz < z_faces.bounds.lo.z or indz > z_faces.bounds.hi.z then
-              upwind_z_value = shared_z_faces_upwind[{i,j,0}].I[m]
+              upwind_z_value = shared_z_faces_upwind[{i,j,indz}].I[m]
             else
               upwind_z_value = z_faces[{i,j,indz}].I[m]
             end
@@ -943,21 +943,21 @@ do
 
             var x_face_val = (points[{i,j,k}].I_2[m] - (1-gamma)*upwind_x_value)/gamma
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
-              shared_x_faces_downwind[{0, j, k}].I[m] = x_face_val
+              shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
             else
               x_faces[{indx+dindx, j, k}].I[m] = x_face_val
             end
 
             var y_face_val = (points[{i,j,k}].I_2[m] - (1-gamma)*upwind_y_value)/gamma
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
-              shared_y_faces_downwind[{i, 0, k}].I[m] = y_face_val
+              shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
               y_faces[{i, indy+dindy, k}].I[m] = y_face_val
             end
 
             var z_face_val = (points[{i,j,k}].I_2[m] - (1-gamma)*upwind_z_value)/gamma
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
-              shared_z_faces_downwind[{i, j, 0}].I[m] = z_face_val
+              shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
               z_faces[{i, j, indz+dindz}].I[m] = z_face_val
             end
@@ -1050,7 +1050,7 @@ do
 
             var upwind_x_value : double = 0.0
             if indx < x_faces.bounds.lo.x or indx > x_faces.bounds.hi.x then
-              upwind_x_value = shared_x_faces_upwind[{0,j,k}].I[m]
+              upwind_x_value = shared_x_faces_upwind[{indx,j,k}].I[m]
             else
               upwind_x_value = x_faces[{indx,j,k}].I[m]
             end
@@ -1059,14 +1059,14 @@ do
 
             var upwind_y_value : double = 0.0
             if indy < y_faces.bounds.lo.y or indy > y_faces.bounds.hi.y then
-              upwind_y_value = shared_y_faces_upwind[{i,0,k}].I[m]
+              upwind_y_value = shared_y_faces_upwind[{i,indy,k}].I[m]
             else
               upwind_y_value = y_faces[{i,indy,k}].I[m]
             end
 
             var upwind_z_value : double = 0.0
             if indz < z_faces.bounds.lo.z or indz > z_faces.bounds.hi.z then
-              upwind_z_value = shared_z_faces_upwind[{i,j,0}].I[m]
+              upwind_z_value = shared_z_faces_upwind[{i,j,indz}].I[m]
             else
               upwind_z_value = z_faces[{i,j,indz}].I[m]
             end
@@ -1086,21 +1086,21 @@ do
 
             var x_face_val = (points[{i,j,k}].I_3[m] - (1-gamma)*upwind_x_value)/gamma
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
-              shared_x_faces_downwind[{0, j, k}].I[m] = x_face_val
+              shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
             else
               x_faces[{indx+dindx, j, k}].I[m] = x_face_val
             end
 
             var y_face_val = (points[{i,j,k}].I_3[m] - (1-gamma)*upwind_y_value)/gamma
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
-              shared_y_faces_downwind[{i, 0, k}].I[m] = y_face_val
+              shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
               y_faces[{i, indy+dindy, k}].I[m] = y_face_val
             end
 
             var z_face_val = (points[{i,j,k}].I_3[m] - (1-gamma)*upwind_z_value)/gamma
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
-              shared_z_faces_downwind[{i, j, 0}].I[m] = z_face_val
+              shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
               z_faces[{i, j, indz+dindz}].I[m] = z_face_val
             end
@@ -1193,7 +1193,7 @@ do
 
             var upwind_x_value : double = 0.0
             if indx < x_faces.bounds.lo.x or indx > x_faces.bounds.hi.x then
-              upwind_x_value = shared_x_faces_upwind[{0,j,k}].I[m]
+              upwind_x_value = shared_x_faces_upwind[{indx,j,k}].I[m]
             else
               upwind_x_value = x_faces[{indx,j,k}].I[m]
             end
@@ -1202,14 +1202,14 @@ do
 
             var upwind_y_value : double = 0.0
             if indy < y_faces.bounds.lo.y or indy > y_faces.bounds.hi.y then
-              upwind_y_value = shared_y_faces_upwind[{i,0,k}].I[m]
+              upwind_y_value = shared_y_faces_upwind[{i,indy,k}].I[m]
             else
               upwind_y_value = y_faces[{i,indy,k}].I[m]
             end
 
             var upwind_z_value : double = 0.0
             if indz < z_faces.bounds.lo.z or indz > z_faces.bounds.hi.z then
-              upwind_z_value = shared_z_faces_upwind[{i,j,0}].I[m]
+              upwind_z_value = shared_z_faces_upwind[{i,j,indz}].I[m]
             else
               upwind_z_value = z_faces[{i,j,indz}].I[m]
             end
@@ -1229,21 +1229,21 @@ do
 
             var x_face_val = (points[{i,j,k}].I_4[m] - (1-gamma)*upwind_x_value)/gamma
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
-              shared_x_faces_downwind[{0, j, k}].I[m] = x_face_val
+              shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
             else
               x_faces[{indx+dindx, j, k}].I[m] = x_face_val
             end
 
             var y_face_val = (points[{i,j,k}].I_4[m] - (1-gamma)*upwind_y_value)/gamma
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
-              shared_y_faces_downwind[{i, 0, k}].I[m] = y_face_val
+              shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
               y_faces[{i, indy+dindy, k}].I[m] = y_face_val
             end
 
             var z_face_val = (points[{i,j,k}].I_4[m] - (1-gamma)*upwind_z_value)/gamma
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
-              shared_z_faces_downwind[{i, j, 0}].I[m] = z_face_val
+              shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
               z_faces[{i, j, indz+dindz}].I[m] = z_face_val
             end
@@ -1336,7 +1336,7 @@ do
 
             var upwind_x_value : double = 0.0
             if indx < x_faces.bounds.lo.x or indx > x_faces.bounds.hi.x then
-              upwind_x_value = shared_x_faces_upwind[{0,j,k}].I[m]
+              upwind_x_value = shared_x_faces_upwind[{indx,j,k}].I[m]
             else
               upwind_x_value = x_faces[{indx,j,k}].I[m]
             end
@@ -1345,14 +1345,14 @@ do
 
             var upwind_y_value : double = 0.0
             if indy < y_faces.bounds.lo.y or indy > y_faces.bounds.hi.y then
-              upwind_y_value = shared_y_faces_upwind[{i,0,k}].I[m]
+              upwind_y_value = shared_y_faces_upwind[{i,indy,k}].I[m]
             else
               upwind_y_value = y_faces[{i,indy,k}].I[m]
             end
 
             var upwind_z_value : double = 0.0
             if indz < z_faces.bounds.lo.z or indz > z_faces.bounds.hi.z then
-              upwind_z_value = shared_z_faces_upwind[{i,j,0}].I[m]
+              upwind_z_value = shared_z_faces_upwind[{i,j,indz}].I[m]
             else
               upwind_z_value = z_faces[{i,j,indz}].I[m]
             end
@@ -1372,21 +1372,21 @@ do
 
             var x_face_val = (points[{i,j,k}].I_5[m] - (1-gamma)*upwind_x_value)/gamma
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
-              shared_x_faces_downwind[{0, j, k}].I[m] = x_face_val
+              shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
             else
               x_faces[{indx+dindx, j, k}].I[m] = x_face_val
             end
 
             var y_face_val = (points[{i,j,k}].I_5[m] - (1-gamma)*upwind_y_value)/gamma
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
-              shared_y_faces_downwind[{i, 0, k}].I[m] = y_face_val
+              shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
               y_faces[{i, indy+dindy, k}].I[m] = y_face_val
             end
 
             var z_face_val = (points[{i,j,k}].I_5[m] - (1-gamma)*upwind_z_value)/gamma
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
-              shared_z_faces_downwind[{i, j, 0}].I[m] = z_face_val
+              shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
               z_faces[{i, j, indz+dindz}].I[m] = z_face_val
             end
@@ -1479,7 +1479,7 @@ do
 
             var upwind_x_value : double = 0.0
             if indx < x_faces.bounds.lo.x or indx > x_faces.bounds.hi.x then
-              upwind_x_value = shared_x_faces_upwind[{0,j,k}].I[m]
+              upwind_x_value = shared_x_faces_upwind[{indx,j,k}].I[m]
             else
               upwind_x_value = x_faces[{indx,j,k}].I[m]
             end
@@ -1488,14 +1488,14 @@ do
 
             var upwind_y_value : double = 0.0
             if indy < y_faces.bounds.lo.y or indy > y_faces.bounds.hi.y then
-              upwind_y_value = shared_y_faces_upwind[{i,0,k}].I[m]
+              upwind_y_value = shared_y_faces_upwind[{i,indy,k}].I[m]
             else
               upwind_y_value = y_faces[{i,indy,k}].I[m]
             end
 
             var upwind_z_value : double = 0.0
             if indz < z_faces.bounds.lo.z or indz > z_faces.bounds.hi.z then
-              upwind_z_value = shared_z_faces_upwind[{i,j,0}].I[m]
+              upwind_z_value = shared_z_faces_upwind[{i,j,indz}].I[m]
             else
               upwind_z_value = z_faces[{i,j,indz}].I[m]
             end
@@ -1515,21 +1515,21 @@ do
 
             var x_face_val = (points[{i,j,k}].I_6[m] - (1-gamma)*upwind_x_value)/gamma
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
-              shared_x_faces_downwind[{0, j, k}].I[m] = x_face_val
+              shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
             else
               x_faces[{indx+dindx, j, k}].I[m] = x_face_val
             end
 
             var y_face_val = (points[{i,j,k}].I_6[m] - (1-gamma)*upwind_y_value)/gamma
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
-              shared_y_faces_downwind[{i, 0, k}].I[m] = y_face_val
+              shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
               y_faces[{i, indy+dindy, k}].I[m] = y_face_val
             end
 
             var z_face_val = (points[{i,j,k}].I_6[m] - (1-gamma)*upwind_z_value)/gamma
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
-              shared_z_faces_downwind[{i, j, 0}].I[m] = z_face_val
+              shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
               z_faces[{i, j, indz+dindz}].I[m] = z_face_val
             end
@@ -1622,7 +1622,7 @@ do
 
             var upwind_x_value : double = 0.0
             if indx < x_faces.bounds.lo.x or indx > x_faces.bounds.hi.x then
-              upwind_x_value = shared_x_faces_upwind[{0,j,k}].I[m]
+              upwind_x_value = shared_x_faces_upwind[{indx,j,k}].I[m]
             else
               upwind_x_value = x_faces[{indx,j,k}].I[m]
             end
@@ -1631,14 +1631,14 @@ do
 
             var upwind_y_value : double = 0.0
             if indy < y_faces.bounds.lo.y or indy > y_faces.bounds.hi.y then
-              upwind_y_value = shared_y_faces_upwind[{i,0,k}].I[m]
+              upwind_y_value = shared_y_faces_upwind[{i,indy,k}].I[m]
             else
               upwind_y_value = y_faces[{i,indy,k}].I[m]
             end
 
             var upwind_z_value : double = 0.0
             if indz < z_faces.bounds.lo.z or indz > z_faces.bounds.hi.z then
-              upwind_z_value = shared_z_faces_upwind[{i,j,0}].I[m]
+              upwind_z_value = shared_z_faces_upwind[{i,j,indz}].I[m]
             else
               upwind_z_value = z_faces[{i,j,indz}].I[m]
             end
@@ -1658,21 +1658,21 @@ do
 
             var x_face_val = (points[{i,j,k}].I_7[m] - (1-gamma)*upwind_x_value)/gamma
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
-              shared_x_faces_downwind[{0, j, k}].I[m] = x_face_val
+              shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
             else
               x_faces[{indx+dindx, j, k}].I[m] = x_face_val
             end
 
             var y_face_val = (points[{i,j,k}].I_7[m] - (1-gamma)*upwind_y_value)/gamma
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
-              shared_y_faces_downwind[{i, 0, k}].I[m] = y_face_val
+              shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
               y_faces[{i, indy+dindy, k}].I[m] = y_face_val
             end
 
             var z_face_val = (points[{i,j,k}].I_7[m] - (1-gamma)*upwind_z_value)/gamma
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
-              shared_z_faces_downwind[{i, j, 0}].I[m] = z_face_val
+              shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
               z_faces[{i, j, indz+dindz}].I[m] = z_face_val
             end
@@ -1765,7 +1765,7 @@ do
 
             var upwind_x_value : double = 0.0
             if indx < x_faces.bounds.lo.x or indx > x_faces.bounds.hi.x then
-              upwind_x_value = shared_x_faces_upwind[{0,j,k}].I[m]
+              upwind_x_value = shared_x_faces_upwind[{indx,j,k}].I[m]
             else
               upwind_x_value = x_faces[{indx,j,k}].I[m]
             end
@@ -1774,14 +1774,14 @@ do
 
             var upwind_y_value : double = 0.0
             if indy < y_faces.bounds.lo.y or indy > y_faces.bounds.hi.y then
-              upwind_y_value = shared_y_faces_upwind[{i,0,k}].I[m]
+              upwind_y_value = shared_y_faces_upwind[{i,indy,k}].I[m]
             else
               upwind_y_value = y_faces[{i,indy,k}].I[m]
             end
 
             var upwind_z_value : double = 0.0
             if indz < z_faces.bounds.lo.z or indz > z_faces.bounds.hi.z then
-              upwind_z_value = shared_z_faces_upwind[{i,j,0}].I[m]
+              upwind_z_value = shared_z_faces_upwind[{i,j,indz}].I[m]
             else
               upwind_z_value = z_faces[{i,j,indz}].I[m]
             end
@@ -1801,21 +1801,21 @@ do
 
             var x_face_val = (points[{i,j,k}].I_8[m] - (1-gamma)*upwind_x_value)/gamma
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
-              shared_x_faces_downwind[{0, j, k}].I[m] = x_face_val
+              shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
             else
               x_faces[{indx+dindx, j, k}].I[m] = x_face_val
             end
 
             var y_face_val = (points[{i,j,k}].I_8[m] - (1-gamma)*upwind_y_value)/gamma
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
-              shared_y_faces_downwind[{i, 0, k}].I[m] = y_face_val
+              shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
               y_faces[{i, indy+dindy, k}].I[m] = y_face_val
             end
 
             var z_face_val = (points[{i,j,k}].I_8[m] - (1-gamma)*upwind_z_value)/gamma
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
-              shared_z_faces_downwind[{i, j, 0}].I[m] = z_face_val
+              shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
               z_faces[{i, j, indz+dindz}].I[m] = z_face_val
             end
