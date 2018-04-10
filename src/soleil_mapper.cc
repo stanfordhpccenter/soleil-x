@@ -15,11 +15,18 @@ using namespace Legion::Mapping;
 
 static Realm::Logger LOG("soleil_mapper");
 
+#define CHECK(cond, ...)                        \
+  do {                                          \
+    if (!(cond)) {                              \
+      LOG.error(__VA_ARGS__);                   \
+      exit(1);                                  \
+    }                                           \
+  } while(0)
+
 //=============================================================================
 
 struct SampleMapping {
   AddressSpace first_node;
-  unsigned num_tiles;
 };
 
 // Maps every sample to a disjoint set of nodes. Each sample gets one node for
@@ -39,43 +46,96 @@ public:
     for (int i = 0; i < args.argc; ++i) {
       if (strcmp(args.argv[i], "-i") == 0 && i < args.argc-1) {
         Config config = parse_config(args.argv[i+1]);
-        int num_tiles = config.Mapping.xTiles *
-                        config.Mapping.yTiles *
-                        config.Mapping.zTiles;
-        assert(num_tiles > 0);
+        CHECK(config.Mapping.xTiles > 0 &&
+              config.Mapping.yTiles > 0 &&
+              config.Mapping.zTiles > 0,
+              "Invalid tiling");
         sample_mappings_.push_back(SampleMapping{
           .first_node = allocated_nodes,
-          .num_tiles = static_cast<unsigned>(num_tiles)
         });
-        allocated_nodes += num_tiles;
+        allocated_nodes +=
+          config.Mapping.xTiles *
+          config.Mapping.yTiles *
+          config.Mapping.zTiles;
       }
     }
     unsigned total_nodes = remote_cpus.size();
-    if (allocated_nodes != total_nodes) {
-      LOG.error("%d node(s) required, but %d node(s) supplied to Legion.",
-                allocated_nodes, total_nodes);
-      assert(false);
-    }
+    CHECK(allocated_nodes == total_nodes,
+          "%d node(s) required, but %d node(s) supplied to Legion",
+          allocated_nodes, total_nodes);
     // TODO: Verify we're running with 1 OpenMP/CPU processor per node.
   }
 
 public:
-  // Send each work task to the first in the set of nodes allocated to the
-  // corresponding sample.
+  // TODO: Also handle *_bound tasks from DOM.
   virtual Processor default_policy_select_initial_processor(
                               MapperContext ctx,
                               const Task& task) {
-    if (strcmp(task.get_task_name(), "work") != 0) {
-      return DefaultMapper::default_policy_select_initial_processor(ctx, task);
+    // Sweep tasks are individually launched; find the tile on which they're
+    // centered and send them to the node responsible for that tile.
+    // TODO: Cache the decision.
+    if (strncmp(task.get_task_name(), "sweep", sizeof("sweep") - 1) == 0 &&
+        task.parent_task != NULL &&
+        strcmp(task.parent_task->get_task_name(), "work") == 0) {
+      // Retrieve sample information from parent task.
+      const char* ptr = static_cast<const char*>(task.parent_task->args);
+      const Config* config =
+        reinterpret_cast<const Config*>(ptr + sizeof(uint64_t));
+      unsigned sample_id = config->Mapping.sampleId;
+      assert(sample_id < sample_mappings_.size());
+      const SampleMapping& mapping = sample_mappings_[sample_id];
+      // Find the radiation grid tile used in this task launch.
+      DomainPoint tile = DomainPoint::nil();
+      for (const RegionRequirement& req : task.regions) {
+        assert(req.region.exists());
+        const char* name = NULL;
+        runtime->retrieve_name(ctx, req.region.get_field_space(), name);
+        if (strcmp(name, "Radiation_columns") == 0) {
+          tile = runtime->get_logical_region_color_point(ctx, req.region);
+          break;
+        }
+      }
+      CHECK(!tile.is_null(),
+            "Cannot retrieve tile from sweep task launch -- did you change "
+            "the name of the radiation grid field space?");
+      CHECK(tile.get_dim() == 3 &&
+            tile[0] < config->Mapping.xTiles &&
+            tile[1] < config->Mapping.yTiles &&
+            tile[2] < config->Mapping.zTiles,
+            "Sweep task launches should only use the top-level tiling.");
+      // Select the 1st (and only) processor of the preferred kind on each
+      // target node.
+      VariantInfo info =
+        default_find_preferred_variant(task, ctx, false/*needs tight*/);
+      const std::vector<Processor>& procs = remote_procs(info.proc_kind);
+      // Assign tasks to this sample's nodes in row-major order.
+      return procs[mapping.first_node +
+                   tile[2] +
+                   config->Mapping.zTiles * tile[1] +
+                   config->Mapping.zTiles * config->Mapping.yTiles * tile[0]];
     }
-    const char* ptr = static_cast<const char*>(task.args);
-    const Config* config =
-      reinterpret_cast<const Config*>(ptr + sizeof(uint64_t));
-    int sample_id = config->Mapping.sampleId;
-    assert(sample_id >= 0);
-    AddressSpace target_node = sample_mappings_[sample_id].first_node;
-    Processor target_proc = remote_cpus[target_node];
-    return target_proc;
+    // Send each work task to the first in the set of nodes allocated to the
+    // corresponding sample.
+    if (strcmp(task.get_task_name(), "work") == 0) {
+      const char* ptr = static_cast<const char*>(task.args);
+      const Config* config =
+        reinterpret_cast<const Config*>(ptr + sizeof(uint64_t));
+      unsigned sample_id = config->Mapping.sampleId;
+      assert(sample_id < sample_mappings_.size());
+      AddressSpace target_node = sample_mappings_[sample_id].first_node;
+      Processor target_proc = remote_cpus[target_node];
+      return target_proc;
+    }
+    // For other tasks, defer to the default mapping policy.
+    return DefaultMapper::default_policy_select_initial_processor(ctx, task);
+  }
+
+  // TODO: Assign priorities to sweep tasks such that we prioritize the tile
+  // that has more dependencies downstream.
+  virtual TaskPriority default_policy_select_task_priority(
+                              MapperContext ctx,
+                              const Task& task) {
+    return DefaultMapper::default_policy_select_task_priority(ctx, task);
   }
 
   // TODO: Select appropriate memories for instances that will be communicated,
@@ -105,59 +165,70 @@ public:
   // Farm index-space launches made by work tasks across all the nodes
   // allocated to the corresponding sample.
   // TODO: Cache the decision.
-  // TODO: Handle the case where each node contains multiple GPUs.
   virtual void slice_task(const MapperContext ctx,
                           const Task& task,
                           const SliceTaskInput& input,
                           SliceTaskOutput& output) {
     output.verify_correctness = false;
+    // Don't slice other index-space launches.
     if (task.parent_task == NULL ||
         strcmp(task.parent_task->get_task_name(), "work") != 0) {
-      // Don't slice other index-space launches.
-      TaskSlice slice;
-      slice.domain_is = input.domain_is;
-      slice.domain = input.domain;
-      slice.proc = task.target_proc;
-      slice.recurse = false;
-      slice.stealable = false;
-      output.slices.push_back(slice);
+      output.slices.emplace_back(input.domain,
+                                 task.target_proc,
+                                 false /*recurse*/,
+                                 false /*stealable*/);
       return;
     }
+    // Retrieve sample information from parent task.
     const char* ptr = static_cast<const char*>(task.parent_task->args);
     const Config* config =
       reinterpret_cast<const Config*>(ptr + sizeof(uint64_t));
-    int sample_id = config->Mapping.sampleId;
-    assert(sample_id >= 0);
+    unsigned sample_id = config->Mapping.sampleId;
+    assert(sample_id < sample_mappings_.size());
     const SampleMapping& mapping = sample_mappings_[sample_id];
-    if (mapping.num_tiles != input.domain.get_volume()) {
-      LOG.error("Index-space launches in the work task should only use the "
-                "top-level tiling.");
-      assert(false);
-    }
+    CHECK(input.domain.get_dim() == 3 &&
+          input.domain.lo()[0] == 0 &&
+          input.domain.lo()[1] == 0 &&
+          input.domain.lo()[2] == 0 &&
+          input.domain.hi()[0] == config->Mapping.xTiles - 1 &&
+          input.domain.hi()[1] == config->Mapping.yTiles - 1 &&
+          input.domain.hi()[2] == config->Mapping.zTiles - 1,
+          "Index-space launches in the work task should only use the "
+          "top-level tiling.");
     // Select the 1st (and only) processor of the same kind as the original
-    // target, on all nodes allocated to this sample.
-    std::vector<Processor> procs;
-    for (unsigned i = 0; i < mapping.num_tiles; ++i) {
-      switch (task.target_proc.kind()) {
-      case Processor::LOC_PROC:
-        procs.push_back(remote_cpus[mapping.first_node + i]);
-        break;
-      case Processor::TOC_PROC:
-        procs.push_back(remote_gpus[mapping.first_node + i]);
-        break;
-      case Processor::OMP_PROC:
-        procs.push_back(remote_omps[mapping.first_node + i]);
-        break;
-      default:
-        assert(false);
+    // target, on each node allocated to this sample.
+    const std::vector<Processor>& procs =
+      remote_procs(task.target_proc.kind());
+    // Distribute tiles to the nodes in row-major order.
+    int next_node = mapping.first_node;
+    for (int x = 0; x < config->Mapping.xTiles; ++x) {
+      for (int y = 0; y < config->Mapping.yTiles; ++y) {
+        for (int z = 0; z < config->Mapping.zTiles; ++z) {
+          output.slices.emplace_back(Rect<3>(Point<3>(x,y,z), Point<3>(x,y,z)),
+                                     procs[next_node],
+                                     false /*recurse*/,
+                                     false /*stealable*/);
+          next_node++;
+        }
       }
     }
-    DomainT<3,coord_t> point_space = input.domain;
-    Point<3,coord_t> blocking =
-      default_select_num_blocks<3>(mapping.num_tiles, point_space.bounds);
-    default_decompose_points<3>(input.domain, procs, blocking,
-                                false/*recurse*/, false/*stealable*/,
-                                output.slices);
+  }
+
+private:
+  // TODO: This interface only returns the first processor of the desired kind
+  // on each machine; also handle the case where there's more (e.g. >1 GPUs).
+  const std::vector<Processor>& remote_procs(Processor::Kind kind) {
+    switch (kind) {
+    case TOC_PROC: return remote_gpus;
+    case LOC_PROC: return remote_cpus;
+    case IO_PROC:  return remote_ios;
+    case PROC_SET: return remote_procsets;
+    case OMP_PROC: return remote_omps;
+    case PY_PROC:  return remote_pys;
+    default:       assert(false);
+    }
+    // Should never reach here
+    return remote_cpus;
   }
 
 private:
