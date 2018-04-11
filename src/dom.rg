@@ -75,8 +75,8 @@ local struct angle {
 
 local struct face {
   I : double[NUM_ANGLES],
-  private_color : int3d,      -- Used for partition_by_field
-  shared_color : int3d,       -- Used for partition_by_field
+  is_private : int1d,      -- Used for partition_by_field
+  color : int3d,           -- Used for partition_by_field
 }
 
 -------------------------------------------------------------------------------
@@ -142,89 +142,59 @@ end
 -- private
 
 local task color_faces_x(faces : region(ispace(int3d), face),
-                                        Nx : int, Ny : int, Nz : int,
-                                        ntx : int, nty : int, ntz : int)
-  where
-    reads writes (faces)
-  do
-
-  var limits = faces.bounds
-
-  for i = limits.lo.x, limits.hi.x + 1 do
-    var x_tile = i / (Nx/ntx)
-    for j = limits.lo.y, limits.hi.y + 1 do
-      var y_tile = j / (Ny/nty)
-      for k = limits.lo.z, limits.hi.z + 1 do
-        var z_tile = k / (Nz/ntz)
-
-        var color = {x = x_tile, y = y_tile, z = z_tile}
-        if i % (Nx/ntx) == 0 then
-          faces[{i,j,k}].shared_color = color
-          faces[{i,j,k}].private_color = {x=-1, y=-1, z=-1}
-        else
-          faces[{i,j,k}].shared_color = {x=-1, y=-1, z=-1}
-          faces[{i,j,k}].private_color = color
-        end
-      end
+                         Nx : int, Ny : int, Nz : int,
+                         ntx : int, nty : int, ntz : int)
+where
+  reads writes (faces.{is_private, color})
+do
+  for idx in faces do
+    var x_tile = idx.x / (Nx/ntx)
+    var y_tile = idx.y / (Ny/nty)
+    var z_tile = idx.z / (Nz/ntz)
+    if idx.x % (Nx/ntx) == 0 then
+      faces[idx].is_private = 0
+    else
+      faces[idx].is_private = 1
     end
+    faces[idx].color = {x = x_tile, y = y_tile, z = z_tile}
   end
 end
 
 local task color_faces_y(faces : region(ispace(int3d), face),
-                                        Nx : int, Ny : int, Nz : int,
-                                        ntx : int, nty : int, ntz : int)
-  where
-    reads writes (faces)
-  do
-
-  var limits = faces.bounds
-
-  for i = limits.lo.x, limits.hi.x + 1 do
-    var x_tile = i / (Nx/ntx)
-    for j = limits.lo.y, limits.hi.y + 1 do
-      var y_tile = j / (Ny/nty)
-      for k = limits.lo.z, limits.hi.z + 1 do
-        var z_tile = k / (Nz/ntz)
-
-        var color = {x = x_tile, y = y_tile, z = z_tile}
-        if j % (Ny/nty) == 0 then
-          faces[{i,j,k}].shared_color = color
-          faces[{i,j,k}].private_color = {x=-1, y=-1, z=-1}
-        else
-          faces[{i,j,k}].shared_color = {x=-1, y=-1, z=-1}
-          faces[{i,j,k}].private_color = color
-        end
-      end
+                         Nx : int, Ny : int, Nz : int,
+                         ntx : int, nty : int, ntz : int)
+where
+  reads writes (faces.{is_private, color})
+do
+  for idx in faces do
+    var x_tile = idx.x / (Nx/ntx)
+    var y_tile = idx.y / (Ny/nty)
+    var z_tile = idx.z / (Nz/ntz)
+    if idx.y % (Ny/nty) == 0 then
+      faces[idx].is_private = 0
+    else
+      faces[idx].is_private = 1
     end
+    faces[idx].color = {x = x_tile, y = y_tile, z = z_tile}
   end
 end
 
 local task color_faces_z(faces : region(ispace(int3d), face),
-                                        Nx : int, Ny : int, Nz : int,
-                                        ntx : int, nty : int, ntz : int)
-  where
-    reads writes (faces)
-  do
-
-  var limits = faces.bounds
-
-  for i = limits.lo.x, limits.hi.x + 1 do
-    var x_tile = i / (Nx/ntx)
-    for j = limits.lo.y, limits.hi.y + 1 do
-      var y_tile = j / (Ny/nty)
-      for k = limits.lo.z, limits.hi.z + 1 do
-        var z_tile = k / (Nz/ntz)
-
-        var color = {x = x_tile, y = y_tile, z = z_tile}
-        if k % (Nz/ntz) == 0 then
-          faces[{i,j,k}].shared_color = color
-          faces[{i,j,k}].private_color = {x=-1, y=-1, z=-1}
-        else
-          faces[{i,j,k}].shared_color = {x=-1, y=-1, z=-1}
-          faces[{i,j,k}].private_color = color
-        end
-      end
+                         Nx : int, Ny : int, Nz : int,
+                         ntx : int, nty : int, ntz : int)
+where
+  reads writes (faces.{is_private, color})
+do
+  for idx in faces do
+    var x_tile = idx.x / (Nx/ntx)
+    var y_tile = idx.y / (Ny/nty)
+    var z_tile = idx.z / (Nz/ntz)
+    if idx.z % (Nz/ntz) == 0 then
+      faces[idx].is_private = 0
+    else
+      faces[idx].is_private = 1
     end
+    faces[idx].color = {x = x_tile, y = y_tile, z = z_tile}
   end
 end
 
@@ -2105,6 +2075,7 @@ function Exports.DeclSymbols(config) return rquote
   var [angles] = region(angle_indices, angle)
 
   -- Partition faces
+
   -- extra tile required for shared edge
   var [tiles_private] = ispace(int3d, {x = ntx, y = nty,   z = ntz  })
   var [x_tiles_shared] = ispace(int3d, {x = ntx+1, y = nty,   z = ntz  })
@@ -2114,104 +2085,176 @@ function Exports.DeclSymbols(config) return rquote
   -- x
 
   color_faces_x([x_faces[1]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_x_faces[1]] = partition([x_faces[1]].private_color, [tiles_private])
-  var [s_x_faces[1]] = partition([x_faces[1]].shared_color, [x_tiles_shared])
+  var x_faces_1_by_privacy = partition([x_faces[1]].is_private, ispace(int1d,2))
+  var x_faces_1_private = x_faces_1_by_privacy[1]
+  var [p_x_faces[1]] = partition(x_faces_1_private.color, [tiles_private])
+  var x_faces_1_shared = x_faces_1_by_privacy[0]
+  var [s_x_faces[1]] = partition(x_faces_1_shared.color, [x_tiles_shared])
 
   color_faces_x([x_faces[2]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_x_faces[2]] = partition([x_faces[2]].private_color, [tiles_private])
-  var [s_x_faces[2]] = partition([x_faces[2]].shared_color, [x_tiles_shared])
+  var x_faces_2_by_privacy = partition([x_faces[2]].is_private, ispace(int1d,2))
+  var x_faces_2_private = x_faces_2_by_privacy[1]
+  var [p_x_faces[2]] = partition(x_faces_2_private.color, [tiles_private])
+  var x_faces_2_shared = x_faces_2_by_privacy[0]
+  var [s_x_faces[2]] = partition(x_faces_2_shared.color, [x_tiles_shared])
 
   color_faces_x([x_faces[3]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_x_faces[3]] = partition([x_faces[3]].private_color, [tiles_private])
-  var [s_x_faces[3]] = partition([x_faces[3]].shared_color, [x_tiles_shared])
+  var x_faces_3_by_privacy = partition([x_faces[3]].is_private, ispace(int1d,2))
+  var x_faces_3_private = x_faces_3_by_privacy[1]
+  var [p_x_faces[3]] = partition(x_faces_3_private.color, [tiles_private])
+  var x_faces_3_shared = x_faces_3_by_privacy[0]
+  var [s_x_faces[3]] = partition(x_faces_3_shared.color, [x_tiles_shared])
 
   color_faces_x([x_faces[4]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_x_faces[4]] = partition([x_faces[4]].private_color, [tiles_private])
-  var [s_x_faces[4]] = partition([x_faces[4]].shared_color, [x_tiles_shared])
+  var x_faces_4_by_privacy = partition([x_faces[4]].is_private, ispace(int1d,2))
+  var x_faces_4_private = x_faces_4_by_privacy[1]
+  var [p_x_faces[4]] = partition(x_faces_4_private.color, [tiles_private])
+  var x_faces_4_shared = x_faces_4_by_privacy[0]
+  var [s_x_faces[4]] = partition(x_faces_4_shared.color, [x_tiles_shared])
 
   color_faces_x([x_faces[5]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_x_faces[5]] = partition([x_faces[5]].private_color, [tiles_private])
-  var [s_x_faces[5]] = partition([x_faces[5]].shared_color, [x_tiles_shared])
+  var x_faces_5_by_privacy = partition([x_faces[5]].is_private, ispace(int1d,2))
+  var x_faces_5_private = x_faces_5_by_privacy[1]
+  var [p_x_faces[5]] = partition(x_faces_5_private.color, [tiles_private])
+  var x_faces_5_shared = x_faces_5_by_privacy[0]
+  var [s_x_faces[5]] = partition(x_faces_5_shared.color, [x_tiles_shared])
 
   color_faces_x([x_faces[6]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_x_faces[6]] = partition([x_faces[6]].private_color, [tiles_private])
-  var [s_x_faces[6]] = partition([x_faces[6]].shared_color, [x_tiles_shared])
+  var x_faces_6_by_privacy = partition([x_faces[6]].is_private, ispace(int1d,2))
+  var x_faces_6_private = x_faces_6_by_privacy[1]
+  var [p_x_faces[6]] = partition(x_faces_6_private.color, [tiles_private])
+  var x_faces_6_shared = x_faces_6_by_privacy[0]
+  var [s_x_faces[6]] = partition(x_faces_6_shared.color, [x_tiles_shared])
 
   color_faces_x([x_faces[7]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_x_faces[7]] = partition([x_faces[7]].private_color, [tiles_private])
-  var [s_x_faces[7]] = partition([x_faces[7]].shared_color, [x_tiles_shared])
+  var x_faces_7_by_privacy = partition([x_faces[7]].is_private, ispace(int1d,2))
+  var x_faces_7_private = x_faces_7_by_privacy[1]
+  var [p_x_faces[7]] = partition(x_faces_7_private.color, [tiles_private])
+  var x_faces_7_shared = x_faces_7_by_privacy[0]
+  var [s_x_faces[7]] = partition(x_faces_7_shared.color, [x_tiles_shared])
 
   color_faces_x([x_faces[8]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_x_faces[8]] = partition([x_faces[8]].private_color, [tiles_private])
-  var [s_x_faces[8]] = partition([x_faces[8]].shared_color, [x_tiles_shared])
+  var x_faces_8_by_privacy = partition([x_faces[8]].is_private, ispace(int1d,2))
+  var x_faces_8_private = x_faces_8_by_privacy[1]
+  var [p_x_faces[8]] = partition(x_faces_8_private.color, [tiles_private])
+  var x_faces_8_shared = x_faces_8_by_privacy[0]
+  var [s_x_faces[8]] = partition(x_faces_8_shared.color, [x_tiles_shared])
 
   -- y
 
   color_faces_y([y_faces[1]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[1]] = partition([y_faces[1]].private_color, [tiles_private])
-  var [s_y_faces[1]] = partition([y_faces[1]].shared_color, [y_tiles_shared])
+  var y_faces_1_by_privacy = partition([y_faces[1]].is_private, ispace(int1d,2))
+  var y_faces_1_private = y_faces_1_by_privacy[1]
+  var [p_y_faces[1]] = partition(y_faces_1_private.color, [tiles_private])
+  var y_faces_1_shared = y_faces_1_by_privacy[0]
+  var [s_y_faces[1]] = partition(y_faces_1_shared.color, [y_tiles_shared])
 
   color_faces_y([y_faces[2]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[2]] = partition([y_faces[2]].private_color, [tiles_private])
-  var [s_y_faces[2]] = partition([y_faces[2]].shared_color, [y_tiles_shared])
+  var y_faces_2_by_privacy = partition([y_faces[2]].is_private, ispace(int1d,2))
+  var y_faces_2_private = y_faces_2_by_privacy[1]
+  var [p_y_faces[2]] = partition(y_faces_2_private.color, [tiles_private])
+  var y_faces_2_shared = y_faces_2_by_privacy[0]
+  var [s_y_faces[2]] = partition(y_faces_2_shared.color, [y_tiles_shared])
 
   color_faces_y([y_faces[3]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[3]] = partition([y_faces[3]].private_color, [tiles_private])
-  var [s_y_faces[3]] = partition([y_faces[3]].shared_color, [y_tiles_shared])
+  var y_faces_3_by_privacy = partition([y_faces[3]].is_private, ispace(int1d,2))
+  var y_faces_3_private = y_faces_3_by_privacy[1]
+  var [p_y_faces[3]] = partition(y_faces_3_private.color, [tiles_private])
+  var y_faces_3_shared = y_faces_3_by_privacy[0]
+  var [s_y_faces[3]] = partition(y_faces_3_shared.color, [y_tiles_shared])
 
   color_faces_y([y_faces[4]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[4]] = partition([y_faces[4]].private_color, [tiles_private])
-  var [s_y_faces[4]] = partition([y_faces[4]].shared_color, [y_tiles_shared])
+  var y_faces_4_by_privacy = partition([y_faces[4]].is_private, ispace(int1d,2))
+  var y_faces_4_private = y_faces_4_by_privacy[1]
+  var [p_y_faces[4]] = partition(y_faces_4_private.color, [tiles_private])
+  var y_faces_4_shared = y_faces_4_by_privacy[0]
+  var [s_y_faces[4]] = partition(y_faces_4_shared.color, [y_tiles_shared])
 
   color_faces_y([y_faces[5]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[5]] = partition([y_faces[5]].private_color, [tiles_private])
-  var [s_y_faces[5]] = partition([y_faces[5]].shared_color, [y_tiles_shared])
+  var y_faces_5_by_privacy = partition([y_faces[5]].is_private, ispace(int1d,2))
+  var y_faces_5_private = y_faces_5_by_privacy[1]
+  var [p_y_faces[5]] = partition(y_faces_5_private.color, [tiles_private])
+  var y_faces_5_shared = y_faces_5_by_privacy[0]
+  var [s_y_faces[5]] = partition(y_faces_5_shared.color, [y_tiles_shared])
 
   color_faces_y([y_faces[6]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[6]] = partition([y_faces[6]].private_color, [tiles_private])
-  var [s_y_faces[6]] = partition([y_faces[6]].shared_color, [y_tiles_shared])
+  var y_faces_6_by_privacy = partition([y_faces[6]].is_private, ispace(int1d,2))
+  var y_faces_6_private = y_faces_6_by_privacy[1]
+  var [p_y_faces[6]] = partition(y_faces_6_private.color, [tiles_private])
+  var y_faces_6_shared = y_faces_6_by_privacy[0]
+  var [s_y_faces[6]] = partition(y_faces_6_shared.color, [y_tiles_shared])
 
   color_faces_y([y_faces[7]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[7]] = partition([y_faces[7]].private_color, [tiles_private])
-  var [s_y_faces[7]] = partition([y_faces[7]].shared_color, [y_tiles_shared])
+  var y_faces_7_by_privacy = partition([y_faces[7]].is_private, ispace(int1d,2))
+  var y_faces_7_private = y_faces_7_by_privacy[1]
+  var [p_y_faces[7]] = partition(y_faces_7_private.color, [tiles_private])
+  var y_faces_7_shared = y_faces_7_by_privacy[0]
+  var [s_y_faces[7]] = partition(y_faces_7_shared.color, [y_tiles_shared])
 
   color_faces_y([y_faces[8]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_y_faces[8]] = partition([y_faces[8]].private_color, [tiles_private])
-  var [s_y_faces[8]] = partition([y_faces[8]].shared_color, [y_tiles_shared])
+  var y_faces_8_by_privacy = partition([y_faces[8]].is_private, ispace(int1d,2))
+  var y_faces_8_private = y_faces_8_by_privacy[1]
+  var [p_y_faces[8]] = partition(y_faces_8_private.color, [tiles_private])
+  var y_faces_8_shared = y_faces_8_by_privacy[0]
+  var [s_y_faces[8]] = partition(y_faces_8_shared.color, [y_tiles_shared])
 
   -- z
 
   color_faces_z([z_faces[1]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[1]] = partition([z_faces[1]].private_color, [tiles_private])
-  var [s_z_faces[1]] = partition([z_faces[1]].shared_color, [z_tiles_shared])
+  var z_faces_1_by_privacy = partition([z_faces[1]].is_private, ispace(int1d,2))
+  var z_faces_1_private = z_faces_1_by_privacy[1]
+  var [p_z_faces[1]] = partition(z_faces_1_private.color, [tiles_private])
+  var z_faces_1_shared = z_faces_1_by_privacy[0]
+  var [s_z_faces[1]] = partition(z_faces_1_shared.color, [z_tiles_shared])
 
   color_faces_z([z_faces[2]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[2]] = partition([z_faces[2]].private_color, [tiles_private])
-  var [s_z_faces[2]] = partition([z_faces[2]].shared_color, [z_tiles_shared])
+  var z_faces_2_by_privacy = partition([z_faces[2]].is_private, ispace(int1d,2))
+  var z_faces_2_private = z_faces_2_by_privacy[1]
+  var [p_z_faces[2]] = partition(z_faces_2_private.color, [tiles_private])
+  var z_faces_2_shared = z_faces_2_by_privacy[0]
+  var [s_z_faces[2]] = partition(z_faces_2_shared.color, [z_tiles_shared])
 
   color_faces_z([z_faces[3]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[3]] = partition([z_faces[3]].private_color, [tiles_private])
-  var [s_z_faces[3]] = partition([z_faces[3]].shared_color, [z_tiles_shared])
+  var z_faces_3_by_privacy = partition([z_faces[3]].is_private, ispace(int1d,2))
+  var z_faces_3_private = z_faces_3_by_privacy[1]
+  var [p_z_faces[3]] = partition(z_faces_3_private.color, [tiles_private])
+  var z_faces_3_shared = z_faces_3_by_privacy[0]
+  var [s_z_faces[3]] = partition(z_faces_3_shared.color, [z_tiles_shared])
 
   color_faces_z([z_faces[4]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[4]] = partition([z_faces[4]].private_color, [tiles_private])
-  var [s_z_faces[4]] = partition([z_faces[4]].shared_color, [z_tiles_shared])
+  var z_faces_4_by_privacy = partition([z_faces[4]].is_private, ispace(int1d,2))
+  var z_faces_4_private = z_faces_4_by_privacy[1]
+  var [p_z_faces[4]] = partition(z_faces_4_private.color, [tiles_private])
+  var z_faces_4_shared = z_faces_4_by_privacy[0]
+  var [s_z_faces[4]] = partition(z_faces_4_shared.color, [z_tiles_shared])
 
   color_faces_z([z_faces[5]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[5]] = partition([z_faces[5]].private_color, [tiles_private])
-  var [s_z_faces[5]] = partition([z_faces[5]].shared_color, [z_tiles_shared])
+  var z_faces_5_by_privacy = partition([z_faces[5]].is_private, ispace(int1d,2))
+  var z_faces_5_private = z_faces_5_by_privacy[1]
+  var [p_z_faces[5]] = partition(z_faces_5_private.color, [tiles_private])
+  var z_faces_5_shared = z_faces_5_by_privacy[0]
+  var [s_z_faces[5]] = partition(z_faces_5_shared.color, [z_tiles_shared])
 
   color_faces_z([z_faces[6]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[6]] = partition([z_faces[6]].private_color, [tiles_private])
-  var [s_z_faces[6]] = partition([z_faces[6]].shared_color, [z_tiles_shared])
+  var z_faces_6_by_privacy = partition([z_faces[6]].is_private, ispace(int1d,2))
+  var z_faces_6_private = z_faces_6_by_privacy[1]
+  var [p_z_faces[6]] = partition(z_faces_6_private.color, [tiles_private])
+  var z_faces_6_shared = z_faces_6_by_privacy[0]
+  var [s_z_faces[6]] = partition(z_faces_6_shared.color, [z_tiles_shared])
 
   color_faces_z([z_faces[7]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[7]] = partition([z_faces[7]].private_color, [tiles_private])
-  var [s_z_faces[7]] = partition([z_faces[7]].shared_color, [z_tiles_shared])
+  var z_faces_7_by_privacy = partition([z_faces[7]].is_private, ispace(int1d,2))
+  var z_faces_7_private = z_faces_7_by_privacy[1]
+  var [p_z_faces[7]] = partition(z_faces_7_private.color, [tiles_private])
+  var z_faces_7_shared = z_faces_7_by_privacy[0]
+  var [s_z_faces[7]] = partition(z_faces_7_shared.color, [z_tiles_shared])
 
   color_faces_z([z_faces[8]], Nx, Ny, Nz, ntx, nty, ntz)
-  var [p_z_faces[8]] = partition([z_faces[8]].private_color, [tiles_private])
-  var [s_z_faces[8]] = partition([z_faces[8]].shared_color, [z_tiles_shared])
+  var z_faces_8_by_privacy = partition([z_faces[8]].is_private, ispace(int1d,2))
+  var z_faces_8_private = z_faces_8_by_privacy[1]
+  var [p_z_faces[8]] = partition(z_faces_8_private.color, [tiles_private])
+  var z_faces_8_shared = z_faces_8_by_privacy[0]
+  var [s_z_faces[8]] = partition(z_faces_8_shared.color, [z_tiles_shared])
 
 end end
 

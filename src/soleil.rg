@@ -5249,6 +5249,7 @@ task work(config : Config)
     Integrator_timeStep = config.Integrator.restartIter
     Integrator_simTime = config.Integrator.restartTime
   end
+  [DOM.DeclSymbols(config)];
 
   -- Code that gets farmed to the tiles
   __parallelize_with Fluid_primPart, particles_primPart, Radiation_primPart, primColors, (image(Fluid, particles_primPart, particles.cell)<=Fluid_primPart) do
@@ -5295,7 +5296,6 @@ task work(config : Config)
       InitParticlesUniform(particles, Fluid, config, Grid_xBnum, Grid_yBnum, Grid_zBnum)
       Particles_number = int64(((config.Particles.initNum/((config.Mapping.xTiles*config.Mapping.yTiles)*config.Mapping.zTiles))*((config.Mapping.xTiles*config.Mapping.yTiles)*config.Mapping.zTiles)))
     end
-    [DOM.DeclSymbols(config)];
     if (config.Radiation.type == SCHEMA.RadiationType_DOM) then
       Radiation_InitializeCell(Radiation);
       [DOM.InitRegions()];
