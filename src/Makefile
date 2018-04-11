@@ -18,7 +18,7 @@ export INCLUDE_PATH := $(INCLUDE_PATH);$(HDF_ROOT)/include
 endif
 REGENT := $(LG_RT_DIR)/../language/regent.py -g
 SOLEIL_FLAGS := -fflow 0 -fopenmp 1 -fcuda 1 -fcuda-offline 1
-DOM_HOST_FLAGS := -fflow 0
+DOM_HOST_FLAGS := -fflow 0 -fopenmp 1 -fcuda 0
 
 # Link flags
 ifdef CRAYPE_VERSION
