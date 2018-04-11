@@ -1,4 +1,5 @@
 #include <iostream>
+#include <regex>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -23,6 +24,9 @@ static Realm::Logger LOG("soleil_mapper");
       exit(1);                                  \
     }                                           \
   } while(0)
+
+#define STARTS_WITH(str, prefix)                \
+  (strncmp((str), (prefix), sizeof(prefix) - 1) == 0)
 
 //=============================================================================
 
@@ -68,42 +72,60 @@ public:
   }
 
 public:
-  // TODO: Also handle *_bound tasks from DOM.
   virtual Processor default_policy_select_initial_processor(
                               MapperContext ctx,
                               const Task& task) {
-    // Sweep tasks are individually launched; find the tile on which they're
-    // centered and send them to the node responsible for that tile.
+    // DOM sweep & boundary tasks are individually launched; find the tile on
+    // which they're centered and send them to the node responsible for that.
     // TODO: Cache the decision.
-    if (strncmp(task.get_task_name(), "sweep", sizeof("sweep") - 1) == 0 &&
-        task.parent_task != NULL &&
-        strcmp(task.parent_task->get_task_name(), "work") == 0) {
-      // Retrieve sample information from parent task.
+    bool is_sweep = STARTS_WITH(task.get_task_name(), "sweep_");
+    bool is_bound = STARTS_WITH(task.get_task_name(), "bound_");
+    if (is_sweep || is_bound) {
+      CHECK(task.parent_task != NULL &&
+            strcmp(task.parent_task->get_task_name(), "work") == 0,
+            "DOM tasks should only be launched from the work task directly.");
+      // Retrieve sample information from parent work task.
       const char* ptr = static_cast<const char*>(task.parent_task->args);
       const Config* config =
         reinterpret_cast<const Config*>(ptr + sizeof(uint64_t));
       unsigned sample_id = config->Mapping.sampleId;
       assert(sample_id < sample_mappings_.size());
       const SampleMapping& mapping = sample_mappings_[sample_id];
-      // Find the radiation grid tile used in this task launch.
+      // Find the tile this task launch is centered on.
       DomainPoint tile = DomainPoint::nil();
       for (const RegionRequirement& req : task.regions) {
         assert(req.region.exists());
         const char* name = NULL;
         runtime->retrieve_name(ctx, req.region.get_field_space(), name);
-        if (strcmp(name, "Radiation_columns") == 0) {
+        if ((is_sweep && strcmp(name, "Radiation_columns") == 0) ||
+            (is_bound && strcmp(name, "face") == 0)) {
           tile = runtime->get_logical_region_color_point(ctx, req.region);
           break;
         }
       }
       CHECK(!tile.is_null(),
-            "Cannot retrieve tile from sweep task launch -- did you change "
-            "the name of the radiation grid field space?");
-      CHECK(tile.get_dim() == 3 &&
-            tile[0] < config->Mapping.xTiles &&
+            "Cannot retrieve tile from DOM task launch -- did you change the"
+            " names of the field spaces?");
+      CHECK(tile.get_dim() == 3,
+            "DOM task launches should only use the top-level tiling.");
+      // A task that updates the far boundary on some direction is called with
+      // a face tile one-over on that direction, so we have to subtract 1 to
+      // find the actual tile the launch is centered on.
+      if (is_bound) {
+        std::regex regex("bound_([xyz])_(lo|hi)");
+        std::cmatch match;
+        CHECK(std::regex_match(task.get_task_name(), match, regex),
+              "Cannot parse name of DOM boundary task -- did you change it?");
+        if (match[2].str().compare("hi") == 0) {
+          if (match[1].str().compare("x") == 0) { tile[0]--; }
+          if (match[1].str().compare("y") == 0) { tile[1]--; }
+          if (match[1].str().compare("z") == 0) { tile[2]--; }
+        }
+      }
+      CHECK(tile[0] < config->Mapping.xTiles &&
             tile[1] < config->Mapping.yTiles &&
             tile[2] < config->Mapping.zTiles,
-            "Sweep task launches should only use the top-level tiling.");
+            "DOM task launches should only use the top-level tiling.");
       // Select the 1st (and only) processor of the preferred kind on each
       // target node.
       VariantInfo info =
@@ -205,8 +227,8 @@ public:
           input.domain.hi()[0] == config->Mapping.xTiles - 1 &&
           input.domain.hi()[1] == config->Mapping.yTiles - 1 &&
           input.domain.hi()[2] == config->Mapping.zTiles - 1,
-          "Index-space launches in the work task should only use the "
-          "top-level tiling.");
+          "Index-space launches in the work task should only use the"
+          " top-level tiling.");
     // Select the 1st (and only) processor of the same kind as the original
     // target, on each node allocated to this sample.
     const std::vector<Processor>& procs =

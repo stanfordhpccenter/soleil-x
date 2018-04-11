@@ -84,8 +84,8 @@ module load mpi/openmpi/1.8.2
 module load cuda/8.0
 # Legion build config
 export CONDUIT=ibv
-export CC=gcc
-export CXX=g++
+export CC=gcc-4.9
+export CXX=g++-4.9
 # Path setup
 export LEGION_DIR=???
 export LG_RT_DIR="$LEGION_DIR"/runtime

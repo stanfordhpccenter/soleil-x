@@ -226,7 +226,7 @@ do
   end
 end
 
-local task west_bound(faces_1 : region(ispace(int3d), face),
+local task bound_x_lo(faces_1 : region(ispace(int3d), face),
                       faces_2 : region(ispace(int3d), face),
                       faces_3 : region(ispace(int3d), face),
                       faces_4 : region(ispace(int3d), face),
@@ -297,7 +297,7 @@ do
 
 end
 
-local task east_bound(faces_1 : region(ispace(int3d), face),
+local task bound_x_hi(faces_1 : region(ispace(int3d), face),
                       faces_2 : region(ispace(int3d), face),
                       faces_3 : region(ispace(int3d), face),
                       faces_4 : region(ispace(int3d), face),
@@ -368,17 +368,17 @@ do
 
 end
 
-local task north_bound(faces_1 : region(ispace(int3d), face),
-                       faces_2 : region(ispace(int3d), face),
-                       faces_3 : region(ispace(int3d), face),
-                       faces_4 : region(ispace(int3d), face),
-                       faces_5 : region(ispace(int3d), face),
-                       faces_6 : region(ispace(int3d), face),
-                       faces_7 : region(ispace(int3d), face),
-                       faces_8 : region(ispace(int3d), face),
-                       angles : region(ispace(int1d), angle),
-                       emissNorth : double,
-                       tempNorth : double)
+local task bound_y_hi(faces_1 : region(ispace(int3d), face),
+                      faces_2 : region(ispace(int3d), face),
+                      faces_3 : region(ispace(int3d), face),
+                      faces_4 : region(ispace(int3d), face),
+                      faces_5 : region(ispace(int3d), face),
+                      faces_6 : region(ispace(int3d), face),
+                      faces_7 : region(ispace(int3d), face),
+                      faces_8 : region(ispace(int3d), face),
+                      angles : region(ispace(int1d), angle),
+                      emissNorth : double,
+                      tempNorth : double)
 where
   reads (angles.{w, xi, eta, mu}),
   reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
@@ -440,17 +440,17 @@ do
 
 end
 
-local task south_bound(faces_1 : region(ispace(int3d), face),
-                       faces_2 : region(ispace(int3d), face),
-                       faces_3 : region(ispace(int3d), face),
-                       faces_4 : region(ispace(int3d), face),
-                       faces_5 : region(ispace(int3d), face),
-                       faces_6 : region(ispace(int3d), face),
-                       faces_7 : region(ispace(int3d), face),
-                       faces_8 : region(ispace(int3d), face),
-                       angles : region(ispace(int1d), angle),
-                       emissSouth : double,
-                       tempSouth : double)
+local task bound_y_lo(faces_1 : region(ispace(int3d), face),
+                      faces_2 : region(ispace(int3d), face),
+                      faces_3 : region(ispace(int3d), face),
+                      faces_4 : region(ispace(int3d), face),
+                      faces_5 : region(ispace(int3d), face),
+                      faces_6 : region(ispace(int3d), face),
+                      faces_7 : region(ispace(int3d), face),
+                      faces_8 : region(ispace(int3d), face),
+                      angles : region(ispace(int1d), angle),
+                      emissSouth : double,
+                      tempSouth : double)
 where
   reads (angles.{w, xi, eta, mu}),
   reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
@@ -512,17 +512,17 @@ do
 
 end
 
-local task up_bound(faces_1 : region(ispace(int3d), face),
-                    faces_2 : region(ispace(int3d), face),
-                    faces_3 : region(ispace(int3d), face),
-                    faces_4 : region(ispace(int3d), face),
-                    faces_5 : region(ispace(int3d), face),
-                    faces_6 : region(ispace(int3d), face),
-                    faces_7 : region(ispace(int3d), face),
-                    faces_8 : region(ispace(int3d), face),
-                    angles : region(ispace(int1d), angle),
-                    emissUp : double,
-                    tempUp : double)
+local task bound_z_lo(faces_1 : region(ispace(int3d), face),
+                      faces_2 : region(ispace(int3d), face),
+                      faces_3 : region(ispace(int3d), face),
+                      faces_4 : region(ispace(int3d), face),
+                      faces_5 : region(ispace(int3d), face),
+                      faces_6 : region(ispace(int3d), face),
+                      faces_7 : region(ispace(int3d), face),
+                      faces_8 : region(ispace(int3d), face),
+                      angles : region(ispace(int1d), angle),
+                      emissDown : double,
+                      tempDown : double)
 where
   reads (angles.{w, xi, eta, mu}),
   reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
@@ -536,8 +536,8 @@ do
   -- Temporary variables
 
   var reflect : double = 0.0
-  var epsw    : double = emissUp
-  var Tw      : double = tempUp
+  var epsw    : double = emissDown
+  var Tw      : double = tempDown
 
   for i = limits.lo.x, limits.hi.x + 1 do
     for j = limits.lo.y, limits.hi.y + 1 do
@@ -584,7 +584,7 @@ do
 
 end
 
-local task down_bound(faces_1 : region(ispace(int3d), face),
+local task bound_z_hi(faces_1 : region(ispace(int3d), face),
                       faces_2 : region(ispace(int3d), face),
                       faces_3 : region(ispace(int3d), face),
                       faces_4 : region(ispace(int3d), face),
@@ -593,8 +593,8 @@ local task down_bound(faces_1 : region(ispace(int3d), face),
                       faces_7 : region(ispace(int3d), face),
                       faces_8 : region(ispace(int3d), face),
                       angles : region(ispace(int1d), angle),
-                      emissDown : double,
-                      tempDown : double)
+                      emissUp : double,
+                      tempUp : double)
 where
   reads (angles.{w, xi, eta, mu}),
   reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
@@ -608,8 +608,8 @@ do
   -- Temporary variables
 
   var reflect : double = 0.0
-  var epsw    : double = emissDown
-  var Tw      : double = tempDown
+  var epsw    : double = emissUp
+  var Tw      : double = tempUp
 
   for i = limits.lo.x, limits.hi.x + 1 do
     for j = limits.lo.y, limits.hi.y + 1 do
@@ -2314,7 +2314,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     -- Update the grid boundary intensities
     for j = 0, nty do
       for k = 0, ntz do
-        west_bound([s_x_faces[1]][{0,j,k}],
+        bound_x_lo([s_x_faces[1]][{0,j,k}],
                    [s_x_faces[2]][{0,j,k}],
                    [s_x_faces[3]][{0,j,k}],
                    [s_x_faces[4]][{0,j,k}],
@@ -2326,7 +2326,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
                    config.Radiation.emissWest,
                    config.Radiation.tempWest)
 
-        east_bound([s_x_faces[1]][{ntx,j,k}],
+        bound_x_hi([s_x_faces[1]][{ntx,j,k}],
                    [s_x_faces[2]][{ntx,j,k}],
                    [s_x_faces[3]][{ntx,j,k}],
                    [s_x_faces[4]][{ntx,j,k}],
@@ -2343,36 +2343,36 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     -- Update y faces
     for i = 0, ntx do
       for k = 0, ntz do
-        south_bound([s_y_faces[1]][{i,0,k}],
-                    [s_y_faces[2]][{i,0,k}],
-                    [s_y_faces[3]][{i,0,k}],
-                    [s_y_faces[4]][{i,0,k}],
-                    [s_y_faces[5]][{i,0,k}],
-                    [s_y_faces[6]][{i,0,k}],
-                    [s_y_faces[7]][{i,0,k}],
-                    [s_y_faces[8]][{i,0,k}],
-                    angles,
-                    config.Radiation.emissSouth,
-                    config.Radiation.tempSouth)
+        bound_y_lo([s_y_faces[1]][{i,0,k}],
+                   [s_y_faces[2]][{i,0,k}],
+                   [s_y_faces[3]][{i,0,k}],
+                   [s_y_faces[4]][{i,0,k}],
+                   [s_y_faces[5]][{i,0,k}],
+                   [s_y_faces[6]][{i,0,k}],
+                   [s_y_faces[7]][{i,0,k}],
+                   [s_y_faces[8]][{i,0,k}],
+                   angles,
+                   config.Radiation.emissSouth,
+                   config.Radiation.tempSouth)
 
-        north_bound([s_y_faces[1]][{i,nty,k}],
-                    [s_y_faces[2]][{i,nty,k}],
-                    [s_y_faces[3]][{i,nty,k}],
-                    [s_y_faces[4]][{i,nty,k}],
-                    [s_y_faces[5]][{i,nty,k}],
-                    [s_y_faces[6]][{i,nty,k}],
-                    [s_y_faces[7]][{i,nty,k}],
-                    [s_y_faces[8]][{i,nty,k}],
-                    angles,
-                    config.Radiation.emissNorth,
-                    config.Radiation.tempNorth)
+        bound_y_hi([s_y_faces[1]][{i,nty,k}],
+                   [s_y_faces[2]][{i,nty,k}],
+                   [s_y_faces[3]][{i,nty,k}],
+                   [s_y_faces[4]][{i,nty,k}],
+                   [s_y_faces[5]][{i,nty,k}],
+                   [s_y_faces[6]][{i,nty,k}],
+                   [s_y_faces[7]][{i,nty,k}],
+                   [s_y_faces[8]][{i,nty,k}],
+                   angles,
+                   config.Radiation.emissNorth,
+                   config.Radiation.tempNorth)
       end
     end
 
     -- Update z faces
     for i = 0, ntx do
       for j = 0, nty do
-        up_bound  ([s_z_faces[1]][{i,j,0}],
+        bound_z_lo([s_z_faces[1]][{i,j,0}],
                    [s_z_faces[2]][{i,j,0}],
                    [s_z_faces[3]][{i,j,0}],
                    [s_z_faces[4]][{i,j,0}],
@@ -2381,10 +2381,10 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
                    [s_z_faces[7]][{i,j,0}],
                    [s_z_faces[8]][{i,j,0}],
                    angles,
-                   config.Radiation.emissUp,
-                   config.Radiation.tempUp)
+                   config.Radiation.emissDown,
+                   config.Radiation.tempDown)
 
-        down_bound([s_z_faces[1]][{i,j,ntz}],
+        bound_z_hi([s_z_faces[1]][{i,j,ntz}],
                    [s_z_faces[2]][{i,j,ntz}],
                    [s_z_faces[3]][{i,j,ntz}],
                    [s_z_faces[4]][{i,j,ntz}],
@@ -2393,8 +2393,8 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
                    [s_z_faces[7]][{i,j,ntz}],
                    [s_z_faces[8]][{i,j,ntz}],
                    angles,
-                   config.Radiation.emissDown,
-                   config.Radiation.tempDown)
+                   config.Radiation.emissUp,
+                   config.Radiation.tempUp)
       end
     end
 
