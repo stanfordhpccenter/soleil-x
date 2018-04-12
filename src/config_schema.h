@@ -1,6 +1,6 @@
 #include "enum.h"
 
-MK_ENUM(FlowBC, Periodic, Symmetry, AdiabaticWall, IsothermalWall);
+MK_ENUM(FlowBC, Periodic, Symmetry, AdiabaticWall, IsothermalWall, NSCBC_SubsonicInflow, NSCBC_SubsonicOutflow);
 MK_ENUM(ParticleBC, Permeable, Solid);
 MK_ENUM(ViscosityModel, Constant, PowerLaw, Sutherland);
 MK_ENUM(FlowInitCase, Uniform, Restart, Perturbed, TaylorGreen2DVortex, TaylorGreen3DVortex);
@@ -28,6 +28,7 @@ struct Config {
         FlowBC xBCRight;
         double xBCRightVel[3];
         double xBCRightTemp;
+        double xBCRightP_inf;
         FlowBC yBCLeft;
         double yBCLeftVel[3];
         double yBCLeftTemp;
