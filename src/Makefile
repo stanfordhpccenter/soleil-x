@@ -8,8 +8,8 @@ export HDF_HEADER ?= hdf5.h
 HDF_LIBNAME ?= hdf5
 
 # C compiler options
-CFLAGS += -g -O2 -Wall -Werror -I$(LG_RT_DIR)
-CXXFLAGS += -std=c++11 -g -O2 -Wall -Werror -I$(LG_RT_DIR)
+CFLAGS += -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LG_RT_DIR)
+CXXFLAGS += -std=c++11 -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LG_RT_DIR)
 
 # Regent options
 export INCLUDE_PATH := .

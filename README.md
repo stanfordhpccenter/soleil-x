@@ -160,6 +160,12 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ### Install Legion
 
 ```
+# Disable PMI in GASnet, because the installation of the PMI library is broken on Certainty
+git clone https://github.com/StanfordLegion/gasnet.git $LEGION_DIR/language/gasnet
+cd "$LEGION_DIR"/language/gasnet
+sed -i 's|../$(GASNET_VERSION)/configure|../$(GASNET_VERSION)/configure --disable-pmi|g' Makefile
+make
+# Rest of compilation as normal
 cd "$LEGION_DIR"/language
 unset LG_RT_DIR
 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'git@github.com:StanfordLegion/terra.git' --terra-branch 'luajit2.1'

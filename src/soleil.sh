@@ -61,57 +61,19 @@ fi
 
 function run_titan {
     export QUEUE="${QUEUE:-debug}"
-    if [[ "$QUEUE" == "batch" ]]; then
-	true
-    elif [[ "$QUEUE" == "killable" ]]; then
-	true
-    elif [[ "$QUEUE" == "debug" ]]; then
-        true
-    else
-	quit "Unrecognized queue $QUEUE"
-    fi
     export CURR_DIR="$(pwd)"
-    qsub -v LD_LIBRARY_PATH,ARGS,NUM_NODES,CURR_DIR \
+    qsub -v LD_LIBRARY_PATH,ARGS,CURR_DIR \
         -l nodes="$NUM_NODES" -l walltime="$WALLTIME" -q "$QUEUE" \
         "$SOLEIL_DIR"/src/titan.pbs
 }
 
 function run_certainty {
     export QUEUE="${QUEUE:-gpu}"
-    # TODO: Only supporting blacklist on gpu queue
-    if [[ "$QUEUE" == "default" ]]; then
-	if (( MINUTES > 2 * 24 * 60 )); then quit "Walltime too long"; fi
-	NODES="$NUM_NODES:ppn=32"
-    elif [[ "$QUEUE" == "debug" ]]; then
-	if (( MINUTES > 4 * 60 )); then quit "Walltime too long"; fi
-	NODES="$NUM_NODES:ppn=24"
-    elif [[ "$QUEUE" == "gpu" ]]; then
-        # HACK: Torque doesn't support node exclusion, so we just list all free
-        # GPU nodes, pick $NUM_NODES that aren't on the blacklist, and request
-        # those specifically.
-        NUM_AVAIL="$(pbsnodes -l free | grep gpu | awk '{print $1}' | sort |
-                     comm -23 - "$SOLEIL_DIR"/src/blacklist/certainty.txt |
-                     wc -l)"
-        if (( NUM_AVAIL < NUM_NODES )); then
-	    quit "Too many nodes requested"
-	fi
-        NODES="$(pbsnodes -l free | grep gpu | awk '{print $1}' | sort |
-                 comm -23 - "$SOLEIL_DIR"/src/blacklist/certainty.txt |
-                 head -n $NUM_NODES | paste -sd '+' -)"
-    elif [[ "$QUEUE" == "largemem" ]]; then
-	if (( MINUTES > 7 * 24 * 60 )); then quit "Walltime too long"; fi
-	NODES="$NUM_NODES:ppn=24"
-    elif [[ "$QUEUE" == "long" ]]; then
-	NODES="$NUM_NODES:ppn=24"
-    elif [[ "$QUEUE" == "quick" ]]; then
-	if (( MINUTES > 24 * 60 )); then quit "Walltime too long"; fi
-	NODES="$NUM_NODES:ppn=16"
-    else
-	quit "Unrecognized queue $QUEUE"
-    fi
-    qsub -v LD_LIBRARY_PATH,ARGS,NUM_NODES,QUEUE \
-        -l nodes="$NODES" -l walltime="$WALLTIME" -q "$QUEUE" \
-        "$SOLEIL_DIR"/src/certainty.pbs
+    EXCLUDED="$(paste -sd ',' "$SOLEIL_DIR"/src/blacklist/certainty.txt)"
+    sbatch --export=LD_LIBRARY_PATH,ARGS,QUEUE \
+        -N "$NUM_NODES" -t "$WALLTIME" -p "$QUEUE" \
+        --exclude="$EXCLUDED" \
+        "$SOLEIL_DIR"/src/certainty.slurm
 }
 
 function run_sapling {
@@ -126,10 +88,11 @@ function run_sapling {
         -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 -ll:gpu 1 \
         -ll:csize 20000 -ll:fsize 2048
     # Resources:
-    # 2 NUMA domains per node
-    # 4 cores per NUMA
-    # 2 GPUs per node, with 6GB FB each
     # 40230MB RAM per node
+    # 2 NUMA domains per node
+    # 4 cores per NUMA domain
+    # 2 Tesla C2070 GPUs per node
+    # 6GB FB per GPU
 }
 
 function run_local {
