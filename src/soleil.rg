@@ -4027,9 +4027,9 @@ end
 
 __demand(__parallel, __cuda)
 task Particles_UpdateAuxiliaryStep1(particles : region(ispace(int1d), particles_columns),
-                                    BC_xBCLeftParticles : int32, BC_xBCRightParticles : int32,
-                                    BC_yBCLeftParticles : int32, BC_yBCRightParticles : int32,
-                                    BC_zBCLeftParticles : int32, BC_zBCRightParticles : int32,
+                                    BC_xBCParticlesPeriodic : bool,
+                                    BC_yBCParticlesPeriodic : bool,
+                                    BC_zBCParticlesPeriodic : bool,
                                     Grid_xOrigin : double, Grid_xWidth : double,
                                     Grid_yOrigin : double, Grid_yWidth : double,
                                     Grid_zOrigin : double, Grid_zWidth : double,
@@ -4051,7 +4051,7 @@ do
       particles[p].velocity_t_ghost[1] = particles[p].velocity_t[1]
       particles[p].velocity_t_ghost[2] = particles[p].velocity_t[2]
       if (particles[p].position[0]<Grid_xOrigin) then
-        if (BC_xBCLeftParticles==0) then
+        if BC_xBCParticlesPeriodic then
           particles[p].position_ghost[0] = (particles[p].position[0]+Grid_xWidth)
         else
           particles[p].position_ghost[0] = Grid_xOrigin
@@ -4066,7 +4066,7 @@ do
         end
       end
       if (particles[p].position[0]>(Grid_xOrigin+Grid_xWidth)) then
-        if (BC_xBCRightParticles==0) then
+        if BC_xBCParticlesPeriodic then
           particles[p].position_ghost[0] = (particles[p].position[0]-Grid_xWidth)
         else
           particles[p].position_ghost[0] = (Grid_xOrigin+Grid_xWidth)
@@ -4081,7 +4081,7 @@ do
         end
       end
       if (particles[p].position[1]<Grid_yOrigin) then
-        if (BC_yBCLeftParticles==0) then
+        if BC_yBCParticlesPeriodic then
           particles[p].position_ghost[1] = (particles[p].position[1]+Grid_yWidth)
         else
           particles[p].position_ghost[1] = Grid_yOrigin
@@ -4096,7 +4096,7 @@ do
         end
       end
       if (particles[p].position[1]>(Grid_yOrigin+Grid_yWidth)) then
-        if (BC_yBCRightParticles==0) then
+        if BC_yBCParticlesPeriodic then
           particles[p].position_ghost[1] = (particles[p].position[1]-Grid_yWidth)
         else
           particles[p].position_ghost[1] = (Grid_yOrigin+Grid_yWidth)
@@ -4111,7 +4111,7 @@ do
         end
       end
       if (particles[p].position[2]<Grid_zOrigin) then
-        if (BC_zBCLeftParticles==0) then
+        if BC_zBCParticlesPeriodic then
           particles[p].position_ghost[2] = (particles[p].position[2]+Grid_zWidth)
         else
           particles[p].position_ghost[2] = Grid_zOrigin
@@ -4126,7 +4126,7 @@ do
         end
       end
       if (particles[p].position[2]>(Grid_zOrigin+Grid_zWidth)) then
-        if (BC_zBCRightParticles==0) then
+        if BC_zBCParticlesPeriodic then
           particles[p].position_ghost[2] = (particles[p].position[2]-Grid_zWidth)
         else
           particles[p].position_ghost[2] = (Grid_zOrigin+Grid_zWidth)
@@ -4249,12 +4249,9 @@ task work(config : Config)
   var BC_zNegVelocity = array(double(0.1), double(0.1), double(0.1))
   var BC_zPosTemperature = 0.0
   var BC_zNegTemperature = 0.0
-  var BC_xBCLeftParticles = int32(-1)
-  var BC_xBCRightParticles = int32(-1)
-  var BC_yBCLeftParticles = int32(-1)
-  var BC_yBCRightParticles = int32(-1)
-  var BC_zBCLeftParticles = int32(-1)
-  var BC_zBCRightParticles = int32(-1)
+  var BC_xBCParticlesPeriodic = false
+  var BC_yBCParticlesPeriodic = false
+  var BC_zBCParticlesPeriodic = false
   var Grid_xBnum = 1
   if BC_xBCPeriodic then Grid_xBnum = 0 end
   var Grid_yBnum = 1
@@ -5137,32 +5134,28 @@ task work(config : Config)
     BC_xNegVelocity = array(0.0, 0.0, 0.0)
     BC_xPosTemperature = -1.0
     BC_xNegTemperature = -1.0
-    BC_xBCLeftParticles = 0
-    BC_xBCRightParticles = 0
+    BC_xBCParticlesPeriodic = true
   elseif ((config.BC.xBCLeft == SCHEMA.FlowBC_Symmetry) and (config.BC.xBCRight == SCHEMA.FlowBC_Symmetry)) then
     BC_xSign = array(-1.0, 1.0, 1.0)
     BC_xPosVelocity = array(0.0, 0.0, 0.0)
     BC_xNegVelocity = array(0.0, 0.0, 0.0)
     BC_xPosTemperature = -1.0
     BC_xNegTemperature = -1.0
-    BC_xBCLeftParticles = 1
-    BC_xBCRightParticles = 1
+    BC_xBCParticlesPeriodic = false
   elseif ((config.BC.xBCLeft == SCHEMA.FlowBC_AdiabaticWall) and (config.BC.xBCRight == SCHEMA.FlowBC_AdiabaticWall)) then
     BC_xSign = array(-1.0, -1.0, -1.0)
     BC_xPosVelocity = array((2*config.BC.xBCRightVel[0]), (2*config.BC.xBCRightVel[1]), (2*config.BC.xBCRightVel[2]))
     BC_xNegVelocity = array((2*config.BC.xBCLeftVel[0]), (2*config.BC.xBCLeftVel[1]), (2*config.BC.xBCLeftVel[2]))
     BC_xPosTemperature = -1.0
     BC_xNegTemperature = -1.0
-    BC_xBCLeftParticles = 1
-    BC_xBCRightParticles = 1
+    BC_xBCParticlesPeriodic = false
   elseif ((config.BC.xBCLeft == SCHEMA.FlowBC_IsothermalWall) and (config.BC.xBCRight == SCHEMA.FlowBC_IsothermalWall)) then
     BC_xSign = array(-1.0, -1.0, -1.0)
     BC_xPosVelocity = array((2*config.BC.xBCRightVel[0]), (2*config.BC.xBCRightVel[1]), (2*config.BC.xBCRightVel[2]))
     BC_xNegVelocity = array((2*config.BC.xBCLeftVel[0]), (2*config.BC.xBCLeftVel[1]), (2*config.BC.xBCLeftVel[2]))
     BC_xPosTemperature = config.BC.xBCRightTemp
     BC_xNegTemperature = config.BC.xBCLeftTemp
-    BC_xBCLeftParticles = 1
-    BC_xBCRightParticles = 1
+    BC_xBCParticlesPeriodic = false
   else
     regentlib.assert(false, "Boundary conditions in x not implemented")
   end
@@ -5172,32 +5165,28 @@ task work(config : Config)
     BC_yNegVelocity = array(0.0, 0.0, 0.0)
     BC_yPosTemperature = -1.0
     BC_yNegTemperature = -1.0
-    BC_yBCLeftParticles = 0
-    BC_yBCRightParticles = 0
+    BC_yBCParticlesPeriodic = true
   elseif ((config.BC.yBCLeft == SCHEMA.FlowBC_Symmetry) and (config.BC.yBCRight == SCHEMA.FlowBC_Symmetry)) then
     BC_ySign = array(1.0, -1.0, 1.0)
     BC_yPosVelocity = array(0.0, 0.0, 0.0)
     BC_yNegVelocity = array(0.0, 0.0, 0.0)
     BC_yPosTemperature = -1.0
     BC_yNegTemperature = -1.0
-    BC_yBCLeftParticles = 1
-    BC_yBCRightParticles = 1
+    BC_yBCParticlesPeriodic = false
   elseif ((config.BC.yBCLeft == SCHEMA.FlowBC_AdiabaticWall) and (config.BC.yBCRight == SCHEMA.FlowBC_AdiabaticWall)) then
     BC_ySign = array(-1.0, -1.0, -1.0)
     BC_yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
     BC_yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
     BC_yPosTemperature = -1.0
     BC_yNegTemperature = -1.0
-    BC_yBCLeftParticles = 1
-    BC_yBCRightParticles = 1
+    BC_yBCParticlesPeriodic = false
   elseif ((config.BC.yBCLeft == SCHEMA.FlowBC_IsothermalWall) and (config.BC.yBCRight == SCHEMA.FlowBC_IsothermalWall)) then
     BC_ySign = array(-1.0, -1.0, -1.0)
     BC_yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
     BC_yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
     BC_yPosTemperature = config.BC.yBCRightTemp
     BC_yNegTemperature = config.BC.yBCLeftTemp
-    BC_yBCLeftParticles = 1
-    BC_yBCRightParticles = 1
+    BC_yBCParticlesPeriodic = false
   else
     regentlib.assert(false, "Boundary conditions in y not implemented")
   end
@@ -5207,32 +5196,28 @@ task work(config : Config)
     BC_zNegVelocity = array(0.0, 0.0, 0.0)
     BC_zPosTemperature = -1.0
     BC_zNegTemperature = -1.0
-    BC_zBCLeftParticles = 0
-    BC_zBCRightParticles = 0
+    BC_zBCParticlesPeriodic = true
   elseif ((config.BC.zBCLeft == SCHEMA.FlowBC_Symmetry) and (config.BC.zBCRight == SCHEMA.FlowBC_Symmetry)) then
     BC_zSign = array(1.0, 1.0, -1.0)
     BC_zPosVelocity = array(0.0, 0.0, 0.0)
     BC_zNegVelocity = array(0.0, 0.0, 0.0)
     BC_zPosTemperature = -1.0
     BC_zNegTemperature = -1.0
-    BC_zBCLeftParticles = 1
-    BC_zBCRightParticles = 1
+    BC_zBCParticlesPeriodic = false
   elseif ((config.BC.zBCLeft == SCHEMA.FlowBC_AdiabaticWall) and (config.BC.zBCRight == SCHEMA.FlowBC_AdiabaticWall)) then
     BC_zSign = array(-1.0, -1.0, -1.0)
     BC_zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
     BC_zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
     BC_zPosTemperature = -1.0
     BC_zNegTemperature = -1.0
-    BC_zBCLeftParticles = 1
-    BC_zBCRightParticles = 1
+    BC_zBCParticlesPeriodic = false
   elseif ((config.BC.zBCLeft == SCHEMA.FlowBC_IsothermalWall) and (config.BC.zBCRight == SCHEMA.FlowBC_IsothermalWall)) then
     BC_zSign = array(-1.0, -1.0, -1.0)
     BC_zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
     BC_zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
     BC_zPosTemperature = config.BC.zBCRightTemp
     BC_zNegTemperature = config.BC.zBCLeftTemp
-    BC_zBCLeftParticles = 1
-    BC_zBCRightParticles = 1
+    BC_zBCParticlesPeriodic = false
   else
     regentlib.assert(false, "Boundary conditions in z not implemented")
   end
@@ -5440,7 +5425,7 @@ task work(config : Config)
         Flow_UpdateAuxiliaryThermodynamics(Fluid, Flow_gamma, Flow_gasConstant, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
         Flow_UpdateGhostThermodynamicsStep1(Fluid, BC_xNegTemperature, BC_xPosTemperature, BC_yNegTemperature, BC_yPosTemperature, BC_zNegTemperature, BC_zPosTemperature, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
         Flow_UpdateGhostThermodynamicsStep2(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-        Particles_UpdateAuxiliaryStep1(particles, BC_xBCLeftParticles, BC_xBCRightParticles, BC_yBCLeftParticles, BC_yBCRightParticles, BC_zBCLeftParticles, BC_zBCRightParticles, Grid_xOrigin, Grid_xWidth, Grid_yOrigin, Grid_yWidth, Grid_zOrigin, Grid_zWidth, Particles_restitutionCoeff)
+        Particles_UpdateAuxiliaryStep1(particles, BC_xBCParticlesPeriodic, BC_yBCParticlesPeriodic, BC_zBCParticlesPeriodic, Grid_xOrigin, Grid_xWidth, Grid_yOrigin, Grid_yWidth, Grid_zOrigin, Grid_zWidth, Particles_restitutionCoeff)
         Particles_UpdateAuxiliaryStep2(particles)
         Integrator_simTime = (Integrator_time_old+((double(0.5)*(1+(Integrator_stage/3)))*Integrator_deltaTime))
         Integrator_stage = (Integrator_stage+1)
