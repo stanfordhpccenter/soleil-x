@@ -45,7 +45,6 @@ aprun -n "$PBS_NUM_NODES" -N 1 -cc none /lib64/ld-linux-x86-64.so.2 \
 # Resources:
 # 32GB RAM per node
 # 2 NUMA domains per node
-# 4 cores per NUMA domain
-# 2-way SMT per core
+# 4 core pairs with shared FP unit per NUMA domain
 # 1 Kepler K20X GPU per node
 # 6GB FB per GPU

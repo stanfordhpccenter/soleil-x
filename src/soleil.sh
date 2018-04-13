@@ -69,9 +69,13 @@ function run_titan {
 
 function run_certainty {
     export QUEUE="${QUEUE:-gpu}"
+    RESOURCES=
+    if [[ "$QUEUE" == "gpu" ]]; then
+	RESOURCES="gpu:4"
+    fi
     EXCLUDED="$(paste -sd ',' "$SOLEIL_DIR"/src/blacklist/certainty.txt)"
     sbatch --export=LD_LIBRARY_PATH,ARGS,QUEUE \
-        -N "$NUM_NODES" -t "$WALLTIME" -p "$QUEUE" \
+        -N "$NUM_NODES" -t "$WALLTIME" -p "$QUEUE" --gres="$RESOURCES" \
         --exclude="$EXCLUDED" \
         "$SOLEIL_DIR"/src/certainty.slurm
 }
