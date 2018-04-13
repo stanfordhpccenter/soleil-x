@@ -85,9 +85,7 @@ public:
             strcmp(task.parent_task->get_task_name(), "work") == 0,
             "DOM tasks should only be launched from the work task directly.");
       // Retrieve sample information from parent work task.
-      const char* ptr = static_cast<const char*>(task.parent_task->args);
-      const Config* config =
-        reinterpret_cast<const Config*>(ptr + sizeof(uint64_t));
+      const Config* config = find_config(&task);
       unsigned sample_id = config->Mapping.sampleId;
       assert(sample_id < sample_mappings_.size());
       const SampleMapping& mapping = sample_mappings_[sample_id];
@@ -137,7 +135,8 @@ public:
 	tile[2] +
 	config->Mapping.zTiles * tile[1] +
 	config->Mapping.zTiles * config->Mapping.yTiles * tile[0];
-      LOG.debug() << "Sequential launch: Task " << task.get_task_name()
+      LOG.debug() << "Sample " << sample_id << ":"
+                  << " Sequential launch: Task " << task.get_task_name()
 		  << " on tile " << tile
 		  << " mapped to node " << node;
       return procs[node];
@@ -145,14 +144,13 @@ public:
     // Send each work task to the first in the set of nodes allocated to the
     // corresponding sample.
     if (strcmp(task.get_task_name(), "work") == 0) {
-      const char* ptr = static_cast<const char*>(task.args);
-      const Config* config =
-        reinterpret_cast<const Config*>(ptr + sizeof(uint64_t));
+      const Config* config = find_config(&task);
       unsigned sample_id = config->Mapping.sampleId;
       assert(sample_id < sample_mappings_.size());
       AddressSpace target_node = sample_mappings_[sample_id].first_node;
       Processor target_proc = remote_cpus[target_node];
-      LOG.debug() << "Sequential launch: Work task"
+      LOG.debug() << "Sample " << sample_id << ":"
+                  << " Sequential launch: Work task"
 		  << " for sample " << sample_id
 		  << " mapped to node " << target_node;
       return target_proc;
@@ -200,23 +198,12 @@ public:
                           const Task& task,
                           const SliceTaskInput& input,
                           SliceTaskOutput& output) {
+    CHECK(task.parent_task != NULL &&
+          strcmp(task.parent_task->get_task_name(), "work") == 0,
+          "Index-space launches only allowed in work task");
     output.verify_correctness = false;
-    // Don't slice other index-space launches.
-    if (task.parent_task == NULL ||
-        strcmp(task.parent_task->get_task_name(), "work") != 0) {
-      output.slices.emplace_back(input.domain,
-                                 task.target_proc,
-                                 false /*recurse*/,
-                                 false /*stealable*/);
-      LOG.debug() << "Index-space launch: Task " << task.get_task_name()
-		  << " (not sliced)"
-		  << " mapped to node " << task.target_proc.address_space();
-      return;
-    }
     // Retrieve sample information from parent task.
-    const char* ptr = static_cast<const char*>(task.parent_task->args);
-    const Config* config =
-      reinterpret_cast<const Config*>(ptr + sizeof(uint64_t));
+    const Config* config = find_config(&task);
     unsigned sample_id = config->Mapping.sampleId;
     assert(sample_id < sample_mappings_.size());
     const SampleMapping& mapping = sample_mappings_[sample_id];
@@ -242,7 +229,8 @@ public:
                                      procs[next_node],
                                      false /*recurse*/,
                                      false /*stealable*/);
-	  LOG.debug() << "Index-space launch: Task " << task.get_task_name()
+          LOG.debug() << "Sample " << sample_id << ":"
+                      << " Index-space launch: Task " << task.get_task_name()
 		      << " on tile (" << x << "," << y << "," << z << ")"
 		      << " mapped to node " << next_node;
           next_node++;
@@ -266,6 +254,16 @@ private:
     }
     // Should never reach here
     return remote_cpus;
+  }
+
+  const Config* find_config(const Task* task) {
+    for(; task != NULL; task = task->parent_task) {
+      if (strcmp(task->get_task_name(), "work") == 0) {
+        const char* ptr = static_cast<const char*>(task->args);
+        return reinterpret_cast<const Config*>(ptr + sizeof(uint64_t));
+      }
+    }
+    return NULL;
   }
 
 private:
