@@ -11,3 +11,5 @@
 *.dat
 *.csv
 *.hdf
+
+src/config_schema.h

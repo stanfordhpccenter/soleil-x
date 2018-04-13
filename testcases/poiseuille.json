@@ -1,20 +1,20 @@
 {
     "Mapping" : {
-        "xTiles" : 2,
-        "yTiles" : 2,
-        "zTiles" : 2,
+        "xTiles" : 1,
+        "yTiles" : 1,
+        "zTiles" : 1,
         "sampleId" : -1,
         "wallTime" : 60
     },
 
     "Grid" : {
-        "xNum" : 128,
-        "yNum" : 64,
-        "zNum" : 64,
+        "xNum" : 32,
+        "yNum" : 32,
+        "zNum" : 1,
         "origin" : [0.0, 0.0, 0.0],
-        "xWidth" : 6.283185307179586,
-        "yWidth" : 6.283185307179586,
-        "zWidth" : 6.283185307179586
+        "xWidth" : 1.0,
+        "yWidth" : 1.0,
+        "zWidth" : 1.0
     },
 
     "BC" : {
@@ -24,52 +24,52 @@
         "xBCRight" : "Periodic",
         "xBCRightVel" : [0.0, 0.0, 0.0],
         "xBCRightTemp" : 0.0,
-        "yBCLeft"  : "Periodic",
+        "yBCLeft"  : "AdiabaticWall",
         "yBCLeftVel" : [0.0, 0.0, 0.0],
         "yBCLeftTemp" : 0.0,
-        "yBCRight" : "Periodic",
+        "yBCRight" : "AdiabaticWall",
         "yBCRightVel" : [0.0, 0.0, 0.0],
         "yBCRightTemp" : 0.0,
-        "zBCLeft"  : "Periodic",
+        "zBCLeft"  : "Symmetry",
         "zBCLeftVel" : [0.0, 0.0, 0.0],
         "zBCLeftTemp" : 0.0,
-        "zBCRight" : "Periodic",
+        "zBCRight" : "Symmetry",
         "zBCRightVel" : [0.0, 0.0, 0.0],
         "zBCRightTemp" : 0.0
     },
 
     "Integrator" : {
-        "finalTime" : 20.00001,
+        "finalTime" : 2000.00001,
         "restartIter" : -1,
         "restartTime" : -1.0,
-        "maxIter" : 5,
-        "cfl" : 1.0,
-        "fixedDeltaTime" : -1.0
+        "maxIter" : 1000,
+        "cfl" : 2.5,
+        "fixedDeltaTime" : 1e-4
     },
 
     "Flow" : {
-        "gasConstant" : 20.4128,
-        "gamma" : 1.4,
-        "prandtl" : 0.7,
-        "viscosityModel" : "PowerLaw",
-        "constantVisc" : 0.004491,
+        "gasConstant" : 200.0,
+        "gamma" : 1.25,
+        "prandtl" : 1.0,
+        "viscosityModel" : "Constant",
+        "constantVisc" : 0.1,
         "powerlawViscRef" : 0.00044,
         "powerlawTempRef" : 1.0,
         "sutherlandViscRef" : 1.716E-5,
         "sutherlandTempRef" : 273.15,
         "sutherlandSRef" : 110.4,
-        "initCase" : "TaylorGreen3DVortex",
+        "initCase" : "Uniform",
         "restartDir" : "",
-        "initParams" : [1.0, 100.0, 2.0, 0.0, 0.0],
-        "bodyForce" : [0.0, 0.0, 0.0],
+        "initParams" : [1.0, 100000.0, 1.0, 0.0, 0.0],
+        "bodyForce" : [1.2, 0.0, 0.0],
         "turbForcing" : false
     },
 
     "Particles" : {
         "initCase" : "Uniform",
         "restartDir" : "",
-        "initNum" : 20000,
-        "maxNum" : 20000,
+        "initNum" : 0,
+        "maxNum" : 32,
         "restitutionCoeff" : 1.0,
         "convectiveCoeff" : 0.7,
         "absorptivity" : 1.0,
@@ -83,32 +83,32 @@
     },
 
     "Radiation" : {
-        "type" : "DOM",
-        "intensity" : -1.0,
-        "qa" : 0.5,
-        "qs" : 0.5,
-        "xNum" : 128,
-        "yNum" : 64,
-        "zNum" : 64,
-        "emissEast"  : 1.0,
-        "emissWest"  : 1.0,
-        "emissSouth" : 1.0,
-        "emissNorth" : 1.0,
-        "emissUp"    : 1.0,
-        "emissDown"  : 1.0,
-        "tempEast"  : 300.0,
-        "tempWest"  : 2000.0,
-        "tempSouth" : 300.0,
-        "tempNorth" : 300.0,
-        "tempUp"    : 300.0,
-        "tempDown"  : 300.0
+        "type" : "Algebraic",
+        "intensity" : 0.0,
+        "qa" : -1.0,
+        "qs" : -1.0,
+        "xNum" : 32,
+        "yNum" : 32,
+        "zNum" : 1,
+        "emissEast"  : -1.0,
+        "emissWest"  : -1.0,
+        "emissSouth" : -1.0,
+        "emissNorth" : -1.0,
+        "emissUp"    : -1.0,
+        "emissDown"  : -1.0,
+        "tempEast"  : -1.0,
+        "tempWest"  : -1.0,
+        "tempSouth" : -1.0,
+        "tempNorth" : -1.0,
+        "tempUp"    : -1.0,
+        "tempDown"  : -1.0
     },
 
     "IO" : {
-        "wrtRestart" : false,
-        "restartEveryTimeSteps" : -1,
+        "wrtRestart" : true,
+        "restartEveryTimeSteps" : 100,
         "consoleFrequency" : 1,
-        "headerFrequency" : 10,
+        "headerFrequency" : 100,
         "probes" : []
     }
 }

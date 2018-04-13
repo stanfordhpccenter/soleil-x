@@ -1,15 +1,20 @@
 {
+    "Mapping" : {
+        "xTiles" : 2,
+        "yTiles" : 2,
+        "zTiles" : 1,
+        "sampleId" : -1,
+        "wallTime" : 60
+    },
+
     "Grid" : {
         "xNum" : 32,
         "yNum" : 32,
         "zNum" : 1,
-        "xTiles" : 2,
-        "yTiles" : 2,
-        "zTiles" : 1,
         "origin" : [0.0, 0.0, 0.0],
         "xWidth" : 1.0,
         "yWidth" : 1.0,
-        "zWidth" : 0.03125,
+        "zWidth" : 0.03125
     },
 
     "BC" : {
@@ -30,15 +35,16 @@
         "zBCLeftTemp" : 0.0,
         "zBCRight" : "Symmetry",
         "zBCRightVel" : [0.0, 0.0, 0.0],
-        "zBCRightTemp" : 0.0,
+        "zBCRightTemp" : 0.0
     },
 
     "Integrator" : {
         "finalTime" : 20.00001,
         "restartIter" : -1,
+        "restartTime" : -1.0,
         "maxIter" : 100,
         "cfl" : 2.0,
-        "fixedDeltaTime" : -1.0,
+        "fixedDeltaTime" : -1.0
     },
 
     "Flow" : {
@@ -53,13 +59,15 @@
         "sutherlandTempRef" : 273.15,
         "sutherlandSRef" : 110.4,
         "initCase" : "Uniform",
+        "restartDir" : "",
         "initParams" : [0.000525805, 43.4923, 0.0, 0.0, 0.0],
         "bodyForce" : [0.0, 0.0, 0.0],
-        "turbForcing" : "OFF",
+        "turbForcing" : false
     },
 
     "Particles" : {
         "initCase" : "Uniform",
+        "restartDir" : "",
         "initNum" : 100,
         "maxNum" : 1000,
         "restitutionCoeff" : 1.0,
@@ -71,7 +79,7 @@
         "diameterMean" : 0.00001,
         "bodyForce" : [0.0, 0.0, 0.0],
         "maxSkew" : 1.5,
-        "maxXferNum" : 10,
+        "maxXferNum" : 10
     },
 
     "Radiation" : {
@@ -93,13 +101,14 @@
         "tempSouth" : -1.0,
         "tempNorth" : -1.0,
         "tempUp"    : -1.0,
-        "tempDown"  : -1.0,
+        "tempDown"  : -1.0
     },
 
     "IO" : {
-        "wrtRestart" : "OFF",
+        "wrtRestart" : false,
         "restartEveryTimeSteps" : -1,
         "consoleFrequency" : 1,
         "headerFrequency" : 10,
-    },
+        "probes" : []
+    }
 }
