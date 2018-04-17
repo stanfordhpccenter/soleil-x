@@ -35,10 +35,10 @@
     },
 
     "Integrator" : {
-        "finalTime" : 5.00001,
+        "finalTime" : 12.00001,
         "restartIter" : -1,
-        "maxIter" : 10000000,
-        "cfl" : 0.50,
+        "maxIter" : 1000000000,
+        "cfl" : 0.95,
         "fixedDeltaTime" : 1e-4,
     },
 
@@ -99,8 +99,8 @@
 
     "IO" : {
         "wrtRestart" : "ON",
-        "restartEveryTimeSteps" : 500,
-        "consoleFrequency" : 10,
-        "headerFrequency" : 100,
+        "restartEveryTimeSteps" : 1000,
+        "consoleFrequency" : 100,
+        "headerFrequency" : 1000,
     },
 }

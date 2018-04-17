@@ -1,13 +1,13 @@
 {
     "Grid" : {
-        "xNum" : 64,
-        "yNum" : 16,
-        "zNum" : 16,
+        "xNum" : 32,
+        "yNum" : 32,
+        "zNum" : 32,
         "xTiles" : 1,
         "yTiles" : 1,
         "zTiles" : 1,
         "origin" : [0.0, 0.0, 0.0],
-        "xWidth" : 4.0,
+        "xWidth" : 1.0,
         "yWidth" : 1.0,
         "zWidth" : 1.0,
     },
@@ -99,7 +99,7 @@
 
     "IO" : {
         "wrtRestart" : "ON",
-        "restartEveryTimeSteps" : 1000,
+        "restartEveryTimeSteps" : 100,
         "consoleFrequency" : 100,
         "headerFrequency" : 1000,
     },
