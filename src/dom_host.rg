@@ -1,5 +1,5 @@
 -- Runs dom.rg standalone.
--- Uses static values for DOM configuration options.
+-- Reads configuration options in the same format as main simulation.
 -- Uses default values for Ib and sigma.
 
 -------------------------------------------------------------------------------
@@ -8,71 +8,12 @@
 
 import 'regent'
 
--------------------------------------------------------------------------------
--- Proxy runtime configuration object
--------------------------------------------------------------------------------
-
-struct Config {
-  Grid : struct {
-    xTiles : int,
-    yTiles : int,
-    zTiles : int,
-    xWidth : double,
-    yWidth : double,
-    zWidth : double,
-  },
-  Radiation : struct {
-    xNum : int,
-    yNum : int,
-    zNum : int,
-    qa : double,
-    qs : double,
-    emissWest  : double,
-    emissEast  : double,
-    emissSouth : double,
-    emissNorth : double,
-    emissUp    : double,
-    emissDown  : double,
-    tempWest  : double,
-    tempEast  : double,
-    tempSouth : double,
-    tempNorth : double,
-    tempUp    : double,
-    tempDown  : double,
-  },
-}
+local C = regentlib.c
+local SCHEMA = terralib.includec("config_schema.h")
 
 -------------------------------------------------------------------------------
--- Set configuration options statically
+-- Compile-time configuration options
 -------------------------------------------------------------------------------
-
-local terra readConfig() : Config
-  var config : Config
-  config.Grid.xTiles = 2
-  config.Grid.yTiles = 2
-  config.Grid.zTiles = 1
-  config.Grid.xWidth = 1.0
-  config.Grid.yWidth = 1.0
-  config.Grid.zWidth = 1.0/32.0
-  config.Radiation.xNum = 32
-  config.Radiation.yNum = 32
-  config.Radiation.zNum = 1
-  config.Radiation.qa = 0.5
-  config.Radiation.qs = 0.5
-  config.Radiation.emissWest  = 1.0
-  config.Radiation.emissEast  = 1.0
-  config.Radiation.emissSouth = 1.0
-  config.Radiation.emissNorth = 1.0
-  config.Radiation.emissUp    = 1.0
-  config.Radiation.emissDown  = 1.0
-  config.Radiation.tempWest  = 2000.0
-  config.Radiation.tempEast  = 300.0
-  config.Radiation.tempSouth = 300.0
-  config.Radiation.tempNorth = 300.0
-  config.Radiation.tempUp    = 300.0
-  config.Radiation.tempDown  = 300.0
-  return config
-end
 
 local NUM_ANGLES = 14
 
@@ -107,7 +48,7 @@ struct Point {
 -- Import DOM module
 -------------------------------------------------------------------------------
 
-local domMod = (require 'dom')(NUM_ANGLES, Point)
+local DOM = (require 'dom')(NUM_ANGLES, Point)
 
 -------------------------------------------------------------------------------
 -- Proxy tasks
@@ -153,17 +94,17 @@ where
   reads (points.G)
 do
   var limits = points.bounds
-  var f = regentlib.c.fopen("intensity.dat", "w")
+  var f = C.fopen("intensity.dat", "w")
   for i = limits.lo.x, limits.hi.x+1 do
     for j = limits.lo.y, limits.hi.y+1 do
       for k = limits.lo.z, limits.hi.z+1 do
-        regentlib.c.fprintf(f,' %.6e ', points[{i,j,k}].G)
+        C .fprintf(f,' %.6e ', points[{i,j,k}].G)
       end
-      regentlib.c.fprintf(f,'\n')
+      C.fprintf(f,'\n')
     end
-    regentlib.c.fprintf(f,'\n')
+    C.fprintf(f,'\n')
   end
-  regentlib.c.fclose(f)
+  C.fclose(f)
 end
 
 -------------------------------------------------------------------------------
@@ -171,20 +112,26 @@ end
 -------------------------------------------------------------------------------
 
 local task main()
-  -- "Read" configuration
-  var config = readConfig()
+  -- Read configuration
+  var args = C.legion_runtime_get_input_args()
+  if args.argc < 2 then
+    var stderr = C.fdopen(2, 'w')
+    C.fprintf(stderr, "Usage: %s config.json\n", args.argv[0])
+    C.fflush(stderr)
+    C.exit(1)
+  end
+  var config = SCHEMA.parse_config(args.argv[1])
   -- Initialize symbols
   var is = ispace(int3d, {config.Radiation.xNum, config.Radiation.yNum, config.Radiation.zNum})
   var points = region(is, Point)
-  var colors = ispace(int3d, {config.Grid.xTiles, config.Grid.yTiles, config.Grid.zTiles})
+  var colors = ispace(int3d, {config.Mapping.xTiles, config.Mapping.yTiles, config.Mapping.zTiles})
   var p_points = partition(equal, points, colors);
   -- Inline quotes from external module
-  [domMod.DeclSymbols(config)];
-  [domMod.InitRegions()];
+  [DOM.DeclSymbols(config)];
+  [DOM.InitRegions()];
   InitPoints(points);
-  [domMod.ComputeRadiationField(config, colors, p_points)];
+  [DOM.ComputeRadiationField(config, colors, p_points)];
   writeIntensity(points)
 end
 
-print('Saving standalone DOM executable to a.out')
-regentlib.saveobj(main, 'a.out', 'executable', nil, {'-lm'})
+regentlib.saveobj(main, 'dom_host.o', 'object')

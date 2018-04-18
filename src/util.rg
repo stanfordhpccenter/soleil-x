@@ -1,5 +1,22 @@
 local Exports = {}
 
+local C = terralib.includecstring([[
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+]])
+
+-------------------------------------------------------------------------------
+-- Numeric
+-------------------------------------------------------------------------------
+
+-- A -> bool
+function Exports.isPosInt(x)
+  return type(x) == 'number' and x == math.floor(x) and x > 0
+end
+
 -------------------------------------------------------------------------------
 -- Tables
 -------------------------------------------------------------------------------
@@ -141,11 +158,23 @@ end
 
 -- string -> bool
 function string:startswith(subStr)
-   return self:sub(1, subStr:len()) == subStr
+  return self:sub(1, subStr:len()) == subStr
+end
+
+-- string -> bool
+function string:endswith(subStr)
+  return self:sub(self:len() - subStr:len() + 1, self:len()) == subStr
+end
+
+terra Exports.concretize(str : &int8) : int8[256]
+  var res : int8[256]
+  C.strncpy(&[&int8](res)[0], str, [uint64](256))
+  [&int8](res)[255] = [int8](0)
+  return res
 end
 
 -------------------------------------------------------------------------------
--- Structs
+-- Terra type helpers
 -------------------------------------------------------------------------------
 
 -- {string,terralib.type} | {field:string,type:terralib.type} ->
@@ -156,6 +185,87 @@ function Exports.parseStructEntry(entry)
   elseif entry.field and entry.type then
     return entry.field, entry.type
   else assert(false) end
+end
+
+-- map(terralib.type,string)
+local cBaseType = {
+  [int]    = 'int',
+  [int8]   = 'int8_t',
+  [int16]  = 'int16_t',
+  [int32]  = 'int32_t',
+  [int64]  = 'int64_t',
+  [uint]   = 'unsigned',
+  [uint8]  = 'uint8_t',
+  [uint16] = 'uint16_t',
+  [uint32] = 'uint32_t',
+  [uint64] = 'uint64_t',
+  [bool]   = 'bool',
+  [float]  = 'float',
+  [double] = 'double',
+}
+
+-- terralib.type, bool, string -> string, string
+local function typeDecl(typ, cStyle, indent)
+  if typ:isarray() then
+    local decl, mods = typeDecl(typ.type, cStyle, indent)
+    decl = cStyle and decl or decl..'['..tostring(typ.N)..']'
+    mods = cStyle and '['..tostring(typ.N)..']'..mods or mods
+    return decl, mods
+  elseif typ:isstruct() then
+    return Exports.prettyPrintStruct(typ, cStyle, indent), ''
+  elseif typ:isprimitive() then
+    return (cStyle and cBaseType[typ] or tostring(typ)), ''
+  else assert(false) end
+end
+
+-- terralib.struct, bool?, string? -> string
+function Exports.prettyPrintStruct(s, cStyle, indent)
+  indent = indent or ''
+  local lines = terralib.newlist()
+  if s.name:startswith('anon') then
+    lines:insert('struct {')
+  else
+    lines:insert('struct '..s.name..' {')
+  end
+  for _,e in ipairs(s.entries) do
+    local name, typ = Exports.parseStructEntry(e)
+    local s1 = cStyle and '' or (name..' : ')
+    local s3 = cStyle and (' '..name) or ''
+    local s2, s4 = typeDecl(typ, cStyle, indent..'  ')
+    lines:insert(indent..'  '..s1..s2..s3..s4..';')
+  end
+  lines:insert(indent..'}')
+  return lines:join('\n')
+end
+
+-------------------------------------------------------------------------------
+-- Filesystem
+-------------------------------------------------------------------------------
+
+terra Exports.createDir(name : rawstring)
+  var mode = 493 -- octal 0755 = rwxr-xr-x
+  var res = C.mkdir(name, mode)
+  if res < 0 then
+    var stderr = C.fdopen(2, 'w')
+    C.fprintf(stderr, 'Cannot create directory %s: ', name)
+    C.fflush(stderr)
+    C.perror('')
+    C.fflush(stderr)
+    C.exit(1)
+  end
+end
+
+terra Exports.createFile(name : rawstring) : &C.FILE
+  var file = C.fopen(name, 'w')
+  if file == nil then
+    var stderr = C.fdopen(2, 'w')
+    C.fprintf(stderr, 'Cannot open file %s for writing: ', name)
+    C.fflush(stderr)
+    C.perror('')
+    C.fflush(stderr)
+    C.exit(1)
+  end
+  return file
 end
 
 -------------------------------------------------------------------------------

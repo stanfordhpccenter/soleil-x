@@ -1,4 +1,7 @@
 *~
+*.DS_Store
+*.swp
+
 *.o
 *.a
 *.so
@@ -7,7 +10,8 @@
 *.out
 *.err
 *.exec
-*.DS_Store
 *.dat
 *.csv
 *.hdf
+
+src/config_schema.h

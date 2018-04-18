@@ -1,15 +1,20 @@
 {
-    "Grid" : {
-        "xNum" : 32,
-        "yNum" : 32,
-        "zNum" : 32,
+    "Mapping" : {
         "xTiles" : 1,
         "yTiles" : 1,
         "zTiles" : 1,
+        "sampleId" : -1,
+        "wallTime" : 10
+    },
+
+    "Grid" : {
+        "xNum" : 64,
+        "yNum" : 16,
+        "zNum" : 16,
         "origin" : [0.0, 0.0, 0.0],
         "xWidth" : 1.0,
         "yWidth" : 1.0,
-        "zWidth" : 1.0,
+        "zWidth" : 1.0
     },
 
     "BC" : {
@@ -31,15 +36,16 @@
         "zBCLeftTemp" : 0.0,
         "zBCRight" : "AdiabaticWall",
         "zBCRightVel" : [0.0, 0.0, 0.0],
-        "zBCRightTemp" : 0.0,
+        "zBCRightTemp" : 0.0
     },
 
     "Integrator" : {
         "finalTime" : 12.00001,
         "restartIter" : -1,
+        "restartTime" : -1.0,
         "maxIter" : 400000000,
         "cfl" : 0.95,
-        "fixedDeltaTime" : 1e-4,
+        "fixedDeltaTime" : 1e-4
     },
 
     "Flow" : {
@@ -54,13 +60,15 @@
         "sutherlandTempRef" : 273.15,
         "sutherlandSRef" : 110.4,
         "initCase" : "Uniform",
+        "restartDir" : "",
         "initParams" : [1.0, 100000.0, 1.0, 0.0, 0.0],
         "bodyForce" : [0.0, 0.0, 0.0],
-        "turbForcing" : "OFF",
+        "turbForcing" : false
     },
 
     "Particles" : {
         "initCase" : "Uniform",
+        "restartDir" : "",
         "initNum" : 0,
         "maxNum" : 10,
         "restitutionCoeff" : 1.0,
@@ -72,7 +80,7 @@
         "diameterMean" : 5e-3,
         "bodyForce" : [0.0, 0.0, 0.0],
         "maxSkew" : 1.5,
-        "maxXferNum" : 100,
+        "maxXferNum" : 100
     },
 
     "Radiation" : {
@@ -94,13 +102,14 @@
         "tempSouth" : -1.0,
         "tempNorth" : -1.0,
         "tempUp"    : -1.0,
-        "tempDown"  : -1.0,
+        "tempDown"  : -1.0
     },
 
     "IO" : {
-        "wrtRestart" : "ON",
-        "restartEveryTimeSteps" : 100,
+        "wrtRestart" : true,
+        "restartEveryTimeSteps" : 1000,
         "consoleFrequency" : 100,
         "headerFrequency" : 1000,
-    },
+        "probes" : []
+    }
 }
