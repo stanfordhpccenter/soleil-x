@@ -2487,122 +2487,98 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
 
     --Perform the sweep for computing new intensities
     --Quadrant 1 - +x, +y, +z
-    var dindx_1 = 1
-    var dindy_1 = 1
-    var dindz_1 = 1
     for d in diagonals_private do
       for t in [p_x_faces[1]][d].colors do
         sweep_1(p_points[t],
                 [p_x_faces[1]][d][t], [p_y_faces[1]][d][t], [p_z_faces[1]][d][t],
-                [s_x_faces[1]][d][t], [s_x_faces[1]][d+1][t+int3d{dindx_1,0,0}],
-                [s_y_faces[1]][d][t], [s_y_faces[1]][d+1][t+int3d{0,dindy_1,0}],
-                [s_z_faces[1]][d][t], [s_z_faces[1]][d+1][t+int3d{0,0,dindz_1}],
-                angles, dindx_1, dindy_1, dindz_1, dx, dy, dz)
+                [s_x_faces[1]][d][t], [s_x_faces[1]][d+1][t+int3d{ 1, 0, 0}],
+                [s_y_faces[1]][d][t], [s_y_faces[1]][d+1][t+int3d{ 0, 1, 0}],
+                [s_z_faces[1]][d][t], [s_z_faces[1]][d+1][t+int3d{ 0, 0, 1}],
+                angles, 1, 1, 1, dx, dy, dz)
       end
     end
 
     -- Quadrant 2 - +x, +y, -z
-    var dindx_2 = 1
-    var dindy_2 = 1
-    var dindz_2 = -1
     for d in diagonals_private do
       for t in [p_x_faces[2]][d].colors do
         sweep_2(p_points[t],
                 [p_x_faces[2]][d][t], [p_y_faces[2]][d][t], [p_z_faces[2]][d][t],
-                [s_x_faces[2]][d][t], [s_x_faces[2]][d+1][t+int3d{dindx_2,0,0}],
-                [s_y_faces[2]][d][t], [s_y_faces[2]][d+1][t+int3d{0,dindy_2,0}],
-                [s_z_faces[2]][d][t], [s_z_faces[2]][d+1][t+int3d{0,0,dindz_2}],
-                angles, dindx_2, dindy_2, dindz_2, dx, dy, dz)
+                [s_x_faces[2]][d][t], [s_x_faces[2]][d+1][t+int3d{ 1, 0, 0}],
+                [s_y_faces[2]][d][t], [s_y_faces[2]][d+1][t+int3d{ 0, 1, 0}],
+                [s_z_faces[2]][d][t], [s_z_faces[2]][d+1][t+int3d{ 0, 0,-1}],
+                angles, 1, 1, -1, dx, dy, dz)
       end
     end
 
     -- Quadrant 3 - +x, -y, +z
-    var dindx_3 = 1
-    var dindy_3 = -1
-    var dindz_3 = 1
     for d in diagonals_private do
       for t in [p_x_faces[3]][d].colors do
         sweep_3(p_points[t],
                 [p_x_faces[3]][d][t], [p_y_faces[3]][d][t], [p_z_faces[3]][d][t],
-                [s_x_faces[3]][d][t], [s_x_faces[3]][d+1][t+int3d{dindx_3,0,0}],
-                [s_y_faces[3]][d][t], [s_y_faces[3]][d+1][t+int3d{0,dindy_3,0}],
-                [s_z_faces[3]][d][t], [s_z_faces[3]][d+1][t+int3d{0,0,dindz_3}],
-                angles, dindx_3, dindy_3, dindz_3, dx, dy, dz)
+                [s_x_faces[3]][d][t], [s_x_faces[3]][d+1][t+int3d{ 1, 0, 0}],
+                [s_y_faces[3]][d][t], [s_y_faces[3]][d+1][t+int3d{ 0,-1, 0}],
+                [s_z_faces[3]][d][t], [s_z_faces[3]][d+1][t+int3d{ 0, 0, 1}],
+                angles, 1, -1, 1, dx, dy, dz)
       end
     end
 
     -- Quadrant 4 - +x, -y, -z
-    var dindx_4 = 1
-    var dindy_4 = -1
-    var dindz_4 = -1
     for d in diagonals_private do
       for t in [p_x_faces[4]][d].colors do
         sweep_4(p_points[t],
                 [p_x_faces[4]][d][t], [p_y_faces[4]][d][t], [p_z_faces[4]][d][t],
-                [s_x_faces[4]][d][t], [s_x_faces[4]][d+1][t+int3d{dindx_4,0,0}],
-                [s_y_faces[4]][d][t], [s_y_faces[4]][d+1][t+int3d{0,dindy_4,0}],
-                [s_z_faces[4]][d][t], [s_z_faces[4]][d+1][t+int3d{0,0,dindz_4}],
-                angles, dindx_4, dindy_4, dindz_4, dx, dy, dz)
+                [s_x_faces[4]][d][t], [s_x_faces[4]][d+1][t+int3d{ 1, 0, 0}],
+                [s_y_faces[4]][d][t], [s_y_faces[4]][d+1][t+int3d{ 0,-1, 0}],
+                [s_z_faces[4]][d][t], [s_z_faces[4]][d+1][t+int3d{ 0, 0,-1}],
+                angles, 1, -1, -1, dx, dy, dz)
       end
     end
 
     -- Quadrant 5 - -x, +y, +z
-    var dindx_5 = -1
-    var dindy_5 = 1
-    var dindz_5 = 1
     for d in diagonals_private do
       for t in [p_x_faces[5]][d].colors do
         sweep_5(p_points[t],
                 [p_x_faces[5]][d][t], [p_y_faces[5]][d][t], [p_z_faces[5]][d][t],
-                [s_x_faces[5]][d][t], [s_x_faces[5]][d+1][t+int3d{dindx_5,0,0}],
-                [s_y_faces[5]][d][t], [s_y_faces[5]][d+1][t+int3d{0,dindy_5,0}],
-                [s_z_faces[5]][d][t], [s_z_faces[5]][d+1][t+int3d{0,0,dindz_5}],
-                angles, dindx_5, dindy_5, dindz_5, dx, dy, dz)
+                [s_x_faces[5]][d][t], [s_x_faces[5]][d+1][t+int3d{-1, 0, 0}],
+                [s_y_faces[5]][d][t], [s_y_faces[5]][d+1][t+int3d{ 0, 1, 0}],
+                [s_z_faces[5]][d][t], [s_z_faces[5]][d+1][t+int3d{ 0, 0, 1}],
+                angles, -1, 1, 1, dx, dy, dz)
       end
     end
 
     -- Quadrant 6 - -x, +y, -z
-    var dindx_6 = -1
-    var dindy_6 = 1
-    var dindz_6 = -1
     for d in diagonals_private do
       for t in [p_x_faces[6]][d].colors do
         sweep_6(p_points[t],
                 [p_x_faces[6]][d][t], [p_y_faces[6]][d][t], [p_z_faces[6]][d][t],
-                [s_x_faces[6]][d][t], [s_x_faces[6]][d+1][t+int3d{dindx_6,0,0}],
-                [s_y_faces[6]][d][t], [s_y_faces[6]][d+1][t+int3d{0,dindy_6,0}],
-                [s_z_faces[6]][d][t], [s_z_faces[6]][d+1][t+int3d{0,0,dindz_6}],
-                angles, dindx_6, dindy_6, dindz_6, dx, dy, dz)
+                [s_x_faces[6]][d][t], [s_x_faces[6]][d+1][t+int3d{-1, 0, 0}],
+                [s_y_faces[6]][d][t], [s_y_faces[6]][d+1][t+int3d{ 0, 1, 0}],
+                [s_z_faces[6]][d][t], [s_z_faces[6]][d+1][t+int3d{ 0, 0,-1}],
+                angles, -1, 1, -1, dx, dy, dz)
       end
     end
 
     -- Quadrant 7 - -x, -y, +z
-    var dindx_7 = -1
-    var dindy_7 = -1
-    var dindz_7 = 1
     for d in diagonals_private do
       for t in [p_x_faces[7]][d].colors do
         sweep_7(p_points[t],
                 [p_x_faces[7]][d][t], [p_y_faces[7]][d][t], [p_z_faces[7]][d][t],
-                [s_x_faces[7]][d][t], [s_x_faces[7]][d+1][t+int3d{dindx_7,0,0}],
-                [s_y_faces[7]][d][t], [s_y_faces[7]][d+1][t+int3d{0,dindy_7,0}],
-                [s_z_faces[7]][d][t], [s_z_faces[7]][d+1][t+int3d{0,0,dindz_7}],
-                angles, dindx_7, dindy_7, dindz_7, dx, dy, dz)
+                [s_x_faces[7]][d][t], [s_x_faces[7]][d+1][t+int3d{-1, 0, 0}],
+                [s_y_faces[7]][d][t], [s_y_faces[7]][d+1][t+int3d{ 0,-1, 0}],
+                [s_z_faces[7]][d][t], [s_z_faces[7]][d+1][t+int3d{ 0, 0, 1}],
+                angles, -1, -1, 1, dx, dy, dz)
       end
     end
 
     -- Quadrant 8 - -x, -y, -z
-    var dindx_8 = -1
-    var dindy_8 = -1
-    var dindz_8 = -1
     for d in diagonals_private do
       for t in [p_x_faces[8]][d].colors do
         sweep_8(p_points[t],
                 [p_x_faces[8]][d][t], [p_y_faces[8]][d][t], [p_z_faces[8]][d][t],
-                [s_x_faces[8]][d][t], [s_x_faces[8]][d+1][t+int3d{dindx_8,0,0}],
-                [s_y_faces[8]][d][t], [s_y_faces[8]][d+1][t+int3d{0,dindy_8,0}],
-                [s_z_faces[8]][d][t], [s_z_faces[8]][d+1][t+int3d{0,0,dindz_8}],
-                angles, dindx_8, dindy_8, dindz_8, dx, dy, dz)
+                [s_x_faces[8]][d][t], [s_x_faces[8]][d+1][t+int3d{-1, 0, 0}],
+                [s_y_faces[8]][d][t], [s_y_faces[8]][d+1][t+int3d{ 0,-1, 0}],
+                [s_z_faces[8]][d][t], [s_z_faces[8]][d+1][t+int3d{ 0, 0,-1}],
+                angles, -1, -1, -1, dx, dy, dz)
       end
     end
 
