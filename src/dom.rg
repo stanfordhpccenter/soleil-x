@@ -161,6 +161,7 @@ do
     var x_tile = idx.x / (Nx/ntx)
     var y_tile = idx.y / (Ny/nty)
     var z_tile = idx.z / (Nz/ntz)
+    faces[idx].tile = int3d{x_tile, y_tile, z_tile}
     if dimension == 0 then
       if idx.x % (Nx/ntx) == 0 then
         faces[idx].is_private = 0
@@ -177,7 +178,6 @@ do
         if not sweepDir[2] then z_tile -= 1 end
       end
     else regentlib.assert(false, '') end
-    faces[idx].tile = int3d{x_tile, y_tile, z_tile}
     faces[idx].diagonal =
       ite(sweepDir[0], x_tile, ntx-1-x_tile) +
       ite(sweepDir[1], y_tile, nty-1-y_tile) +
@@ -2524,9 +2524,9 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
       for t in [p_x_faces[1]][d].colors do
         sweep_1(p_points[t],
                 [p_x_faces[1]][d][t], [p_y_faces[1]][d][t], [p_z_faces[1]][d][t],
-                [s_x_faces[1]][d][t], [s_x_faces[1]][d+1][t+int3d{ 1, 0, 0}],
-                [s_y_faces[1]][d][t], [s_y_faces[1]][d+1][t+int3d{ 0, 1, 0}],
-                [s_z_faces[1]][d][t], [s_z_faces[1]][d+1][t+int3d{ 0, 0, 1}],
+                [s_x_faces[1]][d][t], [s_x_faces[1]][d+1][t+int3d{1,0,0}],
+                [s_y_faces[1]][d][t], [s_y_faces[1]][d+1][t+int3d{0,1,0}],
+                [s_z_faces[1]][d][t], [s_z_faces[1]][d+1][t+int3d{0,0,1}],
                 angles, 1, 1, 1, dx, dy, dz)
       end
     end
@@ -2537,9 +2537,9 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
       for t in [p_x_faces[2]][d].colors do
         sweep_2(p_points[t],
                 [p_x_faces[2]][d][t], [p_y_faces[2]][d][t], [p_z_faces[2]][d][t],
-                [s_x_faces[2]][d][t], [s_x_faces[2]][d+1][t+int3d{ 1, 0, 0}],
-                [s_y_faces[2]][d][t], [s_y_faces[2]][d+1][t+int3d{ 0, 1, 0}],
-                [s_z_faces[2]][d][t], [s_z_faces[2]][d+1][t+int3d{ 0, 0,-1}],
+                [s_x_faces[2]][d][t], [s_x_faces[2]][d+1][t+int3d{1,0,0}],
+                [s_y_faces[2]][d][t], [s_y_faces[2]][d+1][t+int3d{0,1,0}],
+                [s_z_faces[2]][d][t+int3d{0,0,1}], [s_z_faces[2]][d+1][t],
                 angles, 1, 1, -1, dx, dy, dz)
       end
     end
@@ -2550,9 +2550,9 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
       for t in [p_x_faces[3]][d].colors do
         sweep_3(p_points[t],
                 [p_x_faces[3]][d][t], [p_y_faces[3]][d][t], [p_z_faces[3]][d][t],
-                [s_x_faces[3]][d][t], [s_x_faces[3]][d+1][t+int3d{ 1, 0, 0}],
-                [s_y_faces[3]][d][t], [s_y_faces[3]][d+1][t+int3d{ 0,-1, 0}],
-                [s_z_faces[3]][d][t], [s_z_faces[3]][d+1][t+int3d{ 0, 0, 1}],
+                [s_x_faces[3]][d][t], [s_x_faces[3]][d+1][t+int3d{1,0,0}],
+                [s_y_faces[3]][d][t+int3d{0,1,0}], [s_y_faces[3]][d+1][t],
+                [s_z_faces[3]][d][t], [s_z_faces[3]][d+1][t+int3d{0,0,1}],
                 angles, 1, -1, 1, dx, dy, dz)
       end
     end
@@ -2563,9 +2563,9 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
       for t in [p_x_faces[4]][d].colors do
         sweep_4(p_points[t],
                 [p_x_faces[4]][d][t], [p_y_faces[4]][d][t], [p_z_faces[4]][d][t],
-                [s_x_faces[4]][d][t], [s_x_faces[4]][d+1][t+int3d{ 1, 0, 0}],
-                [s_y_faces[4]][d][t], [s_y_faces[4]][d+1][t+int3d{ 0,-1, 0}],
-                [s_z_faces[4]][d][t], [s_z_faces[4]][d+1][t+int3d{ 0, 0,-1}],
+                [s_x_faces[4]][d][t], [s_x_faces[4]][d+1][t+int3d{1,0,0}],
+                [s_y_faces[4]][d][t+int3d{0,1,0}], [s_y_faces[4]][d+1][t],
+                [s_z_faces[4]][d][t+int3d{0,0,1}], [s_z_faces[4]][d+1][t],
                 angles, 1, -1, -1, dx, dy, dz)
       end
     end
@@ -2576,9 +2576,9 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
       for t in [p_x_faces[5]][d].colors do
         sweep_5(p_points[t],
                 [p_x_faces[5]][d][t], [p_y_faces[5]][d][t], [p_z_faces[5]][d][t],
-                [s_x_faces[5]][d][t], [s_x_faces[5]][d+1][t+int3d{-1, 0, 0}],
-                [s_y_faces[5]][d][t], [s_y_faces[5]][d+1][t+int3d{ 0, 1, 0}],
-                [s_z_faces[5]][d][t], [s_z_faces[5]][d+1][t+int3d{ 0, 0, 1}],
+                [s_x_faces[5]][d][t+int3d{1,0,0}], [s_x_faces[5]][d+1][t],
+                [s_y_faces[5]][d][t], [s_y_faces[5]][d+1][t+int3d{0,1,0}],
+                [s_z_faces[5]][d][t], [s_z_faces[5]][d+1][t+int3d{0,0,1}],
                 angles, -1, 1, 1, dx, dy, dz)
       end
     end
@@ -2589,9 +2589,9 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
       for t in [p_x_faces[6]][d].colors do
         sweep_6(p_points[t],
                 [p_x_faces[6]][d][t], [p_y_faces[6]][d][t], [p_z_faces[6]][d][t],
-                [s_x_faces[6]][d][t], [s_x_faces[6]][d+1][t+int3d{-1, 0, 0}],
-                [s_y_faces[6]][d][t], [s_y_faces[6]][d+1][t+int3d{ 0, 1, 0}],
-                [s_z_faces[6]][d][t], [s_z_faces[6]][d+1][t+int3d{ 0, 0,-1}],
+                [s_x_faces[6]][d][t+int3d{1,0,0}], [s_x_faces[6]][d+1][t],
+                [s_y_faces[6]][d][t], [s_y_faces[6]][d+1][t+int3d{0,1,0}],
+                [s_z_faces[6]][d][t+int3d{0,0,1}], [s_z_faces[6]][d+1][t],
                 angles, -1, 1, -1, dx, dy, dz)
       end
     end
@@ -2602,9 +2602,9 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
       for t in [p_x_faces[7]][d].colors do
         sweep_7(p_points[t],
                 [p_x_faces[7]][d][t], [p_y_faces[7]][d][t], [p_z_faces[7]][d][t],
-                [s_x_faces[7]][d][t], [s_x_faces[7]][d+1][t+int3d{-1, 0, 0}],
-                [s_y_faces[7]][d][t], [s_y_faces[7]][d+1][t+int3d{ 0,-1, 0}],
-                [s_z_faces[7]][d][t], [s_z_faces[7]][d+1][t+int3d{ 0, 0, 1}],
+                [s_x_faces[7]][d][t+int3d{1,0,0}], [s_x_faces[7]][d+1][t],
+                [s_y_faces[7]][d][t+int3d{0,1,0}], [s_y_faces[7]][d+1][t],
+                [s_z_faces[7]][d][t], [s_z_faces[7]][d+1][t+int3d{0,0,1}],
                 angles, -1, -1, 1, dx, dy, dz)
       end
     end
@@ -2615,9 +2615,9 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
       for t in [p_x_faces[8]][d].colors do
         sweep_8(p_points[t],
                 [p_x_faces[8]][d][t], [p_y_faces[8]][d][t], [p_z_faces[8]][d][t],
-                [s_x_faces[8]][d][t], [s_x_faces[8]][d+1][t+int3d{-1, 0, 0}],
-                [s_y_faces[8]][d][t], [s_y_faces[8]][d+1][t+int3d{ 0,-1, 0}],
-                [s_z_faces[8]][d][t], [s_z_faces[8]][d+1][t+int3d{ 0, 0,-1}],
+                [s_x_faces[8]][d][t+int3d{1,0,0}], [s_x_faces[8]][d+1][t],
+                [s_y_faces[8]][d][t+int3d{0,1,0}], [s_y_faces[8]][d+1][t],
+                [s_z_faces[8]][d][t+int3d{0,0,1}], [s_z_faces[8]][d+1][t],
                 angles, -1, -1, -1, dx, dy, dz)
       end
     end
