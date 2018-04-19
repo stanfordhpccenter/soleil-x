@@ -660,6 +660,9 @@ where
   reads writes(points.I_1, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
+  if x_faces.bounds.lo.x > x_faces.bounds.hi.x then
+    return
+  end
 
   var dAx = dy*dz;
   var dAy = dx*dz;
@@ -802,6 +805,10 @@ where
   reads writes(points.I_2, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
+  if x_faces.bounds.lo.x > x_faces.bounds.hi.x then
+    return
+  end
+
   var dAx = dy*dz;
   var dAy = dx*dz;
   var dAz = dx*dy;
@@ -945,6 +952,10 @@ where
   reads writes(points.I_3, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
+  if x_faces.bounds.lo.x > x_faces.bounds.hi.x then
+    return
+  end
+
   var dAx = dy*dz;
   var dAy = dx*dz;
   var dAz = dx*dy;
@@ -1088,6 +1099,10 @@ where
   reads writes(points.I_4, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
+  if x_faces.bounds.lo.x > x_faces.bounds.hi.x then
+    return
+  end
+
   var dAx = dy*dz;
   var dAy = dx*dz;
   var dAz = dx*dy;
@@ -1231,6 +1246,10 @@ where
   reads writes(points.I_5, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
+  if x_faces.bounds.lo.x > x_faces.bounds.hi.x then
+    return
+  end
+
   var dAx = dy*dz;
   var dAy = dx*dz;
   var dAz = dx*dy;
@@ -1374,6 +1393,10 @@ where
   reads writes(points.I_6, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
+  if x_faces.bounds.lo.x > x_faces.bounds.hi.x then
+    return
+  end
+
   var dAx = dy*dz;
   var dAy = dx*dz;
   var dAz = dx*dy;
@@ -1517,6 +1540,10 @@ where
   reads writes(points.I_7, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
+  if x_faces.bounds.lo.x > x_faces.bounds.hi.x then
+    return
+  end
+
   var dAx = dy*dz;
   var dAy = dx*dz;
   var dAz = dx*dy;
@@ -1660,6 +1687,10 @@ where
   reads writes(points.I_8, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
+  if x_faces.bounds.lo.x > x_faces.bounds.hi.x then
+    return
+  end
+
   var dAx = dy*dz;
   var dAy = dx*dz;
   var dAz = dx*dy;
