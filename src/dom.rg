@@ -1984,6 +1984,37 @@ local s_z_faces = {
   regentlib.newsymbol('s_z_faces_8'),
 }
 
+local s_x_faces_by_tile = {
+  regentlib.newsymbol('s_x_faces_by_tile_1'),
+  regentlib.newsymbol('s_x_faces_by_tile_2'),
+  regentlib.newsymbol('s_x_faces_by_tile_3'),
+  regentlib.newsymbol('s_x_faces_by_tile_4'),
+  regentlib.newsymbol('s_x_faces_by_tile_5'),
+  regentlib.newsymbol('s_x_faces_by_tile_6'),
+  regentlib.newsymbol('s_x_faces_by_tile_7'),
+  regentlib.newsymbol('s_x_faces_by_tile_8'),
+}
+local s_y_faces_by_tile = {
+  regentlib.newsymbol('s_y_faces_by_tile_1'),
+  regentlib.newsymbol('s_y_faces_by_tile_2'),
+  regentlib.newsymbol('s_y_faces_by_tile_3'),
+  regentlib.newsymbol('s_y_faces_by_tile_4'),
+  regentlib.newsymbol('s_y_faces_by_tile_5'),
+  regentlib.newsymbol('s_y_faces_by_tile_6'),
+  regentlib.newsymbol('s_y_faces_by_tile_7'),
+  regentlib.newsymbol('s_y_faces_by_tile_8'),
+}
+local s_z_faces_by_tile = {
+  regentlib.newsymbol('s_z_faces_by_tile_1'),
+  regentlib.newsymbol('s_z_faces_by_tile_2'),
+  regentlib.newsymbol('s_z_faces_by_tile_3'),
+  regentlib.newsymbol('s_z_faces_by_tile_4'),
+  regentlib.newsymbol('s_z_faces_by_tile_5'),
+  regentlib.newsymbol('s_z_faces_by_tile_6'),
+  regentlib.newsymbol('s_z_faces_by_tile_7'),
+  regentlib.newsymbol('s_z_faces_by_tile_8'),
+}
+
 local p_x_faces = {
   regentlib.newsymbol('p_x_faces_1'),
   regentlib.newsymbol('p_x_faces_2'),
@@ -2083,8 +2114,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_x_faces[1]] = cross_product(p_x_1_by_diagonal, p_x_1_by_tile)
   var s_x_1 = x_1_by_privacy[0]
   var s_x_1_by_diagonal = partition(s_x_1.diagonal, diagonals_shared)
-  var s_x_1_by_tile = partition(s_x_1.tile, x_tiles_shared)
-  var [s_x_faces[1]] = cross_product(s_x_1_by_diagonal, s_x_1_by_tile)
+  var [s_x_faces_by_tile[1]] = partition(s_x_1.tile, x_tiles_shared)
+  var [s_x_faces[1]] = cross_product(s_x_1_by_diagonal, [s_x_faces_by_tile[1]])
 
   color_faces([x_faces[2]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(true,true,false))
   var x_2_by_privacy = partition([x_faces[2]].is_private, ispace(int1d,2))
@@ -2094,8 +2125,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_x_faces[2]] = cross_product(p_x_2_by_diagonal, p_x_2_by_tile)
   var s_x_2 = x_2_by_privacy[0]
   var s_x_2_by_diagonal = partition(s_x_2.diagonal, diagonals_shared)
-  var s_x_2_by_tile = partition(s_x_2.tile, x_tiles_shared)
-  var [s_x_faces[2]] = cross_product(s_x_2_by_diagonal, s_x_2_by_tile)
+  var [s_x_faces_by_tile[2]] = partition(s_x_2.tile, x_tiles_shared)
+  var [s_x_faces[2]] = cross_product(s_x_2_by_diagonal, [s_x_faces_by_tile[2]])
 
   color_faces([x_faces[3]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(true,false,true))
   var x_3_by_privacy = partition([x_faces[3]].is_private, ispace(int1d,2))
@@ -2105,8 +2136,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_x_faces[3]] = cross_product(p_x_3_by_diagonal, p_x_3_by_tile)
   var s_x_3 = x_3_by_privacy[0]
   var s_x_3_by_diagonal = partition(s_x_3.diagonal, diagonals_shared)
-  var s_x_3_by_tile = partition(s_x_3.tile, x_tiles_shared)
-  var [s_x_faces[3]] = cross_product(s_x_3_by_diagonal, s_x_3_by_tile)
+  var [s_x_faces_by_tile[3]] = partition(s_x_3.tile, x_tiles_shared)
+  var [s_x_faces[3]] = cross_product(s_x_3_by_diagonal, [s_x_faces_by_tile[3]])
 
   color_faces([x_faces[4]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(true,false,false))
   var x_4_by_privacy = partition([x_faces[4]].is_private, ispace(int1d,2))
@@ -2116,8 +2147,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_x_faces[4]] = cross_product(p_x_4_by_diagonal, p_x_4_by_tile)
   var s_x_4 = x_4_by_privacy[0]
   var s_x_4_by_diagonal = partition(s_x_4.diagonal, diagonals_shared)
-  var s_x_4_by_tile = partition(s_x_4.tile, x_tiles_shared)
-  var [s_x_faces[4]] = cross_product(s_x_4_by_diagonal, s_x_4_by_tile)
+  var [s_x_faces_by_tile[4]] = partition(s_x_4.tile, x_tiles_shared)
+  var [s_x_faces[4]] = cross_product(s_x_4_by_diagonal, [s_x_faces_by_tile[4]])
 
   color_faces([x_faces[5]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(false,true,true))
   var x_5_by_privacy = partition([x_faces[5]].is_private, ispace(int1d,2))
@@ -2127,8 +2158,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_x_faces[5]] = cross_product(p_x_5_by_diagonal, p_x_5_by_tile)
   var s_x_5 = x_5_by_privacy[0]
   var s_x_5_by_diagonal = partition(s_x_5.diagonal, diagonals_shared)
-  var s_x_5_by_tile = partition(s_x_5.tile, x_tiles_shared)
-  var [s_x_faces[5]] = cross_product(s_x_5_by_diagonal, s_x_5_by_tile)
+  var [s_x_faces_by_tile[5]] = partition(s_x_5.tile, x_tiles_shared)
+  var [s_x_faces[5]] = cross_product(s_x_5_by_diagonal, [s_x_faces_by_tile[5]])
 
   color_faces([x_faces[6]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(false,true,false))
   var x_6_by_privacy = partition([x_faces[6]].is_private, ispace(int1d,2))
@@ -2138,8 +2169,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_x_faces[6]] = cross_product(p_x_6_by_diagonal, p_x_6_by_tile)
   var s_x_6 = x_6_by_privacy[0]
   var s_x_6_by_diagonal = partition(s_x_6.diagonal, diagonals_shared)
-  var s_x_6_by_tile = partition(s_x_6.tile, x_tiles_shared)
-  var [s_x_faces[6]] = cross_product(s_x_6_by_diagonal, s_x_6_by_tile)
+  var [s_x_faces_by_tile[6]] = partition(s_x_6.tile, x_tiles_shared)
+  var [s_x_faces[6]] = cross_product(s_x_6_by_diagonal, [s_x_faces_by_tile[6]])
 
   color_faces([x_faces[7]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(false,false,true))
   var x_7_by_privacy = partition([x_faces[7]].is_private, ispace(int1d,2))
@@ -2149,8 +2180,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_x_faces[7]] = cross_product(p_x_7_by_diagonal, p_x_7_by_tile)
   var s_x_7 = x_7_by_privacy[0]
   var s_x_7_by_diagonal = partition(s_x_7.diagonal, diagonals_shared)
-  var s_x_7_by_tile = partition(s_x_7.tile, x_tiles_shared)
-  var [s_x_faces[7]] = cross_product(s_x_7_by_diagonal, s_x_7_by_tile)
+  var [s_x_faces_by_tile[7]] = partition(s_x_7.tile, x_tiles_shared)
+  var [s_x_faces[7]] = cross_product(s_x_7_by_diagonal, [s_x_faces_by_tile[7]])
 
   color_faces([x_faces[8]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(false,false,false))
   var x_8_by_privacy = partition([x_faces[8]].is_private, ispace(int1d,2))
@@ -2160,8 +2191,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_x_faces[8]] = cross_product(p_x_8_by_diagonal, p_x_8_by_tile)
   var s_x_8 = x_8_by_privacy[0]
   var s_x_8_by_diagonal = partition(s_x_8.diagonal, diagonals_shared)
-  var s_x_8_by_tile = partition(s_x_8.tile, x_tiles_shared)
-  var [s_x_faces[8]] = cross_product(s_x_8_by_diagonal, s_x_8_by_tile)
+  var [s_x_faces_by_tile[8]] = partition(s_x_8.tile, x_tiles_shared)
+  var [s_x_faces[8]] = cross_product(s_x_8_by_diagonal, [s_x_faces_by_tile[8]])
 
   -- y
 
@@ -2173,8 +2204,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_y_faces[1]] = cross_product(p_y_1_by_diagonal, p_y_1_by_tile)
   var s_y_1 = y_1_by_privacy[0]
   var s_y_1_by_diagonal = partition(s_y_1.diagonal, diagonals_shared)
-  var s_y_1_by_tile = partition(s_y_1.tile, y_tiles_shared)
-  var [s_y_faces[1]] = cross_product(s_y_1_by_diagonal, s_y_1_by_tile)
+  var [s_y_faces_by_tile[1]] = partition(s_y_1.tile, y_tiles_shared)
+  var [s_y_faces[1]] = cross_product(s_y_1_by_diagonal, [s_y_faces_by_tile[1]])
 
   color_faces([y_faces[2]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(true,true,false))
   var y_2_by_privacy = partition([y_faces[2]].is_private, ispace(int1d,2))
@@ -2184,8 +2215,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_y_faces[2]] = cross_product(p_y_2_by_diagonal, p_y_2_by_tile)
   var s_y_2 = y_2_by_privacy[0]
   var s_y_2_by_diagonal = partition(s_y_2.diagonal, diagonals_shared)
-  var s_y_2_by_tile = partition(s_y_2.tile, y_tiles_shared)
-  var [s_y_faces[2]] = cross_product(s_y_2_by_diagonal, s_y_2_by_tile)
+  var [s_y_faces_by_tile[2]] = partition(s_y_2.tile, y_tiles_shared)
+  var [s_y_faces[2]] = cross_product(s_y_2_by_diagonal, [s_y_faces_by_tile[2]])
 
   color_faces([y_faces[3]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(true,false,true))
   var y_3_by_privacy = partition([y_faces[3]].is_private, ispace(int1d,2))
@@ -2195,8 +2226,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_y_faces[3]] = cross_product(p_y_3_by_diagonal, p_y_3_by_tile)
   var s_y_3 = y_3_by_privacy[0]
   var s_y_3_by_diagonal = partition(s_y_3.diagonal, diagonals_shared)
-  var s_y_3_by_tile = partition(s_y_3.tile, y_tiles_shared)
-  var [s_y_faces[3]] = cross_product(s_y_3_by_diagonal, s_y_3_by_tile)
+  var [s_y_faces_by_tile[3]] = partition(s_y_3.tile, y_tiles_shared)
+  var [s_y_faces[3]] = cross_product(s_y_3_by_diagonal, [s_y_faces_by_tile[3]])
 
   color_faces([y_faces[4]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(true,false,false))
   var y_4_by_privacy = partition([y_faces[4]].is_private, ispace(int1d,2))
@@ -2206,8 +2237,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_y_faces[4]] = cross_product(p_y_4_by_diagonal, p_y_4_by_tile)
   var s_y_4 = y_4_by_privacy[0]
   var s_y_4_by_diagonal = partition(s_y_4.diagonal, diagonals_shared)
-  var s_y_4_by_tile = partition(s_y_4.tile, y_tiles_shared)
-  var [s_y_faces[4]] = cross_product(s_y_4_by_diagonal, s_y_4_by_tile)
+  var [s_y_faces_by_tile[4]] = partition(s_y_4.tile, y_tiles_shared)
+  var [s_y_faces[4]] = cross_product(s_y_4_by_diagonal, [s_y_faces_by_tile[4]])
 
   color_faces([y_faces[5]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(false,true,true))
   var y_5_by_privacy = partition([y_faces[5]].is_private, ispace(int1d,2))
@@ -2217,8 +2248,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_y_faces[5]] = cross_product(p_y_5_by_diagonal, p_y_5_by_tile)
   var s_y_5 = y_5_by_privacy[0]
   var s_y_5_by_diagonal = partition(s_y_5.diagonal, diagonals_shared)
-  var s_y_5_by_tile = partition(s_y_5.tile, y_tiles_shared)
-  var [s_y_faces[5]] = cross_product(s_y_5_by_diagonal, s_y_5_by_tile)
+  var [s_y_faces_by_tile[5]] = partition(s_y_5.tile, y_tiles_shared)
+  var [s_y_faces[5]] = cross_product(s_y_5_by_diagonal, [s_y_faces_by_tile[5]])
 
   color_faces([y_faces[6]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(false,true,false))
   var y_6_by_privacy = partition([y_faces[6]].is_private, ispace(int1d,2))
@@ -2228,8 +2259,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_y_faces[6]] = cross_product(p_y_6_by_diagonal, p_y_6_by_tile)
   var s_y_6 = y_6_by_privacy[0]
   var s_y_6_by_diagonal = partition(s_y_6.diagonal, diagonals_shared)
-  var s_y_6_by_tile = partition(s_y_6.tile, y_tiles_shared)
-  var [s_y_faces[6]] = cross_product(s_y_6_by_diagonal, s_y_6_by_tile)
+  var [s_y_faces_by_tile[6]] = partition(s_y_6.tile, y_tiles_shared)
+  var [s_y_faces[6]] = cross_product(s_y_6_by_diagonal, [s_y_faces_by_tile[6]])
 
   color_faces([y_faces[7]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(false,false,true))
   var y_7_by_privacy = partition([y_faces[7]].is_private, ispace(int1d,2))
@@ -2239,8 +2270,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_y_faces[7]] = cross_product(p_y_7_by_diagonal, p_y_7_by_tile)
   var s_y_7 = y_7_by_privacy[0]
   var s_y_7_by_diagonal = partition(s_y_7.diagonal, diagonals_shared)
-  var s_y_7_by_tile = partition(s_y_7.tile, y_tiles_shared)
-  var [s_y_faces[7]] = cross_product(s_y_7_by_diagonal, s_y_7_by_tile)
+  var [s_y_faces_by_tile[7]] = partition(s_y_7.tile, y_tiles_shared)
+  var [s_y_faces[7]] = cross_product(s_y_7_by_diagonal, [s_y_faces_by_tile[7]])
 
   color_faces([y_faces[8]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(false,false,false))
   var y_8_by_privacy = partition([y_faces[8]].is_private, ispace(int1d,2))
@@ -2250,8 +2281,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_y_faces[8]] = cross_product(p_y_8_by_diagonal, p_y_8_by_tile)
   var s_y_8 = y_8_by_privacy[0]
   var s_y_8_by_diagonal = partition(s_y_8.diagonal, diagonals_shared)
-  var s_y_8_by_tile = partition(s_y_8.tile, y_tiles_shared)
-  var [s_y_faces[8]] = cross_product(s_y_8_by_diagonal, s_y_8_by_tile)
+  var [s_y_faces_by_tile[8]] = partition(s_y_8.tile, y_tiles_shared)
+  var [s_y_faces[8]] = cross_product(s_y_8_by_diagonal, [s_y_faces_by_tile[8]])
 
   -- z
 
@@ -2263,8 +2294,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_z_faces[1]] = cross_product(p_z_1_by_diagonal, p_z_1_by_tile)
   var s_z_1 = z_1_by_privacy[0]
   var s_z_1_by_diagonal = partition(s_z_1.diagonal, diagonals_shared)
-  var s_z_1_by_tile = partition(s_z_1.tile, z_tiles_shared)
-  var [s_z_faces[1]] = cross_product(s_z_1_by_diagonal, s_z_1_by_tile)
+  var [s_z_faces_by_tile[1]] = partition(s_z_1.tile, z_tiles_shared)
+  var [s_z_faces[1]] = cross_product(s_z_1_by_diagonal, [s_z_faces_by_tile[1]])
 
   color_faces([z_faces[2]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(true,true,false))
   var z_2_by_privacy = partition([z_faces[2]].is_private, ispace(int1d,2))
@@ -2274,8 +2305,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_z_faces[2]] = cross_product(p_z_2_by_diagonal, p_z_2_by_tile)
   var s_z_2 = z_2_by_privacy[0]
   var s_z_2_by_diagonal = partition(s_z_2.diagonal, diagonals_shared)
-  var s_z_2_by_tile = partition(s_z_2.tile, z_tiles_shared)
-  var [s_z_faces[2]] = cross_product(s_z_2_by_diagonal, s_z_2_by_tile)
+  var [s_z_faces_by_tile[2]] = partition(s_z_2.tile, z_tiles_shared)
+  var [s_z_faces[2]] = cross_product(s_z_2_by_diagonal, [s_z_faces_by_tile[2]])
 
   color_faces([z_faces[3]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(true,false,true))
   var z_3_by_privacy = partition([z_faces[3]].is_private, ispace(int1d,2))
@@ -2285,8 +2316,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_z_faces[3]] = cross_product(p_z_3_by_diagonal, p_z_3_by_tile)
   var s_z_3 = z_3_by_privacy[0]
   var s_z_3_by_diagonal = partition(s_z_3.diagonal, diagonals_shared)
-  var s_z_3_by_tile = partition(s_z_3.tile, z_tiles_shared)
-  var [s_z_faces[3]] = cross_product(s_z_3_by_diagonal, s_z_3_by_tile)
+  var [s_z_faces_by_tile[3]] = partition(s_z_3.tile, z_tiles_shared)
+  var [s_z_faces[3]] = cross_product(s_z_3_by_diagonal, [s_z_faces_by_tile[3]])
 
   color_faces([z_faces[4]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(true,false,false))
   var z_4_by_privacy = partition([z_faces[4]].is_private, ispace(int1d,2))
@@ -2296,8 +2327,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_z_faces[4]] = cross_product(p_z_4_by_diagonal, p_z_4_by_tile)
   var s_z_4 = z_4_by_privacy[0]
   var s_z_4_by_diagonal = partition(s_z_4.diagonal, diagonals_shared)
-  var s_z_4_by_tile = partition(s_z_4.tile, z_tiles_shared)
-  var [s_z_faces[4]] = cross_product(s_z_4_by_diagonal, s_z_4_by_tile)
+  var [s_z_faces_by_tile[4]] = partition(s_z_4.tile, z_tiles_shared)
+  var [s_z_faces[4]] = cross_product(s_z_4_by_diagonal, [s_z_faces_by_tile[4]])
 
   color_faces([z_faces[5]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(false,true,true))
   var z_5_by_privacy = partition([z_faces[5]].is_private, ispace(int1d,2))
@@ -2307,8 +2338,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_z_faces[5]] = cross_product(p_z_5_by_diagonal, p_z_5_by_tile)
   var s_z_5 = z_5_by_privacy[0]
   var s_z_5_by_diagonal = partition(s_z_5.diagonal, diagonals_shared)
-  var s_z_5_by_tile = partition(s_z_5.tile, z_tiles_shared)
-  var [s_z_faces[5]] = cross_product(s_z_5_by_diagonal, s_z_5_by_tile)
+  var [s_z_faces_by_tile[5]] = partition(s_z_5.tile, z_tiles_shared)
+  var [s_z_faces[5]] = cross_product(s_z_5_by_diagonal, [s_z_faces_by_tile[5]])
 
   color_faces([z_faces[6]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(false,true,false))
   var z_6_by_privacy = partition([z_faces[6]].is_private, ispace(int1d,2))
@@ -2318,8 +2349,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_z_faces[6]] = cross_product(p_z_6_by_diagonal, p_z_6_by_tile)
   var s_z_6 = z_6_by_privacy[0]
   var s_z_6_by_diagonal = partition(s_z_6.diagonal, diagonals_shared)
-  var s_z_6_by_tile = partition(s_z_6.tile, z_tiles_shared)
-  var [s_z_faces[6]] = cross_product(s_z_6_by_diagonal, s_z_6_by_tile)
+  var [s_z_faces_by_tile[6]] = partition(s_z_6.tile, z_tiles_shared)
+  var [s_z_faces[6]] = cross_product(s_z_6_by_diagonal, [s_z_faces_by_tile[6]])
 
   color_faces([z_faces[7]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(false,false,true))
   var z_7_by_privacy = partition([z_faces[7]].is_private, ispace(int1d,2))
@@ -2329,8 +2360,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_z_faces[7]] = cross_product(p_z_7_by_diagonal, p_z_7_by_tile)
   var s_z_7 = z_7_by_privacy[0]
   var s_z_7_by_diagonal = partition(s_z_7.diagonal, diagonals_shared)
-  var s_z_7_by_tile = partition(s_z_7.tile, z_tiles_shared)
-  var [s_z_faces[7]] = cross_product(s_z_7_by_diagonal, s_z_7_by_tile)
+  var [s_z_faces_by_tile[7]] = partition(s_z_7.tile, z_tiles_shared)
+  var [s_z_faces[7]] = cross_product(s_z_7_by_diagonal, [s_z_faces_by_tile[7]])
 
   color_faces([z_faces[8]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(false,false,false))
   var z_8_by_privacy = partition([z_faces[8]].is_private, ispace(int1d,2))
@@ -2340,8 +2371,8 @@ function Exports.DeclSymbols(config) return rquote
   var [p_z_faces[8]] = cross_product(p_z_8_by_diagonal, p_z_8_by_tile)
   var s_z_8 = z_8_by_privacy[0]
   var s_z_8_by_diagonal = partition(s_z_8.diagonal, diagonals_shared)
-  var s_z_8_by_tile = partition(s_z_8.tile, z_tiles_shared)
-  var [s_z_faces[8]] = cross_product(s_z_8_by_diagonal, s_z_8_by_tile)
+  var [s_z_faces_by_tile[8]] = partition(s_z_8.tile, z_tiles_shared)
+  var [s_z_faces[8]] = cross_product(s_z_8_by_diagonal, [s_z_faces_by_tile[8]])
 
 end end
 
@@ -2399,28 +2430,29 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     end
 
     -- Update the grid boundary intensities
+    -- TODO: Should launch these on just the boundaries
     for j = 0, nty do
       for k = 0, ntz do
-        bound_x_lo([s_x_faces[1]][{0,j,k}],
-                   [s_x_faces[2]][{0,j,k}],
-                   [s_x_faces[3]][{0,j,k}],
-                   [s_x_faces[4]][{0,j,k}],
-                   [s_x_faces[5]][{0,j,k}],
-                   [s_x_faces[6]][{0,j,k}],
-                   [s_x_faces[7]][{0,j,k}],
-                   [s_x_faces[8]][{0,j,k}],
+        bound_x_lo([s_x_faces_by_tile[1]][{0,j,k}],
+                   [s_x_faces_by_tile[2]][{0,j,k}],
+                   [s_x_faces_by_tile[3]][{0,j,k}],
+                   [s_x_faces_by_tile[4]][{0,j,k}],
+                   [s_x_faces_by_tile[5]][{0,j,k}],
+                   [s_x_faces_by_tile[6]][{0,j,k}],
+                   [s_x_faces_by_tile[7]][{0,j,k}],
+                   [s_x_faces_by_tile[8]][{0,j,k}],
                    angles,
                    config.Radiation.emissWest,
                    config.Radiation.tempWest)
 
-        bound_x_hi([s_x_faces[1]][{ntx,j,k}],
-                   [s_x_faces[2]][{ntx,j,k}],
-                   [s_x_faces[3]][{ntx,j,k}],
-                   [s_x_faces[4]][{ntx,j,k}],
-                   [s_x_faces[5]][{ntx,j,k}],
-                   [s_x_faces[6]][{ntx,j,k}],
-                   [s_x_faces[7]][{ntx,j,k}],
-                   [s_x_faces[8]][{ntx,j,k}],
+        bound_x_hi([s_x_faces_by_tile[1]][{ntx,j,k}],
+                   [s_x_faces_by_tile[2]][{ntx,j,k}],
+                   [s_x_faces_by_tile[3]][{ntx,j,k}],
+                   [s_x_faces_by_tile[4]][{ntx,j,k}],
+                   [s_x_faces_by_tile[5]][{ntx,j,k}],
+                   [s_x_faces_by_tile[6]][{ntx,j,k}],
+                   [s_x_faces_by_tile[7]][{ntx,j,k}],
+                   [s_x_faces_by_tile[8]][{ntx,j,k}],
                    angles,
                    config.Radiation.emissEast,
                    config.Radiation.tempEast)
@@ -2430,26 +2462,26 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     -- Update y faces
     for i = 0, ntx do
       for k = 0, ntz do
-        bound_y_lo([s_y_faces[1]][{i,0,k}],
-                   [s_y_faces[2]][{i,0,k}],
-                   [s_y_faces[3]][{i,0,k}],
-                   [s_y_faces[4]][{i,0,k}],
-                   [s_y_faces[5]][{i,0,k}],
-                   [s_y_faces[6]][{i,0,k}],
-                   [s_y_faces[7]][{i,0,k}],
-                   [s_y_faces[8]][{i,0,k}],
+        bound_y_lo([s_y_faces_by_tile[1]][{i,0,k}],
+                   [s_y_faces_by_tile[2]][{i,0,k}],
+                   [s_y_faces_by_tile[3]][{i,0,k}],
+                   [s_y_faces_by_tile[4]][{i,0,k}],
+                   [s_y_faces_by_tile[5]][{i,0,k}],
+                   [s_y_faces_by_tile[6]][{i,0,k}],
+                   [s_y_faces_by_tile[7]][{i,0,k}],
+                   [s_y_faces_by_tile[8]][{i,0,k}],
                    angles,
                    config.Radiation.emissSouth,
                    config.Radiation.tempSouth)
 
-        bound_y_hi([s_y_faces[1]][{i,nty,k}],
-                   [s_y_faces[2]][{i,nty,k}],
-                   [s_y_faces[3]][{i,nty,k}],
-                   [s_y_faces[4]][{i,nty,k}],
-                   [s_y_faces[5]][{i,nty,k}],
-                   [s_y_faces[6]][{i,nty,k}],
-                   [s_y_faces[7]][{i,nty,k}],
-                   [s_y_faces[8]][{i,nty,k}],
+        bound_y_hi([s_y_faces_by_tile[1]][{i,nty,k}],
+                   [s_y_faces_by_tile[2]][{i,nty,k}],
+                   [s_y_faces_by_tile[3]][{i,nty,k}],
+                   [s_y_faces_by_tile[4]][{i,nty,k}],
+                   [s_y_faces_by_tile[5]][{i,nty,k}],
+                   [s_y_faces_by_tile[6]][{i,nty,k}],
+                   [s_y_faces_by_tile[7]][{i,nty,k}],
+                   [s_y_faces_by_tile[8]][{i,nty,k}],
                    angles,
                    config.Radiation.emissNorth,
                    config.Radiation.tempNorth)
@@ -2459,26 +2491,26 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     -- Update z faces
     for i = 0, ntx do
       for j = 0, nty do
-        bound_z_lo([s_z_faces[1]][{i,j,0}],
-                   [s_z_faces[2]][{i,j,0}],
-                   [s_z_faces[3]][{i,j,0}],
-                   [s_z_faces[4]][{i,j,0}],
-                   [s_z_faces[5]][{i,j,0}],
-                   [s_z_faces[6]][{i,j,0}],
-                   [s_z_faces[7]][{i,j,0}],
-                   [s_z_faces[8]][{i,j,0}],
+        bound_z_lo([s_z_faces_by_tile[1]][{i,j,0}],
+                   [s_z_faces_by_tile[2]][{i,j,0}],
+                   [s_z_faces_by_tile[3]][{i,j,0}],
+                   [s_z_faces_by_tile[4]][{i,j,0}],
+                   [s_z_faces_by_tile[5]][{i,j,0}],
+                   [s_z_faces_by_tile[6]][{i,j,0}],
+                   [s_z_faces_by_tile[7]][{i,j,0}],
+                   [s_z_faces_by_tile[8]][{i,j,0}],
                    angles,
                    config.Radiation.emissDown,
                    config.Radiation.tempDown)
 
-        bound_z_hi([s_z_faces[1]][{i,j,ntz}],
-                   [s_z_faces[2]][{i,j,ntz}],
-                   [s_z_faces[3]][{i,j,ntz}],
-                   [s_z_faces[4]][{i,j,ntz}],
-                   [s_z_faces[5]][{i,j,ntz}],
-                   [s_z_faces[6]][{i,j,ntz}],
-                   [s_z_faces[7]][{i,j,ntz}],
-                   [s_z_faces[8]][{i,j,ntz}],
+        bound_z_hi([s_z_faces_by_tile[1]][{i,j,ntz}],
+                   [s_z_faces_by_tile[2]][{i,j,ntz}],
+                   [s_z_faces_by_tile[3]][{i,j,ntz}],
+                   [s_z_faces_by_tile[4]][{i,j,ntz}],
+                   [s_z_faces_by_tile[5]][{i,j,ntz}],
+                   [s_z_faces_by_tile[6]][{i,j,ntz}],
+                   [s_z_faces_by_tile[7]][{i,j,ntz}],
+                   [s_z_faces_by_tile[8]][{i,j,ntz}],
                    angles,
                    config.Radiation.emissUp,
                    config.Radiation.tempUp)
@@ -2488,6 +2520,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     --Perform the sweep for computing new intensities
     --Quadrant 1 - +x, +y, +z
     for d in diagonals_private do
+      __demand(__parallel)
       for t in [p_x_faces[1]][d].colors do
         sweep_1(p_points[t],
                 [p_x_faces[1]][d][t], [p_y_faces[1]][d][t], [p_z_faces[1]][d][t],
@@ -2500,6 +2533,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
 
     -- Quadrant 2 - +x, +y, -z
     for d in diagonals_private do
+      __demand(__parallel)
       for t in [p_x_faces[2]][d].colors do
         sweep_2(p_points[t],
                 [p_x_faces[2]][d][t], [p_y_faces[2]][d][t], [p_z_faces[2]][d][t],
@@ -2512,6 +2546,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
 
     -- Quadrant 3 - +x, -y, +z
     for d in diagonals_private do
+      __demand(__parallel)
       for t in [p_x_faces[3]][d].colors do
         sweep_3(p_points[t],
                 [p_x_faces[3]][d][t], [p_y_faces[3]][d][t], [p_z_faces[3]][d][t],
@@ -2524,6 +2559,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
 
     -- Quadrant 4 - +x, -y, -z
     for d in diagonals_private do
+      __demand(__parallel)
       for t in [p_x_faces[4]][d].colors do
         sweep_4(p_points[t],
                 [p_x_faces[4]][d][t], [p_y_faces[4]][d][t], [p_z_faces[4]][d][t],
@@ -2536,6 +2572,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
 
     -- Quadrant 5 - -x, +y, +z
     for d in diagonals_private do
+      __demand(__parallel)
       for t in [p_x_faces[5]][d].colors do
         sweep_5(p_points[t],
                 [p_x_faces[5]][d][t], [p_y_faces[5]][d][t], [p_z_faces[5]][d][t],
@@ -2548,6 +2585,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
 
     -- Quadrant 6 - -x, +y, -z
     for d in diagonals_private do
+      __demand(__parallel)
       for t in [p_x_faces[6]][d].colors do
         sweep_6(p_points[t],
                 [p_x_faces[6]][d][t], [p_y_faces[6]][d][t], [p_z_faces[6]][d][t],
@@ -2560,6 +2598,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
 
     -- Quadrant 7 - -x, -y, +z
     for d in diagonals_private do
+      __demand(__parallel)
       for t in [p_x_faces[7]][d].colors do
         sweep_7(p_points[t],
                 [p_x_faces[7]][d][t], [p_y_faces[7]][d][t], [p_z_faces[7]][d][t],
@@ -2572,6 +2611,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
 
     -- Quadrant 8 - -x, -y, -z
     for d in diagonals_private do
+      __demand(__parallel)
       for t in [p_x_faces[8]][d].colors do
         sweep_8(p_points[t],
                 [p_x_faces[8]][d][t], [p_y_faces[8]][d][t], [p_z_faces[8]][d][t],
