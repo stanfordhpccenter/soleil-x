@@ -80,6 +80,10 @@ local struct face {
   diagonal : int1d,
 }
 
+local struct tile_info {
+  diagonal : int1d,
+}
+
 -------------------------------------------------------------------------------
 -- MODULE-LOCAL TASKS
 -------------------------------------------------------------------------------
@@ -182,6 +186,22 @@ do
       ite(sweepDir[0], x_tile, ntx-1-x_tile) +
       ite(sweepDir[1], y_tile, nty-1-y_tile) +
       ite(sweepDir[2], z_tile, ntz-1-z_tile)
+  end
+end
+
+local task fill_tile_info(r_tiles : region(ispace(int3d), tile_info),
+                          sweepDir : bool[3])
+where
+  writes (r_tiles.diagonal)
+do
+  var ntx = r_tiles.bounds.hi.x + 1
+  var nty = r_tiles.bounds.hi.y + 1
+  var ntz = r_tiles.bounds.hi.z + 1
+  for t in r_tiles do
+    r_tiles[t].diagonal =
+      ite(sweepDir[0], t.x, ntx-1-t.x) +
+      ite(sweepDir[1], t.y, nty-1-t.y) +
+      ite(sweepDir[2], t.z, ntz-1-t.z)
   end
 end
 
@@ -660,10 +680,6 @@ where
   reads writes(points.I_1, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
-  if x_faces.bounds.lo.x > x_faces.bounds.hi.x then
-    return
-  end
-
   var dAx = dy*dz;
   var dAy = dx*dz;
   var dAz = dx*dy;
@@ -805,10 +821,6 @@ where
   reads writes(points.I_2, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
-  if x_faces.bounds.lo.x > x_faces.bounds.hi.x then
-    return
-  end
-
   var dAx = dy*dz;
   var dAy = dx*dz;
   var dAz = dx*dy;
@@ -952,10 +964,6 @@ where
   reads writes(points.I_3, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
-  if x_faces.bounds.lo.x > x_faces.bounds.hi.x then
-    return
-  end
-
   var dAx = dy*dz;
   var dAy = dx*dz;
   var dAz = dx*dy;
@@ -1099,10 +1107,6 @@ where
   reads writes(points.I_4, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
-  if x_faces.bounds.lo.x > x_faces.bounds.hi.x then
-    return
-  end
-
   var dAx = dy*dz;
   var dAy = dx*dz;
   var dAz = dx*dy;
@@ -1246,10 +1250,6 @@ where
   reads writes(points.I_5, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
-  if x_faces.bounds.lo.x > x_faces.bounds.hi.x then
-    return
-  end
-
   var dAx = dy*dz;
   var dAy = dx*dz;
   var dAz = dx*dy;
@@ -1393,10 +1393,6 @@ where
   reads writes(points.I_6, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
-  if x_faces.bounds.lo.x > x_faces.bounds.hi.x then
-    return
-  end
-
   var dAx = dy*dz;
   var dAy = dx*dz;
   var dAz = dx*dy;
@@ -1540,10 +1536,6 @@ where
   reads writes(points.I_7, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
-  if x_faces.bounds.lo.x > x_faces.bounds.hi.x then
-    return
-  end
-
   var dAx = dy*dz;
   var dAy = dx*dz;
   var dAz = dx*dy;
@@ -1687,10 +1679,6 @@ where
   reads writes(points.I_8, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
-  if x_faces.bounds.lo.x > x_faces.bounds.hi.x then
-    return
-  end
-
   var dAx = dy*dz;
   var dAy = dx*dz;
   var dAz = dx*dy;
@@ -2077,6 +2065,17 @@ local p_z_faces = {
   regentlib.newsymbol('p_z_faces_8'),
 }
 
+local tiles_by_diagonal = {
+  regentlib.newsymbol('tiles_by_diagonal_1'),
+  regentlib.newsymbol('tiles_by_diagonal_2'),
+  regentlib.newsymbol('tiles_by_diagonal_3'),
+  regentlib.newsymbol('tiles_by_diagonal_4'),
+  regentlib.newsymbol('tiles_by_diagonal_5'),
+  regentlib.newsymbol('tiles_by_diagonal_6'),
+  regentlib.newsymbol('tiles_by_diagonal_7'),
+  regentlib.newsymbol('tiles_by_diagonal_8'),
+}
+
 function Exports.DeclSymbols(config) return rquote
 
   -- Number of points in each dimension
@@ -2405,6 +2404,40 @@ function Exports.DeclSymbols(config) return rquote
   var [s_z_faces_by_tile[8]] = partition(s_z_8.tile, z_tiles_shared)
   var [s_z_faces[8]] = cross_product(s_z_8_by_diagonal, [s_z_faces_by_tile[8]])
 
+  -- Construct index spaces for the diagonal launches
+
+  var r_tiles_1 = region(tiles_private, tile_info)
+  fill_tile_info(r_tiles_1, array(true,true,true))
+  var [tiles_by_diagonal[1]] = partition(r_tiles_1.diagonal, diagonals_private)
+
+  var r_tiles_2 = region(tiles_private, tile_info)
+  fill_tile_info(r_tiles_2, array(true,true,false))
+  var [tiles_by_diagonal[2]] = partition(r_tiles_2.diagonal, diagonals_private)
+
+  var r_tiles_3 = region(tiles_private, tile_info)
+  fill_tile_info(r_tiles_3, array(true,false,true))
+  var [tiles_by_diagonal[3]] = partition(r_tiles_3.diagonal, diagonals_private)
+
+  var r_tiles_4 = region(tiles_private, tile_info)
+  fill_tile_info(r_tiles_4, array(true,false,false))
+  var [tiles_by_diagonal[4]] = partition(r_tiles_4.diagonal, diagonals_private)
+
+  var r_tiles_5 = region(tiles_private, tile_info)
+  fill_tile_info(r_tiles_5, array(false,true,true))
+  var [tiles_by_diagonal[5]] = partition(r_tiles_5.diagonal, diagonals_private)
+
+  var r_tiles_6 = region(tiles_private, tile_info)
+  fill_tile_info(r_tiles_6, array(false,true,false))
+  var [tiles_by_diagonal[6]] = partition(r_tiles_6.diagonal, diagonals_private)
+
+  var r_tiles_7 = region(tiles_private, tile_info)
+  fill_tile_info(r_tiles_7, array(false,false,true))
+  var [tiles_by_diagonal[7]] = partition(r_tiles_7.diagonal, diagonals_private)
+
+  var r_tiles_8 = region(tiles_private, tile_info)
+  fill_tile_info(r_tiles_8, array(false,false,false))
+  var [tiles_by_diagonal[8]] = partition(r_tiles_8.diagonal, diagonals_private)
+
 end end
 
 function Exports.InitRegions() return rquote
@@ -2552,7 +2585,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     --Quadrant 1 - +x, +y, +z
     for d in diagonals_private do
       __demand(__parallel)
-      for t in [p_x_faces[1]][d].colors do
+      for t in [tiles_by_diagonal[1]][d] do
         sweep_1(p_points[t],
                 [p_x_faces[1]][d][t], [p_y_faces[1]][d][t], [p_z_faces[1]][d][t],
                 [s_x_faces[1]][d][t], [s_x_faces[1]][d+1][t+int3d{1,0,0}],
@@ -2565,7 +2598,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     -- Quadrant 2 - +x, +y, -z
     for d in diagonals_private do
       __demand(__parallel)
-      for t in [p_x_faces[2]][d].colors do
+      for t in [tiles_by_diagonal[2]][d] do
         sweep_2(p_points[t],
                 [p_x_faces[2]][d][t], [p_y_faces[2]][d][t], [p_z_faces[2]][d][t],
                 [s_x_faces[2]][d][t], [s_x_faces[2]][d+1][t+int3d{1,0,0}],
@@ -2578,7 +2611,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     -- Quadrant 3 - +x, -y, +z
     for d in diagonals_private do
       __demand(__parallel)
-      for t in [p_x_faces[3]][d].colors do
+      for t in [tiles_by_diagonal[3]][d] do
         sweep_3(p_points[t],
                 [p_x_faces[3]][d][t], [p_y_faces[3]][d][t], [p_z_faces[3]][d][t],
                 [s_x_faces[3]][d][t], [s_x_faces[3]][d+1][t+int3d{1,0,0}],
@@ -2591,7 +2624,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     -- Quadrant 4 - +x, -y, -z
     for d in diagonals_private do
       __demand(__parallel)
-      for t in [p_x_faces[4]][d].colors do
+      for t in [tiles_by_diagonal[4]][d] do
         sweep_4(p_points[t],
                 [p_x_faces[4]][d][t], [p_y_faces[4]][d][t], [p_z_faces[4]][d][t],
                 [s_x_faces[4]][d][t], [s_x_faces[4]][d+1][t+int3d{1,0,0}],
@@ -2604,7 +2637,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     -- Quadrant 5 - -x, +y, +z
     for d in diagonals_private do
       __demand(__parallel)
-      for t in [p_x_faces[5]][d].colors do
+      for t in [tiles_by_diagonal[5]][d] do
         sweep_5(p_points[t],
                 [p_x_faces[5]][d][t], [p_y_faces[5]][d][t], [p_z_faces[5]][d][t],
                 [s_x_faces[5]][d][t+int3d{1,0,0}], [s_x_faces[5]][d+1][t],
@@ -2617,7 +2650,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     -- Quadrant 6 - -x, +y, -z
     for d in diagonals_private do
       __demand(__parallel)
-      for t in [p_x_faces[6]][d].colors do
+      for t in [tiles_by_diagonal[6]][d] do
         sweep_6(p_points[t],
                 [p_x_faces[6]][d][t], [p_y_faces[6]][d][t], [p_z_faces[6]][d][t],
                 [s_x_faces[6]][d][t+int3d{1,0,0}], [s_x_faces[6]][d+1][t],
@@ -2630,7 +2663,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     -- Quadrant 7 - -x, -y, +z
     for d in diagonals_private do
       __demand(__parallel)
-      for t in [p_x_faces[7]][d].colors do
+      for t in [tiles_by_diagonal[7]][d] do
         sweep_7(p_points[t],
                 [p_x_faces[7]][d][t], [p_y_faces[7]][d][t], [p_z_faces[7]][d][t],
                 [s_x_faces[7]][d][t+int3d{1,0,0}], [s_x_faces[7]][d+1][t],
@@ -2643,7 +2676,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     -- Quadrant 8 - -x, -y, -z
     for d in diagonals_private do
       __demand(__parallel)
-      for t in [p_x_faces[8]][d].colors do
+      for t in [tiles_by_diagonal[8]][d] do
         sweep_8(p_points[t],
                 [p_x_faces[8]][d][t], [p_y_faces[8]][d][t], [p_z_faces[8]][d][t],
                 [s_x_faces[8]][d][t+int3d{1,0,0}], [s_x_faces[8]][d+1][t],
