@@ -2,7 +2,9 @@
 #SBATCH -J soleil
 
 GPUS=
-if [[ "$QUEUE" == "32core" ]]; then
+if [[ "$QUEUE" == "all" ]]; then
+    NUM_THREADS=11
+elif [[ "$QUEUE" == "32core" ]]; then
     NUM_THREADS=15
     # 64GB RAM per node
     # 2 NUMA domains per node
