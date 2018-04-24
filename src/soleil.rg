@@ -4021,14 +4021,12 @@ do
   end
 end
 
-__demand(__cuda)
 task Particles_HandleCollisions(particles : region(ispace(int1d), particles_columns),
                                 Integrator_timeStep : int)
 where
   reads(particles.{position_old, diameter, __valid}),
   reads writes(particles.{position, velocity})
 do
-  -- __demand(__openmp)
   for p1 in particles do
     if p1.__valid then
       for p2 in particles do
