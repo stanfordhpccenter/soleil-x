@@ -3961,7 +3961,7 @@ do
   for p in particles do
     if particles[p].__valid then
       var deltaTime = Integrator_deltaTime
-      if (Integrator_stage==1) then
+      if Integrator_stage == 1 then
         var tmp = vs_mul_double_3(particles[p].position_t, ((1.0/6.0)*deltaTime))
         var v = particles[p].position_new
         v[0] += tmp[0]
@@ -3978,47 +3978,68 @@ do
         particles[p].velocity = vv_add_double_3(particles[p].velocity_old, vs_mul_double_3(particles[p].velocity_t, (double(0.5)*deltaTime)))
         particles[p].temperature_new += (((1.0/6.0)*deltaTime)*particles[p].temperature_t)
         particles[p].temperature = (particles[p].temperature_old+((double(0.5)*deltaTime)*particles[p].temperature_t))
-      else
-        if (Integrator_stage==2) then
-          var tmp = vs_mul_double_3(particles[p].position_t, ((1.0/3.0)*deltaTime))
-          var v = particles[p].position_new
-          v[0] += tmp[0]
-          v[1] += tmp[1]
-          v[2] += tmp[2]
-          particles[p].position_new = v
-          particles[p].position = vv_add_double_3(particles[p].position_old, vs_mul_double_3(particles[p].position_t, (double(0.5)*deltaTime)))
-          var tmp__11024 = vs_mul_double_3(particles[p].velocity_t, ((1.0/3.0)*deltaTime))
-          var v__11025 = particles[p].velocity_new
-          v__11025[0] += tmp__11024[0]
-          v__11025[1] += tmp__11024[1]
-          v__11025[2] += tmp__11024[2]
-          particles[p].velocity_new = v__11025
-          particles[p].velocity = vv_add_double_3(particles[p].velocity_old, vs_mul_double_3(particles[p].velocity_t, (double(0.5)*deltaTime)))
-          particles[p].temperature_new += (((1.0/3.0)*deltaTime)*particles[p].temperature_t)
-          particles[p].temperature = (particles[p].temperature_old+((double(0.5)*deltaTime)*particles[p].temperature_t))
-        else
-          if (Integrator_stage==3) then
-            var tmp = vs_mul_double_3(particles[p].position_t, ((1.0/3.0)*deltaTime))
-            var v = particles[p].position_new
-            v[0] += tmp[0]
-            v[1] += tmp[1]
-            v[2] += tmp[2]
-            particles[p].position_new = v
-            particles[p].position = vv_add_double_3(particles[p].position_old, vs_mul_double_3(particles[p].position_t, (1.0*deltaTime)))
-            var tmp__11028 = vs_mul_double_3(particles[p].velocity_t, ((1.0/3.0)*deltaTime))
-            var v__11029 = particles[p].velocity_new
-            v__11029[0] += tmp__11028[0]
-            v__11029[1] += tmp__11028[1]
-            v__11029[2] += tmp__11028[2]
-            particles[p].velocity_new = v__11029
-            particles[p].velocity = vv_add_double_3(particles[p].velocity_old, vs_mul_double_3(particles[p].velocity_t, (1.0*deltaTime)))
-            particles[p].temperature_new += (((1.0/3.0)*deltaTime)*particles[p].temperature_t)
-            particles[p].temperature = (particles[p].temperature_old+((1.0*deltaTime)*particles[p].temperature_t))
-          else
-            particles[p].position = vv_add_double_3(particles[p].position_new, vs_mul_double_3(particles[p].position_t, ((1.0/6.0)*deltaTime)))
-            particles[p].velocity = vv_add_double_3(particles[p].velocity_new, vs_mul_double_3(particles[p].velocity_t, ((1.0/6.0)*deltaTime)))
-            particles[p].temperature = (particles[p].temperature_new+(((1.0/6.0)*deltaTime)*particles[p].temperature_t))
-          end
+      elseif Integrator_stage == 2 then
+        var tmp = vs_mul_double_3(particles[p].position_t, ((1.0/3.0)*deltaTime))
+        var v = particles[p].position_new
+        v[0] += tmp[0]
+        v[1] += tmp[1]
+        v[2] += tmp[2]
+        particles[p].position_new = v
+        particles[p].position = vv_add_double_3(particles[p].position_old, vs_mul_double_3(particles[p].position_t, (double(0.5)*deltaTime)))
+        var tmp__11024 = vs_mul_double_3(particles[p].velocity_t, ((1.0/3.0)*deltaTime))
+        var v__11025 = particles[p].velocity_new
+        v__11025[0] += tmp__11024[0]
+        v__11025[1] += tmp__11024[1]
+        v__11025[2] += tmp__11024[2]
+        particles[p].velocity_new = v__11025
+        particles[p].velocity = vv_add_double_3(particles[p].velocity_old, vs_mul_double_3(particles[p].velocity_t, (double(0.5)*deltaTime)))
+        particles[p].temperature_new += (((1.0/3.0)*deltaTime)*particles[p].temperature_t)
+        particles[p].temperature = (particles[p].temperature_old+((double(0.5)*deltaTime)*particles[p].temperature_t))
+      elseif Integrator_stage == 3 then
+        var tmp = vs_mul_double_3(particles[p].position_t, ((1.0/3.0)*deltaTime))
+        var v = particles[p].position_new
+        v[0] += tmp[0]
+        v[1] += tmp[1]
+        v[2] += tmp[2]
+        particles[p].position_new = v
+        particles[p].position = vv_add_double_3(particles[p].position_old, vs_mul_double_3(particles[p].position_t, (1.0*deltaTime)))
+        var tmp__11028 = vs_mul_double_3(particles[p].velocity_t, ((1.0/3.0)*deltaTime))
+        var v__11029 = particles[p].velocity_new
+        v__11029[0] += tmp__11028[0]
+        v__11029[1] += tmp__11028[1]
+        v__11029[2] += tmp__11028[2]
+        particles[p].velocity_new = v__11029
+        particles[p].velocity = vv_add_double_3(particles[p].velocity_old, vs_mul_double_3(particles[p].velocity_t, (1.0*deltaTime)))
+        particles[p].temperature_new += (((1.0/3.0)*deltaTime)*particles[p].temperature_t)
+        particles[p].temperature = (particles[p].temperature_old+((1.0*deltaTime)*particles[p].temperature_t))
+      elseif Integrator_stage == 4 then
+        particles[p].position = vv_add_double_3(particles[p].position_new, vs_mul_double_3(particles[p].position_t, ((1.0/6.0)*deltaTime)))
+        particles[p].velocity = vv_add_double_3(particles[p].velocity_new, vs_mul_double_3(particles[p].velocity_t, ((1.0/6.0)*deltaTime)))
+        particles[p].temperature = (particles[p].temperature_new+(((1.0/6.0)*deltaTime)*particles[p].temperature_t))
+      else regentlib.assert(false, '') end
+    end
+  end
+end
+
+__demand(__cuda)
+task Particles_HandleCollisions(particles : region(ispace(int1d), particles_columns),
+                                Integrator_timeStep : int)
+where
+  reads(particles.{position_old, diameter, __valid}),
+  reads writes(particles.{position, velocity})
+do
+  -- __demand(__openmp)
+  for p1 in particles do
+    if p1.__valid then
+      for p2 in particles do
+        if p2.__valid and p1 < p2 then
+          -- TODO: Actually handle collisions
+          -- if "p1 and p2 collide" then
+          --   p1.position = ...
+          --   p1.velocity = ...
+          --   p2.position = ...
+          --   p2.velocity = ...
+          -- end
         end
       end
     end
@@ -5425,6 +5446,10 @@ task work(config : Config)
         Flow_UpdateAuxiliaryThermodynamics(Fluid, Flow_gamma, Flow_gasConstant, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
         Flow_UpdateGhostThermodynamicsStep1(Fluid, BC_xNegTemperature, BC_xPosTemperature, BC_yNegTemperature, BC_yPosTemperature, BC_zNegTemperature, BC_zPosTemperature, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
         Flow_UpdateGhostThermodynamicsStep2(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
+        -- TODO: Collisions across tiles are not handled.
+        for c in primColors do
+          Particles_HandleCollisions(particles_primPart[c], Integrator_timeStep)
+        end
         Particles_UpdateAuxiliaryStep1(particles, BC_xBCParticlesPeriodic, BC_yBCParticlesPeriodic, BC_zBCParticlesPeriodic, Grid_xOrigin, Grid_xWidth, Grid_yOrigin, Grid_yWidth, Grid_zOrigin, Grid_zWidth, Particles_restitutionCoeff)
         Particles_UpdateAuxiliaryStep2(particles)
         Integrator_simTime = (Integrator_time_old+((double(0.5)*(1+(Integrator_stage/3)))*Integrator_deltaTime))
