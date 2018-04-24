@@ -1,5 +1,9 @@
 #!/bin/bash -eu
 
+# Inputs
+export QUEUE="{$QUEUE:-}"
+export USE_CUDA="{$USE_CUDA:1}"
+
 ###############################################################################
 
 function quit {
@@ -57,12 +61,13 @@ if [[ ! -z "${HDF_ROOT:-}" ]]; then
     export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:$HDF_ROOT/lib"
 fi
 
+export CURR_DIR="$(pwd)"
+
 ###############################################################################
 
 function run_titan {
     export QUEUE="${QUEUE:-debug}"
-    export CURR_DIR="$(pwd)"
-    qsub -v LD_LIBRARY_PATH,ARGS,CURR_DIR \
+    qsub -v USE_CUDA,LD_LIBRARY_PATH,ARGS,CURR_DIR,QUEUE \
         -l nodes="$NUM_NODES" -l walltime="$WALLTIME" -q "$QUEUE" \
         "$SOLEIL_DIR"/src/titan.pbs
 }
@@ -74,7 +79,7 @@ function run_certainty {
 	RESOURCES="gpu:4"
     fi
     EXCLUDED="$(paste -sd ',' "$SOLEIL_DIR"/src/blacklist/certainty.txt)"
-    sbatch --export=LD_LIBRARY_PATH,ARGS,QUEUE \
+    sbatch --export=USE_CUDA,LD_LIBRARY_PATH,ARGS,CURR_DIR,QUEUE \
         -N "$NUM_NODES" -t "$WALLTIME" -p "$QUEUE" --gres="$RESOURCES" \
         --exclude="$EXCLUDED" \
         "$SOLEIL_DIR"/src/certainty.slurm
@@ -87,9 +92,13 @@ function run_sapling {
     for (( i = 1; i < NUM_NODES; i++ )); do
         NODES="$NODES,n000$i"
     done
+    GPUS=
+    if [[ "$USE_CUDA" == 1 ]]; then
+        GPUS="-ll:gpu 1"
+    fi
     mpiexec -H "$NODES" --bind-to none -x LD_LIBRARY_PATH \
         "$SOLEIL_DIR"/src/soleil.exec $ARGS \
-        -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 -ll:gpu 1 \
+        -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 $GPUS \
         -ll:csize 20000 -ll:fsize 2048
     # Resources:
     # 40230MB RAM per node

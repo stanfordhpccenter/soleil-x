@@ -2,6 +2,9 @@ ifndef LEGION_DIR
 $(error LEGION_DIR is not set)
 endif
 
+# CUDA options
+USE_CUDA ?= 1
+
 # HDF options
 export USE_HDF ?= 1
 export HDF_HEADER ?= hdf5.h
@@ -17,7 +20,11 @@ ifdef HDF_ROOT
 export INCLUDE_PATH := $(INCLUDE_PATH);$(HDF_ROOT)/include
 endif
 REGENT := $(LEGION_DIR)/language/regent.py -g
+ifeq ($(USE_CUDA), 1)
 SOLEIL_FLAGS := -fflow 0 -fopenmp 1 -fcuda 1 -fcuda-offline 1
+else
+SOLEIL_FLAGS := -fflow 0 -fopenmp 1 -fcuda 0
+endif
 DOM_HOST_FLAGS := -fflow 0 -fopenmp 1 -fcuda 0
 
 # Link flags

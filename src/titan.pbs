@@ -33,13 +33,19 @@ for ARG in $ARGS; do
     fi
 done
 
+# Process CUDA configuration
+GPUS=
+if [[ "$USE_CUDA" == 1 ]]; then
+    GPUS="-ll:gpu 1"
+fi
+
 # Start the job inside the scratch directory.
 cd "$SCRATCH_DIR"
 # HACK: LLVM installs a bad ELF interpreter on the executable, so we run it
 # through ld.so.
 aprun -n "$PBS_NUM_NODES" -N 1 -cc none /lib64/ld-linux-x86-64.so.2 \
     "$SOLEIL_DIR"/src/soleil.exec $_ARGS \
-    -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 \
+    -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 $GPUS \
     -ll:csize 20000 -ll:rsize 1024 -ll:gsize 0
 
 # Resources:

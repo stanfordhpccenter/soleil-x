@@ -22,7 +22,9 @@ elif [[ "$QUEUE" == "largemem" ]]; then
     # 2-way SMT per core
 elif [[ "$QUEUE" == "gpu" ]]; then
     NUM_THREADS=11
-    GPUS="-ll:gpu 4"
+    if [[ "$USE_CUDA" == 1 ]]; then
+        GPUS="-ll:gpu 4"
+    fi
     # 36GB RAM per node
     # 2 NUMA domains per node
     # 8 cores per NUMA domain

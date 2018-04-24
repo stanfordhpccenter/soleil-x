@@ -213,8 +213,8 @@ Running
 
 ```
 cd "$SOLEIL_DIR"/src
-make
-[QUEUE=???] ./soleil.sh -i ../testcases/???.json
+[USE_CUDA=0] [USE_HDF=0] make
+[USE_CUDA=0] [QUEUE=???] ./soleil.sh -i ../testcases/???.json
 ```
 
 The `soleil.sh` script forwards all arguments to the `soleil.exec` executable. This includes any options that Soleil itself expects, and any additional options to the Legion runtime. Currently, the only option read by Soleil is `-i`; each instance of this option specifies an additional configuration file, to be run as an additional sample. See [src/config_schema.lua](src/config_schema.lua) for documentation on the available configuration options.
