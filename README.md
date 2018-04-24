@@ -8,6 +8,7 @@ See below for instructions targeting specific systems.
 * Legion (latest version -- Soleil-X follows the developments in Legion)
 * GCC 4.9+ (we need a working `std::regex` library)
 * CUDA 7.5-9.0 (Regent's CUDA codegen won't work with later versions)
+* Python 2.X
 
 The following are automatically installed during Legion installation:
 
