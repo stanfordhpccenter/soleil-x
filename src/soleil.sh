@@ -1,8 +1,8 @@
 #!/bin/bash -eu
 
 # Inputs
-export QUEUE="{$QUEUE:-}"
-export USE_CUDA="{$USE_CUDA:1}"
+export QUEUE="${QUEUE:-}"
+export USE_CUDA="${USE_CUDA:1}"
 
 ###############################################################################
 
