@@ -27,7 +27,6 @@ Normally you'd need to edit file `~/.bashrc`. Replace the `???` depending on you
 ...
 # Path setup (mandatory)
 export LEGION_DIR=???
-export LG_RT_DIR="$LEGION_DIR"/runtime
 export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
 # CUDA config (if using CUDA code generation)
@@ -49,7 +48,6 @@ Replace the `?` depending on your system's capabilities.
 
 ```
 cd "$LEGION_DIR"/language
-unset LG_RT_DIR # Need to set it again before building/running
 USE_CUDA=? USE_OPENMP=? USE_GASNET=? USE_HDF=? scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
@@ -66,7 +64,6 @@ export CC=gcc
 export CXX=g++
 # Path setup
 export LEGION_DIR=???
-export LG_RT_DIR="$LEGION_DIR"/runtime
 export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
 ```
@@ -82,7 +79,6 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ```
 cd "$LEGION_DIR"/language
-unset LG_RT_DIR
 USE_CUDA=0 USE_OPENMP=1 USE_GASNET=0 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
@@ -101,7 +97,6 @@ export CC=gcc-4.9
 export CXX=g++-4.9
 # Path setup
 export LEGION_DIR=???
-export LG_RT_DIR="$LEGION_DIR"/runtime
 export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
 # CUDA config
@@ -121,7 +116,6 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ```
 cd "$LEGION_DIR"/language
-unset LG_RT_DIR
 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
@@ -141,7 +135,6 @@ export CC=gcc
 export CXX=g++
 # Path setup
 export LEGION_DIR=???
-export LG_RT_DIR="$LEGION_DIR"/runtime
 export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
 # CUDA config
@@ -167,7 +160,6 @@ sed -i 's|../$(GASNET_VERSION)/configure|../$(GASNET_VERSION)/configure --disabl
 make
 # Rest of compilation as normal
 cd "$LEGION_DIR"/language
-unset LG_RT_DIR
 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'git@github.com:StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
@@ -193,7 +185,6 @@ export HOST_CC=gcc
 export HOST_CXX=g++
 # Path setup
 export LEGION_DIR=???
-export LG_RT_DIR="$LEGION_DIR"/runtime
 export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
 # CUDA config
@@ -213,7 +204,6 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ```
 cd "$LEGION_DIR"/language
-unset LG_RT_DIR
 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 35 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
