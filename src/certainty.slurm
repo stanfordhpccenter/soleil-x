@@ -1,7 +1,7 @@
 #!/bin/bash -eu
 #SBATCH -J soleil
 
-GPUS=
+GPU_OPTS=
 if [[ "$QUEUE" == "all" ]]; then
     NUM_THREADS=11
 elif [[ "$QUEUE" == "32core" ]]; then
@@ -25,7 +25,7 @@ elif [[ "$QUEUE" == "largemem" ]]; then
 elif [[ "$QUEUE" == "gpu" ]]; then
     NUM_THREADS=11
     if [[ "$USE_CUDA" == 1 ]]; then
-        GPUS="-ll:gpu 4"
+        GPU_OPTS="-ll:gpu 4 -ll:fsize 2500"
     fi
     # 36GB RAM per node
     # 2 NUMA domains per node
@@ -39,6 +39,6 @@ else
 fi
 
 mpiexec -np "$SLURM_JOB_NUM_NODES" --bind-to none -x LD_LIBRARY_PATH \
-    "$SOLEIL_DIR"/src/soleil.exec $ARGS \
-    -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr "$NUM_THREADS" $GPUS \
-    -ll:csize 28000 -ll:fsize 2500
+    "$SOLEIL_DIR"/src/soleil.exec $ARGS $GPU_OPTS \
+    -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr "$NUM_THREADS" \
+    -ll:csize 28000
