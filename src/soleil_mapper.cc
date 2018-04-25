@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <regex>
 #include <string.h>
 #include <sys/stat.h>
@@ -48,20 +49,28 @@ public:
     // each tile.
     InputArgs args = Runtime::get_input_args();
     unsigned allocated_nodes = 0;
+    auto process_config = [&](char* config_file) {
+      Config config = parse_config(config_file);
+      CHECK(config.Mapping.xTiles > 0 &&
+            config.Mapping.yTiles > 0 &&
+            config.Mapping.zTiles > 0,
+            "Invalid tiling");
+      sample_mappings_.push_back(SampleMapping{
+        .first_node = allocated_nodes,
+      });
+      allocated_nodes += config.Mapping.xTiles
+                       * config.Mapping.yTiles
+                       * config.Mapping.zTiles;
+    };
     for (int i = 0; i < args.argc; ++i) {
       if (strcmp(args.argv[i], "-i") == 0 && i < args.argc-1) {
-        Config config = parse_config(args.argv[i+1]);
-        CHECK(config.Mapping.xTiles > 0 &&
-              config.Mapping.yTiles > 0 &&
-              config.Mapping.zTiles > 0,
-              "Invalid tiling");
-        sample_mappings_.push_back(SampleMapping{
-          .first_node = allocated_nodes,
-        });
-        allocated_nodes +=
-          config.Mapping.xTiles *
-          config.Mapping.yTiles *
-          config.Mapping.zTiles;
+        process_config(args.argv[i+1]);
+      } else if (strcmp(args.argv[i], "-I") == 0 && i < args.argc-1) {
+        std::ifstream csv_file(args.argv[i+1]);
+        std::string json_filename;
+        while (std::getline(csv_file, json_filename)) {
+          process_config(&json_filename[0]);
+        }
       }
     }
     unsigned total_nodes = remote_cpus.size();

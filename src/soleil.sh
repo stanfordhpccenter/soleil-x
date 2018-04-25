@@ -42,13 +42,21 @@ export ARGS=$@
 # Total number of nodes is the sum of all sample node requirements.
 MINUTES=0
 NUM_NODES=0
+function parse_config {
+    _MINUTES="$(get_walltime "$1")"
+    MINUTES=$(( MINUTES > _MINUTES ? MINUTES : _MINUTES ))
+    _NUM_NODES="$(get_num_nodes "$1")"
+    NUM_NODES=$(( NUM_NODES + _NUM_NODES ))
+}
 for (( i = 1; i <= $#; i++ )); do
     if [[ "${!i}" == "-i" ]] && (( $i < $# )); then
         j=$((i+1))
-        _MINUTES="$(get_walltime "${!j}")"
-        MINUTES=$(( MINUTES > _MINUTES ? MINUTES : _MINUTES ))
-        _NUM_NODES="$(get_num_nodes "${!j}")"
-        NUM_NODES=$(( NUM_NODES + _NUM_NODES ))
+        parse_config "${!j}"
+    elif [[ "${!i}" == "-I" ]] && (( $i < $# )); then
+        j=$((i+1))
+        while IFS='' read -r LINE || [[ -n "$LINE" ]]; do
+            parse_config "$LINE"
+        done < "${!j}"
     fi
 done
 if (( NUM_NODES < 1 )); then

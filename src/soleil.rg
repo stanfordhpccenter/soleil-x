@@ -5476,25 +5476,40 @@ task work(config : Config)
 
 end
 
+__demand(__inline)
+task launchSample(configFile : rawstring, num : int)
+  var config = SCHEMA.parse_config(configFile)
+  config.Mapping.sampleId = num
+  var dirname = [&int8](C.malloc(256))
+  C.snprintf(dirname, 256, "sample%d", num)
+  UTIL.createDir(dirname)
+  C.free(dirname)
+  work(config)
+end
+
 task main()
   var args = regentlib.c.legion_runtime_get_input_args()
   var launched = 0
   for i = 1, args.argc do
-    if C.strcmp(args.argv[i],"-i") == 0 and i < args.argc-1 then
-      var config = SCHEMA.parse_config(args.argv[i+1])
-      config.Mapping.sampleId = launched
-      var dirname = [&int8](C.malloc(256))
-      C.snprintf(dirname, 256, "sample%d", config.Mapping.sampleId)
-      UTIL.createDir(dirname)
-      C.free(dirname)
-      work(config)
+    if C.strcmp(args.argv[i], '-i') == 0 and i < args.argc-1 then
+      launchSample(args.argv[i+1], launched)
       launched += 1
+    elseif C.strcmp(args.argv[i], '-I') == 0 and i < args.argc-1 then
+      var csvFile = C.fopen(args.argv[i+1], 'r')
+      var jsonFileName : int8[256]
+      while C.fgets(jsonFileName, 256, csvFile) ~= [&int8](0) do
+        if jsonFileName[C.strlen(jsonFileName) - 1] == 10 then -- 10 == '\n'
+          jsonFileName[C.strlen(jsonFileName) - 1] = 0
+        end
+        launchSample(jsonFileName, launched)
+        launched += 1
+      end
+      C.fclose(csvFile)
     end
   end
   if launched < 1 then
     var stderr = C.fdopen(2, 'w')
     C.fprintf(stderr, "No testcases supplied.\n")
-    C.fprintf(stderr, "Usage: %s -i config1.json [-i config2.json ...]\n", args.argv[0])
     C.fflush(stderr)
     C.exit(1)
   end
