@@ -4031,6 +4031,56 @@ do
     if p1.__valid then
       for p2 in particles do
         if p2.__valid and p1 < p2 then
+
+          -- Relative position of particles
+          var x = p2.position[0] - p1.position[0]
+          var y = p2.position[1] - p1.position[1]
+          var z = p2.position[2] - p1.position[2]
+
+          -- Old relative position of particles
+          var xold = p2.position_old[0] - p1.position_old[0]
+          var yold = p2.position_old[1] - p1.position_old[1]
+          var zold = p2.position_old[2] - p1.position_old[2]
+
+
+          -- Relative velocity
+          var ux = (x-xold)/Integrator_timeStep
+          var uy = (y-yold)/Integrator_timeStep
+          var uz = (z-zold)/Integrator_timeStep
+
+          -- Relevant scalar products
+          var x_scal_u = xold*ux + yold*uy + zold*uz
+          var x_scal_x = xold*xold + yold*yold + zold*zold
+          var u_scal_u = ux*ux + uy*uy + uz*uz
+
+          -- Critical distance
+          var dcrit = 0.5*( p1.diameter + p2.diameter )
+
+          -- Checking if particles are getting away from each other
+          if x_scal_u<0.0 then
+
+            -- Checking if particles are in a collision path
+            var det = x_scal_u*x_scal_u - u_scal_u*(x_scal_x - dcrit*dcrit)
+            if det>0.0 then
+
+              -- Checking if collision occurs in this time step
+              var timecol = ( -x_scal_u - sqrt(det) ) / u_scal_u
+              if (timecol>0.0 and timecol<Integrator_timeStep) then
+
+                -- We do have a collision
+                p1.velocity[0] = 0.0
+                p1.velocity[1] = 0.0
+                p1.velocity[2] = 0.0
+
+                p2.velocity[0] = 0.0
+                p2.velocity[1] = 0.0
+                p2.velocity[2] = 0.0
+
+              end
+
+            end
+          end
+
           -- TODO: Actually handle collisions
           -- if "p1 and p2 collide" then
           --   p1.position = ...
