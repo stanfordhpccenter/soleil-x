@@ -163,7 +163,7 @@ sed -i 's|../$(GASNET_VERSION)/configure|../$(GASNET_VERSION)/configure --disabl
 make
 # Rest of compilation as normal
 cd "$LEGION_DIR"/language
-USE_CUDA=0 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'git@github.com:StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+USE_CUDA=0 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
 Setup (Titan @ ORNL)
