@@ -41,14 +41,14 @@ export ARGS=$@
 # Total wall-clock time is the maximum across all samples.
 # Total number of nodes is the sum of all sample node requirements.
 MINUTES=0
-export NUM_NODES=0
+NUM_NODES=0
 for (( i = 1; i <= $#; i++ )); do
     if [[ "${!i}" == "-i" ]] && (( $i < $# )); then
         j=$((i+1))
         _MINUTES="$(get_walltime "${!j}")"
         MINUTES=$(( MINUTES > _MINUTES ? MINUTES : _MINUTES ))
         _NUM_NODES="$(get_num_nodes "${!j}")"
-        export NUM_NODES=$(( NUM_NODES + _NUM_NODES ))
+        NUM_NODES=$(( NUM_NODES + _NUM_NODES ))
     fi
 done
 if (( NUM_NODES < 1 )); then
@@ -67,7 +67,7 @@ export CURR_DIR="$(pwd)"
 
 function run_titan {
     export QUEUE="${QUEUE:-debug}"
-    qsub -v USE_CUDA,LD_LIBRARY_PATH,ARGS,CURR_DIR,QUEUE \
+    qsub -v QUEUE,USE_CUDA,ARGS,LD_LIBRARY_PATH,CURR_DIR \
         -l nodes="$NUM_NODES" -l walltime="$WALLTIME" -q "$QUEUE" \
         "$SOLEIL_DIR"/src/titan.pbs
 }
@@ -79,7 +79,7 @@ function run_certainty {
 	RESOURCES="gpu:4"
     fi
     EXCLUDED="$(paste -sd ',' "$SOLEIL_DIR"/src/blacklist/certainty.txt)"
-    sbatch --export=USE_CUDA,LD_LIBRARY_PATH,ARGS,CURR_DIR,QUEUE \
+    sbatch --export=ALL \
         -N "$NUM_NODES" -t "$WALLTIME" -p "$QUEUE" --gres="$RESOURCES" \
         --exclude="$EXCLUDED" \
         "$SOLEIL_DIR"/src/certainty.slurm
