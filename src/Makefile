@@ -21,11 +21,11 @@ export INCLUDE_PATH := $(INCLUDE_PATH);$(HDF_ROOT)/include
 endif
 REGENT := $(LEGION_DIR)/language/regent.py -g
 ifeq ($(USE_CUDA), 1)
-SOLEIL_FLAGS := -fflow 0 -fopenmp 1 -fcuda 1 -fcuda-offline 1
+SOLEIL_FLAGS := -fflow 0 -fopenmp 1 -finner 0 -fcuda 1 -fcuda-offline 1
 else
-SOLEIL_FLAGS := -fflow 0 -fopenmp 1 -fcuda 0
+SOLEIL_FLAGS := -fflow 0 -fopenmp 1 -finner 0 -fcuda 0
 endif
-DOM_HOST_FLAGS := -fflow 0 -fopenmp 1 -fcuda 0
+DOM_HOST_FLAGS := -fflow 0 -fopenmp 1 -finner 0 -fcuda 0
 
 # Link flags
 ifdef CRAYPE_VERSION
