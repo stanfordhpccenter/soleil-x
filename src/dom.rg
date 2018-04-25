@@ -12,7 +12,7 @@ return function(NUM_ANGLES, pointsFSpace)
 
 -- C imports
 
-local c = regentlib.c
+local C = regentlib.c
 
 -- Math imports
 
@@ -39,20 +39,20 @@ local SB = 5.67e-8
 local tol   = 1e-6   -- solution tolerance
 local gamma = 0.5    -- 1 for step differencing, 0.5 for diamond differencing
 
-local terra open_quad_file() : &c.FILE
-  var f = c.fopen([quad_file], 'rb')
+local terra open_quad_file() : &C.FILE
+  var f = C.fopen([quad_file], 'rb')
   if f == nil then
-    c.printf('Error opening angle file\n')
-    c.exit(1)
+    C.printf('Error opening angle file\n')
+    C.exit(1)
   end
   return f
 end
 
-local terra read_double(f : &c.FILE) : double
+local terra read_double(f : &C.FILE) : double
   var val : double
-  if c.fscanf(f, '%lf\n', &val) < 1 then
-    c.printf('Error while reading angle file\n')
-    c.exit(1)
+  if C.fscanf(f, '%lf\n', &val) < 1 then
+    C.printf('Error while reading angle file\n')
+    C.exit(1)
   end
   return val
 end
@@ -75,8 +75,13 @@ local struct angle {
 
 local struct face {
   I : double[NUM_ANGLES],
-  is_private : int1d,      -- Used for partition_by_field
-  color : int3d,           -- Used for partition_by_field
+  is_private : int1d, -- 1 = private, 0 = shared
+  tile : int3d,
+  diagonal : int1d,
+}
+
+local struct tile_info {
+  diagonal : int1d,
 }
 
 -------------------------------------------------------------------------------
@@ -123,8 +128,15 @@ do
     a.w = read_double(f)
   end
 
-  c.fclose(f)
+  C.fclose(f)
 
+end
+
+local __demand(__inline)
+task ite(b : bool, x : int, y : int)
+  var res = y
+  if b then res = x end
+  return res
 end
 
 -- Nx = 8 (num x) but contains 9 since Nx + 1
@@ -141,60 +153,55 @@ end
 -- shared = i % (Nx/ntx) == 0
 -- private
 
-local task color_faces_x(faces : region(ispace(int3d), face),
-                         Nx : int, Ny : int, Nz : int,
-                         ntx : int, nty : int, ntz : int)
+local task color_faces(faces : region(ispace(int3d), face),
+                       Nx : int, Ny : int, Nz : int,
+                       ntx : int, nty : int, ntz : int,
+                       dimension : int, sweepDir : bool[3])
 where
-  reads writes (faces.{is_private, color})
+  writes (faces.{is_private, diagonal, tile})
 do
   for idx in faces do
+    faces[idx].is_private = 1
     var x_tile = idx.x / (Nx/ntx)
     var y_tile = idx.y / (Ny/nty)
     var z_tile = idx.z / (Nz/ntz)
-    if idx.x % (Nx/ntx) == 0 then
-      faces[idx].is_private = 0
-    else
-      faces[idx].is_private = 1
-    end
-    faces[idx].color = {x = x_tile, y = y_tile, z = z_tile}
+    faces[idx].tile = int3d{x_tile, y_tile, z_tile}
+    if dimension == 0 then
+      if idx.x % (Nx/ntx) == 0 then
+        faces[idx].is_private = 0
+        if not sweepDir[0] then x_tile -= 1 end
+      end
+    elseif dimension == 1 then
+      if idx.y % (Ny/nty) == 0 then
+        faces[idx].is_private = 0
+        if not sweepDir[1] then y_tile -= 1 end
+      end
+    elseif dimension == 2 then
+      if idx.z % (Nz/ntz) == 0 then
+        faces[idx].is_private = 0
+        if not sweepDir[2] then z_tile -= 1 end
+      end
+    else regentlib.assert(false, '') end
+    faces[idx].diagonal =
+      ite(sweepDir[0], x_tile, ntx-1-x_tile) +
+      ite(sweepDir[1], y_tile, nty-1-y_tile) +
+      ite(sweepDir[2], z_tile, ntz-1-z_tile)
   end
 end
 
-local task color_faces_y(faces : region(ispace(int3d), face),
-                         Nx : int, Ny : int, Nz : int,
-                         ntx : int, nty : int, ntz : int)
+local task fill_tile_info(r_tiles : region(ispace(int3d), tile_info),
+                          sweepDir : bool[3])
 where
-  reads writes (faces.{is_private, color})
+  writes (r_tiles.diagonal)
 do
-  for idx in faces do
-    var x_tile = idx.x / (Nx/ntx)
-    var y_tile = idx.y / (Ny/nty)
-    var z_tile = idx.z / (Nz/ntz)
-    if idx.y % (Ny/nty) == 0 then
-      faces[idx].is_private = 0
-    else
-      faces[idx].is_private = 1
-    end
-    faces[idx].color = {x = x_tile, y = y_tile, z = z_tile}
-  end
-end
-
-local task color_faces_z(faces : region(ispace(int3d), face),
-                         Nx : int, Ny : int, Nz : int,
-                         ntx : int, nty : int, ntz : int)
-where
-  reads writes (faces.{is_private, color})
-do
-  for idx in faces do
-    var x_tile = idx.x / (Nx/ntx)
-    var y_tile = idx.y / (Ny/nty)
-    var z_tile = idx.z / (Nz/ntz)
-    if idx.z % (Nz/ntz) == 0 then
-      faces[idx].is_private = 0
-    else
-      faces[idx].is_private = 1
-    end
-    faces[idx].color = {x = x_tile, y = y_tile, z = z_tile}
+  var ntx = r_tiles.bounds.hi.x + 1
+  var nty = r_tiles.bounds.hi.y + 1
+  var ntz = r_tiles.bounds.hi.z + 1
+  for t in r_tiles do
+    r_tiles[t].diagonal =
+      ite(sweepDir[0], t.x, ntx-1-t.x) +
+      ite(sweepDir[1], t.y, nty-1-t.y) +
+      ite(sweepDir[2], t.z, ntz-1-t.z)
   end
 end
 
@@ -673,7 +680,6 @@ where
   reads writes(points.I_1, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
-
   var dAx = dy*dz;
   var dAy = dx*dz;
   var dAz = dx*dy;
@@ -1963,6 +1969,8 @@ local tiles_private = regentlib.newsymbol('tiles_private')
 local x_tiles_shared = regentlib.newsymbol('x_tiles_shared')
 local y_tiles_shared = regentlib.newsymbol('y_tiles_shared')
 local z_tiles_shared = regentlib.newsymbol('z_tiles_shared')
+local diagonals_private = regentlib.newsymbol('diagonals_private')
+local diagonals_shared = regentlib.newsymbol('diagonals_shared')
 
 local s_x_faces = {
   regentlib.newsymbol('s_x_faces_1'),
@@ -1993,6 +2001,37 @@ local s_z_faces = {
   regentlib.newsymbol('s_z_faces_6'),
   regentlib.newsymbol('s_z_faces_7'),
   regentlib.newsymbol('s_z_faces_8'),
+}
+
+local s_x_faces_by_tile = {
+  regentlib.newsymbol('s_x_faces_by_tile_1'),
+  regentlib.newsymbol('s_x_faces_by_tile_2'),
+  regentlib.newsymbol('s_x_faces_by_tile_3'),
+  regentlib.newsymbol('s_x_faces_by_tile_4'),
+  regentlib.newsymbol('s_x_faces_by_tile_5'),
+  regentlib.newsymbol('s_x_faces_by_tile_6'),
+  regentlib.newsymbol('s_x_faces_by_tile_7'),
+  regentlib.newsymbol('s_x_faces_by_tile_8'),
+}
+local s_y_faces_by_tile = {
+  regentlib.newsymbol('s_y_faces_by_tile_1'),
+  regentlib.newsymbol('s_y_faces_by_tile_2'),
+  regentlib.newsymbol('s_y_faces_by_tile_3'),
+  regentlib.newsymbol('s_y_faces_by_tile_4'),
+  regentlib.newsymbol('s_y_faces_by_tile_5'),
+  regentlib.newsymbol('s_y_faces_by_tile_6'),
+  regentlib.newsymbol('s_y_faces_by_tile_7'),
+  regentlib.newsymbol('s_y_faces_by_tile_8'),
+}
+local s_z_faces_by_tile = {
+  regentlib.newsymbol('s_z_faces_by_tile_1'),
+  regentlib.newsymbol('s_z_faces_by_tile_2'),
+  regentlib.newsymbol('s_z_faces_by_tile_3'),
+  regentlib.newsymbol('s_z_faces_by_tile_4'),
+  regentlib.newsymbol('s_z_faces_by_tile_5'),
+  regentlib.newsymbol('s_z_faces_by_tile_6'),
+  regentlib.newsymbol('s_z_faces_by_tile_7'),
+  regentlib.newsymbol('s_z_faces_by_tile_8'),
 }
 
 local p_x_faces = {
@@ -2026,6 +2065,17 @@ local p_z_faces = {
   regentlib.newsymbol('p_z_faces_8'),
 }
 
+local tiles_by_diagonal = {
+  regentlib.newsymbol('tiles_by_diagonal_1'),
+  regentlib.newsymbol('tiles_by_diagonal_2'),
+  regentlib.newsymbol('tiles_by_diagonal_3'),
+  regentlib.newsymbol('tiles_by_diagonal_4'),
+  regentlib.newsymbol('tiles_by_diagonal_5'),
+  regentlib.newsymbol('tiles_by_diagonal_6'),
+  regentlib.newsymbol('tiles_by_diagonal_7'),
+  regentlib.newsymbol('tiles_by_diagonal_8'),
+}
+
 function Exports.DeclSymbols(config) return rquote
 
   -- Number of points in each dimension
@@ -2039,8 +2089,8 @@ function Exports.DeclSymbols(config) return rquote
   var [ntz] = config.Mapping.zTiles
 
   -- Regions for faces (+1 in one direction since one more face than points)
-  var grid_x = ispace(int3d, {x = Nx+1, y = Ny,   z = Nz})
-  var grid_y = ispace(int3d, {x = Nx,   y = Ny+1, z = Nz})
+  var grid_x = ispace(int3d, {x = Nx+1, y = Ny,   z = Nz  })
+  var grid_y = ispace(int3d, {x = Nx,   y = Ny+1, z = Nz  })
   var grid_z = ispace(int3d, {x = Nx,   y = Ny,   z = Nz+1})
 
   var [x_faces[1]] = region(grid_x, face)
@@ -2077,184 +2127,316 @@ function Exports.DeclSymbols(config) return rquote
   -- Partition faces
 
   -- extra tile required for shared edge
-  var [tiles_private] = ispace(int3d, {x = ntx, y = nty,   z = ntz  })
+  var [tiles_private]  = ispace(int3d, {x = ntx,   y = nty,   z = ntz  })
   var [x_tiles_shared] = ispace(int3d, {x = ntx+1, y = nty,   z = ntz  })
   var [y_tiles_shared] = ispace(int3d, {x = ntx,   y = nty+1, z = ntz  })
   var [z_tiles_shared] = ispace(int3d, {x = ntx,   y = nty,   z = ntz+1})
+  var [diagonals_private] = ispace(int1d, ntx-1 + nty-1 + ntz-1 + 1)
+  var [diagonals_shared]  = ispace(int1d, ntx-1 + nty-1 + ntz-1 + 2)
 
   -- x
 
-  color_faces_x([x_faces[1]], Nx, Ny, Nz, ntx, nty, ntz)
-  var x_faces_1_by_privacy = partition([x_faces[1]].is_private, ispace(int1d,2))
-  var x_faces_1_private = x_faces_1_by_privacy[1]
-  var [p_x_faces[1]] = partition(x_faces_1_private.color, [tiles_private])
-  var x_faces_1_shared = x_faces_1_by_privacy[0]
-  var [s_x_faces[1]] = partition(x_faces_1_shared.color, [x_tiles_shared])
+  color_faces([x_faces[1]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(true,true,true))
+  var x_1_by_privacy = partition([x_faces[1]].is_private, ispace(int1d,2))
+  var p_x_1 = x_1_by_privacy[1]
+  var p_x_1_by_diagonal = partition(p_x_1.diagonal, diagonals_private)
+  var p_x_1_by_tile = partition(p_x_1.tile, tiles_private)
+  var [p_x_faces[1]] = cross_product(p_x_1_by_diagonal, p_x_1_by_tile)
+  var s_x_1 = x_1_by_privacy[0]
+  var s_x_1_by_diagonal = partition(s_x_1.diagonal, diagonals_shared)
+  var [s_x_faces_by_tile[1]] = partition(s_x_1.tile, x_tiles_shared)
+  var [s_x_faces[1]] = cross_product(s_x_1_by_diagonal, [s_x_faces_by_tile[1]])
 
-  color_faces_x([x_faces[2]], Nx, Ny, Nz, ntx, nty, ntz)
-  var x_faces_2_by_privacy = partition([x_faces[2]].is_private, ispace(int1d,2))
-  var x_faces_2_private = x_faces_2_by_privacy[1]
-  var [p_x_faces[2]] = partition(x_faces_2_private.color, [tiles_private])
-  var x_faces_2_shared = x_faces_2_by_privacy[0]
-  var [s_x_faces[2]] = partition(x_faces_2_shared.color, [x_tiles_shared])
+  color_faces([x_faces[2]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(true,true,false))
+  var x_2_by_privacy = partition([x_faces[2]].is_private, ispace(int1d,2))
+  var p_x_2 = x_2_by_privacy[1]
+  var p_x_2_by_diagonal = partition(p_x_2.diagonal, diagonals_private)
+  var p_x_2_by_tile = partition(p_x_2.tile, tiles_private)
+  var [p_x_faces[2]] = cross_product(p_x_2_by_diagonal, p_x_2_by_tile)
+  var s_x_2 = x_2_by_privacy[0]
+  var s_x_2_by_diagonal = partition(s_x_2.diagonal, diagonals_shared)
+  var [s_x_faces_by_tile[2]] = partition(s_x_2.tile, x_tiles_shared)
+  var [s_x_faces[2]] = cross_product(s_x_2_by_diagonal, [s_x_faces_by_tile[2]])
 
-  color_faces_x([x_faces[3]], Nx, Ny, Nz, ntx, nty, ntz)
-  var x_faces_3_by_privacy = partition([x_faces[3]].is_private, ispace(int1d,2))
-  var x_faces_3_private = x_faces_3_by_privacy[1]
-  var [p_x_faces[3]] = partition(x_faces_3_private.color, [tiles_private])
-  var x_faces_3_shared = x_faces_3_by_privacy[0]
-  var [s_x_faces[3]] = partition(x_faces_3_shared.color, [x_tiles_shared])
+  color_faces([x_faces[3]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(true,false,true))
+  var x_3_by_privacy = partition([x_faces[3]].is_private, ispace(int1d,2))
+  var p_x_3 = x_3_by_privacy[1]
+  var p_x_3_by_diagonal = partition(p_x_3.diagonal, diagonals_private)
+  var p_x_3_by_tile = partition(p_x_3.tile, tiles_private)
+  var [p_x_faces[3]] = cross_product(p_x_3_by_diagonal, p_x_3_by_tile)
+  var s_x_3 = x_3_by_privacy[0]
+  var s_x_3_by_diagonal = partition(s_x_3.diagonal, diagonals_shared)
+  var [s_x_faces_by_tile[3]] = partition(s_x_3.tile, x_tiles_shared)
+  var [s_x_faces[3]] = cross_product(s_x_3_by_diagonal, [s_x_faces_by_tile[3]])
 
-  color_faces_x([x_faces[4]], Nx, Ny, Nz, ntx, nty, ntz)
-  var x_faces_4_by_privacy = partition([x_faces[4]].is_private, ispace(int1d,2))
-  var x_faces_4_private = x_faces_4_by_privacy[1]
-  var [p_x_faces[4]] = partition(x_faces_4_private.color, [tiles_private])
-  var x_faces_4_shared = x_faces_4_by_privacy[0]
-  var [s_x_faces[4]] = partition(x_faces_4_shared.color, [x_tiles_shared])
+  color_faces([x_faces[4]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(true,false,false))
+  var x_4_by_privacy = partition([x_faces[4]].is_private, ispace(int1d,2))
+  var p_x_4 = x_4_by_privacy[1]
+  var p_x_4_by_diagonal = partition(p_x_4.diagonal, diagonals_private)
+  var p_x_4_by_tile = partition(p_x_4.tile, tiles_private)
+  var [p_x_faces[4]] = cross_product(p_x_4_by_diagonal, p_x_4_by_tile)
+  var s_x_4 = x_4_by_privacy[0]
+  var s_x_4_by_diagonal = partition(s_x_4.diagonal, diagonals_shared)
+  var [s_x_faces_by_tile[4]] = partition(s_x_4.tile, x_tiles_shared)
+  var [s_x_faces[4]] = cross_product(s_x_4_by_diagonal, [s_x_faces_by_tile[4]])
 
-  color_faces_x([x_faces[5]], Nx, Ny, Nz, ntx, nty, ntz)
-  var x_faces_5_by_privacy = partition([x_faces[5]].is_private, ispace(int1d,2))
-  var x_faces_5_private = x_faces_5_by_privacy[1]
-  var [p_x_faces[5]] = partition(x_faces_5_private.color, [tiles_private])
-  var x_faces_5_shared = x_faces_5_by_privacy[0]
-  var [s_x_faces[5]] = partition(x_faces_5_shared.color, [x_tiles_shared])
+  color_faces([x_faces[5]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(false,true,true))
+  var x_5_by_privacy = partition([x_faces[5]].is_private, ispace(int1d,2))
+  var p_x_5 = x_5_by_privacy[1]
+  var p_x_5_by_diagonal = partition(p_x_5.diagonal, diagonals_private)
+  var p_x_5_by_tile = partition(p_x_5.tile, tiles_private)
+  var [p_x_faces[5]] = cross_product(p_x_5_by_diagonal, p_x_5_by_tile)
+  var s_x_5 = x_5_by_privacy[0]
+  var s_x_5_by_diagonal = partition(s_x_5.diagonal, diagonals_shared)
+  var [s_x_faces_by_tile[5]] = partition(s_x_5.tile, x_tiles_shared)
+  var [s_x_faces[5]] = cross_product(s_x_5_by_diagonal, [s_x_faces_by_tile[5]])
 
-  color_faces_x([x_faces[6]], Nx, Ny, Nz, ntx, nty, ntz)
-  var x_faces_6_by_privacy = partition([x_faces[6]].is_private, ispace(int1d,2))
-  var x_faces_6_private = x_faces_6_by_privacy[1]
-  var [p_x_faces[6]] = partition(x_faces_6_private.color, [tiles_private])
-  var x_faces_6_shared = x_faces_6_by_privacy[0]
-  var [s_x_faces[6]] = partition(x_faces_6_shared.color, [x_tiles_shared])
+  color_faces([x_faces[6]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(false,true,false))
+  var x_6_by_privacy = partition([x_faces[6]].is_private, ispace(int1d,2))
+  var p_x_6 = x_6_by_privacy[1]
+  var p_x_6_by_diagonal = partition(p_x_6.diagonal, diagonals_private)
+  var p_x_6_by_tile = partition(p_x_6.tile, tiles_private)
+  var [p_x_faces[6]] = cross_product(p_x_6_by_diagonal, p_x_6_by_tile)
+  var s_x_6 = x_6_by_privacy[0]
+  var s_x_6_by_diagonal = partition(s_x_6.diagonal, diagonals_shared)
+  var [s_x_faces_by_tile[6]] = partition(s_x_6.tile, x_tiles_shared)
+  var [s_x_faces[6]] = cross_product(s_x_6_by_diagonal, [s_x_faces_by_tile[6]])
 
-  color_faces_x([x_faces[7]], Nx, Ny, Nz, ntx, nty, ntz)
-  var x_faces_7_by_privacy = partition([x_faces[7]].is_private, ispace(int1d,2))
-  var x_faces_7_private = x_faces_7_by_privacy[1]
-  var [p_x_faces[7]] = partition(x_faces_7_private.color, [tiles_private])
-  var x_faces_7_shared = x_faces_7_by_privacy[0]
-  var [s_x_faces[7]] = partition(x_faces_7_shared.color, [x_tiles_shared])
+  color_faces([x_faces[7]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(false,false,true))
+  var x_7_by_privacy = partition([x_faces[7]].is_private, ispace(int1d,2))
+  var p_x_7 = x_7_by_privacy[1]
+  var p_x_7_by_diagonal = partition(p_x_7.diagonal, diagonals_private)
+  var p_x_7_by_tile = partition(p_x_7.tile, tiles_private)
+  var [p_x_faces[7]] = cross_product(p_x_7_by_diagonal, p_x_7_by_tile)
+  var s_x_7 = x_7_by_privacy[0]
+  var s_x_7_by_diagonal = partition(s_x_7.diagonal, diagonals_shared)
+  var [s_x_faces_by_tile[7]] = partition(s_x_7.tile, x_tiles_shared)
+  var [s_x_faces[7]] = cross_product(s_x_7_by_diagonal, [s_x_faces_by_tile[7]])
 
-  color_faces_x([x_faces[8]], Nx, Ny, Nz, ntx, nty, ntz)
-  var x_faces_8_by_privacy = partition([x_faces[8]].is_private, ispace(int1d,2))
-  var x_faces_8_private = x_faces_8_by_privacy[1]
-  var [p_x_faces[8]] = partition(x_faces_8_private.color, [tiles_private])
-  var x_faces_8_shared = x_faces_8_by_privacy[0]
-  var [s_x_faces[8]] = partition(x_faces_8_shared.color, [x_tiles_shared])
+  color_faces([x_faces[8]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(false,false,false))
+  var x_8_by_privacy = partition([x_faces[8]].is_private, ispace(int1d,2))
+  var p_x_8 = x_8_by_privacy[1]
+  var p_x_8_by_diagonal = partition(p_x_8.diagonal, diagonals_private)
+  var p_x_8_by_tile = partition(p_x_8.tile, tiles_private)
+  var [p_x_faces[8]] = cross_product(p_x_8_by_diagonal, p_x_8_by_tile)
+  var s_x_8 = x_8_by_privacy[0]
+  var s_x_8_by_diagonal = partition(s_x_8.diagonal, diagonals_shared)
+  var [s_x_faces_by_tile[8]] = partition(s_x_8.tile, x_tiles_shared)
+  var [s_x_faces[8]] = cross_product(s_x_8_by_diagonal, [s_x_faces_by_tile[8]])
 
   -- y
 
-  color_faces_y([y_faces[1]], Nx, Ny, Nz, ntx, nty, ntz)
-  var y_faces_1_by_privacy = partition([y_faces[1]].is_private, ispace(int1d,2))
-  var y_faces_1_private = y_faces_1_by_privacy[1]
-  var [p_y_faces[1]] = partition(y_faces_1_private.color, [tiles_private])
-  var y_faces_1_shared = y_faces_1_by_privacy[0]
-  var [s_y_faces[1]] = partition(y_faces_1_shared.color, [y_tiles_shared])
+  color_faces([y_faces[1]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(true,true,true))
+  var y_1_by_privacy = partition([y_faces[1]].is_private, ispace(int1d,2))
+  var p_y_1 = y_1_by_privacy[1]
+  var p_y_1_by_diagonal = partition(p_y_1.diagonal, diagonals_private)
+  var p_y_1_by_tile = partition(p_y_1.tile, tiles_private)
+  var [p_y_faces[1]] = cross_product(p_y_1_by_diagonal, p_y_1_by_tile)
+  var s_y_1 = y_1_by_privacy[0]
+  var s_y_1_by_diagonal = partition(s_y_1.diagonal, diagonals_shared)
+  var [s_y_faces_by_tile[1]] = partition(s_y_1.tile, y_tiles_shared)
+  var [s_y_faces[1]] = cross_product(s_y_1_by_diagonal, [s_y_faces_by_tile[1]])
 
-  color_faces_y([y_faces[2]], Nx, Ny, Nz, ntx, nty, ntz)
-  var y_faces_2_by_privacy = partition([y_faces[2]].is_private, ispace(int1d,2))
-  var y_faces_2_private = y_faces_2_by_privacy[1]
-  var [p_y_faces[2]] = partition(y_faces_2_private.color, [tiles_private])
-  var y_faces_2_shared = y_faces_2_by_privacy[0]
-  var [s_y_faces[2]] = partition(y_faces_2_shared.color, [y_tiles_shared])
+  color_faces([y_faces[2]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(true,true,false))
+  var y_2_by_privacy = partition([y_faces[2]].is_private, ispace(int1d,2))
+  var p_y_2 = y_2_by_privacy[1]
+  var p_y_2_by_diagonal = partition(p_y_2.diagonal, diagonals_private)
+  var p_y_2_by_tile = partition(p_y_2.tile, tiles_private)
+  var [p_y_faces[2]] = cross_product(p_y_2_by_diagonal, p_y_2_by_tile)
+  var s_y_2 = y_2_by_privacy[0]
+  var s_y_2_by_diagonal = partition(s_y_2.diagonal, diagonals_shared)
+  var [s_y_faces_by_tile[2]] = partition(s_y_2.tile, y_tiles_shared)
+  var [s_y_faces[2]] = cross_product(s_y_2_by_diagonal, [s_y_faces_by_tile[2]])
 
-  color_faces_y([y_faces[3]], Nx, Ny, Nz, ntx, nty, ntz)
-  var y_faces_3_by_privacy = partition([y_faces[3]].is_private, ispace(int1d,2))
-  var y_faces_3_private = y_faces_3_by_privacy[1]
-  var [p_y_faces[3]] = partition(y_faces_3_private.color, [tiles_private])
-  var y_faces_3_shared = y_faces_3_by_privacy[0]
-  var [s_y_faces[3]] = partition(y_faces_3_shared.color, [y_tiles_shared])
+  color_faces([y_faces[3]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(true,false,true))
+  var y_3_by_privacy = partition([y_faces[3]].is_private, ispace(int1d,2))
+  var p_y_3 = y_3_by_privacy[1]
+  var p_y_3_by_diagonal = partition(p_y_3.diagonal, diagonals_private)
+  var p_y_3_by_tile = partition(p_y_3.tile, tiles_private)
+  var [p_y_faces[3]] = cross_product(p_y_3_by_diagonal, p_y_3_by_tile)
+  var s_y_3 = y_3_by_privacy[0]
+  var s_y_3_by_diagonal = partition(s_y_3.diagonal, diagonals_shared)
+  var [s_y_faces_by_tile[3]] = partition(s_y_3.tile, y_tiles_shared)
+  var [s_y_faces[3]] = cross_product(s_y_3_by_diagonal, [s_y_faces_by_tile[3]])
 
-  color_faces_y([y_faces[4]], Nx, Ny, Nz, ntx, nty, ntz)
-  var y_faces_4_by_privacy = partition([y_faces[4]].is_private, ispace(int1d,2))
-  var y_faces_4_private = y_faces_4_by_privacy[1]
-  var [p_y_faces[4]] = partition(y_faces_4_private.color, [tiles_private])
-  var y_faces_4_shared = y_faces_4_by_privacy[0]
-  var [s_y_faces[4]] = partition(y_faces_4_shared.color, [y_tiles_shared])
+  color_faces([y_faces[4]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(true,false,false))
+  var y_4_by_privacy = partition([y_faces[4]].is_private, ispace(int1d,2))
+  var p_y_4 = y_4_by_privacy[1]
+  var p_y_4_by_diagonal = partition(p_y_4.diagonal, diagonals_private)
+  var p_y_4_by_tile = partition(p_y_4.tile, tiles_private)
+  var [p_y_faces[4]] = cross_product(p_y_4_by_diagonal, p_y_4_by_tile)
+  var s_y_4 = y_4_by_privacy[0]
+  var s_y_4_by_diagonal = partition(s_y_4.diagonal, diagonals_shared)
+  var [s_y_faces_by_tile[4]] = partition(s_y_4.tile, y_tiles_shared)
+  var [s_y_faces[4]] = cross_product(s_y_4_by_diagonal, [s_y_faces_by_tile[4]])
 
-  color_faces_y([y_faces[5]], Nx, Ny, Nz, ntx, nty, ntz)
-  var y_faces_5_by_privacy = partition([y_faces[5]].is_private, ispace(int1d,2))
-  var y_faces_5_private = y_faces_5_by_privacy[1]
-  var [p_y_faces[5]] = partition(y_faces_5_private.color, [tiles_private])
-  var y_faces_5_shared = y_faces_5_by_privacy[0]
-  var [s_y_faces[5]] = partition(y_faces_5_shared.color, [y_tiles_shared])
+  color_faces([y_faces[5]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(false,true,true))
+  var y_5_by_privacy = partition([y_faces[5]].is_private, ispace(int1d,2))
+  var p_y_5 = y_5_by_privacy[1]
+  var p_y_5_by_diagonal = partition(p_y_5.diagonal, diagonals_private)
+  var p_y_5_by_tile = partition(p_y_5.tile, tiles_private)
+  var [p_y_faces[5]] = cross_product(p_y_5_by_diagonal, p_y_5_by_tile)
+  var s_y_5 = y_5_by_privacy[0]
+  var s_y_5_by_diagonal = partition(s_y_5.diagonal, diagonals_shared)
+  var [s_y_faces_by_tile[5]] = partition(s_y_5.tile, y_tiles_shared)
+  var [s_y_faces[5]] = cross_product(s_y_5_by_diagonal, [s_y_faces_by_tile[5]])
 
-  color_faces_y([y_faces[6]], Nx, Ny, Nz, ntx, nty, ntz)
-  var y_faces_6_by_privacy = partition([y_faces[6]].is_private, ispace(int1d,2))
-  var y_faces_6_private = y_faces_6_by_privacy[1]
-  var [p_y_faces[6]] = partition(y_faces_6_private.color, [tiles_private])
-  var y_faces_6_shared = y_faces_6_by_privacy[0]
-  var [s_y_faces[6]] = partition(y_faces_6_shared.color, [y_tiles_shared])
+  color_faces([y_faces[6]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(false,true,false))
+  var y_6_by_privacy = partition([y_faces[6]].is_private, ispace(int1d,2))
+  var p_y_6 = y_6_by_privacy[1]
+  var p_y_6_by_diagonal = partition(p_y_6.diagonal, diagonals_private)
+  var p_y_6_by_tile = partition(p_y_6.tile, tiles_private)
+  var [p_y_faces[6]] = cross_product(p_y_6_by_diagonal, p_y_6_by_tile)
+  var s_y_6 = y_6_by_privacy[0]
+  var s_y_6_by_diagonal = partition(s_y_6.diagonal, diagonals_shared)
+  var [s_y_faces_by_tile[6]] = partition(s_y_6.tile, y_tiles_shared)
+  var [s_y_faces[6]] = cross_product(s_y_6_by_diagonal, [s_y_faces_by_tile[6]])
 
-  color_faces_y([y_faces[7]], Nx, Ny, Nz, ntx, nty, ntz)
-  var y_faces_7_by_privacy = partition([y_faces[7]].is_private, ispace(int1d,2))
-  var y_faces_7_private = y_faces_7_by_privacy[1]
-  var [p_y_faces[7]] = partition(y_faces_7_private.color, [tiles_private])
-  var y_faces_7_shared = y_faces_7_by_privacy[0]
-  var [s_y_faces[7]] = partition(y_faces_7_shared.color, [y_tiles_shared])
+  color_faces([y_faces[7]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(false,false,true))
+  var y_7_by_privacy = partition([y_faces[7]].is_private, ispace(int1d,2))
+  var p_y_7 = y_7_by_privacy[1]
+  var p_y_7_by_diagonal = partition(p_y_7.diagonal, diagonals_private)
+  var p_y_7_by_tile = partition(p_y_7.tile, tiles_private)
+  var [p_y_faces[7]] = cross_product(p_y_7_by_diagonal, p_y_7_by_tile)
+  var s_y_7 = y_7_by_privacy[0]
+  var s_y_7_by_diagonal = partition(s_y_7.diagonal, diagonals_shared)
+  var [s_y_faces_by_tile[7]] = partition(s_y_7.tile, y_tiles_shared)
+  var [s_y_faces[7]] = cross_product(s_y_7_by_diagonal, [s_y_faces_by_tile[7]])
 
-  color_faces_y([y_faces[8]], Nx, Ny, Nz, ntx, nty, ntz)
-  var y_faces_8_by_privacy = partition([y_faces[8]].is_private, ispace(int1d,2))
-  var y_faces_8_private = y_faces_8_by_privacy[1]
-  var [p_y_faces[8]] = partition(y_faces_8_private.color, [tiles_private])
-  var y_faces_8_shared = y_faces_8_by_privacy[0]
-  var [s_y_faces[8]] = partition(y_faces_8_shared.color, [y_tiles_shared])
+  color_faces([y_faces[8]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(false,false,false))
+  var y_8_by_privacy = partition([y_faces[8]].is_private, ispace(int1d,2))
+  var p_y_8 = y_8_by_privacy[1]
+  var p_y_8_by_diagonal = partition(p_y_8.diagonal, diagonals_private)
+  var p_y_8_by_tile = partition(p_y_8.tile, tiles_private)
+  var [p_y_faces[8]] = cross_product(p_y_8_by_diagonal, p_y_8_by_tile)
+  var s_y_8 = y_8_by_privacy[0]
+  var s_y_8_by_diagonal = partition(s_y_8.diagonal, diagonals_shared)
+  var [s_y_faces_by_tile[8]] = partition(s_y_8.tile, y_tiles_shared)
+  var [s_y_faces[8]] = cross_product(s_y_8_by_diagonal, [s_y_faces_by_tile[8]])
 
   -- z
 
-  color_faces_z([z_faces[1]], Nx, Ny, Nz, ntx, nty, ntz)
-  var z_faces_1_by_privacy = partition([z_faces[1]].is_private, ispace(int1d,2))
-  var z_faces_1_private = z_faces_1_by_privacy[1]
-  var [p_z_faces[1]] = partition(z_faces_1_private.color, [tiles_private])
-  var z_faces_1_shared = z_faces_1_by_privacy[0]
-  var [s_z_faces[1]] = partition(z_faces_1_shared.color, [z_tiles_shared])
+  color_faces([z_faces[1]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(true,true,true))
+  var z_1_by_privacy = partition([z_faces[1]].is_private, ispace(int1d,2))
+  var p_z_1 = z_1_by_privacy[1]
+  var p_z_1_by_diagonal = partition(p_z_1.diagonal, diagonals_private)
+  var p_z_1_by_tile = partition(p_z_1.tile, tiles_private)
+  var [p_z_faces[1]] = cross_product(p_z_1_by_diagonal, p_z_1_by_tile)
+  var s_z_1 = z_1_by_privacy[0]
+  var s_z_1_by_diagonal = partition(s_z_1.diagonal, diagonals_shared)
+  var [s_z_faces_by_tile[1]] = partition(s_z_1.tile, z_tiles_shared)
+  var [s_z_faces[1]] = cross_product(s_z_1_by_diagonal, [s_z_faces_by_tile[1]])
 
-  color_faces_z([z_faces[2]], Nx, Ny, Nz, ntx, nty, ntz)
-  var z_faces_2_by_privacy = partition([z_faces[2]].is_private, ispace(int1d,2))
-  var z_faces_2_private = z_faces_2_by_privacy[1]
-  var [p_z_faces[2]] = partition(z_faces_2_private.color, [tiles_private])
-  var z_faces_2_shared = z_faces_2_by_privacy[0]
-  var [s_z_faces[2]] = partition(z_faces_2_shared.color, [z_tiles_shared])
+  color_faces([z_faces[2]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(true,true,false))
+  var z_2_by_privacy = partition([z_faces[2]].is_private, ispace(int1d,2))
+  var p_z_2 = z_2_by_privacy[1]
+  var p_z_2_by_diagonal = partition(p_z_2.diagonal, diagonals_private)
+  var p_z_2_by_tile = partition(p_z_2.tile, tiles_private)
+  var [p_z_faces[2]] = cross_product(p_z_2_by_diagonal, p_z_2_by_tile)
+  var s_z_2 = z_2_by_privacy[0]
+  var s_z_2_by_diagonal = partition(s_z_2.diagonal, diagonals_shared)
+  var [s_z_faces_by_tile[2]] = partition(s_z_2.tile, z_tiles_shared)
+  var [s_z_faces[2]] = cross_product(s_z_2_by_diagonal, [s_z_faces_by_tile[2]])
 
-  color_faces_z([z_faces[3]], Nx, Ny, Nz, ntx, nty, ntz)
-  var z_faces_3_by_privacy = partition([z_faces[3]].is_private, ispace(int1d,2))
-  var z_faces_3_private = z_faces_3_by_privacy[1]
-  var [p_z_faces[3]] = partition(z_faces_3_private.color, [tiles_private])
-  var z_faces_3_shared = z_faces_3_by_privacy[0]
-  var [s_z_faces[3]] = partition(z_faces_3_shared.color, [z_tiles_shared])
+  color_faces([z_faces[3]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(true,false,true))
+  var z_3_by_privacy = partition([z_faces[3]].is_private, ispace(int1d,2))
+  var p_z_3 = z_3_by_privacy[1]
+  var p_z_3_by_diagonal = partition(p_z_3.diagonal, diagonals_private)
+  var p_z_3_by_tile = partition(p_z_3.tile, tiles_private)
+  var [p_z_faces[3]] = cross_product(p_z_3_by_diagonal, p_z_3_by_tile)
+  var s_z_3 = z_3_by_privacy[0]
+  var s_z_3_by_diagonal = partition(s_z_3.diagonal, diagonals_shared)
+  var [s_z_faces_by_tile[3]] = partition(s_z_3.tile, z_tiles_shared)
+  var [s_z_faces[3]] = cross_product(s_z_3_by_diagonal, [s_z_faces_by_tile[3]])
 
-  color_faces_z([z_faces[4]], Nx, Ny, Nz, ntx, nty, ntz)
-  var z_faces_4_by_privacy = partition([z_faces[4]].is_private, ispace(int1d,2))
-  var z_faces_4_private = z_faces_4_by_privacy[1]
-  var [p_z_faces[4]] = partition(z_faces_4_private.color, [tiles_private])
-  var z_faces_4_shared = z_faces_4_by_privacy[0]
-  var [s_z_faces[4]] = partition(z_faces_4_shared.color, [z_tiles_shared])
+  color_faces([z_faces[4]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(true,false,false))
+  var z_4_by_privacy = partition([z_faces[4]].is_private, ispace(int1d,2))
+  var p_z_4 = z_4_by_privacy[1]
+  var p_z_4_by_diagonal = partition(p_z_4.diagonal, diagonals_private)
+  var p_z_4_by_tile = partition(p_z_4.tile, tiles_private)
+  var [p_z_faces[4]] = cross_product(p_z_4_by_diagonal, p_z_4_by_tile)
+  var s_z_4 = z_4_by_privacy[0]
+  var s_z_4_by_diagonal = partition(s_z_4.diagonal, diagonals_shared)
+  var [s_z_faces_by_tile[4]] = partition(s_z_4.tile, z_tiles_shared)
+  var [s_z_faces[4]] = cross_product(s_z_4_by_diagonal, [s_z_faces_by_tile[4]])
 
-  color_faces_z([z_faces[5]], Nx, Ny, Nz, ntx, nty, ntz)
-  var z_faces_5_by_privacy = partition([z_faces[5]].is_private, ispace(int1d,2))
-  var z_faces_5_private = z_faces_5_by_privacy[1]
-  var [p_z_faces[5]] = partition(z_faces_5_private.color, [tiles_private])
-  var z_faces_5_shared = z_faces_5_by_privacy[0]
-  var [s_z_faces[5]] = partition(z_faces_5_shared.color, [z_tiles_shared])
+  color_faces([z_faces[5]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(false,true,true))
+  var z_5_by_privacy = partition([z_faces[5]].is_private, ispace(int1d,2))
+  var p_z_5 = z_5_by_privacy[1]
+  var p_z_5_by_diagonal = partition(p_z_5.diagonal, diagonals_private)
+  var p_z_5_by_tile = partition(p_z_5.tile, tiles_private)
+  var [p_z_faces[5]] = cross_product(p_z_5_by_diagonal, p_z_5_by_tile)
+  var s_z_5 = z_5_by_privacy[0]
+  var s_z_5_by_diagonal = partition(s_z_5.diagonal, diagonals_shared)
+  var [s_z_faces_by_tile[5]] = partition(s_z_5.tile, z_tiles_shared)
+  var [s_z_faces[5]] = cross_product(s_z_5_by_diagonal, [s_z_faces_by_tile[5]])
 
-  color_faces_z([z_faces[6]], Nx, Ny, Nz, ntx, nty, ntz)
-  var z_faces_6_by_privacy = partition([z_faces[6]].is_private, ispace(int1d,2))
-  var z_faces_6_private = z_faces_6_by_privacy[1]
-  var [p_z_faces[6]] = partition(z_faces_6_private.color, [tiles_private])
-  var z_faces_6_shared = z_faces_6_by_privacy[0]
-  var [s_z_faces[6]] = partition(z_faces_6_shared.color, [z_tiles_shared])
+  color_faces([z_faces[6]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(false,true,false))
+  var z_6_by_privacy = partition([z_faces[6]].is_private, ispace(int1d,2))
+  var p_z_6 = z_6_by_privacy[1]
+  var p_z_6_by_diagonal = partition(p_z_6.diagonal, diagonals_private)
+  var p_z_6_by_tile = partition(p_z_6.tile, tiles_private)
+  var [p_z_faces[6]] = cross_product(p_z_6_by_diagonal, p_z_6_by_tile)
+  var s_z_6 = z_6_by_privacy[0]
+  var s_z_6_by_diagonal = partition(s_z_6.diagonal, diagonals_shared)
+  var [s_z_faces_by_tile[6]] = partition(s_z_6.tile, z_tiles_shared)
+  var [s_z_faces[6]] = cross_product(s_z_6_by_diagonal, [s_z_faces_by_tile[6]])
 
-  color_faces_z([z_faces[7]], Nx, Ny, Nz, ntx, nty, ntz)
-  var z_faces_7_by_privacy = partition([z_faces[7]].is_private, ispace(int1d,2))
-  var z_faces_7_private = z_faces_7_by_privacy[1]
-  var [p_z_faces[7]] = partition(z_faces_7_private.color, [tiles_private])
-  var z_faces_7_shared = z_faces_7_by_privacy[0]
-  var [s_z_faces[7]] = partition(z_faces_7_shared.color, [z_tiles_shared])
+  color_faces([z_faces[7]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(false,false,true))
+  var z_7_by_privacy = partition([z_faces[7]].is_private, ispace(int1d,2))
+  var p_z_7 = z_7_by_privacy[1]
+  var p_z_7_by_diagonal = partition(p_z_7.diagonal, diagonals_private)
+  var p_z_7_by_tile = partition(p_z_7.tile, tiles_private)
+  var [p_z_faces[7]] = cross_product(p_z_7_by_diagonal, p_z_7_by_tile)
+  var s_z_7 = z_7_by_privacy[0]
+  var s_z_7_by_diagonal = partition(s_z_7.diagonal, diagonals_shared)
+  var [s_z_faces_by_tile[7]] = partition(s_z_7.tile, z_tiles_shared)
+  var [s_z_faces[7]] = cross_product(s_z_7_by_diagonal, [s_z_faces_by_tile[7]])
 
-  color_faces_z([z_faces[8]], Nx, Ny, Nz, ntx, nty, ntz)
-  var z_faces_8_by_privacy = partition([z_faces[8]].is_private, ispace(int1d,2))
-  var z_faces_8_private = z_faces_8_by_privacy[1]
-  var [p_z_faces[8]] = partition(z_faces_8_private.color, [tiles_private])
-  var z_faces_8_shared = z_faces_8_by_privacy[0]
-  var [s_z_faces[8]] = partition(z_faces_8_shared.color, [z_tiles_shared])
+  color_faces([z_faces[8]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(false,false,false))
+  var z_8_by_privacy = partition([z_faces[8]].is_private, ispace(int1d,2))
+  var p_z_8 = z_8_by_privacy[1]
+  var p_z_8_by_diagonal = partition(p_z_8.diagonal, diagonals_private)
+  var p_z_8_by_tile = partition(p_z_8.tile, tiles_private)
+  var [p_z_faces[8]] = cross_product(p_z_8_by_diagonal, p_z_8_by_tile)
+  var s_z_8 = z_8_by_privacy[0]
+  var s_z_8_by_diagonal = partition(s_z_8.diagonal, diagonals_shared)
+  var [s_z_faces_by_tile[8]] = partition(s_z_8.tile, z_tiles_shared)
+  var [s_z_faces[8]] = cross_product(s_z_8_by_diagonal, [s_z_faces_by_tile[8]])
+
+  -- Construct index spaces for the diagonal launches
+
+  var r_tiles_1 = region(tiles_private, tile_info)
+  fill_tile_info(r_tiles_1, array(true,true,true))
+  var [tiles_by_diagonal[1]] = partition(r_tiles_1.diagonal, diagonals_private)
+
+  var r_tiles_2 = region(tiles_private, tile_info)
+  fill_tile_info(r_tiles_2, array(true,true,false))
+  var [tiles_by_diagonal[2]] = partition(r_tiles_2.diagonal, diagonals_private)
+
+  var r_tiles_3 = region(tiles_private, tile_info)
+  fill_tile_info(r_tiles_3, array(true,false,true))
+  var [tiles_by_diagonal[3]] = partition(r_tiles_3.diagonal, diagonals_private)
+
+  var r_tiles_4 = region(tiles_private, tile_info)
+  fill_tile_info(r_tiles_4, array(true,false,false))
+  var [tiles_by_diagonal[4]] = partition(r_tiles_4.diagonal, diagonals_private)
+
+  var r_tiles_5 = region(tiles_private, tile_info)
+  fill_tile_info(r_tiles_5, array(false,true,true))
+  var [tiles_by_diagonal[5]] = partition(r_tiles_5.diagonal, diagonals_private)
+
+  var r_tiles_6 = region(tiles_private, tile_info)
+  fill_tile_info(r_tiles_6, array(false,true,false))
+  var [tiles_by_diagonal[6]] = partition(r_tiles_6.diagonal, diagonals_private)
+
+  var r_tiles_7 = region(tiles_private, tile_info)
+  fill_tile_info(r_tiles_7, array(false,false,true))
+  var [tiles_by_diagonal[7]] = partition(r_tiles_7.diagonal, diagonals_private)
+
+  var r_tiles_8 = region(tiles_private, tile_info)
+  fill_tile_info(r_tiles_8, array(false,false,false))
+  var [tiles_by_diagonal[8]] = partition(r_tiles_8.diagonal, diagonals_private)
 
 end end
 
@@ -2299,7 +2481,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
   var dy = config.Grid.yWidth / config.Radiation.yNum
   var dz = config.Grid.zWidth / config.Radiation.zNum
 
-  var t : int64  = 1
+  var iter = 1
   var omega = config.Radiation.qs/(config.Radiation.qa+config.Radiation.qs)
 
   -- Compute until convergence
@@ -2307,33 +2489,34 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
   while (res > tol) do
 
     -- Update the source term (in this problem, isotropic)
-    for color in tiles do
-      source_term(p_points[color], angles, omega)
+    for t in tiles do
+      source_term(p_points[t], angles, omega)
     end
 
     -- Update the grid boundary intensities
+    -- TODO: Should launch these on just the boundaries
     for j = 0, nty do
       for k = 0, ntz do
-        bound_x_lo([s_x_faces[1]][{0,j,k}],
-                   [s_x_faces[2]][{0,j,k}],
-                   [s_x_faces[3]][{0,j,k}],
-                   [s_x_faces[4]][{0,j,k}],
-                   [s_x_faces[5]][{0,j,k}],
-                   [s_x_faces[6]][{0,j,k}],
-                   [s_x_faces[7]][{0,j,k}],
-                   [s_x_faces[8]][{0,j,k}],
+        bound_x_lo([s_x_faces_by_tile[1]][{0,j,k}],
+                   [s_x_faces_by_tile[2]][{0,j,k}],
+                   [s_x_faces_by_tile[3]][{0,j,k}],
+                   [s_x_faces_by_tile[4]][{0,j,k}],
+                   [s_x_faces_by_tile[5]][{0,j,k}],
+                   [s_x_faces_by_tile[6]][{0,j,k}],
+                   [s_x_faces_by_tile[7]][{0,j,k}],
+                   [s_x_faces_by_tile[8]][{0,j,k}],
                    angles,
                    config.Radiation.emissWest,
                    config.Radiation.tempWest)
 
-        bound_x_hi([s_x_faces[1]][{ntx,j,k}],
-                   [s_x_faces[2]][{ntx,j,k}],
-                   [s_x_faces[3]][{ntx,j,k}],
-                   [s_x_faces[4]][{ntx,j,k}],
-                   [s_x_faces[5]][{ntx,j,k}],
-                   [s_x_faces[6]][{ntx,j,k}],
-                   [s_x_faces[7]][{ntx,j,k}],
-                   [s_x_faces[8]][{ntx,j,k}],
+        bound_x_hi([s_x_faces_by_tile[1]][{ntx,j,k}],
+                   [s_x_faces_by_tile[2]][{ntx,j,k}],
+                   [s_x_faces_by_tile[3]][{ntx,j,k}],
+                   [s_x_faces_by_tile[4]][{ntx,j,k}],
+                   [s_x_faces_by_tile[5]][{ntx,j,k}],
+                   [s_x_faces_by_tile[6]][{ntx,j,k}],
+                   [s_x_faces_by_tile[7]][{ntx,j,k}],
+                   [s_x_faces_by_tile[8]][{ntx,j,k}],
                    angles,
                    config.Radiation.emissEast,
                    config.Radiation.tempEast)
@@ -2343,26 +2526,26 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     -- Update y faces
     for i = 0, ntx do
       for k = 0, ntz do
-        bound_y_lo([s_y_faces[1]][{i,0,k}],
-                   [s_y_faces[2]][{i,0,k}],
-                   [s_y_faces[3]][{i,0,k}],
-                   [s_y_faces[4]][{i,0,k}],
-                   [s_y_faces[5]][{i,0,k}],
-                   [s_y_faces[6]][{i,0,k}],
-                   [s_y_faces[7]][{i,0,k}],
-                   [s_y_faces[8]][{i,0,k}],
+        bound_y_lo([s_y_faces_by_tile[1]][{i,0,k}],
+                   [s_y_faces_by_tile[2]][{i,0,k}],
+                   [s_y_faces_by_tile[3]][{i,0,k}],
+                   [s_y_faces_by_tile[4]][{i,0,k}],
+                   [s_y_faces_by_tile[5]][{i,0,k}],
+                   [s_y_faces_by_tile[6]][{i,0,k}],
+                   [s_y_faces_by_tile[7]][{i,0,k}],
+                   [s_y_faces_by_tile[8]][{i,0,k}],
                    angles,
                    config.Radiation.emissSouth,
                    config.Radiation.tempSouth)
 
-        bound_y_hi([s_y_faces[1]][{i,nty,k}],
-                   [s_y_faces[2]][{i,nty,k}],
-                   [s_y_faces[3]][{i,nty,k}],
-                   [s_y_faces[4]][{i,nty,k}],
-                   [s_y_faces[5]][{i,nty,k}],
-                   [s_y_faces[6]][{i,nty,k}],
-                   [s_y_faces[7]][{i,nty,k}],
-                   [s_y_faces[8]][{i,nty,k}],
+        bound_y_hi([s_y_faces_by_tile[1]][{i,nty,k}],
+                   [s_y_faces_by_tile[2]][{i,nty,k}],
+                   [s_y_faces_by_tile[3]][{i,nty,k}],
+                   [s_y_faces_by_tile[4]][{i,nty,k}],
+                   [s_y_faces_by_tile[5]][{i,nty,k}],
+                   [s_y_faces_by_tile[6]][{i,nty,k}],
+                   [s_y_faces_by_tile[7]][{i,nty,k}],
+                   [s_y_faces_by_tile[8]][{i,nty,k}],
                    angles,
                    config.Radiation.emissNorth,
                    config.Radiation.tempNorth)
@@ -2372,26 +2555,26 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     -- Update z faces
     for i = 0, ntx do
       for j = 0, nty do
-        bound_z_lo([s_z_faces[1]][{i,j,0}],
-                   [s_z_faces[2]][{i,j,0}],
-                   [s_z_faces[3]][{i,j,0}],
-                   [s_z_faces[4]][{i,j,0}],
-                   [s_z_faces[5]][{i,j,0}],
-                   [s_z_faces[6]][{i,j,0}],
-                   [s_z_faces[7]][{i,j,0}],
-                   [s_z_faces[8]][{i,j,0}],
+        bound_z_lo([s_z_faces_by_tile[1]][{i,j,0}],
+                   [s_z_faces_by_tile[2]][{i,j,0}],
+                   [s_z_faces_by_tile[3]][{i,j,0}],
+                   [s_z_faces_by_tile[4]][{i,j,0}],
+                   [s_z_faces_by_tile[5]][{i,j,0}],
+                   [s_z_faces_by_tile[6]][{i,j,0}],
+                   [s_z_faces_by_tile[7]][{i,j,0}],
+                   [s_z_faces_by_tile[8]][{i,j,0}],
                    angles,
                    config.Radiation.emissDown,
                    config.Radiation.tempDown)
 
-        bound_z_hi([s_z_faces[1]][{i,j,ntz}],
-                   [s_z_faces[2]][{i,j,ntz}],
-                   [s_z_faces[3]][{i,j,ntz}],
-                   [s_z_faces[4]][{i,j,ntz}],
-                   [s_z_faces[5]][{i,j,ntz}],
-                   [s_z_faces[6]][{i,j,ntz}],
-                   [s_z_faces[7]][{i,j,ntz}],
-                   [s_z_faces[8]][{i,j,ntz}],
+        bound_z_hi([s_z_faces_by_tile[1]][{i,j,ntz}],
+                   [s_z_faces_by_tile[2]][{i,j,ntz}],
+                   [s_z_faces_by_tile[3]][{i,j,ntz}],
+                   [s_z_faces_by_tile[4]][{i,j,ntz}],
+                   [s_z_faces_by_tile[5]][{i,j,ntz}],
+                   [s_z_faces_by_tile[6]][{i,j,ntz}],
+                   [s_z_faces_by_tile[7]][{i,j,ntz}],
+                   [s_z_faces_by_tile[8]][{i,j,ntz}],
                    angles,
                    config.Radiation.emissUp,
                    config.Radiation.tempUp)
@@ -2400,143 +2583,135 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
 
     --Perform the sweep for computing new intensities
     --Quadrant 1 - +x, +y, +z
-    for i = 0, ntx do
-      for j = 0, nty do
-        for k = 0, ntz do
-          sweep_1(p_points[{i,j,k}],
-                  [p_x_faces[1]][{i,j,k}], [p_y_faces[1]][{i,j,k}], [p_z_faces[1]][{i,j,k}],
-                  [s_x_faces[1]][{i,j,k}], [s_x_faces[1]][{i+1,j,k}],
-                  [s_y_faces[1]][{i,j,k}], [s_y_faces[1]][{i,j+1,k}],
-                  [s_z_faces[1]][{i,j,k}], [s_z_faces[1]][{i,j,k+1}],
-                  angles, 1, 1, 1, dx, dy, dz)
-        end
+    for d in diagonals_private do
+      __demand(__parallel)
+      for t in [tiles_by_diagonal[1]][d] do
+        sweep_1(p_points[t],
+                [p_x_faces[1]][d][t], [p_y_faces[1]][d][t], [p_z_faces[1]][d][t],
+                [s_x_faces[1]][d][t], [s_x_faces[1]][d+1][t+int3d{1,0,0}],
+                [s_y_faces[1]][d][t], [s_y_faces[1]][d+1][t+int3d{0,1,0}],
+                [s_z_faces[1]][d][t], [s_z_faces[1]][d+1][t+int3d{0,0,1}],
+                angles, 1, 1, 1, dx, dy, dz)
       end
     end
 
     -- Quadrant 2 - +x, +y, -z
-    for i = 0, ntx do
-      for j = 0, nty do
-        for k = ntz-1, -1, -1 do
-          sweep_2(p_points[{i,j,k}],
-                  [p_x_faces[2]][{i,j,k}], [p_y_faces[2]][{i,j,k}], [p_z_faces[2]][{i,j,k}],
-                  [s_x_faces[2]][{i,j,k}], [s_x_faces[2]][{i+1,j,k}],
-                  [s_y_faces[2]][{i,j,k}], [s_y_faces[2]][{i,j+1,k}],
-                  [s_z_faces[2]][{i,j,k+1}], [s_z_faces[2]][{i,j,k}],
-                  angles, 1, 1, -1, dx, dy, dz)
-        end
+    for d in diagonals_private do
+      __demand(__parallel)
+      for t in [tiles_by_diagonal[2]][d] do
+        sweep_2(p_points[t],
+                [p_x_faces[2]][d][t], [p_y_faces[2]][d][t], [p_z_faces[2]][d][t],
+                [s_x_faces[2]][d][t], [s_x_faces[2]][d+1][t+int3d{1,0,0}],
+                [s_y_faces[2]][d][t], [s_y_faces[2]][d+1][t+int3d{0,1,0}],
+                [s_z_faces[2]][d][t+int3d{0,0,1}], [s_z_faces[2]][d+1][t],
+                angles, 1, 1, -1, dx, dy, dz)
       end
     end
 
     -- Quadrant 3 - +x, -y, +z
-    for i = 0, ntx do
-      for j = nty-1, -1, -1 do
-        for k = 0, ntz do
-          sweep_3(p_points[{i,j,k}],
-                  [p_x_faces[3]][{i,j,k}], [p_y_faces[3]][{i,j,k}], [p_z_faces[3]][{i,j,k}],
-                  [s_x_faces[3]][{i,j,k}], [s_x_faces[3]][{i+1,j,k}],
-                  [s_y_faces[3]][{i,j+1,k}], [s_y_faces[3]][{i,j,k}],
-                  [s_z_faces[3]][{i,j,k}], [s_z_faces[3]][{i,j,k+1}],
-                  angles, 1, -1, 1, dx, dy, dz)
-        end
+    for d in diagonals_private do
+      __demand(__parallel)
+      for t in [tiles_by_diagonal[3]][d] do
+        sweep_3(p_points[t],
+                [p_x_faces[3]][d][t], [p_y_faces[3]][d][t], [p_z_faces[3]][d][t],
+                [s_x_faces[3]][d][t], [s_x_faces[3]][d+1][t+int3d{1,0,0}],
+                [s_y_faces[3]][d][t+int3d{0,1,0}], [s_y_faces[3]][d+1][t],
+                [s_z_faces[3]][d][t], [s_z_faces[3]][d+1][t+int3d{0,0,1}],
+                angles, 1, -1, 1, dx, dy, dz)
       end
     end
 
     -- Quadrant 4 - +x, -y, -z
-    for i = 0, ntx do
-      for j = nty-1, -1, -1 do
-        for k = ntz-1, -1, -1 do
-          sweep_4(p_points[{i,j,k}],
-                  [p_x_faces[4]][{i,j,k}], [p_y_faces[4]][{i,j,k}], [p_z_faces[4]][{i,j,k}],
-                  [s_x_faces[4]][{i,j,k}], [s_x_faces[4]][{i+1,j,k}],
-                  [s_y_faces[4]][{i,j+1,k}], [s_y_faces[4]][{i,j,k}],
-                  [s_z_faces[4]][{i,j,k+1}], [s_z_faces[4]][{i,j,k}],
-                  angles, 1, -1, -1, dx, dy, dz)
-        end
+    for d in diagonals_private do
+      __demand(__parallel)
+      for t in [tiles_by_diagonal[4]][d] do
+        sweep_4(p_points[t],
+                [p_x_faces[4]][d][t], [p_y_faces[4]][d][t], [p_z_faces[4]][d][t],
+                [s_x_faces[4]][d][t], [s_x_faces[4]][d+1][t+int3d{1,0,0}],
+                [s_y_faces[4]][d][t+int3d{0,1,0}], [s_y_faces[4]][d+1][t],
+                [s_z_faces[4]][d][t+int3d{0,0,1}], [s_z_faces[4]][d+1][t],
+                angles, 1, -1, -1, dx, dy, dz)
       end
     end
 
     -- Quadrant 5 - -x, +y, +z
-    for i = ntx-1, -1, -1 do
-      for j = 0, nty do
-        for k = 0, ntz do
-          sweep_5(p_points[{i,j,k}],
-                  [p_x_faces[5]][{i,j,k}], [p_y_faces[5]][{i,j,k}], [p_z_faces[5]][{i,j,k}],
-                  [s_x_faces[5]][{i+1,j,k}], [s_x_faces[5]][{i,j,k}],
-                  [s_y_faces[5]][{i,j,k}], [s_y_faces[5]][{i,j+1,k}],
-                  [s_z_faces[5]][{i,j,k}], [s_z_faces[5]][{i,j,k+1}],
-                  angles, -1, 1, 1, dx, dy, dz)
-        end
+    for d in diagonals_private do
+      __demand(__parallel)
+      for t in [tiles_by_diagonal[5]][d] do
+        sweep_5(p_points[t],
+                [p_x_faces[5]][d][t], [p_y_faces[5]][d][t], [p_z_faces[5]][d][t],
+                [s_x_faces[5]][d][t+int3d{1,0,0}], [s_x_faces[5]][d+1][t],
+                [s_y_faces[5]][d][t], [s_y_faces[5]][d+1][t+int3d{0,1,0}],
+                [s_z_faces[5]][d][t], [s_z_faces[5]][d+1][t+int3d{0,0,1}],
+                angles, -1, 1, 1, dx, dy, dz)
       end
     end
 
     -- Quadrant 6 - -x, +y, -z
-    for i = ntx-1, -1, -1 do
-      for j = 0, nty do
-        for k = ntz-1, -1, -1 do
-          sweep_6(p_points[{i,j,k}],
-                  [p_x_faces[6]][{i,j,k}], [p_y_faces[6]][{i,j,k}], [p_z_faces[6]][{i,j,k}],
-                  [s_x_faces[6]][{i+1,j,k}], [s_x_faces[6]][{i,j,k}],
-                  [s_y_faces[6]][{i,j,k}], [s_y_faces[6]][{i,j+1,k}],
-                  [s_z_faces[6]][{i,j,k+1}], [s_z_faces[6]][{i,j,k}],
-                  angles, -1, 1, -1, dx, dy, dz)
-        end
+    for d in diagonals_private do
+      __demand(__parallel)
+      for t in [tiles_by_diagonal[6]][d] do
+        sweep_6(p_points[t],
+                [p_x_faces[6]][d][t], [p_y_faces[6]][d][t], [p_z_faces[6]][d][t],
+                [s_x_faces[6]][d][t+int3d{1,0,0}], [s_x_faces[6]][d+1][t],
+                [s_y_faces[6]][d][t], [s_y_faces[6]][d+1][t+int3d{0,1,0}],
+                [s_z_faces[6]][d][t+int3d{0,0,1}], [s_z_faces[6]][d+1][t],
+                angles, -1, 1, -1, dx, dy, dz)
       end
     end
 
     -- Quadrant 7 - -x, -y, +z
-    for i = ntx-1, -1, -1 do
-      for j = nty-1, -1, -1 do
-        for k = 0, ntz do
-          sweep_7(p_points[{i,j,k}],
-                  [p_x_faces[7]][{i,j,k}], [p_y_faces[7]][{i,j,k}], [p_z_faces[7]][{i,j,k}],
-                  [s_x_faces[7]][{i+1,j,k}], [s_x_faces[7]][{i,j,k}],
-                  [s_y_faces[7]][{i,j+1,k}], [s_y_faces[7]][{i,j,k}],
-                  [s_z_faces[7]][{i,j,k}], [s_z_faces[7]][{i,j,k+1}],
-                  angles, -1, -1, 1, dx, dy, dz)
-        end
+    for d in diagonals_private do
+      __demand(__parallel)
+      for t in [tiles_by_diagonal[7]][d] do
+        sweep_7(p_points[t],
+                [p_x_faces[7]][d][t], [p_y_faces[7]][d][t], [p_z_faces[7]][d][t],
+                [s_x_faces[7]][d][t+int3d{1,0,0}], [s_x_faces[7]][d+1][t],
+                [s_y_faces[7]][d][t+int3d{0,1,0}], [s_y_faces[7]][d+1][t],
+                [s_z_faces[7]][d][t], [s_z_faces[7]][d+1][t+int3d{0,0,1}],
+                angles, -1, -1, 1, dx, dy, dz)
       end
     end
 
     -- Quadrant 8 - -x, -y, -z
-    for i = ntx-1, -1, -1 do
-      for j = nty-1, -1, -1 do
-        for k = ntz-1, -1, -1 do
-          sweep_8(p_points[{i,j,k}],
-                  [p_x_faces[8]][{i,j,k}], [p_y_faces[8]][{i,j,k}], [p_z_faces[8]][{i,j,k}],
-                  [s_x_faces[8]][{i+1,j,k}], [s_x_faces[8]][{i,j,k}],
-                  [s_y_faces[8]][{i,j+1,k}], [s_y_faces[8]][{i,j,k}],
-                  [s_z_faces[8]][{i,j,k+1}], [s_z_faces[8]][{i,j,k}],
-                  angles, -1, -1, -1, dx, dy, dz)
-        end
+    for d in diagonals_private do
+      __demand(__parallel)
+      for t in [tiles_by_diagonal[8]][d] do
+        sweep_8(p_points[t],
+                [p_x_faces[8]][d][t], [p_y_faces[8]][d][t], [p_z_faces[8]][d][t],
+                [s_x_faces[8]][d][t+int3d{1,0,0}], [s_x_faces[8]][d+1][t],
+                [s_y_faces[8]][d][t+int3d{0,1,0}], [s_y_faces[8]][d+1][t],
+                [s_z_faces[8]][d][t+int3d{0,0,1}], [s_z_faces[8]][d+1][t],
+                angles, -1, -1, -1, dx, dy, dz)
       end
     end
 
     -- Compute the residual
     res = 0.0
-    for color in tiles do
-      res += residual(p_points[color], Nx, Ny, Nz)
+    for t in tiles do
+      res += residual(p_points[t], Nx, Ny, Nz)
     end
     res = sqrt(res)
 
     -- Update the intensities and the iteration number
-    for color in tiles do
-      update(p_points[color])
+    for t in tiles do
+      update(p_points[t])
     end
 
-    if (t == 1) then
-      c.printf("\n")
-      c.printf(" Iteration     Residual         \n")
-      c.printf(" ------------------------------ \n")
+    if (iter == 1) then
+      C.printf("\n")
+      C.printf(" Iteration     Residual         \n")
+      C.printf(" ------------------------------ \n")
     end
-    c.printf( "   %3d    %.15e \n", t, res)
+    C.printf( "   %3d    %.15e \n", iter, res)
 
-    t = t + 1
+    iter += 1
 
   end
 
   -- Reduce intensity
-  for color in tiles do
-    reduce_intensity(p_points[color], angles)
+  for t in tiles do
+    reduce_intensity(p_points[t], angles)
   end
 
 end end
