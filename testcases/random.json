@@ -25,6 +25,7 @@
         "xBCRight" : "Periodic",
         "xBCRightVel" : [0.1156091, 0.6859607, 0.4446281],
         "xBCRightTemp" : 0.4196384,
+        "xBCRightP_inf" : -1.0,
         // Y
         "yBCLeft"  : "AdiabaticWall",
         "yBCLeftVel" : [0.9918297, 0.8624091, 0.3291094],
