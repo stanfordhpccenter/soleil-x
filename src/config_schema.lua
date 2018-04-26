@@ -1,12 +1,22 @@
 local Exports = {}
 
--- Enumeration constants
+-- Unions & enumeration constants
 Exports.FlowBC = Enum('Periodic','Symmetry','AdiabaticWall','IsothermalWall','NSCBC_SubsonicInflow','NSCBC_SubsonicOutflow')
 Exports.ParticleBC = Enum('Permeable','Solid')
 Exports.ViscosityModel = Enum('Constant','PowerLaw','Sutherland')
 Exports.FlowInitCase = Enum('Uniform','Restart','Perturbed','TaylorGreen2DVortex','TaylorGreen3DVortex')
 Exports.ParticlesInitCase = Enum('Random','Restart','Uniform')
 Exports.RadiationType = Enum('OFF','Algebraic','DOM')
+Exports.WallHeatModel = Union{
+  Constant = {
+    temperature = double,
+  },
+  Parabola = {
+    a = double,
+    b = double,
+    c = double,
+  },
+}
 
 -- Main config struct
 Exports.Config = {
@@ -38,24 +48,24 @@ Exports.Config = {
   BC = {
     xBCLeft = Exports.FlowBC,
     xBCLeftVel = Array(3,double),
-    xBCLeftTemp = double,
+    xBCLeftHeat = Exports.WallHeatModel,
     xBCRight = Exports.FlowBC,
     xBCRightVel = Array(3,double),
-    xBCRightTemp = double,
+    xBCRightHeat = Exports.WallHeatModel,
     -- Pressure that the sub-sonic outlet relaxes
     xBCRightP_inf = double,
     yBCLeft = Exports.FlowBC,
     yBCLeftVel = Array(3,double),
-    yBCLeftTemp = double,
+    yBCLeftHeat = Exports.WallHeatModel,
     yBCRight = Exports.FlowBC,
     yBCRightVel = Array(3,double),
-    yBCRightTemp = double,
+    yBCRightHeat = Exports.WallHeatModel,
     zBCLeft = Exports.FlowBC,
     zBCLeftVel = Array(3,double),
-    zBCLeftTemp = double,
+    zBCLeftHeat = Exports.WallHeatModel,
     zBCRight = Exports.FlowBC,
     zBCRightVel = Array(3,double),
-    zBCRightTemp = double,
+    zBCRightHeat = Exports.WallHeatModel,
   },
   Integrator = {
     finalTime = double,

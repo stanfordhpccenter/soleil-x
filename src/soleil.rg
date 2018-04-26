@@ -6088,15 +6088,31 @@ task work(config : Config)
     BC_xSign = array(-1.0, -1.0, -1.0)
     BC_xPosVelocity = array((2*config.BC.xBCRightVel[0]), (2*config.BC.xBCRightVel[1]), (2*config.BC.xBCRightVel[2]))
     BC_xNegVelocity = array((2*config.BC.xBCLeftVel[0]), (2*config.BC.xBCLeftVel[1]), (2*config.BC.xBCLeftVel[2]))
-    BC_xPosTemperature = config.BC.xBCRightTemp
-    BC_xNegTemperature = config.BC.xBCLeftTemp
+    if config.BC.xBCRightHeat.type == SCHEMA.WallHeatModel_Constant then
+      BC_xPosTemperature = config.BC.xBCRightHeat.u.Constant.temperature
+    else
+      regentlib.assert(false, 'Only constant heat model supported')
+    end
+    if config.BC.xBCLeftHeat.type == SCHEMA.WallHeatModel_Constant then
+      BC_xNegTemperature = config.BC.xBCLeftHeat.u.Constant.temperature
+    else
+      regentlib.assert(false, 'Only constant heat model supported')
+    end
     BC_xBCParticlesPeriodic = false
   elseif ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
     BC_xSign = array(0.0, 0.0, 0.0)
     BC_xPosVelocity = array(config.BC.xBCRightVel[0], config.BC.xBCRightVel[1], config.BC.xBCRightVel[2])
     BC_xNegVelocity = array(config.BC.xBCLeftVel[0],  config.BC.xBCLeftVel[1],  config.BC.xBCLeftVel[2] )
-    BC_xPosTemperature = config.BC.xBCRightTemp
-    BC_xNegTemperature = config.BC.xBCLeftTemp
+    if config.BC.xBCRightHeat.type == SCHEMA.WallHeatModel_Constant then
+      BC_xPosTemperature = config.BC.xBCRightHeat.u.Constant.temperature
+    else
+      regentlib.assert(false, 'Only constant heat model supported')
+    end
+    if config.BC.xBCLeftHeat.type == SCHEMA.WallHeatModel_Constant then
+      BC_xNegTemperature = config.BC.xBCLeftHeat.u.Constant.temperature
+    else
+      regentlib.assert(false, 'Only constant heat model supported')
+    end
     BC_xPosP_inf = config.BC.xBCRightP_inf
     BC_xBCParticlesPeriodic = false
   else
@@ -6127,8 +6143,16 @@ task work(config : Config)
     BC_ySign = array(-1.0, -1.0, -1.0)
     BC_yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
     BC_yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
-    BC_yPosTemperature = config.BC.yBCRightTemp
-    BC_yNegTemperature = config.BC.yBCLeftTemp
+    if config.BC.yBCRightHeat.type == SCHEMA.WallHeatModel_Constant then
+      BC_yPosTemperature = config.BC.yBCRightHeat.u.Constant.temperature
+    else
+      regentlib.assert(false, 'Only constant heat model supported')
+    end
+    if config.BC.yBCLeftHeat.type == SCHEMA.WallHeatModel_Constant then
+      BC_yNegTemperature = config.BC.yBCLeftHeat.u.Constant.temperature
+    else
+      regentlib.assert(false, 'Only constant heat model supported')
+    end
     BC_yBCParticlesPeriodic = false
   else
     regentlib.assert(false, "Boundary conditions in y not implemented")
@@ -6158,8 +6182,16 @@ task work(config : Config)
     BC_zSign = array(-1.0, -1.0, -1.0)
     BC_zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
     BC_zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
-    BC_zPosTemperature = config.BC.zBCRightTemp
-    BC_zNegTemperature = config.BC.zBCLeftTemp
+    if config.BC.zBCRightHeat.type == SCHEMA.WallHeatModel_Constant then
+      BC_zPosTemperature = config.BC.zBCRightHeat.u.Constant.temperature
+    else
+      regentlib.assert(false, 'Only constant heat model supported')
+    end
+    if config.BC.zBCLeftHeat.type == SCHEMA.WallHeatModel_Constant then
+      BC_zNegTemperature = config.BC.zBCLeftHeat.u.Constant.temperature
+    else
+      regentlib.assert(false, 'Only constant heat model supported')
+    end
     BC_zBCParticlesPeriodic = false
   else
     regentlib.assert(false, "Boundary conditions in z not implemented")
