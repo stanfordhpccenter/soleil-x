@@ -4022,9 +4022,12 @@ do
 end
 
 task Particles_HandleCollisions(particles : region(ispace(int1d), particles_columns),
-                                Integrator_timeStep : int)
+                                Integrator_deltaTime : double, Particles_restitutionCoeff : double )
+-- Authors: T. Jaravel, M. Papadakis
+-- This is an adaption of collisionPrt routine of the Soleil-MPI version
+-- TODO: search box implementation
 where
-  reads(particles.{position_old, diameter, __valid}),
+  reads(particles.{position_old, diameter, density, __valid}),
   reads writes(particles.{position, velocity})
 do
   for p1 in particles do
@@ -4044,9 +4047,9 @@ do
 
 
           -- Relative velocity
-          var ux = (x-xold)/Integrator_timeStep
-          var uy = (y-yold)/Integrator_timeStep
-          var uz = (z-zold)/Integrator_timeStep
+          var ux = (x-xold)/Integrator_deltaTime
+          var uy = (y-yold)/Integrator_deltaTime
+          var uz = (z-zold)/Integrator_deltaTime
 
           -- Relevant scalar products
           var x_scal_u = xold*ux + yold*uy + zold*uz
@@ -4065,29 +4068,44 @@ do
 
               -- Checking if collision occurs in this time step
               var timecol = ( -x_scal_u - sqrt(det) ) / u_scal_u
-              if (timecol>0.0 and timecol<Integrator_timeStep) then
+              if (timecol>0.0 and timecol<Integrator_deltaTime) then
 
                 -- We do have a collision
-                p1.velocity[0] = 0.0
-                p1.velocity[1] = 0.0
-                p1.velocity[2] = 0.0
 
-                p2.velocity[0] = 0.0
-                p2.velocity[1] = 0.0
-                p2.velocity[2] = 0.0
+
+                -- Mass ratio of particles
+                var mr = (p2.density * p2.diameter * p2.diameter * p2.diameter)
+                mr = mr/ (p1.density * p1.diameter * p1.diameter * p1.diameter)
+
+                -- Change of velocity and particle location after impact
+                -- Note: for now particle restitution coeff is the same for all particles ?
+                var du = ( 1.0 + min( Particles_restitutionCoeff, Particles_restitutionCoeff ) ) / (1.0 + mr)*x_scal_u/x_scal_x
+                var dx = du * ( Integrator_deltaTime - timecol )
+
+                -- Update velocities
+
+                p1.velocity[0] = p1.velocity[0] + du*xold*mr
+                p1.velocity[1] = p1.velocity[1] + du*yold*mr
+                p1.velocity[2] = p1.velocity[2] + du*zold*mr
+
+                p2.velocity[0] = p2.velocity[0] - du*xold
+                p2.velocity[1] = p2.velocity[1] - du*yold
+                p2.velocity[2] = p2.velocity[2] - du*zold
+
+                -- Update positions
+                p1.position[0] = p1.position[0] + dx*xold*mr
+                p1.position[1] = p1.position[1] + dx*yold*mr
+                p1.position[2] = p1.position[2] + dx*zold*mr
+
+                p2.position[0] = p2.position[0] - dx*xold
+                p2.position[1] = p2.position[1] - dx*yold
+                p2.position[2] = p2.position[2] - dx*zold
 
               end
 
             end
           end
 
-          -- TODO: Actually handle collisions
-          -- if "p1 and p2 collide" then
-          --   p1.position = ...
-          --   p1.velocity = ...
-          --   p2.position = ...
-          --   p2.velocity = ...
-          -- end
         end
       end
     end
@@ -5495,8 +5513,10 @@ task work(config : Config)
         Flow_UpdateGhostThermodynamicsStep1(Fluid, BC_xNegTemperature, BC_xPosTemperature, BC_yNegTemperature, BC_yPosTemperature, BC_zNegTemperature, BC_zPosTemperature, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
         Flow_UpdateGhostThermodynamicsStep2(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
         -- TODO: Collisions across tiles are not handled.
-        for c in primColors do
-          Particles_HandleCollisions(particles_primPart[c], Integrator_timeStep)
+        if Integrator_stage==4 then
+          for c in primColors do
+            Particles_HandleCollisions(particles_primPart[c], Integrator_deltaTime, Particles_restitutionCoeff)
+          end
         end
         Particles_UpdateAuxiliaryStep1(particles, BC_xBCParticlesPeriodic, BC_yBCParticlesPeriodic, BC_zBCParticlesPeriodic, Grid_xOrigin, Grid_xWidth, Grid_yOrigin, Grid_yWidth, Grid_zOrigin, Grid_zWidth, Particles_restitutionCoeff)
         Particles_UpdateAuxiliaryStep2(particles)
