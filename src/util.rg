@@ -180,9 +180,14 @@ end
 -- {string,terralib.type} | {field:string,type:terralib.type} ->
 --   string, terralib.type
 function Exports.parseStructEntry(entry)
-  if terralib.israwlist(entry) and #entry == 2 then
+  if terralib.israwlist(entry)
+  and #entry == 2
+  and type(entry[1]) == 'string'
+  and terralib.types.istype(entry[2]) then
     return entry[1], entry[2]
-  elseif entry.field and entry.type then
+  elseif type(entry) == 'table'
+  and entry.field
+  and entry.type then
     return entry.field, entry.type
   else assert(false) end
 end
@@ -222,19 +227,34 @@ end
 function Exports.prettyPrintStruct(s, cStyle, indent)
   indent = indent or ''
   local lines = terralib.newlist()
-  if s.name:startswith('anon') then
-    lines:insert('struct {')
-  else
-    lines:insert('struct '..s.name..' {')
+  local isUnion = false
+  local entries = s.entries
+  if #entries == 1 and terralib.israwlist(entries[1]) then
+    isUnion = true
+    entries = entries[1]
   end
-  for _,e in ipairs(s.entries) do
+  local name = s.name:startswith('anon') and '' or s.name
+  local open =
+    (cStyle and isUnion)         and ('union '..name..' {')          or
+    (cStyle and not isUnion)     and ('struct '..name..' {')         or
+    (not cStyle and isUnion)     and ('struct '..name..' { union {') or
+    (not cStyle and not isUnion) and ('struct '..name..' {')         or
+    assert(false)
+  lines:insert(open)
+  for _,e in ipairs(entries) do
     local name, typ = Exports.parseStructEntry(e)
     local s1 = cStyle and '' or (name..' : ')
     local s3 = cStyle and (' '..name) or ''
     local s2, s4 = typeDecl(typ, cStyle, indent..'  ')
     lines:insert(indent..'  '..s1..s2..s3..s4..';')
   end
-  lines:insert(indent..'}')
+  local close =
+    (cStyle and isUnion)         and '}'   or
+    (cStyle and not isUnion)     and '}'   or
+    (not cStyle and isUnion)     and '} }' or
+    (not cStyle and not isUnion) and '}'   or
+    assert(false)
+  lines:insert(indent..close)
   return lines:join('\n')
 end
 
