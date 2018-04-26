@@ -746,7 +746,7 @@ task Flow_UpdateGhostConservedStep1(Fluid : region(ispace(int3d), Fluid_columns)
                                     Grid_yBnum : int32, Grid_yNum : int32,
                                     Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.{rho, pressure, velocity, temperature, rhoVelocity, rhoEnergy, sgsEnergy}),
+  reads(Fluid.{rho, pressure, temperature, rhoVelocity, rhoEnergy, sgsEnergy}),
   writes(Fluid.{rhoBoundary, rhoEnergyBoundary, rhoVelocityBoundary})
 do
   __demand(__openmp)
@@ -1224,7 +1224,7 @@ task Flow_UpdateGhostThermodynamicsStep1(Fluid : region(ispace(int3d), Fluid_col
                                          Grid_yBnum : int32, Grid_yNum : int32,
                                          Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.{rho, pressure, velocity, temperature, rhoEnergy}),
+  reads(Fluid.{pressure, temperature}),
   writes(Fluid.{pressureBoundary, temperatureBoundary})
 do
   __demand(__openmp)
@@ -1992,7 +1992,7 @@ task Flow_UpdateGhostVelocityGradientStep1(Fluid : region(ispace(int3d), Fluid_c
                                            Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
                                            Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
-  reads(Fluid.{velocity, velocityGradientX, velocityGradientY, velocityGradientZ}),
+  reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ}),
   writes(Fluid.{velocityGradientXBoundary, velocityGradientYBoundary, velocityGradientZBoundary})
 do
   __demand(__openmp)
@@ -6660,21 +6660,6 @@ task work(config : Config)
                                       Grid_yBnum, Grid_yNum,
                                       Grid_zBnum, Grid_zNum)
 
-        -- WARNING -- THIS USES pressure, velocity, and temperature VALUES FROM THE LAST TIME STEP. I THINK THIS TASK NEEDS TO BE PUT AFTER THOSE VALUES ARE UPDATED TO THEIR NEW VALUES IN THE INTERIOR!  
-        Flow_UpdateGhostConservedStep1(Fluid,
-                                       config,
-                                       BC_xNegTemperature, BC_xNegVelocity, BC_xPosTemperature, BC_xPosVelocity, BC_xSign,
-                                       BC_yNegTemperature, BC_yNegVelocity, BC_yPosTemperature, BC_yPosVelocity, BC_ySign,
-                                       BC_zNegTemperature, BC_zNegVelocity, BC_zPosTemperature, BC_zPosVelocity, BC_zSign,
-                                       Flow_gamma, Flow_gasConstant,
-                                       Grid_xBnum, Grid_xNum,
-                                       Grid_yBnum, Grid_yNum,
-                                       Grid_zBnum, Grid_zNum)
-        Flow_UpdateGhostConservedStep2(Fluid,
-                                       config,
-                                       Grid_xBnum, Grid_xNum,
-                                       Grid_yBnum, Grid_yNum,
-                                       Grid_zBnum, Grid_zNum)
 
 
         Flow_ComputeVelocityGradientAll(Fluid,
@@ -6731,13 +6716,20 @@ task work(config : Config)
                                             Grid_yBnum, Grid_yNum,
                                             Grid_zBnum, Grid_zNum)
 
-
-
-
-
-
-
-
+        Flow_UpdateGhostConservedStep1(Fluid,
+                                       config,
+                                       BC_xNegTemperature, BC_xNegVelocity, BC_xPosTemperature, BC_xPosVelocity, BC_xSign,
+                                       BC_yNegTemperature, BC_yNegVelocity, BC_yPosTemperature, BC_yPosVelocity, BC_ySign,
+                                       BC_zNegTemperature, BC_zNegVelocity, BC_zPosTemperature, BC_zPosVelocity, BC_zSign,
+                                       Flow_gamma, Flow_gasConstant,
+                                       Grid_xBnum, Grid_xNum,
+                                       Grid_yBnum, Grid_yNum,
+                                       Grid_zBnum, Grid_zNum)
+        Flow_UpdateGhostConservedStep2(Fluid,
+                                       config,
+                                       Grid_xBnum, Grid_xNum,
+                                       Grid_yBnum, Grid_yNum,
+                                       Grid_zBnum, Grid_zNum)
 
         Particles_UpdateAuxiliaryStep1(particles,
                                        BC_xBCLeftParticles, BC_xBCRightParticles,
