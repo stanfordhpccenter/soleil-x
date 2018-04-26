@@ -24,6 +24,7 @@
         "xBCRight" : "AdiabaticWall",
         "xBCRightVel" : [0.0, 0.0, 0.0],
         "xBCRightTemp" : 0.0,
+        "xBCRightP_inf" : -1.0,
         "yBCLeft"  : "AdiabaticWall",
         "yBCLeftVel" : [0.0, 0.0, 0.0],
         "yBCLeftTemp" : 0.0,
