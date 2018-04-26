@@ -232,7 +232,7 @@ do
   hi.z = min(hi.z, ((config.Grid.zNum+zBnum)-1))
   var xSize = ((hi.x-lo.x)+1)
   var ySize = ((hi.y-lo.y)+1)
-  var particlesPerTask = (config.Particles.initNum/((config.Mapping.xTiles*config.Mapping.yTiles)*config.Mapping.zTiles))
+  var particlesPerTask = (config.Particles.init.u.Uniform.num/((config.Mapping.xTiles*config.Mapping.yTiles)*config.Mapping.zTiles))
   __demand(__openmp)
   for p in particles do
     if ((int32(p)-pBase)<particlesPerTask) then
@@ -242,22 +242,22 @@ do
       p.cell = c
       p.position = cells[p.cell].centerCoordinates
       p.velocity = cells[p.cell].velocity
-      p.density = config.Particles.density
-      p.temperature = config.Particles.initTemperature
-      p.diameter = config.Particles.diameterMean
+      p.density = config.Particles.init.u.Uniform.density
+      p.temperature = config.Particles.init.u.Uniform.temperature
+      p.diameter = config.Particles.init.u.Uniform.diameter
     end
   end
 end
 
 __demand(__parallel, __cuda)
-task AddRadiation(particles : region(ispace(int1d), particles_columns),
-                  config : Config)
+task Algebraic_AddRadiation(particles : region(ispace(int1d), particles_columns),
+                            config : Config)
 where
   reads(particles.{density, diameter}),
   reads writes(particles.temperature_t)
 do
   var absorptivity = config.Particles.absorptivity
-  var intensity = config.Radiation.intensity
+  var intensity = config.Radiation.u.Algebraic.intensity
   var heatCapacity = config.Particles.heatCapacity
   __demand(__openmp)
   for p in particles do
@@ -417,18 +417,16 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_InitializeUniform(Fluid : region(ispace(int3d), Fluid_columns), Flow_initParams : double[5])
+task Flow_InitializeUniform(Fluid : region(ispace(int3d), Fluid_columns), config : Config)
 where
   writes(Fluid.{rho, pressure}),
   reads writes(Fluid.velocity)
 do
   __demand(__openmp)
   for c in Fluid do
-    Fluid[c].rho = Flow_initParams[0]
-    Fluid[c].pressure = Flow_initParams[1]
-    Fluid[c].velocity[0] = Flow_initParams[2]
-    Fluid[c].velocity[1] = Flow_initParams[3]
-    Fluid[c].velocity[2] = Flow_initParams[4]
+    Fluid[c].rho = config.Flow.init.u.Uniform.rho
+    Fluid[c].pressure = config.Flow.init.u.Uniform.pressure
+    Fluid[c].velocity = config.Flow.init.u.Uniform.velocity
   end
 end
 
@@ -439,7 +437,7 @@ end
 -- CHANGE do not compute xy instead just pass in cell center since it is computed before this task will be called
 __demand(__parallel, __cuda)
 task Flow_InitializeTaylorGreen2D(Fluid : region(ispace(int3d), Fluid_columns),
-                                  Flow_initParams : double[5],
+                                  config : Config,
                                   Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
                                   Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
                                   Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
@@ -448,9 +446,9 @@ where
 do
   __demand(__openmp)
   for c in Fluid do
-    var taylorGreenDensity = Flow_initParams[0]
-    var taylorGreenPressure = Flow_initParams[1]
-    var taylorGreenVelocity = Flow_initParams[2]
+    var taylorGreenDensity = config.Flow.init.u.TaylorGreen2DVortex.density
+    var taylorGreenPressure = config.Flow.init.u.TaylorGreen2DVortex.pressure
+    var taylorGreenVelocity = config.Flow.init.u.TaylorGreen2DVortex.velocity
     var xy = [double[3]](array((Grid_xOrigin+((Grid_xWidth/double(Grid_xNum))*(double((int3d(c).x-uint64(Grid_xBnum)))+double(0.5)))), (Grid_yOrigin+((Grid_yWidth/double(Grid_yNum))*(double((int3d(c).y-uint64(Grid_yBnum)))+double(0.5)))), (Grid_zOrigin+((Grid_zWidth/double(Grid_zNum))*(double((int3d(c).z-uint64(Grid_zBnum)))+double(0.5))))))
     var coorZ = 0
     Fluid[c].rho = taylorGreenDensity
@@ -464,7 +462,7 @@ end
 -- CHANGE do not compute xy instead just pass in cell center since it is computed before this task will be called
 __demand(__parallel, __cuda)
 task Flow_InitializeTaylorGreen3D(Fluid : region(ispace(int3d), Fluid_columns),
-                                  Flow_initParams : double[5],
+                                  config : Config,
                                   Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
                                   Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
                                   Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
@@ -473,9 +471,9 @@ where
 do
   __demand(__openmp)
   for c in Fluid do
-    var taylorGreenDensity = Flow_initParams[0]
-    var taylorGreenPressure = Flow_initParams[1]
-    var taylorGreenVelocity = Flow_initParams[2]
+    var taylorGreenDensity = config.Flow.init.u.TaylorGreen3DVortex.density
+    var taylorGreenPressure = config.Flow.init.u.TaylorGreen3DVortex.pressure
+    var taylorGreenVelocity = config.Flow.init.u.TaylorGreen3DVortex.velocity
     var xy = [double[3]](array((Grid_xOrigin+((Grid_xWidth/double(Grid_xNum))*(double((int3d(c).x-uint64(Grid_xBnum)))+double(0.5)))), (Grid_yOrigin+((Grid_yWidth/double(Grid_yNum))*(double((int3d(c).y-uint64(Grid_yBnum)))+double(0.5)))), (Grid_zOrigin+((Grid_zWidth/double(Grid_zNum))*(double((int3d(c).z-uint64(Grid_zBnum)))+double(0.5))))))
     Fluid[c].rho = taylorGreenDensity
     Fluid[c].velocity = vs_mul_double_3([double[3]](array(((sin(xy[0])*cos(xy[1]))*cos(xy[2])), (((-cos(xy[0]))*sin(xy[1]))*cos(xy[2])), 0.0)), taylorGreenVelocity)
@@ -486,18 +484,17 @@ do
 end
 
 __demand(__parallel)
-task Flow_InitializePerturbed(Fluid : region(ispace(int3d), Fluid_columns),
-                              Flow_initParams : double[5])
+task Flow_InitializePerturbed(Fluid : region(ispace(int3d), Fluid_columns), config : Config)
 where
   writes(Fluid.{rho, pressure}),
   reads writes(Fluid.velocity)
 do
   for c in Fluid do
-    Fluid[c].rho = Flow_initParams[0]
-    Fluid[c].pressure = Flow_initParams[1]
-    Fluid[c].velocity[0] = (Flow_initParams[2]+(((double(C.rand())/2147483647)-double(0.5))*10.0))
-    Fluid[c].velocity[1] = (Flow_initParams[3]+(((double(C.rand())/2147483647)-double(0.5))*10.0))
-    Fluid[c].velocity[2] = (Flow_initParams[4]+(((double(C.rand())/2147483647)-double(0.5))*10.0))
+    Fluid[c].rho = config.Flow.init.u.Perturbed.rho
+    Fluid[c].pressure = config.Flow.init.u.Perturbed.pressure
+    Fluid[c].velocity[0] = config.Flow.init.u.Perturbed.velocity[0] + (((double(C.rand())/2147483647)-double(0.5))*10.0)
+    Fluid[c].velocity[1] = config.Flow.init.u.Perturbed.velocity[1] + (((double(C.rand())/2147483647)-double(0.5))*10.0)
+    Fluid[c].velocity[2] = config.Flow.init.u.Perturbed.velocity[2] + (((double(C.rand())/2147483647)-double(0.5))*10.0)
   end
 end
 
@@ -4250,19 +4247,19 @@ task work(config : Config)
   var Grid_zCellWidth = (Grid_zWidth/Grid_zNum)
   var Grid_cellVolume = ((Grid_xCellWidth*Grid_yCellWidth)*Grid_zCellWidth)
   var Grid_dXYZInverseSquare = (((((1/Grid_xCellWidth)*1)/Grid_xCellWidth)+(((1/Grid_yCellWidth)*1)/Grid_yCellWidth))+(((1/Grid_zCellWidth)*1)/Grid_zCellWidth))
-  var BC_xBCPeriodic = (config.BC.xBCLeft == SCHEMA.FlowBC_Periodic)
+  var BC_xBCPeriodic = (config.BC.xBCLeft.type == SCHEMA.FlowBC_Periodic)
   var BC_xSign = array(double(0.1), double(0.1), double(0.1))
   var BC_xPosVelocity = array(double(0.1), double(0.1), double(0.1))
   var BC_xNegVelocity = array(double(0.1), double(0.1), double(0.1))
   var BC_xPosTemperature = 0.0
   var BC_xNegTemperature = 0.0
-  var BC_yBCPeriodic = (config.BC.yBCLeft == SCHEMA.FlowBC_Periodic)
+  var BC_yBCPeriodic = (config.BC.yBCLeft.type == SCHEMA.FlowBC_Periodic)
   var BC_ySign = array(double(0.1), double(0.1), double(0.1))
   var BC_yPosVelocity = array(double(0.1), double(0.1), double(0.1))
   var BC_yNegVelocity = array(double(0.1), double(0.1), double(0.1))
   var BC_yPosTemperature = 0.0
   var BC_yNegTemperature = 0.0
-  var BC_zBCPeriodic = (config.BC.zBCLeft == SCHEMA.FlowBC_Periodic)
+  var BC_zBCPeriodic = (config.BC.zBCLeft.type == SCHEMA.FlowBC_Periodic)
   var BC_zSign = array(double(0.1), double(0.1), double(0.1))
   var BC_zPosVelocity = array(double(0.1), double(0.1), double(0.1))
   var BC_zNegVelocity = array(double(0.1), double(0.1), double(0.1))
@@ -4294,14 +4291,13 @@ task work(config : Config)
   var Flow_gasConstant = config.Flow.gasConstant
   var Flow_gamma = config.Flow.gamma
   var Flow_prandtl = config.Flow.prandtl
-  var Flow_viscosityModel = config.Flow.viscosityModel
-  var Flow_constantVisc = config.Flow.constantVisc
-  var Flow_powerlawViscRef = config.Flow.powerlawViscRef
-  var Flow_powerlawTempRef = config.Flow.powerlawTempRef
-  var Flow_sutherlandViscRef = config.Flow.sutherlandViscRef
-  var Flow_sutherlandTempRef = config.Flow.sutherlandTempRef
-  var Flow_sutherlandSRef = config.Flow.sutherlandSRef
-  var Flow_initParams = config.Flow.initParams
+  var Flow_viscosityModel = config.Flow.viscosityModel.type
+  var Flow_constantVisc = config.Flow.viscosityModel.u.Constant.viscosity
+  var Flow_powerlawViscRef = config.Flow.viscosityModel.u.PowerLaw.viscRef
+  var Flow_powerlawTempRef = config.Flow.viscosityModel.u.PowerLaw.tempRef
+  var Flow_sutherlandViscRef = config.Flow.viscosityModel.u.Sutherland.viscRef
+  var Flow_sutherlandTempRef = config.Flow.viscosityModel.u.Sutherland.tempRef
+  var Flow_sutherlandSRef = config.Flow.viscosityModel.u.Sutherland.sRef
   var Flow_bodyForce = config.Flow.bodyForce
   var Flow_averagePD = 0.0
   var Flow_averageDissipation = 0.0
@@ -4311,35 +4307,31 @@ task work(config : Config)
   var Particles_restitutionCoeff = config.Particles.restitutionCoeff
   var Particles_convectiveCoeff = config.Particles.convectiveCoeff
   var Particles_heatCapacity = config.Particles.heatCapacity
-  var Particles_density = config.Particles.density
   var Particles_bodyForce = config.Particles.bodyForce
   var Particles_maxSkew = config.Particles.maxSkew
   var Particles_maxXferNum = config.Particles.maxXferNum
   var Particles_number = int64(0)
-  var Radiation_qa = config.Radiation.qa
-  var Radiation_qs = config.Radiation.qs
-  var Radiation_xNum = config.Radiation.xNum
-  var Radiation_yNum = config.Radiation.yNum
-  var Radiation_zNum = config.Radiation.zNum
+  var Radiation_xNum = config.Mapping.xTiles
+  var Radiation_yNum = config.Mapping.yTiles
+  var Radiation_zNum = config.Mapping.zTiles
+  if (config.Radiation.type == SCHEMA.RadiationModel_DOM) then
+    var Radiation_xNum = config.Radiation.u.DOM.xNum
+    var Radiation_yNum = config.Radiation.u.DOM.yNum
+    var Radiation_zNum = config.Radiation.u.DOM.zNum
+  end
   var Radiation_xBnum = 0
   var Radiation_yBnum = 0
   var Radiation_zBnum = 0
-  var Radiation_xPeriodic = false
-  var Radiation_yPeriodic = false
-  var Radiation_zPeriodic = false
-  var Radiation_xCellWidth = (Grid_xWidth/Radiation_xNum)
-  var Radiation_yCellWidth = (Grid_yWidth/Radiation_yNum)
-  var Radiation_zCellWidth = (Grid_zWidth/Radiation_zNum)
-  var Radiation_cellVolume = ((Radiation_xCellWidth*Radiation_yCellWidth)*Radiation_zCellWidth)
   var is = ispace(int3d, int3d({x = (Grid_xNum+(2*Grid_xBnum)), y = (Grid_yNum+(2*Grid_yBnum)), z = (Grid_zNum+(2*Grid_zBnum))}))
   var Fluid = region(is, Fluid_columns)
   var Fluid_copy = region(is, Fluid_columns)
   var is__11726 = ispace(int1d, int1d((ceil(((Particles_maxNum/((NX*NY)*NZ))*Particles_maxSkew))*((NX*NY)*NZ))))
   var particles = region(is__11726, particles_columns)
   var particles_copy = region(is__11726, particles_columns)
-  var is__11729 = ispace(int3d, int3d({x = (Radiation_xNum+(2*Radiation_xBnum)), y = (Radiation_yNum+(2*Radiation_yBnum)), z = (Radiation_zNum+(2*Radiation_zBnum))}))
+  var is__11729 = ispace(int3d, {x = Radiation_xNum + 2*Radiation_xBnum,
+                                 y = Radiation_yNum + 2*Radiation_yBnum,
+                                 z = Radiation_zNum + 2*Radiation_zBnum})
   var Radiation = region(is__11729, Radiation_columns)
-  var Radiation_copy = region(is__11729, Radiation_columns)
   var primColors = ispace(int3d, int3d({NX, NY, NZ}))
   regentlib.assert(((Grid_xNum%NX)==0), "Uneven partitioning of fluid grid on x")
   regentlib.assert(((Grid_yNum%NY)==0), "Uneven partitioning of fluid grid on y")
@@ -5142,139 +5134,137 @@ task work(config : Config)
     regentlib.c.legion_domain_point_coloring_color_domain(coloring__12110, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
   end
   var Radiation_primPart = partition(disjoint, Radiation, coloring__12110, primColors)
-  var Radiation_copy_primPart = partition(disjoint, Radiation_copy, coloring__12110, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(coloring__12110)
   if ((not ((Grid_xNum%Radiation_xNum)==0)) or ((not ((Grid_yNum%Radiation_yNum)==0)) or (not ((Grid_zNum%Radiation_zNum)==0)))) then
     regentlib.assert(false, "Inexact coarsening factor")
   end
-  if ((config.BC.xBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.xBCRight == SCHEMA.FlowBC_Periodic)) then
+  if ((config.BC.xBCLeft.type == SCHEMA.FlowBC_Periodic) and (config.BC.xBCRight.type == SCHEMA.FlowBC_Periodic)) then
     BC_xSign = array(1.0, 1.0, 1.0)
     BC_xPosVelocity = array(0.0, 0.0, 0.0)
     BC_xNegVelocity = array(0.0, 0.0, 0.0)
     BC_xPosTemperature = -1.0
     BC_xNegTemperature = -1.0
     BC_xBCParticlesPeriodic = true
-  elseif ((config.BC.xBCLeft == SCHEMA.FlowBC_Symmetry) and (config.BC.xBCRight == SCHEMA.FlowBC_Symmetry)) then
+  elseif ((config.BC.xBCLeft.type == SCHEMA.FlowBC_Symmetry) and (config.BC.xBCRight.type == SCHEMA.FlowBC_Symmetry)) then
     BC_xSign = array(-1.0, 1.0, 1.0)
     BC_xPosVelocity = array(0.0, 0.0, 0.0)
     BC_xNegVelocity = array(0.0, 0.0, 0.0)
     BC_xPosTemperature = -1.0
     BC_xNegTemperature = -1.0
     BC_xBCParticlesPeriodic = false
-  elseif ((config.BC.xBCLeft == SCHEMA.FlowBC_AdiabaticWall) and (config.BC.xBCRight == SCHEMA.FlowBC_AdiabaticWall)) then
+  elseif ((config.BC.xBCLeft.type == SCHEMA.FlowBC_AdiabaticWall) and (config.BC.xBCRight.type == SCHEMA.FlowBC_AdiabaticWall)) then
     BC_xSign = array(-1.0, -1.0, -1.0)
-    BC_xPosVelocity = array((2*config.BC.xBCRightVel[0]), (2*config.BC.xBCRightVel[1]), (2*config.BC.xBCRightVel[2]))
-    BC_xNegVelocity = array((2*config.BC.xBCLeftVel[0]), (2*config.BC.xBCLeftVel[1]), (2*config.BC.xBCLeftVel[2]))
+    BC_xPosVelocity = vs_mul_double_3(config.BC.xBCRight.u.AdiabaticWall.velocity, 2.0)
+    BC_xNegVelocity = vs_mul_double_3(config.BC.xBCLeft.u.AdiabaticWall.velocity, 2.0)
     BC_xPosTemperature = -1.0
     BC_xNegTemperature = -1.0
     BC_xBCParticlesPeriodic = false
-  elseif ((config.BC.xBCLeft == SCHEMA.FlowBC_IsothermalWall) and (config.BC.xBCRight == SCHEMA.FlowBC_IsothermalWall)) then
+  elseif ((config.BC.xBCLeft.type == SCHEMA.FlowBC_IsothermalWall) and (config.BC.xBCRight.type == SCHEMA.FlowBC_IsothermalWall)) then
     BC_xSign = array(-1.0, -1.0, -1.0)
-    BC_xPosVelocity = array((2*config.BC.xBCRightVel[0]), (2*config.BC.xBCRightVel[1]), (2*config.BC.xBCRightVel[2]))
-    BC_xNegVelocity = array((2*config.BC.xBCLeftVel[0]), (2*config.BC.xBCLeftVel[1]), (2*config.BC.xBCLeftVel[2]))
-    BC_xPosTemperature = config.BC.xBCRightTemp
-    BC_xNegTemperature = config.BC.xBCLeftTemp
+    BC_xPosVelocity = vs_mul_double_3(config.BC.xBCRight.u.IsothermalWall.velocity, 2.0)
+    BC_xNegVelocity = vs_mul_double_3(config.BC.xBCLeft.u.IsothermalWall.velocity, 2.0)
+    BC_xPosTemperature = config.BC.xBCRight.u.IsothermalWall.temperature
+    BC_xNegTemperature = config.BC.xBCLeft.u.IsothermalWall.temperature
     BC_xBCParticlesPeriodic = false
   else
     regentlib.assert(false, "Boundary conditions in x not implemented")
   end
-  if ((config.BC.yBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.yBCRight == SCHEMA.FlowBC_Periodic)) then
+  if ((config.BC.yBCLeft.type == SCHEMA.FlowBC_Periodic) and (config.BC.yBCRight.type == SCHEMA.FlowBC_Periodic)) then
     BC_ySign = array(1.0, 1.0, 1.0)
     BC_yPosVelocity = array(0.0, 0.0, 0.0)
     BC_yNegVelocity = array(0.0, 0.0, 0.0)
     BC_yPosTemperature = -1.0
     BC_yNegTemperature = -1.0
     BC_yBCParticlesPeriodic = true
-  elseif ((config.BC.yBCLeft == SCHEMA.FlowBC_Symmetry) and (config.BC.yBCRight == SCHEMA.FlowBC_Symmetry)) then
+  elseif ((config.BC.yBCLeft.type == SCHEMA.FlowBC_Symmetry) and (config.BC.yBCRight.type == SCHEMA.FlowBC_Symmetry)) then
     BC_ySign = array(1.0, -1.0, 1.0)
     BC_yPosVelocity = array(0.0, 0.0, 0.0)
     BC_yNegVelocity = array(0.0, 0.0, 0.0)
     BC_yPosTemperature = -1.0
     BC_yNegTemperature = -1.0
     BC_yBCParticlesPeriodic = false
-  elseif ((config.BC.yBCLeft == SCHEMA.FlowBC_AdiabaticWall) and (config.BC.yBCRight == SCHEMA.FlowBC_AdiabaticWall)) then
+  elseif ((config.BC.yBCLeft.type == SCHEMA.FlowBC_AdiabaticWall) and (config.BC.yBCRight.type == SCHEMA.FlowBC_AdiabaticWall)) then
     BC_ySign = array(-1.0, -1.0, -1.0)
-    BC_yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
-    BC_yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
+    BC_yPosVelocity = vs_mul_double_3(config.BC.yBCRight.u.AdiabaticWall.velocity, 2.0)
+    BC_yNegVelocity = vs_mul_double_3(config.BC.yBCLeft.u.AdiabaticWall.velocity, 2.0)
     BC_yPosTemperature = -1.0
     BC_yNegTemperature = -1.0
     BC_yBCParticlesPeriodic = false
-  elseif ((config.BC.yBCLeft == SCHEMA.FlowBC_IsothermalWall) and (config.BC.yBCRight == SCHEMA.FlowBC_IsothermalWall)) then
+  elseif ((config.BC.yBCLeft.type == SCHEMA.FlowBC_IsothermalWall) and (config.BC.yBCRight.type == SCHEMA.FlowBC_IsothermalWall)) then
     BC_ySign = array(-1.0, -1.0, -1.0)
-    BC_yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
-    BC_yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
-    BC_yPosTemperature = config.BC.yBCRightTemp
-    BC_yNegTemperature = config.BC.yBCLeftTemp
+    BC_yPosVelocity = vs_mul_double_3(config.BC.yBCRight.u.IsothermalWall.velocity, 2.0)
+    BC_yNegVelocity = vs_mul_double_3(config.BC.yBCLeft.u.IsothermalWall.velocity, 2.0)
+    BC_yPosTemperature = config.BC.yBCRight.u.IsothermalWall.temperature
+    BC_yNegTemperature = config.BC.yBCLeft.u.IsothermalWall.temperature
     BC_yBCParticlesPeriodic = false
   else
     regentlib.assert(false, "Boundary conditions in y not implemented")
   end
-  if ((config.BC.zBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.zBCRight == SCHEMA.FlowBC_Periodic)) then
+  if ((config.BC.zBCLeft.type == SCHEMA.FlowBC_Periodic) and (config.BC.zBCRight.type == SCHEMA.FlowBC_Periodic)) then
     BC_zSign = array(1.0, 1.0, 1.0)
     BC_zPosVelocity = array(0.0, 0.0, 0.0)
     BC_zNegVelocity = array(0.0, 0.0, 0.0)
     BC_zPosTemperature = -1.0
     BC_zNegTemperature = -1.0
     BC_zBCParticlesPeriodic = true
-  elseif ((config.BC.zBCLeft == SCHEMA.FlowBC_Symmetry) and (config.BC.zBCRight == SCHEMA.FlowBC_Symmetry)) then
+  elseif ((config.BC.zBCLeft.type == SCHEMA.FlowBC_Symmetry) and (config.BC.zBCRight.type == SCHEMA.FlowBC_Symmetry)) then
     BC_zSign = array(1.0, 1.0, -1.0)
     BC_zPosVelocity = array(0.0, 0.0, 0.0)
     BC_zNegVelocity = array(0.0, 0.0, 0.0)
     BC_zPosTemperature = -1.0
     BC_zNegTemperature = -1.0
     BC_zBCParticlesPeriodic = false
-  elseif ((config.BC.zBCLeft == SCHEMA.FlowBC_AdiabaticWall) and (config.BC.zBCRight == SCHEMA.FlowBC_AdiabaticWall)) then
+  elseif ((config.BC.zBCLeft.type == SCHEMA.FlowBC_AdiabaticWall) and (config.BC.zBCRight.type == SCHEMA.FlowBC_AdiabaticWall)) then
     BC_zSign = array(-1.0, -1.0, -1.0)
-    BC_zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
-    BC_zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
+    BC_zPosVelocity = vs_mul_double_3(config.BC.zBCRight.u.AdiabaticWall.velocity, 2.0)
+    BC_zNegVelocity = vs_mul_double_3(config.BC.zBCLeft.u.AdiabaticWall.velocity, 2.0)
     BC_zPosTemperature = -1.0
     BC_zNegTemperature = -1.0
     BC_zBCParticlesPeriodic = false
-  elseif ((config.BC.zBCLeft == SCHEMA.FlowBC_IsothermalWall) and (config.BC.zBCRight == SCHEMA.FlowBC_IsothermalWall)) then
+  elseif ((config.BC.zBCLeft.type == SCHEMA.FlowBC_IsothermalWall) and (config.BC.zBCRight.type == SCHEMA.FlowBC_IsothermalWall)) then
     BC_zSign = array(-1.0, -1.0, -1.0)
-    BC_zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
-    BC_zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
-    BC_zPosTemperature = config.BC.zBCRightTemp
-    BC_zNegTemperature = config.BC.zBCLeftTemp
+    BC_zPosVelocity = vs_mul_double_3(config.BC.zBCRight.u.IsothermalWall.velocity, 2.0)
+    BC_zNegVelocity = vs_mul_double_3(config.BC.zBCLeft.u.IsothermalWall.velocity, 2.0)
+    BC_zPosTemperature = config.BC.zBCRight.u.IsothermalWall.temperature
+    BC_zNegTemperature = config.BC.zBCLeft.u.IsothermalWall.temperature
     BC_zBCParticlesPeriodic = false
   else
     regentlib.assert(false, "Boundary conditions in z not implemented")
   end
-  if (not (((config.BC.xBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.xBCRight == SCHEMA.FlowBC_Periodic)) or ((not (config.BC.xBCLeft == SCHEMA.FlowBC_Periodic)) and (not (config.BC.xBCRight == SCHEMA.FlowBC_Periodic))))) then
+  if (not (((config.BC.xBCLeft.type == SCHEMA.FlowBC_Periodic) and (config.BC.xBCRight.type == SCHEMA.FlowBC_Periodic)) or ((not (config.BC.xBCLeft.type == SCHEMA.FlowBC_Periodic)) and (not (config.BC.xBCRight.type == SCHEMA.FlowBC_Periodic))))) then
     regentlib.assert(false, "Boundary conditions in x should match for periodicity")
   end
-  if (not (((config.BC.yBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.yBCRight == SCHEMA.FlowBC_Periodic)) or ((not (config.BC.yBCLeft == SCHEMA.FlowBC_Periodic)) and (not (config.BC.yBCRight == SCHEMA.FlowBC_Periodic))))) then
+  if (not (((config.BC.yBCLeft.type == SCHEMA.FlowBC_Periodic) and (config.BC.yBCRight.type == SCHEMA.FlowBC_Periodic)) or ((not (config.BC.yBCLeft.type == SCHEMA.FlowBC_Periodic)) and (not (config.BC.yBCRight.type == SCHEMA.FlowBC_Periodic))))) then
     regentlib.assert(false, "Boundary conditions in y should match for periodicity")
   end
-  if (not (((config.BC.zBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.zBCRight == SCHEMA.FlowBC_Periodic)) or ((not (config.BC.zBCLeft == SCHEMA.FlowBC_Periodic)) and (not (config.BC.zBCRight == SCHEMA.FlowBC_Periodic))))) then
+  if (not (((config.BC.zBCLeft.type == SCHEMA.FlowBC_Periodic) and (config.BC.zBCRight.type == SCHEMA.FlowBC_Periodic)) or ((not (config.BC.zBCLeft.type == SCHEMA.FlowBC_Periodic)) and (not (config.BC.zBCRight.type == SCHEMA.FlowBC_Periodic))))) then
     regentlib.assert(false, "Boundary conditions in z should match for periodicity")
   end
-  if (config.Flow.initCase == SCHEMA.FlowInitCase_Restart) then
-    Integrator_timeStep = config.Integrator.restartIter
-    Integrator_simTime = config.Integrator.restartTime
+  if (config.Flow.init.type == SCHEMA.FlowInitCase_Restart) then
+    Integrator_timeStep = config.Flow.init.u.Restart.iter
+    Integrator_simTime = config.Flow.init.u.Restart.time
   end
   [DOM.DeclSymbols(config)];
 
   -- Code that gets farmed to the tiles
   __parallelize_with Fluid_primPart, particles_primPart, Radiation_primPart, primColors, (image(Fluid, particles_primPart, particles.cell)<=Fluid_primPart) do
     particles_initValidField(particles)
-    SetCoarseningField(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum, Radiation_xBnum, Radiation_xNum, Radiation_yBnum, Radiation_yNum, Radiation_zBnum, Radiation_zNum)
     Flow_InitializeCell(Fluid)
     Flow_InitializeCenterCoordinates(Fluid, Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth, Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth, Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
-    if (config.Flow.initCase == SCHEMA.FlowInitCase_Uniform) then
-      Flow_InitializeUniform(Fluid, Flow_initParams)
+    if (config.Flow.init.type == SCHEMA.FlowInitCase_Uniform) then
+      Flow_InitializeUniform(Fluid, config)
     end
-    if (config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen2DVortex) then
-      Flow_InitializeTaylorGreen2D(Fluid, Flow_initParams, Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth, Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth, Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
+    if (config.Flow.init.type == SCHEMA.FlowInitCase_TaylorGreen2DVortex) then
+      Flow_InitializeTaylorGreen2D(Fluid, config, Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth, Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth, Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
     end
-    if (config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen3DVortex) then
-      Flow_InitializeTaylorGreen3D(Fluid, Flow_initParams, Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth, Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth, Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
+    if (config.Flow.init.type == SCHEMA.FlowInitCase_TaylorGreen3DVortex) then
+      Flow_InitializeTaylorGreen3D(Fluid, config, Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth, Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth, Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
     end
-    if (config.Flow.initCase == SCHEMA.FlowInitCase_Perturbed) then
-      Flow_InitializePerturbed(Fluid, Flow_initParams)
+    if (config.Flow.init.type == SCHEMA.FlowInitCase_Perturbed) then
+      Flow_InitializePerturbed(Fluid, config)
     end
-    if (config.Flow.initCase == SCHEMA.FlowInitCase_Restart) then
-      Fluid_load(primColors, config.Flow.restartDir, Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
+    if (config.Flow.init.type == SCHEMA.FlowInitCase_Restart) then
+      Fluid_load(primColors, config.Flow.init.u.Restart.dir, Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
     end
     Flow_UpdateConservedFromPrimitive(Fluid, Flow_gamma, Flow_gasConstant, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
     Flow_UpdateAuxiliaryVelocity(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
@@ -5288,19 +5278,20 @@ task work(config : Config)
     Flow_UpdateGhostThermodynamicsStep2(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
     Flow_UpdateGhostFieldsStep1(Fluid, BC_xNegTemperature, BC_xNegVelocity, BC_xPosTemperature, BC_xPosVelocity, BC_xSign, BC_yNegTemperature, BC_yNegVelocity, BC_yPosTemperature, BC_yPosVelocity, BC_ySign, BC_zNegTemperature, BC_zNegVelocity, BC_zPosTemperature, BC_zPosVelocity, BC_zSign, Flow_gamma, Flow_gasConstant, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
     Flow_UpdateGhostFieldsStep2(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-    if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Random) then
+    if (config.Particles.init.type == SCHEMA.ParticlesInitCase_Random) then
       regentlib.assert(false, "Random particle initialization is disabled")
     end
-    if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart) then
-      particles_load(primColors, config.Particles.restartDir, particles, particles_copy, particles_primPart, particles_copy_primPart)
-      Particles_InitializeDensity(particles, Particles_density)
+    if (config.Particles.init.type == SCHEMA.ParticlesInitCase_Restart) then
+      particles_load(primColors, config.Particles.init.u.Restart.dir, particles, particles_copy, particles_primPart, particles_copy_primPart)
+      Particles_InitializeDensity(particles, config.Particles.init.u.Restart.density)
       Particles_number += Particles_CalculateNumber(particles)
     end
-    if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform) then
+    if (config.Particles.init.type == SCHEMA.ParticlesInitCase_Uniform) then
       InitParticlesUniform(particles, Fluid, config, Grid_xBnum, Grid_yBnum, Grid_zBnum)
-      Particles_number = int64(((config.Particles.initNum/((config.Mapping.xTiles*config.Mapping.yTiles)*config.Mapping.zTiles))*((config.Mapping.xTiles*config.Mapping.yTiles)*config.Mapping.zTiles)))
+      Particles_number = int64(((config.Particles.init.u.Uniform.num/((config.Mapping.xTiles*config.Mapping.yTiles)*config.Mapping.zTiles))*((config.Mapping.xTiles*config.Mapping.yTiles)*config.Mapping.zTiles)))
     end
-    if (config.Radiation.type == SCHEMA.RadiationType_DOM) then
+    if (config.Radiation.type == SCHEMA.RadiationModel_DOM) then
+      SetCoarseningField(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum, Radiation_xBnum, Radiation_xNum, Radiation_yBnum, Radiation_yNum, Radiation_zBnum, Radiation_zNum)
       Radiation_InitializeCell(Radiation);
       [DOM.InitRegions()];
     end
@@ -5418,18 +5409,22 @@ task work(config : Config)
         end
         Particles_AddFlowCoupling(particles, Fluid, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin, Particles_convectiveCoeff, Particles_heatCapacity)
         Particles_AddBodyForces(particles, Particles_bodyForce)
-        if (config.Radiation.type == SCHEMA.RadiationType_Algebraic) then
-          AddRadiation(particles, config)
+        if (config.Radiation.type == SCHEMA.RadiationModel_Algebraic) then
+          Algebraic_AddRadiation(particles, config)
         end
-        if (config.Radiation.type == SCHEMA.RadiationType_DOM) then
+        if (config.Radiation.type == SCHEMA.RadiationModel_DOM) then
+          var Radiation_xCellWidth = Grid_xWidth / Radiation_xNum
+          var Radiation_yCellWidth = Grid_yWidth / Radiation_yNum
+          var Radiation_zCellWidth = Grid_zWidth / Radiation_zNum
+          var Radiation_cellVolume = Radiation_xCellWidth * Radiation_yCellWidth * Radiation_zCellWidth
           Radiation_ClearAccumulators(Radiation)
           for c in primColors do
             Radiation_AccumulateParticleValues(particles_primPart[c], Fluid_primPart[c], Radiation_primPart[c])
           end
-          Radiation_UpdateFieldValues(Radiation, Radiation_cellVolume, Radiation_qa, Radiation_qs);
+          Radiation_UpdateFieldValues(Radiation, Radiation_cellVolume, config.Radiation.u.DOM.qa, config.Radiation.u.DOM.qs);
           [DOM.ComputeRadiationField(config, primColors, Radiation_primPart)];
           for c in primColors do
-            Particles_AbsorbRadiation(particles_primPart[c], Fluid_primPart[c], Radiation_primPart[c], Particles_heatCapacity, Radiation_qa)
+            Particles_AbsorbRadiation(particles_primPart[c], Fluid_primPart[c], Radiation_primPart[c], Particles_heatCapacity, config.Radiation.u.DOM.qa)
           end
         end
         Flow_AddParticlesCoupling(particles, Fluid, Grid_cellVolume)

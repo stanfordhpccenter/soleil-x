@@ -121,8 +121,11 @@ local task main()
     C.exit(1)
   end
   var config = SCHEMA.parse_config(args.argv[1])
+  regentlib.assert(config.Radiation.type == SCHEMA.RadiationModel_DOM, '')
   -- Initialize symbols
-  var is = ispace(int3d, {config.Radiation.xNum, config.Radiation.yNum, config.Radiation.zNum})
+  var is = ispace(int3d, {config.Radiation.u.DOM.xNum,
+                          config.Radiation.u.DOM.yNum,
+                          config.Radiation.u.DOM.zNum})
   var points = region(is, Point)
   var colors = ispace(int3d, {config.Mapping.xTiles, config.Mapping.yTiles, config.Mapping.zTiles})
   var p_points = partition(equal, points, colors);

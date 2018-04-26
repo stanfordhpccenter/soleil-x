@@ -1,12 +1,97 @@
 local Exports = {}
 
--- Enumeration constants
-Exports.FlowBC = Enum('Periodic','Symmetry','AdiabaticWall','IsothermalWall')
-Exports.ParticleBC = Enum('Permeable','Solid')
-Exports.ViscosityModel = Enum('Constant','PowerLaw','Sutherland')
-Exports.FlowInitCase = Enum('Uniform','Restart','Perturbed','TaylorGreen2DVortex','TaylorGreen3DVortex')
-Exports.ParticlesInitCase = Enum('Random','Restart','Uniform')
-Exports.RadiationType = Enum('OFF','Algebraic','DOM')
+-- Unions & enumeration constants
+Exports.FlowBC = Union{
+  Periodic = {},
+  Symmetry = {},
+  AdiabaticWall = {
+    velocity = Array(3,double),
+  },
+  IsothermalWall = {
+    velocity = Array(3,double),
+    temperature = double,
+  },
+}
+Exports.ViscosityModel = Union{
+  Constant = {
+    viscosity = double,
+  },
+  PowerLaw = {
+    viscRef = double,
+    tempRef = double,
+  },
+  Sutherland = {
+    viscRef = double,
+    tempRef = double,
+    sRef = double,
+  },
+}
+Exports.FlowInitCase = Union{
+  Uniform = {
+    rho = double,
+    pressure = double,
+    velocity = Array(3,double),
+  },
+  Restart = {
+    dir = String(256),
+    iter = int,
+    time = double,
+  },
+  Perturbed = {
+    rho = double,
+    pressure = double,
+    velocity = Array(3,double),
+  },
+  TaylorGreen2DVortex = {
+    density = double,
+    pressure = double,
+    velocity = double,
+  },
+  TaylorGreen3DVortex = {
+    density = double,
+    pressure = double,
+    velocity = double,
+  },
+}
+Exports.ParticlesInitCase = Union{
+  Random = {},
+  Restart = {
+    dir = String(256),
+    density = double,
+  },
+  Uniform = {
+    num = int,
+    density = double,
+    temperature = double,
+    diameter = double,
+  },
+}
+Exports.RadiationModel = Union{
+  OFF = {},
+  Algebraic = {
+    intensity = double,
+  },
+  DOM = {
+    qa = double,
+    qs = double,
+    -- number of cells in the radiation grid, on the x,y,z dimensions
+    xNum = int,
+    yNum = int,
+    zNum = int,
+    emissEast = double,
+    emissWest = double,
+    emissSouth = double,
+    emissNorth = double,
+    emissUp = double,
+    emissDown = double,
+    tempEast = double,
+    tempWest = double,
+    tempSouth = double,
+    tempNorth = double,
+    tempUp = double,
+    tempDown = double,
+  },
+}
 
 -- Main config struct
 Exports.Config = {
@@ -37,28 +122,14 @@ Exports.Config = {
   },
   BC = {
     xBCLeft = Exports.FlowBC,
-    xBCLeftVel = Array(3,double),
-    xBCLeftTemp = double,
     xBCRight = Exports.FlowBC,
-    xBCRightVel = Array(3,double),
-    xBCRightTemp = double,
     yBCLeft = Exports.FlowBC,
-    yBCLeftVel = Array(3,double),
-    yBCLeftTemp = double,
     yBCRight = Exports.FlowBC,
-    yBCRightVel = Array(3,double),
-    yBCRightTemp = double,
     zBCLeft = Exports.FlowBC,
-    zBCLeftVel = Array(3,double),
-    zBCLeftTemp = double,
     zBCRight = Exports.FlowBC,
-    zBCRightVel = Array(3,double),
-    zBCRightTemp = double,
   },
   Integrator = {
     finalTime = double,
-    restartIter = int,
-    restartTime = double,
     maxIter = int,
     cfl = double,
     fixedDeltaTime = double,
@@ -68,56 +139,22 @@ Exports.Config = {
     gamma = double,
     prandtl = double,
     viscosityModel = Exports.ViscosityModel,
-    constantVisc = double,
-    powerlawViscRef = double,
-    powerlawTempRef = double,
-    sutherlandViscRef = double,
-    sutherlandTempRef = double,
-    sutherlandSRef = double,
-    initCase = Exports.FlowInitCase,
-    restartDir = String(256),
-    initParams = Array(5,double),
+    init = Exports.FlowInitCase,
     bodyForce = Array(3,double),
     turbForcing = bool,
   },
   Particles = {
-    initCase = Exports.ParticlesInitCase,
-    restartDir = String(256),
-    initNum = int,
+    init = Exports.ParticlesInitCase,
     maxNum = int,
     restitutionCoeff = double,
     convectiveCoeff = double,
     absorptivity = double,
     heatCapacity = double,
-    initTemperature = double,
-    density = double,
-    diameterMean = double,
     bodyForce = Array(3,double),
     maxSkew = double,
     maxXferNum = int,
   },
-  Radiation = {
-    type = Exports.RadiationType,
-    intensity = double,
-    qa = double,
-    qs = double,
-    -- number of cells in the radiation grid, on the x,y,z dimensions
-    xNum = int,
-    yNum = int,
-    zNum = int,
-    emissEast = double,
-    emissWest = double,
-    emissSouth = double,
-    emissNorth = double,
-    emissUp = double,
-    emissDown = double,
-    tempEast = double,
-    tempWest = double,
-    tempSouth = double,
-    tempNorth = double,
-    tempUp = double,
-    tempDown = double,
-  },
+  Radiation = Exports.RadiationModel,
   IO = {
     -- whether to write restart files (requires compiling with HDF support)
     wrtRestart = bool,

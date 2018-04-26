@@ -2137,9 +2137,9 @@ local tiles_by_diagonal = {
 function Exports.DeclSymbols(config) return rquote
 
   -- Number of points in each dimension
-  var [Nx] = config.Radiation.xNum
-  var [Ny] = config.Radiation.yNum
-  var [Nz] = config.Radiation.zNum
+  var [Nx] = config.Radiation.u.DOM.xNum
+  var [Ny] = config.Radiation.u.DOM.yNum
+  var [Nz] = config.Radiation.u.DOM.zNum
 
   -- Number of tiles in each dimension
   var [ntx] = config.Mapping.xTiles
@@ -2535,12 +2535,14 @@ end end
 
 function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
 
-  var dx = config.Grid.xWidth / config.Radiation.xNum
-  var dy = config.Grid.yWidth / config.Radiation.yNum
-  var dz = config.Grid.zWidth / config.Radiation.zNum
+  var dx = config.Grid.xWidth / config.Radiation.u.DOM.xNum
+  var dy = config.Grid.yWidth / config.Radiation.u.DOM.yNum
+  var dz = config.Grid.zWidth / config.Radiation.u.DOM.zNum
 
   var iter = 1
-  var omega = config.Radiation.qs/(config.Radiation.qa+config.Radiation.qs)
+  var omega =
+    config.Radiation.u.DOM.qs
+    / (config.Radiation.u.DOM.qa + config.Radiation.u.DOM.qs)
 
   -- Compute until convergence
   var res = 1.0
@@ -2564,8 +2566,8 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
                    [s_x_faces_by_tile[7]][{0,j,k}],
                    [s_x_faces_by_tile[8]][{0,j,k}],
                    angles,
-                   config.Radiation.emissWest,
-                   config.Radiation.tempWest)
+                   config.Radiation.u.DOM.emissWest,
+                   config.Radiation.u.DOM.tempWest)
 
         bound_x_hi([s_x_faces_by_tile[1]][{ntx,j,k}],
                    [s_x_faces_by_tile[2]][{ntx,j,k}],
@@ -2576,8 +2578,8 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
                    [s_x_faces_by_tile[7]][{ntx,j,k}],
                    [s_x_faces_by_tile[8]][{ntx,j,k}],
                    angles,
-                   config.Radiation.emissEast,
-                   config.Radiation.tempEast)
+                   config.Radiation.u.DOM.emissEast,
+                   config.Radiation.u.DOM.tempEast)
       end
     end
 
@@ -2593,8 +2595,8 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
                    [s_y_faces_by_tile[7]][{i,0,k}],
                    [s_y_faces_by_tile[8]][{i,0,k}],
                    angles,
-                   config.Radiation.emissSouth,
-                   config.Radiation.tempSouth)
+                   config.Radiation.u.DOM.emissSouth,
+                   config.Radiation.u.DOM.tempSouth)
 
         bound_y_hi([s_y_faces_by_tile[1]][{i,nty,k}],
                    [s_y_faces_by_tile[2]][{i,nty,k}],
@@ -2605,8 +2607,8 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
                    [s_y_faces_by_tile[7]][{i,nty,k}],
                    [s_y_faces_by_tile[8]][{i,nty,k}],
                    angles,
-                   config.Radiation.emissNorth,
-                   config.Radiation.tempNorth)
+                   config.Radiation.u.DOM.emissNorth,
+                   config.Radiation.u.DOM.tempNorth)
       end
     end
 
@@ -2622,8 +2624,8 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
                    [s_z_faces_by_tile[7]][{i,j,0}],
                    [s_z_faces_by_tile[8]][{i,j,0}],
                    angles,
-                   config.Radiation.emissDown,
-                   config.Radiation.tempDown)
+                   config.Radiation.u.DOM.emissDown,
+                   config.Radiation.u.DOM.tempDown)
 
         bound_z_hi([s_z_faces_by_tile[1]][{i,j,ntz}],
                    [s_z_faces_by_tile[2]][{i,j,ntz}],
@@ -2634,8 +2636,8 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
                    [s_z_faces_by_tile[7]][{i,j,ntz}],
                    [s_z_faces_by_tile[8]][{i,j,ntz}],
                    angles,
-                   config.Radiation.emissUp,
-                   config.Radiation.tempUp)
+                   config.Radiation.u.DOM.emissUp,
+                   config.Radiation.u.DOM.tempUp)
       end
     end
 
