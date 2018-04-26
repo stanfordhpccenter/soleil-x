@@ -1,6 +1,7 @@
 #!/bin/bash -eu
 
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:$LEGION_DIR/bindings/regent/"
+export DYLD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:$LEGION_DIR/bindings/regent/"
 if [ ! -z "${HDF_ROOT:-}" ]; then
     export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:$HDF_ROOT/lib"
 fi

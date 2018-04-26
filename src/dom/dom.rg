@@ -128,18 +128,18 @@ do
 end
 
 -- Nx = 8 (num x) but contains 9 since Nx + 1
--- ntx = 2 (tiles)
+-- ntx = 2 (tiles) 
 -- x_tiles contains ntx+1 in x direction for extra shared (3 tiles)
 -- s -- p -- p -- p -- s -- p -- p -- p -- s
 -- 0                   4                   8
 
--- Nx = 6
--- ntx = 2 (tiles)
+-- Nx = 6 
+-- ntx = 2 (tiles) 
 -- s -- p -- p -- s -- p -- p -- s
 -- 0              3              6
 
 -- shared = i % (Nx/ntx) == 0
--- private
+-- private 
 
 local task color_faces_x(faces : region(ispace(int3d), face),
                                         Nx : int, Ny : int, Nz : int,
@@ -283,6 +283,8 @@ do
   var epsw    : double = emissWest
   var Tw      : double = tempWest
 
+  var value : double = epsw*SB*pow(Tw,4.0)/pi
+
   for j = limits.lo.y, limits.hi.y + 1 do
     for k = limits.lo.z, limits.hi.z + 1 do
 
@@ -354,6 +356,8 @@ do
   var epsw    : double = emissEast
   var Tw      : double = tempEast
 
+  var value : double = epsw*SB*pow(Tw,4.0)/pi
+
   for j = limits.lo.y, limits.hi.y + 1 do
     for k = limits.lo.z, limits.hi.z + 1 do
 
@@ -424,6 +428,8 @@ do
   var reflect : double = 0.0
   var epsw    : double = emissNorth
   var Tw      : double = tempNorth
+
+  var value : double = epsw*SB*pow(Tw,4.0)/pi
 
   for i = limits.lo.x, limits.hi.x + 1 do
     for k = limits.lo.z, limits.hi.z + 1 do
@@ -497,6 +503,8 @@ do
   var epsw    : double = emissSouth
   var Tw      : double = tempSouth
 
+  var value : double = epsw*SB*pow(Tw,4.0)/pi
+
   for i = limits.lo.x, limits.hi.x + 1 do
     for k = limits.lo.z, limits.hi.z + 1 do
 
@@ -568,6 +576,8 @@ do
   var reflect : double = 0.0
   var epsw    : double = emissUp
   var Tw      : double = tempUp
+
+  var value : double = epsw*SB*pow(Tw,4.0)/pi
 
   for i = limits.lo.x, limits.hi.x + 1 do
     for j = limits.lo.y, limits.hi.y + 1 do
@@ -641,6 +651,8 @@ do
   var epsw    : double = emissDown
   var Tw      : double = tempDown
 
+  var value : double = epsw*SB*pow(Tw,4.0)/pi
+
   for i = limits.lo.x, limits.hi.x + 1 do
     for j = limits.lo.y, limits.hi.y + 1 do
 
@@ -700,10 +712,10 @@ local task sweep_1(points : region(ispace(int3d), pointsFSpace),
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
          shared_x_faces_upwind.I, shared_y_faces_upwind.I, shared_z_faces_upwind.I),
-  reads writes(points.I_1, x_faces.I, y_faces.I, z_faces.I,
+  reads writes(points.I_1, x_faces.I, y_faces.I, z_faces.I, 
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
-
+  
   var dAx = dy*dz;
   var dAy = dx*dz;
   var dAz = dx*dy;
@@ -818,7 +830,7 @@ do
             else
               z_faces[{i, j, indz+dindz}].I[m] = z_face_val
             end
-
+            
           end
         end
       end
@@ -842,7 +854,7 @@ local task sweep_2(points : region(ispace(int3d), pointsFSpace),
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
          shared_x_faces_upwind.I, shared_y_faces_upwind.I, shared_z_faces_upwind.I),
-  reads writes(points.I_2, x_faces.I, y_faces.I, z_faces.I,
+  reads writes(points.I_2, x_faces.I, y_faces.I, z_faces.I, 
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
   var dAx = dy*dz;
@@ -961,7 +973,7 @@ do
             else
               z_faces[{i, j, indz+dindz}].I[m] = z_face_val
             end
-
+            
           end
         end
       end
@@ -985,7 +997,7 @@ local task sweep_3(points : region(ispace(int3d), pointsFSpace),
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
          shared_x_faces_upwind.I, shared_y_faces_upwind.I, shared_z_faces_upwind.I),
-  reads writes(points.I_3, x_faces.I, y_faces.I, z_faces.I,
+  reads writes(points.I_3, x_faces.I, y_faces.I, z_faces.I, 
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
   var dAx = dy*dz;
@@ -1104,7 +1116,7 @@ do
             else
               z_faces[{i, j, indz+dindz}].I[m] = z_face_val
             end
-
+            
           end
         end
       end
@@ -1128,7 +1140,7 @@ local task sweep_4(points : region(ispace(int3d), pointsFSpace),
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
          shared_x_faces_upwind.I, shared_y_faces_upwind.I, shared_z_faces_upwind.I),
-  reads writes(points.I_4, x_faces.I, y_faces.I, z_faces.I,
+  reads writes(points.I_4, x_faces.I, y_faces.I, z_faces.I, 
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
   var dAx = dy*dz;
@@ -1178,8 +1190,6 @@ do
       (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
       (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
-      c.printf("sweep 4 angle = %lf\n", m)
-
       -- Use our direction and increments for the sweep.
 
       for k = startz,endz,dindz do
@@ -1200,7 +1210,6 @@ do
               upwind_x_value = x_faces[{indx,j,k}].I[m]
             end
 
-            c.printf("i=%d upwind_x_value = %lf\n", i, upwind_x_value)
             ---
 
             var upwind_y_value : double = 0.0
@@ -1227,7 +1236,6 @@ do
                                         + fabs(angles[m].xi) * dAx/gamma
                                         + fabs(angles[m].eta) * dAy/gamma
                                         + fabs(angles[m].mu) * dAz/gamma)
-            c.printf("i=%d points[{i,j,k}].I_4[m] = %lf\n", i, points[{i,j,k}].I_4[m])
 
             -- Compute intensities on downwind faces
 
@@ -1251,7 +1259,7 @@ do
             else
               z_faces[{i, j, indz+dindz}].I[m] = z_face_val
             end
-
+            
           end
         end
       end
@@ -1275,7 +1283,7 @@ local task sweep_5(points : region(ispace(int3d), pointsFSpace),
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
          shared_x_faces_upwind.I, shared_y_faces_upwind.I, shared_z_faces_upwind.I),
-  reads writes(points.I_5, x_faces.I, y_faces.I, z_faces.I,
+  reads writes(points.I_5, x_faces.I, y_faces.I, z_faces.I, 
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
   var dAx = dy*dz;
@@ -1394,7 +1402,7 @@ do
             else
               z_faces[{i, j, indz+dindz}].I[m] = z_face_val
             end
-
+            
           end
         end
       end
@@ -1418,7 +1426,7 @@ local task sweep_6(points : region(ispace(int3d), pointsFSpace),
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
          shared_x_faces_upwind.I, shared_y_faces_upwind.I, shared_z_faces_upwind.I),
-  reads writes(points.I_6, x_faces.I, y_faces.I, z_faces.I,
+  reads writes(points.I_6, x_faces.I, y_faces.I, z_faces.I, 
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
   var dAx = dy*dz;
@@ -1537,7 +1545,7 @@ do
             else
               z_faces[{i, j, indz+dindz}].I[m] = z_face_val
             end
-
+            
           end
         end
       end
@@ -1561,7 +1569,7 @@ local task sweep_7(points : region(ispace(int3d), pointsFSpace),
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
          shared_x_faces_upwind.I, shared_y_faces_upwind.I, shared_z_faces_upwind.I),
-  reads writes(points.I_7, x_faces.I, y_faces.I, z_faces.I,
+  reads writes(points.I_7, x_faces.I, y_faces.I, z_faces.I, 
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
   var dAx = dy*dz;
@@ -1680,7 +1688,7 @@ do
             else
               z_faces[{i, j, indz+dindz}].I[m] = z_face_val
             end
-
+            
           end
         end
       end
@@ -1704,7 +1712,7 @@ local task sweep_8(points : region(ispace(int3d), pointsFSpace),
 where
   reads (angles.{xi, eta, mu}, points.{S, sigma},
          shared_x_faces_upwind.I, shared_y_faces_upwind.I, shared_z_faces_upwind.I),
-  reads writes(points.I_8, x_faces.I, y_faces.I, z_faces.I,
+  reads writes(points.I_8, x_faces.I, y_faces.I, z_faces.I, 
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
   var dAx = dy*dz;
@@ -1823,7 +1831,7 @@ do
             else
               z_faces[{i, j, indz+dindz}].I[m] = z_face_val
             end
-
+            
           end
         end
       end
@@ -1835,100 +1843,62 @@ end
 local task residual(points : region(ispace(int3d), pointsFSpace),
                     Nx : int, Ny : int, Nz : int)
 where
-  reads (points)
-  -- .{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8,
-                 -- Iiter_1, Iiter_2, Iiter_3, Iiter_4,
-                 -- Iiter_5, Iiter_6, Iiter_7, Iiter_8}
+  reads (points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8,
+                 Iiter_1, Iiter_2, Iiter_3, Iiter_4,
+                 Iiter_5, Iiter_6, Iiter_7, Iiter_8})
 do
   var res : double = 0.0
-  var limits = points.bounds
 
-  c.printf("nx*ny*nz*NUM_ANGLES = %d\n", (Nx*Ny*Nz*(NUM_ANGLES)))
+  __demand(__openmp)
+  for p in points do
+    for m = 0, NUM_ANGLES do
 
-  -- __demand(__openmp)
-  for k = limits.lo.z,limits.hi.z+1,1 do
-    for j = limits.lo.y,limits.hi.y+1,1 do
-      for i = limits.lo.x,limits.hi.x+1,1 do
-        for m = 0, NUM_ANGLES do
-          var debug : boolean = false
-          var p = points[{i,j,k}]
+      if p.I_1[m] > 0 then
+        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
+          * pow((p.I_1[m]-p.Iiter_1[m]),2.0)
+          / pow((p.I_1[m]),2.0)
+      end
 
-          if p.I_1[m] ~= 0 then
-            debug = true
-            var add_res : double = (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
-              * pow((p.I_1[m]-p.Iiter_1[m]),2.0)
-              / pow((p.I_1[m]),2.0)
-            res += add_res
-            c.printf("adding to res = %.15e\n", add_res)
-          end
+      if p.I_2[m] > 0 then
+        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
+          * pow((p.I_2[m]-p.Iiter_2[m]),2.0)
+          / pow((p.I_2[m]),2.0)
+      end
 
-          if p.I_2[m] ~= 0 then
-            debug = true
-            var add_res : double = (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
-              * pow((p.I_2[m]-p.Iiter_2[m]),2.0)
-              / pow((p.I_2[m]),2.0)
-            res += add_res
-            c.printf("adding to res = %.15e\n", add_res)
-          end
+      if p.I_3[m] > 0 then
+        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
+          * pow((p.I_3[m]-p.Iiter_3[m]),2.0)
+          / pow((p.I_3[m]),2.0)
+      end
 
-          if p.I_3[m] ~= 0 then
-            debug = true
-            var add_res : double = (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
-              * pow((p.I_3[m]-p.Iiter_3[m]),2.0)
-              / pow((p.I_3[m]),2.0)
-            res += add_res
-            c.printf("adding to res = %.15e\n", add_res)
-          end
+      if p.I_4[m] > 0 then
+        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
+          * pow((p.I_4[m]-p.Iiter_4[m]),2.0)
+          / pow((p.I_4[m]),2.0)
+      end
 
-          if p.I_4[m] > 0 then
-            debug = true
-            var add_res : double = (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
-              * pow((p.I_4[m]-p.Iiter_4[m]),2.0)
-              / pow((p.I_4[m]),2.0)
-            res += add_res
-            c.printf("adding to res = %.15e\n", add_res)
-          end
+      if p.I_5[m] > 0 then
+        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
+          * pow((p.I_5[m]-p.Iiter_5[m]),2.0)
+          / pow((p.I_5[m]),2.0)
+      end
 
-          if p.I_5[m] ~= 0 then
-            debug = true
-            var add_res : double = (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
-              * pow((p.I_5[m]-p.Iiter_5[m]),2.0)
-              / pow((p.I_5[m]),2.0)
-            res += add_res
-            c.printf("adding to res = %.15e\n", add_res)
-          end
+      if p.I_6[m] > 0 then
+        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
+          * pow((p.I_6[m]-p.Iiter_6[m]),2.0)
+          / pow((p.I_6[m]),2.0)
+      end
 
-          if p.I_6[m] ~= 0 then
-            debug = true
-            var add_res : double = (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
-              * pow((p.I_6[m]-p.Iiter_6[m]),2.0)
-              / pow((p.I_6[m]),2.0)
-            res += add_res
-            c.printf("adding to res = %.15e\n", add_res)
-          end
+      if p.I_7[m] > 0 then
+        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
+          * pow((p.I_7[m]-p.Iiter_7[m]),2.0)
+          / pow((p.I_7[m]),2.0)
+      end
 
-          if p.I_7[m] ~= 0 then
-            debug = true
-            var add_res : double = (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
-              * pow((p.I_7[m]-p.Iiter_7[m]),2.0)
-              / pow((p.I_7[m]),2.0)
-            res += add_res
-            c.printf("adding to res = %.15e\n", add_res)
-          end
-
-          if p.I_8[m] ~= 0 then
-            debug = true
-            var add_res : double = (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
-              * pow((p.I_8[m]-p.Iiter_8[m]),2.0)
-              / pow((p.I_8[m]),2.0)
-            res += add_res
-            c.printf("adding to res = %.15e\n", add_res)
-          end
-
-          if not debug then
-            c.printf("bad! angle=%d x=%d y=%d z=%d\n", m, i, j, k)
-          end
-        end
+      if p.I_8[m] > 0 then
+        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
+          * pow((p.I_8[m]-p.Iiter_8[m]),2.0)
+          / pow((p.I_8[m]),2.0)
       end
 
     end
@@ -2036,67 +2006,77 @@ local x_tiles_shared = regentlib.newsymbol('x_tiles_shared')
 local y_tiles_shared = regentlib.newsymbol('y_tiles_shared')
 local z_tiles_shared = regentlib.newsymbol('z_tiles_shared')
 
-local s_x_faces = {
-  regentlib.newsymbol('s_x_faces_1'),
-  regentlib.newsymbol('s_x_faces_2'),
-  regentlib.newsymbol('s_x_faces_3'),
-  regentlib.newsymbol('s_x_faces_4'),
-  regentlib.newsymbol('s_x_faces_5'),
-  regentlib.newsymbol('s_x_faces_6'),
-  regentlib.newsymbol('s_x_faces_7'),
-  regentlib.newsymbol('s_x_faces_8'),
-}
-local s_y_faces = {
-  regentlib.newsymbol('s_y_faces_1'),
-  regentlib.newsymbol('s_y_faces_2'),
-  regentlib.newsymbol('s_y_faces_3'),
-  regentlib.newsymbol('s_y_faces_4'),
-  regentlib.newsymbol('s_y_faces_5'),
-  regentlib.newsymbol('s_y_faces_6'),
-  regentlib.newsymbol('s_y_faces_7'),
-  regentlib.newsymbol('s_y_faces_8'),
-}
-local s_z_faces = {
-  regentlib.newsymbol('s_z_faces_1'),
-  regentlib.newsymbol('s_z_faces_2'),
-  regentlib.newsymbol('s_z_faces_3'),
-  regentlib.newsymbol('s_z_faces_4'),
-  regentlib.newsymbol('s_z_faces_5'),
-  regentlib.newsymbol('s_z_faces_6'),
-  regentlib.newsymbol('s_z_faces_7'),
-  regentlib.newsymbol('s_z_faces_8'),
-}
+local s_x_faces = {}
+local s_y_faces = {}
+local s_z_faces = {}
 
-local p_x_faces = {
-  regentlib.newsymbol('p_x_faces_1'),
-  regentlib.newsymbol('p_x_faces_2'),
-  regentlib.newsymbol('p_x_faces_3'),
-  regentlib.newsymbol('p_x_faces_4'),
-  regentlib.newsymbol('p_x_faces_5'),
-  regentlib.newsymbol('p_x_faces_6'),
-  regentlib.newsymbol('p_x_faces_7'),
-  regentlib.newsymbol('p_x_faces_8'),
-}
-local p_y_faces = {
-  regentlib.newsymbol('p_y_faces_1'),
-  regentlib.newsymbol('p_y_faces_2'),
-  regentlib.newsymbol('p_y_faces_3'),
-  regentlib.newsymbol('p_y_faces_4'),
-  regentlib.newsymbol('p_y_faces_5'),
-  regentlib.newsymbol('p_y_faces_6'),
-  regentlib.newsymbol('p_y_faces_7'),
-  regentlib.newsymbol('p_y_faces_8'),
-}
-local p_z_faces = {
-  regentlib.newsymbol('p_z_faces_1'),
-  regentlib.newsymbol('p_z_faces_2'),
-  regentlib.newsymbol('p_z_faces_3'),
-  regentlib.newsymbol('p_z_faces_4'),
-  regentlib.newsymbol('p_z_faces_5'),
-  regentlib.newsymbol('p_z_faces_6'),
-  regentlib.newsymbol('p_z_faces_7'),
-  regentlib.newsymbol('p_z_faces_8'),
-}
+local p_x_faces = {}
+local p_y_faces = {}
+local p_z_faces = {}
+
+p_x_faces[1] = regentlib.newsymbol('p_x_faces_1')
+p_y_faces[1] = regentlib.newsymbol('p_y_faces_1')
+p_z_faces[1] = regentlib.newsymbol('p_z_faces_1')
+
+s_x_faces[1] = regentlib.newsymbol('s_x_faces_1')
+s_y_faces[1] = regentlib.newsymbol('s_y_faces_1')
+s_z_faces[1] = regentlib.newsymbol('s_z_faces_1')
+
+p_x_faces[2] = regentlib.newsymbol('p_x_faces_2')
+p_y_faces[2] = regentlib.newsymbol('p_y_faces_2')
+p_z_faces[2] = regentlib.newsymbol('p_z_faces_2')
+
+s_x_faces[2] = regentlib.newsymbol('s_x_faces_2')
+s_y_faces[2] = regentlib.newsymbol('s_y_faces_2')
+s_z_faces[2] = regentlib.newsymbol('s_z_faces_2')
+
+p_x_faces[3] = regentlib.newsymbol('p_x_faces_3')
+p_y_faces[3] = regentlib.newsymbol('p_y_faces_3')
+p_z_faces[3] = regentlib.newsymbol('p_z_faces_3')
+
+s_x_faces[3] = regentlib.newsymbol('s_x_faces_3')
+s_y_faces[3] = regentlib.newsymbol('s_y_faces_3')
+s_z_faces[3] = regentlib.newsymbol('s_z_faces_3')
+
+p_x_faces[4] = regentlib.newsymbol('p_x_faces_4')
+p_y_faces[4] = regentlib.newsymbol('p_y_faces_4')
+p_z_faces[4] = regentlib.newsymbol('p_z_faces_4')
+
+s_x_faces[4] = regentlib.newsymbol('s_x_faces_4')
+s_y_faces[4] = regentlib.newsymbol('s_y_faces_4')
+s_z_faces[4] = regentlib.newsymbol('s_z_faces_4')
+
+p_x_faces[5] = regentlib.newsymbol('p_x_faces_5')
+p_y_faces[5] = regentlib.newsymbol('p_y_faces_5')
+p_z_faces[5] = regentlib.newsymbol('p_z_faces_5')
+
+s_x_faces[5] = regentlib.newsymbol('s_x_faces_5')
+s_y_faces[5] = regentlib.newsymbol('s_y_faces_5')
+s_z_faces[5] = regentlib.newsymbol('s_z_faces_5')
+
+p_x_faces[6] = regentlib.newsymbol('p_x_faces_6')
+p_y_faces[6] = regentlib.newsymbol('p_y_faces_6')
+p_z_faces[6] = regentlib.newsymbol('p_z_faces_6')
+
+s_x_faces[6] = regentlib.newsymbol('s_x_faces_6')
+s_y_faces[6] = regentlib.newsymbol('s_y_faces_6')
+s_z_faces[6] = regentlib.newsymbol('s_z_faces_6')
+
+p_x_faces[7] = regentlib.newsymbol('p_x_faces_7')
+p_y_faces[7] = regentlib.newsymbol('p_y_faces_7')
+p_z_faces[7] = regentlib.newsymbol('p_z_faces_7')
+
+s_x_faces[7] = regentlib.newsymbol('s_x_faces_7')
+s_y_faces[7] = regentlib.newsymbol('s_y_faces_7')
+s_z_faces[7] = regentlib.newsymbol('s_z_faces_7')
+
+p_x_faces[8] = regentlib.newsymbol('p_x_faces_8')
+p_y_faces[8] = regentlib.newsymbol('p_y_faces_8')
+p_z_faces[8] = regentlib.newsymbol('p_z_faces_8')
+
+s_x_faces[8] = regentlib.newsymbol('s_x_faces_8')
+s_y_faces[8] = regentlib.newsymbol('s_y_faces_8')
+s_z_faces[8] = regentlib.newsymbol('s_z_faces_8')
 
 function Exports.DeclSymbols(config) return rquote
 
@@ -2153,9 +2133,12 @@ function Exports.DeclSymbols(config) return rquote
   var [y_tiles_shared] = ispace(int3d, {x = ntx,   y = nty+1, z = ntz  })
   var [z_tiles_shared] = ispace(int3d, {x = ntx,   y = nty,   z = ntz+1})
 
-  -- x
+  c.printf("ntx = %d, nty = %d, ntz = %d \n", ntx, nty, ntz)
+  c.printf("Nx = %d, Ny = %d, Nz = %d \n", Nx, Ny, Nz)
 
-  color_faces_x([x_faces[1]], Nx, Ny, Nz, ntx, nty, ntz)
+  -- x
+  
+  color_faces_x([x_faces[1]], Nx, Ny, Nz, ntx, nty, ntz)         
   var [p_x_faces[1]] = partition([x_faces[1]].private_color, [tiles_private])
   var [s_x_faces[1]] = partition([x_faces[1]].shared_color, [x_tiles_shared])
 
@@ -2301,11 +2284,8 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
   var t : int64  = 1
   var omega = config.Radiation.qs/(config.Radiation.qa+config.Radiation.qs)
 
-  for m = 0, NUM_ANGLES do
-    c.printf("angle %d x=%lf y=%lf z=%lf\n", m, angles[m].xi, angles[m].eta, angles[m].mu)
-  end
   -- Compute until convergence
-  var res : double = 1.0
+  var res = 1.0
   while (res > tol) do
 
     -- Update the source term (in this problem, isotropic)
@@ -2376,24 +2356,24 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
       for j = 0, nty do
         up_bound  ([s_z_faces[1]][{i,j,0}],
                    [s_z_faces[2]][{i,j,0}],
-                   [s_z_faces[3]][{i,j,0}],
-                   [s_z_faces[4]][{i,j,0}],
-                   [s_z_faces[5]][{i,j,0}],
-                   [s_z_faces[6]][{i,j,0}],
-                   [s_z_faces[7]][{i,j,0}],
-                   [s_z_faces[8]][{i,j,0}],
+                   [s_z_faces[3]][{i,j,0}], 
+                   [s_z_faces[4]][{i,j,0}], 
+                   [s_z_faces[5]][{i,j,0}], 
+                   [s_z_faces[6]][{i,j,0}], 
+                   [s_z_faces[7]][{i,j,0}], 
+                   [s_z_faces[8]][{i,j,0}], 
                    angles,
                    config.Radiation.emissUp,
                    config.Radiation.tempUp)
 
         down_bound([s_z_faces[1]][{i,j,ntz}],
                    [s_z_faces[2]][{i,j,ntz}],
-                   [s_z_faces[3]][{i,j,ntz}],
-                   [s_z_faces[4]][{i,j,ntz}],
-                   [s_z_faces[5]][{i,j,ntz}],
-                   [s_z_faces[6]][{i,j,ntz}],
-                   [s_z_faces[7]][{i,j,ntz}],
-                   [s_z_faces[8]][{i,j,ntz}],
+                   [s_z_faces[3]][{i,j,ntz}], 
+                   [s_z_faces[4]][{i,j,ntz}], 
+                   [s_z_faces[5]][{i,j,ntz}], 
+                   [s_z_faces[6]][{i,j,ntz}], 
+                   [s_z_faces[7]][{i,j,ntz}], 
+                   [s_z_faces[8]][{i,j,ntz}], 
                    angles,
                    config.Radiation.emissDown,
                    config.Radiation.tempDown)
@@ -2518,9 +2498,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     for color in tiles do
       res += residual(p_points[color], Nx, Ny, Nz)
     end
-    c.printf("not squared residual = %.15e\n", res)
     res = sqrt(res)
-    c.printf("squared residual = %.15e\n", res)
 
     -- Update the intensities and the iteration number
     for color in tiles do
@@ -2536,7 +2514,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
 
     t = t + 1
 
-    -- break
+    break
 
   end
 
