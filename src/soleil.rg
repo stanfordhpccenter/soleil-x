@@ -6481,13 +6481,13 @@ task work(config : Config)
                                     Grid_yBnum, Grid_yCellWidth, Grid_yNum,
                                     Grid_zBnum, Grid_zCellWidth, Grid_zNum)
 
-          --var maxMach max= CalculateMaxMachNumber(Fluid,  -- DOES NOT WORK.. WHY?
-          var maxMach = CalculateMaxMachNumber(Fluid,
-                                               config,
-                                               Flow_gamma, Flow_gasConstant,
-                                               Grid_xBnum, Grid_xNum,
-                                               Grid_yBnum, Grid_yNum,
-                                               Grid_zBnum, Grid_zNum)
+          var maxMach = -math.huge
+          maxMach max= CalculateMaxMachNumber(Fluid,
+                                              config,
+                                              Flow_gamma, Flow_gasConstant,
+                                              Grid_xBnum, Grid_xNum,
+                                              Grid_yBnum, Grid_yNum,
+                                              Grid_zBnum, Grid_zNum)
 
           var Flow_lengthScale = Grid_xWidth
 
