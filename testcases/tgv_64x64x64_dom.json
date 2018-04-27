@@ -1,8 +1,8 @@
 {
     "Mapping" : {
-        "xTiles" : 1,
-        "yTiles" : 1,
-        "zTiles" : 1,
+        "xTiles" : 16,
+        "yTiles" : 16,
+        "zTiles" : 16,
         "sampleId" : -1,
         "wallTime" : 10
     },

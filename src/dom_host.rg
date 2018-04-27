@@ -15,7 +15,7 @@ local SCHEMA = terralib.includec("config_schema.h")
 -- Compile-time configuration options
 -------------------------------------------------------------------------------
 
-local NUM_ANGLES = 1
+local NUM_ANGLES = 14
 
 -------------------------------------------------------------------------------
 -- Proxy radiation grid
@@ -99,7 +99,7 @@ do
     for j = limits.lo.y, limits.hi.y+1 do
       for k = limits.lo.z, limits.hi.z+1 do
         -- C.fprintf(f,' %.6e ', points[{i,j,k}].G)
-        C.fprintf(f,' %.6f ', points[{i,j,k}].G)
+        C.fprintf(f,' %.15e ', points[{i,j,k}].G)
       end
       C.fprintf(f,'\n')
     end
