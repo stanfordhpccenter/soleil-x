@@ -38,7 +38,7 @@ else
     exit 1
 fi
 
-mpiexec -np "$SLURM_JOB_NUM_NODES" --bind-to none -x LD_LIBRARY_PATH \
+mpiexec -np "$NUM_RANKS" --map-by ppr:1:node --bind-to none -x LD_LIBRARY_PATH \
     "$SOLEIL_DIR"/src/soleil.exec $ARGS $GPU_OPTS \
     -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr "$NUM_THREADS" \
     -ll:csize 28000

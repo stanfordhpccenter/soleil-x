@@ -32,10 +32,10 @@ static Realm::Logger LOG("soleil_mapper");
 //=============================================================================
 
 struct SampleMapping {
-  AddressSpace first_node;
+  AddressSpace first_rank;
 };
 
-// Maps every sample to a disjoint set of nodes. Each sample gets one node for
+// Maps every sample to a disjoint set of ranks. Each sample gets one rank for
 // every tile, as specified in its config file.
 class SoleilMapper : public DefaultMapper {
 public:
@@ -45,10 +45,10 @@ public:
     : DefaultMapper(rt, machine, local, "soleil_mapper") {
     // Set the umask of the process to clear S_IWGRP and S_IWOTH.
     umask(022);
-    // Assign nodes sequentially to samples, each sample getting one node for
+    // Assign ranks sequentially to samples, each sample getting one rank for
     // each tile.
     InputArgs args = Runtime::get_input_args();
-    unsigned allocated_nodes = 0;
+    unsigned allocated_ranks = 0;
     auto process_config = [&](char* config_file) {
       Config config = parse_config(config_file);
       CHECK(config.Mapping.xTiles > 0 &&
@@ -56,9 +56,9 @@ public:
             config.Mapping.zTiles > 0,
             "Invalid tiling");
       sample_mappings_.push_back(SampleMapping{
-        .first_node = allocated_nodes,
+        .first_rank = allocated_ranks,
       });
-      allocated_nodes += config.Mapping.xTiles
+      allocated_ranks += config.Mapping.xTiles
                        * config.Mapping.yTiles
                        * config.Mapping.zTiles;
     };
@@ -73,11 +73,11 @@ public:
         }
       }
     }
-    unsigned total_nodes = remote_cpus.size();
-    CHECK(allocated_nodes == total_nodes,
-          "%d node(s) required, but %d node(s) supplied to Legion",
-          allocated_nodes, total_nodes);
-    // TODO: Verify we're running with 1 OpenMP/CPU processor per node.
+    unsigned total_ranks = remote_cpus.size();
+    CHECK(allocated_ranks == total_ranks,
+          "%d rank(s) required, but %d rank(s) supplied to Legion",
+          allocated_ranks, total_ranks);
+    // TODO: Verify we're running with 1 OpenMP/CPU processor per rank.
   }
 
 public:
@@ -85,7 +85,7 @@ public:
                               MapperContext ctx,
                               const Task& task) {
     // DOM sweep & boundary tasks are individually launched; find the tile on
-    // which they're centered and send them to the node responsible for that.
+    // which they're centered and send them to the rank responsible for that.
     // TODO: Cache the decision.
     bool is_sweep = STARTS_WITH(task.get_task_name(), "sweep_");
     bool is_bound = STARTS_WITH(task.get_task_name(), "bound_");
@@ -134,34 +134,34 @@ public:
             tile[2] < config->Mapping.zTiles,
             "DOM task launches should only use the top-level tiling.");
       // Select the 1st (and only) processor of the preferred kind on each
-      // target node.
+      // target rank.
       VariantInfo info =
         default_find_preferred_variant(task, ctx, false/*needs tight*/);
       const std::vector<Processor>& procs = remote_procs(info.proc_kind);
-      // Assign tasks to this sample's nodes in row-major order.
-      int node =
-	mapping.first_node +
+      // Assign tasks to this sample's ranks in row-major order.
+      int rank =
+	mapping.first_rank +
 	tile[2] +
 	config->Mapping.zTiles * tile[1] +
 	config->Mapping.zTiles * config->Mapping.yTiles * tile[0];
       LOG.debug() << "Sample " << sample_id << ":"
                   << " Sequential launch: Task " << task.get_task_name()
 		  << " on tile " << tile
-		  << " mapped to node " << node;
-      return procs[node];
+		  << " mapped to rank " << rank;
+      return procs[rank];
     }
-    // Send each work task to the first in the set of nodes allocated to the
+    // Send each work task to the first in the set of ranks allocated to the
     // corresponding sample.
     if (strcmp(task.get_task_name(), "work") == 0) {
       const Config* config = find_config(&task);
       unsigned sample_id = config->Mapping.sampleId;
       assert(sample_id < sample_mappings_.size());
-      AddressSpace target_node = sample_mappings_[sample_id].first_node;
-      Processor target_proc = remote_cpus[target_node];
+      AddressSpace target_rank = sample_mappings_[sample_id].first_rank;
+      Processor target_proc = remote_cpus[target_rank];
       LOG.debug() << "Sample " << sample_id << ":"
                   << " Sequential launch: Work task"
 		  << " for sample " << sample_id
-		  << " mapped to node " << target_node;
+		  << " mapped to rank " << target_rank;
       return target_proc;
     }
     // For other tasks, defer to the default mapping policy.
@@ -200,7 +200,7 @@ public:
     return req.region;
   }
 
-  // Farm index-space launches made by work tasks across all the nodes
+  // Farm index-space launches made by work tasks across all the ranks
   // allocated to the corresponding sample.
   // TODO: Cache the decision.
   virtual void slice_task(const MapperContext ctx,
@@ -226,23 +226,23 @@ public:
           "Index-space launches in the work task should only use the"
           " top-level tiling.");
     // Select the 1st (and only) processor of the same kind as the original
-    // target, on each node allocated to this sample.
+    // target, on each rank allocated to this sample.
     const std::vector<Processor>& procs =
       remote_procs(task.target_proc.kind());
-    // Distribute tiles to the nodes in row-major order.
-    int next_node = mapping.first_node;
+    // Distribute tiles to the ranks in row-major order.
+    int next_rank = mapping.first_rank;
     for (int x = 0; x < config->Mapping.xTiles; ++x) {
       for (int y = 0; y < config->Mapping.yTiles; ++y) {
         for (int z = 0; z < config->Mapping.zTiles; ++z) {
           output.slices.emplace_back(Rect<3>(Point<3>(x,y,z), Point<3>(x,y,z)),
-                                     procs[next_node],
+                                     procs[next_rank],
                                      false /*recurse*/,
                                      false /*stealable*/);
           LOG.debug() << "Sample " << sample_id << ":"
                       << " Index-space launch: Task " << task.get_task_name()
 		      << " on tile (" << x << "," << y << "," << z << ")"
-		      << " mapped to node " << next_node;
-          next_node++;
+		      << " mapped to rank " << next_rank;
+          next_rank++;
         }
       }
     }
