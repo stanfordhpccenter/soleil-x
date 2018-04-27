@@ -18,7 +18,7 @@ config = json.load(open('$1'))
 print config['Mapping']['wallTime']"
 }
 
-function get_num_nodes {
+function get_num_ranks {
     python -c "
 import json
 config = json.load(open('$1'))
@@ -39,14 +39,14 @@ done
 export ARGS=$@
 
 # Total wall-clock time is the maximum across all samples.
-# Total number of nodes is the sum of all sample node requirements.
+# Total number of ranks is the sum of all sample rank requirements.
 MINUTES=0
-NUM_NODES=0
+NUM_RANKS=0
 function parse_config {
     _MINUTES="$(get_walltime "$1")"
     MINUTES=$(( MINUTES > _MINUTES ? MINUTES : _MINUTES ))
-    _NUM_NODES="$(get_num_nodes "$1")"
-    NUM_NODES=$(( NUM_NODES + _NUM_NODES ))
+    _NUM_RANKS="$(get_num_ranks "$1")"
+    NUM_RANKS=$(( NUM_RANKS + _NUM_RANKS ))
 }
 for (( i = 1; i <= $#; i++ )); do
     if [[ "${!i}" == "-i" ]] && (( $i < $# )); then
@@ -59,10 +59,11 @@ for (( i = 1; i <= $#; i++ )); do
         done < "${!j}"
     fi
 done
-if (( NUM_NODES < 1 )); then
-    quit "Usage: $0 -i <config1.json> [-i <config2.json> ...]"
+if (( NUM_RANKS < 1 )); then
+    quit "No configuration files provided"
 fi
 WALLTIME="$(printf "%02d:%02d:00" $((MINUTES/60)) $((MINUTES%60)))"
+export NUM_RANKS
 
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:$LEGION_DIR/bindings/regent/"
 if [[ ! -z "${HDF_ROOT:-}" ]]; then
@@ -75,9 +76,18 @@ export CURR_DIR="$(pwd)"
 
 function run_titan {
     export QUEUE="${QUEUE:-debug}"
-    qsub -v QUEUE,USE_CUDA,ARGS,LD_LIBRARY_PATH,CURR_DIR \
-        -l nodes="$NUM_NODES" -l walltime="$WALLTIME" -q "$QUEUE" \
+    qsub -V \
+        -l nodes="$NUM_RANKS" -l walltime="$WALLTIME" -q "$QUEUE" \
         "$SOLEIL_DIR"/src/titan.pbs
+}
+
+function run_summit {
+    EXCLUDED="$(sed 's/^/hname!=/' "$SOLEIL_DIR"/src/blacklist/summit.txt |
+                paste -sd '&' | sed 's/&/ && /g')"
+    NUM_NODES="$(( NUM_RANKS/2 + NUM_RANKS%2 ))"
+    bsub -R "$EXCLUDED" \
+        -nnodes "$NUM_NODES" -W "$MINUTES" \
+        "$SOLEIL_DIR"/src/summit.lsf
 }
 
 function run_certainty {
@@ -87,15 +97,14 @@ function run_certainty {
 	RESOURCES="gpu:4"
     fi
     EXCLUDED="$(paste -sd ',' "$SOLEIL_DIR"/src/blacklist/certainty.txt)"
-    sbatch --export=ALL \
-        -N "$NUM_NODES" -t "$WALLTIME" -p "$QUEUE" --gres="$RESOURCES" \
-        --exclude="$EXCLUDED" \
+    sbatch --export=ALL --exclude="$EXCLUDED" \
+        -N "$NUM_RANKS" -t "$WALLTIME" -p "$QUEUE" --gres="$RESOURCES" \
         "$SOLEIL_DIR"/src/certainty.slurm
 }
 
 function run_sapling {
     # Allocate up to 4 nodes, from n0000 up to n0003
-    if (( NUM_NODES > 4 )); then quit "Too many nodes requested"; fi
+    if (( NUM_RANKS > 4 )); then quit "Too many nodes requested"; fi
     NODES=n0000
     for (( i = 1; i < NUM_NODES; i++ )); do
         NODES="$NODES,n000$i"
@@ -126,6 +135,8 @@ function run_local {
 
 if [[ "$(uname -n)" == *"titan"* ]]; then
     run_titan
+elif [[ "$(dnsdomainname)" == *"summit"* ]]; then
+    run_summit
 elif [[ "$(uname -n)" == *"certainty"* ]]; then
     run_certainty
 elif [[ "$(uname -n)" == *"sapling"* ]]; then

@@ -214,6 +214,47 @@ cd "$LEGION_DIR"/language
 USE_CUDA=0 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 35 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
+Setup (Summit @ ORNL)
+=====================
+
+### Add to shell startup
+
+Install Legion and Soleil-X on the `/ccs/proj` filesystem, not your home directory (home directories are not mounted on the compute nodes).
+
+```
+# Module loads
+module load gcc/6.4.0
+module load cuda/9.0.184
+# Build config
+export CC=gcc
+export CXX=g++
+export CONDUIT=ibv
+# Path setup
+export LEGION_DIR=???
+export HDF_ROOT="$LEGION_DIR"/language/hdf/install
+export SOLEIL_DIR=???
+# CUDA config
+export CUDA_HOME=/sw/summit/cuda/9.0.184
+export CUDA="$CUDA_HOME"
+export GPU_ARCH=volta
+```
+
+### Download software
+
+```
+git clone https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
+```
+
+### Install Legion
+
+Legion's CUDA support is broken at the moment, so we have to build and run w/o CUDA.
+
+```
+cd "$LEGION_DIR"/language
+USE_CUDA=0 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1-ppc64'
+```
+
 Running
 =======
 
