@@ -1,7 +1,7 @@
 local Exports = {}
 
 -- Enumeration constants
-Exports.FlowBC = Enum('Periodic','Symmetry','AdiabaticWall','IsothermalWall')
+Exports.FlowBC = Enum('Periodic','Symmetry','AdiabaticWall','IsothermalWall','NSCBC_SubsonicInflow','NSCBC_SubsonicOutflow')
 Exports.ParticleBC = Enum('Permeable','Solid')
 Exports.ViscosityModel = Enum('Constant','PowerLaw','Sutherland')
 Exports.FlowInitCase = Enum('Uniform','Restart','Perturbed','TaylorGreen2DVortex','TaylorGreen3DVortex')
@@ -42,6 +42,8 @@ Exports.Config = {
     xBCRight = Exports.FlowBC,
     xBCRightVel = Array(3,double),
     xBCRightTemp = double,
+    -- Pressure that the sub-sonic outlet relaxes
+    xBCRightP_inf = double,
     yBCLeft = Exports.FlowBC,
     yBCLeftVel = Array(3,double),
     yBCLeftTemp = double,
@@ -75,12 +77,14 @@ Exports.Config = {
     sutherlandTempRef = double,
     sutherlandSRef = double,
     initCase = Exports.FlowInitCase,
+    restartDir = String(256),
     initParams = Array(5,double),
     bodyForce = Array(3,double),
     turbForcing = bool,
   },
   Particles = {
     initCase = Exports.ParticlesInitCase,
+    restartDir = String(256),
     initNum = int,
     maxNum = int,
     restitutionCoeff = double,

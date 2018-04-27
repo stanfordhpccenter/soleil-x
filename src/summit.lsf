@@ -1,16 +1,7 @@
 #!/bin/bash -eu
-#PBS -A CSC188
-#PBS -N soleil
 
-# Set the umask to something reasonable.
-umask 022
-
-# First switch to the directory where this job was launched, to make sure
-# any relative paths in the arguments are valid.
-cd "$CURR_DIR"
-
-# Create a scratch directory on the Lustre filesystem, for I/O.
-SCRATCH_DIR="$PROJWORK"/csc188/stanford/"$PBS_JOBID"
+# Create a scratch directory on the AlpineTDS filesystem, for I/O.
+SCRATCH_DIR=/gpfs/alpinetds/proj-shared/csc275/stanford/"$LSB_JOBID"
 mkdir "$SCRATCH_DIR"
 
 # Copy input files to the scratch directory.
@@ -47,22 +38,27 @@ done
 # Process CUDA configuration
 GPU_OPTS=
 if [[ "$USE_CUDA" == 1 ]]; then
-    GPU_OPTS="-ll:gpu 1"
+    GPU_OPTS="-ll:gpu 3 -ll:fsize 1024 -ll:zsize 0 -ll:ib_zsize 0"
 fi
+
+# Make sure the number of requested ranks is divisible by 2.
+_NUM_RANKS="$(( NUM_RANKS + NUM_RANKS%2 ))"
 
 # Start the job inside the scratch directory.
 cd "$SCRATCH_DIR"
-# HACK: LLVM installs a bad ELF interpreter on the executable, so we run it
-# through ld.so.
-aprun -n "$NUM_RANKS" -N 1 -cc none \
-    /lib64/ld-linux-x86-64.so.2 \
+# NOTE: We have to run through the pick_hcas.py script, due to a GASNet bug.
+# NOTE: We have to disable MPI's CUDA hijack; it interferes with Realm's.
+jsrun -n "$_NUM_RANKS" -r 2 -a 1 -c 21 -g 3 -b rs -E LD_LIBRARY_PATH \
+    --smpiargs="-x PAMI_DISABLE_CUDA_HOOK=1 -disable_gpu_hooks" \
+    "$SOLEIL_DIR"/src/pick_hcas.py \
     "$SOLEIL_DIR"/src/soleil.exec $_ARGS $GPU_OPTS \
-    -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 \
-    -ll:csize 20000 -ll:rsize 1024 -ll:gsize 0
+    -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 20 \
+    -ll:csize 16384 -ll:rsize 1024 -ll:gsize 0
 
 # Resources:
-# 32GB RAM per node
 # 2 NUMA domains per node
-# 4 core pairs with shared FP unit per NUMA domain
-# 1 Kepler K20X GPU per node
-# 6GB FB per GPU
+# 21 cores per NUMA domain
+# 4-way SMT per core
+# 256GB RAM per NUMA domain
+# 3 Volta V100 GPUs per NUMA domain
+# 16GB FB per GPU

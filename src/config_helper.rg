@@ -11,11 +11,33 @@ local UTIL = require 'util'
 -- NOTE: Type constructors are placed in the global namespace, so the schema
 -- file can access them without imports.
 
+local isStruct
 local isSchemaT
+
+-------------------------------------------------------------------------------
+
+local StringMT = {}
+StringMT.__index = StringMT
+
+-- int -> String
+function String(maxLen)
+  assert(UTIL.isPosInt(maxLen))
+  return setmetatable({
+    maxLen = maxLen,
+  }, StringMT)
+end
+
+-- SchemaT -> bool
+local function isString(typ)
+  return type(typ) == 'table' and getmetatable(typ) == StringMT
+end
+
+-------------------------------------------------------------------------------
 
 local EnumMT = {}
 EnumMT.__index = EnumMT
 
+-- string* -> Enum
 function Enum(...)
   local enum = {}
   for i,choice in ipairs({...}) do
@@ -30,12 +52,14 @@ local function isEnum(typ)
   return type(typ) == 'table' and getmetatable(typ) == EnumMT
 end
 
+-------------------------------------------------------------------------------
+
 local ArrayMT = {}
 ArrayMT.__index = ArrayMT
 
 -- int, SchemaT -> Array
 function Array(num, elemType)
-  assert(type(num) == 'number' and num == math.floor(num) and num > 0)
+  assert(UTIL.isPosInt(num))
   assert(isSchemaT(elemType))
   return setmetatable({
     num = num,
@@ -48,12 +72,14 @@ local function isArray(typ)
   return type(typ) == 'table' and getmetatable(typ) == ArrayMT
 end
 
+-------------------------------------------------------------------------------
+
 local UpToMT = {}
 UpToMT.__index = UpToMT
 
 -- int, SchemaT -> UpTo
 function UpTo(max, elemType)
-  assert(type(max) == 'number' and max == math.floor(max) and max > 0)
+  assert(UTIL.isPosInt(max))
   assert(isSchemaT(elemType))
   return setmetatable({
     max = max,
@@ -66,10 +92,31 @@ local function isUpTo(typ)
   return type(typ) == 'table' and getmetatable(typ) == UpToMT
 end
 
+-------------------------------------------------------------------------------
+
+local UnionMT = {}
+UnionMT.__index = UnionMT
+
+-- map(string,Struct) -> Union
+function Union(choices)
+  for name,fields in pairs(choices) do
+    assert(type(name) == 'string')
+    assert(isStruct(fields))
+  end
+  return setmetatable(UTIL.copyTable(choices), UnionMT)
+end
+
+-- SchemaT -> bool
+local function isUnion(typ)
+  return type(typ) == 'table' and getmetatable(typ) == UnionMT
+end
+
+-------------------------------------------------------------------------------
+
 -- Struct = map(string,SchemaT)
 
 -- SchemaT -> bool
-local function isStruct(typ)
+function isStruct(typ)
   if type(typ) ~= 'table' then
     return false
   end
@@ -81,7 +128,10 @@ local function isStruct(typ)
   return true
 end
 
--- SchemaT = 'bool' | 'int' | 'double' | Enum | Array | UpTo | Struct
+-------------------------------------------------------------------------------
+
+-- SchemaT = 'bool' | 'int' | 'double' | String
+--         | Enum | Array | UpTo | Union | Struct
 
 -- A -> bool
 function isSchemaT(typ)
@@ -89,9 +139,11 @@ function isSchemaT(typ)
     typ == bool or
     typ == int or
     typ == double or
+    isString(typ) or
     isEnum(typ) or
     isArray(typ) or
     isUpTo(typ) or
+    isUnion(typ) or
     isStruct(typ)
 end
 
@@ -105,6 +157,8 @@ local function convertSchemaT(typ)
     return int
   elseif typ == double then
     return double
+  elseif isString(typ) then
+    return int8[typ.maxLen]
   elseif isEnum(typ) then
     return int
   elseif isArray(typ) then
@@ -114,6 +168,16 @@ local function convertSchemaT(typ)
       length : uint32;
       values : convertSchemaT(typ.elemType)[typ.max];
     }
+  elseif isUnion(typ) then
+    local u = terralib.types.newstruct()
+    u.entries:insert(terralib.newlist())
+    for n,t in pairs(typ) do
+      u.entries[1]:insert({field=n, type=convertSchemaT(t)})
+    end
+    local s = terralib.types.newstruct()
+    s.entries:insert({field='type', type=int})
+    s.entries:insert({field='u', type=u})
+    return s
   elseif isStruct(typ) then
     local s = terralib.types.newstruct()
     for n,t in pairs(typ) do
@@ -165,6 +229,16 @@ local function emitValueParser(name, lval, rval, typ)
       end
       [lval] = [rval].u.dbl
     end
+  elseif isString(typ) then
+    return quote
+      if [rval].type ~= JSON.json_string then
+        [errorOut('Wrong type', name)]
+      end
+      if [rval].u.string.length >= [typ.maxLen] then
+        [errorOut('String too long', name)]
+      end
+      C.strncpy([lval], [rval].u.string.ptr, [typ.maxLen])
+    end
   elseif isEnum(typ) then
     return quote
       if [rval].type ~= JSON.json_string then
@@ -208,6 +282,34 @@ local function emitValueParser(name, lval, rval, typ)
         [emitValueParser(name..'[i]', `[lval].values[i], rval_i, typ.elemType)]
       end
     end
+  elseif isUnion(typ) then
+    return quote
+      if [rval].type ~= JSON.json_object then
+        [errorOut('Wrong type', name)]
+      end
+      var foundType = false
+      for i = 0,[rval].u.object.length do
+        var nodeName = [rval].u.object.values[i].name
+        var nodeValue = [rval].u.object.values[i].value
+        if C.strcmp(nodeName, 'type') == 0 then
+          foundType = true
+          if nodeValue.type ~= JSON.json_string then
+            [errorOut('Type field on union not a string', name)]
+          end
+          escape local j = 0; for choice,fields in pairs(typ) do emit quote
+            if C.strcmp(nodeValue.u.string.ptr, [choice]) == 0 then
+              [lval].type = [j]
+              [emitValueParser(name, `[lval].u.[choice], rval, fields)]
+              break
+            end
+          end j = j + 1; end end
+          [errorOut('Unrecognized type on union', name)]
+        end
+      end
+      if not foundType then
+        [errorOut('Missing type field on union', name)]
+      end
+    end
   elseif isStruct(typ) then
     return quote
       var totalParsed = 0
@@ -226,7 +328,7 @@ local function emitValueParser(name, lval, rval, typ)
         end end end
         if parsed then
           totalParsed = totalParsed + 1
-        else
+        elseif C.strcmp(nodeName, 'type') ~= 0 then
           var stderr = C.fdopen(2, 'w')
           C.fprintf(
             stderr, ['Warning: Ignoring option '..name..'.%s\n'], nodeName)
@@ -266,6 +368,14 @@ for name,typ in pairs(SCHEMA) do
     hdrFile:write('typedef int '..name..';\n')
     for choice,value in pairs(typ) do
       hdrFile:write('#define '..name..'_'..choice..' '..value..'\n')
+    end
+  elseif isUnion(typ) then
+    hdrFile:write('\n')
+    hdrFile:write('typedef int '..name..';\n')
+    local i = 0
+    for choice,_ in pairs(typ) do
+      hdrFile:write('#define '..name..'_'..choice..' '..i..'\n')
+      i = i + 1
     end
   end
 end

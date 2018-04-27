@@ -25,6 +25,7 @@
         "xBCRight" : "Periodic",
         "xBCRightVel" : [0.1156091, 0.6859607, 0.4446281],
         "xBCRightTemp" : 0.4196384,
+        "xBCRightP_inf" : -1.0,
         // Y
         "yBCLeft"  : "AdiabaticWall",
         "yBCLeftVel" : [0.9918297, 0.8624091, 0.3291094],
@@ -62,6 +63,7 @@
         "sutherlandTempRef" : 0.6935851,
         "sutherlandSRef" : 0.2772065,
         "initCase" : "Uniform",
+        "restartDir" : "",
         "initParams" : [0.4472728, 0.4001904, 0.3713178, 0.6807681, 0.4900506],
         "bodyForce" : [0.7751856, 0.7816449, 0.1264908],
         "turbForcing" : false
@@ -69,6 +71,7 @@
 
     "Particles" : {
         "initCase" : "Uniform",
+        "restartDir" : "",
         "initNum" : 120,
         "maxNum" : 240,
         "restitutionCoeff" : 0.1487899,

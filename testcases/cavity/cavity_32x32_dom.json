@@ -24,6 +24,7 @@
         "xBCRight" : "AdiabaticWall",
         "xBCRightVel" : [0.0, 0.0, 0.0],
         "xBCRightTemp" : 0.0,
+        "xBCRightP_inf" : -1.0,
         "yBCLeft"  : "AdiabaticWall",
         "yBCLeftVel" : [0.0, 0.0, 0.0],
         "yBCLeftTemp" : 0.0,
@@ -59,6 +60,7 @@
         "sutherlandTempRef" : 273.15,
         "sutherlandSRef" : 110.4,
         "initCase" : "Uniform",
+        "restartDir" : "",
         "initParams" : [0.000525805, 43.4923, 0.0, 0.0, 0.0],
         "bodyForce" : [0.0, 0.0, 0.0],
         "turbForcing" : false
@@ -66,6 +68,7 @@
 
     "Particles" : {
         "initCase" : "Uniform",
+        "restartDir" : "",
         "initNum" : 100,
         "maxNum" : 1000,
         "restitutionCoeff" : 1.0,
