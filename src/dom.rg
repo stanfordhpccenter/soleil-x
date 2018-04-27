@@ -127,20 +127,6 @@ do
 
 end
 
--- Nx = 8 (num x) but contains 9 since Nx + 1
--- ntx = 2 (tiles)
--- x_tiles contains ntx+1 in x direction for extra shared (3 tiles)
--- s -- p -- p -- p -- s -- p -- p -- p -- s
--- 0                   4                   8
-
--- Nx = 6
--- ntx = 2 (tiles)
--- s -- p -- p -- s -- p -- p -- s
--- 0              3              6
-
--- shared = i % (Nx/ntx) == 0
--- private
-
 local task color_faces_x(faces : region(ispace(int3d), face),
                                         Nx : int, Ny : int, Nz : int,
                                         ntx : int, nty : int, ntz : int)
@@ -244,14 +230,15 @@ do
   for p in points do
     p.S = (1.0-omega) * p.sigma * p.Ib
     for m = 0, NUM_ANGLES do
-      p.S += omega * p.sigma/(4.0*pi) * angles[m].w * p.Iiter_1[m]
-           + omega * p.sigma/(4.0*pi) * angles[m].w * p.Iiter_2[m]
-           + omega * p.sigma/(4.0*pi) * angles[m].w * p.Iiter_3[m]
-           + omega * p.sigma/(4.0*pi) * angles[m].w * p.Iiter_4[m]
-           + omega * p.sigma/(4.0*pi) * angles[m].w * p.Iiter_5[m]
-           + omega * p.sigma/(4.0*pi) * angles[m].w * p.Iiter_6[m]
-           + omega * p.sigma/(4.0*pi) * angles[m].w * p.Iiter_7[m]
-           + omega * p.sigma/(4.0*pi) * angles[m].w * p.Iiter_8[m]
+      p.S += omega * p.sigma/(4.0*pi) * angles[m].w 
+          * (p.Iiter_1[m]
+           + p.Iiter_2[m]
+           + p.Iiter_3[m]
+           + p.Iiter_4[m]
+           + p.Iiter_5[m]
+           + p.Iiter_6[m]
+           + p.Iiter_7[m]
+           + p.Iiter_8[m])
     end
   end
 end
@@ -721,8 +708,6 @@ do
   var dAz = dx*dy
   var dV = dx*dy*dz
 
-  -- c.printf("dAx, dAy, dAz, dV = %lf,%lf,%lf,%lf", dAx, dAy, dAz, dV)
-
   -- Determine sweep direction and bounds
 
   var limits = points.bounds
@@ -739,6 +724,7 @@ do
   var startz : int64 = limits.lo.z
   var endz   : int64 = limits.hi.z + 1
 
+  -- xi,eta,mu can only be 1 or -1 since they are directional indicators
   if xi < 0 then
     dindx = -1
     startx = limits.hi.x
@@ -765,8 +751,6 @@ do
       (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
       (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
-      -- c.printf("sweep 1 angle = %d\n", m)
-
       -- Use our direction and increments for the sweep.
 
       for k = startz,endz,dindz do
@@ -787,16 +771,12 @@ do
               upwind_x_value = x_faces[{indx,j,k}].I[m]
             end
 
-            -- c.printf("sweep 1 indx=%d upwind_x_value = %lf\n", indx, upwind_x_value)
-
             var upwind_y_value : double = 0.0
             if indy < y_faces.bounds.lo.y or indy > y_faces.bounds.hi.y then
               upwind_y_value = shared_y_faces_upwind[{i,indy,k}].I[m]
             else
               upwind_y_value = y_faces[{i,indy,k}].I[m]
             end
-
-            -- c.printf("sweep 1 indy=%d upwind_y_value = %lf\n", indy, upwind_y_value)
 
             var upwind_z_value : double = 0.0
             if indz < z_faces.bounds.lo.z or indz > z_faces.bounds.hi.z then
@@ -805,10 +785,7 @@ do
               upwind_z_value = z_faces[{i,j,indz}].I[m]
             end
 
-            -- c.printf("sweep 1 indz=%d upwind_z_value = %lf\n", indz, upwind_z_value)
-
             -- Integrate to compute cell-centered value of I.
-            -- c.printf("sweep 1 i,j,k=%d,%d,%d S = %lf\n", i,j,k, points[{i,j,k}].S)
             points[{i,j,k}].I_1[m] = (points[{i,j,k}].S * dV
                                         + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
                                         + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
@@ -918,8 +895,6 @@ do
     if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
       (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
       (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
-
-      -- c.printf("sweep 2 angle = %d\n", m)
 
       -- Use our direction and increments for the sweep.
 
@@ -1067,8 +1042,6 @@ do
       (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
       (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
-      -- c.printf("sweep 3 angle = %d\n", m)
-
       -- Use our direction and increments for the sweep.
 
       for k = startz,endz,dindz do
@@ -1215,8 +1188,6 @@ do
       (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
       (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
-      -- c.printf("sweep 4 angle = %d\n", m)
-
       -- Use our direction and increments for the sweep.
 
       for k = startz,endz,dindz do
@@ -1237,7 +1208,6 @@ do
               upwind_x_value = x_faces[{indx,j,k}].I[m]
             end
 
-            -- c.printf("sweep 4 i=%d upwind_x_value = %lf\n", i, upwind_x_value)
             ---
 
             var upwind_y_value : double = 0.0
@@ -1247,16 +1217,12 @@ do
               upwind_y_value = y_faces[{i,indy,k}].I[m]
             end
 
-            -- c.printf("sweep 4 j=%d upwind_y_value = %lf\n", j, upwind_y_value)
-
             var upwind_z_value : double = 0.0
             if indz < z_faces.bounds.lo.z or indz > z_faces.bounds.hi.z then
               upwind_z_value = shared_z_faces_upwind[{i,j,indz}].I[m]
             else
               upwind_z_value = z_faces[{i,j,indz}].I[m]
             end
-
-            -- c.printf("sweep 4 k=%d upwind_z_value = %lf\n", i, upwind_z_value)
 
             -- Integrate to compute cell-centered value of I.
 
@@ -1268,13 +1234,11 @@ do
                                         + fabs(angles[m].xi) * dAx/gamma
                                         + fabs(angles[m].eta) * dAy/gamma
                                         + fabs(angles[m].mu) * dAz/gamma)
-            -- c.printf("i=%d points[{i,j,k}].I_4[m] = %lf\n", i, points[{i,j,k}].I_4[m])
 
             -- Compute intensities on downwind faces
 
             var x_face_val = (points[{i,j,k}].I_4[m] - (1-gamma)*upwind_x_value)/gamma
             if (x_face_val < 0) then x_face_val = 0 end
-            -- c.printf("sweep 4 index=%d downwind_x_value = %lf\n", indx+dindx, x_face_val)
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
               shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
             else
@@ -1369,8 +1333,6 @@ do
     if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
       (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
       (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
-
-      -- c.printf("sweep 5 angle = %d\n", m)
 
       -- Use our direction and increments for the sweep.
 
@@ -1518,8 +1480,6 @@ do
       (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
       (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
-      -- c.printf("sweep 6 angle = %d\n", m)
-
       -- Use our direction and increments for the sweep.
 
       for k = startz,endz,dindz do
@@ -1665,8 +1625,6 @@ do
     if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
       (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
       (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
-
-      -- c.printf("sweep 7 angle = %d\n", m)
 
       -- Use our direction and increments for the sweep.
 
@@ -1814,8 +1772,6 @@ do
       (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
       (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
-      -- c.printf("sweep 8 angle = %d\n", m)
-
       -- Use our direction and increments for the sweep.
 
       for k = startz,endz,dindz do
@@ -1900,78 +1856,70 @@ end
 local task residual(points : region(ispace(int3d), pointsFSpace),
                     Nx : int, Ny : int, Nz : int)
 where
-  reads (points)
-  -- .{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8,
-                 -- Iiter_1, Iiter_2, Iiter_3, Iiter_4,
-                 -- Iiter_5, Iiter_6, Iiter_7, Iiter_8}
+  reads (points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8,
+                 Iiter_1, Iiter_2, Iiter_3, Iiter_4,
+                 Iiter_5, Iiter_6, Iiter_7, Iiter_8})
 do
   var res : double = 0.0
   var limits = points.bounds
 
-  -- c.printf("nx*ny*nz*NUM_ANGLES = %d\n", (Nx*Ny*Nz*(NUM_ANGLES)))
 
-  -- __demand(__openmp)
-  for k = limits.lo.z,limits.hi.z+1,1 do
-    for j = limits.lo.y,limits.hi.y+1,1 do
-      for i = limits.lo.x,limits.hi.x+1,1 do
-        for m = 0, NUM_ANGLES do
-          var debug : boolean = false
-          var p = points[{i,j,k}]
+  __demand(__openmp)
+  for p in points do
+    for m = 0, NUM_ANGLES do
+      var debug : boolean = false
 
-          if p.I_1[m] > 0 then
-            debug = true
-            res += pow((p.I_1[m]-p.Iiter_1[m]),2.0)
-              / pow((p.I_1[m]),2.0)
-          end
-
-          if p.I_2[m] > 0 then
-            debug = true
-            res += pow((p.I_2[m]-p.Iiter_2[m]),2.0)
-              / pow((p.I_2[m]),2.0)
-          end
-
-          if p.I_3[m] > 0 then
-            debug = true
-            res += pow((p.I_3[m]-p.Iiter_3[m]),2.0)
-              / pow((p.I_3[m]),2.0)
-          end
-
-          if p.I_4[m] > 0 then
-            debug = true
-            res += pow((p.I_4[m]-p.Iiter_4[m]),2.0)
-              / pow((p.I_4[m]),2.0)
-          end
-
-          if p.I_5[m] > 0 then
-            debug = true
-            res += pow((p.I_5[m]-p.Iiter_5[m]),2.0)
-              / pow((p.I_5[m]),2.0)
-          end
-
-          if p.I_6[m] > 0 then
-            debug = true
-            res += pow((p.I_6[m]-p.Iiter_6[m]),2.0)
-              / pow((p.I_6[m]),2.0)
-          end
-
-          if p.I_7[m] > 0 then
-            debug = true
-            res += pow((p.I_7[m]-p.Iiter_7[m]),2.0)
-              / pow((p.I_7[m]),2.0)
-          end
-
-          if p.I_8[m] > 0 then
-            debug = true
-            res += pow((p.I_8[m]-p.Iiter_8[m]),2.0)
-              / pow((p.I_8[m]),2.0)
-          end
-
-          if not debug then
-            c.printf("bad! angle=%d x=%d y=%d z=%d\n", m, i, j, k)
-          end
-        end
+      if p.I_1[m] > 0 then
+        debug = true
+        res += pow((p.I_1[m]-p.Iiter_1[m]),2.0)
+          / pow((p.I_1[m]),2.0)
       end
 
+      if p.I_2[m] > 0 then
+        debug = true
+        res += pow((p.I_2[m]-p.Iiter_2[m]),2.0)
+          / pow((p.I_2[m]),2.0)
+      end
+
+      if p.I_3[m] > 0 then
+        debug = true
+        res += pow((p.I_3[m]-p.Iiter_3[m]),2.0)
+          / pow((p.I_3[m]),2.0)
+      end
+
+      if p.I_4[m] > 0 then
+        debug = true
+        res += pow((p.I_4[m]-p.Iiter_4[m]),2.0)
+          / pow((p.I_4[m]),2.0)
+      end
+
+      if p.I_5[m] > 0 then
+        debug = true
+        res += pow((p.I_5[m]-p.Iiter_5[m]),2.0)
+          / pow((p.I_5[m]),2.0)
+      end
+
+      if p.I_6[m] > 0 then
+        debug = true
+        res += pow((p.I_6[m]-p.Iiter_6[m]),2.0)
+          / pow((p.I_6[m]),2.0)
+      end
+
+      if p.I_7[m] > 0 then
+        debug = true
+        res += pow((p.I_7[m]-p.Iiter_7[m]),2.0)
+          / pow((p.I_7[m]),2.0)
+      end
+
+      if p.I_8[m] > 0 then
+        debug = true
+        res += pow((p.I_8[m]-p.Iiter_8[m]),2.0)
+          / pow((p.I_8[m]),2.0)
+      end
+
+      if not debug then
+        c.printf("bad! angle=%d\n", m)
+      end
     end
   end
 
@@ -2004,28 +1952,20 @@ end
 local task reduce_intensity(points : region(ispace(int3d), pointsFSpace),
                             angles : region(ispace(int1d), angle))
 where
-  reads (points, angles.w),
-  -- {I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8}
+  reads (points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8}, angles.w),
   reads writes (points.G)
 do
-  -- __demand(__openmp)
-  var limits = points.bounds
-  for k = limits.lo.z,limits.hi.z+1,1 do
-    for j = limits.lo.y,limits.hi.y+1,1 do
-      for i = limits.lo.x,limits.hi.x+1,1 do
-        for m = 0, NUM_ANGLES do 
-          var p = points[{i,j,k}]
-          -- c.printf("m = %d i,j,k=%d,%d,%d, I = %lf\n", m, i,j,k, p.I_1[m]+p.I_2[m]+p.I_3[m]+p.I_4[m]+p.I_5[m]+p.I_6[m]+p.I_7[m]+p.I_8[m])
-          points[{i,j,k}].G += angles[m].w * (p.I_1[m])
-           + angles[m].w * (p.I_2[m])
-           + angles[m].w * (p.I_3[m])
-           + angles[m].w * (p.I_4[m])
-           + angles[m].w * (p.I_5[m])
-           + angles[m].w * (p.I_6[m])
-           + angles[m].w * (p.I_7[m])
-           + angles[m].w * (p.I_8[m])
-        end
-      end
+  __demand(__openmp)
+  for p in points do
+    for m = 0, NUM_ANGLES do 
+      p.G += angles[m].w * (p.I_1[m])
+       + angles[m].w * (p.I_2[m])
+       + angles[m].w * (p.I_3[m])
+       + angles[m].w * (p.I_4[m])
+       + angles[m].w * (p.I_5[m])
+       + angles[m].w * (p.I_6[m])
+       + angles[m].w * (p.I_7[m])
+       + angles[m].w * (p.I_8[m])
     end
   end
 end
@@ -2564,11 +2504,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     for color in tiles do
       res += residual(p_points[color], Nx, Ny, Nz)
     end
-    -- c.printf("not squared residual = %.15e\n", res)
-    res = res/(Nx*Ny*Nz*(NUM_ANGLES))
-    -- c.printf("not squared divided residual = %.15e\n", res)
-    res = sqrt(res)
-    -- c.printf("squared residual = %.15e\n", res)
+    res = sqrt(res/(Nx*Ny*Nz*(NUM_ANGLES)))
 
     -- Update the intensities and the iteration number
     for color in tiles do
