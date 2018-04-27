@@ -4851,11 +4851,11 @@ do
         particles[p].velocity = vv_add_double_3(particles[p].velocity_old, vs_mul_double_3(particles[p].velocity_t, (1.0*deltaTime)))
         particles[p].temperature_new += (((1.0/3.0)*deltaTime)*particles[p].temperature_t)
         particles[p].temperature = (particles[p].temperature_old+((1.0*deltaTime)*particles[p].temperature_t))
-      elseif Integrator_stage == 4 then
+      else -- Integrator_stage == 4
         particles[p].position = vv_add_double_3(particles[p].position_new, vs_mul_double_3(particles[p].position_t, ((1.0/6.0)*deltaTime)))
         particles[p].velocity = vv_add_double_3(particles[p].velocity_new, vs_mul_double_3(particles[p].velocity_t, ((1.0/6.0)*deltaTime)))
         particles[p].temperature = (particles[p].temperature_new+(((1.0/6.0)*deltaTime)*particles[p].temperature_t))
-      else regentlib.assert(false, '') end
+      end
     end
   end
 end

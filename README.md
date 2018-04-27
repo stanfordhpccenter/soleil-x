@@ -115,11 +115,9 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ### Install Legion
 
-Legion's CUDA support is broken at the moment, so we have to build and run w/o CUDA.
-
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=0 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
 Setup (Certainty @ Stanford)
@@ -155,8 +153,6 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ### Install Legion
 
-Legion's CUDA support is broken at the moment, so we have to build and run w/o CUDA.
-
 ```
 # Disable PMI in GASnet, because the PMI library is missing on Certainty.
 git clone https://github.com/StanfordLegion/gasnet.git $LEGION_DIR/language/gasnet
@@ -165,7 +161,7 @@ sed -i 's|../$(GASNET_VERSION)/configure|../$(GASNET_VERSION)/configure --disabl
 make
 # Rest of compilation as normal
 cd "$LEGION_DIR"/language
-USE_CUDA=0 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
 Setup (Titan @ ORNL)
@@ -207,11 +203,9 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ### Install Legion
 
-Legion's CUDA support is broken at the moment, so we have to build and run w/o CUDA.
-
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=0 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 35 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 35 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
 Setup (Summit @ ORNL)
@@ -248,22 +242,18 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ### Install Legion
 
-Legion's CUDA support is broken at the moment, so we have to build and run w/o CUDA.
-
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=0 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1-ppc64'
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1-ppc64'
 ```
 
 Running
 =======
 
-Legion's CUDA support is broken at the moment, so we have to build and run w/o CUDA.
-
 ```
 cd "$SOLEIL_DIR"/src
-USE_CUDA=0 [USE_HDF=0] make
-USE_CUDA=0 [QUEUE=???] ./soleil.sh ...
+[USE_CUDA=0] [USE_HDF=0] make
+[USE_CUDA=0] [QUEUE=???] ./soleil.sh ...
 ```
 
 The `soleil.sh` script forwards all arguments to the `soleil.exec` executable. This includes any options that Soleil itself expects, and any additional options to the Legion runtime.
