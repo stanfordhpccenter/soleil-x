@@ -109,7 +109,7 @@ function run_sapling {
     # Allocate up to 4 nodes, from n0000 up to n0003
     if (( NUM_RANKS > 4 )); then quit "Too many nodes requested"; fi
     NODES=n0000
-    for (( i = 1; i < NUM_NODES; i++ )); do
+    for (( i = 1; i < NUM_RANKS; i++ )); do
         NODES="$NODES,n000$i"
     done
     GPU_OPTS=
