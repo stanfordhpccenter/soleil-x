@@ -799,6 +799,7 @@ do
             -- Compute intensities on downwind faces
 
             var x_face_val = (points[{i,j,k}].I_1[m] - (1-gamma)*upwind_x_value)/gamma
+            if (x_face_val < 0) then x_face_val = 0 end
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
               shared_x_faces_downwind[{indx+dindx, j, k}].I[m] = x_face_val
             else
@@ -806,6 +807,7 @@ do
             end
 
             var y_face_val = (points[{i,j,k}].I_1[m] - (1-gamma)*upwind_y_value)/gamma
+            if (y_face_val < 0) then y_face_val = 0 end
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
               shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
@@ -813,6 +815,7 @@ do
             end
 
             var z_face_val = (points[{i,j,k}].I_1[m] - (1-gamma)*upwind_z_value)/gamma
+            if (z_face_val < 0) then z_face_val = 0 end
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
               shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
@@ -942,6 +945,7 @@ do
             -- Compute intensities on downwind faces
 
             var x_face_val = (points[{i,j,k}].I_2[m] - (1-gamma)*upwind_x_value)/gamma
+            if (x_face_val < 0) then x_face_val = 0 end
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
               shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
             else
@@ -949,6 +953,7 @@ do
             end
 
             var y_face_val = (points[{i,j,k}].I_2[m] - (1-gamma)*upwind_y_value)/gamma
+            if (y_face_val < 0) then y_face_val = 0 end
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
               shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
@@ -956,6 +961,7 @@ do
             end
 
             var z_face_val = (points[{i,j,k}].I_2[m] - (1-gamma)*upwind_z_value)/gamma
+            if (z_face_val < 0) then z_face_val = 0 end
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
               shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
@@ -1085,6 +1091,7 @@ do
             -- Compute intensities on downwind faces
 
             var x_face_val = (points[{i,j,k}].I_3[m] - (1-gamma)*upwind_x_value)/gamma
+            if (x_face_val < 0) then x_face_val = 0 end
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
               shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
             else
@@ -1092,6 +1099,7 @@ do
             end
 
             var y_face_val = (points[{i,j,k}].I_3[m] - (1-gamma)*upwind_y_value)/gamma
+            if (y_face_val < 0) then y_face_val = 0 end
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
               shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
@@ -1099,6 +1107,7 @@ do
             end
 
             var z_face_val = (points[{i,j,k}].I_3[m] - (1-gamma)*upwind_z_value)/gamma
+            if (z_face_val < 0) then z_face_val = 0 end
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
               shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
@@ -1178,7 +1187,7 @@ do
       (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
       (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
-      c.printf("sweep 4 angle = %lf\n", m)
+      -- c.printf("sweep 4 angle = %lf\n", m)
 
       -- Use our direction and increments for the sweep.
 
@@ -1200,7 +1209,7 @@ do
               upwind_x_value = x_faces[{indx,j,k}].I[m]
             end
 
-            c.printf("i=%d upwind_x_value = %lf\n", i, upwind_x_value)
+            c.printf("sweep 4 i=%d upwind_x_value = %lf\n", i, upwind_x_value)
             ---
 
             var upwind_y_value : double = 0.0
@@ -1210,12 +1219,16 @@ do
               upwind_y_value = y_faces[{i,indy,k}].I[m]
             end
 
+            c.printf("sweep 4 j=%d upwind_y_value = %lf\n", j, upwind_y_value)
+
             var upwind_z_value : double = 0.0
             if indz < z_faces.bounds.lo.z or indz > z_faces.bounds.hi.z then
               upwind_z_value = shared_z_faces_upwind[{i,j,indz}].I[m]
             else
               upwind_z_value = z_faces[{i,j,indz}].I[m]
             end
+
+            c.printf("sweep 4 k=%d upwind_z_value = %lf\n", i, upwind_z_value)
 
             -- Integrate to compute cell-centered value of I.
 
@@ -1232,13 +1245,17 @@ do
             -- Compute intensities on downwind faces
 
             var x_face_val = (points[{i,j,k}].I_4[m] - (1-gamma)*upwind_x_value)/gamma
+            if (x_face_val < 0) then x_face_val = 0 end
+            c.printf("sweep 4 index=%d downwind_x_value = %lf\n", indx+dindx, x_face_val)
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
               shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
+              c.printf("Weird! shared downwind")
             else
               x_faces[{indx+dindx, j, k}].I[m] = x_face_val
             end
 
             var y_face_val = (points[{i,j,k}].I_4[m] - (1-gamma)*upwind_y_value)/gamma
+            if (y_face_val < 0) then y_face_val = 0 end
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
               shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
@@ -1246,6 +1263,7 @@ do
             end
 
             var z_face_val = (points[{i,j,k}].I_4[m] - (1-gamma)*upwind_z_value)/gamma
+            if (z_face_val < 0) then z_face_val = 0 end
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
               shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
@@ -1375,6 +1393,7 @@ do
             -- Compute intensities on downwind faces
 
             var x_face_val = (points[{i,j,k}].I_5[m] - (1-gamma)*upwind_x_value)/gamma
+            if (x_face_val < 0) then x_face_val = 0 end
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
               shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
             else
@@ -1382,6 +1401,7 @@ do
             end
 
             var y_face_val = (points[{i,j,k}].I_5[m] - (1-gamma)*upwind_y_value)/gamma
+            if (y_face_val < 0) then y_face_val = 0 end
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
               shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
@@ -1389,6 +1409,7 @@ do
             end
 
             var z_face_val = (points[{i,j,k}].I_5[m] - (1-gamma)*upwind_z_value)/gamma
+            if (z_face_val < 0) then z_face_val = 0 end
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
               shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
@@ -1518,6 +1539,7 @@ do
             -- Compute intensities on downwind faces
 
             var x_face_val = (points[{i,j,k}].I_6[m] - (1-gamma)*upwind_x_value)/gamma
+            if (x_face_val < 0) then x_face_val = 0 end
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
               shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
             else
@@ -1525,6 +1547,7 @@ do
             end
 
             var y_face_val = (points[{i,j,k}].I_6[m] - (1-gamma)*upwind_y_value)/gamma
+            if (y_face_val < 0) then y_face_val = 0 end
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
               shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
@@ -1532,6 +1555,7 @@ do
             end
 
             var z_face_val = (points[{i,j,k}].I_6[m] - (1-gamma)*upwind_z_value)/gamma
+            if (z_face_val < 0) then z_face_val = 0 end
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
               shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
@@ -1661,6 +1685,7 @@ do
             -- Compute intensities on downwind faces
 
             var x_face_val = (points[{i,j,k}].I_7[m] - (1-gamma)*upwind_x_value)/gamma
+            if (x_face_val < 0) then x_face_val = 0 end
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
               shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
             else
@@ -1668,6 +1693,7 @@ do
             end
 
             var y_face_val = (points[{i,j,k}].I_7[m] - (1-gamma)*upwind_y_value)/gamma
+            if (y_face_val < 0) then y_face_val = 0 end
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
               shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
@@ -1675,6 +1701,7 @@ do
             end
 
             var z_face_val = (points[{i,j,k}].I_7[m] - (1-gamma)*upwind_z_value)/gamma
+            if (z_face_val < 0) then z_face_val = 0 end
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
               shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
@@ -1804,6 +1831,7 @@ do
             -- Compute intensities on downwind faces
 
             var x_face_val = (points[{i,j,k}].I_8[m] - (1-gamma)*upwind_x_value)/gamma
+            if (x_face_val < 0) then x_face_val = 0 end
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
               shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
             else
@@ -1811,6 +1839,7 @@ do
             end
 
             var y_face_val = (points[{i,j,k}].I_8[m] - (1-gamma)*upwind_y_value)/gamma
+            if (y_face_val < 0) then y_face_val = 0 end
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
               shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
@@ -1818,6 +1847,7 @@ do
             end
 
             var z_face_val = (points[{i,j,k}].I_8[m] - (1-gamma)*upwind_z_value)/gamma
+            if (z_face_val < 0) then z_face_val = 0 end
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
               shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
@@ -1843,7 +1873,7 @@ do
   var res : double = 0.0
   var limits = points.bounds
 
-  c.printf("nx*ny*nz*NUM_ANGLES = %d\n", (Nx*Ny*Nz*(NUM_ANGLES)))
+  -- c.printf("nx*ny*nz*NUM_ANGLES = %d\n", (Nx*Ny*Nz*(NUM_ANGLES)))
 
   -- __demand(__openmp)
   for k = limits.lo.z,limits.hi.z+1,1 do
@@ -1853,31 +1883,31 @@ do
           var debug : boolean = false
           var p = points[{i,j,k}]
 
-          if p.I_1[m] ~= 0 then
+          if p.I_1[m] > 0 then
             debug = true
             var add_res : double = (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
               * pow((p.I_1[m]-p.Iiter_1[m]),2.0)
               / pow((p.I_1[m]),2.0)
             res += add_res
-            c.printf("adding to res = %.15e\n", add_res)
+            -- c.printf("adding to res = %.15e\n", add_res)
           end
 
-          if p.I_2[m] ~= 0 then
+          if p.I_2[m] > 0 then
             debug = true
             var add_res : double = (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
               * pow((p.I_2[m]-p.Iiter_2[m]),2.0)
               / pow((p.I_2[m]),2.0)
             res += add_res
-            c.printf("adding to res = %.15e\n", add_res)
+            -- c.printf("adding to res = %.15e\n", add_res)
           end
 
-          if p.I_3[m] ~= 0 then
+          if p.I_3[m] > 0 then
             debug = true
             var add_res : double = (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
               * pow((p.I_3[m]-p.Iiter_3[m]),2.0)
               / pow((p.I_3[m]),2.0)
             res += add_res
-            c.printf("adding to res = %.15e\n", add_res)
+            -- c.printf("adding to res = %.15e\n", add_res)
           end
 
           if p.I_4[m] > 0 then
@@ -1886,47 +1916,47 @@ do
               * pow((p.I_4[m]-p.Iiter_4[m]),2.0)
               / pow((p.I_4[m]),2.0)
             res += add_res
-            c.printf("adding to res = %.15e\n", add_res)
+            -- c.printf("adding to res = %.15e\n", add_res)
           end
 
-          if p.I_5[m] ~= 0 then
+          if p.I_5[m] > 0 then
             debug = true
             var add_res : double = (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
               * pow((p.I_5[m]-p.Iiter_5[m]),2.0)
               / pow((p.I_5[m]),2.0)
             res += add_res
-            c.printf("adding to res = %.15e\n", add_res)
+            -- c.printf("adding to res = %.15e\n", add_res)
           end
 
-          if p.I_6[m] ~= 0 then
+          if p.I_6[m] > 0 then
             debug = true
             var add_res : double = (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
               * pow((p.I_6[m]-p.Iiter_6[m]),2.0)
               / pow((p.I_6[m]),2.0)
             res += add_res
-            c.printf("adding to res = %.15e\n", add_res)
+            -- c.printf("adding to res = %.15e\n", add_res)
           end
 
-          if p.I_7[m] ~= 0 then
+          if p.I_7[m] > 0 then
             debug = true
             var add_res : double = (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
               * pow((p.I_7[m]-p.Iiter_7[m]),2.0)
               / pow((p.I_7[m]),2.0)
             res += add_res
-            c.printf("adding to res = %.15e\n", add_res)
+            -- c.printf("adding to res = %.15e\n", add_res)
           end
 
-          if p.I_8[m] ~= 0 then
+          if p.I_8[m] > 0 then
             debug = true
             var add_res : double = (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
               * pow((p.I_8[m]-p.Iiter_8[m]),2.0)
               / pow((p.I_8[m]),2.0)
             res += add_res
-            c.printf("adding to res = %.15e\n", add_res)
+            -- c.printf("adding to res = %.15e\n", add_res)
           end
 
           if not debug then
-            c.printf("bad! angle=%d x=%d y=%d z=%d\n", m, i, j, k)
+            -- c.printf("bad! angle=%d x=%d y=%d z=%d\n", m, i, j, k)
           end
         end
       end
@@ -1963,20 +1993,28 @@ end
 local task reduce_intensity(points : region(ispace(int3d), pointsFSpace),
                             angles : region(ispace(int1d), angle))
 where
-  reads (points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8}, angles.w),
+  reads (points, angles.w),
+  -- {I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8}
   reads writes (points.G)
 do
-  __demand(__openmp)
-  for p in points do
-    for m = 0, NUM_ANGLES do
-      p.G += angles[m].w * p.I_1[m]
-           + angles[m].w * p.I_2[m]
-           + angles[m].w * p.I_3[m]
-           + angles[m].w * p.I_4[m]
-           + angles[m].w * p.I_5[m]
-           + angles[m].w * p.I_6[m]
-           + angles[m].w * p.I_7[m]
-           + angles[m].w * p.I_8[m]
+  -- __demand(__openmp)
+  var limits = points.bounds
+  for k = limits.lo.z,limits.hi.z+1,1 do
+    for j = limits.lo.y,limits.hi.y+1,1 do
+      for i = limits.lo.x,limits.hi.x+1,1 do
+        for m = 0, NUM_ANGLES do 
+          var p = points[{i,j,k}]
+          -- c.printf("m = %d i,j,k=%d,%d,%d, I = %lf\n", m, i,j,k, p.I_1[m]+p.I_2[m]+p.I_3[m]+p.I_4[m]+p.I_5[m]+p.I_6[m]+p.I_7[m]+p.I_8[m])
+          points[{i,j,k}].G += angles[m].w * (p.I_1[m])
+           + angles[m].w * (p.I_2[m])
+           + angles[m].w * (p.I_3[m])
+           + angles[m].w * (p.I_4[m])
+           + angles[m].w * (p.I_5[m])
+           + angles[m].w * (p.I_6[m])
+           + angles[m].w * (p.I_7[m])
+           + angles[m].w * (p.I_8[m])
+        end
+      end
     end
   end
 end

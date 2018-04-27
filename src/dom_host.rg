@@ -15,7 +15,7 @@ local SCHEMA = terralib.includec("config_schema.h")
 -- Compile-time configuration options
 -------------------------------------------------------------------------------
 
-local NUM_ANGLES = 6
+local NUM_ANGLES = 14
 
 -------------------------------------------------------------------------------
 -- Proxy radiation grid
