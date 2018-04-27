@@ -711,9 +711,9 @@ end
 __demand(__parallel, __cuda)
 task Flow_UpdateGhostConservedStep1(Fluid : region(ispace(int3d), Fluid_columns),
                                     config : Config,
-                                    BC_xNegTemperature : double, BC_xNegVelocity : double[3], BC_xPosTemperature : double, BC_xPosVelocity : double[3], BC_xSign : double[3],
-                                    BC_yNegTemperature : double, BC_yNegVelocity : double[3], BC_yPosTemperature : double, BC_yPosVelocity : double[3], BC_ySign : double[3],
-                                    BC_zNegTemperature : double, BC_zNegVelocity : double[3], BC_zPosTemperature : double, BC_zPosVelocity : double[3], BC_zSign : double[3],
+                                    BC_xNegTemperature : double, BC_xNegVelocity : double[3], BC_xPosTemperature : double, BC_xPosVelocity : double[3], BC_xNegSign : double[3], BC_xPosSign : double[3],
+                                    BC_yNegTemperature : double, BC_yNegVelocity : double[3], BC_yPosTemperature : double, BC_yPosVelocity : double[3], BC_yNegSign : double[3], BC_yPosSign : double[3],
+                                    BC_zNegTemperature : double, BC_zNegVelocity : double[3], BC_zPosTemperature : double, BC_zPosVelocity : double[3], BC_zNegSign : double[3], BC_zPosSign : double[3],
                                     Flow_gamma : double,
                                     Flow_gasConstant : double,
                                     Grid_xBnum : int32, Grid_xNum : int32,
@@ -757,7 +757,7 @@ do
         var velocity = [double[3]](array(0.0, 0.0, 0.0))
         var wall_temperature = double(0.0)
 
-        var sign = BC_xSign
+        var sign = BC_xNegSign
         var bnd_velocity = BC_xNegVelocity       -- velocity at face/boundary
         var bnd_temperature = BC_xNegTemperature -- velocity at face/boundary
 
@@ -786,7 +786,7 @@ do
         Fluid[c_bnd].rhoVelocityBoundary = Fluid[c_bnd].rhoVelocity
         Fluid[c_bnd].rhoEnergyBoundary = Fluid[c_bnd].rhoEnergy
       else
-        var sign = BC_xSign
+        var sign = BC_xPosSign
         var bnd_velocity = BC_xPosVelocity
         var bnd_temperature = BC_xPosTemperature
         var cv = (Flow_gasConstant/(Flow_gamma-1.0))
@@ -814,7 +814,7 @@ do
     if yNegGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 1, 0})%Fluid.bounds)
-      var sign = BC_ySign
+      var sign = BC_yNegSign
       var bnd_velocity = BC_yNegVelocity
       var bnd_temperature = BC_yNegTemperature
       var rho = double(0.0)
@@ -837,7 +837,7 @@ do
     if yPosGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, -1, 0})%Fluid.bounds)
-      var sign = BC_ySign
+      var sign = BC_yPosSign
       var bnd_velocity = BC_yPosVelocity
       var bnd_temperature = BC_yPosTemperature
       var rho = double(0.0)
@@ -860,7 +860,7 @@ do
     if zNegGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 0, 1})%Fluid.bounds)
-      var sign = BC_zSign
+      var sign = BC_zNegSign
       var bnd_velocity = BC_zNegVelocity
       var bnd_temperature = BC_zNegTemperature
       var rho = double(0.0)
@@ -883,7 +883,7 @@ do
     if zPosGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 0, -1})%Fluid.bounds)
-      var sign = BC_zSign
+      var sign = BC_zPosSign
       var bnd_velocity = BC_zPosVelocity
       var bnd_temperature = BC_zPosTemperature
       var rho = double(0.0)
@@ -942,9 +942,9 @@ end
 __demand(__parallel, __cuda)
 task Flow_UpdateGhostVelocityStep1(Fluid : region(ispace(int3d), Fluid_columns),
                                    config : Config,
-                                   BC_xNegVelocity : double[3], BC_xPosVelocity : double[3], BC_xSign : double[3],
-                                   BC_yNegVelocity : double[3], BC_yPosVelocity : double[3], BC_ySign : double[3],
-                                   BC_zNegVelocity : double[3], BC_zPosVelocity : double[3], BC_zSign : double[3],
+                                   BC_xNegVelocity : double[3], BC_xPosVelocity : double[3], BC_xNegSign : double[3], BC_xPosSign : double[3],
+                                   BC_yNegVelocity : double[3], BC_yPosVelocity : double[3], BC_yNegSign : double[3], BC_yPosSign : double[3],
+                                   BC_zNegVelocity : double[3], BC_zPosVelocity : double[3], BC_zNegSign : double[3], BC_zPosSign : double[3],
                                    Grid_xBnum : int32, Grid_xNum : int32,
                                    Grid_yBnum : int32, Grid_yNum : int32,
                                    Grid_zBnum : int32, Grid_zNum : int32)
@@ -971,42 +971,42 @@ do
       if xNegGhost then
         var c_bnd = int3d(c)
         var c_int = ((c+{1, 0, 0})%Fluid.bounds)
-        var sign = BC_xSign
+        var sign = BC_xNegSign
         var bnd_velocity = BC_xNegVelocity
         Fluid[c_bnd].velocityBoundary = vv_add_double_3(vv_mul_double_3(Fluid[c_int].velocity, sign), bnd_velocity)
       end
       if xPosGhost then
         var c_bnd = int3d(c)
         var c_int = ((c+{-1, 0, 0})%Fluid.bounds)
-        var sign = BC_xSign
+        var sign = BC_xPosSign
         var bnd_velocity = BC_xPosVelocity
         Fluid[c_bnd].velocityBoundary = vv_add_double_3(vv_mul_double_3(Fluid[c_int].velocity, sign), bnd_velocity)
       end
       if (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0) then
         var c_bnd = int3d(c)
         var c_int = ((c+{0, 1, 0})%Fluid.bounds)
-        var sign = BC_ySign
+        var sign = BC_yNegSign
         var bnd_velocity = BC_yNegVelocity
         Fluid[c_bnd].velocityBoundary = vv_add_double_3(vv_mul_double_3(Fluid[c_int].velocity, sign), bnd_velocity)
       end
       if (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0) then
         var c_bnd = int3d(c)
         var c_int = ((c+{0, -1, 0})%Fluid.bounds)
-        var sign = BC_ySign
+        var sign = BC_yPosSign
         var bnd_velocity = BC_yPosVelocity
         Fluid[c_bnd].velocityBoundary = vv_add_double_3(vv_mul_double_3(Fluid[c_int].velocity, sign), bnd_velocity)
       end
       if (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0) then
         var c_bnd = int3d(c)
         var c_int = ((c+{0, 0, 1})%Fluid.bounds)
-        var sign = BC_zSign
+        var sign = BC_zNegSign
         var bnd_velocity = BC_zNegVelocity
         Fluid[c_bnd].velocityBoundary = vv_add_double_3(vv_mul_double_3(Fluid[c_int].velocity, sign), bnd_velocity)
       end
       if (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0) then
         var c_bnd = int3d(c)
         var c_int = ((c+{0, 0, -1})%Fluid.bounds)
-        var sign = BC_zSign
+        var sign = BC_zPosSign
         var bnd_velocity = BC_zPosVelocity
         Fluid[c_bnd].velocityBoundary = vv_add_double_3(vv_mul_double_3(Fluid[c_int].velocity, sign), bnd_velocity)
       end
@@ -1346,9 +1346,9 @@ end
 __demand(__parallel, __cuda)
 task Flow_UpdateGhostFieldsStep1(Fluid : region(ispace(int3d), Fluid_columns),
                                  config : Config,
-                                 BC_xNegTemperature : double, BC_xNegVelocity : double[3], BC_xPosTemperature : double, BC_xPosVelocity : double[3], BC_xSign : double[3],
-                                 BC_yNegTemperature : double, BC_yNegVelocity : double[3], BC_yPosTemperature : double, BC_yPosVelocity : double[3], BC_ySign : double[3],
-                                 BC_zNegTemperature : double, BC_zNegVelocity : double[3], BC_zPosTemperature : double, BC_zPosVelocity : double[3], BC_zSign : double[3],
+                                 BC_xNegTemperature : double, BC_xNegVelocity : double[3], BC_xPosTemperature : double, BC_xPosVelocity : double[3], BC_xNegSign : double[3], BC_xPosSign : double[3],
+                                 BC_yNegTemperature : double, BC_yNegVelocity : double[3], BC_yPosTemperature : double, BC_yPosVelocity : double[3], BC_yNegSign : double[3], BC_yPosSign : double[3],
+                                 BC_zNegTemperature : double, BC_zNegVelocity : double[3], BC_zPosTemperature : double, BC_zPosVelocity : double[3], BC_zNegSign : double[3], BC_zPosSign : double[3],
                                  Flow_gamma : double,
                                  Flow_gasConstant : double,
                                  Grid_xBnum : int32, Grid_xNum : int32,
@@ -1375,7 +1375,7 @@ do
     if (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) then
       var c_bnd = int3d(c)
       var c_int = ((c+{1, 0, 0})%Fluid.bounds)
-      var sign = BC_xSign
+      var sign = BC_xNegSign
       var bnd_velocity = BC_xNegVelocity
       var bnd_temperature = BC_xNegTemperature
       var cv = (Flow_gasConstant/(Flow_gamma-1.0))
@@ -1415,7 +1415,7 @@ do
     if (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0) then
       var c_bnd = int3d(c)
       var c_int = ((c+{-1, 0, 0})%Fluid.bounds)
-      var sign = BC_xSign
+      var sign = BC_xPosSign
       var bnd_velocity = BC_xPosVelocity
       var bnd_temperature = BC_xPosTemperature
       var cv = (Flow_gasConstant/(Flow_gamma-1.0))
@@ -1455,7 +1455,7 @@ do
     if (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0) then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 1, 0})%Fluid.bounds)
-      var sign = BC_ySign
+      var sign = BC_yNegSign
       var bnd_velocity = BC_yNegVelocity
       var bnd_temperature = BC_yNegTemperature
       var rho = double(0.0)
@@ -1480,7 +1480,7 @@ do
     if (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0) then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, -1, 0})%Fluid.bounds)
-      var sign = BC_ySign
+      var sign = BC_yPosSign
       var bnd_velocity = BC_yPosVelocity
       var bnd_temperature = BC_yPosTemperature
       var rho = double(0.0)
@@ -1505,7 +1505,7 @@ do
     if (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0) then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 0, 1})%Fluid.bounds)
-      var sign = BC_zSign
+      var sign = BC_zNegSign
       var bnd_velocity = BC_zNegVelocity
       var bnd_temperature = BC_zNegTemperature
       var rho = double(0.0)
@@ -1530,7 +1530,7 @@ do
     if (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0) then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 0, -1})%Fluid.bounds)
-      var sign = BC_zSign
+      var sign = BC_zPosSign
       var bnd_velocity = BC_zPosVelocity
       var bnd_temperature = BC_zPosTemperature
       var rho = double(0.0)
@@ -1958,7 +1958,8 @@ end
 __demand(__parallel, __cuda)
 task Flow_UpdateGhostVelocityGradientStep1(Fluid : region(ispace(int3d), Fluid_columns),
                                            config : Config,
-                                           BC_xSign : double[3], BC_ySign : double[3], BC_zSign : double[3],
+                                           BC_xNegSign : double[3], BC_yNegSign : double[3], BC_zNegSign : double[3],
+                                           BC_xPosSign : double[3], BC_yPosSign : double[3], BC_zPosSign : double[3],
                                            Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
                                            Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
                                            Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
@@ -1984,7 +1985,7 @@ do
       if (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) then -- x- boundary
         var c_bnd = int3d(c)
         var c_int = ((c+{1, 0, 0})%Fluid.bounds)
-        var sign = BC_xSign
+        var sign = BC_xNegSign
         Fluid[c_bnd].velocityGradientXBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientX)
         Fluid[c_bnd].velocityGradientYBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientY)
         Fluid[c_bnd].velocityGradientZBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientZ)
@@ -1992,7 +1993,7 @@ do
       if (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0) then -- x+ boundary
         var c_bnd = int3d(c)
         var c_int = ((c+{-1, 0, 0})%Fluid.bounds)
-        var sign = BC_xSign
+        var sign = BC_xPosSign
         Fluid[c_bnd].velocityGradientXBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientX)
         Fluid[c_bnd].velocityGradientYBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientY)
         Fluid[c_bnd].velocityGradientZBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientZ)
@@ -2000,7 +2001,7 @@ do
       if (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0) then
         var c_bnd = int3d(c)
         var c_int = ((c+{0, 1, 0})%Fluid.bounds)
-        var sign = BC_ySign
+        var sign = BC_yNegSign
         Fluid[c_bnd].velocityGradientXBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientX)
         Fluid[c_bnd].velocityGradientYBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientY)
         Fluid[c_bnd].velocityGradientZBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientZ)
@@ -2008,7 +2009,7 @@ do
       if (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0) then
         var c_bnd = int3d(c)
         var c_int = ((c+{0, -1, 0})%Fluid.bounds)
-        var sign = BC_ySign
+        var sign = BC_yPosSign
         Fluid[c_bnd].velocityGradientXBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientX)
         Fluid[c_bnd].velocityGradientYBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientY)
         Fluid[c_bnd].velocityGradientZBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientZ)
@@ -2016,7 +2017,7 @@ do
       if (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0) then
         var c_bnd = int3d(c)
         var c_int = ((c+{0, 0, 1})%Fluid.bounds)
-        var sign = BC_zSign
+        var sign = BC_zNegSign
         Fluid[c_bnd].velocityGradientXBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientX)
         Fluid[c_bnd].velocityGradientYBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientY)
         Fluid[c_bnd].velocityGradientZBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientZ)
@@ -2024,7 +2025,7 @@ do
       if (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0) then
         var c_bnd = int3d(c)
         var c_int = ((c+{0, 0, -1})%Fluid.bounds)
-        var sign = BC_zSign
+        var sign = BC_zPosSign
         Fluid[c_bnd].velocityGradientXBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientX)
         Fluid[c_bnd].velocityGradientYBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientY)
         Fluid[c_bnd].velocityGradientZBoundary = vv_mul_double_3(sign, Fluid[c_int].velocityGradientZ)
@@ -5108,7 +5109,8 @@ task work(config : Config)
   var Grid_dXYZInverseSquare = (((((1/Grid_xCellWidth)*1)/Grid_xCellWidth)+(((1/Grid_yCellWidth)*1)/Grid_yCellWidth))+(((1/Grid_zCellWidth)*1)/Grid_zCellWidth))
 
   var BC_xBCPeriodic = (config.BC.xBCLeft == SCHEMA.FlowBC_Periodic)
-  var BC_xSign = array(double(0.1), double(0.1), double(0.1))
+  var BC_xPosSign = array(double(0.1), double(0.1), double(0.1))
+  var BC_xNegSign = array(double(0.1), double(0.1), double(0.1))
   var BC_xPosVelocity = array(double(0.1), double(0.1), double(0.1))
   var BC_xNegVelocity = array(double(0.1), double(0.1), double(0.1))
   var BC_xPosTemperature = 0.0
@@ -5116,14 +5118,16 @@ task work(config : Config)
   var BC_xPosP_inf = 0.0 -- Outlet pressure at inf
 
   var BC_yBCPeriodic = (config.BC.yBCLeft == SCHEMA.FlowBC_Periodic)
-  var BC_ySign = array(double(0.1), double(0.1), double(0.1))
+  var BC_yPosSign = array(double(0.1), double(0.1), double(0.1))
+  var BC_yNegSign = array(double(0.1), double(0.1), double(0.1))
   var BC_yPosVelocity = array(double(0.1), double(0.1), double(0.1))
   var BC_yNegVelocity = array(double(0.1), double(0.1), double(0.1))
   var BC_yPosTemperature = 0.0
   var BC_yNegTemperature = 0.0
 
   var BC_zBCPeriodic = (config.BC.zBCLeft == SCHEMA.FlowBC_Periodic)
-  var BC_zSign = array(double(0.1), double(0.1), double(0.1))
+  var BC_zPosSign = array(double(0.1), double(0.1), double(0.1))
+  var BC_zNegSign = array(double(0.1), double(0.1), double(0.1))
   var BC_zPosVelocity = array(double(0.1), double(0.1), double(0.1))
   var BC_zNegVelocity = array(double(0.1), double(0.1), double(0.1))
   var BC_zPosTemperature = 0.0
@@ -6062,45 +6066,18 @@ task work(config : Config)
     regentlib.assert(false, "Inexact coarsening factor")
   end
 
-  -- Set up fluid flow BC's
+  -- Set up flow BC's in x direction
   if ((config.BC.xBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.xBCRight == SCHEMA.FlowBC_Periodic)) then
-    BC_xSign = array(1.0, 1.0, 1.0)
+    BC_xPosSign = array(1.0, 1.0, 1.0)
+    BC_xNegSign = array(1.0, 1.0, 1.0)
     BC_xPosVelocity = array(0.0, 0.0, 0.0)
     BC_xNegVelocity = array(0.0, 0.0, 0.0)
     BC_xPosTemperature = -1.0
     BC_xNegTemperature = -1.0
     BC_xBCParticlesPeriodic = true
-  elseif ((config.BC.xBCLeft == SCHEMA.FlowBC_Symmetry) and (config.BC.xBCRight == SCHEMA.FlowBC_Symmetry)) then
-    BC_xSign = array(-1.0, 1.0, 1.0)
-    BC_xPosVelocity = array(0.0, 0.0, 0.0)
-    BC_xNegVelocity = array(0.0, 0.0, 0.0)
-    BC_xPosTemperature = -1.0
-    BC_xNegTemperature = -1.0
-    BC_xBCParticlesPeriodic = false
-  elseif ((config.BC.xBCLeft == SCHEMA.FlowBC_AdiabaticWall) and (config.BC.xBCRight == SCHEMA.FlowBC_AdiabaticWall)) then
-    BC_xSign = array(-1.0, -1.0, -1.0)
-    BC_xPosVelocity = array((2*config.BC.xBCRightVel[0]), (2*config.BC.xBCRightVel[1]), (2*config.BC.xBCRightVel[2]))
-    BC_xNegVelocity = array((2*config.BC.xBCLeftVel[0]), (2*config.BC.xBCLeftVel[1]), (2*config.BC.xBCLeftVel[2]))
-    BC_xPosTemperature = -1.0
-    BC_xNegTemperature = -1.0
-    BC_xBCParticlesPeriodic = false
-  elseif ((config.BC.xBCLeft == SCHEMA.FlowBC_IsothermalWall) and (config.BC.xBCRight == SCHEMA.FlowBC_IsothermalWall)) then
-    BC_xSign = array(-1.0, -1.0, -1.0)
-    BC_xPosVelocity = array((2*config.BC.xBCRightVel[0]), (2*config.BC.xBCRightVel[1]), (2*config.BC.xBCRightVel[2]))
-    BC_xNegVelocity = array((2*config.BC.xBCLeftVel[0]), (2*config.BC.xBCLeftVel[1]), (2*config.BC.xBCLeftVel[2]))
-    if config.BC.xBCRightHeat.type == SCHEMA.WallHeatModel_Constant then
-      BC_xPosTemperature = config.BC.xBCRightHeat.u.Constant.temperature
-    else
-      regentlib.assert(false, 'Only constant heat model supported')
-    end
-    if config.BC.xBCLeftHeat.type == SCHEMA.WallHeatModel_Constant then
-      BC_xNegTemperature = config.BC.xBCLeftHeat.u.Constant.temperature
-    else
-      regentlib.assert(false, 'Only constant heat model supported')
-    end
-    BC_xBCParticlesPeriodic = false
   elseif ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-    BC_xSign = array(0.0, 0.0, 0.0)
+    BC_xPosSign = array(0.0, 0.0, 0.0)
+    BC_xNegSign = array(0.0, 0.0, 0.0)
     BC_xPosVelocity = array(config.BC.xBCRightVel[0], config.BC.xBCRightVel[1], config.BC.xBCRightVel[2])
     BC_xNegVelocity = array(config.BC.xBCLeftVel[0],  config.BC.xBCLeftVel[1],  config.BC.xBCLeftVel[2] )
     if config.BC.xBCRightHeat.type == SCHEMA.WallHeatModel_Constant then
@@ -6116,85 +6093,165 @@ task work(config : Config)
     BC_xPosP_inf = config.BC.xBCRightP_inf
     BC_xBCParticlesPeriodic = false
   else
-    regentlib.assert(false, "Boundary conditions in x not implemented")
+    if (config.BC.xBCLeft == SCHEMA.FlowBC_Symmetry) then
+      BC_xNegSign = array(-1.0, 1.0, 1.0)
+      BC_xNegVelocity = array(0.0, 0.0, 0.0)
+      BC_xNegTemperature = -1.0
+      BC_xBCParticlesPeriodic = false
+    elseif (config.BC.xBCLeft == SCHEMA.FlowBC_AdiabaticWall) then
+      BC_xNegSign = array(-1.0, -1.0, -1.0)
+      BC_xNegVelocity = array((2*config.BC.xBCLeftVel[0]), (2*config.BC.xBCLeftVel[1]), (2*config.BC.xBCLeftVel[2]))
+      BC_xNegTemperature = -1.0
+      BC_xBCParticlesPeriodic = false
+    elseif (config.BC.xBCLeft == SCHEMA.FlowBC_IsothermalWall) then
+      BC_xNegSign = array(-1.0, -1.0, -1.0)
+      BC_xNegVelocity = array((2*config.BC.xBCLeftVel[0]), (2*config.BC.xBCLeftVel[1]), (2*config.BC.xBCLeftVel[2]))
+      if config.BC.xBCLeftHeat.type == SCHEMA.WallHeatModel_Constant then
+        BC_xNegTemperature = config.BC.xBCLeftHeat.u.Constant.temperature
+      else
+        regentlib.assert(false, 'Only constant heat model supported')
+      end
+      BC_xBCParticlesPeriodic = false
+    else
+      regentlib.assert(false, "Boundary conditions in xBCLeft not implemented")
+    end
+
+    if (config.BC.xBCRight == SCHEMA.FlowBC_Symmetry) then
+      BC_xPosSign = array(-1.0, 1.0, 1.0)
+      BC_xPosVelocity = array(0.0, 0.0, 0.0)
+      BC_xPosTemperature = -1.0
+      BC_xBCParticlesPeriodic = false
+    elseif (config.BC.xBCRight == SCHEMA.FlowBC_AdiabaticWall) then
+      BC_xPosSign = array(-1.0, -1.0, -1.0)
+      BC_xPosVelocity = array((2*config.BC.xBCRightVel[0]), (2*config.BC.xBCRightVel[1]), (2*config.BC.xBCRightVel[2]))
+      BC_xPosTemperature = -1.0
+      BC_xBCParticlesPeriodic = false
+    elseif (config.BC.xBCRight == SCHEMA.FlowBC_IsothermalWall) then
+      BC_xPosSign = array(-1.0, -1.0, -1.0)
+      BC_xPosVelocity = array((2*config.BC.xBCRightVel[0]), (2*config.BC.xBCRightVel[1]), (2*config.BC.xBCRightVel[2]))
+      if config.BC.xBCRightHeat.type == SCHEMA.WallHeatModel_Constant then
+        BC_xPosTemperature = config.BC.xBCRightHeat.u.Constant.temperature
+      else
+        regentlib.assert(false, 'Only constant heat model supported')
+      end
+      BC_xBCParticlesPeriodic = false
+    else
+      regentlib.assert(false, "Boundary conditions in xBCRight not implemented")
+    end
   end
+
+  -- Set up flow BC's in y direction
   if ((config.BC.yBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.yBCRight == SCHEMA.FlowBC_Periodic)) then
-    BC_ySign = array(1.0, 1.0, 1.0)
+    BC_yPosSign = array(1.0, 1.0, 1.0)
+    BC_yNegSign = array(1.0, 1.0, 1.0)
     BC_yPosVelocity = array(0.0, 0.0, 0.0)
     BC_yNegVelocity = array(0.0, 0.0, 0.0)
     BC_yPosTemperature = -1.0
     BC_yNegTemperature = -1.0
     BC_yBCParticlesPeriodic = true
-  elseif ((config.BC.yBCLeft == SCHEMA.FlowBC_Symmetry) and (config.BC.yBCRight == SCHEMA.FlowBC_Symmetry)) then
-    BC_ySign = array(1.0, -1.0, 1.0)
-    BC_yPosVelocity = array(0.0, 0.0, 0.0)
-    BC_yNegVelocity = array(0.0, 0.0, 0.0)
-    BC_yPosTemperature = -1.0
-    BC_yNegTemperature = -1.0
-    BC_yBCParticlesPeriodic = false
-  elseif ((config.BC.yBCLeft == SCHEMA.FlowBC_AdiabaticWall) and (config.BC.yBCRight == SCHEMA.FlowBC_AdiabaticWall)) then
-    BC_ySign = array(-1.0, -1.0, -1.0)
-    BC_yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
-    BC_yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
-    BC_yPosTemperature = -1.0
-    BC_yNegTemperature = -1.0
-    BC_yBCParticlesPeriodic = false
-  elseif ((config.BC.yBCLeft == SCHEMA.FlowBC_IsothermalWall) and (config.BC.yBCRight == SCHEMA.FlowBC_IsothermalWall)) then
-    BC_ySign = array(-1.0, -1.0, -1.0)
-    BC_yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
-    BC_yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
-    if config.BC.yBCRightHeat.type == SCHEMA.WallHeatModel_Constant then
-      BC_yPosTemperature = config.BC.yBCRightHeat.u.Constant.temperature
-    else
-      regentlib.assert(false, 'Only constant heat model supported')
-    end
-    if config.BC.yBCLeftHeat.type == SCHEMA.WallHeatModel_Constant then
-      BC_yNegTemperature = config.BC.yBCLeftHeat.u.Constant.temperature
-    else
-      regentlib.assert(false, 'Only constant heat model supported')
-    end
-    BC_yBCParticlesPeriodic = false
   else
-    regentlib.assert(false, "Boundary conditions in y not implemented")
+    if (config.BC.yBCLeft == SCHEMA.FlowBC_Symmetry) then
+      BC_yNegSign = array(1.0, -1.0, 1.0)
+      BC_yNegVelocity = array(0.0, 0.0, 0.0)
+      BC_yNegTemperature = -1.0
+      BC_yBCParticlesPeriodic = false
+    elseif (config.BC.yBCLeft == SCHEMA.FlowBC_AdiabaticWall) then
+      BC_yNegSign = array(-1.0, -1.0, -1.0)
+      BC_yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
+      BC_yNegTemperature = -1.0
+      BC_yBCParticlesPeriodic = false
+    elseif (config.BC.yBCLeft == SCHEMA.FlowBC_IsothermalWall) then
+      BC_yNegSign = array(-1.0, -1.0, -1.0)
+      BC_yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
+      if config.BC.yBCLeftHeat.type == SCHEMA.WallHeatModel_Constant then
+        BC_yNegTemperature = config.BC.yBCLeftHeat.u.Constant.temperature
+      else
+        regentlib.assert(false, 'Only constant heat model supported')
+      end
+      BC_yBCParticlesPeriodic = false
+    else
+      regentlib.assert(false, "Boundary conditions in y not implemented")
+    end
+
+    if (config.BC.yBCRight == SCHEMA.FlowBC_Symmetry) then
+      BC_yPosSign = array(1.0, -1.0, 1.0)
+      BC_yPosVelocity = array(0.0, 0.0, 0.0)
+      BC_yPosTemperature = -1.0
+      BC_yBCParticlesPeriodic = false
+    elseif (config.BC.yBCRight == SCHEMA.FlowBC_AdiabaticWall) then
+      BC_yPosSign = array(-1.0, -1.0, -1.0)
+      BC_yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
+      BC_yPosTemperature = -1.0
+      BC_yBCParticlesPeriodic = false
+    elseif (config.BC.yBCRight == SCHEMA.FlowBC_IsothermalWall) then
+      BC_yPosSign = array(-1.0, -1.0, -1.0)
+      BC_yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
+      if config.BC.yBCRightHeat.type == SCHEMA.WallHeatModel_Constant then
+        BC_yPosTemperature = config.BC.yBCRightHeat.u.Constant.temperature
+      else
+        regentlib.assert(false, 'Only constant heat model supported')
+      end
+      BC_yBCParticlesPeriodic = false
+    else
+      regentlib.assert(false, "Boundary conditions in y not implemented")
+    end
   end
+
+
   if ((config.BC.zBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.zBCRight == SCHEMA.FlowBC_Periodic)) then
-    BC_zSign = array(1.0, 1.0, 1.0)
+    BC_zPosSign = array(1.0, 1.0, 1.0)
+    BC_zNegSign = array(1.0, 1.0, 1.0)
     BC_zPosVelocity = array(0.0, 0.0, 0.0)
     BC_zNegVelocity = array(0.0, 0.0, 0.0)
     BC_zPosTemperature = -1.0
     BC_zNegTemperature = -1.0
     BC_zBCParticlesPeriodic = true
-  elseif ((config.BC.zBCLeft == SCHEMA.FlowBC_Symmetry) and (config.BC.zBCRight == SCHEMA.FlowBC_Symmetry)) then
-    BC_zSign = array(1.0, 1.0, -1.0)
-    BC_zPosVelocity = array(0.0, 0.0, 0.0)
-    BC_zNegVelocity = array(0.0, 0.0, 0.0)
-    BC_zPosTemperature = -1.0
-    BC_zNegTemperature = -1.0
-    BC_zBCParticlesPeriodic = false
-  elseif ((config.BC.zBCLeft == SCHEMA.FlowBC_AdiabaticWall) and (config.BC.zBCRight == SCHEMA.FlowBC_AdiabaticWall)) then
-    BC_zSign = array(-1.0, -1.0, -1.0)
-    BC_zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
-    BC_zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
-    BC_zPosTemperature = -1.0
-    BC_zNegTemperature = -1.0
-    BC_zBCParticlesPeriodic = false
-  elseif ((config.BC.zBCLeft == SCHEMA.FlowBC_IsothermalWall) and (config.BC.zBCRight == SCHEMA.FlowBC_IsothermalWall)) then
-    BC_zSign = array(-1.0, -1.0, -1.0)
-    BC_zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
-    BC_zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
-    if config.BC.zBCRightHeat.type == SCHEMA.WallHeatModel_Constant then
-      BC_zPosTemperature = config.BC.zBCRightHeat.u.Constant.temperature
-    else
-      regentlib.assert(false, 'Only constant heat model supported')
-    end
-    if config.BC.zBCLeftHeat.type == SCHEMA.WallHeatModel_Constant then
-      BC_zNegTemperature = config.BC.zBCLeftHeat.u.Constant.temperature
-    else
-      regentlib.assert(false, 'Only constant heat model supported')
-    end
-    BC_zBCParticlesPeriodic = false
   else
-    regentlib.assert(false, "Boundary conditions in z not implemented")
+    if (config.BC.zBCLeft == SCHEMA.FlowBC_Symmetry) then
+      BC_zNegSign = array(1.0, 1.0, -1.0)
+      BC_zNegVelocity = array(0.0, 0.0, 0.0)
+      BC_zNegTemperature = -1.0
+      BC_zBCParticlesPeriodic = false
+    elseif (config.BC.zBCLeft == SCHEMA.FlowBC_AdiabaticWall) then
+      BC_zNegSign = array(-1.0, -1.0, -1.0)
+      BC_zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
+      BC_zNegTemperature = -1.0
+      BC_zBCParticlesPeriodic = false
+    elseif (config.BC.zBCLeft == SCHEMA.FlowBC_IsothermalWall) then
+      BC_zNegSign = array(-1.0, -1.0, -1.0)
+      BC_zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
+      if config.BC.zBCLeftHeat.type == SCHEMA.WallHeatModel_Constant then
+        BC_zNegTemperature = config.BC.zBCLeftHeat.u.Constant.temperature
+      else
+        regentlib.assert(false, 'Only constant heat model supported')
+      end
+      BC_zBCParticlesPeriodic = false
+    else
+      regentlib.assert(false, "Boundary conditions in zBCLeft not implemented")
+    end
+
+    if (config.BC.zBCRight == SCHEMA.FlowBC_Symmetry) then
+      BC_zPosSign = array(1.0, 1.0, -1.0)
+      BC_zPosVelocity = array(0.0, 0.0, 0.0)
+      BC_zPosTemperature = -1.0
+      BC_zBCParticlesPeriodic = false
+    elseif (config.BC.zBCRight == SCHEMA.FlowBC_AdiabaticWall) then
+      BC_zPosSign = array(-1.0, -1.0, -1.0)
+      BC_zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
+      BC_zPosTemperature = -1.0
+      BC_zBCParticlesPeriodic = false
+    elseif (config.BC.zBCRight == SCHEMA.FlowBC_IsothermalWall) then
+      BC_zPosSign = array(-1.0, -1.0, -1.0)
+      BC_zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
+      if config.BC.zBCRightHeat.type == SCHEMA.WallHeatModel_Constant then
+        BC_zPosTemperature = config.BC.zBCRightHeat.u.Constant.temperature
+      else
+        regentlib.assert(false, 'Only constant heat model supported')
+      end
+      BC_zBCParticlesPeriodic = false
+    else
+      regentlib.assert(false, "Boundary conditions in zBCRight not implemented")
+    end
   end
 
   -- Check if boundary conditions in each direction are either both periodic or both non-periodic
@@ -6287,9 +6344,9 @@ task work(config : Config)
     end
     Flow_UpdateGhostVelocityStep1(Fluid,
                                   config,
-                                  BC_xNegVelocity, BC_xPosVelocity, BC_xSign,
-                                  BC_yNegVelocity, BC_yPosVelocity, BC_ySign,
-                                  BC_zNegVelocity, BC_zPosVelocity, BC_zSign,
+                                  BC_xNegVelocity, BC_xPosVelocity, BC_xNegSign, BC_xPosSign,
+                                  BC_yNegVelocity, BC_yPosVelocity, BC_yNegSign, BC_yPosSign,
+                                  BC_zNegVelocity, BC_zPosVelocity, BC_zNegSign, BC_zPosSign,
                                   Grid_xBnum, Grid_xNum,
                                   Grid_yBnum, Grid_yNum,
                                   Grid_zBnum, Grid_zNum)
@@ -6301,9 +6358,9 @@ task work(config : Config)
 
     Flow_UpdateGhostConservedStep1(Fluid,
                                    config,
-                                   BC_xNegTemperature, BC_xNegVelocity, BC_xPosTemperature, BC_xPosVelocity, BC_xSign,
-                                   BC_yNegTemperature, BC_yNegVelocity, BC_yPosTemperature, BC_yPosVelocity, BC_ySign,
-                                   BC_zNegTemperature, BC_zNegVelocity, BC_zPosTemperature, BC_zPosVelocity, BC_zSign,
+                                   BC_xNegTemperature, BC_xNegVelocity, BC_xPosTemperature, BC_xPosVelocity, BC_xNegSign, BC_xPosSign,
+                                   BC_yNegTemperature, BC_yNegVelocity, BC_yPosTemperature, BC_yPosVelocity, BC_yNegSign, BC_yPosSign,
+                                   BC_zNegTemperature, BC_zNegVelocity, BC_zPosTemperature, BC_zPosVelocity, BC_zNegSign, BC_zPosSign,
                                    Flow_gamma, Flow_gasConstant,
                                    Grid_xBnum, Grid_xNum,
                                    Grid_yBnum, Grid_yNum,
@@ -6327,7 +6384,8 @@ task work(config : Config)
     end
     Flow_UpdateGhostVelocityGradientStep1(Fluid,
                                           config,
-                                          BC_xSign, BC_ySign, BC_zSign,
+                                          BC_xNegSign, BC_yNegSign, BC_zNegSign,
+                                          BC_xPosSign, BC_yPosSign, BC_zPosSign,
                                           Grid_xBnum, Grid_xCellWidth, Grid_xNum,
                                           Grid_yBnum, Grid_yCellWidth, Grid_yNum,
                                           Grid_zBnum, Grid_zCellWidth, Grid_zNum)
@@ -6366,9 +6424,9 @@ task work(config : Config)
 
     Flow_UpdateGhostFieldsStep1(Fluid,
                                 config,
-                                BC_xNegTemperature, BC_xNegVelocity, BC_xPosTemperature, BC_xPosVelocity, BC_xSign,
-                                BC_yNegTemperature, BC_yNegVelocity, BC_yPosTemperature, BC_yPosVelocity, BC_ySign,
-                                BC_zNegTemperature, BC_zNegVelocity, BC_zPosTemperature, BC_zPosVelocity, BC_zSign,
+                                BC_xNegTemperature, BC_xNegVelocity, BC_xPosTemperature, BC_xPosVelocity, BC_xNegSign, BC_xPosSign,
+                                BC_yNegTemperature, BC_yNegVelocity, BC_yPosTemperature, BC_yPosVelocity, BC_yNegSign, BC_yPosSign,
+                                BC_zNegTemperature, BC_zNegVelocity, BC_zPosTemperature, BC_zPosVelocity, BC_zNegSign, BC_zPosSign,
                                 Flow_gamma, Flow_gasConstant,
                                 Grid_xBnum, Grid_xNum,
                                 Grid_yBnum, Grid_yNum,
@@ -6628,9 +6686,9 @@ task work(config : Config)
         end
         Flow_UpdateGhostVelocityStep1(Fluid,
                                       config,
-                                      BC_xNegVelocity, BC_xPosVelocity, BC_xSign,
-                                      BC_yNegVelocity, BC_yPosVelocity, BC_ySign,
-                                      BC_zNegVelocity, BC_zPosVelocity, BC_zSign,
+                                      BC_xNegVelocity, BC_xPosVelocity, BC_xNegSign, BC_xPosSign,
+                                      BC_yNegVelocity, BC_yPosVelocity, BC_yNegSign, BC_yPosSign,
+                                      BC_zNegVelocity, BC_zPosVelocity, BC_zNegSign, BC_zPosSign,
                                       Grid_xBnum, Grid_xNum,
                                       Grid_yBnum, Grid_yNum,
                                       Grid_zBnum, Grid_zNum)
@@ -6653,7 +6711,8 @@ task work(config : Config)
         end
         Flow_UpdateGhostVelocityGradientStep1(Fluid,
                                               config,
-                                              BC_xSign, BC_ySign, BC_zSign,
+                                              BC_xNegSign, BC_yNegSign, BC_zNegSign,
+                                              BC_xPosSign, BC_yPosSign, BC_zPosSign,
                                               Grid_xBnum, Grid_xCellWidth, Grid_xNum,
                                               Grid_yBnum, Grid_yCellWidth, Grid_yNum,
                                               Grid_zBnum, Grid_zCellWidth, Grid_zNum)
@@ -6696,9 +6755,9 @@ task work(config : Config)
 
         Flow_UpdateGhostConservedStep1(Fluid,
                                        config,
-                                       BC_xNegTemperature, BC_xNegVelocity, BC_xPosTemperature, BC_xPosVelocity, BC_xSign,
-                                       BC_yNegTemperature, BC_yNegVelocity, BC_yPosTemperature, BC_yPosVelocity, BC_ySign,
-                                       BC_zNegTemperature, BC_zNegVelocity, BC_zPosTemperature, BC_zPosVelocity, BC_zSign,
+                                       BC_xNegTemperature, BC_xNegVelocity, BC_xPosTemperature, BC_xPosVelocity, BC_xNegSign, BC_xPosSign,
+                                       BC_yNegTemperature, BC_yNegVelocity, BC_yPosTemperature, BC_yPosVelocity, BC_yNegSign, BC_yPosSign,
+                                       BC_zNegTemperature, BC_zNegVelocity, BC_zPosTemperature, BC_zPosVelocity, BC_zNegSign, BC_zPosSign,
                                        Flow_gamma, Flow_gasConstant,
                                        Grid_xBnum, Grid_xNum,
                                        Grid_yBnum, Grid_yNum,
