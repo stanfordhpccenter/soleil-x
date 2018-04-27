@@ -1,7 +1,4 @@
 #!/bin/bash -eu
-#BSUB -J soleil
-#BSUB -P CSC275IACCARINO
-#BSUB -alloc_flags smt4
 
 # Create a scratch directory on the AlpineTDS filesystem, for I/O.
 SCRATCH_DIR=/gpfs/alpinetds/proj-shared/csc275/stanford/"$LSB_JOBID"
@@ -41,19 +38,22 @@ done
 # Process CUDA configuration
 GPU_OPTS=
 if [[ "$USE_CUDA" == 1 ]]; then
-    GPU_OPTS="-ll:gpu 3 -ll:fsize 1024 -ll:zsize 0"
+    GPU_OPTS="-ll:gpu 3 -ll:fsize 1024 -ll:zsize 0 -ll:ib_zsize 0"
 fi
+
+# Make sure the number of requested ranks is divisible by 2.
+_NUM_RANKS="$(( NUM_RANKS + NUM_RANKS%2 ))"
 
 # Start the job inside the scratch directory.
 cd "$SCRATCH_DIR"
 # NOTE: We have to run through the pick_hcas.py script, due to a GASNet bug.
 # NOTE: We have to disable MPI's CUDA hijack; it interferes with Realm's.
-jsrun -n "$NUM_RANKS" -r 2 -a 1 -c 21 -g 3 -b rs -E LD_LIBRARY_PATH \
+jsrun -n "$_NUM_RANKS" -r 2 -a 1 -c 21 -g 3 -b rs -E LD_LIBRARY_PATH \
     --smpiargs="-x PAMI_DISABLE_CUDA_HOOK=1 -disable_gpu_hooks" \
     "$SOLEIL_DIR"/src/pick_hcas.py \
     "$SOLEIL_DIR"/src/soleil.exec $_ARGS $GPU_OPTS \
-    -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 21 \
-    -ll:csize 16384 -ll:rsize 1024 -ll:gsize 0 -ll:ib_zsize 0
+    -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 20 \
+    -ll:csize 16384 -ll:rsize 1024 -ll:gsize 0
 
 # Resources:
 # 2 NUMA domains per node

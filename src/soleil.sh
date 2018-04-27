@@ -82,11 +82,13 @@ function run_titan {
 }
 
 function run_summit {
+    export QUEUE="${QUEUE:-batch}"
     EXCLUDED="$(sed 's/^/hname!=/' "$SOLEIL_DIR"/src/blacklist/summit.txt |
                 paste -sd '&' | sed 's/&/ && /g')"
     NUM_NODES="$(( NUM_RANKS/2 + NUM_RANKS%2 ))"
-    bsub -R "$EXCLUDED" \
-        -nnodes "$NUM_NODES" -W "$MINUTES" \
+    # TODO: Support blacklist -- this requires Expert Mode (-csm y).
+    bsub -J soleil -P CSC275IACCARINO -alloc_flags smt4 \
+        -nnodes "$NUM_NODES" -W "$MINUTES" -q "$QUEUE" \
         "$SOLEIL_DIR"/src/summit.lsf
 }
 
@@ -97,8 +99,9 @@ function run_certainty {
 	RESOURCES="gpu:4"
     fi
     EXCLUDED="$(paste -sd ',' "$SOLEIL_DIR"/src/blacklist/certainty.txt)"
-    sbatch --export=ALL --exclude="$EXCLUDED" \
+    sbatch --export=ALL \
         -N "$NUM_RANKS" -t "$WALLTIME" -p "$QUEUE" --gres="$RESOURCES" \
+	--exclude="$EXCLUDED" \
         "$SOLEIL_DIR"/src/certainty.slurm
 }
 

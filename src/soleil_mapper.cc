@@ -74,9 +74,12 @@ public:
       }
     }
     unsigned total_ranks = remote_cpus.size();
-    CHECK(allocated_ranks == total_ranks,
+    CHECK(allocated_ranks <= total_ranks,
           "%d rank(s) required, but %d rank(s) supplied to Legion",
           allocated_ranks, total_ranks);
+    if (allocated_ranks < total_ranks) {
+      LOG.warning() << total_ranks - allocated_ranks << " rank(s) are unused";
+    }
     // TODO: Verify we're running with 1 OpenMP/CPU processor per rank.
   }
 
