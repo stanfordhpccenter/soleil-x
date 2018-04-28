@@ -98,7 +98,6 @@ do
   for i = limits.lo.x, limits.hi.x+1 do
     for j = limits.lo.y, limits.hi.y+1 do
       for k = limits.lo.z, limits.hi.z+1 do
-        -- C.fprintf(f,' %.6e ', points[{i,j,k}].G)
         C.fprintf(f,' %.15e \n', points[{i,j,k}].G)
       end
       C.fprintf(f,'\n')

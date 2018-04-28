@@ -65,9 +65,16 @@ fi
 WALLTIME="$(printf "%02d:%02d:00" $((MINUTES/60)) $((MINUTES%60)))"
 export NUM_RANKS
 
-export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:$LEGION_DIR/bindings/regent/"
-if [[ ! -z "${HDF_ROOT:-}" ]]; then
-    export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:$HDF_ROOT/lib"
+if [ "$(uname)" == "Darwin" ]; then
+    export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-}:$LEGION_DIR/bindings/regent/"
+    if [[ ! -z "${HDF_ROOT:-}" ]]; then
+        export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-}:$HDF_ROOT/lib"
+    fi
+else
+    export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:$LEGION_DIR/bindings/regent/"
+    if [[ ! -z "${HDF_ROOT:-}" ]]; then
+        export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:$HDF_ROOT/lib"
+    fi
 fi
 
 export CURR_DIR="$(pwd)"
