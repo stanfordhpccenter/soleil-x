@@ -6814,7 +6814,7 @@ task selectNextCandidate(results : region(ispace(int1d), double),
                          configs : region(ispace(int1d), SCHEMA.Config),
                          candidate : int)
 where
-  reads(results), writes(configs)
+  reads(results), reads writes(configs)
 do
   for c in configs do
     if candidate == 0 then
@@ -6854,6 +6854,7 @@ task main()
       num_samples += 1
     elseif C.strcmp(args.argv[i], '-I') == 0 and i < args.argc-1 then
       var csvFile = C.fopen(args.argv[i+1], 'r')
+      var jsonFileName : int8[256]
       while C.fgets(jsonFileName, 256, csvFile) ~= [&int8](0) do
         num_samples += 1
       end
@@ -6874,7 +6875,7 @@ task main()
   for i = 1, args.argc do
     if C.strcmp(args.argv[i], '-i') == 0 and i < args.argc-1 then
       configs[sampleId] = SCHEMA.parse_config(args.argv[i+1])
-      configs[sampleId].sampleId = sampleId
+      configs[sampleId].Mapping.sampleId = sampleId
       sampleId += 1
     elseif C.strcmp(args.argv[i], '-I') == 0 and i < args.argc-1 then
       var csvFile = C.fopen(args.argv[i+1], 'r')
@@ -6884,7 +6885,7 @@ task main()
           jsonFileName[C.strlen(jsonFileName) - 1] = 0
         end
         configs[sampleId] = SCHEMA.parse_config(jsonFileName)
-        configs[sampleId].sampleId = sampleId
+        configs[sampleId].Mapping.sampleId = sampleId
         sampleId += 1
       end
       C.fclose(csvFile)
@@ -6902,7 +6903,7 @@ task main()
       C.snprintf(dirname, 256, "candidate%d/sample%d", candidate, sampleId)
       UTIL.createDir(dirname)
       C.free(dirname)
-      results[sampleId] = work(configs[sampleId])
+      results[sampleId] = work(configs[sampleId], candidate)
     end
     C.printf('Final temperatures at probe:\n')
     for sampleId in samples_is do
