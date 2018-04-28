@@ -17,29 +17,33 @@ CXXFLAGS += -std=c++11 -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)
 # Regent options
 export INCLUDE_PATH := .
 ifdef HDF_ROOT
-export INCLUDE_PATH := $(INCLUDE_PATH);$(HDF_ROOT)/include
+  export INCLUDE_PATH := $(INCLUDE_PATH);$(HDF_ROOT)/include
 endif
 REGENT := $(LEGION_DIR)/language/regent.py -g
 ifeq ($(USE_CUDA), 1)
-SOLEIL_FLAGS := -fflow 0 -fopenmp 1 -finner 0 -fcuda 1 -fcuda-offline 1
+  SOLEIL_FLAGS := -fflow 0 -fopenmp 1 -finner 0 -fcuda 1 -fcuda-offline 1
 else
-SOLEIL_FLAGS := -fflow 0 -fopenmp 1 -finner 0 -fcuda 0
+  SOLEIL_FLAGS := -fflow 0 -fopenmp 1 -finner 0 -fcuda 0
 endif
 DOM_HOST_FLAGS := -fflow 0 -fopenmp 1 -finner 0 -fcuda 0
 
 # Link flags
 ifdef CRAYPE_VERSION
-LINK_FLAGS += -Bdynamic
-LINK_FLAGS += $(CRAY_UGNI_POST_LINK_OPTS) -lugni
-LINK_FLAGS += $(CRAY_UDREG_POST_LINK_OPTS) -ludreg
+  LINK_FLAGS += -Bdynamic
+  LINK_FLAGS += $(CRAY_UGNI_POST_LINK_OPTS) -lugni
+  LINK_FLAGS += $(CRAY_UDREG_POST_LINK_OPTS) -ludreg
 endif
 LINK_FLAGS += -L$(LEGION_DIR)/bindings/regent -lregent
 ifdef HDF_ROOT
-LINK_FLAGS += -L$(HDF_ROOT)/lib
-export LD_LIBRARY_PATH := $(LD_LIBRARY_PATH):$(HDF_ROOT)/lib
+  LINK_FLAGS += -L$(HDF_ROOT)/lib
+  ifeq ($(shell uname),Darwin)
+    export DYLD_LIBRARY_PATH := $(DYLD_LIBRARY_PATH):$(HDF_ROOT)/lib
+  else
+    export LD_LIBRARY_PATH := $(LD_LIBRARY_PATH):$(HDF_ROOT)/lib
+  endif
 endif
 ifeq ($(USE_HDF), 1)
-LINK_FLAGS += -l$(HDF_LIBNAME)
+  LINK_FLAGS += -l$(HDF_LIBNAME)
 endif
 LINK_FLAGS += -lm
 
