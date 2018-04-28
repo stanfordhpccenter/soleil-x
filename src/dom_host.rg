@@ -94,12 +94,12 @@ where
   reads (points.G)
 do
   var limits = points.bounds
-  var f = C.fopen("intensity.dat", "w")
+  var f = C.fopen("dom_intensities/intensity.dat", "w")
   for i = limits.lo.x, limits.hi.x+1 do
     for j = limits.lo.y, limits.hi.y+1 do
       for k = limits.lo.z, limits.hi.z+1 do
         -- C.fprintf(f,' %.6e ', points[{i,j,k}].G)
-        C.fprintf(f,' %.15e ', points[{i,j,k}].G)
+        C.fprintf(f,' %.15e \n', points[{i,j,k}].G)
       end
       C.fprintf(f,'\n')
     end
@@ -115,13 +115,20 @@ end
 local task main()
   -- Read configuration
   var args = C.legion_runtime_get_input_args()
+  var stderr = C.fdopen(2, 'w')
   if args.argc < 2 then
-    var stderr = C.fdopen(2, 'w')
     C.fprintf(stderr, "Usage: %s config.json\n", args.argv[0])
     C.fflush(stderr)
     C.exit(1)
   end
   var config = SCHEMA.parse_config(args.argv[1])
+
+  if config.Radiation.angles ~= NUM_ANGLES then
+    C.fprintf(stderr, "angles in config file (%d) must match NUM_ANGLES in dom_host.rg (%d)\n", 
+      config.Radiation.angles, NUM_ANGLES)
+    C.fflush(stderr)
+    C.exit(1)
+  end
   -- Initialize symbols
   var is = ispace(int3d, {config.Radiation.xNum, config.Radiation.yNum, config.Radiation.zNum})
   var points = region(is, Point)

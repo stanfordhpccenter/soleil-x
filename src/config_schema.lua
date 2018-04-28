@@ -119,6 +119,7 @@ Exports.Config = {
     tempNorth = double,
     tempUp = double,
     tempDown = double,
+    angles = int,
   },
   IO = {
     -- whether to write restart files (requires compiling with HDF support)
