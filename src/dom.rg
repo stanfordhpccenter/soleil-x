@@ -279,7 +279,7 @@ do
   for p in points do
     p.S = (1.0-omega) * p.sigma * p.Ib
     for m = 0, NUM_ANGLES do
-      p.S += omega * p.sigma/(4.0*pi) * angles[m].w 
+      p.S += omega * p.sigma/(4.0*pi) * angles[m].w
           * (p.Iiter_1[m]
            + p.Iiter_2[m]
            + p.Iiter_3[m]
@@ -1910,65 +1910,51 @@ where
                  Iiter_5, Iiter_6, Iiter_7, Iiter_8})
 do
   var res : double = 0.0
-  var limits = points.bounds
-
 
   __demand(__openmp)
   for p in points do
     for m = 0, NUM_ANGLES do
-      var debug : boolean = false
 
       if p.I_1[m] > 0 then
-        debug = true
         res += pow((p.I_1[m]-p.Iiter_1[m]),2.0)
           / pow((p.I_1[m]),2.0)
       end
 
       if p.I_2[m] > 0 then
-        debug = true
         res += pow((p.I_2[m]-p.Iiter_2[m]),2.0)
           / pow((p.I_2[m]),2.0)
       end
 
       if p.I_3[m] > 0 then
-        debug = true
         res += pow((p.I_3[m]-p.Iiter_3[m]),2.0)
           / pow((p.I_3[m]),2.0)
       end
 
       if p.I_4[m] > 0 then
-        debug = true
         res += pow((p.I_4[m]-p.Iiter_4[m]),2.0)
           / pow((p.I_4[m]),2.0)
       end
 
       if p.I_5[m] > 0 then
-        debug = true
         res += pow((p.I_5[m]-p.Iiter_5[m]),2.0)
           / pow((p.I_5[m]),2.0)
       end
 
       if p.I_6[m] > 0 then
-        debug = true
         res += pow((p.I_6[m]-p.Iiter_6[m]),2.0)
           / pow((p.I_6[m]),2.0)
       end
 
       if p.I_7[m] > 0 then
-        debug = true
         res += pow((p.I_7[m]-p.Iiter_7[m]),2.0)
           / pow((p.I_7[m]),2.0)
       end
 
       if p.I_8[m] > 0 then
-        debug = true
         res += pow((p.I_8[m]-p.Iiter_8[m]),2.0)
           / pow((p.I_8[m]),2.0)
       end
 
-      if not debug then
-        -- c.printf("bad! angle=%d\n", m)
-      end
     end
   end
 
@@ -2006,7 +1992,7 @@ where
 do
   __demand(__openmp)
   for p in points do
-    for m = 0, NUM_ANGLES do 
+    for m = 0, NUM_ANGLES do
       p.G += angles[m].w * (p.I_1[m])
        + angles[m].w * (p.I_2[m])
        + angles[m].w * (p.I_3[m])
