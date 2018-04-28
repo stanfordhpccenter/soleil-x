@@ -5119,7 +5119,9 @@ end
 -------------------------------------------------------------------------------
 
 __forbid(__optimize)
-task work(config : Config)
+task work(config : Config, candidate : int)
+
+  var result = 0.0
 
   -----------------------------------------------------------------------------
   -- Preparation
@@ -5127,13 +5129,13 @@ task work(config : Config)
 
   -- Open long-running files
   var consoleFile = [&int8](C.malloc(32))
-  C.snprintf(consoleFile, 32, 'sample%d/console.txt', config.Mapping.sampleId)
+  C.snprintf(consoleFile, 32, 'candidate%d/sample%d/console.txt', candidate, config.Mapping.sampleId)
   var console = UTIL.createFile(consoleFile)
   C.free(consoleFile)
   var probeFiles = [&&C.FILE](C.malloc(config.IO.probes.length * FILE_PTR_SIZE))
   for i = 0,config.IO.probes.length do
     var filename = [&int8](C.malloc(32))
-    C.snprintf(filename, 32, 'sample%d/probe%d.csv', config.Mapping.sampleId, i)
+    C.snprintf(filename, 32, 'candidate%d/sample%d/probe%d.csv', candidate, config.Mapping.sampleId, i)
     probeFiles[i] = UTIL.createFile(filename)
     C.free(filename)
     C.fprintf(probeFiles[i], 'TimeStep\tTemperature\n')
@@ -6478,9 +6480,9 @@ task work(config : Config)
       if config.IO.wrtRestart then
         if exitCond or Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 then
           var dirname = [&int8](C.malloc(256))
-          C.snprintf(dirname, 256, "sample%d/fluid_iter%d", config.Mapping.sampleId, Integrator_timeStep)
+          C.snprintf(dirname, 256, "candidate%d/sample%d/fluid_iter%d", candidate, config.Mapping.sampleId, Integrator_timeStep)
           Fluid_dump(primColors, dirname, Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
-          C.snprintf(dirname, 256, "sample%d/particles_iter%d", config.Mapping.sampleId, Integrator_timeStep)
+          C.snprintf(dirname, 256, "candidate%d/sample%d/particles_iter%d", candidate, config.Mapping.sampleId, Integrator_timeStep)
           particles_dump(primColors, dirname, particles, particles_copy, particles_primPart, particles_copy_primPart)
           C.free(dirname)
         end
@@ -6491,6 +6493,7 @@ task work(config : Config)
           var temp = Fluid[int3d{probe.coords[0],probe.coords[1],probe.coords[2]}].temperature
           C.fprintf(probeFiles[i], '%d\t%lf\n', Integrator_timeStep, temp)
           C.fflush(probeFiles[i])
+          result = temp
         end
       end
 
@@ -6803,26 +6806,76 @@ task work(config : Config)
   C.free(probeFiles)
   C.fclose(console)
 
+  return result
+
 end -- work task
 
-__demand(__inline)
-task launchSample(configFile : rawstring, num : int)
-  var config = SCHEMA.parse_config(configFile)
-  config.Mapping.sampleId = num
-  var dirname = [&int8](C.malloc(256))
-  C.snprintf(dirname, 256, "sample%d", num)
-  UTIL.createDir(dirname)
-  C.free(dirname)
-  work(config)
+task selectNextCandidate(results : region(ispace(int1d), double),
+                         configs : region(ispace(int1d), SCHEMA.Config),
+                         candidate : int)
+where
+  reads(results), writes(configs)
+do
+  for c in configs do
+    if candidate == 0 then
+      c.Grid.xNum = 32
+      c.Grid.yNum = 16
+      c.Grid.zNum = 16
+      c.Radiation.xNum = 32
+      c.Radiation.yNum = 16
+      c.Radiation.zNum = 16
+      c.IO.probes.values[0].coords = array(31,8,8)
+    elseif candidate == 1 then
+      c.Grid.xNum = 16
+      c.Grid.yNum = 8
+      c.Grid.zNum = 8
+      c.Radiation.xNum = 16
+      c.Radiation.yNum = 8
+      c.Radiation.zNum = 8
+      c.IO.probes.values[0].coords = array(15,4,4)
+    else
+      c.Grid.xNum = 64
+      c.Grid.yNum = 32
+      c.Grid.zNum = 32
+      c.Radiation.xNum = 64
+      c.Radiation.yNum = 32
+      c.Radiation.zNum = 32
+      c.IO.probes.values[0].coords = array(63,16,16)
+    end
+  end
 end
 
 task main()
   var args = regentlib.c.legion_runtime_get_input_args()
-  var launched = 0
+  -- Count configs
+  var num_samples = 0
   for i = 1, args.argc do
     if C.strcmp(args.argv[i], '-i') == 0 and i < args.argc-1 then
-      launchSample(args.argv[i+1], launched)
-      launched += 1
+      num_samples += 1
+    elseif C.strcmp(args.argv[i], '-I') == 0 and i < args.argc-1 then
+      var csvFile = C.fopen(args.argv[i+1], 'r')
+      while C.fgets(jsonFileName, 256, csvFile) ~= [&int8](0) do
+        num_samples += 1
+      end
+      C.fclose(csvFile)
+    end
+  end
+  if num_samples < 1 then
+    var stderr = C.fdopen(2, 'w')
+    C.fprintf(stderr, "No testcases supplied.\n")
+    C.fflush(stderr)
+    C.exit(1)
+  end
+  -- Parse configs
+  var samples_is = ispace(int1d, num_samples)
+  var configs = region(samples_is, SCHEMA.Config)
+  var results = region(samples_is, double)
+  var sampleId = 0
+  for i = 1, args.argc do
+    if C.strcmp(args.argv[i], '-i') == 0 and i < args.argc-1 then
+      configs[sampleId] = SCHEMA.parse_config(args.argv[i+1])
+      configs[sampleId].sampleId = sampleId
+      sampleId += 1
     elseif C.strcmp(args.argv[i], '-I') == 0 and i < args.argc-1 then
       var csvFile = C.fopen(args.argv[i+1], 'r')
       var jsonFileName : int8[256]
@@ -6830,17 +6883,32 @@ task main()
         if jsonFileName[C.strlen(jsonFileName) - 1] == 10 then -- 10 == '\n'
           jsonFileName[C.strlen(jsonFileName) - 1] = 0
         end
-        launchSample(jsonFileName, launched)
-        launched += 1
+        configs[sampleId] = SCHEMA.parse_config(jsonFileName)
+        configs[sampleId].sampleId = sampleId
+        sampleId += 1
       end
       C.fclose(csvFile)
     end
   end
-  if launched < 1 then
-    var stderr = C.fdopen(2, 'w')
-    C.fprintf(stderr, "No testcases supplied.\n")
-    C.fflush(stderr)
-    C.exit(1)
+  -- Try 3 different grid sizes on all configs
+  for candidate = 0,3 do
+    selectNextCandidate(results, configs, candidate)
+    C.printf("Candidate %d: %dx%d%d\n", candidate,
+             configs[0].Grid.xNum, configs[0].Grid.yNum, configs[0].Grid.zNum)
+    for sampleId in samples_is do
+      var dirname = [&int8](C.malloc(256))
+      C.snprintf(dirname, 256, "candidate%d", candidate)
+      UTIL.createDir(dirname)
+      C.snprintf(dirname, 256, "candidate%d/sample%d", candidate, sampleId)
+      UTIL.createDir(dirname)
+      C.free(dirname)
+      results[sampleId] = work(configs[sampleId])
+    end
+    C.printf('Final temperatures at probe:\n')
+    for sampleId in samples_is do
+      C.printf('%lf ', results[sampleId])
+    end
+    C.printf('\n')
   end
 end
 
