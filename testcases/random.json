@@ -94,6 +94,7 @@
         "xNum" : 124320, // 148 * 840
         "yNum" : 320364, // 396 * 809
         "zNum" : 201584, // 344 * 586
+        "angles" : 14,
         "emissEast"  : 1.0,
         "emissWest"  : 1.0,
         "emissSouth" : 1.0,
