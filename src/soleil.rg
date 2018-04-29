@@ -5119,7 +5119,8 @@ end
 -------------------------------------------------------------------------------
 
 __forbid(__optimize)
-task work(config : Config, candidate : int)
+task work(config : Config, results : region(ispace(int1d),double), candidate : int)
+where writes(results) do
 
   var result = 0.0
 
@@ -6806,7 +6807,7 @@ task work(config : Config, candidate : int)
   C.free(probeFiles)
   C.fclose(console)
 
-  return result
+  results[config.Mapping.sampleId] = result
 
 end -- work task
 
@@ -6834,13 +6835,13 @@ do
       c.Radiation.zNum = 8
       c.IO.probes.values[0].coords = array(15,4,4)
     else
-      c.Grid.xNum = 64
-      c.Grid.yNum = 32
-      c.Grid.zNum = 32
-      c.Radiation.xNum = 64
-      c.Radiation.yNum = 32
-      c.Radiation.zNum = 32
-      c.IO.probes.values[0].coords = array(63,16,16)
+      c.Grid.xNum = 48
+      c.Grid.yNum = 24
+      c.Grid.zNum = 24
+      c.Radiation.xNum = 48
+      c.Radiation.yNum = 24
+      c.Radiation.zNum = 24
+      c.IO.probes.values[0].coords = array(47,12,12)
     end
   end
 end
@@ -6871,6 +6872,7 @@ task main()
   var samples_is = ispace(int1d, num_samples)
   var configs = region(samples_is, SCHEMA.Config)
   var results = region(samples_is, double)
+  var p_results = partition(equal, results, ispace(int1d,num_samples))
   var sampleId = 0
   for i = 1, args.argc do
     if C.strcmp(args.argv[i], '-i') == 0 and i < args.argc-1 then
@@ -6891,19 +6893,20 @@ task main()
       C.fclose(csvFile)
     end
   end
-  -- Try 3 different grid sizes on all configs
   for candidate = 0,3 do
     selectNextCandidate(results, configs, candidate)
-    C.printf("Candidate %d: %dx%d%d\n", candidate,
+    C.printf("Candidate %d: %dx%dx%d\n", candidate,
              configs[0].Grid.xNum, configs[0].Grid.yNum, configs[0].Grid.zNum)
+    var dirname = [&int8](C.malloc(256))
+    C.snprintf(dirname, 256, "candidate%d", candidate)
+    UTIL.createDir(dirname)
+    C.free(dirname)
     for sampleId in samples_is do
       var dirname = [&int8](C.malloc(256))
-      C.snprintf(dirname, 256, "candidate%d", candidate)
-      UTIL.createDir(dirname)
       C.snprintf(dirname, 256, "candidate%d/sample%d", candidate, sampleId)
       UTIL.createDir(dirname)
       C.free(dirname)
-      results[sampleId] = work(configs[sampleId], candidate)
+      work(configs[sampleId], p_results[sampleId], candidate)
     end
     C.printf('Final temperatures at probe:\n')
     for sampleId in samples_is do
