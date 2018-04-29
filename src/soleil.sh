@@ -90,12 +90,15 @@ function run_titan {
 
 function run_summit {
     export QUEUE="${QUEUE:-batch}"
-    EXCLUDED="$(sed 's/^/hname!=/' "$SOLEIL_DIR"/src/blacklist/summit.txt |
-                paste -sd '&' | sed 's/&/ && /g')"
+    EXCLUDED="$(cat "$SOLEIL_DIR"/src/blacklist/summit.txt |
+                sed 's/^/ \&\& (hname != /'  | sed 's/$/)/' |
+                paste -sd '')"
     NUM_NODES="$(( NUM_RANKS/2 + NUM_RANKS%2 ))"
-    # TODO: Support blacklist -- this requires Expert Mode (-csm y).
-    bsub -J soleil -P CSC275IACCARINO -alloc_flags smt4 \
-        -nnodes "$NUM_NODES" -W "$MINUTES" -q "$QUEUE" \
+    NUM_CORES="$(( NUM_NODES * 42 ))"
+    RESOURCES="1*{select[LN]span[hosts=1]} +
+               $NUM_CORES*{select[CN$EXCLUDED]span[ptile=42]}"
+    bsub -csm y -J soleil -P CSC275IACCARINO -alloc_flags smt4 \
+        -R "$RESOURCES" -W "$MINUTES" -q "$QUEUE" \
         "$SOLEIL_DIR"/src/summit.lsf
 }
 
