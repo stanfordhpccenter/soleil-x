@@ -7,6 +7,13 @@ Exports.ViscosityModel = Enum('Constant','PowerLaw','Sutherland')
 Exports.FlowInitCase = Enum('Uniform','Restart','Perturbed','TaylorGreen2DVortex','TaylorGreen3DVortex')
 Exports.ParticlesInitCase = Enum('Random','Restart','Uniform')
 Exports.RadiationType = Enum('OFF','Algebraic','DOM')
+Exports.PertubationModel = Union{
+  OFF = {},
+  Random = {
+    fromCell = Array(3,int),
+    toCell = Array(3,int),
+  },
+}
 
 -- Main config struct
 Exports.Config = {
@@ -81,6 +88,7 @@ Exports.Config = {
     initParams = Array(5,double),
     bodyForce = Array(3,double),
     turbForcing = bool,
+    pertubation = Exports.PertubationModel,
   },
   Particles = {
     initCase = Exports.ParticlesInitCase,
