@@ -6195,79 +6195,6 @@ task work(config : Config)
   regentlib.c.legion_domain_point_coloring_destroy(coloring__12110)
 
   -----------------------------------------------------------------------------
-  -- Set up pertubation constants
-  -----------------------------------------------------------------------------
-
-  if config.Flow.pertubation.type == SCHEMA.PertubationModel_Random then
-    -- Number of nodes in perturbed volume
-    var nx = config.Flow.pertubation.u.Random.toCell[0]
-           - config.Flow.pertubation.u.Random.fromCell[0] + 1
-    var ny = config.Flow.pertubation.u.Random.toCell[1]
-           - config.Flow.pertubation.u.Random.fromCell[1] + 1
-    var nz = config.Flow.pertubation.u.Random.toCell[2]
-           - config.Flow.pertubation.u.Random.fromCell[2] + 1
-    -- Domain dimensions
-    var lx = Grid_xCellWidth * nx
-    var ly = Grid_yCellWidth * ny
-    var lz = Grid_zCellWidth * nz
-    -- Other constants
-    var ke_ = 40.0                                -- Peak wave number
-    var alpha = 1.452762113                       -- Scaling constant
-    var kv = 1.0e-5                               -- Kinematic viscosity
-    var urms = 0.25                               -- RMS velocity fluctuation
-    var ke = sqrt( 5.0/12 )*ke_                   -- Peak wave number
-    var wn1 = 2.0*PI/( pow(lx*ly*lz,1.0/3.0) )    -- Smallest wavenumber
-    var L = 0.746834/ke                           -- Integral length scale
-    var eps = urms*urms*urms/L                    -- Dissipation rate
-    var keta = pow(eps,0.25) * pow(kv,-3.0/4.0)   -- Kolmogorov wave number
-    var wnn = max( PI/Grid_xCellWidth,            -- Nyquist limit
-                   max( PI/Grid_yCellWidth, PI/Grid_zCellWidth ) )
-    var dk = ( wnn - wn1 )/Pertubation_modes      -- Wavenumber step
-    -- Fill in arrays
-    for i = 0,Pertubation_modes do
-      -- Generate random angles
-      var phi = 2.0*PI*C.drand48()
-      var nu = C.drand48()
-      var theta = acos( 2.0*nu - 1.0 )
-      var phi1 = 2.0*PI*C.drand48()
-      var nu1 = C.drand48()
-      -- Wavenumber at cell centers
-      var wn = wn1 + 0.5*dk + i*dk
-      -- Wavenumber vector from random angles
-      Pertubation_kx[i] = sin( theta )*cos( phi )*wn
-      Pertubation_ky[i] = sin( theta )*sin( phi )*wn
-      Pertubation_kz[i] = cos( theta )*wn
-      -- Create divergence vector
-      var ktx = sin( Pertubation_kx[i]*Grid_xCellWidth/2.0 ) / Grid_xCellWidth
-      var kty = sin( Pertubation_ky[i]*Grid_yCellWidth/2.0 ) / Grid_yCellWidth
-      var ktz = sin( Pertubation_kz[i]*Grid_zCellWidth/2.0 ) / Grid_zCellWidth
-      -- Enforce Mass Conservation
-      var theta1 = acos( 2.0*nu1 - 1.0 )
-      var zetax  = sin( theta1 )*cos( phi1 )
-      var zetay  = sin( theta1 )*sin( phi1 )
-      var zetaz  = cos( theta1 )
-      Pertubation_sxm[i] = zetay*ktz - zetaz*kty
-      Pertubation_sym[i] = -( zetax*ktz - zetaz*ktx  )
-      Pertubation_szm[i] = zetax*kty - zetay*ktx
-      var smag = sqrt( Pertubation_sxm[i]*Pertubation_sxm[i] +
-                       Pertubation_sym[i]*Pertubation_sym[i] +
-                       Pertubation_szm[i]*Pertubation_szm[i] )
-      Pertubation_sxm[i] = Pertubation_sxm[i]/smag
-      Pertubation_sym[i] = Pertubation_sym[i]/smag
-      Pertubation_szm[i] = Pertubation_szm[i]/smag
-      -- Generate energy spectrum
-      var r1 = wn/ke
-      var r2 = wn/keta
-      var espec = alpha
-                * ( urms*urms/ke )
-                * ( r1*r1*r1*r1 / ( pow((1.0+r1*r1),(17.0/6.0)) ) )
-                * exp( -2.0*r2*r2 )
-      espec = max(0,espec)
-      Pertubation_um[i] = sqrt( espec*dk )
-    end
-  end
-
-  -----------------------------------------------------------------------------
   -- Set up BC's, timestepping, and finalize
   -----------------------------------------------------------------------------
 
@@ -6821,8 +6748,79 @@ task work(config : Config)
                                       Grid_yBnum, Grid_yNum,
                                       Grid_zBnum, Grid_zNum)
 
-        -- Insert random pertubations
         if config.Flow.pertubation.type == SCHEMA.PertubationModel_Random then
+          -- Set up pertubation constants
+          -- Number of nodes in perturbed volume
+          var nx = config.Flow.pertubation.u.Random.toCell[0]
+                 - config.Flow.pertubation.u.Random.fromCell[0] + 1
+          var ny = config.Flow.pertubation.u.Random.toCell[1]
+                 - config.Flow.pertubation.u.Random.fromCell[1] + 1
+          var nz = config.Flow.pertubation.u.Random.toCell[2]
+                 - config.Flow.pertubation.u.Random.fromCell[2] + 1
+          -- Domain dimensions
+          var lx = Grid_xCellWidth * nx
+          var ly = Grid_yCellWidth * ny
+          var lz = Grid_zCellWidth * nz
+          -- Other constants
+          var ke_ = 40.0                            -- Peak wave number
+          var alpha = 1.452762113                   -- Scaling constant
+          var kv = 1.0e-5                           -- Kinematic viscosity
+          var urms = 0.25                           -- RMS velocity fluctuation
+          var ke = sqrt(5.0/12)*ke_                 -- Peak wave number
+          var wn1 = 2.0*PI/pow(lx*ly*lz,1.0/3.0)    -- Smallest wavenumber
+          var L = 0.746834/ke                       -- Integral length scale
+          var eps = urms*urms*urms/L                -- Dissipation rate
+          var keta = pow(eps,0.25)*pow(kv,-3.0/4.0) -- Kolmogorov wave number
+          var wnn = max( PI/Grid_xCellWidth,        -- Nyquist limit
+                    max( PI/Grid_yCellWidth,
+                         PI/Grid_zCellWidth ) )
+          var dk = (wnn-wn1)/Pertubation_modes      -- Wavenumber step
+          -- Fill in arrays
+          for i = 0,Pertubation_modes do
+            -- Generate random angles
+            var phi = 2.0*PI*C.drand48()
+            var nu = C.drand48()
+            var theta = acos( 2.0*nu - 1.0 )
+            var phi1 = 2.0*PI*C.drand48()
+            var nu1 = C.drand48()
+            -- Wavenumber at cell centers
+            var wn = wn1 + 0.5*dk + i*dk
+            -- Wavenumber vector from random angles
+            Pertubation_kx[i] = sin( theta )*cos( phi )*wn
+            Pertubation_ky[i] = sin( theta )*sin( phi )*wn
+            Pertubation_kz[i] = cos( theta )*wn
+            -- Create divergence vector
+            var ktx = sin( Pertubation_kx[i]*Grid_xCellWidth/2.0 )
+                    / Grid_xCellWidth
+            var kty = sin( Pertubation_ky[i]*Grid_yCellWidth/2.0 )
+                    / Grid_yCellWidth
+            var ktz = sin( Pertubation_kz[i]*Grid_zCellWidth/2.0 )
+                    / Grid_zCellWidth
+            -- Enforce Mass Conservation
+            var theta1 = acos( 2.0*nu1 - 1.0 )
+            var zetax = sin( theta1 )*cos( phi1 )
+            var zetay = sin( theta1 )*sin( phi1 )
+            var zetaz = cos( theta1 )
+            Pertubation_sxm[i] = zetay*ktz - zetaz*kty
+            Pertubation_sym[i] = -( zetax*ktz - zetaz*ktx  )
+            Pertubation_szm[i] = zetax*kty - zetay*ktx
+            var smag = sqrt( Pertubation_sxm[i]*Pertubation_sxm[i] +
+                             Pertubation_sym[i]*Pertubation_sym[i] +
+                             Pertubation_szm[i]*Pertubation_szm[i] )
+            Pertubation_sxm[i] = Pertubation_sxm[i]/smag
+            Pertubation_sym[i] = Pertubation_sym[i]/smag
+            Pertubation_szm[i] = Pertubation_szm[i]/smag
+            -- Generate energy spectrum
+            var r1 = wn/ke
+            var r2 = wn/keta
+            var espec = alpha
+                      * ( urms*urms/ke )
+                      * ( r1*r1*r1*r1 / ( pow((1.0+r1*r1),(17.0/6.0)) ) )
+                      * exp( -2.0*r2*r2 )
+            espec = max(0,espec)
+            Pertubation_um[i] = sqrt( espec*dk )
+          end
+          -- Insert random pertubations in the fluid
           for c in primColors do
             Flow_Perturb(Fluid_primPart[c], config, Pertubation_modes,
                          Pertubation_kx, Pertubation_ky, Pertubation_kz,
