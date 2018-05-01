@@ -6749,12 +6749,6 @@ where writes(results) do
                                        Grid_yBnum, Grid_yNum,
                                        Grid_zBnum, Grid_zNum)
 
-        -- TODO: Collisions across tiles are not handled.
-        if Integrator_stage==4 then
-          for c in primColors do
-            Particles_HandleCollisions(particles_primPart[c], Integrator_deltaTime, Particles_restitutionCoeff)
-          end
-        end
         Particles_UpdateAuxiliaryStep1(particles,
                                        BC_xBCParticlesPeriodic,
                                        BC_yBCParticlesPeriodic,
