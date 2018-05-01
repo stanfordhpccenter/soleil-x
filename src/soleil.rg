@@ -751,14 +751,14 @@ do
         Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity, rho)
         Fluid[c_bnd].rhoEnergyBoundary = rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity, velocity)))+Fluid[c].sgsEnergy
       else
+        var sign = BC_xNegSign
+        var bnd_velocity = BC_xNegVelocity       
+        var bnd_temperature = BC_xNegTemperature 
+
         var rho = double(0.0)
         var temperature = double(0.0)
         var velocity = [double[3]](array(0.0, 0.0, 0.0))
         var wall_temperature = double(0.0)
-
-        var sign = BC_xNegSign
-        var bnd_velocity = BC_xNegVelocity       -- velocity at face/boundary
-        var bnd_temperature = BC_xNegTemperature -- velocity at face/boundary
 
         velocity = vv_add_double_3(vv_mul_double_3(vs_div_double_3(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
 
@@ -779,6 +779,7 @@ do
     if xPosGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{-1, 0, 0})%Fluid.bounds)
+      var cv = (Flow_gasConstant/(Flow_gamma-1.0))
 
       if NSCBC_outflow_cell then
         Fluid[c_bnd].rhoBoundary = Fluid[c_bnd].rho
@@ -788,12 +789,11 @@ do
         var sign = BC_xPosSign
         var bnd_velocity = BC_xPosVelocity
         var bnd_temperature = BC_xPosTemperature
-        var cv = (Flow_gasConstant/(Flow_gamma-1.0))
 
         var rho = double(0.0)
-        var wall_temperature = double(0.0)
         var temperature = double(0.0)
         var velocity = [double[3]](array(0.0, 0.0, 0.0))
+        var wall_temperature = double(0.0)
 
         velocity = vv_add_double_3(vv_mul_double_3(vs_div_double_3(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
 
@@ -813,16 +813,16 @@ do
     if yNegGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 1, 0})%Fluid.bounds)
-      var sign = BC_yNegSign
       var cv = (Flow_gasConstant/(Flow_gamma-1.0))
 
       if (config.BC.yBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+        var sign = BC_yNegSign
+        var bnd_velocity = BC_xNegVelocity       -- velocity at face/boundary
+
         var rho = double(0.0)
         var temperature = double(0.0)
         var velocity = [double[3]](array(0.0, 0.0, 0.0))
         var wall_temperature = double(0.0)
-
-        var bnd_velocity = BC_xNegVelocity       -- velocity at face/boundary
 
         velocity = vv_add_double_3(vv_mul_double_3(vs_div_double_3(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
 
@@ -841,6 +841,7 @@ do
         Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity, rho)
         Fluid[c_bnd].rhoEnergyBoundary = rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity, velocity)))
       else
+        var sign = BC_yNegSign
         var bnd_velocity = BC_yNegVelocity
         var bnd_temperature = BC_yNegTemperature
         var rho = double(0.0)
@@ -864,71 +865,155 @@ do
     if yPosGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, -1, 0})%Fluid.bounds)
-      var sign = BC_yPosSign
-      var bnd_velocity = BC_yPosVelocity
-      var bnd_temperature = BC_yPosTemperature
-      var rho = double(0.0)
-      var temp_wall = double(0.0)
-      var temperature = double(0.0)
-      var velocity = [double[3]](array(0.0, 0.0, 0.0))
       var cv = (Flow_gasConstant/(Flow_gamma-1.0))
-      var velocity__3538 = [double[3]](array(0.0, 0.0, 0.0))
-      velocity__3538 = vv_add_double_3(vv_mul_double_3(vs_div_double_3(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
-      temp_wall = Fluid[c_int].temperature
-      if (bnd_temperature>0.0) then
-        temp_wall = bnd_temperature
+
+      if (config.BC.zBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+        var sign = BC_zNegSign
+        var bnd_velocity = BC_yPosVelocity
+
+        var rho = double(0.0)
+        var temperature = double(0.0)
+        var velocity = [double[3]](array(0.0, 0.0, 0.0))
+        var wall_temperature = double(0.0)
+
+        velocity = vv_add_double_3(vv_mul_double_3(vs_div_double_3(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
+
+        var c_1 = 2.0/(config.Grid.xWidth*config.Grid.xWidth)*( (config.BC.yBCLeftHeat.u.Parabola.b - config.BC.yBCLeftHeat.u.Parabola.a) - 2.0*(config.BC.yBCLeftHeat.u.Parabola.c - config.BC.yBCLeftHeat.u.Parabola.a))
+        var c_2 = 4.0/(config.Grid.xWidth)*((config.BC.yBCLeftHeat.u.Parabola.c - config.BC.yBCLeftHeat.u.Parabola.a) - 1.0/4.0*(config.BC.yBCLeftHeat.u.Parabola.b - config.BC.yBCLeftHeat.u.Parabola.a))
+        var c_3 = config.BC.yBCLeftHeat.u.Parabola.a
+        wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
+        if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
+          wall_temperature = 0.0
+        end
+        temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
+
+        rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
+
+        Fluid[c_bnd].rhoBoundary = rho
+        Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity, rho)
+        Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity, velocity))))
+      else
+        var sign = BC_zNegSign
+        var bnd_velocity = BC_yPosVelocity
+        var bnd_temperature = BC_yPosTemperature
+        var rho = double(0.0)
+        var temp_wall = double(0.0)
+        var temperature = double(0.0)
+        var velocity = [double[3]](array(0.0, 0.0, 0.0))
+        var velocity__3538 = [double[3]](array(0.0, 0.0, 0.0))
+        velocity__3538 = vv_add_double_3(vv_mul_double_3(vs_div_double_3(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
+        temp_wall = Fluid[c_int].temperature
+        if (bnd_temperature>0.0) then
+          temp_wall = bnd_temperature
+        end
+        temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
+        rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
+        Fluid[c_bnd].rhoBoundary = rho
+        Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity__3538, rho)
+        Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity__3538, velocity__3538))))
       end
-      temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
-      rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
-      Fluid[c_bnd].rhoBoundary = rho
-      Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity__3538, rho)
-      Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity__3538, velocity__3538))))
     end
     if zNegGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 0, 1})%Fluid.bounds)
-      var sign = BC_zNegSign
-      var bnd_velocity = BC_zNegVelocity
-      var bnd_temperature = BC_zNegTemperature
-      var rho = double(0.0)
-      var temp_wall = double(0.0)
-      var temperature = double(0.0)
-      var velocity = [double[3]](array(0.0, 0.0, 0.0))
       var cv = (Flow_gasConstant/(Flow_gamma-1.0))
-      var velocity__3549 = [double[3]](array(0.0, 0.0, 0.0))
-      velocity__3549 = vv_add_double_3(vv_mul_double_3(vs_div_double_3(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
-      temp_wall = Fluid[c_int].temperature
-      if (bnd_temperature>0.0) then
-        temp_wall = bnd_temperature
+
+      if (config.BC.yBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+        var sign = BC_zNegSign
+        var bnd_velocity = BC_zNegVelocity
+
+        var rho = double(0.0)
+        var temperature = double(0.0)
+        var velocity = [double[3]](array(0.0, 0.0, 0.0))
+        var wall_temperature = double(0.0)
+
+        velocity = vv_add_double_3(vv_mul_double_3(vs_div_double_3(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
+
+        var c_1 = 2.0/(config.Grid.xWidth*config.Grid.xWidth)*( (config.BC.yBCLeftHeat.u.Parabola.b - config.BC.yBCLeftHeat.u.Parabola.a) - 2.0*(config.BC.yBCLeftHeat.u.Parabola.c - config.BC.yBCLeftHeat.u.Parabola.a))
+        var c_2 = 4.0/(config.Grid.xWidth)*((config.BC.yBCLeftHeat.u.Parabola.c - config.BC.yBCLeftHeat.u.Parabola.a) - 1.0/4.0*(config.BC.yBCLeftHeat.u.Parabola.b - config.BC.yBCLeftHeat.u.Parabola.a))
+        var c_3 = config.BC.yBCLeftHeat.u.Parabola.a
+        wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
+        if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
+          wall_temperature = 0.0
+        end
+        temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
+
+        rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
+
+        Fluid[c_bnd].rhoBoundary = rho
+        Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity, rho)
+        Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity, velocity))))
+      else
+        var sign = BC_zNegSign
+        var bnd_velocity = BC_zNegVelocity
+        var bnd_temperature = BC_zNegTemperature
+        var rho = double(0.0)
+        var temp_wall = double(0.0)
+        var temperature = double(0.0)
+        var velocity = [double[3]](array(0.0, 0.0, 0.0))
+        var velocity__3549 = [double[3]](array(0.0, 0.0, 0.0))
+        velocity__3549 = vv_add_double_3(vv_mul_double_3(vs_div_double_3(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
+        temp_wall = Fluid[c_int].temperature
+        if (bnd_temperature>0.0) then
+          temp_wall = bnd_temperature
+        end
+        temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
+        rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
+        Fluid[c_bnd].rhoBoundary = rho
+        Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity__3549, rho)
+        Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity__3549, velocity__3549))))
       end
-      temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
-      rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
-      Fluid[c_bnd].rhoBoundary = rho
-      Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity__3549, rho)
-      Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity__3549, velocity__3549))))
     end
     if zPosGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 0, -1})%Fluid.bounds)
-      var sign = BC_zPosSign
-      var bnd_velocity = BC_zPosVelocity
-      var bnd_temperature = BC_zPosTemperature
-      var rho = double(0.0)
-      var temp_wall = double(0.0)
-      var temperature = double(0.0)
-      var velocity = [double[3]](array(0.0, 0.0, 0.0))
       var cv = (Flow_gasConstant/(Flow_gamma-1.0))
-      var velocity__3560 = [double[3]](array(0.0, 0.0, 0.0))
-      velocity__3560 = vv_add_double_3(vv_mul_double_3(vs_div_double_3(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
-      temp_wall = Fluid[c_int].temperature
-      if (bnd_temperature>0.0) then
-        temp_wall = bnd_temperature
+
+      if (config.BC.yBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall)then
+        var sign = BC_zPosSign
+        var bnd_velocity = BC_zPosVelocity
+
+        var rho = double(0.0)
+        var temperature = double(0.0)
+        var velocity = [double[3]](array(0.0, 0.0, 0.0))
+        var wall_temperature = double(0.0)
+
+        velocity = vv_add_double_3(vv_mul_double_3(vs_div_double_3(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
+
+        var c_1 = 2.0/(config.Grid.xWidth*config.Grid.xWidth)*( (config.BC.yBCLeftHeat.u.Parabola.b - config.BC.yBCLeftHeat.u.Parabola.a) - 2.0*(config.BC.yBCLeftHeat.u.Parabola.c - config.BC.yBCLeftHeat.u.Parabola.a))
+        var c_2 = 4.0/(config.Grid.xWidth)*((config.BC.yBCLeftHeat.u.Parabola.c - config.BC.yBCLeftHeat.u.Parabola.a) - 1.0/4.0*(config.BC.yBCLeftHeat.u.Parabola.b - config.BC.yBCLeftHeat.u.Parabola.a))
+        var c_3 = config.BC.yBCLeftHeat.u.Parabola.a
+        wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
+        if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
+          wall_temperature = 0.0
+        end
+        temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
+
+        rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
+
+        Fluid[c_bnd].rhoBoundary = rho
+        Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity, rho)
+        Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity, velocity))))
+      else
+        var sign = BC_zPosSign
+        var bnd_velocity = BC_zPosVelocity
+        var bnd_temperature = BC_zPosTemperature
+        var rho = double(0.0)
+        var temp_wall = double(0.0)
+        var temperature = double(0.0)
+        var velocity = [double[3]](array(0.0, 0.0, 0.0))
+        var velocity__3560 = [double[3]](array(0.0, 0.0, 0.0))
+        velocity__3560 = vv_add_double_3(vv_mul_double_3(vs_div_double_3(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
+        temp_wall = Fluid[c_int].temperature
+        if (bnd_temperature>0.0) then
+          temp_wall = bnd_temperature
+        end
+        temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
+        rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
+        Fluid[c_bnd].rhoBoundary = rho
+        Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity__3560, rho)
+        Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity__3560, velocity__3560))))
       end
-      temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
-      rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
-      Fluid[c_bnd].rhoBoundary = rho
-      Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity__3560, rho)
-      Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity__3560, velocity__3560))))
     end
   end
 end
@@ -983,11 +1068,11 @@ do
   for c in Fluid do
 
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
-    var xPosGhost  = (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)
+    var xPosGhost = (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)
     var yNegGhost = (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)
-    var yPosGhost  = (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)
+    var yPosGhost = (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)
     var zNegGhost = (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)
-    var zPosGhost  = (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0)
+    var zPosGhost = (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0)
     var ghost_cell = (xNegGhost or xPosGhost or
                       yNegGhost or yPosGhost or
                       zNegGhost or zPosGhost )
@@ -1290,8 +1375,7 @@ do
             wall_temperature = 0.0
           end
 
-          var temperature = double(0.0)
-          temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
+          var temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
           Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
           Fluid[c_bnd].temperatureBoundary = temperature
         else
@@ -1310,44 +1394,87 @@ do
       if yPosGhost then
         var c_bnd = int3d(c)
         var c_int = ((c+{0, -1, 0})%Fluid.bounds)
-        var bnd_temperature = BC_yPosTemperature
-        var temp_wall = double(0.0)
-        var temperature = double(0.0)
-        temp_wall = Fluid[c_int].temperature
-        if (bnd_temperature>0.0) then
-          temp_wall = bnd_temperature
+        if (config.BC.yBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+          var c_1 = 2.0/(config.Grid.xWidth*config.Grid.xWidth)*( (config.BC.yBCLeftHeat.u.Parabola.b - config.BC.yBCLeftHeat.u.Parabola.a) - 2.0*(config.BC.yBCLeftHeat.u.Parabola.c - config.BC.yBCLeftHeat.u.Parabola.a))
+          var c_2 = 4.0/(config.Grid.xWidth)*((config.BC.yBCLeftHeat.u.Parabola.c - config.BC.yBCLeftHeat.u.Parabola.a) - 1.0/4.0*(config.BC.yBCLeftHeat.u.Parabola.b - config.BC.yBCLeftHeat.u.Parabola.a))
+          var c_3 = config.BC.yBCLeftHeat.u.Parabola.a
+          var wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
+          if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
+            wall_temperature = 0.0
+          end
+
+          var temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
+          Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
+          Fluid[c_bnd].temperatureBoundary = temperature
+        else
+          var bnd_temperature = BC_yPosTemperature
+          var temp_wall = double(0.0)
+          var temperature = double(0.0)
+          temp_wall = Fluid[c_int].temperature
+          if (bnd_temperature>0.0) then
+            temp_wall = bnd_temperature
+          end
+          temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
+          Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
+          Fluid[c_bnd].temperatureBoundary = temperature
         end
-        temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
-        Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
-        Fluid[c_bnd].temperatureBoundary = temperature
       end
       if zNegGhost then
         var c_bnd = int3d(c)
         var c_int = ((c+{0, 0, 1})%Fluid.bounds)
-        var bnd_temperature = BC_zNegTemperature
-        var temp_wall = double(0.0)
-        var temperature = double(0.0)
-        temp_wall = Fluid[c_int].temperature
-        if (bnd_temperature>0.0) then
-          temp_wall = bnd_temperature
+        if (config.BC.zBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+          var c_1 = 2.0/(config.Grid.xWidth*config.Grid.xWidth)*( (config.BC.yBCLeftHeat.u.Parabola.b - config.BC.yBCLeftHeat.u.Parabola.a) - 2.0*(config.BC.yBCLeftHeat.u.Parabola.c - config.BC.yBCLeftHeat.u.Parabola.a))
+          var c_2 = 4.0/(config.Grid.xWidth)*((config.BC.yBCLeftHeat.u.Parabola.c - config.BC.yBCLeftHeat.u.Parabola.a) - 1.0/4.0*(config.BC.yBCLeftHeat.u.Parabola.b - config.BC.yBCLeftHeat.u.Parabola.a))
+          var c_3 = config.BC.yBCLeftHeat.u.Parabola.a
+          var wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
+          if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
+            wall_temperature = 0.0
+          end
+
+          var temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
+          Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
+          Fluid[c_bnd].temperatureBoundary = temperature
+        else
+          var bnd_temperature = BC_zNegTemperature
+          var temp_wall = double(0.0)
+          var temperature = double(0.0)
+          temp_wall = Fluid[c_int].temperature
+          if (bnd_temperature>0.0) then
+            temp_wall = bnd_temperature
+          end
+          temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
+          Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
+          Fluid[c_bnd].temperatureBoundary = temperature
         end
-        temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
-        Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
-        Fluid[c_bnd].temperatureBoundary = temperature
       end
       if zPosGhost then
         var c_bnd = int3d(c)
         var c_int = ((c+{0, 0, -1})%Fluid.bounds)
-        var bnd_temperature = BC_zPosTemperature
-        var temp_wall = double(0.0)
-        var temperature = double(0.0)
-        temp_wall = Fluid[c_int].temperature
-        if (bnd_temperature>0.0) then
-          temp_wall = bnd_temperature
+        if (config.BC.zBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+          var c_1 = 2.0/(config.Grid.xWidth*config.Grid.xWidth)*( (config.BC.yBCLeftHeat.u.Parabola.b - config.BC.yBCLeftHeat.u.Parabola.a) - 2.0*(config.BC.yBCLeftHeat.u.Parabola.c - config.BC.yBCLeftHeat.u.Parabola.a))
+          var c_2 = 4.0/(config.Grid.xWidth)*((config.BC.yBCLeftHeat.u.Parabola.c - config.BC.yBCLeftHeat.u.Parabola.a) - 1.0/4.0*(config.BC.yBCLeftHeat.u.Parabola.b - config.BC.yBCLeftHeat.u.Parabola.a))
+          var c_3 = config.BC.yBCLeftHeat.u.Parabola.a
+          var wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
+          if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
+            wall_temperature = 0.0
+          end
+
+          var temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
+          Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
+          Fluid[c_bnd].temperatureBoundary = temperature
+
+        else
+          var bnd_temperature = BC_zPosTemperature
+          var temp_wall = double(0.0)
+          var temperature = double(0.0)
+          temp_wall = Fluid[c_int].temperature
+          if (bnd_temperature>0.0) then
+            temp_wall = bnd_temperature
+          end
+          temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
+          Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
+          Fluid[c_bnd].temperatureBoundary = temperature
         end
-        temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
-        Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
-        Fluid[c_bnd].temperatureBoundary = temperature
       end
     end
   end
@@ -1498,9 +1625,9 @@ do
     if yNegGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 1, 0})%Fluid.bounds)
-      var sign = BC_yNegSign
 
       if (config.BC.yBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+        var sign = BC_yNegSign
         var bnd_velocity = BC_yNegVelocity
         var rho = double(0.0)
 
@@ -1525,6 +1652,7 @@ do
         Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
         Fluid[c_bnd].temperatureBoundary = temperature
       else
+        var sign = BC_yNegSign
         var bnd_velocity = BC_yNegVelocity
         var bnd_temperature = BC_yNegTemperature
         var rho = double(0.0)
@@ -1550,77 +1678,158 @@ do
     if yPosGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, -1, 0})%Fluid.bounds)
-      var sign = BC_yPosSign
-      var bnd_velocity = BC_yPosVelocity
-      var bnd_temperature = BC_yPosTemperature
-      var rho = double(0.0)
-      var temp_wall = double(0.0)
-      var temperature = double(0.0)
-      var velocity = [double[3]](array(0.0, 0.0, 0.0))
-      var cv = (Flow_gasConstant/(Flow_gamma-1.0))
-      velocity = vv_add_double_3(vv_mul_double_3(vs_div_double_3(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
-      temp_wall = Fluid[c_int].temperature
-      if (bnd_temperature>0.0) then
-        temp_wall = bnd_temperature
+      if (config.BC.yBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+        var sign = BC_yPosSign
+        var bnd_velocity = BC_yPosVelocity
+        var rho = double(0.0)
+        var temperature = double(0.0)
+        var velocity = [double[3]](array(0.0, 0.0, 0.0))
+        var cv = (Flow_gasConstant/(Flow_gamma-1.0))
+        velocity = vv_add_double_3(vv_mul_double_3(vs_div_double_3(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
+
+        var c_1 = 2.0/(config.Grid.xWidth*config.Grid.xWidth)*( (config.BC.yBCLeftHeat.u.Parabola.b - config.BC.yBCLeftHeat.u.Parabola.a) - 2.0*(config.BC.yBCLeftHeat.u.Parabola.c - config.BC.yBCLeftHeat.u.Parabola.a))
+        var c_2 = 4.0/(config.Grid.xWidth)*((config.BC.yBCLeftHeat.u.Parabola.c - config.BC.yBCLeftHeat.u.Parabola.a) - 1.0/4.0*(config.BC.yBCLeftHeat.u.Parabola.b - config.BC.yBCLeftHeat.u.Parabola.a))
+        var c_3 = config.BC.yBCLeftHeat.u.Parabola.a
+        var wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
+        if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
+          wall_temperature = 0.0
+        end
+
+        temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
+        rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
+        Fluid[c_bnd].rhoBoundary = rho
+        Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity, rho)
+        Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity, velocity))))
+        Fluid[c_bnd].velocityBoundary = velocity
+        Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
+        Fluid[c_bnd].temperatureBoundary = temperature
+      else      
+        var sign = BC_yPosSign
+        var bnd_velocity = BC_yPosVelocity
+        var bnd_temperature = BC_yPosTemperature
+        var rho = double(0.0)
+        var temp_wall = double(0.0)
+        var temperature = double(0.0)
+        var velocity = [double[3]](array(0.0, 0.0, 0.0))
+        var cv = (Flow_gasConstant/(Flow_gamma-1.0))
+        velocity = vv_add_double_3(vv_mul_double_3(vs_div_double_3(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
+        temp_wall = Fluid[c_int].temperature
+        if (bnd_temperature>0.0) then
+          temp_wall = bnd_temperature
+        end
+        temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
+        rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
+        Fluid[c_bnd].rhoBoundary = rho
+        Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity, rho)
+        Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity, velocity))))
+        Fluid[c_bnd].velocityBoundary = velocity
+        Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
+        Fluid[c_bnd].temperatureBoundary = temperature
       end
-      temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
-      rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
-      Fluid[c_bnd].rhoBoundary = rho
-      Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity, rho)
-      Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity, velocity))))
-      Fluid[c_bnd].velocityBoundary = velocity
-      Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
-      Fluid[c_bnd].temperatureBoundary = temperature
     end
     if zNegGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 0, 1})%Fluid.bounds)
-      var sign = BC_zNegSign
-      var bnd_velocity = BC_zNegVelocity
-      var bnd_temperature = BC_zNegTemperature
-      var rho = double(0.0)
-      var temp_wall = double(0.0)
-      var temperature = double(0.0)
-      var velocity = [double[3]](array(0.0, 0.0, 0.0))
-      var cv = (Flow_gasConstant/(Flow_gamma-1.0))
-      velocity = vv_add_double_3(vv_mul_double_3(vs_div_double_3(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
-      temp_wall = Fluid[c_int].temperature
-      if (bnd_temperature>0.0) then
-        temp_wall = bnd_temperature
+      if (config.BC.zBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+        var sign = BC_zNegSign
+        var bnd_velocity = BC_zNegVelocity
+        var rho = double(0.0)
+        var temperature = double(0.0)
+        var velocity = [double[3]](array(0.0, 0.0, 0.0))
+        var cv = (Flow_gasConstant/(Flow_gamma-1.0))
+        velocity = vv_add_double_3(vv_mul_double_3(vs_div_double_3(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
+
+        var c_1 = 2.0/(config.Grid.xWidth*config.Grid.xWidth)*( (config.BC.yBCLeftHeat.u.Parabola.b - config.BC.yBCLeftHeat.u.Parabola.a) - 2.0*(config.BC.yBCLeftHeat.u.Parabola.c - config.BC.yBCLeftHeat.u.Parabola.a))
+        var c_2 = 4.0/(config.Grid.xWidth)*((config.BC.yBCLeftHeat.u.Parabola.c - config.BC.yBCLeftHeat.u.Parabola.a) - 1.0/4.0*(config.BC.yBCLeftHeat.u.Parabola.b - config.BC.yBCLeftHeat.u.Parabola.a))
+        var c_3 = config.BC.yBCLeftHeat.u.Parabola.a
+        var wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
+        if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
+          wall_temperature = 0.0
+        end
+
+        temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
+        rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
+        Fluid[c_bnd].rhoBoundary = rho
+        Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity, rho)
+        Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity, velocity))))
+        Fluid[c_bnd].velocityBoundary = velocity
+        Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
+        Fluid[c_bnd].temperatureBoundary = temperature
+      else
+        var sign = BC_zNegSign
+        var bnd_velocity = BC_zNegVelocity
+        var bnd_temperature = BC_zNegTemperature
+        var rho = double(0.0)
+        var temp_wall = double(0.0)
+        var temperature = double(0.0)
+        var velocity = [double[3]](array(0.0, 0.0, 0.0))
+        var cv = (Flow_gasConstant/(Flow_gamma-1.0))
+        velocity = vv_add_double_3(vv_mul_double_3(vs_div_double_3(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
+        temp_wall = Fluid[c_int].temperature
+        if (bnd_temperature>0.0) then
+          temp_wall = bnd_temperature
+        end
+        temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
+        rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
+        Fluid[c_bnd].rhoBoundary = rho
+        Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity, rho)
+        Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity, velocity))))
+        Fluid[c_bnd].velocityBoundary = velocity
+        Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
+        Fluid[c_bnd].temperatureBoundary = temperature
       end
-      temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
-      rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
-      Fluid[c_bnd].rhoBoundary = rho
-      Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity, rho)
-      Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity, velocity))))
-      Fluid[c_bnd].velocityBoundary = velocity
-      Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
-      Fluid[c_bnd].temperatureBoundary = temperature
     end
     if zPosGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 0, -1})%Fluid.bounds)
-      var sign = BC_zPosSign
-      var bnd_velocity = BC_zPosVelocity
-      var bnd_temperature = BC_zPosTemperature
-      var rho = double(0.0)
-      var temp_wall = double(0.0)
-      var temperature = double(0.0)
-      var velocity = [double[3]](array(0.0, 0.0, 0.0))
-      var cv = (Flow_gasConstant/(Flow_gamma-1.0))
-      velocity = vv_add_double_3(vv_mul_double_3(vs_div_double_3(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
-      temp_wall = Fluid[c_int].temperature
-      if (bnd_temperature>0.0) then
-        temp_wall = bnd_temperature
+      if (config.BC.zBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+        var sign = BC_zPosSign
+        var bnd_velocity = BC_zPosVelocity
+        var rho = double(0.0)
+        var temperature = double(0.0)
+        var velocity = [double[3]](array(0.0, 0.0, 0.0))
+        var cv = (Flow_gasConstant/(Flow_gamma-1.0))
+        velocity = vv_add_double_3(vv_mul_double_3(vs_div_double_3(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
+
+        var c_1 = 2.0/(config.Grid.xWidth*config.Grid.xWidth)*( (config.BC.yBCLeftHeat.u.Parabola.b - config.BC.yBCLeftHeat.u.Parabola.a) - 2.0*(config.BC.yBCLeftHeat.u.Parabola.c - config.BC.yBCLeftHeat.u.Parabola.a))
+        var c_2 = 4.0/(config.Grid.xWidth)*((config.BC.yBCLeftHeat.u.Parabola.c - config.BC.yBCLeftHeat.u.Parabola.a) - 1.0/4.0*(config.BC.yBCLeftHeat.u.Parabola.b - config.BC.yBCLeftHeat.u.Parabola.a))
+        var c_3 = config.BC.yBCLeftHeat.u.Parabola.a
+        var wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
+        if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
+          wall_temperature = 0.0
+        end
+
+        temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
+        rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
+        Fluid[c_bnd].rhoBoundary = rho
+        Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity, rho)
+        Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity, velocity))))
+        Fluid[c_bnd].velocityBoundary = velocity
+        Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
+        Fluid[c_bnd].temperatureBoundary = temperature
+      else
+        var sign = BC_zPosSign
+        var bnd_velocity = BC_zPosVelocity
+        var bnd_temperature = BC_zPosTemperature
+        var rho = double(0.0)
+        var temp_wall = double(0.0)
+        var temperature = double(0.0)
+        var velocity = [double[3]](array(0.0, 0.0, 0.0))
+        var cv = (Flow_gasConstant/(Flow_gamma-1.0))
+        velocity = vv_add_double_3(vv_mul_double_3(vs_div_double_3(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
+        temp_wall = Fluid[c_int].temperature
+        if (bnd_temperature>0.0) then
+          temp_wall = bnd_temperature
+        end
+        temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
+        rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
+        Fluid[c_bnd].rhoBoundary = rho
+        Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity, rho)
+        Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity, velocity))))
+        Fluid[c_bnd].velocityBoundary = velocity
+        Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
+        Fluid[c_bnd].temperatureBoundary = temperature
       end
-      temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
-      rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
-      Fluid[c_bnd].rhoBoundary = rho
-      Fluid[c_bnd].rhoVelocityBoundary = vs_mul_double_3(velocity, rho)
-      Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot_double_3(velocity, velocity))))
-      Fluid[c_bnd].velocityBoundary = velocity
-      Fluid[c_bnd].pressureBoundary = Fluid[c_int].pressure
-      Fluid[c_bnd].temperatureBoundary = temperature
     end
   end
 end
@@ -6241,10 +6450,7 @@ task work(config : Config)
     elseif (config.BC.yBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
       BC_yNegSign = array(-1.0, -1.0, -1.0)
       BC_yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
-      if config.BC.yBCLeftHeat.type == SCHEMA.WallHeatModel_Parabola then
-        --BC_yNegTemperature = config.BC.yBCLeftHeat.u.Parabola.a
-        BC_yNegTemperature = 0.0
-      else
+      if not (config.BC.yBCLeftHeat.type == SCHEMA.WallHeatModel_Parabola) then
         regentlib.assert(false, 'Only parabolia heat model supported')
       end
       BC_yBCParticlesPeriodic = false
@@ -6269,6 +6475,13 @@ task work(config : Config)
         BC_yPosTemperature = config.BC.yBCRightHeat.u.Constant.temperature
       else
         regentlib.assert(false, 'Only constant heat model supported')
+      end
+      BC_yBCParticlesPeriodic = false
+    elseif (config.BC.yBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+      BC_yPosSign = array(-1.0, -1.0, -1.0)
+      BC_yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
+      if not (config.BC.yBCRightHeat.type == SCHEMA.WallHeatModel_Parabola) then
+        regentlib.assert(false, 'Only parabolia heat model supported')
       end
       BC_yBCParticlesPeriodic = false
     else
@@ -6305,6 +6518,13 @@ task work(config : Config)
         regentlib.assert(false, 'Only constant heat model supported')
       end
       BC_zBCParticlesPeriodic = false
+    elseif (config.BC.zBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+      BC_zNegSign = array(-1.0, -1.0, -1.0)
+      BC_zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
+      if not (config.BC.zBCLeftHeat.type == SCHEMA.WallHeatModel_Parabola) then
+        regentlib.assert(false, 'Only parabolia heat model supported')
+      end
+      BC_zBCParticlesPeriodic = false
     else
       regentlib.assert(false, "Boundary conditions in zBCLeft not implemented")
     end
@@ -6326,6 +6546,13 @@ task work(config : Config)
         BC_zPosTemperature = config.BC.zBCRightHeat.u.Constant.temperature
       else
         regentlib.assert(false, 'Only constant heat model supported')
+      end
+      BC_zBCParticlesPeriodic = false
+    elseif (config.BC.zBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+      BC_zPosSign = array(-1.0, -1.0, -1.0)
+      BC_zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
+      if not (config.BC.zBCRightHeat.type == SCHEMA.WallHeatModel_Parabola) then
+        regentlib.assert(false, 'Only parabolia heat model supported')
       end
       BC_zBCParticlesPeriodic = false
     else
@@ -6388,7 +6615,6 @@ task work(config : Config)
     if (config.Flow.initCase == SCHEMA.FlowInitCase_Restart) then
       Fluid_load(primColors, config.Flow.restartDir, Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
     end
-
     -- initialize ghost cells to their specified values in NSCBC case
     if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
         Flow_InitializeGhostNSCBC(Fluid,
