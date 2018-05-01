@@ -12,9 +12,9 @@ Exports.WallHeatModel = Union{
     temperature = double,
   },
   Parabola = {
-    a = double,
-    b = double,
-    c = double,
+    T_left = double,
+    T_right = double,
+    T_mid = double,
   },
 }
 
