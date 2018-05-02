@@ -157,7 +157,7 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 # Disable PMI in GASnet, because the PMI library is missing on Certainty.
 git clone https://github.com/StanfordLegion/gasnet.git $LEGION_DIR/language/gasnet
 cd "$LEGION_DIR"/language/gasnet
-sed -i 's|../$(GASNET_VERSION)/configure|../$(GASNET_VERSION)/configure --disable-pmi|g' Makefile
+sed -i 's|$(GASNET_VERSION)/configure --prefix=|$(GASNET_VERSION)/configure --disable-pmi --prefix=|g' Makefile
 make
 # Rest of compilation as normal
 cd "$LEGION_DIR"/language
