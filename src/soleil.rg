@@ -202,7 +202,7 @@ if USE_HDF then
   local HDF = require "hdf_helper"
   Fluid_dump, Fluid_load = HDF.mkHDFTasks(
     int3d, int3d, Fluid_columns,
-    {"rho","pressure","velocity","temperature"})
+    {"rho","pressure","velocity"})
   particles_dump, particles_load = HDF.mkHDFTasks(
     int1d, int3d, particles_columns,
     {"cell","position","velocity","temperature","diameter","__valid"})
