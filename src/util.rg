@@ -166,13 +166,6 @@ function string:endswith(subStr)
   return self:sub(self:len() - subStr:len() + 1, self:len()) == subStr
 end
 
-terra Exports.concretize(str : &int8) : int8[256]
-  var res : int8[256]
-  C.strncpy(&[&int8](res)[0], str, [uint64](256))
-  [&int8](res)[255] = [int8](0)
-  return res
-end
-
 -------------------------------------------------------------------------------
 -- Terra type helpers
 -------------------------------------------------------------------------------
@@ -262,7 +255,7 @@ end
 -- Filesystem
 -------------------------------------------------------------------------------
 
-terra Exports.createDir(name : rawstring)
+terra Exports.createDir(name : &int8)
   var mode = 493 -- octal 0755 = rwxr-xr-x
   var res = C.mkdir(name, mode)
   if res < 0 then
@@ -275,7 +268,7 @@ terra Exports.createDir(name : rawstring)
   end
 end
 
-terra Exports.createFile(name : rawstring) : &C.FILE
+terra Exports.createFile(name : &int8) : &C.FILE
   var file = C.fopen(name, 'w')
   if file == nil then
     var stderr = C.fdopen(2, 'w')

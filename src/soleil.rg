@@ -166,7 +166,7 @@ local FILE_PTR_SIZE = sizeof(&C.FILE)
 -------------------------------------------------------------------------------
 
 local task Fluid_dump(colors : ispace(int3d),
-                      filename : rawstring,
+                      filename : &int8,
                       r : region(ispace(int3d),Fluid_columns),
                       s : region(ispace(int3d),Fluid_columns),
                       p_r : partition(disjoint, r, colors),
@@ -174,7 +174,7 @@ local task Fluid_dump(colors : ispace(int3d),
   regentlib.assert(false, 'Recompile with USE_HDF=1')
 end
 local task Fluid_load(colors : ispace(int3d),
-                      filename : rawstring,
+                      filename : &int8,
                       r : region(ispace(int3d),Fluid_columns),
                       s : region(ispace(int3d),Fluid_columns),
                       p_r : partition(disjoint, r, colors),
@@ -182,7 +182,7 @@ local task Fluid_load(colors : ispace(int3d),
   regentlib.assert(false, 'Recompile with USE_HDF=1')
 end
 local task particles_dump(colors : ispace(int3d),
-                          filename : rawstring,
+                          filename : &int8,
                           r : region(ispace(int1d),particles_columns),
                           s : region(ispace(int1d),particles_columns),
                           p_r : partition(disjoint, r, colors),
@@ -190,7 +190,7 @@ local task particles_dump(colors : ispace(int3d),
   regentlib.assert(false, 'Recompile with USE_HDF=1')
 end
 local task particles_load(colors : ispace(int3d),
-                          filename : rawstring,
+                          filename : &int8,
                           r : region(ispace(int1d),particles_columns),
                           s : region(ispace(int1d),particles_columns),
                           p_r : partition(disjoint, r, colors),
@@ -6806,7 +6806,7 @@ task work(config : Config)
 end -- work task
 
 __demand(__inline)
-task launchSample(configFile : rawstring, num : int)
+task launchSample(configFile : &int8, num : int)
   var config = SCHEMA.parse_config(configFile)
   config.Mapping.sampleId = num
   var dirname = [&int8](C.malloc(256))

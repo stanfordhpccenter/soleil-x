@@ -46,7 +46,7 @@ function Exports.mkHDFTasks(indexType, colorType, fSpace, flds)
     end
   end
 
-  local terra create(fname : rawstring, size : indexType)
+  local terra create(fname : &int8, size : indexType)
     var fid = HDF5.H5Fcreate(fname, HDF5.H5F_ACC_TRUNC,
                              HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT)
     if fid < 0 then [err('create file')] end
@@ -196,29 +196,38 @@ function Exports.mkHDFTasks(indexType, colorType, fSpace, flds)
     HDF5.H5Fclose(fid)
   end
 
-  local terra tileFilename(dirname : int8[256],
-                           bounds : regentlib.rect_type(indexType))
-    var filename : int8[256]
-    escape
-      if indexType == int1d then emit quote
-        C.snprintf(&(filename[0]), 256,
-                   '%s/%ld-%ld.hdf', &(dirname[0]),
-                   bounds.lo.__ptr,
-                   bounds.hi.__ptr)
-      end elseif indexType == int2d then emit quote
-        C.snprintf(&(filename[0]), 256,
-                   '%s/%ld,%ld-%ld,%ld.hdf', &(dirname[0]),
-                   bounds.lo.__ptr.x, bounds.lo.__ptr.y,
-                   bounds.hi.__ptr.x, bounds.hi.__ptr.y)
-      end elseif indexType == int3d then emit quote
-        C.snprintf(&(filename[0]), 256,
-                   '%s/%ld,%ld,%ld-%ld,%ld,%ld.hdf', &(dirname[0]),
-                   bounds.lo.__ptr.x, bounds.lo.__ptr.y, bounds.lo.__ptr.z,
-                   bounds.hi.__ptr.x, bounds.hi.__ptr.y, bounds.hi.__ptr.z)
-      end else assert(false) end
+  local tileFilename
+  if indexType == int1d then
+    __demand(__inline) task tileFilename(dirname : &int8, bounds : rect1d)
+      var filename = [&int8](C.malloc(256))
+      var lo = bounds.lo
+      var hi = bounds.hi
+      C.snprintf(filename, 256,
+                 '%s/%ld-%ld.hdf', dirname,
+                 lo, hi)
+      return filename
     end
-    return filename
-  end
+  elseif indexType == int2d then
+    __demand(__inline) task tileFilename(dirname : &int8, bounds : rect2d)
+      var filename = [&int8](C.malloc(256))
+      var lo = bounds.lo
+      var hi = bounds.hi
+      C.snprintf(filename, 256,
+                 '%s/%ld,%ld-%ld,%ld.hdf', dirname,
+                 lo.x, lo.y, hi.x, hi.y)
+      return filename
+    end
+  elseif indexType == int3d then
+    __demand(__inline) task tileFilename(dirname : &int8, bounds : rect3d)
+      var filename = [&int8](C.malloc(256))
+      var lo = bounds.lo
+      var hi = bounds.hi
+      C.snprintf(filename, 256,
+                 '%s/%ld,%ld,%ld-%ld,%ld,%ld.hdf', dirname,
+                 lo.x, lo.y, lo.z, hi.x, hi.y, hi.z)
+      return filename
+    end
+  else assert(false) end
 
   local one =
     indexType == int1d and rexpr 1 end or
@@ -226,22 +235,23 @@ function Exports.mkHDFTasks(indexType, colorType, fSpace, flds)
     indexType == int3d and rexpr {1,1,1} end or
     assert(false)
 
-  local task dumpTile(dirname : int8[256],
+  local task dumpTile(dirname : regentlib.string,
                       r : region(ispace(indexType),fSpace),
                       s : region(ispace(indexType),fSpace))
   where reads(r.[flds]), reads writes(s.[flds]), r * s do
-    var filename = tileFilename(dirname, r.bounds)
+    var filename = tileFilename([&int8](dirname), r.bounds)
     create(filename, r.bounds.hi - r.bounds.lo + one)
     attach(hdf5, s.[flds], filename, regentlib.file_read_write)
     acquire(s.[flds])
     copy(r.[flds], s.[flds])
     release(s.[flds])
     detach(hdf5, s.[flds])
+    C.free(filename)
   end
 
   local __demand(__inline)
   task dump(colors : ispace(colorType),
-            dirname : rawstring,
+            dirname : &int8,
             r : region(ispace(indexType),fSpace),
             s : region(ispace(indexType),fSpace),
             p_r : partition(disjoint, r, colors),
@@ -250,25 +260,26 @@ function Exports.mkHDFTasks(indexType, colorType, fSpace, flds)
     -- TODO: Sanity checks: bounds.lo == 0, same size, compatible partitions
     UTIL.createDir(dirname)
     for c in colors do
-      dumpTile(UTIL.concretize(dirname), p_r[c], p_s[c])
+      dumpTile([regentlib.string](dirname), p_r[c], p_s[c])
     end
   end
 
-  local task loadTile(dirname : int8[256],
+  local task loadTile(dirname : regentlib.string,
                       r : region(ispace(indexType),fSpace),
                       s : region(ispace(indexType),fSpace))
   where reads writes(r.[flds]), reads writes(s.[flds]), r * s do
-    var filename = tileFilename(dirname, r.bounds)
+    var filename = tileFilename([&int8](dirname), r.bounds)
     attach(hdf5, s.[flds], filename, regentlib.file_read_only)
     acquire(s.[flds])
     copy(s.[flds], r.[flds])
     release(s.[flds])
     detach(hdf5, s.[flds])
+    C.free(filename)
   end
 
   local __demand(__inline)
   task load(colors : ispace(colorType),
-            dirname : rawstring,
+            dirname : &int8,
             r : region(ispace(indexType),fSpace),
             s : region(ispace(indexType),fSpace),
             p_r : partition(disjoint, r, colors),
@@ -277,7 +288,7 @@ function Exports.mkHDFTasks(indexType, colorType, fSpace, flds)
     -- TODO: Sanity checks: bounds.lo == 0, same size, compatible partitions
     -- TODO: Check that the file has the correct size etc.
     for c in colors do
-      loadTile(UTIL.concretize(dirname), p_r[c], p_s[c])
+      loadTile([regentlib.string](dirname), p_r[c], p_s[c])
     end
   end
 
