@@ -237,6 +237,9 @@ do
   var xSize = ((hi.x-lo.x)+1)
   var ySize = ((hi.y-lo.y)+1)
   var particlesPerTask = (config.Particles.initNum/((config.Mapping.xTiles*config.Mapping.yTiles)*config.Mapping.zTiles))
+  var Particles_density = config.Particles.density
+  var Particles_initTemperature = config.Particles.initTemperature
+  var Particles_diameterMean = config.Particles.diameterMean
   __demand(__openmp)
   for p in particles do
     if ((int32(p)-pBase)<particlesPerTask) then
@@ -246,9 +249,9 @@ do
       p.cell = c
       p.position = cells[p.cell].centerCoordinates
       p.velocity = cells[p.cell].velocity
-      p.density = config.Particles.density
-      p.temperature = config.Particles.initTemperature
-      p.diameter = config.Particles.diameterMean
+      p.density = Particles_density
+      p.temperature = Particles_initTemperature
+      p.diameter = Particles_diameterMean
     end
   end
 end
@@ -530,6 +533,8 @@ where
   reads(Fluid.temperature),
   writes(Fluid.{velocity_old_NSCBC, temperature_old_NSCBC, dudtBoundary, dTdtBoundary})
 do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -539,8 +544,8 @@ do
     var zNegGhost = (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)
     var zPosGhost  = (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0)
 
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if  NSCBC_inflow_cell then -- x- boundary cell
       -- Assume subsonic inflow
@@ -616,6 +621,8 @@ where
   reads(Fluid.{rho, velocity, pressure, sgsEnergy}),
   writes(Fluid.{rhoVelocity, rhoEnergy})
 do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -625,8 +632,8 @@ do
     var zNegGhost = (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)
     var zPosGhost  = (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0)
 
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if (NSCBC_inflow_cell or NSCBC_outflow_cell) then
       var tmpTemperature = (Fluid[c].pressure/(Flow_gasConstant*Fluid[c].rho))
@@ -673,6 +680,8 @@ where
   reads(Fluid.{rho, rhoVelocity}),
   writes(Fluid.{velocity, kineticEnergy})
 do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -682,8 +691,8 @@ do
     var zNegGhost = (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)
     var zPosGhost  = (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0)
 
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if (NSCBC_inflow_cell) then
       var velocity = BC_xNegVelocity
@@ -723,6 +732,8 @@ where
   reads(Fluid.{rho, pressure, temperature, rhoVelocity, rhoEnergy, sgsEnergy}),
   writes(Fluid.{rhoBoundary, rhoEnergyBoundary, rhoVelocityBoundary})
 do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -734,8 +745,8 @@ do
     var ghost_cell = (xNegGhost or xPosGhost or
                       yNegGhost or yPosGhost or
                       zNegGhost or zPosGhost )
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if xNegGhost then
       var c_bnd = int3d(c)
@@ -917,6 +928,8 @@ where
   reads(Fluid.{rhoBoundary, rhoVelocityBoundary, rhoEnergyBoundary}),
   writes(Fluid.{rho, rhoVelocity, rhoEnergy})
 do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -928,8 +941,8 @@ do
     var ghost_cell = (xNegGhost or xPosGhost or
                       yNegGhost or yPosGhost or
                       zNegGhost or zPosGhost )
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if ghost_cell then
       Fluid[c].rho = Fluid[c].rhoBoundary
@@ -952,6 +965,8 @@ where
   reads(Fluid.velocity),
   writes(Fluid.velocityBoundary)
 do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
   __demand(__openmp)
   for c in Fluid do
 
@@ -964,8 +979,8 @@ do
     var ghost_cell = (xNegGhost or xPosGhost or
                       yNegGhost or yPosGhost or
                       zNegGhost or zPosGhost )
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if (ghost_cell and not (NSCBC_inflow_cell or NSCBC_outflow_cell)) then
       if xNegGhost then
@@ -1024,6 +1039,8 @@ where
   reads(Fluid.velocityBoundary),
   writes(Fluid.velocity)
 do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -1035,8 +1052,8 @@ do
     var ghost_cell = (xNegGhost or xPosGhost or
                       yNegGhost or yPosGhost or
                       zNegGhost or zPosGhost )
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if (ghost_cell and not (NSCBC_inflow_cell or NSCBC_outflow_cell)) then
       Fluid[c].velocity = Fluid[c].velocityBoundary
@@ -1078,6 +1095,8 @@ where
   reads(Fluid.velocity),
   writes(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ})
 do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -1089,8 +1108,8 @@ do
     var ghost_cell = (xNegGhost or xPosGhost or
                       yNegGhost or yPosGhost or
                       zNegGhost or zPosGhost )
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if NSCBC_inflow_cell  then
       -- forward one sided difference
@@ -1149,6 +1168,8 @@ where
   reads(Fluid.{rho, velocity, rhoEnergy}),
   writes(Fluid.{pressure, temperature})
 do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -1160,8 +1181,8 @@ do
     var ghost_cell = (xNegGhost or xPosGhost or
                       yNegGhost or yPosGhost or
                       zNegGhost or zPosGhost )
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if (ghost_cell) then
       if (NSCBC_inflow_cell)  then
@@ -1198,6 +1219,8 @@ where
   reads(Fluid.{pressure, temperature}),
   writes(Fluid.{pressureBoundary, temperatureBoundary})
 do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
   __demand(__openmp)
   for c in Fluid do
 
@@ -1210,8 +1233,8 @@ do
     var ghost_cell = (xNegGhost or xPosGhost or
                       yNegGhost or yPosGhost or
                       zNegGhost or zPosGhost )
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if ghost_cell and not (NSCBC_inflow_cell or NSCBC_outflow_cell) then
       if xNegGhost then
@@ -1320,6 +1343,8 @@ where
   reads(Fluid.{pressureBoundary, temperatureBoundary}),
   writes(Fluid.{pressure, temperature})
 do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -1333,8 +1358,8 @@ do
                       yNegGhost or yPosGhost or
                       zNegGhost or zPosGhost )
 
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if ghost_cell and not (NSCBC_inflow_cell or NSCBC_outflow_cell) then
       Fluid[c].pressure = Fluid[c].pressureBoundary
@@ -1358,6 +1383,8 @@ where
   reads(Fluid.{rho, velocity, pressure, temperature, rhoVelocity}),
   writes(Fluid.{rhoBoundary, velocityBoundary, pressureBoundary, rhoVelocityBoundary, rhoEnergyBoundary, temperatureBoundary})
 do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -1369,8 +1396,8 @@ do
     var ghost_cell = (xNegGhost or xPosGhost or
                       yNegGhost or yPosGhost or
                       zNegGhost or zPosGhost )
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) then
       var c_bnd = int3d(c)
@@ -1778,6 +1805,8 @@ where
   reads(Fluid.{velocity, temperature})
 do
   var acc = -math.huge
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
   __demand(__openmp)
   for c in Fluid do
 
@@ -1791,8 +1820,8 @@ do
                       yNegGhost or yPosGhost or
                       zNegGhost or zPosGhost )
     var interior_cell = not (ghost_cell)
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
     if interior_cell or NSCBC_inflow_cell or NSCBC_outflow_cell then
       var c_sound = GetSoundSpeed(Fluid[c].temperature, Flow_gamma, Flow_gasConstant)
       acc max= (Fluid[c].velocity[0]*Fluid[c].velocity[0] + Fluid[c].velocity[1]*Fluid[c].velocity[1] + Fluid[c].velocity[2]*Fluid[c].velocity[2]) / c_sound
@@ -1966,6 +1995,8 @@ where
   reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ}),
   writes(Fluid.{velocityGradientXBoundary, velocityGradientYBoundary, velocityGradientZBoundary})
 do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -1977,8 +2008,8 @@ do
     var ghost_cell = (xNegGhost or xPosGhost or
                       yNegGhost or yPosGhost or
                       zNegGhost or zPosGhost )
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if ghost_cell and not (NSCBC_inflow_cell or NSCBC_outflow_cell) then
       if (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) then -- x- boundary
@@ -2043,6 +2074,8 @@ where
   reads(Fluid.{velocityGradientXBoundary, velocityGradientYBoundary, velocityGradientZBoundary}),
   writes(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ})
 do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -2054,8 +2087,8 @@ do
     var ghost_cell = (xNegGhost or xPosGhost or
                       yNegGhost or yPosGhost or
                       zNegGhost or zPosGhost )
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if ghost_cell and not (NSCBC_inflow_cell or NSCBC_outflow_cell) then
         Fluid[c].velocityGradientX = Fluid[c].velocityGradientXBoundary
@@ -2220,6 +2253,8 @@ where
   reads writes(Fluid.{rhoFluxX, rhoFluxY, rhoFluxZ}),
   reads writes(Fluid.{rhoVelocityFluxX, rhoVelocityFluxY, rhoVelocityFluxZ})
 do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -2232,8 +2267,8 @@ do
                       yNegGhost or yPosGhost or
                       zNegGhost or zPosGhost )
     var interior_cell = not (ghost_cell)
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if interior_cell or xNegGhost  then
       var flux = CenteredInviscidFlux(int3d(c), ((c+{1, 0, 0})%Fluid.bounds), Fluid)
@@ -2422,6 +2457,8 @@ where
   reads writes(Fluid.{rhoFluxX, rhoFluxY, rhoFluxZ}),
   reads writes(Fluid.{rhoVelocityFluxX, rhoVelocityFluxY, rhoVelocityFluxZ})
 do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -2434,8 +2471,8 @@ do
                       yNegGhost or yPosGhost or
                       zNegGhost or zPosGhost )
     var interior_cell = not (ghost_cell)
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if NSCBC_inflow_cell or NSCBC_outflow_cell  then
       -- y fluxes
@@ -2542,6 +2579,8 @@ where
   reads(Fluid.{rhoEnergyFluxX, rhoEnergyFluxY, rhoEnergyFluxZ}),
   reads writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -2553,8 +2592,8 @@ do
     var ghost_cell = (xNegGhost or xPosGhost or
                       yNegGhost or yPosGhost or
                       zNegGhost or zPosGhost )
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if ghost_cell then
       if NSCBC_inflow_cell then
@@ -2693,6 +2732,8 @@ where
   writes(Fluid.{velocity_old_NSCBC, temperature_old_NSCBC, dudtBoundary, dTdtBoundary}),
   reads writes(Fluid.{dudtBoundary})
 do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
     var xPosGhost  = (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)
@@ -2703,8 +2744,8 @@ do
     var ghost_cell = (xNegGhost or xPosGhost or
                       yNegGhost or yPosGhost or
                       zNegGhost or zPosGhost )
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if NSCBC_inflow_cell then
       Fluid[c].dudtBoundary = (Fluid[c].velocity[0] - Fluid[c].velocity_old_NSCBC[0]) / Integrator_deltaTime
@@ -2753,6 +2794,8 @@ where
   reads(Fluid.{rho, velocity}),
   reads writes(Fluid.{rhoEnergy_t, rhoVelocity_t})
 do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -2761,8 +2804,8 @@ do
     var yPosGhost  = (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)
     var zNegGhost = (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)
     var zPosGhost  = (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0)
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if NSCBC_inflow_cell or NSCBC_outflow_cell then
       var tmp = vs_mul_double_3(Flow_bodyForce, Fluid[c].rho)
