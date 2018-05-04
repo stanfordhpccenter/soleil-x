@@ -20,23 +20,41 @@
     "BC" : {
         "xBCLeft"  : "Periodic",
         "xBCLeftVel" : [0.0, 0.0, 0.0],
-        "xBCLeftTemp" : 0.0,
+        "xBCLeftHeat" : {
+            "type" : "Constant",
+            "temperature" : 0.0
+        },
         "xBCRight" : "Periodic",
         "xBCRightVel" : [0.0, 0.0, 0.0],
-        "xBCRightTemp" : 0.0,
+        "xBCRightHeat" : {
+            "type" : "Constant",
+            "temperature" : 0.0
+        },
         "xBCRightP_inf" : -1.0,
         "yBCLeft"  : "AdiabaticWall",
         "yBCLeftVel" : [0.0, 0.0, 0.0],
-        "yBCLeftTemp" : 0.0,
+        "yBCLeftHeat" : {
+            "type" : "Constant",
+            "temperature" : 0.0
+        },
         "yBCRight" : "AdiabaticWall",
         "yBCRightVel" : [0.0, 0.0, 0.0],
-        "yBCRightTemp" : 0.0,
+        "yBCRightHeat" : {
+            "type" : "Constant",
+            "temperature" : 0.0
+        },
         "zBCLeft"  : "Symmetry",
         "zBCLeftVel" : [0.0, 0.0, 0.0],
-        "zBCLeftTemp" : 0.0,
+        "zBCLeftHeat" : {
+            "type" : "Constant",
+            "temperature" : 0.0
+        },
         "zBCRight" : "Symmetry",
         "zBCRightVel" : [0.0, 0.0, 0.0],
-        "zBCRightTemp" : 0.0
+        "zBCRightHeat" : {
+            "type" : "Constant",
+            "temperature" : 0.0
+        }
     },
 
     "Integrator" : {

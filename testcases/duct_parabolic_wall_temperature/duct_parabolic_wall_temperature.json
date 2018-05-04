@@ -117,6 +117,7 @@
         "xNum" : 1,
         "yNum" : 1,
         "zNum" : 1,
+        "angles" : -1,
         "emissEast"  : -1.0,
         "emissWest"  : -1.0,
         "emissSouth" : -1.0,

@@ -1,4 +1,4 @@
-{
+,{
     "Mapping" : {
         "xTiles" : 148,
         "yTiles" : 396,
@@ -21,25 +21,43 @@
         // X
         "xBCLeft"  : "Periodic",
         "xBCLeftVel" : [0.2099739, 0.4410183, 0.4906633],
-        "xBCLeftTemp" : 0.4044863,
+        "xBCLeftHeat" : {
+            "type" : "Constant",
+            "temperature" : 0.4044863
+        },
         "xBCRight" : "Periodic",
         "xBCRightVel" : [0.1156091, 0.6859607, 0.4446281],
-        "xBCRightTemp" : 0.4196384,
+        "xBCRightHeat" : {
+            "type" : "Constant",
+            "temperature" : 0.4196384
+        },
         "xBCRightP_inf" : -1.0,
         // Y
         "yBCLeft"  : "AdiabaticWall",
         "yBCLeftVel" : [0.9918297, 0.8624091, 0.3291094],
-        "yBCLeftTemp" : 0.8230053,
+        "yBCLeftHeat" : {
+            "type" : "Constant",
+            "temperature" : 0.8230053
+        },
         "yBCRight" : "AdiabaticWall",
         "yBCRightVel" : [0.4206601, 0.6641698, 0.5674205],
-        "yBCRightTemp" : 0.7810168,
+        "yBCRightHeat" : {
+            "type" : "Constant",
+            "temperature" : 0.7810168
+        },
         // Z
         "zBCLeft"  : "Symmetry",
         "zBCLeftVel" : [0.1792673, 0.8027272, 0.3218365],
-        "zBCLeftTemp" : 0.3692598,
+        "zBCLeftHeat" : {
+            "type" : "Constant",
+            "temperature" : 0.3692598
+        },
         "zBCRight" : "Symmetry",
         "zBCRightVel" : [0.9480248, 0.9376553, 0.4133212],
-        "zBCRightTemp" : 0.3741956
+        "zBCRightHeat" : {
+            "type" : "Constant",
+            "temperature" : 0.3741956
+        }
     },
 
     "Integrator" : {

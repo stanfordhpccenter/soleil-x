@@ -20,23 +20,41 @@
     "BC" : {
         "xBCLeft"  : "NSCBC_SubsonicInflow",
         "xBCLeftVel" : [1.0, 0.0, 0.0],
-        "xBCLeftTemp" : 500.0,
+        "xBCLeftHeat" : {
+            "type" : "Constant",
+            "temperature" : 500.0
+        },
         "xBCRight" : "NSCBC_SubsonicOutflow",
         "xBCRightVel" : [0.0, 0.0, 0.0],
-        "xBCRightTemp" : 0.0,
+        "xBCRightHeat" : {
+            "type" : "Constant",
+            "temperature" : 0.0
+        },
         "xBCRightP_inf" : 100000.0,
         "yBCLeft"  : "Periodic",
         "yBCLeftVel" : [0.0, 0.0, 0.0],
-        "yBCLeftTemp" : 0.0,
+        "yBCLeftHeat" : {
+            "type" : "Constant",
+            "temperature" : 0.0
+        },
         "yBCRight" : "Periodic",
         "yBCRightVel" : [0.0, 0.0, 0.0],
-        "yBCRightTemp" : 0.0,
+        "yBCRightHeat" : {
+            "type" : "Constant",
+            "temperature" : 0.0
+        },
         "zBCLeft"  : "AdiabaticWall",
         "zBCLeftVel" : [0.0, 0.0, 0.0],
-        "zBCLeftTemp" : 0.0,
+        "zBCLeftHeat" : {
+            "type" : "Constant",
+            "temperature" : 0.0
+        },
         "zBCRight" : "AdiabaticWall",
         "zBCRightVel" : [0.0, 0.0, 0.0],
-        "zBCRightTemp" : 0.0
+        "zBCRightHeat" : {
+            "type" : "Constant",
+            "temperature" : 0.0
+        }
     },
 
     "Integrator" : {
