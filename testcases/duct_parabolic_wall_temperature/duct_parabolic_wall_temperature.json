@@ -8,78 +8,86 @@
     },
 
     "Grid" : {
-        "xNum" : 64,
-        "yNum" : 64,
-        "zNum" : 64,
+        "xNum" : 32,
+        "yNum" : 16,
+        "zNum" : 16,
         "origin" : [0.0, 0.0, 0.0],
-        "xWidth" : 6.283185307179586,
-        "yWidth" : 6.283185307179586,
-        "zWidth" : 6.283185307179586
+        "xWidth" : 2.0,
+        "yWidth" : 1.0,
+        "zWidth" : 1.0
     },
 
     "BC" : {
-        "xBCLeft"  : "Periodic",
-        "xBCLeftVel" : [0.0, 0.0, 0.0],
+        "xBCLeft"  : "NSCBC_SubsonicInflow",
+        "xBCLeftVel" : [1.0, 0.0, 0.0],
         "xBCLeftHeat" : {
             "type" : "Constant",
-            "temperature" : 0.0
+            "temperature" : 500.0
         },
-        "xBCRight" : "Periodic",
+        "xBCRight" : "NSCBC_SubsonicOutflow",
         "xBCRightVel" : [0.0, 0.0, 0.0],
         "xBCRightHeat" : {
             "type" : "Constant",
             "temperature" : 0.0
         },
-        "xBCRightP_inf" : -1.0,
-        "yBCLeft"  : "Periodic",
+        "xBCRightP_inf" : 100000.0,
+        "yBCLeft"  : "NonUniformTemperatureWall",
         "yBCLeftVel" : [0.0, 0.0, 0.0],
         "yBCLeftHeat" : {
-            "type" : "Constant",
-            "temperature" : 0.0
+            "type" : "Parabola",
+            "T_left" : 500.0,
+            "T_right" : 500.0,
+            "T_mid" : 600.0
         },
-        "yBCRight" : "Periodic",
+        "yBCRight" : "NonUniformTemperatureWall",
         "yBCRightVel" : [0.0, 0.0, 0.0],
         "yBCRightHeat" : {
-            "type" : "Constant",
-            "temperature" : 0.0
+            "type" : "Parabola",
+            "T_left" : 500.0,
+            "T_right" : 500.0,
+            "T_mid" : 600.0
         },
-        "zBCLeft"  : "Periodic",
+        "zBCLeft"  : "NonUniformTemperatureWall",
         "zBCLeftVel" : [0.0, 0.0, 0.0],
         "zBCLeftHeat" : {
-            "type" : "Constant",
-            "temperature" : 0.0
+            "type" : "Parabola",
+            "T_left" : 500.0,
+            "T_right" : 500.0,
+            "T_mid" : 600.0
         },
-        "zBCRight" : "Periodic",
+        "zBCRight" : "NonUniformTemperatureWall",
         "zBCRightVel" : [0.0, 0.0, 0.0],
         "zBCRightHeat" : {
-            "type" : "Constant",
-            "temperature" : 0.0
+            "type" : "Parabola",
+            "T_left" : 500.0,
+            "T_right" : 500.0,
+            "T_mid" : 600.0
         }
     },
 
     "Integrator" : {
-        "finalTime" : 20.00001,
+        "finalTime" : 12.00001,
         "restartIter" : -1,
         "restartTime" : -1.0,
-        "maxIter" : 5,
-        "cfl" : 1.0,
-        "fixedDeltaTime" : -1.0
+        "maxIter" : 10000000,
+        "cfl" : 0.95,
+        "fixedDeltaTime" : 1e-4
     },
 
     "Flow" : {
-        "gasConstant" : 20.4128,
-        "gamma" : 1.4,
-        "prandtl" : 0.7,
-        "viscosityModel" : "PowerLaw",
-        "constantVisc" : 0.004491,
+        "gasConstant" : 200.0,
+        "gamma" : 1.25,
+        "prandtl" : 1.0,
+        "viscosityModel" : "Constant",
+        "constantVisc" : 0.1,
         "powerlawViscRef" : 0.00044,
         "powerlawTempRef" : 1.0,
         "sutherlandViscRef" : 1.716E-5,
         "sutherlandTempRef" : 273.15,
         "sutherlandSRef" : 110.4,
-        "initCase" : "TaylorGreen3DVortex",
+        "initCase" : "Uniform",
         "restartDir" : "",
-        "initParams" : [1.0, 100.0, 2.0, 0.0, 0.0],
+        "initParams" : [1.0, 100000.0, 1.0, 0.0, 0.0],
         "bodyForce" : [0.0, 0.0, 0.0],
         "turbForcing" : false
     },
@@ -87,8 +95,8 @@
     "Particles" : {
         "initCase" : "Uniform",
         "restartDir" : "",
-        "initNum" : 1000,
-        "maxNum" : 1000,
+        "initNum" : 0,
+        "maxNum" : 10,
         "restitutionCoeff" : 1.0,
         "convectiveCoeff" : 0.7,
         "absorptivity" : 1.0,
@@ -102,14 +110,13 @@
     },
 
     "Radiation" : {
-        "type" : "Algebraic",
-        "intensity" : 1e3,
+        "type" : "OFF",
+        "intensity" : 0.0,
         "qa" : -1.0,
         "qs" : -1.0,
-        "xNum" : 4,
-        "yNum" : 4,
-        "zNum" : 4,
-        "angles" : -1,
+        "xNum" : 1,
+        "yNum" : 1,
+        "zNum" : 1,
         "emissEast"  : -1.0,
         "emissWest"  : -1.0,
         "emissSouth" : -1.0,
@@ -125,10 +132,10 @@
     },
 
     "IO" : {
-        "wrtRestart" : false,
-        "restartEveryTimeSteps" : -1,
-        "consoleFrequency" : 1,
-        "headerFrequency" : 10,
+        "wrtRestart" : true,
+        "restartEveryTimeSteps" : 1000,
+        "consoleFrequency" : 100,
+        "headerFrequency" : 1000,
         "probes" : []
     }
 }
