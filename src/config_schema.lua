@@ -7,6 +7,14 @@ Exports.ViscosityModel = Enum('Constant','PowerLaw','Sutherland')
 Exports.FlowInitCase = Enum('Uniform','Restart','Perturbed','TaylorGreen2DVortex','TaylorGreen3DVortex')
 Exports.ParticlesInitCase = Enum('Random','Restart','Uniform')
 Exports.RadiationType = Enum('OFF','Algebraic','DOM')
+Exports.InflowProfile = Union{
+  Constant = {
+    velocity = double,
+  },
+  DuctProfile = {
+    mean_velocity = double
+  },
+}
 
 -- Main config struct
 Exports.Config = {
@@ -39,6 +47,7 @@ Exports.Config = {
     xBCLeft = Exports.FlowBC,
     xBCLeftVel = Array(3,double),
     xBCLeftTemp = double,
+    xBCLeftInflowProfile = Exports.InflowProfile,
     xBCRight = Exports.FlowBC,
     xBCRightVel = Array(3,double),
     xBCRightTemp = double,
