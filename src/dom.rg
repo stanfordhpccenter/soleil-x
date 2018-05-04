@@ -261,8 +261,8 @@ do
   var epsw    : double = emissWest
   var Tw      : double = tempWest
 
-  for j = limits.lo.y, limits.hi.y + 1 do
-    for k = limits.lo.z, limits.hi.z + 1 do
+  for k = limits.lo.z, limits.hi.z + 1 do
+    for j = limits.lo.y, limits.hi.y + 1 do
 
       -- Calculate reflect
 
@@ -334,8 +334,8 @@ do
   var epsw    : double = emissEast
   var Tw      : double = tempEast
 
-  for j = limits.lo.y, limits.hi.y + 1 do
-    for k = limits.lo.z, limits.hi.z + 1 do
+  for k = limits.lo.z, limits.hi.z + 1 do
+    for j = limits.lo.y, limits.hi.y + 1 do
 
       -- Calculate reflect
 
@@ -407,8 +407,8 @@ do
   var epsw    : double = emissNorth
   var Tw      : double = tempNorth
 
-  for i = limits.lo.x, limits.hi.x + 1 do
-    for k = limits.lo.z, limits.hi.z + 1 do
+  for k = limits.lo.z, limits.hi.z + 1 do
+    for i = limits.lo.x, limits.hi.x + 1 do
 
       -- Calculate reflect
 
@@ -481,8 +481,8 @@ do
   var epsw    : double = emissSouth
   var Tw      : double = tempSouth
 
-  for i = limits.lo.x, limits.hi.x + 1 do
-    for k = limits.lo.z, limits.hi.z + 1 do
+  for k = limits.lo.z, limits.hi.z + 1 do
+    for i = limits.lo.x, limits.hi.x + 1 do
 
       -- Calculate reflect
 
@@ -555,8 +555,8 @@ do
   var epsw    : double = emissDown
   var Tw      : double = tempDown
 
-  for i = limits.lo.x, limits.hi.x + 1 do
-    for j = limits.lo.y, limits.hi.y + 1 do
+  for j = limits.lo.y, limits.hi.y + 1 do
+    for i = limits.lo.x, limits.hi.x + 1 do
 
       -- Calculate reflect
 
@@ -629,8 +629,8 @@ do
   var epsw    : double = emissUp
   var Tw      : double = tempUp
 
-  for i = limits.lo.x, limits.hi.x + 1 do
-    for j = limits.lo.y, limits.hi.y + 1 do
+  for j = limits.lo.y, limits.hi.y + 1 do
+    for i = limits.lo.x, limits.hi.x + 1 do
 
       -- Calculate reflect
 
@@ -735,18 +735,18 @@ do
   end
 
 
-  -- Outer loop over all angles.
-  for m = 0, NUM_ANGLES do
+  -- Use our direction and increments for the sweep.
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
-      (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
+  for k = startz,endz,dindz do
+    for j = starty,endy,dindy do
+      for i = startx,endx,dindx do
 
-      -- Use our direction and increments for the sweep.
+      -- Outer loop over all angles.
+      for m = 0, NUM_ANGLES do
 
-      for k = startz,endz,dindz do
-        for j = starty,endy,dindy do
-          for i = startx,endx,dindx do
+        if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+          (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
+          (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
             -- indx and indy are the upwind indices
             var indx : int64 = i - min(dindx,0)
@@ -877,19 +877,18 @@ do
     endz = limits.lo.z - 1
   end
 
+  -- Use our direction and increments for the sweep.
 
-  -- Outer loop over all angles.
-  for m = 0, NUM_ANGLES do
+  for k = startz,endz,dindz do
+    for j = starty,endy,dindy do
+      for i = startx,endx,dindx do
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
-      (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
+      -- Outer loop over all angles.
+      for m = 0, NUM_ANGLES do
 
-      -- Use our direction and increments for the sweep.
-
-      for k = startz,endz,dindz do
-        for j = starty,endy,dindy do
-          for i = startx,endx,dindx do
+        if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+          (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
+          (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
             -- indx and indy are the upwind indices
             var indx : int64 = i - min(dindx,0)
@@ -1024,18 +1023,18 @@ do
   end
 
 
-  -- Outer loop over all angles.
-  for m = 0, NUM_ANGLES do
+  -- Use our direction and increments for the sweep.
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
-      (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
+  for k = startz,endz,dindz do
+    for j = starty,endy,dindy do
+      for i = startx,endx,dindx do
 
-      -- Use our direction and increments for the sweep.
+      -- Outer loop over all angles.
+      for m = 0, NUM_ANGLES do
 
-      for k = startz,endz,dindz do
-        for j = starty,endy,dindy do
-          for i = startx,endx,dindx do
+        if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+          (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
+          (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
             -- indx and indy are the upwind indices
             var indx : int64 = i - min(dindx,0)
@@ -1170,18 +1169,18 @@ do
   end
 
 
-  -- Outer loop over all angles.
-  for m = 0, NUM_ANGLES do
+  -- Use our direction and increments for the sweep.
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
-      (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
+  for k = startz,endz,dindz do
+    for j = starty,endy,dindy do
+      for i = startx,endx,dindx do
 
-      -- Use our direction and increments for the sweep.
+      -- Outer loop over all angles.
+      for m = 0, NUM_ANGLES do
 
-      for k = startz,endz,dindz do
-        for j = starty,endy,dindy do
-          for i = startx,endx,dindx do
+        if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+          (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
+          (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
             -- indx and indy are the upwind indices
             var indx : int64 = i - min(dindx,0)
@@ -1316,18 +1315,18 @@ do
   end
 
 
-  -- Outer loop over all angles.
-  for m = 0, NUM_ANGLES do
+  -- Use our direction and increments for the sweep.
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
-      (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
+  for k = startz,endz,dindz do
+    for j = starty,endy,dindy do
+      for i = startx,endx,dindx do
 
-      -- Use our direction and increments for the sweep.
+      -- Outer loop over all angles.
+      for m = 0, NUM_ANGLES do
 
-      for k = startz,endz,dindz do
-        for j = starty,endy,dindy do
-          for i = startx,endx,dindx do
+        if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+          (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
+          (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
             -- indx and indy are the upwind indices
             var indx : int64 = i - min(dindx,0)
@@ -1462,18 +1461,18 @@ do
   end
 
 
-  -- Outer loop over all angles.
-  for m = 0, NUM_ANGLES do
+  -- Use our direction and increments for the sweep.
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
-      (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
+  for k = startz,endz,dindz do
+    for j = starty,endy,dindy do
+      for i = startx,endx,dindx do
 
-      -- Use our direction and increments for the sweep.
+      -- Outer loop over all angles.
+      for m = 0, NUM_ANGLES do
 
-      for k = startz,endz,dindz do
-        for j = starty,endy,dindy do
-          for i = startx,endx,dindx do
+        if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+          (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
+          (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
             -- indx and indy are the upwind indices
             var indx : int64 = i - min(dindx,0)
@@ -1608,18 +1607,18 @@ do
   end
 
 
-  -- Outer loop over all angles.
-  for m = 0, NUM_ANGLES do
+  -- Use our direction and increments for the sweep.
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
-      (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
+  for k = startz,endz,dindz do
+    for j = starty,endy,dindy do
+      for i = startx,endx,dindx do
 
-      -- Use our direction and increments for the sweep.
+      -- Outer loop over all angles.
+      for m = 0, NUM_ANGLES do
 
-      for k = startz,endz,dindz do
-        for j = starty,endy,dindy do
-          for i = startx,endx,dindx do
+        if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+          (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
+          (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
             -- indx and indy are the upwind indices
             var indx : int64 = i - min(dindx,0)
@@ -1754,18 +1753,18 @@ do
   end
 
 
-  -- Outer loop over all angles.
-  for m = 0, NUM_ANGLES do
+  -- Use our direction and increments for the sweep.
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
-      (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
+  for k = startz,endz,dindz do
+    for j = starty,endy,dindy do
+      for i = startx,endx,dindx do
 
-      -- Use our direction and increments for the sweep.
+      -- Outer loop over all angles.
+      for m = 0, NUM_ANGLES do
 
-      for k = startz,endz,dindz do
-        for j = starty,endy,dindy do
-          for i = startx,endx,dindx do
+        if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+          (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
+          (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
             -- indx and indy are the upwind indices
             var indx : int64 = i - min(dindx,0)
