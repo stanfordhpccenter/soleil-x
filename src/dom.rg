@@ -2076,6 +2076,15 @@ local tiles_by_diagonal = {
   regentlib.newsymbol('tiles_by_diagonal_8'),
 }
 
+local boundary_tiles = {
+  regentlib.newsymbol('boundary_tiles_1'),
+  regentlib.newsymbol('boundary_tiles_2'),
+  regentlib.newsymbol('boundary_tiles_3'),
+  regentlib.newsymbol('boundary_tiles_4'),
+  regentlib.newsymbol('boundary_tiles_5'),
+  regentlib.newsymbol('boundary_tiles_6'),
+}
+
 function Exports.DeclSymbols(config) return rquote
 
   -- Number of points in each dimension
@@ -2438,6 +2447,12 @@ function Exports.DeclSymbols(config) return rquote
   fill_tile_info(r_tiles_8, array(false,false,false))
   var [tiles_by_diagonal[8]] = partition(r_tiles_8.diagonal, diagonals_private)
 
+  var [boundary_tiles[1]] = ispace(int3d, {    1,[nty],[ntz]}, {    0,    0,    0})
+  var [boundary_tiles[2]] = ispace(int3d, {    1,[nty],[ntz]}, {[ntx],    0,    0})
+  var [boundary_tiles[3]] = ispace(int3d, {[ntx],    1,[ntz]}, {    0,    0,    0})
+  var [boundary_tiles[4]] = ispace(int3d, {[ntx],    1,[ntz]}, {    0,[nty],    0})
+  var [boundary_tiles[5]] = ispace(int3d, {[ntx],[nty],    1}, {    0,    0,    0})
+  var [boundary_tiles[6]] = ispace(int3d, {[ntx],[nty],    1}, {    0,    0,[ntz]})
 end end
 
 function Exports.InitRegions() return rquote
@@ -2495,90 +2510,88 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
 
     -- Update the grid boundary intensities
     -- TODO: Should launch these on just the boundaries
-    for j = 0, nty do
-      for k = 0, ntz do
-        bound_x_lo([s_x_faces_by_tile[1]][{0,j,k}],
-                   [s_x_faces_by_tile[2]][{0,j,k}],
-                   [s_x_faces_by_tile[3]][{0,j,k}],
-                   [s_x_faces_by_tile[4]][{0,j,k}],
-                   [s_x_faces_by_tile[5]][{0,j,k}],
-                   [s_x_faces_by_tile[6]][{0,j,k}],
-                   [s_x_faces_by_tile[7]][{0,j,k}],
-                   [s_x_faces_by_tile[8]][{0,j,k}],
-                   angles,
-                   config.Radiation.emissWest,
-                   config.Radiation.tempWest)
-
-        bound_x_hi([s_x_faces_by_tile[1]][{ntx,j,k}],
-                   [s_x_faces_by_tile[2]][{ntx,j,k}],
-                   [s_x_faces_by_tile[3]][{ntx,j,k}],
-                   [s_x_faces_by_tile[4]][{ntx,j,k}],
-                   [s_x_faces_by_tile[5]][{ntx,j,k}],
-                   [s_x_faces_by_tile[6]][{ntx,j,k}],
-                   [s_x_faces_by_tile[7]][{ntx,j,k}],
-                   [s_x_faces_by_tile[8]][{ntx,j,k}],
-                   angles,
-                   config.Radiation.emissEast,
-                   config.Radiation.tempEast)
-      end
+    for color in [boundary_tiles[1]] do
+      bound_x_lo([s_x_faces_by_tile[1]][color],
+                 [s_x_faces_by_tile[2]][color],
+                 [s_x_faces_by_tile[3]][color],
+                 [s_x_faces_by_tile[4]][color],
+                 [s_x_faces_by_tile[5]][color],
+                 [s_x_faces_by_tile[6]][color],
+                 [s_x_faces_by_tile[7]][color],
+                 [s_x_faces_by_tile[8]][color],
+                 angles,
+                 config.Radiation.emissWest,
+                 config.Radiation.tempWest)
+    end
+    for color in [boundary_tiles[2]] do
+      bound_x_hi([s_x_faces_by_tile[1]][color],
+                 [s_x_faces_by_tile[2]][color],
+                 [s_x_faces_by_tile[3]][color],
+                 [s_x_faces_by_tile[4]][color],
+                 [s_x_faces_by_tile[5]][color],
+                 [s_x_faces_by_tile[6]][color],
+                 [s_x_faces_by_tile[7]][color],
+                 [s_x_faces_by_tile[8]][color],
+                 angles,
+                 config.Radiation.emissEast,
+                 config.Radiation.tempEast)
     end
 
     -- Update y faces
-    for i = 0, ntx do
-      for k = 0, ntz do
-        bound_y_lo([s_y_faces_by_tile[1]][{i,0,k}],
-                   [s_y_faces_by_tile[2]][{i,0,k}],
-                   [s_y_faces_by_tile[3]][{i,0,k}],
-                   [s_y_faces_by_tile[4]][{i,0,k}],
-                   [s_y_faces_by_tile[5]][{i,0,k}],
-                   [s_y_faces_by_tile[6]][{i,0,k}],
-                   [s_y_faces_by_tile[7]][{i,0,k}],
-                   [s_y_faces_by_tile[8]][{i,0,k}],
-                   angles,
-                   config.Radiation.emissSouth,
-                   config.Radiation.tempSouth)
+    for color in [boundary_tiles[3]] do
+      bound_y_lo([s_y_faces_by_tile[1]][color],
+                 [s_y_faces_by_tile[2]][color],
+                 [s_y_faces_by_tile[3]][color],
+                 [s_y_faces_by_tile[4]][color],
+                 [s_y_faces_by_tile[5]][color],
+                 [s_y_faces_by_tile[6]][color],
+                 [s_y_faces_by_tile[7]][color],
+                 [s_y_faces_by_tile[8]][color],
+                 angles,
+                 config.Radiation.emissSouth,
+                 config.Radiation.tempSouth)
 
-        bound_y_hi([s_y_faces_by_tile[1]][{i,nty,k}],
-                   [s_y_faces_by_tile[2]][{i,nty,k}],
-                   [s_y_faces_by_tile[3]][{i,nty,k}],
-                   [s_y_faces_by_tile[4]][{i,nty,k}],
-                   [s_y_faces_by_tile[5]][{i,nty,k}],
-                   [s_y_faces_by_tile[6]][{i,nty,k}],
-                   [s_y_faces_by_tile[7]][{i,nty,k}],
-                   [s_y_faces_by_tile[8]][{i,nty,k}],
-                   angles,
-                   config.Radiation.emissNorth,
-                   config.Radiation.tempNorth)
-      end
+    end
+    for color in [boundary_tiles[4]] do
+      bound_y_hi([s_y_faces_by_tile[1]][color],
+                 [s_y_faces_by_tile[2]][color],
+                 [s_y_faces_by_tile[3]][color],
+                 [s_y_faces_by_tile[4]][color],
+                 [s_y_faces_by_tile[5]][color],
+                 [s_y_faces_by_tile[6]][color],
+                 [s_y_faces_by_tile[7]][color],
+                 [s_y_faces_by_tile[8]][color],
+                 angles,
+                 config.Radiation.emissNorth,
+                 config.Radiation.tempNorth)
     end
 
     -- Update z faces
-    for i = 0, ntx do
-      for j = 0, nty do
-        bound_z_lo([s_z_faces_by_tile[1]][{i,j,0}],
-                   [s_z_faces_by_tile[2]][{i,j,0}],
-                   [s_z_faces_by_tile[3]][{i,j,0}],
-                   [s_z_faces_by_tile[4]][{i,j,0}],
-                   [s_z_faces_by_tile[5]][{i,j,0}],
-                   [s_z_faces_by_tile[6]][{i,j,0}],
-                   [s_z_faces_by_tile[7]][{i,j,0}],
-                   [s_z_faces_by_tile[8]][{i,j,0}],
-                   angles,
-                   config.Radiation.emissDown,
-                   config.Radiation.tempDown)
-
-        bound_z_hi([s_z_faces_by_tile[1]][{i,j,ntz}],
-                   [s_z_faces_by_tile[2]][{i,j,ntz}],
-                   [s_z_faces_by_tile[3]][{i,j,ntz}],
-                   [s_z_faces_by_tile[4]][{i,j,ntz}],
-                   [s_z_faces_by_tile[5]][{i,j,ntz}],
-                   [s_z_faces_by_tile[6]][{i,j,ntz}],
-                   [s_z_faces_by_tile[7]][{i,j,ntz}],
-                   [s_z_faces_by_tile[8]][{i,j,ntz}],
-                   angles,
-                   config.Radiation.emissUp,
-                   config.Radiation.tempUp)
-      end
+    for color in [boundary_tiles[5]] do
+      bound_z_lo([s_z_faces_by_tile[1]][color],
+                 [s_z_faces_by_tile[2]][color],
+                 [s_z_faces_by_tile[3]][color],
+                 [s_z_faces_by_tile[4]][color],
+                 [s_z_faces_by_tile[5]][color],
+                 [s_z_faces_by_tile[6]][color],
+                 [s_z_faces_by_tile[7]][color],
+                 [s_z_faces_by_tile[8]][color],
+                 angles,
+                 config.Radiation.emissDown,
+                 config.Radiation.tempDown)
+    end
+    for color in [boundary_tiles[6]] do
+      bound_z_hi([s_z_faces_by_tile[1]][color],
+                 [s_z_faces_by_tile[2]][color],
+                 [s_z_faces_by_tile[3]][color],
+                 [s_z_faces_by_tile[4]][color],
+                 [s_z_faces_by_tile[5]][color],
+                 [s_z_faces_by_tile[6]][color],
+                 [s_z_faces_by_tile[7]][color],
+                 [s_z_faces_by_tile[8]][color],
+                 angles,
+                 config.Radiation.emissUp,
+                 config.Radiation.tempUp)
     end
 
     --Perform the sweep for computing new intensities
