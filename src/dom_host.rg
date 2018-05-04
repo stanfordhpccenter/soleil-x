@@ -10,6 +10,7 @@ import 'regent'
 
 local C = regentlib.c
 local SCHEMA = terralib.includec("config_schema.h")
+local MAPPER = terralib.includec("dom_mapper.h")
 
 -------------------------------------------------------------------------------
 -- Compile-time configuration options
@@ -111,7 +112,8 @@ end
 -- Proxy main
 -------------------------------------------------------------------------------
 
-local task main()
+__demand(__replicable)
+task main()
   -- Read configuration
   var args = C.legion_runtime_get_input_args()
   if args.argc < 2 then
@@ -136,4 +138,4 @@ local task main()
   writeIntensity(points)
 end
 
-regentlib.saveobj(main, 'dom_host.o', 'object')
+regentlib.saveobj(main, 'dom_host.o', 'object', MAPPER.register_mappers)
