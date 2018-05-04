@@ -221,14 +221,15 @@ do
   for p in points do
     p.S = (1.0-omega) * p.sigma * p.Ib
     for m = 0, NUM_ANGLES do
-      p.S += omega * p.sigma/(4.0*pi) * angles[m].w * p.Iiter_1[m]
-           + omega * p.sigma/(4.0*pi) * angles[m].w * p.Iiter_2[m]
-           + omega * p.sigma/(4.0*pi) * angles[m].w * p.Iiter_3[m]
-           + omega * p.sigma/(4.0*pi) * angles[m].w * p.Iiter_4[m]
-           + omega * p.sigma/(4.0*pi) * angles[m].w * p.Iiter_5[m]
-           + omega * p.sigma/(4.0*pi) * angles[m].w * p.Iiter_6[m]
-           + omega * p.sigma/(4.0*pi) * angles[m].w * p.Iiter_7[m]
-           + omega * p.sigma/(4.0*pi) * angles[m].w * p.Iiter_8[m]
+      p.S += omega * p.sigma/(4.0*pi) * angles[m].w
+          * (p.Iiter_1[m]
+           + p.Iiter_2[m]
+           + p.Iiter_3[m]
+           + p.Iiter_4[m]
+           + p.Iiter_5[m]
+           + p.Iiter_6[m]
+           + p.Iiter_7[m]
+           + p.Iiter_8[m])
     end
   end
 end
@@ -266,19 +267,21 @@ do
       -- Calculate reflect
 
       reflect = 0
-      for m = 0, NUM_ANGLES do
-        if angles[m].xi < 0 then
-          var face_value : double = 0.0
-          if angles[m].eta > 0 and angles[m].mu > 0 then
-            face_value = faces_5[{limits.lo.x,j,k}].I[m]
-          elseif angles[m].eta > 0 and angles[m].mu <= 0 then
-            face_value = faces_6[{limits.lo.x,j,k}].I[m]
-          elseif angles[m].eta <= 0 and angles[m].mu > 0 then
-            face_value = faces_7[{limits.lo.x,j,k}].I[m]
-          else
-            face_value = faces_8[{limits.lo.x,j,k}].I[m]
+      if epsw < 1 then
+        for m = 0, NUM_ANGLES do
+          if angles[m].xi < 0 then
+            var face_value : double = 0.0
+            if angles[m].eta > 0 and angles[m].mu > 0 then
+              face_value = faces_5[{limits.lo.x,j,k}].I[m]
+            elseif angles[m].eta > 0 and angles[m].mu <= 0 then
+              face_value = faces_6[{limits.lo.x,j,k}].I[m]
+            elseif angles[m].eta <= 0 and angles[m].mu > 0 then
+              face_value = faces_7[{limits.lo.x,j,k}].I[m]
+            else
+              face_value = faces_8[{limits.lo.x,j,k}].I[m]
+            end
+            reflect += (1.0-epsw)/pi*angles[m].w*fabs(angles[m].xi)*face_value
           end
-          reflect += (1.0-epsw)/pi*angles[m].w*fabs(angles[m].xi)*face_value
         end
       end
 
@@ -337,19 +340,21 @@ do
       -- Calculate reflect
 
       reflect = 0
-      for m = 0, NUM_ANGLES do
-        if angles[m].xi > 0 then
-          var face_value : double = 0.0
-          if angles[m].eta > 0 and angles[m].mu > 0 then
-            face_value = faces_1[{limits.hi.x,j,k}].I[m]
-          elseif angles[m].eta > 0 and angles[m].mu <= 0 then
-            face_value = faces_2[{limits.hi.x,j,k}].I[m]
-          elseif angles[m].eta <= 0 and angles[m].mu > 0 then
-            face_value = faces_3[{limits.hi.x,j,k}].I[m]
-          else
-            face_value = faces_4[{limits.hi.x,j,k}].I[m]
+      if epsw < 1 then
+        for m = 0, NUM_ANGLES do
+          if angles[m].xi > 0 then
+            var face_value : double = 0.0
+            if angles[m].eta > 0 and angles[m].mu > 0 then
+              face_value = faces_1[{limits.hi.x,j,k}].I[m]
+            elseif angles[m].eta > 0 and angles[m].mu <= 0 then
+              face_value = faces_2[{limits.hi.x,j,k}].I[m]
+            elseif angles[m].eta <= 0 and angles[m].mu > 0 then
+              face_value = faces_3[{limits.hi.x,j,k}].I[m]
+            else
+              face_value = faces_4[{limits.hi.x,j,k}].I[m]
+            end
+            reflect += (1.0-epsw)/pi*angles[m].w*angles[m].xi*face_value
           end
-          reflect += (1.0-epsw)/pi*angles[m].w*angles[m].xi*face_value
         end
       end
 
@@ -408,19 +413,21 @@ do
       -- Calculate reflect
 
       reflect = 0
-      for m = 0, NUM_ANGLES do
-        if angles[m].eta > 0 then
-          var face_value : double = 0.0
-          if angles[m].xi > 0 and angles[m].mu > 0 then
-            face_value = faces_1[{i,limits.hi.y,k}].I[m]
-          elseif angles[m].xi > 0 and angles[m].mu <= 0 then
-            face_value = faces_2[{i,limits.hi.y,k}].I[m]
-          elseif angles[m].xi <= 0 and angles[m].mu > 0 then
-            face_value = faces_5[{i,limits.hi.y,k}].I[m]
-          else
-            face_value = faces_6[{i,limits.hi.y,k}].I[m]
+      if epsw < 1 then
+        for m = 0, NUM_ANGLES do
+          if angles[m].eta > 0 then
+            var face_value : double = 0.0
+            if angles[m].xi > 0 and angles[m].mu > 0 then
+              face_value = faces_1[{i,limits.hi.y,k}].I[m]
+            elseif angles[m].xi > 0 and angles[m].mu <= 0 then
+              face_value = faces_2[{i,limits.hi.y,k}].I[m]
+            elseif angles[m].xi <= 0 and angles[m].mu > 0 then
+              face_value = faces_5[{i,limits.hi.y,k}].I[m]
+            else
+              face_value = faces_6[{i,limits.hi.y,k}].I[m]
+            end
+            reflect += (1.0-epsw)/pi*angles[m].w*angles[m].eta*face_value
           end
-          reflect += (1.0-epsw)/pi*angles[m].w*angles[m].eta*face_value
         end
       end
 
@@ -480,19 +487,21 @@ do
       -- Calculate reflect
 
       reflect = 0
-      for m = 0, NUM_ANGLES do
-        if angles[m].eta < 0 then
-          var face_value : double = 0.0
-          if angles[m].xi > 0 and angles[m].mu > 0 then
-            face_value = faces_3[{i,limits.lo.y,k}].I[m]
-          elseif angles[m].xi > 0 and angles[m].mu <= 0 then
-            face_value = faces_4[{i,limits.lo.y,k}].I[m]
-          elseif angles[m].xi <= 0 and angles[m].mu > 0 then
-            face_value = faces_7[{i,limits.lo.y,k}].I[m]
-          else
-            face_value = faces_8[{i,limits.lo.y,k}].I[m]
+      if epsw < 1 then
+        for m = 0, NUM_ANGLES do
+          if angles[m].eta < 0 then
+            var face_value : double = 0.0
+            if angles[m].xi > 0 and angles[m].mu > 0 then
+              face_value = faces_3[{i,limits.lo.y,k}].I[m]
+            elseif angles[m].xi > 0 and angles[m].mu <= 0 then
+              face_value = faces_4[{i,limits.lo.y,k}].I[m]
+            elseif angles[m].xi <= 0 and angles[m].mu > 0 then
+              face_value = faces_7[{i,limits.lo.y,k}].I[m]
+            else
+              face_value = faces_8[{i,limits.lo.y,k}].I[m]
+            end
+            reflect += (1.0-epsw)/pi*angles[m].w*fabs(angles[m].eta)*face_value
           end
-          reflect += (1.0-epsw)/pi*angles[m].w*fabs(angles[m].eta)*face_value
         end
       end
 
@@ -552,19 +561,21 @@ do
       -- Calculate reflect
 
       reflect = 0
-      for m = 0, NUM_ANGLES do
-        if angles[m].mu < 0 then
-          var face_value : double = 0.0
-          if angles[m].xi > 0 and angles[m].eta > 0 then
-            face_value = faces_2[{i,j,limits.lo.z}].I[m]
-          elseif angles[m].xi > 0 and angles[m].eta <= 0 then
-            face_value = faces_4[{i,j,limits.lo.z}].I[m]
-          elseif angles[m].xi <= 0 and angles[m].eta > 0 then
-            face_value = faces_6[{i,j,limits.lo.z}].I[m]
-          else
-            face_value = faces_8[{i,j,limits.lo.z}].I[m]
+      if epsw < 1 then
+        for m = 0, NUM_ANGLES do
+          if angles[m].mu < 0 then
+            var face_value : double = 0.0
+            if angles[m].xi > 0 and angles[m].eta > 0 then
+              face_value = faces_2[{i,j,limits.lo.z}].I[m]
+            elseif angles[m].xi > 0 and angles[m].eta <= 0 then
+              face_value = faces_4[{i,j,limits.lo.z}].I[m]
+            elseif angles[m].xi <= 0 and angles[m].eta > 0 then
+              face_value = faces_6[{i,j,limits.lo.z}].I[m]
+            else
+              face_value = faces_8[{i,j,limits.lo.z}].I[m]
+            end
+            reflect += (1.0-epsw)/pi*angles[m].w*fabs(angles[m].mu)*face_value
           end
-          reflect += (1.0-epsw)/pi*angles[m].w*fabs(angles[m].mu)*face_value
         end
       end
 
@@ -624,19 +635,21 @@ do
       -- Calculate reflect
 
       reflect = 0
-      for m = 0, NUM_ANGLES do
-        if angles[m].mu > 0 then
-          var face_value : double = 0.0
-          if angles[m].xi > 0 and angles[m].eta > 0 then
-            face_value = faces_1[{i,j,limits.hi.z}].I[m]
-          elseif angles[m].xi > 0 and angles[m].eta <= 0 then
-            face_value = faces_3[{i,j,limits.hi.z}].I[m]
-          elseif angles[m].xi <= 0 and angles[m].eta > 0 then
-            face_value = faces_5[{i,j,limits.hi.z}].I[m]
-          else
-            face_value = faces_7[{i,j,limits.hi.z}].I[m]
+      if epsw < 1 then
+        for m = 0, NUM_ANGLES do
+          if angles[m].mu > 0 then
+            var face_value : double = 0.0
+            if angles[m].xi > 0 and angles[m].eta > 0 then
+              face_value = faces_1[{i,j,limits.hi.z}].I[m]
+            elseif angles[m].xi > 0 and angles[m].eta <= 0 then
+              face_value = faces_3[{i,j,limits.hi.z}].I[m]
+            elseif angles[m].xi <= 0 and angles[m].eta > 0 then
+              face_value = faces_5[{i,j,limits.hi.z}].I[m]
+            else
+              face_value = faces_7[{i,j,limits.hi.z}].I[m]
+            end
+            reflect += (1.0-epsw)/pi*angles[m].w*angles[m].mu*face_value
           end
-          reflect += (1.0-epsw)/pi*angles[m].w*angles[m].mu*face_value
         end
       end
 
@@ -680,10 +693,11 @@ where
   reads writes(points.I_1, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
-  var dAx = dy*dz;
-  var dAy = dx*dz;
-  var dAz = dx*dy;
-  var dV = dx*dy*dz;
+
+  var dAx = dy*dz
+  var dAy = dx*dz
+  var dAz = dx*dy
+  var dV = dx*dy*dz
 
   -- Determine sweep direction and bounds
 
@@ -701,6 +715,7 @@ do
   var startz : int64 = limits.lo.z
   var endz   : int64 = limits.hi.z + 1
 
+  -- xi,eta,mu can only be 1 or -1 since they are directional indicators
   if xi < 0 then
     dindx = -1
     startx = limits.hi.x
@@ -762,7 +777,6 @@ do
             end
 
             -- Integrate to compute cell-centered value of I.
-
             points[{i,j,k}].I_1[m] = (points[{i,j,k}].S * dV
                                         + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
                                         + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
@@ -775,6 +789,7 @@ do
             -- Compute intensities on downwind faces
 
             var x_face_val = (points[{i,j,k}].I_1[m] - (1-gamma)*upwind_x_value)/gamma
+            if (x_face_val < 0) then x_face_val = 0 end
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
               shared_x_faces_downwind[{indx+dindx, j, k}].I[m] = x_face_val
             else
@@ -782,6 +797,7 @@ do
             end
 
             var y_face_val = (points[{i,j,k}].I_1[m] - (1-gamma)*upwind_y_value)/gamma
+            if (y_face_val < 0) then y_face_val = 0 end
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
               shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
@@ -789,6 +805,7 @@ do
             end
 
             var z_face_val = (points[{i,j,k}].I_1[m] - (1-gamma)*upwind_z_value)/gamma
+            if (z_face_val < 0) then z_face_val = 0 end
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
               shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
@@ -821,10 +838,10 @@ where
   reads writes(points.I_2, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
-  var dAx = dy*dz;
-  var dAy = dx*dz;
-  var dAz = dx*dy;
-  var dV = dx*dy*dz;
+  var dAx = dy*dz
+  var dAy = dx*dz
+  var dAz = dx*dy
+  var dV = dx*dy*dz
 
   -- Determine sweep direction and bounds
 
@@ -918,6 +935,7 @@ do
             -- Compute intensities on downwind faces
 
             var x_face_val = (points[{i,j,k}].I_2[m] - (1-gamma)*upwind_x_value)/gamma
+            if (x_face_val < 0) then x_face_val = 0 end
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
               shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
             else
@@ -925,6 +943,7 @@ do
             end
 
             var y_face_val = (points[{i,j,k}].I_2[m] - (1-gamma)*upwind_y_value)/gamma
+            if (y_face_val < 0) then y_face_val = 0 end
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
               shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
@@ -932,6 +951,7 @@ do
             end
 
             var z_face_val = (points[{i,j,k}].I_2[m] - (1-gamma)*upwind_z_value)/gamma
+            if (z_face_val < 0) then z_face_val = 0 end
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
               shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
@@ -964,10 +984,10 @@ where
   reads writes(points.I_3, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
-  var dAx = dy*dz;
-  var dAy = dx*dz;
-  var dAz = dx*dy;
-  var dV = dx*dy*dz;
+  var dAx = dy*dz
+  var dAy = dx*dz
+  var dAz = dx*dy
+  var dV = dx*dy*dz
 
   -- Determine sweep direction and bounds
 
@@ -1061,6 +1081,7 @@ do
             -- Compute intensities on downwind faces
 
             var x_face_val = (points[{i,j,k}].I_3[m] - (1-gamma)*upwind_x_value)/gamma
+            if (x_face_val < 0) then x_face_val = 0 end
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
               shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
             else
@@ -1068,6 +1089,7 @@ do
             end
 
             var y_face_val = (points[{i,j,k}].I_3[m] - (1-gamma)*upwind_y_value)/gamma
+            if (y_face_val < 0) then y_face_val = 0 end
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
               shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
@@ -1075,6 +1097,7 @@ do
             end
 
             var z_face_val = (points[{i,j,k}].I_3[m] - (1-gamma)*upwind_z_value)/gamma
+            if (z_face_val < 0) then z_face_val = 0 end
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
               shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
@@ -1107,10 +1130,10 @@ where
   reads writes(points.I_4, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
-  var dAx = dy*dz;
-  var dAy = dx*dz;
-  var dAz = dx*dy;
-  var dV = dx*dy*dz;
+  var dAx = dy*dz
+  var dAy = dx*dz
+  var dAz = dx*dy
+  var dV = dx*dy*dz
 
   -- Determine sweep direction and bounds
 
@@ -1204,6 +1227,7 @@ do
             -- Compute intensities on downwind faces
 
             var x_face_val = (points[{i,j,k}].I_4[m] - (1-gamma)*upwind_x_value)/gamma
+            if (x_face_val < 0) then x_face_val = 0 end
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
               shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
             else
@@ -1211,6 +1235,7 @@ do
             end
 
             var y_face_val = (points[{i,j,k}].I_4[m] - (1-gamma)*upwind_y_value)/gamma
+            if (y_face_val < 0) then y_face_val = 0 end
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
               shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
@@ -1218,6 +1243,7 @@ do
             end
 
             var z_face_val = (points[{i,j,k}].I_4[m] - (1-gamma)*upwind_z_value)/gamma
+            if (z_face_val < 0) then z_face_val = 0 end
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
               shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
@@ -1250,10 +1276,10 @@ where
   reads writes(points.I_5, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
-  var dAx = dy*dz;
-  var dAy = dx*dz;
-  var dAz = dx*dy;
-  var dV = dx*dy*dz;
+  var dAx = dy*dz
+  var dAy = dx*dz
+  var dAz = dx*dy
+  var dV = dx*dy*dz
 
   -- Determine sweep direction and bounds
 
@@ -1347,6 +1373,7 @@ do
             -- Compute intensities on downwind faces
 
             var x_face_val = (points[{i,j,k}].I_5[m] - (1-gamma)*upwind_x_value)/gamma
+            if (x_face_val < 0) then x_face_val = 0 end
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
               shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
             else
@@ -1354,6 +1381,7 @@ do
             end
 
             var y_face_val = (points[{i,j,k}].I_5[m] - (1-gamma)*upwind_y_value)/gamma
+            if (y_face_val < 0) then y_face_val = 0 end
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
               shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
@@ -1361,6 +1389,7 @@ do
             end
 
             var z_face_val = (points[{i,j,k}].I_5[m] - (1-gamma)*upwind_z_value)/gamma
+            if (z_face_val < 0) then z_face_val = 0 end
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
               shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
@@ -1393,10 +1422,10 @@ where
   reads writes(points.I_6, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
-  var dAx = dy*dz;
-  var dAy = dx*dz;
-  var dAz = dx*dy;
-  var dV = dx*dy*dz;
+  var dAx = dy*dz
+  var dAy = dx*dz
+  var dAz = dx*dy
+  var dV = dx*dy*dz
 
   -- Determine sweep direction and bounds
 
@@ -1490,6 +1519,7 @@ do
             -- Compute intensities on downwind faces
 
             var x_face_val = (points[{i,j,k}].I_6[m] - (1-gamma)*upwind_x_value)/gamma
+            if (x_face_val < 0) then x_face_val = 0 end
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
               shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
             else
@@ -1497,6 +1527,7 @@ do
             end
 
             var y_face_val = (points[{i,j,k}].I_6[m] - (1-gamma)*upwind_y_value)/gamma
+            if (y_face_val < 0) then y_face_val = 0 end
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
               shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
@@ -1504,6 +1535,7 @@ do
             end
 
             var z_face_val = (points[{i,j,k}].I_6[m] - (1-gamma)*upwind_z_value)/gamma
+            if (z_face_val < 0) then z_face_val = 0 end
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
               shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
@@ -1536,10 +1568,10 @@ where
   reads writes(points.I_7, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
-  var dAx = dy*dz;
-  var dAy = dx*dz;
-  var dAz = dx*dy;
-  var dV = dx*dy*dz;
+  var dAx = dy*dz
+  var dAy = dx*dz
+  var dAz = dx*dy
+  var dV = dx*dy*dz
 
   -- Determine sweep direction and bounds
 
@@ -1633,6 +1665,7 @@ do
             -- Compute intensities on downwind faces
 
             var x_face_val = (points[{i,j,k}].I_7[m] - (1-gamma)*upwind_x_value)/gamma
+            if (x_face_val < 0) then x_face_val = 0 end
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
               shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
             else
@@ -1640,6 +1673,7 @@ do
             end
 
             var y_face_val = (points[{i,j,k}].I_7[m] - (1-gamma)*upwind_y_value)/gamma
+            if (y_face_val < 0) then y_face_val = 0 end
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
               shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
@@ -1647,6 +1681,7 @@ do
             end
 
             var z_face_val = (points[{i,j,k}].I_7[m] - (1-gamma)*upwind_z_value)/gamma
+            if (z_face_val < 0) then z_face_val = 0 end
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
               shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
@@ -1679,10 +1714,10 @@ where
   reads writes(points.I_8, x_faces.I, y_faces.I, z_faces.I,
     shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
 do
-  var dAx = dy*dz;
-  var dAy = dx*dz;
-  var dAz = dx*dy;
-  var dV = dx*dy*dz;
+  var dAx = dy*dz
+  var dAy = dx*dz
+  var dAz = dx*dy
+  var dV = dx*dy*dz
 
   -- Determine sweep direction and bounds
 
@@ -1776,6 +1811,7 @@ do
             -- Compute intensities on downwind faces
 
             var x_face_val = (points[{i,j,k}].I_8[m] - (1-gamma)*upwind_x_value)/gamma
+            if (x_face_val < 0) then x_face_val = 0 end
             if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
               shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
             else
@@ -1783,6 +1819,7 @@ do
             end
 
             var y_face_val = (points[{i,j,k}].I_8[m] - (1-gamma)*upwind_y_value)/gamma
+            if (y_face_val < 0) then y_face_val = 0 end
             if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
               shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
             else
@@ -1790,6 +1827,7 @@ do
             end
 
             var z_face_val = (points[{i,j,k}].I_8[m] - (1-gamma)*upwind_z_value)/gamma
+            if (z_face_val < 0) then z_face_val = 0 end
             if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
               shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
             else
@@ -1816,59 +1854,78 @@ do
   __demand(__openmp)
   for p in points do
     for m = 0, NUM_ANGLES do
-
-      if p.I_1[m] > 0 then
-        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
-          * pow((p.I_1[m]-p.Iiter_1[m]),2.0)
-          / pow((p.I_1[m]),2.0)
+      var v1 = p.I_1[m]
+      if v1 > 0 then
+        var v2 = v1 - p.Iiter_1[m]
+        res += (v2 * v2) / (v1 * v1)
       end
-
-      if p.I_2[m] > 0 then
-        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
-          * pow((p.I_2[m]-p.Iiter_2[m]),2.0)
-          / pow((p.I_2[m]),2.0)
+    end
+  end
+  for p in points do
+    for m = 0, NUM_ANGLES do
+      var v1 = p.I_2[m]
+      if v1 > 0 then
+        var v2 = v1 - p.Iiter_2[m]
+        res += (v2 * v2) / (v1 * v1)
       end
-
-      if p.I_3[m] > 0 then
-        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
-          * pow((p.I_3[m]-p.Iiter_3[m]),2.0)
-          / pow((p.I_3[m]),2.0)
+    end
+  end
+  for p in points do
+    for m = 0, NUM_ANGLES do
+      var v1 = p.I_3[m]
+      if v1 > 0 then
+        var v2 = v1 - p.Iiter_3[m]
+        res += (v2 * v2) / (v1 * v1)
       end
-
-      if p.I_4[m] > 0 then
-        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
-          * pow((p.I_4[m]-p.Iiter_4[m]),2.0)
-          / pow((p.I_4[m]),2.0)
+    end
+  end
+  for p in points do
+    for m = 0, NUM_ANGLES do
+      var v1 = p.I_4[m]
+      if v1 > 0 then
+        var v2 = v1 - p.Iiter_4[m]
+        res += (v2 * v2) / (v1 * v1)
       end
-
-      if p.I_5[m] > 0 then
-        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
-          * pow((p.I_5[m]-p.Iiter_5[m]),2.0)
-          / pow((p.I_5[m]),2.0)
+    end
+  end
+  for p in points do
+    for m = 0, NUM_ANGLES do
+      var v1 = p.I_5[m]
+      if v1 > 0 then
+        var v2 = v1 - p.Iiter_5[m]
+        res += (v2 * v2) / (v1 * v1)
       end
-
-      if p.I_6[m] > 0 then
-        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
-          * pow((p.I_6[m]-p.Iiter_6[m]),2.0)
-          / pow((p.I_6[m]),2.0)
+    end
+  end
+  for p in points do
+    for m = 0, NUM_ANGLES do
+      var v1 = p.I_6[m]
+      if v1 > 0 then
+        var v2 = v1 - p.Iiter_6[m]
+        res += (v2 * v2) / (v1 * v1)
       end
-
-      if p.I_7[m] > 0 then
-        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
-          * pow((p.I_7[m]-p.Iiter_7[m]),2.0)
-          / pow((p.I_7[m]),2.0)
+    end
+  end
+  for p in points do
+    for m = 0, NUM_ANGLES do
+      var v1 = p.I_7[m]
+      if v1 > 0 then
+        var v2 = v1 - p.Iiter_7[m]
+        res += (v2 * v2) / (v1 * v1)
       end
-
-      if p.I_8[m] > 0 then
-        res += (1.0/(Nx*Ny*Nz*(NUM_ANGLES)))
-          * pow((p.I_8[m]-p.Iiter_8[m]),2.0)
-          / pow((p.I_8[m]),2.0)
+    end
+  end
+  for p in points do
+    for m = 0, NUM_ANGLES do
+      var v1 = p.I_8[m]
+      if v1 > 0 then
+        var v2 = v1 - p.Iiter_8[m]
+        res += (v2 * v2) / (v1 * v1)
       end
-
     end
   end
 
-  return res
+  return res / (Nx * Ny * Nz * NUM_ANGLES)
 end
 
 -- Update the intensity before moving to the next iteration.
@@ -1878,16 +1935,51 @@ where
   reads writes (points.{Iiter_1, Iiter_2, Iiter_3, Iiter_4,
                         Iiter_5, Iiter_6, Iiter_7, Iiter_8})
 do
-  __demand(__openmp)
+  __forbid(__vectorize)
   for p in points do
     for m = 0, NUM_ANGLES do
       p.Iiter_1[m] = p.I_1[m]
+    end
+  end
+  __forbid(__vectorize)
+  for p in points do
+    for m = 0, NUM_ANGLES do
       p.Iiter_2[m] = p.I_2[m]
+    end
+  end
+  __forbid(__vectorize)
+  for p in points do
+    for m = 0, NUM_ANGLES do
       p.Iiter_3[m] = p.I_3[m]
+    end
+  end
+  __forbid(__vectorize)
+  for p in points do
+    for m = 0, NUM_ANGLES do
       p.Iiter_4[m] = p.I_4[m]
+    end
+  end
+  __forbid(__vectorize)
+  for p in points do
+    for m = 0, NUM_ANGLES do
       p.Iiter_5[m] = p.I_5[m]
+    end
+  end
+  __forbid(__vectorize)
+  for p in points do
+    for m = 0, NUM_ANGLES do
       p.Iiter_6[m] = p.I_6[m]
+    end
+  end
+  __forbid(__vectorize)
+  for p in points do
+    for m = 0, NUM_ANGLES do
       p.Iiter_7[m] = p.I_7[m]
+    end
+  end
+  __forbid(__vectorize)
+  for p in points do
+    for m = 0, NUM_ANGLES do
       p.Iiter_8[m] = p.I_8[m]
     end
   end
