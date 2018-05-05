@@ -128,6 +128,7 @@ Exports.Config = {
     bodyForce = Array(3,double),
     maxSkew = double,
     maxXferNum = int,
+    collisions = bool,
   },
   Radiation = {
     type = Exports.RadiationType,

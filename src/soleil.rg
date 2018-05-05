@@ -7590,7 +7590,7 @@ task work(config : Config)
                                        Grid_zBnum, Grid_zNum)
 
         -- TODO: Collisions across tiles are not handled.
-        if Integrator_stage==4 then
+        if config.Particles.collisions and Integrator_stage==4 then
           for c in primColors do
             Particles_HandleCollisions(particles_primPart[c], Integrator_deltaTime, Particles_restitutionCoeff)
           end
