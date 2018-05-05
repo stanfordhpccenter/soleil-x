@@ -212,6 +212,7 @@ end
 -------------------------------------------------------------------------------
 -- OTHER ROUTINES
 -------------------------------------------------------------------------------
+
 __demand(__inline)
 task GetDynamicViscosity(temperature : double,
                          Flow_constantVisc : double,
@@ -230,8 +231,6 @@ task GetDynamicViscosity(temperature : double,
   end
   return viscosity
 end
-
-
 
 __demand(__parallel)
 task InitParticlesUniform(particles : region(ispace(int1d), particles_columns),
@@ -553,8 +552,30 @@ where
   reads writes(Fluid.{rho, velocity, pressure}),
   writes(Fluid.{velocity_old_NSCBC, temperature_old_NSCBC, dudtBoundary, dTdtBoundary})
 do
+  -- Domain origin
+  var Grid_xOrigin = config.Grid.origin[0]
+  var Grid_yOrigin = config.Grid.origin[1]
+  var Grid_zOrigin = config.Grid.origin[2]
+  -- Domain Size
+  var Grid_xWidth = config.Grid.xWidth
+  var Grid_yWidth = config.Grid.yWidth
+  var Grid_zWidth = config.Grid.zWidth
+  -- Cell step size
+  var Grid_xCellWidth = (Grid_xWidth/Grid_xNum)
+  var Grid_yCellWidth = (Grid_yWidth/Grid_yNum)
+  var Grid_zCellWidth = (Grid_zWidth/Grid_zNum)
+  -- Compute real origin and width accounting for ghost cells
+  var Grid_xRealOrigin = (Grid_xOrigin-(Grid_xCellWidth*Grid_xBnum))
+  var Grid_yRealOrigin = (Grid_yOrigin-(Grid_yCellWidth*Grid_yBnum))
+  var Grid_zRealOrigin = (Grid_zOrigin-(Grid_zCellWidth*Grid_zBnum))
+  -- Inflow values
+  var BC_xBCLeftInflowProfile_type = config.BC.xBCLeftInflowProfile.type
+  var BC_xBCLeftInflowProfile_Constant_velocity = config.BC.xBCLeftInflowProfile.u.Constant.velocity
+  var BC_xBCLeftInflowProfile_DuctProfile_meanVelocity = config.BC.xBCLeftInflowProfile.u.DuctProfile.meanVelocity
   __demand(__openmp)
-  for c in Fluid do var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) var xPosGhost  = (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)
+  for c in Fluid do
+    var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
+    var xPosGhost  = (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)
     var yNegGhost = (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)
     var yPosGhost  = (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)
     var zNegGhost = (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)
@@ -569,29 +590,11 @@ do
       var c_int = ((c+{1, 0, 0})%Fluid.bounds)
 
       var velocity = [double[3]](array(0.0, 0.0, 0.0))
-      if config.BC.xBCLeftInflowProfile.type == SCHEMA.InflowProfile_Constant then
-        velocity[0] = config.BC.xBCLeftInflowProfile.u.Constant.velocity
-      elseif config.BC.xBCLeftInflowProfile.type == SCHEMA.InflowProfile_DuctProfile then
-        -- Domain origin
-        var Grid_xOrigin = config.Grid.origin[0]
-        var Grid_yOrigin = config.Grid.origin[1]
-        var Grid_zOrigin = config.Grid.origin[2]
-        -- Domain Size
-        var Grid_xWidth = config.Grid.xWidth
-        var Grid_yWidth = config.Grid.yWidth
-        var Grid_zWidth = config.Grid.zWidth
-        -- Cell step size
-        var Grid_xCellWidth = (Grid_xWidth/Grid_xNum)
-        var Grid_yCellWidth = (Grid_yWidth/Grid_yNum)
-        var Grid_zCellWidth = (Grid_zWidth/Grid_zNum)
-        -- Compute real origin and width accounting for ghost cel
-        var Grid_xRealOrigin = (Grid_xOrigin-(Grid_xCellWidth*Grid_xBnum))
-        var Grid_yRealOrigin = (Grid_yOrigin-(Grid_yCellWidth*Grid_yBnum))
-        var Grid_zRealOrigin = (Grid_zOrigin-(Grid_zCellWidth*Grid_zBnum))
-
+      if BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Constant then
+        velocity[0] = BC_xBCLeftInflowProfile_Constant_velocity
+      else -- BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_DuctProfile
         var y = Fluid[c].centerCoordinates[1]
         var z = Fluid[c].centerCoordinates[2]
-
         var y_dist_to_wall = 0.0
         var y_local = 0.0
         if y < (Grid_yWidth/ 2.0) then
@@ -601,7 +604,6 @@ do
           y_dist_to_wall = Grid_yWidth - y
           y_local = y - (Grid_yWidth/ 2.0)
         end
-
         var z_dist_to_wall = 0.0
         var z_local = 0.0
         if z < (Grid_zWidth/ 2.0) then
@@ -611,7 +613,6 @@ do
           z_dist_to_wall = Grid_zWidth - z
           z_local = z - (Grid_zWidth/ 2.0)
         end
-
         var d = 0.0
         var d_max = 0.0
         if y_dist_to_wall < z_dist_to_wall then
@@ -621,15 +622,11 @@ do
           d = z_dist_to_wall
           d_max = (Grid_zWidth/ 2.0)
         end
-
-        var mean_velocity = config.BC.xBCLeftInflowProfile.u.DuctProfile.mean_velocity
+        var meanVelocity = BC_xBCLeftInflowProfile_DuctProfile_meanVelocity
         var mu = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
-        var Re = Fluid[c].rho*mean_velocity*Grid_yWidth / mu
+        var Re = Fluid[c].rho*meanVelocity*Grid_yWidth / mu
         var n = -1.7 + 1.8*log(Re)
-
-        velocity[0] = mean_velocity*pow((d/d_max), (1.0/n))
-      else
-        regentlib.assert(false, "Boundary conditions in x not implemented")
+        velocity[0] = meanVelocity*pow((d/d_max), (1.0/n))
       end
       Fluid[c_bnd].velocity = velocity
 
@@ -759,6 +756,26 @@ where
   reads(Fluid.{rho, rhoVelocity, temperature, centerCoordinates}),
   writes(Fluid.{velocity, kineticEnergy})
 do
+  -- Domain origin
+  var Grid_xOrigin = config.Grid.origin[0]
+  var Grid_yOrigin = config.Grid.origin[1]
+  var Grid_zOrigin = config.Grid.origin[2]
+  -- Domain Size
+  var Grid_xWidth = config.Grid.xWidth
+  var Grid_yWidth = config.Grid.yWidth
+  var Grid_zWidth = config.Grid.zWidth
+  -- Cell step size
+  var Grid_xCellWidth = (Grid_xWidth/Grid_xNum)
+  var Grid_yCellWidth = (Grid_yWidth/Grid_yNum)
+  var Grid_zCellWidth = (Grid_zWidth/Grid_zNum)
+  -- Compute real origin and width accounting for ghost cells
+  var Grid_xRealOrigin = (Grid_xOrigin-(Grid_xCellWidth*Grid_xBnum))
+  var Grid_yRealOrigin = (Grid_yOrigin-(Grid_yCellWidth*Grid_yBnum))
+  var Grid_zRealOrigin = (Grid_zOrigin-(Grid_zCellWidth*Grid_zBnum))
+  -- Inflow values
+  var BC_xBCLeftInflowProfile_type = config.BC.xBCLeftInflowProfile.type
+  var BC_xBCLeftInflowProfile_Constant_velocity = config.BC.xBCLeftInflowProfile.u.Constant.velocity
+  var BC_xBCLeftInflowProfile_DuctProfile_meanVelocity = config.BC.xBCLeftInflowProfile.u.DuctProfile.meanVelocity
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -772,31 +789,12 @@ do
     var NSCBC_outflow_cell = ((config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if (NSCBC_inflow_cell) then
-
       var velocity = [double[3]](array(0.0, 0.0, 0.0))
-      if config.BC.xBCLeftInflowProfile.type == SCHEMA.InflowProfile_Constant then
-        velocity[0] = config.BC.xBCLeftInflowProfile.u.Constant.velocity
-      elseif config.BC.xBCLeftInflowProfile.type == SCHEMA.InflowProfile_DuctProfile then
-        -- Domain origin
-        var Grid_xOrigin = config.Grid.origin[0]
-        var Grid_yOrigin = config.Grid.origin[1]
-        var Grid_zOrigin = config.Grid.origin[2]
-        -- Domain Size
-        var Grid_xWidth = config.Grid.xWidth
-        var Grid_yWidth = config.Grid.yWidth
-        var Grid_zWidth = config.Grid.zWidth
-        -- Cell step size
-        var Grid_xCellWidth = (Grid_xWidth/Grid_xNum)
-        var Grid_yCellWidth = (Grid_yWidth/Grid_yNum)
-        var Grid_zCellWidth = (Grid_zWidth/Grid_zNum)
-        -- Compute real origin and width accounting for ghost cel
-        var Grid_xRealOrigin = (Grid_xOrigin-(Grid_xCellWidth*Grid_xBnum))
-        var Grid_yRealOrigin = (Grid_yOrigin-(Grid_yCellWidth*Grid_yBnum))
-        var Grid_zRealOrigin = (Grid_zOrigin-(Grid_zCellWidth*Grid_zBnum))
-
+      if BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Constant then
+        velocity[0] = BC_xBCLeftInflowProfile_Constant_velocity
+      else -- BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_DuctProfile
         var y = Fluid[c].centerCoordinates[1]
         var z = Fluid[c].centerCoordinates[2]
-
         var y_dist_to_wall = 0.0
         var y_local = 0.0
         if y < (Grid_yWidth/ 2.0) then
@@ -806,7 +804,6 @@ do
           y_dist_to_wall = Grid_yWidth - y
           y_local = y - (Grid_yWidth/ 2.0)
         end
-
         var z_dist_to_wall = 0.0
         var z_local = 0.0
         if z < (Grid_zWidth/ 2.0) then
@@ -816,7 +813,6 @@ do
           z_dist_to_wall = Grid_zWidth - z
           z_local = z - (Grid_zWidth/ 2.0)
         end
-
         var d = 0.0
         var d_max = 0.0
         if y_dist_to_wall < z_dist_to_wall then
@@ -826,19 +822,12 @@ do
           d = z_dist_to_wall
           d_max = (Grid_zWidth/ 2.0)
         end
-
-        var mean_velocity = config.BC.xBCLeftInflowProfile.u.DuctProfile.mean_velocity
+        var meanVelocity = BC_xBCLeftInflowProfile_DuctProfile_meanVelocity
         var mu = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
-        var Re = Fluid[c].rho*mean_velocity*Grid_yWidth / mu
+        var Re = Fluid[c].rho*meanVelocity*Grid_yWidth / mu
         var n = -1.7 + 1.8*log(Re)
-
-        velocity[0] = mean_velocity*pow((d/d_max), (1.0/n))
-      else
-        regentlib.assert(false, "Boundary conditions in x not implemented")
+        velocity[0] = meanVelocity*pow((d/d_max), (1.0/n))
       end
-      Fluid[c].velocity = velocity
-
-
       Fluid[c].velocity = velocity
       Fluid[c].kineticEnergy = ((double(0.5)*Fluid[c].rho)*dot_double_3(velocity, velocity))
     end
@@ -879,6 +868,26 @@ where
   reads(Fluid.{rho, pressure, temperature, rhoVelocity, rhoEnergy, centerCoordinates, sgsEnergy}),
   writes(Fluid.{rhoBoundary, rhoEnergyBoundary, rhoVelocityBoundary})
 do
+  -- Domain origin
+  var Grid_xOrigin = config.Grid.origin[0]
+  var Grid_yOrigin = config.Grid.origin[1]
+  var Grid_zOrigin = config.Grid.origin[2]
+  -- Domain Size
+  var Grid_xWidth = config.Grid.xWidth
+  var Grid_yWidth = config.Grid.yWidth
+  var Grid_zWidth = config.Grid.zWidth
+  -- Cell step size
+  var Grid_xCellWidth = (Grid_xWidth/Grid_xNum)
+  var Grid_yCellWidth = (Grid_yWidth/Grid_yNum)
+  var Grid_zCellWidth = (Grid_zWidth/Grid_zNum)
+  -- Compute real origin and width accounting for ghost cells
+  var Grid_xRealOrigin = (Grid_xOrigin-(Grid_xCellWidth*Grid_xBnum))
+  var Grid_yRealOrigin = (Grid_yOrigin-(Grid_yCellWidth*Grid_yBnum))
+  var Grid_zRealOrigin = (Grid_zOrigin-(Grid_zCellWidth*Grid_zBnum))
+  -- Inflow values
+  var BC_xBCLeftInflowProfile_type = config.BC.xBCLeftInflowProfile.type
+  var BC_xBCLeftInflowProfile_Constant_velocity = config.BC.xBCLeftInflowProfile.u.Constant.velocity
+  var BC_xBCLeftInflowProfile_DuctProfile_meanVelocity = config.BC.xBCLeftInflowProfile.u.DuctProfile.meanVelocity
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -900,31 +909,12 @@ do
 
       if NSCBC_inflow_cell then
         var rho = Fluid[c_bnd].rho
-
         var velocity = [double[3]](array(0.0, 0.0, 0.0))
-        if config.BC.xBCLeftInflowProfile.type == SCHEMA.InflowProfile_Constant then
-          velocity[0] = config.BC.xBCLeftInflowProfile.u.Constant.velocity
-        elseif config.BC.xBCLeftInflowProfile.type == SCHEMA.InflowProfile_DuctProfile then
-          -- Domain origin
-          var Grid_xOrigin = config.Grid.origin[0]
-          var Grid_yOrigin = config.Grid.origin[1]
-          var Grid_zOrigin = config.Grid.origin[2]
-          -- Domain Size
-          var Grid_xWidth = config.Grid.xWidth
-          var Grid_yWidth = config.Grid.yWidth
-          var Grid_zWidth = config.Grid.zWidth
-          -- Cell step size
-          var Grid_xCellWidth = (Grid_xWidth/Grid_xNum)
-          var Grid_yCellWidth = (Grid_yWidth/Grid_yNum)
-          var Grid_zCellWidth = (Grid_zWidth/Grid_zNum)
-          -- Compute real origin and width accounting for ghost cel
-          var Grid_xRealOrigin = (Grid_xOrigin-(Grid_xCellWidth*Grid_xBnum))
-          var Grid_yRealOrigin = (Grid_yOrigin-(Grid_yCellWidth*Grid_yBnum))
-          var Grid_zRealOrigin = (Grid_zOrigin-(Grid_zCellWidth*Grid_zBnum))
-
+        if BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Constant then
+          velocity[0] = BC_xBCLeftInflowProfile_Constant_velocity
+        else -- BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_DuctProfile
           var y = Fluid[c].centerCoordinates[1]
           var z = Fluid[c].centerCoordinates[2]
-
           var y_dist_to_wall = 0.0
           var y_local = 0.0
           if y < (Grid_yWidth/ 2.0) then
@@ -934,7 +924,6 @@ do
             y_dist_to_wall = Grid_yWidth - y
             y_local = y - (Grid_yWidth/ 2.0)
           end
-
           var z_dist_to_wall = 0.0
           var z_local = 0.0
           if z < (Grid_zWidth/ 2.0) then
@@ -944,7 +933,6 @@ do
             z_dist_to_wall = Grid_zWidth - z
             z_local = z - (Grid_zWidth/ 2.0)
           end
-
           var d = 0.0
           var d_max = 0.0
           if y_dist_to_wall < z_dist_to_wall then
@@ -954,17 +942,12 @@ do
             d = z_dist_to_wall
             d_max = (Grid_zWidth/ 2.0)
           end
-
-          var mean_velocity = config.BC.xBCLeftInflowProfile.u.DuctProfile.mean_velocity
+          var meanVelocity = BC_xBCLeftInflowProfile_DuctProfile_meanVelocity
           var mu = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
-          var Re = Fluid[c].rho*mean_velocity*Grid_yWidth / mu
+          var Re = Fluid[c].rho*meanVelocity*Grid_yWidth / mu
           var n = -1.7 + 1.8*log(Re)
-
-          velocity[0] = mean_velocity*pow((d/d_max), (1.0/n))
-        else
-          regentlib.assert(false, "Boundary conditions in x not implemented")
+          velocity[0] = meanVelocity*pow((d/d_max), (1.0/n))
         end
-
         var temperature = BC_xNegTemperature
 
         Fluid[c_bnd].rhoBoundary = rho
