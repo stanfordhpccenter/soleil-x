@@ -17,6 +17,10 @@ Exports.WallHeatModel = Union{
     T_mid = double,
   },
 }
+local Window = {
+  fromCell = Array(2,int),
+  uptoCell = Array(2,int),
+}
 
 -- Main config struct
 Exports.Config = {
@@ -117,18 +121,24 @@ Exports.Config = {
     xNum = int,
     yNum = int,
     zNum = int,
-    emissEast = double,
-    emissWest = double,
-    emissSouth = double,
-    emissNorth = double,
-    emissUp = double,
-    emissDown = double,
-    tempEast = double,
-    tempWest = double,
-    tempSouth = double,
-    tempNorth = double,
-    tempUp = double,
-    tempDown = double,
+    xHiEmiss = double,
+    xLoEmiss = double,
+    yHiEmiss = double,
+    yLoEmiss = double,
+    zHiEmiss = double,
+    zLoEmiss = double,
+    xHiTemp = double,
+    xLoTemp = double,
+    yHiTemp = double,
+    yLoTemp = double,
+    zHiTemp = double,
+    zLoTemp = double,
+    xHiWindow = Window,
+    xLoWindow = Window,
+    yHiWindow = Window,
+    yLoWindow = Window,
+    zHiWindow = Window,
+    zLoWindow = Window,
     angles = int,
   },
   IO = {

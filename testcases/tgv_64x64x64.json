@@ -18,7 +18,7 @@
     },
 
     "BC" : {
-        "xBCLeft"  : "Periodic",
+        "xBCLeft" : "Periodic",
         "xBCLeftVel" : [0.0, 0.0, 0.0],
         "xBCLeftHeat" : {
             "type" : "Constant",
@@ -31,7 +31,7 @@
             "temperature" : 0.0
         },
         "xBCRightP_inf" : -1.0,
-        "yBCLeft"  : "Periodic",
+        "yBCLeft" : "Periodic",
         "yBCLeftVel" : [0.0, 0.0, 0.0],
         "yBCLeftHeat" : {
             "type" : "Constant",
@@ -43,7 +43,7 @@
             "type" : "Constant",
             "temperature" : 0.0
         },
-        "zBCLeft"  : "Periodic",
+        "zBCLeft" : "Periodic",
         "zBCLeftVel" : [0.0, 0.0, 0.0],
         "zBCLeftHeat" : {
             "type" : "Constant",
@@ -110,18 +110,24 @@
         "yNum" : 4,
         "zNum" : 4,
         "angles" : -1,
-        "emissEast"  : -1.0,
-        "emissWest"  : -1.0,
-        "emissSouth" : -1.0,
-        "emissNorth" : -1.0,
-        "emissUp"    : -1.0,
-        "emissDown"  : -1.0,
-        "tempEast"  : -1.0,
-        "tempWest"  : -1.0,
-        "tempSouth" : -1.0,
-        "tempNorth" : -1.0,
-        "tempUp"    : -1.0,
-        "tempDown"  : -1.0
+        "xHiEmiss" : -1.0,
+        "xLoEmiss" : -1.0,
+        "yHiEmiss" : -1.0,
+        "yLoEmiss" : -1.0,
+        "zHiEmiss" : -1.0,
+        "zLoEmiss" : -1.0,
+        "xHiTemp" : -1.0,
+        "xLoTemp" : -1.0,
+        "yHiTemp" : -1.0,
+        "yLoTemp" : -1.0,
+        "zHiTemp" : -1.0,
+        "zLoTemp" : -1.0,
+        "xHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "xLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "yHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "yLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "zHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "zLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] }
     },
 
     "IO" : {

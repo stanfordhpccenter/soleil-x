@@ -48,7 +48,7 @@ struct Point {
 -- Import DOM module
 -------------------------------------------------------------------------------
 
-local DOM = (require 'dom')(NUM_ANGLES, Point)
+local DOM = (require 'dom')(NUM_ANGLES, Point, SCHEMA.Config)
 
 -------------------------------------------------------------------------------
 -- Proxy tasks
@@ -123,7 +123,7 @@ local task main()
   var config = SCHEMA.parse_config(args.argv[1])
 
   if config.Radiation.angles ~= NUM_ANGLES then
-    C.fprintf(stderr, "angles in config file (%d) must match NUM_ANGLES in dom_host.rg (%d)\n", 
+    C.fprintf(stderr, "angles in config file (%d) must match NUM_ANGLES in dom_host.rg (%d)\n",
       config.Radiation.angles, NUM_ANGLES)
     C.fflush(stderr)
     C.exit(1)

@@ -4,7 +4,7 @@ import 'regent'
 -- MODULE PARAMETERS
 -------------------------------------------------------------------------------
 
-return function(NUM_ANGLES, pointsFSpace)
+return function(NUM_ANGLES, pointsFSpace, Config)
 
 -------------------------------------------------------------------------------
 -- COMPILE-TIME COMPUTATION
@@ -301,8 +301,7 @@ local task bound_x_lo(faces_1 : region(ispace(int3d), face),
                       faces_7 : region(ispace(int3d), face),
                       faces_8 : region(ispace(int3d), face),
                       angles : region(ispace(int1d), angle),
-                      emissWest : double,
-                      tempWest : double)
+                      config : Config)
 where
   reads (angles.{w, xi, eta, mu}),
   reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
@@ -315,20 +314,19 @@ do
 
   -- Temporary variables
 
-  var reflect : double = 0.0
-  var epsw    : double = emissWest
-  var Tw      : double = tempWest
+  var epsw = config.Radiation.xLoEmiss
+  var Tw = config.Radiation.xLoTemp
 
   for j = limits.lo.y, limits.hi.y + 1 do
     for k = limits.lo.z, limits.hi.z + 1 do
+      var value = 0.0
 
       -- Calculate reflect
 
-      reflect = 0
       if epsw < 1 then
         for m = 0, NUM_ANGLES do
           if angles[m].xi < 0 then
-            var face_value : double = 0.0
+            var face_value = 0.0
             if angles[m].eta > 0 and angles[m].mu > 0 then
               face_value = faces_5[{limits.lo.x,j,k}].I[m]
             elseif angles[m].eta > 0 and angles[m].mu <= 0 then
@@ -338,14 +336,22 @@ do
             else
               face_value = faces_8[{limits.lo.x,j,k}].I[m]
             end
-            reflect += (1.0-epsw)/pi*angles[m].w*fabs(angles[m].xi)*face_value
+            value += (1.0-epsw)/pi*angles[m].w*fabs(angles[m].xi)*face_value
           end
         end
       end
 
-      -- Set Ifx values using reflect
+      -- Add blackbody radiation
 
-      var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
+      if j >= config.Radiation.xLoWindow.fromCell[0] and
+         k >= config.Radiation.xLoWindow.fromCell[1] and
+         j <= config.Radiation.xLoWindow.uptoCell[0] and
+         k <= config.Radiation.xLoWindow.uptoCell[1] then
+        value += epsw*SB*pow(Tw,4.0)/pi
+      end
+
+      -- Set Ifx values
+
       for m = 0, NUM_ANGLES do
         if angles[m].xi > 0 then
           if angles[m].eta > 0 and angles[m].mu > 0 then
@@ -374,8 +380,7 @@ local task bound_x_hi(faces_1 : region(ispace(int3d), face),
                       faces_7 : region(ispace(int3d), face),
                       faces_8 : region(ispace(int3d), face),
                       angles : region(ispace(int1d), angle),
-                      emissEast : double,
-                      tempEast : double)
+                      config : Config)
 where
   reads (angles.{w, xi, eta, mu}),
   reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
@@ -388,20 +393,19 @@ do
 
   -- Temporary variables
 
-  var reflect : double = 0.0
-  var epsw    : double = emissEast
-  var Tw      : double = tempEast
+  var epsw = config.Radiation.xHiEmiss
+  var Tw = config.Radiation.xHiTemp
 
   for j = limits.lo.y, limits.hi.y + 1 do
     for k = limits.lo.z, limits.hi.z + 1 do
+      var value = 0.0
 
       -- Calculate reflect
 
-      reflect = 0
       if epsw < 1 then
         for m = 0, NUM_ANGLES do
           if angles[m].xi > 0 then
-            var face_value : double = 0.0
+            var face_value = 0.0
             if angles[m].eta > 0 and angles[m].mu > 0 then
               face_value = faces_1[{limits.hi.x,j,k}].I[m]
             elseif angles[m].eta > 0 and angles[m].mu <= 0 then
@@ -411,14 +415,22 @@ do
             else
               face_value = faces_4[{limits.hi.x,j,k}].I[m]
             end
-            reflect += (1.0-epsw)/pi*angles[m].w*angles[m].xi*face_value
+            value += (1.0-epsw)/pi*angles[m].w*angles[m].xi*face_value
           end
         end
       end
 
-      -- Set Ifx values using reflect
+      -- Add blackbody radiation
 
-      var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
+      if j >= config.Radiation.xHiWindow.fromCell[0] and
+         k >= config.Radiation.xHiWindow.fromCell[1] and
+         j <= config.Radiation.xHiWindow.uptoCell[0] and
+         k <= config.Radiation.xHiWindow.uptoCell[1] then
+        value += epsw*SB*pow(Tw,4.0)/pi
+      end
+
+      -- Set Ifx values
+
       for m = 0, NUM_ANGLES do
         if angles[m].xi < 0 then
           if angles[m].eta > 0 and angles[m].mu > 0 then
@@ -447,8 +459,7 @@ local task bound_y_hi(faces_1 : region(ispace(int3d), face),
                       faces_7 : region(ispace(int3d), face),
                       faces_8 : region(ispace(int3d), face),
                       angles : region(ispace(int1d), angle),
-                      emissNorth : double,
-                      tempNorth : double)
+                      config : Config)
 where
   reads (angles.{w, xi, eta, mu}),
   reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
@@ -461,20 +472,19 @@ do
 
   -- Temporary variables
 
-  var reflect : double = 0.0
-  var epsw    : double = emissNorth
-  var Tw      : double = tempNorth
+  var epsw = config.Radiation.yHiEmiss
+  var Tw = config.Radiation.yHiTemp
 
   for i = limits.lo.x, limits.hi.x + 1 do
     for k = limits.lo.z, limits.hi.z + 1 do
+      var value = 0.0
 
       -- Calculate reflect
 
-      reflect = 0
       if epsw < 1 then
         for m = 0, NUM_ANGLES do
           if angles[m].eta > 0 then
-            var face_value : double = 0.0
+            var face_value = 0.0
             if angles[m].xi > 0 and angles[m].mu > 0 then
               face_value = faces_1[{i,limits.hi.y,k}].I[m]
             elseif angles[m].xi > 0 and angles[m].mu <= 0 then
@@ -484,17 +494,24 @@ do
             else
               face_value = faces_6[{i,limits.hi.y,k}].I[m]
             end
-            reflect += (1.0-epsw)/pi*angles[m].w*angles[m].eta*face_value
+            value += (1.0-epsw)/pi*angles[m].w*angles[m].eta*face_value
           end
         end
       end
 
-      -- Set Ify values using reflect
+      -- Add blackbody radiation
 
-      var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
+      if i >= config.Radiation.yHiWindow.fromCell[0] and
+         k >= config.Radiation.yHiWindow.fromCell[1] and
+         i <= config.Radiation.yHiWindow.uptoCell[0] and
+         k <= config.Radiation.yHiWindow.uptoCell[1] then
+        value += epsw*SB*pow(Tw,4.0)/pi
+      end
+
+      -- Set Ify values
+
       for m = 0, NUM_ANGLES do
         if angles[m].eta < 0 then
-
           if angles[m].xi > 0 and angles[m].mu > 0 then
             faces_3[{i,limits.hi.y,k}].I[m] = value
           elseif angles[m].xi > 0 and angles[m].mu <= 0 then
@@ -521,8 +538,7 @@ local task bound_y_lo(faces_1 : region(ispace(int3d), face),
                       faces_7 : region(ispace(int3d), face),
                       faces_8 : region(ispace(int3d), face),
                       angles : region(ispace(int1d), angle),
-                      emissSouth : double,
-                      tempSouth : double)
+                      config : Config)
 where
   reads (angles.{w, xi, eta, mu}),
   reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
@@ -535,20 +551,19 @@ do
 
   -- Temporary variables
 
-  var reflect : double = 0.0
-  var epsw    : double = emissSouth
-  var Tw      : double = tempSouth
+  var epsw = config.Radiation.yLoEmiss
+  var Tw = config.Radiation.yLoTemp
 
   for i = limits.lo.x, limits.hi.x + 1 do
     for k = limits.lo.z, limits.hi.z + 1 do
+      var value = 0.0
 
       -- Calculate reflect
 
-      reflect = 0
       if epsw < 1 then
         for m = 0, NUM_ANGLES do
           if angles[m].eta < 0 then
-            var face_value : double = 0.0
+            var face_value = 0.0
             if angles[m].xi > 0 and angles[m].mu > 0 then
               face_value = faces_3[{i,limits.lo.y,k}].I[m]
             elseif angles[m].xi > 0 and angles[m].mu <= 0 then
@@ -558,17 +573,24 @@ do
             else
               face_value = faces_8[{i,limits.lo.y,k}].I[m]
             end
-            reflect += (1.0-epsw)/pi*angles[m].w*fabs(angles[m].eta)*face_value
+            value += (1.0-epsw)/pi*angles[m].w*fabs(angles[m].eta)*face_value
           end
         end
       end
 
-      -- Set Ify values using reflect
+      -- Add blackbody radiation
 
-      var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
+      if i >= config.Radiation.yLoWindow.fromCell[0] and
+         k >= config.Radiation.yLoWindow.fromCell[1] and
+         i <= config.Radiation.yLoWindow.uptoCell[0] and
+         k <= config.Radiation.yLoWindow.uptoCell[1] then
+        value += epsw*SB*pow(Tw,4.0)/pi
+      end
+
+      -- Set Ify values
+
       for m = 0, NUM_ANGLES do
         if angles[m].eta > 0 then
-
           if angles[m].xi > 0 and angles[m].mu > 0 then
             faces_1[{i,limits.lo.y,k}].I[m] = value
           elseif angles[m].xi > 0 and angles[m].mu <= 0 then
@@ -595,8 +617,7 @@ local task bound_z_lo(faces_1 : region(ispace(int3d), face),
                       faces_7 : region(ispace(int3d), face),
                       faces_8 : region(ispace(int3d), face),
                       angles : region(ispace(int1d), angle),
-                      emissDown : double,
-                      tempDown : double)
+                      config : Config)
 where
   reads (angles.{w, xi, eta, mu}),
   reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
@@ -609,20 +630,19 @@ do
 
   -- Temporary variables
 
-  var reflect : double = 0.0
-  var epsw    : double = emissDown
-  var Tw      : double = tempDown
+  var epsw = config.Radiation.zLoEmiss
+  var Tw = config.Radiation.zLoTemp
 
   for i = limits.lo.x, limits.hi.x + 1 do
     for j = limits.lo.y, limits.hi.y + 1 do
+      var value = 0.0
 
       -- Calculate reflect
 
-      reflect = 0
       if epsw < 1 then
         for m = 0, NUM_ANGLES do
           if angles[m].mu < 0 then
-            var face_value : double = 0.0
+            var face_value = 0.0
             if angles[m].xi > 0 and angles[m].eta > 0 then
               face_value = faces_2[{i,j,limits.lo.z}].I[m]
             elseif angles[m].xi > 0 and angles[m].eta <= 0 then
@@ -632,17 +652,24 @@ do
             else
               face_value = faces_8[{i,j,limits.lo.z}].I[m]
             end
-            reflect += (1.0-epsw)/pi*angles[m].w*fabs(angles[m].mu)*face_value
+            value += (1.0-epsw)/pi*angles[m].w*fabs(angles[m].mu)*face_value
           end
         end
       end
 
-      -- Set Ifz values using reflect
+      -- Add blackbody radiation
 
-      var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
+      if i >= config.Radiation.zLoWindow.fromCell[0] and
+         j >= config.Radiation.zLoWindow.fromCell[1] and
+         i <= config.Radiation.zLoWindow.uptoCell[0] and
+         j <= config.Radiation.zLoWindow.uptoCell[1] then
+        value += epsw*SB*pow(Tw,4.0)/pi
+      end
+
+      -- Set Ifz values
+
       for m = 0, NUM_ANGLES do
         if angles[m].mu > 0 then
-
           if angles[m].xi > 0 and angles[m].eta > 0 then
             faces_1[{i,j,limits.lo.z}].I[m] = value
           elseif angles[m].xi > 0 and angles[m].eta <= 0 then
@@ -669,8 +696,7 @@ local task bound_z_hi(faces_1 : region(ispace(int3d), face),
                       faces_7 : region(ispace(int3d), face),
                       faces_8 : region(ispace(int3d), face),
                       angles : region(ispace(int1d), angle),
-                      emissUp : double,
-                      tempUp : double)
+                      config : Config)
 where
   reads (angles.{w, xi, eta, mu}),
   reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
@@ -683,20 +709,19 @@ do
 
   -- Temporary variables
 
-  var reflect : double = 0.0
-  var epsw    : double = emissUp
-  var Tw      : double = tempUp
+  var epsw = config.Radiation.zHiEmiss
+  var Tw = config.Radiation.zHiTemp
 
   for i = limits.lo.x, limits.hi.x + 1 do
     for j = limits.lo.y, limits.hi.y + 1 do
+      var value = 0.0
 
       -- Calculate reflect
 
-      reflect = 0
       if epsw < 1 then
         for m = 0, NUM_ANGLES do
           if angles[m].mu > 0 then
-            var face_value : double = 0.0
+            var face_value = 0.0
             if angles[m].xi > 0 and angles[m].eta > 0 then
               face_value = faces_1[{i,j,limits.hi.z}].I[m]
             elseif angles[m].xi > 0 and angles[m].eta <= 0 then
@@ -706,17 +731,24 @@ do
             else
               face_value = faces_7[{i,j,limits.hi.z}].I[m]
             end
-            reflect += (1.0-epsw)/pi*angles[m].w*angles[m].mu*face_value
+            value += (1.0-epsw)/pi*angles[m].w*angles[m].mu*face_value
           end
         end
       end
 
-      -- Set Ifz values using reflect
+      -- Add blackbody radiation
 
-      var value : double = epsw*SB*pow(Tw,4.0)/pi + reflect
+      if i >= config.Radiation.zHiWindow.fromCell[0] and
+         j >= config.Radiation.zHiWindow.fromCell[1] and
+         i <= config.Radiation.zHiWindow.uptoCell[0] and
+         j <= config.Radiation.zHiWindow.uptoCell[1] then
+        value += epsw*SB*pow(Tw,4.0)/pi
+      end
+
+      -- Set Ifz values
+
       for m = 0, NUM_ANGLES do
         if angles[m].mu < 0 then
-
           if angles[m].xi > 0 and angles[m].eta > 0 then
             faces_2[{i,j,limits.hi.z}].I[m] = value
           elseif angles[m].xi > 0 and angles[m].eta <= 0 then
@@ -728,8 +760,10 @@ do
           end
         end
       end
+
     end
   end
+
 end
 
 local task sweep_1(points : region(ispace(int3d), pointsFSpace),
@@ -2596,8 +2630,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
                    [s_x_faces_by_tile[7]][{0,j,k}],
                    [s_x_faces_by_tile[8]][{0,j,k}],
                    angles,
-                   config.Radiation.emissWest,
-                   config.Radiation.tempWest)
+                   config)
 
         bound_x_hi([s_x_faces_by_tile[1]][{ntx,j,k}],
                    [s_x_faces_by_tile[2]][{ntx,j,k}],
@@ -2608,8 +2641,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
                    [s_x_faces_by_tile[7]][{ntx,j,k}],
                    [s_x_faces_by_tile[8]][{ntx,j,k}],
                    angles,
-                   config.Radiation.emissEast,
-                   config.Radiation.tempEast)
+                   config)
       end
     end
 
@@ -2625,8 +2657,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
                    [s_y_faces_by_tile[7]][{i,0,k}],
                    [s_y_faces_by_tile[8]][{i,0,k}],
                    angles,
-                   config.Radiation.emissSouth,
-                   config.Radiation.tempSouth)
+                   config)
 
         bound_y_hi([s_y_faces_by_tile[1]][{i,nty,k}],
                    [s_y_faces_by_tile[2]][{i,nty,k}],
@@ -2637,8 +2668,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
                    [s_y_faces_by_tile[7]][{i,nty,k}],
                    [s_y_faces_by_tile[8]][{i,nty,k}],
                    angles,
-                   config.Radiation.emissNorth,
-                   config.Radiation.tempNorth)
+                   config)
       end
     end
 
@@ -2654,8 +2684,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
                    [s_z_faces_by_tile[7]][{i,j,0}],
                    [s_z_faces_by_tile[8]][{i,j,0}],
                    angles,
-                   config.Radiation.emissDown,
-                   config.Radiation.tempDown)
+                   config)
 
         bound_z_hi([s_z_faces_by_tile[1]][{i,j,ntz}],
                    [s_z_faces_by_tile[2]][{i,j,ntz}],
@@ -2666,8 +2695,7 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
                    [s_z_faces_by_tile[7]][{i,j,ntz}],
                    [s_z_faces_by_tile[8]][{i,j,ntz}],
                    angles,
-                   config.Radiation.emissUp,
-                   config.Radiation.tempUp)
+                   config)
       end
     end
 
