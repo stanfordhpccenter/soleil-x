@@ -24,6 +24,10 @@
             "type" : "Constant",
             "temperature" : 0.0
         },
+        "xBCLeftInflowProfile" : {
+            "type" : "Constant",
+            "velocity" : -1.0
+        },
         "xBCRight" : "Periodic",
         "xBCRightVel" : [0.0, 0.0, 0.0],
         "xBCRightHeat" : {

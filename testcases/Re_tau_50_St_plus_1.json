@@ -20,9 +20,13 @@
     "BC" : {
         "xBCLeft" : "Periodic",
         "xBCLeftVel" : [0.0, 0.0, 0.0],
-        "xBCLeftTemp" : {
+        "xBCLeftHeat" : {
             "type" : "Constant",
             "temperature" : 300.0
+        },
+        "xBCLeftInflowProfile" : {
+            "type" : "Constant",
+            "velocity" : -1.0
         },
         "xBCRight" : "Periodic",
         "xBCRightVel" : [0.0, 0.0, 0.0],
@@ -33,7 +37,7 @@
         "xBCRightP_inf" : -1.0,
         "yBCLeft" : "AdiabaticWall",
         "yBCLeftVel" : [0.0, 0.0, 0.0],
-        "yBCLeftTemp" : {
+        "yBCLeftHeat" : {
             "type" : "Constant",
             "temperature" : 300.0
         },
@@ -45,7 +49,7 @@
         },
         "zBCLeft" : "Periodic",
         "zBCLeftVel" : [0.0, 0.0, 0.0],
-        "zBCLeftTemp" : {
+        "zBCLeftHeat" : {
             "type" : "Constant",
             "temperature" : 300.0
         },
