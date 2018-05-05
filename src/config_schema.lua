@@ -29,7 +29,7 @@ Exports.PertubationModel = Union{
   OFF = {},
   Random = {
     fromCell = Array(3,int),
-    toCell = Array(3,int),
+    uptoCell = Array(3,int),
   },
 }
 local Window = {

@@ -1416,11 +1416,11 @@ do
   for c in Fluid do
     -- Only modify cells inside the perturbed volume
     if  c.x >= config.Flow.pertubation.u.Random.fromCell[0]
-    and c.x <= config.Flow.pertubation.u.Random.toCell[0]
+    and c.x <= config.Flow.pertubation.u.Random.uptoCell[0]
     and c.y >= config.Flow.pertubation.u.Random.fromCell[1]
-    and c.y <= config.Flow.pertubation.u.Random.toCell[1]
+    and c.y <= config.Flow.pertubation.u.Random.uptoCell[1]
     and c.z >= config.Flow.pertubation.u.Random.fromCell[2]
-    and c.z <= config.Flow.pertubation.u.Random.toCell[2] then
+    and c.z <= config.Flow.pertubation.u.Random.uptoCell[2] then
       var psi = (C.drand48() - 0.5) * PI
       var xc = Grid_xCellWidth/2.0 + c.x*Grid_xCellWidth
       var yc = Grid_yCellWidth/2.0 + c.y*Grid_yCellWidth
@@ -7437,11 +7437,11 @@ task work(config : Config)
         if config.Flow.pertubation.type == SCHEMA.PertubationModel_Random then
           -- Set up pertubation constants
           -- Number of nodes in perturbed volume
-          var nx = config.Flow.pertubation.u.Random.toCell[0]
+          var nx = config.Flow.pertubation.u.Random.uptoCell[0]
                  - config.Flow.pertubation.u.Random.fromCell[0] + 1
-          var ny = config.Flow.pertubation.u.Random.toCell[1]
+          var ny = config.Flow.pertubation.u.Random.uptoCell[1]
                  - config.Flow.pertubation.u.Random.fromCell[1] + 1
-          var nz = config.Flow.pertubation.u.Random.toCell[2]
+          var nz = config.Flow.pertubation.u.Random.uptoCell[2]
                  - config.Flow.pertubation.u.Random.fromCell[2] + 1
           -- Domain dimensions
           var lx = Grid_xCellWidth * nx
