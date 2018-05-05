@@ -204,7 +204,7 @@ if USE_HDF then
   local HDF = require "hdf_helper"
   Fluid_dump, Fluid_load = HDF.mkHDFTasks(
     int3d, int3d, Fluid_columns,
-    {"rho","pressure","velocity"})
+    {"rho","pressure","velocity","temperature"})
   particles_dump, particles_load = HDF.mkHDFTasks(
     int1d, int3d, particles_columns,
     {"cell","position","velocity","temperature","diameter","__valid"})
@@ -6787,7 +6787,7 @@ task work(config : Config)
       regentlib.assert(false, 'Only constant heat model supported')
     end
     BC_xPosP_inf = config.BC.xBCRightP_inf
-    BC_xBCParticlesPeriodic = false
+    BC_xBCParticlesPeriodic = true
   else
     if (config.BC.xBCLeft == SCHEMA.FlowBC_Symmetry) then
       BC_xNegSign = array(-1.0, 1.0, 1.0)
@@ -7450,8 +7450,8 @@ task work(config : Config)
           -- Other constants
           var ke_ = 40.0                            -- Peak wave number
           var alpha = 1.452762113                   -- Scaling constant
-          var kv = 1.0e-5                           -- Kinematic viscosity
-          var urms = 0.25                           -- RMS velocity fluctuation
+          var kv = 1.0e-5                           -- Kinematic viscosity  -- TODO COMPUTE REAL VALUE HERE.. BASED ON AVERAGE?
+          var urms = 0.25                           -- RMS velocity fluctuation -- TODO Make a function of mean velocity?
           var ke = sqrt(5.0/12)*ke_                 -- Peak wave number
           var wn1 = 2.0*PI/pow(lx*ly*lz,1.0/3.0)    -- Smallest wavenumber
           var L = 0.746834/ke                       -- Integral length scale
