@@ -21,6 +21,7 @@ local fmod = regentlib.fmod(double)
 local pow = regentlib.pow(double)
 local sin = regentlib.sin(double)
 local sqrt = regentlib.sqrt(double)
+local log = regentlib.log(double)
 
 -------------------------------------------------------------------------------
 -- COMPILE-TIME CONFIGURATION
@@ -211,6 +212,25 @@ end
 -------------------------------------------------------------------------------
 -- OTHER ROUTINES
 -------------------------------------------------------------------------------
+
+__demand(__inline)
+task GetDynamicViscosity(temperature : double,
+                         Flow_constantVisc : double,
+                         Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                         Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                         Flow_viscosityModel : SCHEMA.ViscosityModel) : double
+  var viscosity = double(0.0)
+  if (Flow_viscosityModel == SCHEMA.ViscosityModel_Constant) then
+    viscosity = Flow_constantVisc
+  else
+    if (Flow_viscosityModel == SCHEMA.ViscosityModel_PowerLaw) then
+      viscosity = (Flow_powerlawViscRef*pow((temperature/Flow_powerlawTempRef), double(0.75)))
+    else
+      viscosity = ((Flow_sutherlandViscRef*pow((temperature/Flow_sutherlandTempRef), (3.0/2.0)))*((Flow_sutherlandTempRef+Flow_sutherlandSRef)/(temperature+Flow_sutherlandSRef)))
+    end
+  end
+  return viscosity
+end
 
 __demand(__parallel)
 task InitParticlesUniform(particles : region(ispace(int1d), particles_columns),
@@ -523,18 +543,40 @@ task Flow_InitializeGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
                                config : Config,
                                Flow_gasConstant : double,
                                BC_xNegTemperature : double,
-                               BC_xNegVelocity : double[3], BC_xPosVelocity : double[3],
+                               Flow_constantVisc : double,
+                               Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                               Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                               Flow_viscosityModel : SCHEMA.ViscosityModel,
                                Grid_xBnum : int32, Grid_xNum : int32,
                                Grid_yBnum : int32, Grid_yNum : int32,
                                Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.{rho, velocity, pressure}),
+  reads(Fluid.{rho, velocity, pressure, temperature, centerCoordinates}),
   reads writes(Fluid.{rho, velocity, pressure}),
-  reads(Fluid.temperature),
   writes(Fluid.{velocity_old_NSCBC, temperature_old_NSCBC, dudtBoundary, dTdtBoundary})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
+  -- Domain origin
+  var Grid_xOrigin = config.Grid.origin[0]
+  var Grid_yOrigin = config.Grid.origin[1]
+  var Grid_zOrigin = config.Grid.origin[2]
+  -- Domain Size
+  var Grid_xWidth = config.Grid.xWidth
+  var Grid_yWidth = config.Grid.yWidth
+  var Grid_zWidth = config.Grid.zWidth
+  -- Cell step size
+  var Grid_xCellWidth = (Grid_xWidth/Grid_xNum)
+  var Grid_yCellWidth = (Grid_yWidth/Grid_yNum)
+  var Grid_zCellWidth = (Grid_zWidth/Grid_zNum)
+  -- Compute real origin and width accounting for ghost cells
+  var Grid_xRealOrigin = (Grid_xOrigin-(Grid_xCellWidth*Grid_xBnum))
+  var Grid_yRealOrigin = (Grid_yOrigin-(Grid_yCellWidth*Grid_yBnum))
+  var Grid_zRealOrigin = (Grid_zOrigin-(Grid_zCellWidth*Grid_zBnum))
+  -- Inflow values
+  var BC_xBCLeftInflowProfile_type = config.BC.xBCLeftInflowProfile.type
+  var BC_xBCLeftInflowProfile_Constant_velocity = config.BC.xBCLeftInflowProfile.u.Constant.velocity
+  var BC_xBCLeftInflowProfile_DuctProfile_meanVelocity = config.BC.xBCLeftInflowProfile.u.DuctProfile.meanVelocity
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -552,8 +594,46 @@ do
       var c_bnd = int3d(c)
       var c_int = ((c+{1, 0, 0})%Fluid.bounds)
 
-      -- Use the specified values for NSCBC subsonic inflow with specified v
-      Fluid[c_bnd].velocity = BC_xNegVelocity
+      var velocity = [double[3]](array(0.0, 0.0, 0.0))
+      if BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Constant then
+        velocity[0] = BC_xBCLeftInflowProfile_Constant_velocity
+      else -- BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_DuctProfile
+        var y = Fluid[c].centerCoordinates[1]
+        var z = Fluid[c].centerCoordinates[2]
+        var y_dist_to_wall = 0.0
+        var y_local = 0.0
+        if y < (Grid_yWidth/ 2.0) then
+          y_dist_to_wall = y
+          y_local = (Grid_yWidth/ 2.0) - y
+        else
+          y_dist_to_wall = Grid_yWidth - y
+          y_local = y - (Grid_yWidth/ 2.0)
+        end
+        var z_dist_to_wall = 0.0
+        var z_local = 0.0
+        if z < (Grid_zWidth/ 2.0) then
+          z_dist_to_wall = z
+          z_local = (Grid_zWidth/ 2.0) - z
+        else
+          z_dist_to_wall = Grid_zWidth - z
+          z_local = z - (Grid_zWidth/ 2.0)
+        end
+        var d = 0.0
+        var d_max = 0.0
+        if y_dist_to_wall < z_dist_to_wall then
+          d = y_dist_to_wall
+          d_max = (Grid_yWidth/ 2.0)
+        else
+          d = z_dist_to_wall
+          d_max = (Grid_zWidth/ 2.0)
+        end
+        var meanVelocity = BC_xBCLeftInflowProfile_DuctProfile_meanVelocity
+        var mu = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
+        var Re = Fluid[c].rho*meanVelocity*Grid_yWidth / mu
+        var n = -1.7 + 1.8*log(Re)
+        velocity[0] = meanVelocity*pow((d/d_max), (1.0/n))
+      end
+      Fluid[c_bnd].velocity = velocity
 
       -- Just copy over the density from the interior
       Fluid[c_bnd].rho = Fluid[c_int].rho
@@ -562,7 +642,7 @@ do
       Fluid[c_bnd].pressure = BC_xNegTemperature*Flow_gasConstant*Fluid[c_bnd].rho
 
       -- for time stepping RHS of INFLOW
-      Fluid[c_bnd].velocity_old_NSCBC = BC_xNegVelocity
+      Fluid[c_bnd].velocity_old_NSCBC = velocity
       Fluid[c_bnd].temperature_old_NSCBC = BC_xNegTemperature
       Fluid[c_bnd].dudtBoundary = 0.0
       Fluid[c_bnd].dTdtBoundary= 0.0
@@ -672,16 +752,39 @@ end
 __demand(__parallel, __cuda)
 task Flow_UpdateAuxiliaryVelocityGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
                                             config : Config,
-                                            BC_xNegVelocity : double[3],
+                                            Flow_constantVisc : double,
+                                            Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                                            Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                                            Flow_viscosityModel : SCHEMA.ViscosityModel,
                                             Grid_xBnum : int32, Grid_xNum : int32,
                                             Grid_yBnum : int32, Grid_yNum : int32,
                                             Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.{rho, rhoVelocity}),
+  reads(Fluid.{rho, rhoVelocity, temperature, centerCoordinates}),
   writes(Fluid.{velocity, kineticEnergy})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
+  -- Domain origin
+  var Grid_xOrigin = config.Grid.origin[0]
+  var Grid_yOrigin = config.Grid.origin[1]
+  var Grid_zOrigin = config.Grid.origin[2]
+  -- Domain Size
+  var Grid_xWidth = config.Grid.xWidth
+  var Grid_yWidth = config.Grid.yWidth
+  var Grid_zWidth = config.Grid.zWidth
+  -- Cell step size
+  var Grid_xCellWidth = (Grid_xWidth/Grid_xNum)
+  var Grid_yCellWidth = (Grid_yWidth/Grid_yNum)
+  var Grid_zCellWidth = (Grid_zWidth/Grid_zNum)
+  -- Compute real origin and width accounting for ghost cells
+  var Grid_xRealOrigin = (Grid_xOrigin-(Grid_xCellWidth*Grid_xBnum))
+  var Grid_yRealOrigin = (Grid_yOrigin-(Grid_yCellWidth*Grid_yBnum))
+  var Grid_zRealOrigin = (Grid_zOrigin-(Grid_zCellWidth*Grid_zBnum))
+  -- Inflow values
+  var BC_xBCLeftInflowProfile_type = config.BC.xBCLeftInflowProfile.type
+  var BC_xBCLeftInflowProfile_Constant_velocity = config.BC.xBCLeftInflowProfile.u.Constant.velocity
+  var BC_xBCLeftInflowProfile_DuctProfile_meanVelocity = config.BC.xBCLeftInflowProfile.u.DuctProfile.meanVelocity
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -695,7 +798,45 @@ do
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if (NSCBC_inflow_cell) then
-      var velocity = BC_xNegVelocity
+      var velocity = [double[3]](array(0.0, 0.0, 0.0))
+      if BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Constant then
+        velocity[0] = BC_xBCLeftInflowProfile_Constant_velocity
+      else -- BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_DuctProfile
+        var y = Fluid[c].centerCoordinates[1]
+        var z = Fluid[c].centerCoordinates[2]
+        var y_dist_to_wall = 0.0
+        var y_local = 0.0
+        if y < (Grid_yWidth/ 2.0) then
+          y_dist_to_wall = y
+          y_local = (Grid_yWidth/ 2.0) - y
+        else
+          y_dist_to_wall = Grid_yWidth - y
+          y_local = y - (Grid_yWidth/ 2.0)
+        end
+        var z_dist_to_wall = 0.0
+        var z_local = 0.0
+        if z < (Grid_zWidth/ 2.0) then
+          z_dist_to_wall = z
+          z_local = (Grid_zWidth/ 2.0) - z
+        else
+          z_dist_to_wall = Grid_zWidth - z
+          z_local = z - (Grid_zWidth/ 2.0)
+        end
+        var d = 0.0
+        var d_max = 0.0
+        if y_dist_to_wall < z_dist_to_wall then
+          d = y_dist_to_wall
+          d_max = (Grid_yWidth/ 2.0)
+        else
+          d = z_dist_to_wall
+          d_max = (Grid_zWidth/ 2.0)
+        end
+        var meanVelocity = BC_xBCLeftInflowProfile_DuctProfile_meanVelocity
+        var mu = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
+        var Re = Fluid[c].rho*meanVelocity*Grid_yWidth / mu
+        var n = -1.7 + 1.8*log(Re)
+        velocity[0] = meanVelocity*pow((d/d_max), (1.0/n))
+      end
       Fluid[c].velocity = velocity
       Fluid[c].kineticEnergy = ((double(0.5)*Fluid[c].rho)*dot_double_3(velocity, velocity))
     end
@@ -725,6 +866,10 @@ task Flow_UpdateGhostConservedStep1(Fluid : region(ispace(int3d), Fluid_columns)
                                     BC_zNegTemperature : double, BC_zNegVelocity : double[3], BC_zPosTemperature : double, BC_zPosVelocity : double[3], BC_zNegSign : double[3], BC_zPosSign : double[3],
                                     Flow_gamma : double,
                                     Flow_gasConstant : double,
+                                    Flow_constantVisc : double,
+                                    Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                                    Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                                    Flow_viscosityModel : SCHEMA.ViscosityModel,
                                     Grid_xBnum : int32, Grid_xNum : int32,
                                     Grid_yBnum : int32, Grid_yNum : int32,
                                     Grid_zBnum : int32, Grid_zNum : int32)
@@ -738,7 +883,6 @@ do
   var BC_yBCRight = config.BC.yBCRight
   var BC_zBCLeft  = config.BC.zBCLeft
   var BC_zBCRight = config.BC.zBCRight
-  var Grid_xWidth = config.Grid.xWidth
   var BC_yBCLeftHeat_T_left  = config.BC.yBCLeftHeat.u.Parabola.T_left
   var BC_yBCLeftHeat_T_mid   = config.BC.yBCLeftHeat.u.Parabola.T_mid
   var BC_yBCLeftHeat_T_right = config.BC.yBCLeftHeat.u.Parabola.T_right
@@ -751,6 +895,26 @@ do
   var BC_zBCRightHeat_T_left  = config.BC.zBCRightHeat.u.Parabola.T_left
   var BC_zBCRightHeat_T_mid   = config.BC.zBCRightHeat.u.Parabola.T_mid
   var BC_zBCRightHeat_T_right = config.BC.zBCRightHeat.u.Parabola.T_right
+  -- Domain origin
+  var Grid_xOrigin = config.Grid.origin[0]
+  var Grid_yOrigin = config.Grid.origin[1]
+  var Grid_zOrigin = config.Grid.origin[2]
+  -- Domain Size
+  var Grid_xWidth = config.Grid.xWidth
+  var Grid_yWidth = config.Grid.yWidth
+  var Grid_zWidth = config.Grid.zWidth
+  -- Cell step size
+  var Grid_xCellWidth = (Grid_xWidth/Grid_xNum)
+  var Grid_yCellWidth = (Grid_yWidth/Grid_yNum)
+  var Grid_zCellWidth = (Grid_zWidth/Grid_zNum)
+  -- Compute real origin and width accounting for ghost cells
+  var Grid_xRealOrigin = (Grid_xOrigin-(Grid_xCellWidth*Grid_xBnum))
+  var Grid_yRealOrigin = (Grid_yOrigin-(Grid_yCellWidth*Grid_yBnum))
+  var Grid_zRealOrigin = (Grid_zOrigin-(Grid_zCellWidth*Grid_zBnum))
+  -- Inflow values
+  var BC_xBCLeftInflowProfile_type = config.BC.xBCLeftInflowProfile.type
+  var BC_xBCLeftInflowProfile_Constant_velocity = config.BC.xBCLeftInflowProfile.u.Constant.velocity
+  var BC_xBCLeftInflowProfile_DuctProfile_meanVelocity = config.BC.xBCLeftInflowProfile.u.DuctProfile.meanVelocity
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -772,7 +936,45 @@ do
 
       if NSCBC_inflow_cell then
         var rho = Fluid[c_bnd].rho
-        var velocity = BC_xNegVelocity
+        var velocity = [double[3]](array(0.0, 0.0, 0.0))
+        if BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Constant then
+          velocity[0] = BC_xBCLeftInflowProfile_Constant_velocity
+        else -- BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_DuctProfile
+          var y = Fluid[c].centerCoordinates[1]
+          var z = Fluid[c].centerCoordinates[2]
+          var y_dist_to_wall = 0.0
+          var y_local = 0.0
+          if y < (Grid_yWidth/ 2.0) then
+            y_dist_to_wall = y
+            y_local = (Grid_yWidth/ 2.0) - y
+          else
+            y_dist_to_wall = Grid_yWidth - y
+            y_local = y - (Grid_yWidth/ 2.0)
+          end
+          var z_dist_to_wall = 0.0
+          var z_local = 0.0
+          if z < (Grid_zWidth/ 2.0) then
+            z_dist_to_wall = z
+            z_local = (Grid_zWidth/ 2.0) - z
+          else
+            z_dist_to_wall = Grid_zWidth - z
+            z_local = z - (Grid_zWidth/ 2.0)
+          end
+          var d = 0.0
+          var d_max = 0.0
+          if y_dist_to_wall < z_dist_to_wall then
+            d = y_dist_to_wall
+            d_max = (Grid_yWidth/ 2.0)
+          else
+            d = z_dist_to_wall
+            d_max = (Grid_zWidth/ 2.0)
+          end
+          var meanVelocity = BC_xBCLeftInflowProfile_DuctProfile_meanVelocity
+          var mu = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
+          var Re = Fluid[c].rho*meanVelocity*Grid_yWidth / mu
+          var n = -1.7 + 1.8*log(Re)
+          velocity[0] = meanVelocity*pow((d/d_max), (1.0/n))
+        end
         var temperature = BC_xNegTemperature
 
         Fluid[c_bnd].rhoBoundary = rho
@@ -2179,24 +2381,6 @@ do
   return acc
 end
 
-__demand(__inline)
-task GetDynamicViscosity(temperature : double,
-                         Flow_constantVisc : double,
-                         Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                         Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                         Flow_viscosityModel : SCHEMA.ViscosityModel) : double
-  var viscosity = double(0.0)
-  if (Flow_viscosityModel == SCHEMA.ViscosityModel_Constant) then
-    viscosity = Flow_constantVisc
-  else
-    if (Flow_viscosityModel == SCHEMA.ViscosityModel_PowerLaw) then
-      viscosity = (Flow_powerlawViscRef*pow((temperature/Flow_powerlawTempRef), double(0.75)))
-    else
-      viscosity = ((Flow_sutherlandViscRef*pow((temperature/Flow_sutherlandTempRef), (3.0/2.0)))*((Flow_sutherlandTempRef+Flow_sutherlandSRef)/(temperature+Flow_sutherlandSRef)))
-    end
-  end
-  return viscosity
-end
 
 __demand(__parallel)
 task CalculateViscousSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
@@ -6783,7 +6967,10 @@ task work(config : Config)
                                   config,
                                   Flow_gasConstant,
                                   BC_xNegTemperature,
-                                  BC_xNegVelocity, BC_xPosVelocity,
+                                  Flow_constantVisc,
+                                  Flow_powerlawTempRef, Flow_powerlawViscRef,
+                                  Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
+                                  Flow_viscosityModel,
                                   Grid_xBnum, Grid_xNum,
                                   Grid_yBnum, Grid_yNum,
                                   Grid_zBnum, Grid_zNum)
@@ -6804,7 +6991,10 @@ task work(config : Config)
     if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
       Flow_UpdateAuxiliaryVelocityGhostNSCBC(Fluid,
                                              config,
-                                             BC_xNegVelocity,
+                                             Flow_constantVisc,
+                                             Flow_powerlawTempRef, Flow_powerlawViscRef,
+                                             Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
+                                             Flow_viscosityModel,
                                              Grid_xBnum, Grid_xNum,
                                              Grid_yBnum, Grid_yNum,
                                              Grid_zBnum, Grid_zNum)
@@ -6829,6 +7019,10 @@ task work(config : Config)
                                    BC_yNegTemperature, BC_yNegVelocity, BC_yPosTemperature, BC_yPosVelocity, BC_yNegSign, BC_yPosSign,
                                    BC_zNegTemperature, BC_zNegVelocity, BC_zPosTemperature, BC_zPosVelocity, BC_zNegSign, BC_zPosSign,
                                    Flow_gamma, Flow_gasConstant,
+                                   Flow_constantVisc,
+                                   Flow_powerlawTempRef, Flow_powerlawViscRef,
+                                   Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
+                                   Flow_viscosityModel,
                                    Grid_xBnum, Grid_xNum,
                                    Grid_yBnum, Grid_yNum,
                                    Grid_zBnum, Grid_zNum)
@@ -7146,7 +7340,10 @@ task work(config : Config)
         if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
           Flow_UpdateAuxiliaryVelocityGhostNSCBC(Fluid,
                                                  config,
-                                                 BC_xNegVelocity,
+                                                 Flow_constantVisc,
+                                                 Flow_powerlawTempRef, Flow_powerlawViscRef,
+                                                 Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
+                                                 Flow_viscosityModel,
                                                  Grid_xBnum, Grid_xNum,
                                                  Grid_yBnum, Grid_yNum,
                                                  Grid_zBnum, Grid_zNum)
@@ -7226,6 +7423,10 @@ task work(config : Config)
                                        BC_yNegTemperature, BC_yNegVelocity, BC_yPosTemperature, BC_yPosVelocity, BC_yNegSign, BC_yPosSign,
                                        BC_zNegTemperature, BC_zNegVelocity, BC_zPosTemperature, BC_zPosVelocity, BC_zNegSign, BC_zPosSign,
                                        Flow_gamma, Flow_gasConstant,
+                                       Flow_constantVisc,
+                                       Flow_powerlawTempRef, Flow_powerlawViscRef,
+                                       Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
+                                       Flow_viscosityModel,
                                        Grid_xBnum, Grid_xNum,
                                        Grid_yBnum, Grid_yNum,
                                        Grid_zBnum, Grid_zNum)

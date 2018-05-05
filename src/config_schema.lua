@@ -17,6 +17,14 @@ Exports.WallHeatModel = Union{
     T_mid = double,
   },
 }
+Exports.InflowProfile = Union{
+  Constant = {
+    velocity = double,
+  },
+  DuctProfile = {
+    meanVelocity = double,
+  },
+}
 local Window = {
   fromCell = Array(2,int),
   uptoCell = Array(2,int),
@@ -53,6 +61,7 @@ Exports.Config = {
     xBCLeft = Exports.FlowBC,
     xBCLeftVel = Array(3,double),
     xBCLeftHeat = Exports.WallHeatModel,
+    xBCLeftInflowProfile = Exports.InflowProfile,
     xBCRight = Exports.FlowBC,
     xBCRightVel = Array(3,double),
     xBCRightHeat = Exports.WallHeatModel,
