@@ -16,6 +16,7 @@ local UTIL = require 'util'
 local acos = regentlib.acos(double)
 local ceil = regentlib.ceil(double)
 local cos = regentlib.cos(double)
+local exp = regentlib.exp(double)
 local fabs = regentlib.fabs(double)
 local fmod = regentlib.fmod(double)
 local pow = regentlib.pow(double)
@@ -1388,6 +1389,63 @@ do
 
     if (ghost_cell and not (NSCBC_inflow_cell or NSCBC_outflow_cell)) then
       Fluid[c].velocity = Fluid[c].velocityBoundary
+    end
+  end
+end
+
+task Flow_Perturb(Fluid : region(ispace(int3d), Fluid_columns),
+                  config : Config,
+                  Pertubation_modes : int,
+                  Pertubation_kx : region(ispace(int1d), double),
+                  Pertubation_ky : region(ispace(int1d), double),
+                  Pertubation_kz : region(ispace(int1d), double),
+                  Pertubation_um : region(ispace(int1d), double),
+                  Pertubation_sxm : region(ispace(int1d), double),
+                  Pertubation_sym : region(ispace(int1d), double),
+                  Pertubation_szm : region(ispace(int1d), double))
+where
+  reads(Pertubation_kx, Pertubation_ky, Pertubation_kz,
+        Pertubation_um,
+        Pertubation_sxm, Pertubation_sym, Pertubation_szm),
+  reads writes(Fluid.velocity)
+do
+  var Grid_xCellWidth = config.Grid.xWidth / config.Grid.xNum
+  var Grid_yCellWidth = config.Grid.yWidth / config.Grid.yNum
+  var Grid_zCellWidth = config.Grid.zWidth / config.Grid.zNum
+  -- For every grid point do the Fourier summation
+  for c in Fluid do
+    -- Only modify cells inside the perturbed volume
+    if  c.x >= config.Flow.pertubation.u.Random.fromCell[0]
+    and c.x <= config.Flow.pertubation.u.Random.toCell[0]
+    and c.y >= config.Flow.pertubation.u.Random.fromCell[1]
+    and c.y <= config.Flow.pertubation.u.Random.toCell[1]
+    and c.z >= config.Flow.pertubation.u.Random.fromCell[2]
+    and c.z <= config.Flow.pertubation.u.Random.toCell[2] then
+      var psi = (C.drand48() - 0.5) * PI
+      var xc = Grid_xCellWidth/2.0 + c.x*Grid_xCellWidth
+      var yc = Grid_yCellWidth/2.0 + c.y*Grid_yCellWidth
+      var zc = Grid_zCellWidth/2.0 + c.z*Grid_zCellWidth
+      var u = 0.0
+      var v = 0.0
+      var w = 0.0
+      for i = 0,Pertubation_modes do
+        var arg = Pertubation_kx[i]*xc
+                + Pertubation_ky[i]*yc
+                + Pertubation_kz[i]*zc
+                - psi
+        var bmx = 2.0*Pertubation_um[i]
+                * cos( arg - Pertubation_kx[i]*Grid_xCellWidth/2.0 )
+        var bmy = 2.0*Pertubation_um[i]
+                * cos( arg - Pertubation_ky[i]*Grid_yCellWidth/2.0 )
+        var bmz = 2.0*Pertubation_um[i]
+                * cos( arg - Pertubation_kz[i]*Grid_zCellWidth/2.0 )
+        u += bmx * Pertubation_sxm[i]
+        v += bmy * Pertubation_sym[i]
+        w += bmz * Pertubation_szm[i]
+      end
+      c.velocity[0] += u
+      c.velocity[1] += v
+      c.velocity[2] += w
     end
   end
 end
@@ -5817,6 +5875,20 @@ task work(config : Config)
   var Flow_averageK = 0.0
 
   -----------------------------------------------------------------------------
+  -- Random pertubation variables
+  -----------------------------------------------------------------------------
+
+  var Pertubation_modes = 40
+  var Pertubation_ispace = ispace(int1d, Pertubation_modes)
+  var Pertubation_kx = region(Pertubation_ispace, double)
+  var Pertubation_ky = region(Pertubation_ispace, double)
+  var Pertubation_kz = region(Pertubation_ispace, double)
+  var Pertubation_um = region(Pertubation_ispace, double)
+  var Pertubation_sxm = region(Pertubation_ispace, double)
+  var Pertubation_sym = region(Pertubation_ispace, double)
+  var Pertubation_szm = region(Pertubation_ispace, double)
+
+  -----------------------------------------------------------------------------
   -- Particle Variables
   -----------------------------------------------------------------------------
 
@@ -7297,7 +7369,7 @@ task work(config : Config)
           Flow_AdjustTurbulentSource(Fluid, Flow_averageFe, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
         end
 
-        -- Move partilces to new partitions
+        -- Move particles to new partitions
         for c in primColors do
           Particles_LocateInCells(particles_primPart[c], BC_xBCPeriodic, BC_yBCPeriodic, BC_zBCPeriodic, Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth, Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth, Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
         end
@@ -7361,6 +7433,87 @@ task work(config : Config)
                                       Grid_xBnum, Grid_xNum,
                                       Grid_yBnum, Grid_yNum,
                                       Grid_zBnum, Grid_zNum)
+
+        if config.Flow.pertubation.type == SCHEMA.PertubationModel_Random then
+          -- Set up pertubation constants
+          -- Number of nodes in perturbed volume
+          var nx = config.Flow.pertubation.u.Random.toCell[0]
+                 - config.Flow.pertubation.u.Random.fromCell[0] + 1
+          var ny = config.Flow.pertubation.u.Random.toCell[1]
+                 - config.Flow.pertubation.u.Random.fromCell[1] + 1
+          var nz = config.Flow.pertubation.u.Random.toCell[2]
+                 - config.Flow.pertubation.u.Random.fromCell[2] + 1
+          -- Domain dimensions
+          var lx = Grid_xCellWidth * nx
+          var ly = Grid_yCellWidth * ny
+          var lz = Grid_zCellWidth * nz
+          -- Other constants
+          var ke_ = 40.0                            -- Peak wave number
+          var alpha = 1.452762113                   -- Scaling constant
+          var kv = 1.0e-5                           -- Kinematic viscosity
+          var urms = 0.25                           -- RMS velocity fluctuation
+          var ke = sqrt(5.0/12)*ke_                 -- Peak wave number
+          var wn1 = 2.0*PI/pow(lx*ly*lz,1.0/3.0)    -- Smallest wavenumber
+          var L = 0.746834/ke                       -- Integral length scale
+          var eps = urms*urms*urms/L                -- Dissipation rate
+          var keta = pow(eps,0.25)*pow(kv,-3.0/4.0) -- Kolmogorov wave number
+          var wnn = max( PI/Grid_xCellWidth,        -- Nyquist limit
+                    max( PI/Grid_yCellWidth,
+                         PI/Grid_zCellWidth ) )
+          var dk = (wnn-wn1)/Pertubation_modes      -- Wavenumber step
+          -- Fill in arrays
+          for i = 0,Pertubation_modes do
+            -- Generate random angles
+            var phi = 2.0*PI*C.drand48()
+            var nu = C.drand48()
+            var theta = acos( 2.0*nu - 1.0 )
+            var phi1 = 2.0*PI*C.drand48()
+            var nu1 = C.drand48()
+            -- Wavenumber at cell centers
+            var wn = wn1 + 0.5*dk + i*dk
+            -- Wavenumber vector from random angles
+            Pertubation_kx[i] = sin( theta )*cos( phi )*wn
+            Pertubation_ky[i] = sin( theta )*sin( phi )*wn
+            Pertubation_kz[i] = cos( theta )*wn
+            -- Create divergence vector
+            var ktx = sin( Pertubation_kx[i]*Grid_xCellWidth/2.0 )
+                    / Grid_xCellWidth
+            var kty = sin( Pertubation_ky[i]*Grid_yCellWidth/2.0 )
+                    / Grid_yCellWidth
+            var ktz = sin( Pertubation_kz[i]*Grid_zCellWidth/2.0 )
+                    / Grid_zCellWidth
+            -- Enforce Mass Conservation
+            var theta1 = acos( 2.0*nu1 - 1.0 )
+            var zetax = sin( theta1 )*cos( phi1 )
+            var zetay = sin( theta1 )*sin( phi1 )
+            var zetaz = cos( theta1 )
+            Pertubation_sxm[i] = zetay*ktz - zetaz*kty
+            Pertubation_sym[i] = -( zetax*ktz - zetaz*ktx  )
+            Pertubation_szm[i] = zetax*kty - zetay*ktx
+            var smag = sqrt( Pertubation_sxm[i]*Pertubation_sxm[i] +
+                             Pertubation_sym[i]*Pertubation_sym[i] +
+                             Pertubation_szm[i]*Pertubation_szm[i] )
+            Pertubation_sxm[i] = Pertubation_sxm[i]/smag
+            Pertubation_sym[i] = Pertubation_sym[i]/smag
+            Pertubation_szm[i] = Pertubation_szm[i]/smag
+            -- Generate energy spectrum
+            var r1 = wn/ke
+            var r2 = wn/keta
+            var espec = alpha
+                      * ( urms*urms/ke )
+                      * ( r1*r1*r1*r1 / ( pow((1.0+r1*r1),(17.0/6.0)) ) )
+                      * exp( -2.0*r2*r2 )
+            espec = max(0,espec)
+            Pertubation_um[i] = sqrt( espec*dk )
+          end
+          -- Insert random pertubations in the fluid
+          for c in primColors do
+            Flow_Perturb(Fluid_primPart[c], config, Pertubation_modes,
+                         Pertubation_kx, Pertubation_ky, Pertubation_kz,
+                         Pertubation_um,
+                         Pertubation_sxm, Pertubation_sym, Pertubation_szm)
+          end
+        end
 
         Flow_ComputeVelocityGradientAll(Fluid,
                                         Grid_xBnum, Grid_xCellWidth, Grid_xNum,
