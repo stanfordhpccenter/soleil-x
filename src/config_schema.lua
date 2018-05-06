@@ -49,6 +49,9 @@ Exports.Config = {
     -- line (first sample is 0, second is 1 etc.); the initial value of this
     -- option is irrelevant, it will be overriden by the code
     sampleId = int,
+    -- output directory for each sample; the initial value of this option is
+    -- irrelevant, it will be overriden by the code
+    outDir = String(256),
     -- expected wall-clock execution time, in minutes
     wallTime = int,
   },

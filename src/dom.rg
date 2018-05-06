@@ -26,10 +26,6 @@ local sqrt = regentlib.sqrt(double)
 
 local pi = 3.1415926535898
 
--- Quadrature file name
-
-local quad_file = 'LMquads/'..NUM_ANGLES..'.txt'
-
 -- Wall temperatures
 
 local SB = 5.67e-8
@@ -40,11 +36,17 @@ local tol   = 1e-6   -- solution tolerance
 local gamma = 0.5    -- 1 for step differencing, 0.5 for diamond differencing
 
 local terra open_quad_file() : &C.FILE
-  var f = C.fopen([quad_file], 'rb')
+  var fname = [&int8](C.malloc(256))
+  C.snprintf(fname, 256, ['%s/src/LMquads/'..NUM_ANGLES..'.txt'],
+             C.getenv('SOLEIL_DIR'))
+  var f = C.fopen(fname, 'rb')
   if f == nil then
-    C.printf('Error opening angle file\n')
+    var stderr = C.fdopen(2, 'w')
+    C.fprintf(stderr, 'Error opening angle file %s\n', fname)
+    C.fflush(stderr)
     C.exit(1)
   end
+  C.free(fname)
   return f
 end
 

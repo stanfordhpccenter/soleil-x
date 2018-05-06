@@ -77,8 +77,6 @@ else
     fi
 fi
 
-export CURR_DIR="$(pwd)"
-
 ###############################################################################
 
 function run_titan {
@@ -148,7 +146,7 @@ function run_local {
 
 if [[ "$(uname -n)" == *"titan"* ]]; then
     run_titan
-elif [[ "$(dnsdomainname)" == *"summit"* ]]; then
+elif [[ "$(hostname -d)" == *"summit"* ]]; then
     run_summit
 elif [[ "$(uname -n)" == *"certainty"* ]]; then
     run_certainty

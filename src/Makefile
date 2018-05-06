@@ -1,6 +1,9 @@
 ifndef LEGION_DIR
 $(error LEGION_DIR is not set)
 endif
+ifndef SOLEIL_DIR
+$(error SOLEIL_DIR is not set)
+endif
 
 # CUDA options
 USE_CUDA ?= 1

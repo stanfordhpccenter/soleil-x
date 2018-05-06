@@ -5747,14 +5747,14 @@ task work(config : Config)
   -----------------------------------------------------------------------------
 
   -- Open long-running files
-  var consoleFile = [&int8](C.malloc(32))
-  C.snprintf(consoleFile, 32, 'sample%d/console.txt', config.Mapping.sampleId)
+  var consoleFile = [&int8](C.malloc(256))
+  C.snprintf(consoleFile, 256, '%s/console.txt', config.Mapping.outDir)
   var console = UTIL.createFile(consoleFile)
   C.free(consoleFile)
   var probeFiles = [&&C.FILE](C.malloc(config.IO.probes.length * FILE_PTR_SIZE))
   for i = 0,config.IO.probes.length do
-    var filename = [&int8](C.malloc(32))
-    C.snprintf(filename, 32, 'sample%d/probe%d.csv', config.Mapping.sampleId, i)
+    var filename = [&int8](C.malloc(256))
+    C.snprintf(filename, 256, '%s/probe%d.csv', config.Mapping.outDir, i)
     probeFiles[i] = UTIL.createFile(filename)
     C.free(filename)
     C.fprintf(probeFiles[i], 'TimeStep\tTemperature\n')
@@ -7239,9 +7239,9 @@ task work(config : Config)
       if config.IO.wrtRestart then
         if exitCond or Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 then
           var dirname = [&int8](C.malloc(256))
-          C.snprintf(dirname, 256, "sample%d/fluid_iter%d", config.Mapping.sampleId, Integrator_timeStep)
+          C.snprintf(dirname, 256, '%s/fluid_iter%d', config.Mapping.outDir, Integrator_timeStep)
           Fluid_dump(primColors, dirname, Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
-          C.snprintf(dirname, 256, "sample%d/particles_iter%d", config.Mapping.sampleId, Integrator_timeStep)
+          C.snprintf(dirname, 256, '%s/particles_iter%d', config.Mapping.outDir, Integrator_timeStep)
           particles_dump(primColors, dirname, particles, particles_copy, particles_primPart, particles_copy_primPart)
           C.free(dirname)
         end
@@ -7656,22 +7656,29 @@ task work(config : Config)
 end -- work task
 
 __demand(__inline)
-task launchSample(configFile : &int8, num : int)
+task launchSample(configFile : &int8, num : int, outDirBase : &int8)
   var config = SCHEMA.parse_config(configFile)
   config.Mapping.sampleId = num
-  var dirname = [&int8](C.malloc(256))
-  C.snprintf(dirname, 256, "sample%d", num)
-  UTIL.createDir(dirname)
-  C.free(dirname)
+  var outDir = [&int8](C.malloc(256))
+  C.snprintf(outDir, 256, "%s/sample%d", outDirBase, num)
+  UTIL.createDir(outDir)
+  C.strncpy(config.Mapping.outDir, outDir, 256)
+  C.free(outDir)
   work(config)
 end
 
 task main()
   var args = regentlib.c.legion_runtime_get_input_args()
+  var outDirBase = '.'
+  for i = 1, args.argc do
+    if C.strcmp(args.argv[i], '-o') == 0 and i < args.argc-1 then
+      outDirBase = args.argv[i+1]
+    end
+  end
   var launched = 0
   for i = 1, args.argc do
     if C.strcmp(args.argv[i], '-i') == 0 and i < args.argc-1 then
-      launchSample(args.argv[i+1], launched)
+      launchSample(args.argv[i+1], launched, outDirBase)
       launched += 1
     elseif C.strcmp(args.argv[i], '-I') == 0 and i < args.argc-1 then
       var csvFile = C.fopen(args.argv[i+1], 'r')
@@ -7680,7 +7687,7 @@ task main()
         if jsonFileName[C.strlen(jsonFileName) - 1] == 10 then -- 10 == '\n'
           jsonFileName[C.strlen(jsonFileName) - 1] = 0
         end
-        launchSample(jsonFileName, launched)
+        launchSample(jsonFileName, launched, outDirBase)
         launched += 1
       end
       C.fclose(csvFile)

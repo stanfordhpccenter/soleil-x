@@ -7,42 +7,26 @@ umask 022
 
 # First switch to the directory where this job was launched, to make sure
 # any relative paths in the arguments are valid.
-cd "$CURR_DIR"
+cd "$PBS_O_WORKDIR"
 
-# Create a scratch directory on the Lustre filesystem, for I/O.
-SCRATCH_DIR="$PROJWORK"/csc188/stanford/"$PBS_JOBID"
-mkdir "$SCRATCH_DIR"
-
-# Copy input files to the scratch directory.
-cp -r "$SOLEIL_DIR"/src/LMquads "$SCRATCH_DIR"
-_ARGS=
-JSON_FOLLOWS=false
-CSV_FOLLOWS=false
-NUM_SAMPLES=0
+# Create a directory on the scratch filesystem, for output (if the user hasn't
+# specified an output directory explicitly).
+OUT_DIR=
+OUT_DIR_FOLLOWS=false
 for ARG in $ARGS; do
-    if [[ "$JSON_FOLLOWS" == true ]]; then
-        JSON_FOLLOWS=false
-        ORIG="$ARG"
-        COPY="$SCRATCH_DIR/sample$NUM_SAMPLES.json"
-        NUM_SAMPLES=$(( NUM_SAMPLES + 1 ))
-        cp "$ORIG" "$COPY"
-        _ARGS="$_ARGS -i $COPY"
-    elif [[ "$CSV_FOLLOWS" == true ]]; then
-        CSV_FOLLOWS=false
-        while IFS='' read -r ORIG || [[ -n "$ORIG" ]]; do
-            COPY="$SCRATCH_DIR/sample$NUM_SAMPLES.json"
-            NUM_SAMPLES=$(( NUM_SAMPLES + 1 ))
-            cp "$ORIG" "$COPY"
-            _ARGS="$_ARGS -i $COPY"
-        done < "$ARG"
-    elif [[ "$ARG" == "-i" ]]; then
-        JSON_FOLLOWS=true
-    elif [[ "$ARG" == "-I" ]]; then
-        CSV_FOLLOWS=true
-    else
-        _ARGS="$_ARGS $ARG"
+    if [[ "$OUT_DIR_FOLLOWS" == true ]]; then
+        OUT_DIR="$ARG"
+        break
+    elif [[ "$ARG" == "-o" ]]; then
+        OUT_DIR_FOLLOWS=true
     fi
 done
+if [[ -z "$OUT_DIR" ]]; then
+    OUT_DIR="$PROJWORK"/csc188/stanford/"$PBS_JOBID"
+    mkdir "$OUT_DIR"
+    ARGS="$ARGS -o $OUT_DIR"
+    echo "Redirecting output to $OUT_DIR"
+fi
 
 # Process CUDA configuration
 NUM_THREADS=8
@@ -52,13 +36,11 @@ if [[ "$USE_CUDA" == 1 ]]; then
     GPU_OPTS="-ll:gpu 1"
 fi
 
-# Start the job inside the scratch directory.
-cd "$SCRATCH_DIR"
-# HACK: LLVM installs a bad ELF interpreter on the executable, so we run it
+# NOTE: LLVM installs a bad ELF interpreter on the executable, so we run it
 # through ld.so.
 aprun -n "$NUM_RANKS" -N 1 -cc none \
     /lib64/ld-linux-x86-64.so.2 \
-    "$SOLEIL_DIR"/src/soleil.exec $_ARGS $GPU_OPTS \
+    "$SOLEIL_DIR"/src/soleil.exec $ARGS $GPU_OPTS \
     -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr "$NUM_THREADS" \
     -ll:csize 20000 -ll:rsize 1024 -ll:gsize 0
 
