@@ -2834,6 +2834,10 @@ where
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
+  var recip_xCellWidth = 1 / (Grid_xCellWidth * double(0.5))
+  var recip_yCellWidth = 1 / (Grid_yCellWidth * double(0.5))
+  var recip_zCellWidth = 1 / (Grid_zCellWidth * double(0.5))
+
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -2850,33 +2854,45 @@ do
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if interior_cell or xNegGhost  then
-      var flux = CenteredInviscidFlux(int3d(c), ((c+{1, 0, 0})%Fluid.bounds), Fluid)
+      var stencil = (c + {1, 0, 0}) % Fluid.bounds
+      var flux = CenteredInviscidFlux(int3d(c), (c + {1, 0, 0}) % Fluid.bounds, Fluid)
       Fluid[c].rhoFluxX = flux[0]
       Fluid[c].rhoVelocityFluxX = array(flux[1], flux[2], flux[3])
       Fluid[c].rhoEnergyFluxX = flux[4]
-      var muFace = (double(0.5)*(GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)+GetDynamicViscosity(Fluid[((c+{1, 0, 0})%Fluid.bounds)].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)))
-      var velocityFace = [double[3]](array(0.0, 0.0, 0.0))
-      var velocityX_YFace = double(0.0)
-      var velocityX_ZFace = double(0.0)
-      var velocityY_YFace = double(0.0)
-      var velocityZ_ZFace = double(0.0)
-      velocityFace = vs_mul_double_3(vv_add_double_3(Fluid[c].velocity, Fluid[((c+{1, 0, 0})%Fluid.bounds)].velocity), double(0.5))
-      velocityX_YFace = (double(0.5)*(Fluid[c].velocityGradientY[0]+Fluid[((c+{1, 0, 0})%Fluid.bounds)].velocityGradientY[0]))
-      velocityX_ZFace = (double(0.5)*(Fluid[c].velocityGradientZ[0]+Fluid[((c+{1, 0, 0})%Fluid.bounds)].velocityGradientZ[0]))
-      velocityY_YFace = (double(0.5)*(Fluid[c].velocityGradientY[1]+Fluid[((c+{1, 0, 0})%Fluid.bounds)].velocityGradientY[1]))
-      velocityZ_ZFace = (double(0.5)*(Fluid[c].velocityGradientZ[2]+Fluid[((c+{1, 0, 0})%Fluid.bounds)].velocityGradientZ[2]))
-      var velocityX_XFace = double(0.0)
-      var velocityY_XFace = double(0.0)
-      var velocityZ_XFace = double(0.0)
-      var temperature_XFace = double(0.0)
-      velocityX_XFace   = (double(0.5)*(Fluid[((c+{1, 0, 0})%Fluid.bounds)].velocity[0]-Fluid[c].velocity[0]))
-      velocityY_XFace   = (double(0.5)*(Fluid[((c+{1, 0, 0})%Fluid.bounds)].velocity[1]-Fluid[c].velocity[1]))
-      velocityZ_XFace   = (double(0.5)*(Fluid[((c+{1, 0, 0})%Fluid.bounds)].velocity[2]-Fluid[c].velocity[2]))
-      temperature_XFace = (double(0.5)*(Fluid[((c+{1, 0, 0})%Fluid.bounds)].temperature-Fluid[c].temperature))
-      velocityX_XFace   *= (1/(Grid_xCellWidth*double(0.5)))
-      velocityY_XFace   *= (1/(Grid_xCellWidth*double(0.5)))
-      velocityZ_XFace   *= (1/(Grid_xCellWidth*double(0.5)))
-      temperature_XFace *= (1/(Grid_xCellWidth*double(0.5)))
+
+      var temperature = Fluid[c].temperature
+      var temperature_stencil = Fluid[stencil].temperature
+      var muFace = double(0.5) * (GetDynamicViscosity(temperature,
+                                                      Flow_constantVisc,
+                                                      Flow_powerlawTempRef,
+                                                      Flow_powerlawViscRef,
+                                                      Flow_sutherlandSRef,
+                                                      Flow_sutherlandTempRef,
+                                                      Flow_sutherlandViscRef,
+                                                      Flow_viscosityModel) +
+                                  GetDynamicViscosity(temperature_stencil,
+                                                      Flow_constantVisc,
+                                                      Flow_powerlawTempRef,
+                                                      Flow_powerlawViscRef,
+                                                      Flow_sutherlandSRef,
+                                                      Flow_sutherlandTempRef,
+                                                      Flow_sutherlandViscRef,
+                                                      Flow_viscosityModel))
+
+      var velocity_stencil = Fluid[stencil].velocity
+      var velocity = Fluid[c].velocity
+
+      var velocityFace = vs_mul_double_3(vv_add_double_3(velocity, velocity_stencil), double(0.5))
+      var velocityX_YFace = double(0.5) * (Fluid[c].velocityGradientY[0] + Fluid[stencil].velocityGradientY[0])
+      var velocityX_ZFace = double(0.5) * (Fluid[c].velocityGradientZ[0] + Fluid[stencil].velocityGradientZ[0])
+      var velocityY_YFace = double(0.5) * (Fluid[c].velocityGradientY[1] + Fluid[stencil].velocityGradientY[1])
+      var velocityZ_ZFace = double(0.5) * (Fluid[c].velocityGradientZ[2] + Fluid[stencil].velocityGradientZ[2])
+
+      var velocityX_XFace   = (double(0.5) * (velocity_stencil[0] - velocity[0])) * recip_xCellWidth
+      var velocityY_XFace   = (double(0.5) * (velocity_stencil[1] - velocity[1])) * recip_xCellWidth
+      var velocityZ_XFace   = (double(0.5) * (velocity_stencil[2] - velocity[2])) * recip_xCellWidth
+      var temperature_XFace = (double(0.5) * (temperature_stencil - temperature)) * recip_xCellWidth
+
       var sigmaXX = ((muFace*(((4.0*velocityX_XFace)-(2.0*velocityY_YFace))-(2.0*velocityZ_ZFace)))/3.0)
       var sigmaYX = (muFace*(velocityY_XFace+velocityX_YFace))
       var sigmaZX = (muFace*(velocityZ_XFace+velocityX_ZFace))
@@ -2889,33 +2905,45 @@ do
       Fluid[c].rhoEnergyFluxX += (-(usigma-heatFlux))
     end
     if interior_cell or yNegGhost  then
-      var flux = CenteredInviscidFlux_(int3d(c), ((c+{0, 1, 0})%Fluid.bounds), Fluid)
+      var stencil = (c + {0, 1, 0}) % Fluid.bounds
+      var flux = CenteredInviscidFlux_(int3d(c), (c + {0, 1, 0}) % Fluid.bounds, Fluid)
       Fluid[c].rhoFluxY = flux[0]
       Fluid[c].rhoVelocityFluxY = array(flux[1], flux[2], flux[3])
       Fluid[c].rhoEnergyFluxY = flux[4]
-      var muFace = (double(0.5)*(GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)+GetDynamicViscosity(Fluid[((c+{0, 1, 0})%Fluid.bounds)].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)))
-      var velocityFace = [double[3]](array(0.0, 0.0, 0.0))
-      var velocityY_XFace = double(0.0)
-      var velocityY_ZFace = double(0.0)
-      var velocityX_XFace = double(0.0)
-      var velocityZ_ZFace = double(0.0)
-      velocityFace = vs_mul_double_3(vv_add_double_3(Fluid[c].velocity, Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocity), double(0.5))
-      velocityY_XFace = (double(0.5)*(Fluid[c].velocityGradientX[1]+Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocityGradientX[1]))
-      velocityY_ZFace = (double(0.5)*(Fluid[c].velocityGradientZ[1]+Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocityGradientZ[1]))
-      velocityX_XFace = (double(0.5)*(Fluid[c].velocityGradientX[0]+Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocityGradientX[0]))
-      velocityZ_ZFace = (double(0.5)*(Fluid[c].velocityGradientZ[2]+Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocityGradientZ[2]))
-      var velocityX_YFace = double(0.0)
-      var velocityY_YFace = double(0.0)
-      var velocityZ_YFace = double(0.0)
-      var temperature_YFace = double(0.0)
-      velocityX_YFace = (double(0.5)*(Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocity[0]-Fluid[c].velocity[0]))
-      velocityY_YFace = (double(0.5)*(Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocity[1]-Fluid[c].velocity[1]))
-      velocityZ_YFace = (double(0.5)*(Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocity[2]-Fluid[c].velocity[2]))
-      temperature_YFace = (double(0.5)*(Fluid[((c+{0, 1, 0})%Fluid.bounds)].temperature-Fluid[c].temperature))
-      velocityX_YFace *= (1/(Grid_yCellWidth*double(0.5)))
-      velocityY_YFace *= (1/(Grid_yCellWidth*double(0.5)))
-      velocityZ_YFace *= (1/(Grid_yCellWidth*double(0.5)))
-      temperature_YFace *= (1/(Grid_yCellWidth*double(0.5)))
+
+      var temperature = Fluid[c].temperature
+      var temperature_stencil = Fluid[stencil].temperature
+      var muFace = double(0.5) * (GetDynamicViscosity(temperature,
+                                                      Flow_constantVisc,
+                                                      Flow_powerlawTempRef,
+                                                      Flow_powerlawViscRef,
+                                                      Flow_sutherlandSRef,
+                                                      Flow_sutherlandTempRef,
+                                                      Flow_sutherlandViscRef,
+                                                      Flow_viscosityModel) +
+                                  GetDynamicViscosity(temperature_stencil,
+                                                      Flow_constantVisc,
+                                                      Flow_powerlawTempRef,
+                                                      Flow_powerlawViscRef,
+                                                      Flow_sutherlandSRef,
+                                                      Flow_sutherlandTempRef,
+                                                      Flow_sutherlandViscRef,
+                                                      Flow_viscosityModel))
+
+      var velocity_stencil = Fluid[stencil].velocity
+      var velocity = Fluid[c].velocity
+
+      var velocityFace = vs_mul_double_3(vv_add_double_3(velocity, velocity_stencil), double(0.5))
+      var velocityY_XFace = double(0.5) * (Fluid[c].velocityGradientX[1] + Fluid[stencil].velocityGradientX[1])
+      var velocityY_ZFace = double(0.5) * (Fluid[c].velocityGradientZ[1] + Fluid[stencil].velocityGradientZ[1])
+      var velocityX_XFace = double(0.5) * (Fluid[c].velocityGradientX[0] + Fluid[stencil].velocityGradientX[0])
+      var velocityZ_ZFace = double(0.5) * (Fluid[c].velocityGradientZ[2] + Fluid[stencil].velocityGradientZ[2])
+
+      var velocityX_YFace   = (double(0.5) * (velocity_stencil[0] - velocity[0])) * recip_yCellWidth
+      var velocityY_YFace   = (double(0.5) * (velocity_stencil[1] - velocity[1])) * recip_yCellWidth
+      var velocityZ_YFace   = (double(0.5) * (velocity_stencil[2] - velocity[2])) * recip_yCellWidth
+      var temperature_YFace = (double(0.5) * (temperature_stencil - temperature)) * recip_yCellWidth
+
       var sigmaXY = (muFace*(velocityX_YFace+velocityY_XFace))
       var sigmaYY = ((muFace*(((4.0*velocityY_YFace)-(2.0*velocityX_XFace))-(2.0*velocityZ_ZFace)))/3.0)
       var sigmaZY = (muFace*(velocityZ_YFace+velocityY_ZFace))
@@ -2928,33 +2956,45 @@ do
       Fluid[c].rhoEnergyFluxY += (-(usigma-heatFlux))
     end
     if interior_cell or zNegGhost then
-      var flux = CenteredInviscidFlux__(int3d(c), ((c+{0, 0, 1})%Fluid.bounds), Fluid)
+      var stencil = (c + {0, 0, 1}) % Fluid.bounds
+      var flux = CenteredInviscidFlux__(int3d(c), (c + {0, 0, 1}) % Fluid.bounds, Fluid)
       Fluid[c].rhoFluxZ = flux[0]
       Fluid[c].rhoVelocityFluxZ = array(flux[1], flux[2], flux[3])
       Fluid[c].rhoEnergyFluxZ = flux[4]
-      var muFace = (double(0.5)*(GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)+GetDynamicViscosity(Fluid[((c+{0, 0, 1})%Fluid.bounds)].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)))
-      var velocityFace = [double[3]](array(0.0, 0.0, 0.0))
-      var velocityZ_XFace = double(0.0)
-      var velocityZ_YFace = double(0.0)
-      var velocityX_XFace = double(0.0)
-      var velocityY_YFace = double(0.0)
-      velocityFace = vs_mul_double_3(vv_add_double_3(Fluid[c].velocity, Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity), double(0.5))
-      velocityZ_XFace = (double(0.5)*(Fluid[c].velocityGradientX[2]+Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocityGradientX[2]))
-      velocityZ_YFace = (double(0.5)*(Fluid[c].velocityGradientY[2]+Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocityGradientY[2]))
-      velocityX_XFace = (double(0.5)*(Fluid[c].velocityGradientX[0]+Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocityGradientX[0]))
-      velocityY_YFace = (double(0.5)*(Fluid[c].velocityGradientY[1]+Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocityGradientY[1]))
-      var velocityX_ZFace = double(0.0)
-      var velocityY_ZFace = double(0.0)
-      var velocityZ_ZFace = double(0.0)
-      var temperature_ZFace = double(0.0)
-      velocityX_ZFace = (double(0.5)*(Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity[0]-Fluid[c].velocity[0]))
-      velocityY_ZFace = (double(0.5)*(Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity[1]-Fluid[c].velocity[1]))
-      velocityZ_ZFace = (double(0.5)*(Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity[2]-Fluid[c].velocity[2]))
-      temperature_ZFace = (double(0.5)*(Fluid[((c+{0, 0, 1})%Fluid.bounds)].temperature-Fluid[c].temperature))
-      velocityX_ZFace *= (1/(Grid_zCellWidth*double(0.5)))
-      velocityY_ZFace *= (1/(Grid_zCellWidth*double(0.5)))
-      velocityZ_ZFace *= (1/(Grid_zCellWidth*double(0.5)))
-      temperature_ZFace *= (1/(Grid_zCellWidth*double(0.5)))
+
+      var temperature = Fluid[c].temperature
+      var temperature_stencil = Fluid[stencil].temperature
+      var muFace = double(0.5) * (GetDynamicViscosity(temperature,
+                                                      Flow_constantVisc,
+                                                      Flow_powerlawTempRef,
+                                                      Flow_powerlawViscRef,
+                                                      Flow_sutherlandSRef,
+                                                      Flow_sutherlandTempRef,
+                                                      Flow_sutherlandViscRef,
+                                                      Flow_viscosityModel) +
+                                  GetDynamicViscosity(temperature_stencil,
+                                                      Flow_constantVisc,
+                                                      Flow_powerlawTempRef,
+                                                      Flow_powerlawViscRef,
+                                                      Flow_sutherlandSRef,
+                                                      Flow_sutherlandTempRef,
+                                                      Flow_sutherlandViscRef,
+                                                      Flow_viscosityModel))
+
+      var velocity_stencil = Fluid[stencil].velocity
+      var velocity = Fluid[c].velocity
+
+      var velocityFace = vs_mul_double_3(vv_add_double_3(Fluid[c].velocity, Fluid[stencil].velocity), double(0.5))
+      var velocityZ_XFace = double(0.5) * (Fluid[c].velocityGradientX[2] + Fluid[stencil].velocityGradientX[2])
+      var velocityZ_YFace = double(0.5) * (Fluid[c].velocityGradientY[2] + Fluid[stencil].velocityGradientY[2])
+      var velocityX_XFace = double(0.5) * (Fluid[c].velocityGradientX[0] + Fluid[stencil].velocityGradientX[0])
+      var velocityY_YFace = double(0.5) * (Fluid[c].velocityGradientY[1] + Fluid[stencil].velocityGradientY[1])
+
+      var velocityX_ZFace   = (double(0.5) * (velocity_stencil[0] - velocity[0])) * recip_zCellWidth
+      var velocityY_ZFace   = (double(0.5) * (velocity_stencil[1] - velocity[1])) * recip_zCellWidth
+      var velocityZ_ZFace   = (double(0.5) * (velocity_stencil[2] - velocity[2])) * recip_zCellWidth
+      var temperature_ZFace = (double(0.5) * (temperature_stencil - temperature)) * recip_zCellWidth
+
       var sigmaXZ = (muFace*(velocityX_ZFace+velocityZ_XFace))
       var sigmaYZ = (muFace*(velocityY_ZFace+velocityZ_YFace))
       var sigmaZZ = ((muFace*(((4.0*velocityZ_ZFace)-(2.0*velocityX_XFace))-(2.0*velocityY_YFace)))/3.0)
@@ -2985,32 +3025,36 @@ do
     -- If interior cell
     if (not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) then
 
-      Fluid[c].rho_t += ((-(Fluid[c].rhoFluxX-Fluid[((c+{-1, 0, 0})%Fluid.bounds)].rhoFluxX))/Grid_xCellWidth)
-      var tmp = vs_div_double_3(vs_mul_double_3(vv_sub_double_3(Fluid[c].rhoVelocityFluxX, Fluid[((c+{-1, 0, 0})%Fluid.bounds)].rhoVelocityFluxX), double((-1))), Grid_xCellWidth)
+      var stencil1 = ((c+{-1, 0, 0})%Fluid.bounds)
+      var stencil2 = ((c+{0, -1, 0})%Fluid.bounds)
+      var stencil3 = ((c+{0, 0, -1})%Fluid.bounds)
+
+      Fluid[c].rho_t += ((-(Fluid[c].rhoFluxX-Fluid[stencil1].rhoFluxX))/Grid_xCellWidth)
+      var tmp = vs_div_double_3(vs_mul_double_3(vv_sub_double_3(Fluid[c].rhoVelocityFluxX, Fluid[stencil1].rhoVelocityFluxX), double((-1))), Grid_xCellWidth)
       var v = Fluid[c].rhoVelocity_t
       v[0] += tmp[0]
       v[1] += tmp[1]
       v[2] += tmp[2]
       Fluid[c].rhoVelocity_t = v
-      Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxX-Fluid[((c+{-1, 0, 0})%Fluid.bounds)].rhoEnergyFluxX))/Grid_xCellWidth)
+      Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxX-Fluid[stencil1].rhoEnergyFluxX))/Grid_xCellWidth)
 
-      Fluid[c].rho_t += ((-(Fluid[c].rhoFluxY-Fluid[((c+{0, -1, 0})%Fluid.bounds)].rhoFluxY))/Grid_yCellWidth)
-      var tmp__7144 = vs_div_double_3(vs_mul_double_3(vv_sub_double_3(Fluid[c].rhoVelocityFluxY, Fluid[((c+{0, -1, 0})%Fluid.bounds)].rhoVelocityFluxY), double((-1))), Grid_yCellWidth)
+      Fluid[c].rho_t += ((-(Fluid[c].rhoFluxY-Fluid[stencil2].rhoFluxY))/Grid_yCellWidth)
+      var tmp__7144 = vs_div_double_3(vs_mul_double_3(vv_sub_double_3(Fluid[c].rhoVelocityFluxY, Fluid[stencil2].rhoVelocityFluxY), double((-1))), Grid_yCellWidth)
       var v__7145 = Fluid[c].rhoVelocity_t
       v__7145[0] += tmp__7144[0]
       v__7145[1] += tmp__7144[1]
       v__7145[2] += tmp__7144[2]
       Fluid[c].rhoVelocity_t = v__7145
-      Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxY-Fluid[((c+{0, -1, 0})%Fluid.bounds)].rhoEnergyFluxY))/Grid_yCellWidth)
+      Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxY-Fluid[stencil2].rhoEnergyFluxY))/Grid_yCellWidth)
 
-      Fluid[c].rho_t += ((-(Fluid[c].rhoFluxZ-Fluid[((c+{0, 0, -1})%Fluid.bounds)].rhoFluxZ))/Grid_zCellWidth)
-      var tmp__7146 = vs_div_double_3(vs_mul_double_3(vv_sub_double_3(Fluid[c].rhoVelocityFluxZ, Fluid[((c+{0, 0, -1})%Fluid.bounds)].rhoVelocityFluxZ), double((-1))), Grid_zCellWidth)
+      Fluid[c].rho_t += ((-(Fluid[c].rhoFluxZ-Fluid[stencil3].rhoFluxZ))/Grid_zCellWidth)
+      var tmp__7146 = vs_div_double_3(vs_mul_double_3(vv_sub_double_3(Fluid[c].rhoVelocityFluxZ, Fluid[stencil3].rhoVelocityFluxZ), double((-1))), Grid_zCellWidth)
       var v__7147 = Fluid[c].rhoVelocity_t
       v__7147[0] += tmp__7146[0]
       v__7147[1] += tmp__7146[1]
       v__7147[2] += tmp__7146[2]
       Fluid[c].rhoVelocity_t = v__7147
-      Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxZ-Fluid[((c+{0, 0, -1})%Fluid.bounds)].rhoEnergyFluxZ))/Grid_zCellWidth)
+      Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxZ-Fluid[stencil3].rhoEnergyFluxZ))/Grid_zCellWidth)
 
     end
   end
