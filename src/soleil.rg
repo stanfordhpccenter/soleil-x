@@ -469,7 +469,8 @@ do
   end
 end
 
-terra vs_mul_double_3(a : double[3],b : double) : double[3]
+__demand(__inline)
+task vs_mul_double_3(a : double[3],b : double) : double[3]
   return array([&double](a)[0] * b, [&double](a)[1] * b, [&double](a)[2] * b)
 end
 
@@ -662,7 +663,8 @@ do
   end
 end
 
-terra dot_double_3(a : double[3],b : double[3]) : double
+__demand(__inline)
+task dot_double_3(a : double[3],b : double[3]) : double
   return [&double](a)[0] * [&double](b)[0] + [&double](a)[1] * [&double](b)[1] + [&double](a)[2] * [&double](b)[2]
 end
 
@@ -726,7 +728,8 @@ do
   end
 end
 
-terra vs_div_double_3(a : double[3],b : double) : double[3]
+__demand(__inline)
+task vs_div_double_3(a : double[3],b : double) : double[3]
   return array([&double](a)[0] / b, [&double](a)[1] / b, [&double](a)[2] / b)
 end
 
@@ -850,11 +853,13 @@ do
   end
 end
 
-terra vv_mul_double_3(a : double[3],b : double[3]) : double[3]
+__demand(__inline)
+task vv_mul_double_3(a : double[3],b : double[3]) : double[3]
   return array([&double](a)[0] * [&double](b)[0], [&double](a)[1] * [&double](b)[1], [&double](a)[2] * [&double](b)[2])
 end
 
-terra vv_add_double_3(a : double[3],b : double[3]) : double[3]
+__demand(__inline)
+task vv_add_double_3(a : double[3],b : double[3]) : double[3]
   return array([&double](a)[0] + [&double](b)[0], [&double](a)[1] + [&double](b)[1], [&double](a)[2] + [&double](b)[2])
 end
 
@@ -1450,7 +1455,8 @@ do
   end
 end
 
-terra vv_sub_double_3(a : double[3],b : double[3]) : double[3]
+__demand(__inline)
+task vv_sub_double_3(a : double[3],b : double[3]) : double[3]
   return array([&double](a)[0] - [&double](b)[0], [&double](a)[1] - [&double](b)[1], [&double](a)[2] - [&double](b)[2])
 end
 
@@ -2223,7 +2229,7 @@ do
   return acc
 end
 
-__demand(__parallel)
+__demand(__parallel, __cuda)
 task CalculateAveragePressure(Fluid : region(ispace(int3d), Fluid_columns),
                               Grid_cellVolume : double,
                               Grid_xBnum : int32, Grid_xNum : int32,
@@ -2242,7 +2248,7 @@ do
   return acc
 end
 
-__demand(__parallel)
+__demand(__parallel, __cuda)
 task CalculateAverageTemperature(Fluid : region(ispace(int3d), Fluid_columns),
                                  Grid_cellVolume : double,
                                  Grid_xBnum : int32, Grid_xNum : int32,
@@ -2261,7 +2267,7 @@ do
   return acc
 end
 
-__demand(__parallel)
+__demand(__parallel, __cuda)
 task CalculateAverageKineticEnergy(Fluid : region(ispace(int3d), Fluid_columns),
                                    Grid_cellVolume : double,
                                    Grid_xBnum : int32, Grid_xNum : int32,
@@ -2280,7 +2286,7 @@ do
   return acc
 end
 
-__demand(__parallel)
+__demand(__parallel, __cuda)
 task CalculateMinTemperature(Fluid : region(ispace(int3d), Fluid_columns),
                              Grid_xBnum : int32, Grid_xNum : int32,
                              Grid_yBnum : int32, Grid_yNum : int32,
@@ -2298,7 +2304,7 @@ do
   return acc
 end
 
-__demand(__parallel)
+__demand(__parallel, __cuda)
 task CalculateMaxTemperature(Fluid : region(ispace(int3d), Fluid_columns),
                              Grid_xBnum : int32, Grid_xNum : int32,
                              Grid_yBnum : int32, Grid_yNum : int32,
@@ -2316,7 +2322,7 @@ do
   return acc
 end
 
-__demand(__parallel)
+__demand(__parallel, __cuda)
 task Particles_IntegrateQuantities(particles : region(ispace(int1d), particles_columns)) : double
 where
   reads(particles.{temperature, __valid})
@@ -2383,7 +2389,7 @@ task GetSoundSpeed(temperature : double, Flow_gamma : double, Flow_gasConstant :
   return sqrt(((Flow_gamma*Flow_gasConstant)*temperature))
 end
 
-__demand(__parallel)
+__demand(__parallel, __cuda)
 task CalculateMaxMachNumber(Fluid : region(ispace(int3d), Fluid_columns),
                             config : Config,
                             Flow_gamma : double,
@@ -2420,7 +2426,7 @@ do
   return acc
 end
 
-__demand(__parallel)
+__demand(__parallel, __cuda)
 task CalculateConvectiveSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
                                        Flow_gamma : double,
                                        Flow_gasConstant : double,
@@ -2440,7 +2446,7 @@ do
 end
 
 
-__demand(__parallel)
+__demand(__parallel, __cuda)
 task CalculateViscousSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
                                     Flow_constantVisc : double,
                                     Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
@@ -2462,7 +2468,7 @@ do
   return acc
 end
 
-__demand(__parallel)
+__demand(__parallel, __cuda)
 task CalculateHeatConductionSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
                                            Flow_constantVisc : double,
                                            Flow_gamma : double,
@@ -3617,7 +3623,7 @@ do
   end
 end
 
-__demand(__parallel)
+__demand(__parallel, __cuda)
 task CalculateAveragePD(Fluid : region(ispace(int3d), Fluid_columns),
                         Grid_cellVolume : double,
                         Grid_xBnum : int32, Grid_xNum : int32,
@@ -3636,7 +3642,7 @@ do
   return acc
 end
 
-__demand(__parallel)
+__demand(__parallel, __cuda)
 task CalculateAverageDissipation(Fluid : region(ispace(int3d), Fluid_columns),
                                  Grid_cellVolume : double,
                                  Grid_xBnum : int32, Grid_xNum : int32,
@@ -3655,7 +3661,7 @@ do
   return acc
 end
 
-__demand(__parallel)
+__demand(__parallel, __cuda)
 task CalculateAverageK(Fluid : region(ispace(int3d), Fluid_columns),
                        Grid_cellVolume : double,
                        Grid_xBnum : int32, Grid_xNum : int32,
@@ -3674,7 +3680,7 @@ do
   return acc
 end
 
-__demand(__parallel)
+__demand(__parallel, __cuda)
 task Flow_AddTurbulentSource(Fluid : region(ispace(int3d), Fluid_columns),
                              Flow_averageDissipation : double,
                              Flow_averageK : double,
