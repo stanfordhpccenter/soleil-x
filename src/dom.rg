@@ -91,7 +91,10 @@ local struct tile_info {
 -------------------------------------------------------------------------------
 
 -- Initialize face values
-local task initialize_faces(faces : region(ispace(int3d), face))
+local initialize_faces
+
+__demand(__inline)
+task initialize_faces(faces : region(ispace(int3d), face))
 where
   reads writes (faces.I)
 do
@@ -100,6 +103,25 @@ do
       f.I[m] = 0.0
     end
   end
+end
+
+local initialize_all_faces
+do
+  local params = terralib.newlist()
+  local privs = terralib.newlist()
+  local launches = rquote end
+  for i = 1, 8 do
+    local param = regentlib.newsymbol(region(ispace(int3d), face),
+                                      "faces_" .. tostring(i))
+    params:insert(param)
+    privs:insert(regentlib.privilege(regentlib.reads, param, "I"))
+    privs:insert(regentlib.privilege(regentlib.writes, param, "I"))
+    launches = rquote
+      [launches];
+      initialize_faces([param])
+    end
+  end
+  task initialize_all_faces([params]) where [privs] do [launches] end
 end
 
 -- Initialize angle quads
@@ -2020,7 +2042,7 @@ do
     end
   end
 
-  return res / (Nx * Ny * Nz * NUM_ANGLES)
+  return res
 end
 
 -- Update the intensity before moving to the next iteration.
@@ -2252,6 +2274,68 @@ local p_z_faces = {
   regentlib.newsymbol('p_z_faces_8'),
 }
 
+local p_x_faces_equal = {
+  regentlib.newsymbol('p_x_faces_equal_1'),
+  regentlib.newsymbol('p_x_faces_equal_2'),
+  regentlib.newsymbol('p_x_faces_equal_3'),
+  regentlib.newsymbol('p_x_faces_equal_4'),
+  regentlib.newsymbol('p_x_faces_equal_5'),
+  regentlib.newsymbol('p_x_faces_equal_6'),
+  regentlib.newsymbol('p_x_faces_equal_7'),
+  regentlib.newsymbol('p_x_faces_equal_8'),
+}
+local p_y_faces_equal = {
+  regentlib.newsymbol('p_y_faces_equal_1'),
+  regentlib.newsymbol('p_y_faces_equal_2'),
+  regentlib.newsymbol('p_y_faces_equal_3'),
+  regentlib.newsymbol('p_y_faces_equal_4'),
+  regentlib.newsymbol('p_y_faces_equal_5'),
+  regentlib.newsymbol('p_y_faces_equal_6'),
+  regentlib.newsymbol('p_y_faces_equal_7'),
+  regentlib.newsymbol('p_y_faces_equal_8'),
+}
+local p_z_faces_equal = {
+  regentlib.newsymbol('p_z_faces_equal_1'),
+  regentlib.newsymbol('p_z_faces_equal_2'),
+  regentlib.newsymbol('p_z_faces_equal_3'),
+  regentlib.newsymbol('p_z_faces_equal_4'),
+  regentlib.newsymbol('p_z_faces_equal_5'),
+  regentlib.newsymbol('p_z_faces_equal_6'),
+  regentlib.newsymbol('p_z_faces_equal_7'),
+  regentlib.newsymbol('p_z_faces_equal_8'),
+}
+
+local p_x_faces_by_tile = {
+  regentlib.newsymbol('p_x_faces_by_tile_1'),
+  regentlib.newsymbol('p_x_faces_by_tile_2'),
+  regentlib.newsymbol('p_x_faces_by_tile_3'),
+  regentlib.newsymbol('p_x_faces_by_tile_4'),
+  regentlib.newsymbol('p_x_faces_by_tile_5'),
+  regentlib.newsymbol('p_x_faces_by_tile_6'),
+  regentlib.newsymbol('p_x_faces_by_tile_7'),
+  regentlib.newsymbol('p_x_faces_by_tile_8'),
+}
+local p_y_faces_by_tile = {
+  regentlib.newsymbol('p_y_faces_by_tile_1'),
+  regentlib.newsymbol('p_y_faces_by_tile_2'),
+  regentlib.newsymbol('p_y_faces_by_tile_3'),
+  regentlib.newsymbol('p_y_faces_by_tile_4'),
+  regentlib.newsymbol('p_y_faces_by_tile_5'),
+  regentlib.newsymbol('p_y_faces_by_tile_6'),
+  regentlib.newsymbol('p_y_faces_by_tile_7'),
+  regentlib.newsymbol('p_y_faces_by_tile_8'),
+}
+local p_z_faces_by_tile = {
+  regentlib.newsymbol('p_z_faces_by_tile_1'),
+  regentlib.newsymbol('p_z_faces_by_tile_2'),
+  regentlib.newsymbol('p_z_faces_by_tile_3'),
+  regentlib.newsymbol('p_z_faces_by_tile_4'),
+  regentlib.newsymbol('p_z_faces_by_tile_5'),
+  regentlib.newsymbol('p_z_faces_by_tile_6'),
+  regentlib.newsymbol('p_z_faces_by_tile_7'),
+  regentlib.newsymbol('p_z_faces_by_tile_8'),
+}
+
 local tiles_by_diagonal = {
   regentlib.newsymbol('tiles_by_diagonal_1'),
   regentlib.newsymbol('tiles_by_diagonal_2'),
@@ -2272,409 +2356,203 @@ local boundary_tiles = {
   regentlib.newsymbol('boundary_tiles_6'),
 }
 
-function Exports.DeclSymbols(config) return rquote
+function Exports.DeclSymbols(config)
+  local grid_x = regentlib.newsymbol('grid_x')
+  local grid_y = regentlib.newsymbol('grid_y')
+  local grid_z = regentlib.newsymbol('grid_z')
 
-  -- Number of points in each dimension
-  var [Nx] = config.Radiation.xNum
-  var [Ny] = config.Radiation.yNum
-  var [Nz] = config.Radiation.zNum
+  local create_regions = rquote
+    -- Number of points in each dimension
+    var [Nx] = config.Radiation.xNum
+    var [Ny] = config.Radiation.yNum
+    var [Nz] = config.Radiation.zNum
 
-  -- Number of tiles in each dimension
-  var [ntx] = config.Mapping.xTiles
-  var [nty] = config.Mapping.yTiles
-  var [ntz] = config.Mapping.zTiles
+    -- Number of tiles in each dimension
+    var [ntx] = config.Mapping.xTiles
+    var [nty] = config.Mapping.yTiles
+    var [ntz] = config.Mapping.zTiles
 
-  -- Regions for faces (+1 in one direction since one more face than points)
-  var grid_x = ispace(int3d, {x = Nx+1, y = Ny,   z = Nz  })
-  var grid_y = ispace(int3d, {x = Nx,   y = Ny+1, z = Nz  })
-  var grid_z = ispace(int3d, {x = Nx,   y = Ny,   z = Nz+1})
+    -- Regions for faces (+1 in one direction since one more face than points)
+    var [grid_x] = ispace(int3d, {x = Nx+1, y = Ny,   z = Nz  })
+    var [grid_y] = ispace(int3d, {x = Nx,   y = Ny+1, z = Nz  })
+    var [grid_z] = ispace(int3d, {x = Nx,   y = Ny,   z = Nz+1})
 
-  var [x_faces[1]] = region(grid_x, face)
-  var [x_faces[2]] = region(grid_x, face)
-  var [x_faces[3]] = region(grid_x, face)
-  var [x_faces[4]] = region(grid_x, face)
-  var [x_faces[5]] = region(grid_x, face)
-  var [x_faces[6]] = region(grid_x, face)
-  var [x_faces[7]] = region(grid_x, face)
-  var [x_faces[8]] = region(grid_x, face)
+    -- 1D Region for angle values
+    var angle_indices = ispace(int1d, NUM_ANGLES)
+    var [angles] = region(angle_indices, angle)
+  end
 
-  var [y_faces[1]] = region(grid_y, face)
-  var [y_faces[2]] = region(grid_y, face)
-  var [y_faces[3]] = region(grid_y, face)
-  var [y_faces[4]] = region(grid_y, face)
-  var [y_faces[5]] = region(grid_y, face)
-  var [y_faces[6]] = region(grid_y, face)
-  var [y_faces[7]] = region(grid_y, face)
-  var [y_faces[8]] = region(grid_y, face)
+  for i = 1, 8 do
+    create_regions = rquote
+      [create_regions];
+      var [x_faces[i]] = region([grid_x], face)
+      var [y_faces[i]] = region([grid_y], face)
+      var [z_faces[i]] = region([grid_z], face)
+    end
+  end
 
-  var [z_faces[1]] = region(grid_z, face)
-  var [z_faces[2]] = region(grid_z, face)
-  var [z_faces[3]] = region(grid_z, face)
-  var [z_faces[4]] = region(grid_z, face)
-  var [z_faces[5]] = region(grid_z, face)
-  var [z_faces[6]] = region(grid_z, face)
-  var [z_faces[7]] = region(grid_z, face)
-  var [z_faces[8]] = region(grid_z, face)
-
-  -- 1D Region for angle values
-  var angle_indices = ispace(int1d, NUM_ANGLES)
-  var [angles] = region(angle_indices, angle)
+  create_regions = rquote
+    [create_regions];
+    -- extra tile required for shared edge
+    var [tiles_private]  = ispace(int3d, {x = ntx,   y = nty,   z = ntz  })
+    var [x_tiles_shared] = ispace(int3d, {x = ntx+1, y = nty,   z = ntz  })
+    var [y_tiles_shared] = ispace(int3d, {x = ntx,   y = nty+1, z = ntz  })
+    var [z_tiles_shared] = ispace(int3d, {x = ntx,   y = nty,   z = ntz+1})
+    var [diagonals_private] = ispace(int1d, ntx-1 + nty-1 + ntz-1 + 1)
+    var [diagonals_shared]  = ispace(int1d, ntx-1 + nty-1 + ntz-1 + 2)
+  end
 
   -- Partition faces
 
-  -- extra tile required for shared edge
-  var [tiles_private]  = ispace(int3d, {x = ntx,   y = nty,   z = ntz  })
-  var [x_tiles_shared] = ispace(int3d, {x = ntx+1, y = nty,   z = ntz  })
-  var [y_tiles_shared] = ispace(int3d, {x = ntx,   y = nty+1, z = ntz  })
-  var [z_tiles_shared] = ispace(int3d, {x = ntx,   y = nty,   z = ntz+1})
-  var [diagonals_private] = ispace(int1d, ntx-1 + nty-1 + ntz-1 + 1)
-  var [diagonals_shared]  = ispace(int1d, ntx-1 + nty-1 + ntz-1 + 2)
+  local directions = {
+    rexpr array(true,true,true) end,
+    rexpr array(true,true,false) end,
+    rexpr array(true,false,true) end,
+    rexpr array(true,false,false) end,
+    rexpr array(false,true,true) end,
+    rexpr array(false,true,false) end,
+    rexpr array(false,false,true) end,
+    rexpr array(false,false,false) end,
+  }
 
-  -- x
+  local partition_faces = rquote end
 
-  color_faces([x_faces[1]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(true,true,true))
-  var x_1_by_privacy = partition([x_faces[1]].is_private, ispace(int1d,2))
-  var p_x_1 = x_1_by_privacy[1]
-  var p_x_1_by_diagonal = partition(p_x_1.diagonal, diagonals_private)
-  var p_x_1_by_tile = partition(p_x_1.tile, tiles_private)
-  var [p_x_faces[1]] = cross_product(p_x_1_by_diagonal, p_x_1_by_tile)
-  var s_x_1 = x_1_by_privacy[0]
-  var s_x_1_by_diagonal = partition(s_x_1.diagonal, diagonals_shared)
-  var [s_x_faces_by_tile[1]] = partition(s_x_1.tile, x_tiles_shared)
-  var [s_x_faces[1]] = cross_product(s_x_1_by_diagonal, [s_x_faces_by_tile[1]])
+  for i = 1, 8 do
 
-  color_faces([x_faces[2]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(true,true,false))
-  var x_2_by_privacy = partition([x_faces[2]].is_private, ispace(int1d,2))
-  var p_x_2 = x_2_by_privacy[1]
-  var p_x_2_by_diagonal = partition(p_x_2.diagonal, diagonals_private)
-  var p_x_2_by_tile = partition(p_x_2.tile, tiles_private)
-  var [p_x_faces[2]] = cross_product(p_x_2_by_diagonal, p_x_2_by_tile)
-  var s_x_2 = x_2_by_privacy[0]
-  var s_x_2_by_diagonal = partition(s_x_2.diagonal, diagonals_shared)
-  var [s_x_faces_by_tile[2]] = partition(s_x_2.tile, x_tiles_shared)
-  var [s_x_faces[2]] = cross_product(s_x_2_by_diagonal, [s_x_faces_by_tile[2]])
+    local x_by_privacy = regentlib.newsymbol('x_by_privacy_' .. tostring(i))
+    local p_x = regentlib.newsymbol('p_x_' .. tostring(i))
+    local p_x_by_diagonal = regentlib.newsymbol('p_x_by_diagonal_' .. tostring(i))
+    local s_x = regentlib.newsymbol('s_x_' .. tostring(i))
+    local s_x_by_diagonal = regentlib.newsymbol('s_x_by_diagonal_' .. tostring(i))
 
-  color_faces([x_faces[3]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(true,false,true))
-  var x_3_by_privacy = partition([x_faces[3]].is_private, ispace(int1d,2))
-  var p_x_3 = x_3_by_privacy[1]
-  var p_x_3_by_diagonal = partition(p_x_3.diagonal, diagonals_private)
-  var p_x_3_by_tile = partition(p_x_3.tile, tiles_private)
-  var [p_x_faces[3]] = cross_product(p_x_3_by_diagonal, p_x_3_by_tile)
-  var s_x_3 = x_3_by_privacy[0]
-  var s_x_3_by_diagonal = partition(s_x_3.diagonal, diagonals_shared)
-  var [s_x_faces_by_tile[3]] = partition(s_x_3.tile, x_tiles_shared)
-  var [s_x_faces[3]] = cross_product(s_x_3_by_diagonal, [s_x_faces_by_tile[3]])
+    local y_by_privacy = regentlib.newsymbol('y_by_privacy_' .. tostring(i))
+    local p_y = regentlib.newsymbol('p_y_' .. tostring(i))
+    local p_y_by_diagonal = regentlib.newsymbol('p_y_by_diagonal_' .. tostring(i))
+    local s_y = regentlib.newsymbol('s_y_' .. tostring(i))
+    local s_y_by_diagonal = regentlib.newsymbol('s_y_by_diagonal_' .. tostring(i))
 
-  color_faces([x_faces[4]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(true,false,false))
-  var x_4_by_privacy = partition([x_faces[4]].is_private, ispace(int1d,2))
-  var p_x_4 = x_4_by_privacy[1]
-  var p_x_4_by_diagonal = partition(p_x_4.diagonal, diagonals_private)
-  var p_x_4_by_tile = partition(p_x_4.tile, tiles_private)
-  var [p_x_faces[4]] = cross_product(p_x_4_by_diagonal, p_x_4_by_tile)
-  var s_x_4 = x_4_by_privacy[0]
-  var s_x_4_by_diagonal = partition(s_x_4.diagonal, diagonals_shared)
-  var [s_x_faces_by_tile[4]] = partition(s_x_4.tile, x_tiles_shared)
-  var [s_x_faces[4]] = cross_product(s_x_4_by_diagonal, [s_x_faces_by_tile[4]])
+    local z_by_privacy = regentlib.newsymbol('z_by_privacy_' .. tostring(i))
+    local p_z = regentlib.newsymbol('p_z_' .. tostring(i))
+    local p_z_by_diagonal = regentlib.newsymbol('p_z_by_diagonal_' .. tostring(i))
+    local s_z = regentlib.newsymbol('s_z_' .. tostring(i))
+    local s_z_by_diagonal = regentlib.newsymbol('s_z_by_diagonal_' .. tostring(i))
 
-  color_faces([x_faces[5]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(false,true,true))
-  var x_5_by_privacy = partition([x_faces[5]].is_private, ispace(int1d,2))
-  var p_x_5 = x_5_by_privacy[1]
-  var p_x_5_by_diagonal = partition(p_x_5.diagonal, diagonals_private)
-  var p_x_5_by_tile = partition(p_x_5.tile, tiles_private)
-  var [p_x_faces[5]] = cross_product(p_x_5_by_diagonal, p_x_5_by_tile)
-  var s_x_5 = x_5_by_privacy[0]
-  var s_x_5_by_diagonal = partition(s_x_5.diagonal, diagonals_shared)
-  var [s_x_faces_by_tile[5]] = partition(s_x_5.tile, x_tiles_shared)
-  var [s_x_faces[5]] = cross_product(s_x_5_by_diagonal, [s_x_faces_by_tile[5]])
+    partition_faces = rquote
+      [partition_faces];
 
-  color_faces([x_faces[6]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(false,true,false))
-  var x_6_by_privacy = partition([x_faces[6]].is_private, ispace(int1d,2))
-  var p_x_6 = x_6_by_privacy[1]
-  var p_x_6_by_diagonal = partition(p_x_6.diagonal, diagonals_private)
-  var p_x_6_by_tile = partition(p_x_6.tile, tiles_private)
-  var [p_x_faces[6]] = cross_product(p_x_6_by_diagonal, p_x_6_by_tile)
-  var s_x_6 = x_6_by_privacy[0]
-  var s_x_6_by_diagonal = partition(s_x_6.diagonal, diagonals_shared)
-  var [s_x_faces_by_tile[6]] = partition(s_x_6.tile, x_tiles_shared)
-  var [s_x_faces[6]] = cross_product(s_x_6_by_diagonal, [s_x_faces_by_tile[6]])
+      -- x
+      var [p_x_faces_equal[i]] = partition(equal, [x_faces[i]], [tiles_private])
+      for c in [tiles_private] do
+        color_faces([p_x_faces_equal[i]][c], Nx, Ny, Nz, ntx, nty, ntz, 0, [directions[i]])
+      end
+      var [x_by_privacy] = partition([x_faces[i]].is_private, ispace(int1d,2))
+      var [p_x] = [x_by_privacy][1]
+      var [p_x_by_diagonal] = partition([p_x].diagonal, [diagonals_private])
+      var [p_x_faces_by_tile[i]] = partition([p_x].tile, [tiles_private])
+      var [p_x_faces[i]] = cross_product([p_x_by_diagonal], [p_x_faces_by_tile[i]])
+      var [s_x] = [x_by_privacy][0]
+      var [s_x_by_diagonal] = partition([s_x].diagonal, [diagonals_shared])
+      var [s_x_faces_by_tile[i]] = partition([s_x].tile, [x_tiles_shared])
+      var [s_x_faces[i]] = cross_product([s_x_by_diagonal], [s_x_faces_by_tile[i]])
 
-  color_faces([x_faces[7]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(false,false,true))
-  var x_7_by_privacy = partition([x_faces[7]].is_private, ispace(int1d,2))
-  var p_x_7 = x_7_by_privacy[1]
-  var p_x_7_by_diagonal = partition(p_x_7.diagonal, diagonals_private)
-  var p_x_7_by_tile = partition(p_x_7.tile, tiles_private)
-  var [p_x_faces[7]] = cross_product(p_x_7_by_diagonal, p_x_7_by_tile)
-  var s_x_7 = x_7_by_privacy[0]
-  var s_x_7_by_diagonal = partition(s_x_7.diagonal, diagonals_shared)
-  var [s_x_faces_by_tile[7]] = partition(s_x_7.tile, x_tiles_shared)
-  var [s_x_faces[7]] = cross_product(s_x_7_by_diagonal, [s_x_faces_by_tile[7]])
+      -- y
+      var [p_y_faces_equal[i]] = partition(equal, [y_faces[i]], [tiles_private])
+      for c in [tiles_private] do
+        color_faces([p_y_faces_equal[i]][c], Nx, Ny, Nz, ntx, nty, ntz, 1, [directions[i]])
+      end
+      var [y_by_privacy] = partition([y_faces[i]].is_private, ispace(int1d,2))
+      var [p_y] = [y_by_privacy][1]
+      var [p_y_by_diagonal] = partition([p_y].diagonal, [diagonals_private])
+      var [p_y_faces_by_tile[i]] = partition([p_y].tile, [tiles_private])
+      var [p_y_faces[i]] = cross_product([p_y_by_diagonal], [p_y_faces_by_tile[i]])
+      var [s_y] = [y_by_privacy][0]
+      var [s_y_by_diagonal] = partition([s_y].diagonal, [diagonals_shared])
+      var [s_y_faces_by_tile[i]] = partition([s_y].tile, [y_tiles_shared])
+      var [s_y_faces[i]] = cross_product([s_y_by_diagonal], [s_y_faces_by_tile[i]])
 
-  color_faces([x_faces[8]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(false,false,false))
-  var x_8_by_privacy = partition([x_faces[8]].is_private, ispace(int1d,2))
-  var p_x_8 = x_8_by_privacy[1]
-  var p_x_8_by_diagonal = partition(p_x_8.diagonal, diagonals_private)
-  var p_x_8_by_tile = partition(p_x_8.tile, tiles_private)
-  var [p_x_faces[8]] = cross_product(p_x_8_by_diagonal, p_x_8_by_tile)
-  var s_x_8 = x_8_by_privacy[0]
-  var s_x_8_by_diagonal = partition(s_x_8.diagonal, diagonals_shared)
-  var [s_x_faces_by_tile[8]] = partition(s_x_8.tile, x_tiles_shared)
-  var [s_x_faces[8]] = cross_product(s_x_8_by_diagonal, [s_x_faces_by_tile[8]])
-
-  -- y
-
-  color_faces([y_faces[1]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(true,true,true))
-  var y_1_by_privacy = partition([y_faces[1]].is_private, ispace(int1d,2))
-  var p_y_1 = y_1_by_privacy[1]
-  var p_y_1_by_diagonal = partition(p_y_1.diagonal, diagonals_private)
-  var p_y_1_by_tile = partition(p_y_1.tile, tiles_private)
-  var [p_y_faces[1]] = cross_product(p_y_1_by_diagonal, p_y_1_by_tile)
-  var s_y_1 = y_1_by_privacy[0]
-  var s_y_1_by_diagonal = partition(s_y_1.diagonal, diagonals_shared)
-  var [s_y_faces_by_tile[1]] = partition(s_y_1.tile, y_tiles_shared)
-  var [s_y_faces[1]] = cross_product(s_y_1_by_diagonal, [s_y_faces_by_tile[1]])
-
-  color_faces([y_faces[2]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(true,true,false))
-  var y_2_by_privacy = partition([y_faces[2]].is_private, ispace(int1d,2))
-  var p_y_2 = y_2_by_privacy[1]
-  var p_y_2_by_diagonal = partition(p_y_2.diagonal, diagonals_private)
-  var p_y_2_by_tile = partition(p_y_2.tile, tiles_private)
-  var [p_y_faces[2]] = cross_product(p_y_2_by_diagonal, p_y_2_by_tile)
-  var s_y_2 = y_2_by_privacy[0]
-  var s_y_2_by_diagonal = partition(s_y_2.diagonal, diagonals_shared)
-  var [s_y_faces_by_tile[2]] = partition(s_y_2.tile, y_tiles_shared)
-  var [s_y_faces[2]] = cross_product(s_y_2_by_diagonal, [s_y_faces_by_tile[2]])
-
-  color_faces([y_faces[3]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(true,false,true))
-  var y_3_by_privacy = partition([y_faces[3]].is_private, ispace(int1d,2))
-  var p_y_3 = y_3_by_privacy[1]
-  var p_y_3_by_diagonal = partition(p_y_3.diagonal, diagonals_private)
-  var p_y_3_by_tile = partition(p_y_3.tile, tiles_private)
-  var [p_y_faces[3]] = cross_product(p_y_3_by_diagonal, p_y_3_by_tile)
-  var s_y_3 = y_3_by_privacy[0]
-  var s_y_3_by_diagonal = partition(s_y_3.diagonal, diagonals_shared)
-  var [s_y_faces_by_tile[3]] = partition(s_y_3.tile, y_tiles_shared)
-  var [s_y_faces[3]] = cross_product(s_y_3_by_diagonal, [s_y_faces_by_tile[3]])
-
-  color_faces([y_faces[4]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(true,false,false))
-  var y_4_by_privacy = partition([y_faces[4]].is_private, ispace(int1d,2))
-  var p_y_4 = y_4_by_privacy[1]
-  var p_y_4_by_diagonal = partition(p_y_4.diagonal, diagonals_private)
-  var p_y_4_by_tile = partition(p_y_4.tile, tiles_private)
-  var [p_y_faces[4]] = cross_product(p_y_4_by_diagonal, p_y_4_by_tile)
-  var s_y_4 = y_4_by_privacy[0]
-  var s_y_4_by_diagonal = partition(s_y_4.diagonal, diagonals_shared)
-  var [s_y_faces_by_tile[4]] = partition(s_y_4.tile, y_tiles_shared)
-  var [s_y_faces[4]] = cross_product(s_y_4_by_diagonal, [s_y_faces_by_tile[4]])
-
-  color_faces([y_faces[5]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(false,true,true))
-  var y_5_by_privacy = partition([y_faces[5]].is_private, ispace(int1d,2))
-  var p_y_5 = y_5_by_privacy[1]
-  var p_y_5_by_diagonal = partition(p_y_5.diagonal, diagonals_private)
-  var p_y_5_by_tile = partition(p_y_5.tile, tiles_private)
-  var [p_y_faces[5]] = cross_product(p_y_5_by_diagonal, p_y_5_by_tile)
-  var s_y_5 = y_5_by_privacy[0]
-  var s_y_5_by_diagonal = partition(s_y_5.diagonal, diagonals_shared)
-  var [s_y_faces_by_tile[5]] = partition(s_y_5.tile, y_tiles_shared)
-  var [s_y_faces[5]] = cross_product(s_y_5_by_diagonal, [s_y_faces_by_tile[5]])
-
-  color_faces([y_faces[6]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(false,true,false))
-  var y_6_by_privacy = partition([y_faces[6]].is_private, ispace(int1d,2))
-  var p_y_6 = y_6_by_privacy[1]
-  var p_y_6_by_diagonal = partition(p_y_6.diagonal, diagonals_private)
-  var p_y_6_by_tile = partition(p_y_6.tile, tiles_private)
-  var [p_y_faces[6]] = cross_product(p_y_6_by_diagonal, p_y_6_by_tile)
-  var s_y_6 = y_6_by_privacy[0]
-  var s_y_6_by_diagonal = partition(s_y_6.diagonal, diagonals_shared)
-  var [s_y_faces_by_tile[6]] = partition(s_y_6.tile, y_tiles_shared)
-  var [s_y_faces[6]] = cross_product(s_y_6_by_diagonal, [s_y_faces_by_tile[6]])
-
-  color_faces([y_faces[7]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(false,false,true))
-  var y_7_by_privacy = partition([y_faces[7]].is_private, ispace(int1d,2))
-  var p_y_7 = y_7_by_privacy[1]
-  var p_y_7_by_diagonal = partition(p_y_7.diagonal, diagonals_private)
-  var p_y_7_by_tile = partition(p_y_7.tile, tiles_private)
-  var [p_y_faces[7]] = cross_product(p_y_7_by_diagonal, p_y_7_by_tile)
-  var s_y_7 = y_7_by_privacy[0]
-  var s_y_7_by_diagonal = partition(s_y_7.diagonal, diagonals_shared)
-  var [s_y_faces_by_tile[7]] = partition(s_y_7.tile, y_tiles_shared)
-  var [s_y_faces[7]] = cross_product(s_y_7_by_diagonal, [s_y_faces_by_tile[7]])
-
-  color_faces([y_faces[8]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(false,false,false))
-  var y_8_by_privacy = partition([y_faces[8]].is_private, ispace(int1d,2))
-  var p_y_8 = y_8_by_privacy[1]
-  var p_y_8_by_diagonal = partition(p_y_8.diagonal, diagonals_private)
-  var p_y_8_by_tile = partition(p_y_8.tile, tiles_private)
-  var [p_y_faces[8]] = cross_product(p_y_8_by_diagonal, p_y_8_by_tile)
-  var s_y_8 = y_8_by_privacy[0]
-  var s_y_8_by_diagonal = partition(s_y_8.diagonal, diagonals_shared)
-  var [s_y_faces_by_tile[8]] = partition(s_y_8.tile, y_tiles_shared)
-  var [s_y_faces[8]] = cross_product(s_y_8_by_diagonal, [s_y_faces_by_tile[8]])
-
-  -- z
-
-  color_faces([z_faces[1]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(true,true,true))
-  var z_1_by_privacy = partition([z_faces[1]].is_private, ispace(int1d,2))
-  var p_z_1 = z_1_by_privacy[1]
-  var p_z_1_by_diagonal = partition(p_z_1.diagonal, diagonals_private)
-  var p_z_1_by_tile = partition(p_z_1.tile, tiles_private)
-  var [p_z_faces[1]] = cross_product(p_z_1_by_diagonal, p_z_1_by_tile)
-  var s_z_1 = z_1_by_privacy[0]
-  var s_z_1_by_diagonal = partition(s_z_1.diagonal, diagonals_shared)
-  var [s_z_faces_by_tile[1]] = partition(s_z_1.tile, z_tiles_shared)
-  var [s_z_faces[1]] = cross_product(s_z_1_by_diagonal, [s_z_faces_by_tile[1]])
-
-  color_faces([z_faces[2]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(true,true,false))
-  var z_2_by_privacy = partition([z_faces[2]].is_private, ispace(int1d,2))
-  var p_z_2 = z_2_by_privacy[1]
-  var p_z_2_by_diagonal = partition(p_z_2.diagonal, diagonals_private)
-  var p_z_2_by_tile = partition(p_z_2.tile, tiles_private)
-  var [p_z_faces[2]] = cross_product(p_z_2_by_diagonal, p_z_2_by_tile)
-  var s_z_2 = z_2_by_privacy[0]
-  var s_z_2_by_diagonal = partition(s_z_2.diagonal, diagonals_shared)
-  var [s_z_faces_by_tile[2]] = partition(s_z_2.tile, z_tiles_shared)
-  var [s_z_faces[2]] = cross_product(s_z_2_by_diagonal, [s_z_faces_by_tile[2]])
-
-  color_faces([z_faces[3]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(true,false,true))
-  var z_3_by_privacy = partition([z_faces[3]].is_private, ispace(int1d,2))
-  var p_z_3 = z_3_by_privacy[1]
-  var p_z_3_by_diagonal = partition(p_z_3.diagonal, diagonals_private)
-  var p_z_3_by_tile = partition(p_z_3.tile, tiles_private)
-  var [p_z_faces[3]] = cross_product(p_z_3_by_diagonal, p_z_3_by_tile)
-  var s_z_3 = z_3_by_privacy[0]
-  var s_z_3_by_diagonal = partition(s_z_3.diagonal, diagonals_shared)
-  var [s_z_faces_by_tile[3]] = partition(s_z_3.tile, z_tiles_shared)
-  var [s_z_faces[3]] = cross_product(s_z_3_by_diagonal, [s_z_faces_by_tile[3]])
-
-  color_faces([z_faces[4]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(true,false,false))
-  var z_4_by_privacy = partition([z_faces[4]].is_private, ispace(int1d,2))
-  var p_z_4 = z_4_by_privacy[1]
-  var p_z_4_by_diagonal = partition(p_z_4.diagonal, diagonals_private)
-  var p_z_4_by_tile = partition(p_z_4.tile, tiles_private)
-  var [p_z_faces[4]] = cross_product(p_z_4_by_diagonal, p_z_4_by_tile)
-  var s_z_4 = z_4_by_privacy[0]
-  var s_z_4_by_diagonal = partition(s_z_4.diagonal, diagonals_shared)
-  var [s_z_faces_by_tile[4]] = partition(s_z_4.tile, z_tiles_shared)
-  var [s_z_faces[4]] = cross_product(s_z_4_by_diagonal, [s_z_faces_by_tile[4]])
-
-  color_faces([z_faces[5]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(false,true,true))
-  var z_5_by_privacy = partition([z_faces[5]].is_private, ispace(int1d,2))
-  var p_z_5 = z_5_by_privacy[1]
-  var p_z_5_by_diagonal = partition(p_z_5.diagonal, diagonals_private)
-  var p_z_5_by_tile = partition(p_z_5.tile, tiles_private)
-  var [p_z_faces[5]] = cross_product(p_z_5_by_diagonal, p_z_5_by_tile)
-  var s_z_5 = z_5_by_privacy[0]
-  var s_z_5_by_diagonal = partition(s_z_5.diagonal, diagonals_shared)
-  var [s_z_faces_by_tile[5]] = partition(s_z_5.tile, z_tiles_shared)
-  var [s_z_faces[5]] = cross_product(s_z_5_by_diagonal, [s_z_faces_by_tile[5]])
-
-  color_faces([z_faces[6]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(false,true,false))
-  var z_6_by_privacy = partition([z_faces[6]].is_private, ispace(int1d,2))
-  var p_z_6 = z_6_by_privacy[1]
-  var p_z_6_by_diagonal = partition(p_z_6.diagonal, diagonals_private)
-  var p_z_6_by_tile = partition(p_z_6.tile, tiles_private)
-  var [p_z_faces[6]] = cross_product(p_z_6_by_diagonal, p_z_6_by_tile)
-  var s_z_6 = z_6_by_privacy[0]
-  var s_z_6_by_diagonal = partition(s_z_6.diagonal, diagonals_shared)
-  var [s_z_faces_by_tile[6]] = partition(s_z_6.tile, z_tiles_shared)
-  var [s_z_faces[6]] = cross_product(s_z_6_by_diagonal, [s_z_faces_by_tile[6]])
-
-  color_faces([z_faces[7]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(false,false,true))
-  var z_7_by_privacy = partition([z_faces[7]].is_private, ispace(int1d,2))
-  var p_z_7 = z_7_by_privacy[1]
-  var p_z_7_by_diagonal = partition(p_z_7.diagonal, diagonals_private)
-  var p_z_7_by_tile = partition(p_z_7.tile, tiles_private)
-  var [p_z_faces[7]] = cross_product(p_z_7_by_diagonal, p_z_7_by_tile)
-  var s_z_7 = z_7_by_privacy[0]
-  var s_z_7_by_diagonal = partition(s_z_7.diagonal, diagonals_shared)
-  var [s_z_faces_by_tile[7]] = partition(s_z_7.tile, z_tiles_shared)
-  var [s_z_faces[7]] = cross_product(s_z_7_by_diagonal, [s_z_faces_by_tile[7]])
-
-  color_faces([z_faces[8]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(false,false,false))
-  var z_8_by_privacy = partition([z_faces[8]].is_private, ispace(int1d,2))
-  var p_z_8 = z_8_by_privacy[1]
-  var p_z_8_by_diagonal = partition(p_z_8.diagonal, diagonals_private)
-  var p_z_8_by_tile = partition(p_z_8.tile, tiles_private)
-  var [p_z_faces[8]] = cross_product(p_z_8_by_diagonal, p_z_8_by_tile)
-  var s_z_8 = z_8_by_privacy[0]
-  var s_z_8_by_diagonal = partition(s_z_8.diagonal, diagonals_shared)
-  var [s_z_faces_by_tile[8]] = partition(s_z_8.tile, z_tiles_shared)
-  var [s_z_faces[8]] = cross_product(s_z_8_by_diagonal, [s_z_faces_by_tile[8]])
+      -- z
+      var [p_z_faces_equal[i]] = partition(equal, [z_faces[i]], [tiles_private])
+      for c in [tiles_private] do
+        color_faces([p_z_faces_equal[i]][c], Nx, Ny, Nz, ntx, nty, ntz, 2, [directions[i]])
+      end
+      var [z_by_privacy] = partition([z_faces[i]].is_private, ispace(int1d,2))
+      var [p_z] = [z_by_privacy][1]
+      var [p_z_by_diagonal] = partition([p_z].diagonal, [diagonals_private])
+      var [p_z_faces_by_tile[i]] = partition([p_z].tile, [tiles_private])
+      var [p_z_faces[i]] = cross_product([p_z_by_diagonal], [p_z_faces_by_tile[i]])
+      var [s_z] = [z_by_privacy][0]
+      var [s_z_by_diagonal] = partition([s_z].diagonal, [diagonals_shared])
+      var [s_z_faces_by_tile[i]] = partition([s_z].tile, [z_tiles_shared])
+      var [s_z_faces[i]] = cross_product([s_z_by_diagonal], [s_z_faces_by_tile[i]])
+    end
+  end
 
   -- Construct index spaces for the diagonal launches
 
-  var r_tiles_1 = region(tiles_private, tile_info)
-  fill_tile_info(r_tiles_1, array(true,true,true))
-  var [tiles_by_diagonal[1]] = partition(r_tiles_1.diagonal, diagonals_private)
+  local partition_by_diagonal = rquote end
 
-  var r_tiles_2 = region(tiles_private, tile_info)
-  fill_tile_info(r_tiles_2, array(true,true,false))
-  var [tiles_by_diagonal[2]] = partition(r_tiles_2.diagonal, diagonals_private)
+  for i = 1, 8 do
+    local r_tiles = regentlib.newsymbol('r_tiles_' .. tostring(i))
+    partition_by_diagonal = rquote
+      [partition_by_diagonal];
+      var [r_tiles] = region([tiles_private], tile_info)
+      fill_tile_info([r_tiles], [directions[i]])
+      var [tiles_by_diagonal[i]] = partition([r_tiles].diagonal, [diagonals_private])
+    end
+  end
 
-  var r_tiles_3 = region(tiles_private, tile_info)
-  fill_tile_info(r_tiles_3, array(true,false,true))
-  var [tiles_by_diagonal[3]] = partition(r_tiles_3.diagonal, diagonals_private)
+  return rquote
+    [create_regions];
+    [partition_faces];
+    [partition_by_diagonal];
 
-  var r_tiles_4 = region(tiles_private, tile_info)
-  fill_tile_info(r_tiles_4, array(true,false,false))
-  var [tiles_by_diagonal[4]] = partition(r_tiles_4.diagonal, diagonals_private)
-
-  var r_tiles_5 = region(tiles_private, tile_info)
-  fill_tile_info(r_tiles_5, array(false,true,true))
-  var [tiles_by_diagonal[5]] = partition(r_tiles_5.diagonal, diagonals_private)
-
-  var r_tiles_6 = region(tiles_private, tile_info)
-  fill_tile_info(r_tiles_6, array(false,true,false))
-  var [tiles_by_diagonal[6]] = partition(r_tiles_6.diagonal, diagonals_private)
-
-  var r_tiles_7 = region(tiles_private, tile_info)
-  fill_tile_info(r_tiles_7, array(false,false,true))
-  var [tiles_by_diagonal[7]] = partition(r_tiles_7.diagonal, diagonals_private)
-
-  var r_tiles_8 = region(tiles_private, tile_info)
-  fill_tile_info(r_tiles_8, array(false,false,false))
-  var [tiles_by_diagonal[8]] = partition(r_tiles_8.diagonal, diagonals_private)
-
-  var [boundary_tiles[1]] = ispace(int3d, {    1,[nty],[ntz]}, {    0,    0,    0})
-  var [boundary_tiles[2]] = ispace(int3d, {    1,[nty],[ntz]}, {[ntx],    0,    0})
-  var [boundary_tiles[3]] = ispace(int3d, {[ntx],    1,[ntz]}, {    0,    0,    0})
-  var [boundary_tiles[4]] = ispace(int3d, {[ntx],    1,[ntz]}, {    0,[nty],    0})
-  var [boundary_tiles[5]] = ispace(int3d, {[ntx],[nty],    1}, {    0,    0,    0})
-  var [boundary_tiles[6]] = ispace(int3d, {[ntx],[nty],    1}, {    0,    0,[ntz]})
+    var [boundary_tiles[1]] = ispace(int3d, {    1,[nty],[ntz]}, {    0,    0,    0})
+    var [boundary_tiles[2]] = ispace(int3d, {    1,[nty],[ntz]}, {[ntx],    0,    0})
+    var [boundary_tiles[3]] = ispace(int3d, {[ntx],    1,[ntz]}, {    0,    0,    0})
+    var [boundary_tiles[4]] = ispace(int3d, {[ntx],    1,[ntz]}, {    0,[nty],    0})
+    var [boundary_tiles[5]] = ispace(int3d, {[ntx],[nty],    1}, {    0,    0,    0})
+    var [boundary_tiles[6]] = ispace(int3d, {[ntx],[nty],    1}, {    0,    0,[ntz]})
 end end
 
-function Exports.InitRegions() return rquote
-
+function Exports.InitRegions()
   -- Initialize face values
-  initialize_faces([x_faces[1]])
-  initialize_faces([x_faces[2]])
-  initialize_faces([x_faces[3]])
-  initialize_faces([x_faces[4]])
-  initialize_faces([x_faces[5]])
-  initialize_faces([x_faces[6]])
-  initialize_faces([x_faces[7]])
-  initialize_faces([x_faces[8]])
+  local init_faces = rquote end
 
-  initialize_faces([y_faces[1]])
-  initialize_faces([y_faces[2]])
-  initialize_faces([y_faces[3]])
-  initialize_faces([y_faces[4]])
-  initialize_faces([y_faces[5]])
-  initialize_faces([y_faces[6]])
-  initialize_faces([y_faces[7]])
-  initialize_faces([y_faces[8]])
+  local p_partitions = { p_x_faces_by_tile,
+                         p_y_faces_by_tile,
+                         p_z_faces_by_tile }
+  local s_partitions = { s_x_faces_by_tile,
+                         s_y_faces_by_tile,
+                         s_z_faces_by_tile }
+  local s_colors = { x_tiles_shared,
+                     y_tiles_shared,
+                     z_tiles_shared }
 
-  initialize_faces([z_faces[1]])
-  initialize_faces([z_faces[2]])
-  initialize_faces([z_faces[3]])
-  initialize_faces([z_faces[4]])
-  initialize_faces([z_faces[5]])
-  initialize_faces([z_faces[6]])
-  initialize_faces([z_faces[7]])
-  initialize_faces([z_faces[8]])
+  for k = 1, 3 do
+    local p_color = regentlib.newsymbol("c")
+    local s_color = regentlib.newsymbol("c")
+    local p_args = terralib.newlist()
+    local s_args = terralib.newlist()
+    for i = 1, 8 do
+      p_args:insert(rexpr [p_partitions[k][i]][ [p_color] ] end)
+      s_args:insert(rexpr [s_partitions[k][i]][ [s_color] ] end)
+    end
+    init_faces = rquote
+      [init_faces];
+      --for [p_color] in [tiles_private] do
+      --  initialize_all_faces([p_args])
+      --end
+      for [s_color] in [s_colors[k]] do
+        initialize_all_faces([s_args])
+      end
+    end
+  end
 
-  -- Initialize constant values
-  initialize_angles(angles)
+  return rquote
+    [init_faces];
 
+    -- Initialize constant values
+    initialize_angles(angles)
 end end
 
 function Exports.ComputeRadiationField(config, tiles, p_points) return rquote

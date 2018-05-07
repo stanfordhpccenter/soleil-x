@@ -10,6 +10,7 @@ import 'regent'
 
 local C = regentlib.c
 local SCHEMA = terralib.includec("config_schema.h")
+local MAPPER = terralib.includec("dom_mapper.h")
 
 -------------------------------------------------------------------------------
 -- Compile-time configuration options
@@ -140,7 +141,7 @@ local task main()
     InitPoints(p_points[color])
   end
   [DOM.ComputeRadiationField(config, colors, p_points)];
-  writeIntensity(points)
+  --writeIntensity(points)
 end
 
-regentlib.saveobj(main, 'dom_host.o', 'object')
+regentlib.saveobj(main, 'dom_host.o', 'object', MAPPER.register_mappers)
