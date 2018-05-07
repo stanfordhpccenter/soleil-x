@@ -2892,12 +2892,12 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
       update(p_points[t])
     end
 
-    if (iter == 1) then
-      C.printf("\n")
-      C.printf(" Iteration     Residual         \n")
-      C.printf(" ------------------------------ \n")
-    end
-    C.printf( "   %3d    %.15e \n", iter, res)
+    --if (iter == 1) then
+    --  C.printf("\n")
+    --  C.printf(" Iteration     Residual         \n")
+    --  C.printf(" ------------------------------ \n")
+    --end
+    --C.printf( "   %3d    %.15e \n", iter, res)
 
     iter += 1
 
