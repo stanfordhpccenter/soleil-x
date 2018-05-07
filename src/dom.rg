@@ -2542,9 +2542,9 @@ function Exports.InitRegions()
       --for [p_color] in [tiles_private] do
       --  initialize_all_faces([p_args])
       --end
-      for [s_color] in [s_colors[k]] do
-        initialize_all_faces([s_args])
-      end
+      --for [s_color] in [s_colors[k]] do
+      --  initialize_all_faces([s_args])
+      --end
     end
   end
 

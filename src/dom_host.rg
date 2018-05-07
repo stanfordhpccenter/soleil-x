@@ -112,7 +112,8 @@ end
 -- Proxy main
 -------------------------------------------------------------------------------
 
-local task main()
+__demand(__replicable)
+task main()
   -- Read configuration
   var args = C.legion_runtime_get_input_args()
   var stderr = C.fdopen(2, 'w')

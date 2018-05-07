@@ -30,6 +30,11 @@ static Realm::Logger LOG("dom_mapper");
 
 //=============================================================================
 
+enum
+{
+  DOM_SHARDING_FUNCTOR_ID = 1,
+};
+
 class DOMMapper : public DefaultMapper {
 public:
   DOMMapper(MapperRuntime* rt,
@@ -37,17 +42,14 @@ public:
             Processor local,
             std::vector<Processor>* pl,
             const Config &c)
-    : DefaultMapper(rt, machine, local, "dom_mapper"),
-      procs_list(*pl), config(c) {
-  }
-
-  virtual Processor default_policy_select_initial_processor(
-                              MapperContext ctx,
-                              const Task& task) {
-    if (task.regions.size() == 0)
-      return task.orig_proc;
-    else
-      return DefaultMapper::default_policy_select_initial_processor(ctx, task);
+    : DefaultMapper(rt, machine, local, "dom_mapper"), procs_list(*pl), config(c) {
+    num_nodes = procs_list.size() / local_cpus.size();
+    assert(procs_list.size() % local_cpus.size() == 0);
+    num_points_per_shard = config.Mapping.xTiles *
+                           config.Mapping.yTiles *
+                           config.Mapping.zTiles;
+    num_points_per_shard =
+      (num_points_per_shard + num_nodes - 1) / num_nodes;
   }
 
   virtual void slice_task(const MapperContext ctx,
@@ -62,11 +64,12 @@ public:
         p[0] = p[0] < config.Mapping.xTiles ? p[0] : config.Mapping.xTiles - 1;
         p[1] = p[1] < config.Mapping.yTiles ? p[1] : config.Mapping.yTiles - 1;
         p[2] = p[2] < config.Mapping.zTiles ? p[2] : config.Mapping.zTiles - 1;
-        coord_t linearized = p[0] +
-                             p[1] * config.Mapping.xTiles +
-                             p[2] * config.Mapping.xTiles * config.Mapping.yTiles;
-        output.slices.emplace_back(Domain(itr.p, itr.p),
-                                   procs_list[linearized % procs_list.size()],
+        size_t linearized = p[0] +
+                            p[1] * config.Mapping.xTiles +
+                            p[2] * config.Mapping.xTiles * config.Mapping.yTiles;
+        linearized %= num_points_per_shard;
+        assert(0 <= linearized && linearized < local_cpus.size());
+        output.slices.emplace_back(Domain(itr.p, itr.p), local_cpus[linearized],
                                    false, false);
       }
     }
@@ -84,6 +87,18 @@ public:
     return req.region;
   }
 
+  virtual void select_sharding_functor(
+                                 const MapperContext                ctx,
+                                 const Task&                        task,
+                                 const SelectShardingFunctorInput&  input,
+                                       SelectShardingFunctorOutput& output)
+  {
+    if (task.is_index_space && task.index_domain.dim == 3)
+      output.chosen_functor = DOM_SHARDING_FUNCTOR_ID;
+    else
+      DefaultMapper::select_sharding_functor(ctx, task, input, output);
+  }
+
   virtual void default_policy_select_target_processors(
                                     MapperContext ctx,
                                     const Task &task,
@@ -91,11 +106,57 @@ public:
   {
     target_procs.push_back(task.target_proc);
   }
-
 private:
   const std::vector<Processor> &procs_list;
+  size_t num_nodes;
+  size_t num_points_per_shard;
   Config config;
 };
+
+//=============================================================================
+
+class GlobalTilingFunctor : public ShardingFunctor {
+  public:
+    GlobalTilingFunctor(const Config &config);
+    virtual ~GlobalTilingFunctor(void);
+  public:
+    virtual ShardID shard(const DomainPoint &point,
+                          const Domain &full_space,
+                          const size_t total_shards);
+  protected:
+    Config config;
+};
+
+GlobalTilingFunctor::GlobalTilingFunctor(const Config &_config)
+  : ShardingFunctor(), config(_config)
+{
+}
+
+GlobalTilingFunctor::~GlobalTilingFunctor()
+{
+}
+
+ShardID GlobalTilingFunctor::shard(const DomainPoint &point,
+                                   const Domain &full_space,
+                                   const size_t total_shards)
+{
+  assert(point.dim == 3);
+  DomainPoint p = point;
+  p[0] = p[0] < config.Mapping.xTiles ? p[0] : config.Mapping.xTiles - 1;
+  p[1] = p[1] < config.Mapping.yTiles ? p[1] : config.Mapping.yTiles - 1;
+  p[2] = p[2] < config.Mapping.zTiles ? p[2] : config.Mapping.zTiles - 1;
+  coord_t num_points_per_shard = config.Mapping.xTiles *
+                                 config.Mapping.yTiles *
+                                 config.Mapping.zTiles;
+  num_points_per_shard =
+    (num_points_per_shard + total_shards - 1) / total_shards;
+  coord_t linearized = p[0] +
+                       p[1] * config.Mapping.xTiles +
+                       p[2] * config.Mapping.xTiles * config.Mapping.yTiles;
+  ShardID shard_id = (ShardID)(linearized / num_points_per_shard);
+  assert(shard_id < total_shards);
+  return shard_id;
+}
 
 //=============================================================================
 
@@ -116,10 +177,12 @@ static void create_mappers(Machine machine,
 
   for (Processor proc : local_procs) {
     DOMMapper* mapper =
-      new DOMMapper(runtime->get_mapper_runtime(), machine, proc,
-                    procs_list, config);
+      new DOMMapper(runtime->get_mapper_runtime(), machine, proc, procs_list, config);
     runtime->replace_default_mapper(mapper, proc);
   }
+
+  runtime->register_sharding_functor(DOM_SHARDING_FUNCTOR_ID,
+      new GlobalTilingFunctor(config));
 }
 
 void register_mappers() {
