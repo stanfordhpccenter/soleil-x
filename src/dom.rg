@@ -2718,9 +2718,8 @@ function Exports.ComputeRadiationField(config, tiles, points, p_points) return r
     for i = 0,Nx do
       for j = 0,Ny do
         for k = 0,Nz do
-          C.fprintf(cell_source, '%lf ', points[{i,j,k}].S)
+          C.fprintf(cell_source,'%lf\n', points[{i,j,k}].S)
         end
-        C.fprintf(cell_source, '\n')
       end
     end
     C.fclose(cell_source)
@@ -2729,9 +2728,8 @@ function Exports.ComputeRadiationField(config, tiles, points, p_points) return r
     for i = 0,Nx do
       for j = 0,Ny do
         for k = 0,Nz do
-          C.fprintf(cell_sigma, '%lf ', points[{i,j,k}].sigma)
+          C.fprintf(cell_sigma, '%lf\n', points[{i,j,k}].sigma)
         end
-        C.fprintf(cell_sigma, '\n')
       end
     end
     C.fclose(cell_sigma)
@@ -2740,9 +2738,8 @@ function Exports.ComputeRadiationField(config, tiles, points, p_points) return r
     for i = 0,Nx do
       for j = 0,Ny do
         for k = 0,Nz do
-          C.fprintf(cell_int_prev, '%lf ', points[{i,j,k}].I_1[M])
+          C.fprintf(cell_int_prev, '%lf\n', points[{i,j,k}].I_1[M])
         end
-        C.fprintf(cell_int_prev, '\n')
       end
     end
     C.fclose(cell_int_prev)
@@ -2751,9 +2748,8 @@ function Exports.ComputeRadiationField(config, tiles, points, p_points) return r
     for i = 0,Nx+1 do
       for j = 0,Ny do
         for k = 0,Nz do
-          C.fprintf(x_face_int_prev, '%lf ', [x_faces[1]][{i,j,k}].I[M])
+          C.fprintf(x_face_int_prev, '%lf\n', [x_faces[1]][{i,j,k}].I[M])
         end
-        C.fprintf(x_face_int_prev, '\n')
       end
     end
     C.fclose(x_face_int_prev)
@@ -2762,9 +2758,8 @@ function Exports.ComputeRadiationField(config, tiles, points, p_points) return r
     for i = 0,Nx do
       for j = 0,Ny+1 do
         for k = 0,Nz do
-          C.fprintf(y_face_int_prev, '%lf ', [y_faces[1]][{i,j,k}].I[M])
+          C.fprintf(y_face_int_prev, '%lf\n', [y_faces[1]][{i,j,k}].I[M])
         end
-        C.fprintf(y_face_int_prev, '\n')
       end
     end
     C.fclose(y_face_int_prev)
@@ -2773,9 +2768,8 @@ function Exports.ComputeRadiationField(config, tiles, points, p_points) return r
     for i = 0,Nx do
       for j = 0,Ny do
         for k = 0,Nz+1 do
-          C.fprintf(z_face_int_prev, '%lf ', [z_faces[1]][{i,j,k}].I[M])
+          C.fprintf(z_face_int_prev, '%lf\n', [z_faces[1]][{i,j,k}].I[M])
         end
-        C.fprintf(z_face_int_prev, '\n')
       end
     end
     C.fclose(z_face_int_prev)
@@ -2798,9 +2792,8 @@ function Exports.ComputeRadiationField(config, tiles, points, p_points) return r
     for i = 0,Nx do
       for j = 0,Ny do
         for k = 0,Nz do
-          C.fprintf(cell_int_rg, '%lf ', points[{i,j,k}].I_1[M])
+          C.fprintf(cell_int_rg, '%lf\n', points[{i,j,k}].I_1[M])
         end
-        C.fprintf(cell_int_rg, '\n')
       end
     end
     C.fclose(cell_int_rg)
@@ -2809,9 +2802,8 @@ function Exports.ComputeRadiationField(config, tiles, points, p_points) return r
     for i = 0,Nx+1 do
       for j = 0,Ny do
         for k = 0,Nz do
-          C.fprintf(x_face_int_rg, '%lf ', [x_faces[1]][{i,j,k}].I[M])
+          C.fprintf(x_face_int_rg, '%lf\n', [x_faces[1]][{i,j,k}].I[M])
         end
-        C.fprintf(x_face_int_rg, '\n')
       end
     end
     C.fclose(x_face_int_rg)
@@ -2820,9 +2812,8 @@ function Exports.ComputeRadiationField(config, tiles, points, p_points) return r
     for i = 0,Nx do
       for j = 0,Ny+1 do
         for k = 0,Nz do
-          C.fprintf(y_face_int_rg, '%lf ', [y_faces[1]][{i,j,k}].I[M])
+          C.fprintf(y_face_int_rg, '%lf\n', [y_faces[1]][{i,j,k}].I[M])
         end
-        C.fprintf(y_face_int_rg, '\n')
       end
     end
     C.fclose(y_face_int_rg)
@@ -2831,9 +2822,8 @@ function Exports.ComputeRadiationField(config, tiles, points, p_points) return r
     for i = 0,Nx do
       for j = 0,Ny do
         for k = 0,Nz+1 do
-          C.fprintf(z_face_int_rg, '%lf ', [z_faces[1]][{i,j,k}].I[M])
+          C.fprintf(z_face_int_rg, '%lf\n', [z_faces[1]][{i,j,k}].I[M])
         end
-        C.fprintf(z_face_int_rg, '\n')
       end
     end
     C.fclose(z_face_int_rg)

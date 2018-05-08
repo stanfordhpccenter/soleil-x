@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <math.h>
 #include <fstream>
+#include <stdio.h>
 
 #include <thrust/adjacent_difference.h>
 #include <thrust/copy.h>
@@ -43,25 +44,30 @@ public:
   HostArray(const HostArray&) = delete;
   HostArray& operator=(const HostArray&) = delete;
   void copy_from(const DeviceArray& src);
-  void read_from(const std::string& filename) {
-    std::fstream fs(filename, std::fstream::in);
+  void read_from(const char* filename) {
+    std::fstream fin(filename, std::fstream::in);
     for (size_t i = 0; i < nx_; ++i) {
       for (size_t j = 0; j < ny_; ++j) {
         for (size_t k = 0; k < nz_; ++k) {
-          fs >> (*this)(i,j,k);
+          fin >> (*this)(i,j,k);
         }
       }
     }
   }
-  void write_to(const std::string& filename) {
-    std::fstream fs(filename, std::fstream::out);
+  void write_to(const char* filename) {
+    FILE* fout = fopen(filename, "w");
+    if (fout == NULL) {
+      perror("Error opening file");
+      exit(1);
+    }
     for (size_t i = 0; i < nx_; ++i) {
       for (size_t j = 0; j < ny_; ++j) {
         for (size_t k = 0; k < nz_; ++k) {
-          fs << (*this)(i,j,k);
+          fprintf(fout, "%lf\n", (*this)(i,j,k));
         }
       }
     }
+    fclose(fout);
   }
 public:
   double& operator()(size_t x, size_t y, size_t z) {
