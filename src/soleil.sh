@@ -124,7 +124,8 @@ function run_sapling {
     if [[ "$USE_CUDA" == 1 ]]; then
         GPU_OPTS="-ll:gpu 1 -ll:fsize 2048"
     fi
-    mpiexec -H "$NODES" --bind-to none -x LD_LIBRARY_PATH \
+    mpiexec -H "$NODES" --bind-to none \
+        -x LD_LIBRARY_PATH -x SOLEIL_DIR  \
         "$SOLEIL_DIR"/src/soleil.exec $ARGS $GPU_OPTS \
         -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 \
         -ll:csize 20000
