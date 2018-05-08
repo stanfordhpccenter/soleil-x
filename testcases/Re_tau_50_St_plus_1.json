@@ -137,7 +137,7 @@
         "zLoWindow" : { "fromCell" : [0,0], "uptoCell" : [9999,9999] }
     },
 
-   "IO" : {
+    "IO" : {
         "wrtRestart" : true,
         "restartEveryTimeSteps" : 20,
         "consoleFrequency" : 1,
