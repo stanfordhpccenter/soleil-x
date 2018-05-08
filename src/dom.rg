@@ -2178,39 +2178,6 @@ local tiles_private = regentlib.newsymbol('tiles_private')
 local x_tiles_shared = regentlib.newsymbol('x_tiles_shared')
 local y_tiles_shared = regentlib.newsymbol('y_tiles_shared')
 local z_tiles_shared = regentlib.newsymbol('z_tiles_shared')
-local diagonals_private = regentlib.newsymbol('diagonals_private')
-local diagonals_shared = regentlib.newsymbol('diagonals_shared')
-
-local s_x_faces = {
-  regentlib.newsymbol('s_x_faces_1'),
-  regentlib.newsymbol('s_x_faces_2'),
-  regentlib.newsymbol('s_x_faces_3'),
-  regentlib.newsymbol('s_x_faces_4'),
-  regentlib.newsymbol('s_x_faces_5'),
-  regentlib.newsymbol('s_x_faces_6'),
-  regentlib.newsymbol('s_x_faces_7'),
-  regentlib.newsymbol('s_x_faces_8'),
-}
-local s_y_faces = {
-  regentlib.newsymbol('s_y_faces_1'),
-  regentlib.newsymbol('s_y_faces_2'),
-  regentlib.newsymbol('s_y_faces_3'),
-  regentlib.newsymbol('s_y_faces_4'),
-  regentlib.newsymbol('s_y_faces_5'),
-  regentlib.newsymbol('s_y_faces_6'),
-  regentlib.newsymbol('s_y_faces_7'),
-  regentlib.newsymbol('s_y_faces_8'),
-}
-local s_z_faces = {
-  regentlib.newsymbol('s_z_faces_1'),
-  regentlib.newsymbol('s_z_faces_2'),
-  regentlib.newsymbol('s_z_faces_3'),
-  regentlib.newsymbol('s_z_faces_4'),
-  regentlib.newsymbol('s_z_faces_5'),
-  regentlib.newsymbol('s_z_faces_6'),
-  regentlib.newsymbol('s_z_faces_7'),
-  regentlib.newsymbol('s_z_faces_8'),
-}
 
 local s_x_faces_by_tile = {
   regentlib.newsymbol('s_x_faces_by_tile_1'),
@@ -2241,37 +2208,6 @@ local s_z_faces_by_tile = {
   regentlib.newsymbol('s_z_faces_by_tile_6'),
   regentlib.newsymbol('s_z_faces_by_tile_7'),
   regentlib.newsymbol('s_z_faces_by_tile_8'),
-}
-
-local p_x_faces = {
-  regentlib.newsymbol('p_x_faces_1'),
-  regentlib.newsymbol('p_x_faces_2'),
-  regentlib.newsymbol('p_x_faces_3'),
-  regentlib.newsymbol('p_x_faces_4'),
-  regentlib.newsymbol('p_x_faces_5'),
-  regentlib.newsymbol('p_x_faces_6'),
-  regentlib.newsymbol('p_x_faces_7'),
-  regentlib.newsymbol('p_x_faces_8'),
-}
-local p_y_faces = {
-  regentlib.newsymbol('p_y_faces_1'),
-  regentlib.newsymbol('p_y_faces_2'),
-  regentlib.newsymbol('p_y_faces_3'),
-  regentlib.newsymbol('p_y_faces_4'),
-  regentlib.newsymbol('p_y_faces_5'),
-  regentlib.newsymbol('p_y_faces_6'),
-  regentlib.newsymbol('p_y_faces_7'),
-  regentlib.newsymbol('p_y_faces_8'),
-}
-local p_z_faces = {
-  regentlib.newsymbol('p_z_faces_1'),
-  regentlib.newsymbol('p_z_faces_2'),
-  regentlib.newsymbol('p_z_faces_3'),
-  regentlib.newsymbol('p_z_faces_4'),
-  regentlib.newsymbol('p_z_faces_5'),
-  regentlib.newsymbol('p_z_faces_6'),
-  regentlib.newsymbol('p_z_faces_7'),
-  regentlib.newsymbol('p_z_faces_8'),
 }
 
 local p_x_faces_equal = {
@@ -2336,26 +2272,6 @@ local p_z_faces_by_tile = {
   regentlib.newsymbol('p_z_faces_by_tile_8'),
 }
 
-local tiles_by_diagonal = {
-  regentlib.newsymbol('tiles_by_diagonal_1'),
-  regentlib.newsymbol('tiles_by_diagonal_2'),
-  regentlib.newsymbol('tiles_by_diagonal_3'),
-  regentlib.newsymbol('tiles_by_diagonal_4'),
-  regentlib.newsymbol('tiles_by_diagonal_5'),
-  regentlib.newsymbol('tiles_by_diagonal_6'),
-  regentlib.newsymbol('tiles_by_diagonal_7'),
-  regentlib.newsymbol('tiles_by_diagonal_8'),
-}
-
-local boundary_tiles = {
-  regentlib.newsymbol('boundary_tiles_1'),
-  regentlib.newsymbol('boundary_tiles_2'),
-  regentlib.newsymbol('boundary_tiles_3'),
-  regentlib.newsymbol('boundary_tiles_4'),
-  regentlib.newsymbol('boundary_tiles_5'),
-  regentlib.newsymbol('boundary_tiles_6'),
-}
-
 function Exports.DeclSymbols(config)
   local grid_x = regentlib.newsymbol('grid_x')
   local grid_y = regentlib.newsymbol('grid_y')
@@ -2398,8 +2314,6 @@ function Exports.DeclSymbols(config)
     var [x_tiles_shared] = ispace(int3d, {x = ntx+1, y = nty,   z = ntz  })
     var [y_tiles_shared] = ispace(int3d, {x = ntx,   y = nty+1, z = ntz  })
     var [z_tiles_shared] = ispace(int3d, {x = ntx,   y = nty,   z = ntz+1})
-    var [diagonals_private] = ispace(int1d, ntx-1 + nty-1 + ntz-1 + 1)
-    var [diagonals_shared]  = ispace(int1d, ntx-1 + nty-1 + ntz-1 + 2)
   end
 
   -- Partition faces
@@ -2421,21 +2335,15 @@ function Exports.DeclSymbols(config)
 
     local x_by_privacy = regentlib.newsymbol('x_by_privacy_' .. tostring(i))
     local p_x = regentlib.newsymbol('p_x_' .. tostring(i))
-    local p_x_by_diagonal = regentlib.newsymbol('p_x_by_diagonal_' .. tostring(i))
     local s_x = regentlib.newsymbol('s_x_' .. tostring(i))
-    local s_x_by_diagonal = regentlib.newsymbol('s_x_by_diagonal_' .. tostring(i))
 
     local y_by_privacy = regentlib.newsymbol('y_by_privacy_' .. tostring(i))
     local p_y = regentlib.newsymbol('p_y_' .. tostring(i))
-    local p_y_by_diagonal = regentlib.newsymbol('p_y_by_diagonal_' .. tostring(i))
     local s_y = regentlib.newsymbol('s_y_' .. tostring(i))
-    local s_y_by_diagonal = regentlib.newsymbol('s_y_by_diagonal_' .. tostring(i))
 
     local z_by_privacy = regentlib.newsymbol('z_by_privacy_' .. tostring(i))
     local p_z = regentlib.newsymbol('p_z_' .. tostring(i))
-    local p_z_by_diagonal = regentlib.newsymbol('p_z_by_diagonal_' .. tostring(i))
     local s_z = regentlib.newsymbol('s_z_' .. tostring(i))
-    local s_z_by_diagonal = regentlib.newsymbol('s_z_by_diagonal_' .. tostring(i))
 
     partition_faces = rquote
       [partition_faces];
@@ -2447,13 +2355,9 @@ function Exports.DeclSymbols(config)
       end
       var [x_by_privacy] = partition([x_faces[i]].is_private, ispace(int1d,2))
       var [p_x] = [x_by_privacy][1]
-      var [p_x_by_diagonal] = partition([p_x].diagonal, [diagonals_private])
       var [p_x_faces_by_tile[i]] = partition([p_x].tile, [tiles_private])
-      var [p_x_faces[i]] = cross_product([p_x_by_diagonal], [p_x_faces_by_tile[i]])
       var [s_x] = [x_by_privacy][0]
-      var [s_x_by_diagonal] = partition([s_x].diagonal, [diagonals_shared])
       var [s_x_faces_by_tile[i]] = partition([s_x].tile, [x_tiles_shared])
-      var [s_x_faces[i]] = cross_product([s_x_by_diagonal], [s_x_faces_by_tile[i]])
 
       -- y
       var [p_y_faces_equal[i]] = partition(equal, [y_faces[i]], [tiles_private])
@@ -2462,13 +2366,9 @@ function Exports.DeclSymbols(config)
       end
       var [y_by_privacy] = partition([y_faces[i]].is_private, ispace(int1d,2))
       var [p_y] = [y_by_privacy][1]
-      var [p_y_by_diagonal] = partition([p_y].diagonal, [diagonals_private])
       var [p_y_faces_by_tile[i]] = partition([p_y].tile, [tiles_private])
-      var [p_y_faces[i]] = cross_product([p_y_by_diagonal], [p_y_faces_by_tile[i]])
       var [s_y] = [y_by_privacy][0]
-      var [s_y_by_diagonal] = partition([s_y].diagonal, [diagonals_shared])
       var [s_y_faces_by_tile[i]] = partition([s_y].tile, [y_tiles_shared])
-      var [s_y_faces[i]] = cross_product([s_y_by_diagonal], [s_y_faces_by_tile[i]])
 
       -- z
       var [p_z_faces_equal[i]] = partition(equal, [z_faces[i]], [tiles_private])
@@ -2477,42 +2377,17 @@ function Exports.DeclSymbols(config)
       end
       var [z_by_privacy] = partition([z_faces[i]].is_private, ispace(int1d,2))
       var [p_z] = [z_by_privacy][1]
-      var [p_z_by_diagonal] = partition([p_z].diagonal, [diagonals_private])
       var [p_z_faces_by_tile[i]] = partition([p_z].tile, [tiles_private])
-      var [p_z_faces[i]] = cross_product([p_z_by_diagonal], [p_z_faces_by_tile[i]])
       var [s_z] = [z_by_privacy][0]
-      var [s_z_by_diagonal] = partition([s_z].diagonal, [diagonals_shared])
       var [s_z_faces_by_tile[i]] = partition([s_z].tile, [z_tiles_shared])
-      var [s_z_faces[i]] = cross_product([s_z_by_diagonal], [s_z_faces_by_tile[i]])
-    end
-  end
-
-  -- Construct index spaces for the diagonal launches
-
-  local partition_by_diagonal = rquote end
-
-  for i = 1, 8 do
-    local r_tiles = regentlib.newsymbol('r_tiles_' .. tostring(i))
-    partition_by_diagonal = rquote
-      [partition_by_diagonal];
-      var [r_tiles] = region([tiles_private], tile_info)
-      fill_tile_info([r_tiles], [directions[i]])
-      var [tiles_by_diagonal[i]] = partition([r_tiles].diagonal, [diagonals_private])
     end
   end
 
   return rquote
     [create_regions];
     [partition_faces];
-    [partition_by_diagonal];
-
-    var [boundary_tiles[1]] = ispace(int3d, {    1,[nty],[ntz]}, {    0,    0,    0})
-    var [boundary_tiles[2]] = ispace(int3d, {    1,[nty],[ntz]}, {[ntx],    0,    0})
-    var [boundary_tiles[3]] = ispace(int3d, {[ntx],    1,[ntz]}, {    0,    0,    0})
-    var [boundary_tiles[4]] = ispace(int3d, {[ntx],    1,[ntz]}, {    0,[nty],    0})
-    var [boundary_tiles[5]] = ispace(int3d, {[ntx],[nty],    1}, {    0,    0,    0})
-    var [boundary_tiles[6]] = ispace(int3d, {[ntx],[nty],    1}, {    0,    0,[ntz]})
-end end
+  end
+end
 
 function Exports.InitRegions()
   -- Initialize face values
@@ -2575,186 +2450,208 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
 
     -- Update the grid boundary intensities
     -- TODO: Should launch these on just the boundaries
-    for color in [boundary_tiles[1]] do
-      bound_x_lo([s_x_faces_by_tile[1]][color],
-                 [s_x_faces_by_tile[2]][color],
-                 [s_x_faces_by_tile[3]][color],
-                 [s_x_faces_by_tile[4]][color],
-                 [s_x_faces_by_tile[5]][color],
-                 [s_x_faces_by_tile[6]][color],
-                 [s_x_faces_by_tile[7]][color],
-                 [s_x_faces_by_tile[8]][color],
-                 angles,
-                 config)
+    for j = 0, nty do
+      for k = 0, ntz do
+        bound_x_lo([s_x_faces_by_tile[1]][{0,j,k}],
+                   [s_x_faces_by_tile[2]][{0,j,k}],
+                   [s_x_faces_by_tile[3]][{0,j,k}],
+                   [s_x_faces_by_tile[4]][{0,j,k}],
+                   [s_x_faces_by_tile[5]][{0,j,k}],
+                   [s_x_faces_by_tile[6]][{0,j,k}],
+                   [s_x_faces_by_tile[7]][{0,j,k}],
+                   [s_x_faces_by_tile[8]][{0,j,k}],
+                   angles,
+                   config)
+      end
     end
-    for color in [boundary_tiles[2]] do
-      bound_x_hi([s_x_faces_by_tile[1]][color],
-                 [s_x_faces_by_tile[2]][color],
-                 [s_x_faces_by_tile[3]][color],
-                 [s_x_faces_by_tile[4]][color],
-                 [s_x_faces_by_tile[5]][color],
-                 [s_x_faces_by_tile[6]][color],
-                 [s_x_faces_by_tile[7]][color],
-                 [s_x_faces_by_tile[8]][color],
-                 angles,
-                 config)
+
+    for j = 0, nty do
+      for k = 0, ntz do
+        bound_x_hi([s_x_faces_by_tile[1]][{ntx,j,k}],
+                   [s_x_faces_by_tile[2]][{ntx,j,k}],
+                   [s_x_faces_by_tile[3]][{ntx,j,k}],
+                   [s_x_faces_by_tile[4]][{ntx,j,k}],
+                   [s_x_faces_by_tile[5]][{ntx,j,k}],
+                   [s_x_faces_by_tile[6]][{ntx,j,k}],
+                   [s_x_faces_by_tile[7]][{ntx,j,k}],
+                   [s_x_faces_by_tile[8]][{ntx,j,k}],
+                   angles,
+                   config)
+      end
     end
 
     -- Update y faces
-    for color in [boundary_tiles[3]] do
-      bound_y_lo([s_y_faces_by_tile[1]][color],
-                 [s_y_faces_by_tile[2]][color],
-                 [s_y_faces_by_tile[3]][color],
-                 [s_y_faces_by_tile[4]][color],
-                 [s_y_faces_by_tile[5]][color],
-                 [s_y_faces_by_tile[6]][color],
-                 [s_y_faces_by_tile[7]][color],
-                 [s_y_faces_by_tile[8]][color],
-                 angles,
-                 config)
-
+    for i = 0, ntx do
+      for k = 0, ntz do
+        bound_y_lo([s_y_faces_by_tile[1]][{i,0,k}],
+                   [s_y_faces_by_tile[2]][{i,0,k}],
+                   [s_y_faces_by_tile[3]][{i,0,k}],
+                   [s_y_faces_by_tile[4]][{i,0,k}],
+                   [s_y_faces_by_tile[5]][{i,0,k}],
+                   [s_y_faces_by_tile[6]][{i,0,k}],
+                   [s_y_faces_by_tile[7]][{i,0,k}],
+                   [s_y_faces_by_tile[8]][{i,0,k}],
+                   angles,
+                   config)
+      end
     end
-    for color in [boundary_tiles[4]] do
-      bound_y_hi([s_y_faces_by_tile[1]][color],
-                 [s_y_faces_by_tile[2]][color],
-                 [s_y_faces_by_tile[3]][color],
-                 [s_y_faces_by_tile[4]][color],
-                 [s_y_faces_by_tile[5]][color],
-                 [s_y_faces_by_tile[6]][color],
-                 [s_y_faces_by_tile[7]][color],
-                 [s_y_faces_by_tile[8]][color],
-                 angles,
-                 config)
+
+    for i = 0, ntx do
+      for k = 0, ntz do
+        bound_y_hi([s_y_faces_by_tile[1]][{i,nty,k}],
+                   [s_y_faces_by_tile[2]][{i,nty,k}],
+                   [s_y_faces_by_tile[3]][{i,nty,k}],
+                   [s_y_faces_by_tile[4]][{i,nty,k}],
+                   [s_y_faces_by_tile[5]][{i,nty,k}],
+                   [s_y_faces_by_tile[6]][{i,nty,k}],
+                   [s_y_faces_by_tile[7]][{i,nty,k}],
+                   [s_y_faces_by_tile[8]][{i,nty,k}],
+                   angles,
+                   config)
+      end
     end
 
     -- Update z faces
-    for color in [boundary_tiles[5]] do
-      bound_z_lo([s_z_faces_by_tile[1]][color],
-                 [s_z_faces_by_tile[2]][color],
-                 [s_z_faces_by_tile[3]][color],
-                 [s_z_faces_by_tile[4]][color],
-                 [s_z_faces_by_tile[5]][color],
-                 [s_z_faces_by_tile[6]][color],
-                 [s_z_faces_by_tile[7]][color],
-                 [s_z_faces_by_tile[8]][color],
-                 angles,
-                 config)
+    for i = 0, ntx do
+      for j = 0, nty do
+        bound_z_lo([s_z_faces_by_tile[1]][{i,j,0}],
+                   [s_z_faces_by_tile[2]][{i,j,0}],
+                   [s_z_faces_by_tile[3]][{i,j,0}],
+                   [s_z_faces_by_tile[4]][{i,j,0}],
+                   [s_z_faces_by_tile[5]][{i,j,0}],
+                   [s_z_faces_by_tile[6]][{i,j,0}],
+                   [s_z_faces_by_tile[7]][{i,j,0}],
+                   [s_z_faces_by_tile[8]][{i,j,0}],
+                   angles,
+                   config)
+      end
     end
-    for color in [boundary_tiles[6]] do
-      bound_z_hi([s_z_faces_by_tile[1]][color],
-                 [s_z_faces_by_tile[2]][color],
-                 [s_z_faces_by_tile[3]][color],
-                 [s_z_faces_by_tile[4]][color],
-                 [s_z_faces_by_tile[5]][color],
-                 [s_z_faces_by_tile[6]][color],
-                 [s_z_faces_by_tile[7]][color],
-                 [s_z_faces_by_tile[8]][color],
-                 angles,
-                 config)
+
+    for i = 0, ntx do
+      for j = 0, nty do
+        bound_z_hi([s_z_faces_by_tile[1]][{i,j,ntz}],
+                   [s_z_faces_by_tile[2]][{i,j,ntz}],
+                   [s_z_faces_by_tile[3]][{i,j,ntz}],
+                   [s_z_faces_by_tile[4]][{i,j,ntz}],
+                   [s_z_faces_by_tile[5]][{i,j,ntz}],
+                   [s_z_faces_by_tile[6]][{i,j,ntz}],
+                   [s_z_faces_by_tile[7]][{i,j,ntz}],
+                   [s_z_faces_by_tile[8]][{i,j,ntz}],
+                   angles,
+                   config)
+      end
     end
 
     --Perform the sweep for computing new intensities
     --Quadrant 1 - +x, +y, +z
-    for d in diagonals_private do
-      __demand(__parallel)
-      for t in [tiles_by_diagonal[1]][d] do
-        sweep_1(p_points[t],
-                [p_x_faces[1]][d][t], [p_y_faces[1]][d][t], [p_z_faces[1]][d][t],
-                [s_x_faces[1]][d][t], [s_x_faces[1]][d+1][t+int3d{1,0,0}],
-                [s_y_faces[1]][d][t], [s_y_faces[1]][d+1][t+int3d{0,1,0}],
-                [s_z_faces[1]][d][t], [s_z_faces[1]][d+1][t+int3d{0,0,1}],
-                angles, 1, 1, 1, dx, dy, dz)
+    for i = 0, ntx do
+      for j = 0, nty do
+        for k = 0, ntz do
+          sweep_1(p_points[{i,j,k}],
+                  [p_x_faces_by_tile[1]][{i,j,k}], [p_y_faces_by_tile[1]][{i,j,k}], [p_z_faces_by_tile[1]][{i,j,k}],
+                  [s_x_faces_by_tile[1]][{i,j,k}], [s_x_faces_by_tile[1]][{i+1,j,k}],
+                  [s_y_faces_by_tile[1]][{i,j,k}], [s_y_faces_by_tile[1]][{i,j+1,k}],
+                  [s_z_faces_by_tile[1]][{i,j,k}], [s_z_faces_by_tile[1]][{i,j,k+1}],
+                  angles, 1, 1, 1, dx, dy, dz)
+        end
       end
     end
 
     -- Quadrant 2 - +x, +y, -z
-    for d in diagonals_private do
-      __demand(__parallel)
-      for t in [tiles_by_diagonal[2]][d] do
-        sweep_2(p_points[t],
-                [p_x_faces[2]][d][t], [p_y_faces[2]][d][t], [p_z_faces[2]][d][t],
-                [s_x_faces[2]][d][t], [s_x_faces[2]][d+1][t+int3d{1,0,0}],
-                [s_y_faces[2]][d][t], [s_y_faces[2]][d+1][t+int3d{0,1,0}],
-                [s_z_faces[2]][d][t+int3d{0,0,1}], [s_z_faces[2]][d+1][t],
-                angles, 1, 1, -1, dx, dy, dz)
+    for i = 0, ntx do
+      for j = 0, nty do
+        for k = ntz-1, -1, -1 do
+          sweep_2(p_points[{i,j,k}],
+                  [p_x_faces_by_tile[2]][{i,j,k}], [p_y_faces_by_tile[2]][{i,j,k}], [p_z_faces_by_tile[2]][{i,j,k}],
+                  [s_x_faces_by_tile[2]][{i,j,k}], [s_x_faces_by_tile[2]][{i+1,j,k}],
+                  [s_y_faces_by_tile[2]][{i,j,k}], [s_y_faces_by_tile[2]][{i,j+1,k}],
+                  [s_z_faces_by_tile[2]][{i,j,k+1}], [s_z_faces_by_tile[2]][{i,j,k}],
+                  angles, 1, 1, -1, dx, dy, dz)
+        end
       end
     end
 
     -- Quadrant 3 - +x, -y, +z
-    for d in diagonals_private do
-      __demand(__parallel)
-      for t in [tiles_by_diagonal[3]][d] do
-        sweep_3(p_points[t],
-                [p_x_faces[3]][d][t], [p_y_faces[3]][d][t], [p_z_faces[3]][d][t],
-                [s_x_faces[3]][d][t], [s_x_faces[3]][d+1][t+int3d{1,0,0}],
-                [s_y_faces[3]][d][t+int3d{0,1,0}], [s_y_faces[3]][d+1][t],
-                [s_z_faces[3]][d][t], [s_z_faces[3]][d+1][t+int3d{0,0,1}],
-                angles, 1, -1, 1, dx, dy, dz)
+    for i = 0, ntx do
+      for j = nty-1, -1, -1 do
+        for k = 0, ntz do
+          sweep_3(p_points[{i,j,k}],
+                  [p_x_faces_by_tile[3]][{i,j,k}], [p_y_faces_by_tile[3]][{i,j,k}], [p_z_faces_by_tile[3]][{i,j,k}],
+                  [s_x_faces_by_tile[3]][{i,j,k}], [s_x_faces_by_tile[3]][{i+1,j,k}],
+                  [s_y_faces_by_tile[3]][{i,j+1,k}], [s_y_faces_by_tile[3]][{i,j,k}],
+                  [s_z_faces_by_tile[3]][{i,j,k}], [s_z_faces_by_tile[3]][{i,j,k+1}],
+                  angles, 1, -1, 1, dx, dy, dz)
+        end
       end
     end
 
     -- Quadrant 4 - +x, -y, -z
-    for d in diagonals_private do
-      __demand(__parallel)
-      for t in [tiles_by_diagonal[4]][d] do
-        sweep_4(p_points[t],
-                [p_x_faces[4]][d][t], [p_y_faces[4]][d][t], [p_z_faces[4]][d][t],
-                [s_x_faces[4]][d][t], [s_x_faces[4]][d+1][t+int3d{1,0,0}],
-                [s_y_faces[4]][d][t+int3d{0,1,0}], [s_y_faces[4]][d+1][t],
-                [s_z_faces[4]][d][t+int3d{0,0,1}], [s_z_faces[4]][d+1][t],
-                angles, 1, -1, -1, dx, dy, dz)
+    for i = 0, ntx do
+      for j = nty-1, -1, -1 do
+        for k = ntz-1, -1, -1 do
+          sweep_4(p_points[{i,j,k}],
+                  [p_x_faces_by_tile[4]][{i,j,k}], [p_y_faces_by_tile[4]][{i,j,k}], [p_z_faces_by_tile[4]][{i,j,k}],
+                  [s_x_faces_by_tile[4]][{i,j,k}], [s_x_faces_by_tile[4]][{i+1,j,k}],
+                  [s_y_faces_by_tile[4]][{i,j+1,k}], [s_y_faces_by_tile[4]][{i,j,k}],
+                  [s_z_faces_by_tile[4]][{i,j,k+1}], [s_z_faces_by_tile[4]][{i,j,k}],
+                  angles, 1, -1, -1, dx, dy, dz)
+        end
       end
     end
 
     -- Quadrant 5 - -x, +y, +z
-    for d in diagonals_private do
-      __demand(__parallel)
-      for t in [tiles_by_diagonal[5]][d] do
-        sweep_5(p_points[t],
-                [p_x_faces[5]][d][t], [p_y_faces[5]][d][t], [p_z_faces[5]][d][t],
-                [s_x_faces[5]][d][t+int3d{1,0,0}], [s_x_faces[5]][d+1][t],
-                [s_y_faces[5]][d][t], [s_y_faces[5]][d+1][t+int3d{0,1,0}],
-                [s_z_faces[5]][d][t], [s_z_faces[5]][d+1][t+int3d{0,0,1}],
-                angles, -1, 1, 1, dx, dy, dz)
+    for i = ntx-1, -1, -1 do
+      for j = 0, nty do
+        for k = 0, ntz do
+          sweep_5(p_points[{i,j,k}],
+                  [p_x_faces_by_tile[5]][{i,j,k}], [p_y_faces_by_tile[5]][{i,j,k}], [p_z_faces_by_tile[5]][{i,j,k}],
+                  [s_x_faces_by_tile[5]][{i+1,j,k}], [s_x_faces_by_tile[5]][{i,j,k}],
+                  [s_y_faces_by_tile[5]][{i,j,k}], [s_y_faces_by_tile[5]][{i,j+1,k}],
+                  [s_z_faces_by_tile[5]][{i,j,k}], [s_z_faces_by_tile[5]][{i,j,k+1}],
+                  angles, -1, 1, 1, dx, dy, dz)
+        end
       end
     end
 
     -- Quadrant 6 - -x, +y, -z
-    for d in diagonals_private do
-      __demand(__parallel)
-      for t in [tiles_by_diagonal[6]][d] do
-        sweep_6(p_points[t],
-                [p_x_faces[6]][d][t], [p_y_faces[6]][d][t], [p_z_faces[6]][d][t],
-                [s_x_faces[6]][d][t+int3d{1,0,0}], [s_x_faces[6]][d+1][t],
-                [s_y_faces[6]][d][t], [s_y_faces[6]][d+1][t+int3d{0,1,0}],
-                [s_z_faces[6]][d][t+int3d{0,0,1}], [s_z_faces[6]][d+1][t],
-                angles, -1, 1, -1, dx, dy, dz)
+    for i = ntx-1, -1, -1 do
+      for j = 0, nty do
+        for k = ntz-1, -1, -1 do
+          sweep_6(p_points[{i,j,k}],
+                  [p_x_faces_by_tile[6]][{i,j,k}], [p_y_faces_by_tile[6]][{i,j,k}], [p_z_faces_by_tile[6]][{i,j,k}],
+                  [s_x_faces_by_tile[6]][{i+1,j,k}], [s_x_faces_by_tile[6]][{i,j,k}],
+                  [s_y_faces_by_tile[6]][{i,j,k}], [s_y_faces_by_tile[6]][{i,j+1,k}],
+                  [s_z_faces_by_tile[6]][{i,j,k+1}], [s_z_faces_by_tile[6]][{i,j,k}],
+                  angles, -1, 1, -1, dx, dy, dz)
+        end
       end
     end
 
     -- Quadrant 7 - -x, -y, +z
-    for d in diagonals_private do
-      __demand(__parallel)
-      for t in [tiles_by_diagonal[7]][d] do
-        sweep_7(p_points[t],
-                [p_x_faces[7]][d][t], [p_y_faces[7]][d][t], [p_z_faces[7]][d][t],
-                [s_x_faces[7]][d][t+int3d{1,0,0}], [s_x_faces[7]][d+1][t],
-                [s_y_faces[7]][d][t+int3d{0,1,0}], [s_y_faces[7]][d+1][t],
-                [s_z_faces[7]][d][t], [s_z_faces[7]][d+1][t+int3d{0,0,1}],
-                angles, -1, -1, 1, dx, dy, dz)
+    for i = ntx-1, -1, -1 do
+      for j = nty-1, -1, -1 do
+        for k = 0, ntz do
+          sweep_7(p_points[{i,j,k}],
+                  [p_x_faces_by_tile[7]][{i,j,k}], [p_y_faces_by_tile[7]][{i,j,k}], [p_z_faces_by_tile[7]][{i,j,k}],
+                  [s_x_faces_by_tile[7]][{i+1,j,k}], [s_x_faces_by_tile[7]][{i,j,k}],
+                  [s_y_faces_by_tile[7]][{i,j+1,k}], [s_y_faces_by_tile[7]][{i,j,k}],
+                  [s_z_faces_by_tile[7]][{i,j,k}], [s_z_faces_by_tile[7]][{i,j,k+1}],
+                  angles, -1, -1, 1, dx, dy, dz)
+        end
       end
     end
 
     -- Quadrant 8 - -x, -y, -z
-    for d in diagonals_private do
-      __demand(__parallel)
-      for t in [tiles_by_diagonal[8]][d] do
-        sweep_8(p_points[t],
-                [p_x_faces[8]][d][t], [p_y_faces[8]][d][t], [p_z_faces[8]][d][t],
-                [s_x_faces[8]][d][t+int3d{1,0,0}], [s_x_faces[8]][d+1][t],
-                [s_y_faces[8]][d][t+int3d{0,1,0}], [s_y_faces[8]][d+1][t],
-                [s_z_faces[8]][d][t+int3d{0,0,1}], [s_z_faces[8]][d+1][t],
-                angles, -1, -1, -1, dx, dy, dz)
+    for i = ntx-1, -1, -1 do
+      for j = nty-1, -1, -1 do
+        for k = ntz-1, -1, -1 do
+          sweep_8(p_points[{i,j,k}],
+                  [p_x_faces_by_tile[8]][{i,j,k}], [p_y_faces_by_tile[8]][{i,j,k}], [p_z_faces_by_tile[8]][{i,j,k}],
+                  [s_x_faces_by_tile[8]][{i+1,j,k}], [s_x_faces_by_tile[8]][{i,j,k}],
+                  [s_y_faces_by_tile[8]][{i,j+1,k}], [s_y_faces_by_tile[8]][{i,j,k}],
+                  [s_z_faces_by_tile[8]][{i,j,k+1}], [s_z_faces_by_tile[8]][{i,j,k}],
+                  angles, -1, -1, -1, dx, dy, dz)
+        end
       end
     end
 
