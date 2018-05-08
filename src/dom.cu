@@ -20,20 +20,16 @@
 typedef std::size_t size_t;
 typedef thrust::tuple<double,double> Double2;
 typedef thrust::tuple<double,double,double,double> Double4;
-
-//=============================================================================
-// CONSTANTS
-//=============================================================================
-
-unsigned NX = 16;
-unsigned NY = 16;
-unsigned NZ = 16;
+using thrust::get;
 
 //=============================================================================
 // HELPER CLASSES
 //=============================================================================
 
+class DeviceArray;
+
 class HostArray {
+  friend class DeviceArray;
 public:
   HostArray(size_t nx, size_t ny, size_t nz)
     : nx_(nx),
@@ -46,16 +42,13 @@ public:
 public:
   HostArray(const HostArray&) = delete;
   HostArray& operator=(const HostArray&) = delete;
-  void copy_from(const DeviceArray& src) {
-    assert(src.nx() == nx_ && src.ny() == ny_ && src.nz() == nz_);
-    thrust::copy_n(src.data_, nx_ * ny_ * nz_, data_);
-  }
+  void copy_from(const DeviceArray& src);
   void read_from(const std::string& filename) {
     std::fstream fs(filename, std::fstream::in);
     for (size_t i = 0; i < nx_; ++i) {
       for (size_t j = 0; j < ny_; ++j) {
         for (size_t k = 0; k < nz_; ++k) {
-          fs >> data_[i,j,k];
+          fs >> (*this)(i,j,k);
         }
       }
     }
@@ -65,17 +58,17 @@ public:
     for (size_t i = 0; i < nx_; ++i) {
       for (size_t j = 0; j < ny_; ++j) {
         for (size_t k = 0; k < nz_; ++k) {
-          fs << data_[i,j,k];
+          fs << (*this)(i,j,k);
         }
       }
     }
   }
 public:
-  double* operator()(size_t x, size_t y, size_t z) {
-    return data_ + x*ny_*nz_ + y*nz_ + z;
+  double& operator()(size_t x, size_t y, size_t z) {
+    return *(data_ + x*ny_*nz_ + y*nz_ + z);
   }
-  const double* operator()(size_t x, size_t y, size_t z) const {
-    return data_ + x*ny_*nz_ + y*nz_ + z;
+  const double& operator()(size_t x, size_t y, size_t z) const {
+    return *(data_ + x*ny_*nz_ + y*nz_ + z);
   }
   size_t nx() const { return nx_; }
   size_t ny() const { return ny_; }
@@ -88,6 +81,7 @@ private:
 };
 
 class DeviceArray {
+  friend class HostArray;
 public:
   DeviceArray(size_t nx, size_t ny, size_t nz)
     : nx_(nx),
@@ -102,26 +96,20 @@ public:
     thrust::copy_n(src.data_, nx_ * ny_ * nz_, data_);
   }
 public:
-  thrust::device_ptr<double>
+  thrust::device_reference<double>
   operator()(size_t x, size_t y, size_t z) {
-    return data_ + x*ny_*nz_ + y*nz_ + z;
+    return *(data_ + x*ny_*nz_ + y*nz_ + z);
   }
-  thrust::device_ptr<const double>
+  thrust::device_reference<const double>
   operator()(size_t x, size_t y, size_t z) const {
-    return data_ + x*ny_*nz_ + y*nz_ + z;
+    return *(data_ + x*ny_*nz_ + y*nz_ + z);
   }
-  // thrust::device_ptr<double> z_row_begin(size_t x, size_t y) {
-  //   return data_ + x*ny_*nz_ + y*nz_;
-  // }
-  // thrust::device_ptr<const double> z_row_begin(size_t x, size_t y) const {
-  //   return data_ + x*ny_*nz_ + y*nz_;
-  // }
-  // thrust::device_ptr<double> z_row_end(size_t x, size_t y) {
-  //   return data_ + x*ny_*nz_ + (y+1)*nz_;
-  // }
-  // thrust::device_ptr<const double> z_row_end(size_t x, size_t y) const {
-  //   return data_ + x*ny_*nz_ + (y+1)*nz_;
-  // }
+  thrust::device_ptr<double> z_row(size_t x, size_t y) {
+    return data_ + x*ny_*nz_ + y*nz_;
+  }
+  thrust::device_ptr<const double> z_row(size_t x, size_t y) const {
+    return data_ + x*ny_*nz_ + y*nz_;
+  }
   size_t nx() const { return nx_; }
   size_t ny() const { return ny_; }
   size_t nz() const { return nz_; }
@@ -131,6 +119,11 @@ private:
   size_t nz_;
   thrust::device_ptr<double> data_;
 };
+
+void HostArray::copy_from(const DeviceArray& src) {
+  assert(src.nx() == nx_ && src.ny() == ny_ && src.nz() == nz_);
+  thrust::copy_n(src.data_, nx_ * ny_ * nz_, data_);
+}
 
 // template<typename ValueT, typename IterT> class with_header_iterator
 //   : public thrust::iterator_facade<with_header_iterator<ValueT,IterT>,ValueT> {
@@ -282,10 +275,10 @@ struct A : public thrust::unary_function<double,double> {
 struct B : public thrust::unary_function<Double4,double> {
   __host__ __device__
   double operator()(const Double4& args) const {
-    double cell_source = thrust::get<0>(args);
-    double x_face_int = thrust::get<1>(args);
-    double y_face_int = thrust::get<2>(args);
-    double cell_sigma = thrust::get<3>(args);
+    double cell_source = get<0>(args);
+    double x_face_int = get<1>(args);
+    double y_face_int = get<2>(args);
+    double cell_sigma = get<3>(args);
     double dAx = dy_*dz_;
     double dAy = dx_*dz_;
     double dAz = dx_*dy_;
@@ -315,16 +308,17 @@ struct B : public thrust::unary_function<Double4,double> {
 struct X : public thrust::binary_function<Double2,Double2,Double2> {
   __host__ __device__
   Double2 operator()(const Double2& lhs, const Double2& rhs) const {
-    return thrust::make_tuple(lhs[0] * rhs[0], lhs[1] * rhs[0] + rhs[1]);
+    return thrust::make_tuple(get<0>(lhs) * get<0>(rhs),
+                              get<1>(lhs) * get<0>(rhs) + get<1>(rhs));
   }
 };
 
 struct FaceInt2CellInt : public thrust::unary_function<Double2,double> {
   __host__ __device__
   double operator()(const Double2& args) const {
-    double face_int_prev = thrust::get<0>(args);
-    double face_int_next = thrust::get<1>(args);
-    return (1-gamma) * face_int_prev + gamma * face_int_next;
+    double face_int_prev = get<0>(args);
+    double face_int_next = get<1>(args);
+    return (1-gamma_) * face_int_prev + gamma_ * face_int_next;
   }
   __host__ __device__
   FaceInt2CellInt(double gamma) : gamma_(gamma) {}
@@ -334,13 +328,20 @@ struct FaceInt2CellInt : public thrust::unary_function<Double2,double> {
 struct CellInt2FaceInt : public thrust::unary_function<Double2,double> {
   __host__ __device__
   double operator()(const Double2& args) const {
-    double cell_int = thrust::get<0>(args);
-    double face_int_prev = thrust::get<1>(args);
-    return cell_int / gamma - (1-gamma)/gamma * face_int_prev;
+    double cell_int = get<0>(args);
+    double face_int_prev = get<1>(args);
+    return cell_int / gamma_ - (1-gamma_)/gamma_ * face_int_prev;
   }
   __host__ __device__
   CellInt2FaceInt(double gamma) : gamma_(gamma) {}
   double gamma_;
+};
+
+struct Project2nd : public thrust::unary_function<Double2,double> {
+  __host__ __device__
+  double operator()(const Double2& tup) const {
+    return get<1>(tup);
+  }
 };
 
 void sweep(DeviceArray/*(NX,NY,NZ)*/& cell_int,
@@ -352,6 +353,9 @@ void sweep(DeviceArray/*(NX,NY,NZ)*/& cell_int,
            double dx, double dy, double dz,
            double xi, double eta, double mu,
            double x_gamma, double y_gamma, double z_gamma) {
+  size_t NX = cell_int.nx();
+  size_t NY = cell_int.ny();
+  size_t NZ = cell_int.nz();
   // Construct function objects
   A a(dx, dy, dz, xi, eta, mu, x_gamma, y_gamma, z_gamma);
   B b(dx, dy, dz, xi, eta, mu, x_gamma, y_gamma, z_gamma);
@@ -364,54 +368,57 @@ void sweep(DeviceArray/*(NX,NY,NZ)*/& cell_int,
     for (size_t j = 0; j < NY; ++j) {
       // Fill in pairs
       thrust::device_vector<Double2> pairs(NZ+1);
-      thrust::get<1>(pairs[0]) = z_face_int(i,j,0);
+      pairs[0] = thrust::make_tuple(-1.0, z_face_int(i,j,0));
       thrust::copy_n(
         thrust::make_zip_iterator(thrust::make_tuple(
           thrust::make_transform_iterator(
-            cell_sigma(i,j,0),
+            cell_sigma.z_row(i,j),
             a),
           thrust::make_transform_iterator(
             thrust::make_zip_iterator(thrust::make_tuple(
-              cell_source(i,j,0),
-              x_face_int(i,j,0),
-              y_face_int(i,j,0),
-              cell_sigma(i,j,0))),
+              cell_source.z_row(i,j),
+              x_face_int.z_row(i,j),
+              y_face_int.z_row(i,j),
+              cell_sigma.z_row(i,j))),
             b))),
         NZ,
         pairs.begin() + 1);
       // Run prefix sum over pairs
       thrust::inclusive_scan(pairs.begin(), pairs.end(), pairs.begin(), x);
       // Retrieve z-face intensity values
-      thrust::copy(pairs.begin() + 1,
-                   pairs.end(),
-                   z_face_int(i,j,1));
+      thrust::copy_n(
+        thrust::make_transform_iterator(
+          pairs.begin() + 1,
+          Project2nd()),
+        NZ,
+        z_face_int.z_row(i,j) + 1);
       // Calculate cell intensity values
       thrust::copy_n(
         thrust::make_transform_iterator(
           thrust::make_zip_iterator(thrust::make_tuple(
-             z_face_int(i,j,0),
-             z_face_int(i,j,1))),
+            z_face_int.z_row(i,j),
+            z_face_int.z_row(i,j) + 1)),
           z2c),
         NZ,
-        cell_int(i,j,0));
+        cell_int.z_row(i,j));
       // Calculate downstream x-face intensity values
       thrust::copy_n(
         thrust::make_transform_iterator(
           thrust::make_zip_iterator(thrust::make_tuple(
-             cell_int(i,j,0),
-             x_face_int(i,j,0))),
+            cell_int.z_row(i,j),
+            x_face_int.z_row(i,j))),
           c2x),
         NZ,
-        x_face_int(i+1,j,0));
+        x_face_int.z_row(i+1,j));
       // Calculate downstream y-face intensity values
       thrust::copy_n(
         thrust::make_transform_iterator(
           thrust::make_zip_iterator(thrust::make_tuple(
-             cell_int(i,j,0),
-             y_face_int(i,j,0))),
+            cell_int.z_row(i,j),
+            y_face_int.z_row(i,j))),
           c2y),
         NZ,
-        y_face_int(i,j+1,0));
+        y_face_int.z_row(i,j+1));
     }
   }
 }
@@ -428,14 +435,14 @@ int main() {
 
   HostArray h_cell_int(NX,NY,NZ);
   HostArray h_cell_source(NX,NY,NZ);
-  HostArray h_cell_sigma(NX, NY,NZ);
+  HostArray h_cell_sigma(NX,NY,NZ);
   HostArray h_x_face_int(NX+1,NY,NZ);
   HostArray h_y_face_int(NX,NY+1,NZ);
   HostArray h_z_face_int(NX,NY,NZ+1);
 
   DeviceArray d_cell_int(NX,NY,NZ);
   DeviceArray d_cell_source(NX,NY,NZ);
-  DeviceArray d_cell_sigma(NX, NY,NZ);
+  DeviceArray d_cell_sigma(NX,NY,NZ);
   DeviceArray d_x_face_int(NX+1,NY,NZ);
   DeviceArray d_y_face_int(NX,NY+1,NZ);
   DeviceArray d_z_face_int(NX,NY,NZ+1);
