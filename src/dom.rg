@@ -2601,7 +2601,7 @@ function Exports.InitRegions() return rquote
 
 end end
 
-function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
+function Exports.ComputeRadiationField(config, tiles, points, p_points) return rquote
 
   var dx = config.Grid.xWidth / config.Radiation.xNum
   var dy = config.Grid.yWidth / config.Radiation.yNum
@@ -2701,6 +2701,85 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
       end
     end
 
+    var M = 0
+    for m = 0, NUM_ANGLES do
+      if angles[m].xi > 0 and angles[m].eta > 0 and angles[m].mu > 0 then
+        M = m
+        break
+      end
+    end
+    C.printf('GRID %d %d %d\n', Nx, Ny, Nz)
+    C.printf('TILES %d %d %d\n', ntx, nty, ntz)
+    C.printf('GAMMA %lf %lf %lf\n', gamma, gamma, gamma)
+    C.printf('CELL_WIDTH %lf %lf %lf\n', dx, dy, dz)
+    C.printf('ANGLE %lf %lf %lf\n', angles[M].xi, angles[M].eta, angles[M].mu)
+
+    var cell_source = C.fopen('cell_source.dat', 'w')
+    for i = 0,Nx do
+      for j = 0,Ny do
+        for k = 0,Nz do
+          C.fprintf(cell_source, '%lf ', points[{i,j,k}].S)
+        end
+        C.fprintf(cell_source, '\n')
+      end
+    end
+    C.fclose(cell_source)
+
+    var cell_sigma = C.fopen('cell_sigma.dat', 'w')
+    for i = 0,Nx do
+      for j = 0,Ny do
+        for k = 0,Nz do
+          C.fprintf(cell_sigma, '%lf ', points[{i,j,k}].sigma)
+        end
+        C.fprintf(cell_sigma, '\n')
+      end
+    end
+    C.fclose(cell_sigma)
+
+    var cell_int_prev = C.fopen('cell_int_prev.dat', 'w')
+    for i = 0,Nx do
+      for j = 0,Ny do
+        for k = 0,Nz do
+          C.fprintf(cell_int_prev, '%lf ', points[{i,j,k}].I_1[M])
+        end
+        C.fprintf(cell_int_prev, '\n')
+      end
+    end
+    C.fclose(cell_int_prev)
+
+    var x_face_int_prev = C.fopen('x_face_int_prev.dat', 'w')
+    for i = 0,Nx+1 do
+      for j = 0,Ny do
+        for k = 0,Nz do
+          C.fprintf(x_face_int_prev, '%lf ', [x_faces[1]][{i,j,k}].I[M])
+        end
+        C.fprintf(x_face_int_prev, '\n')
+      end
+    end
+    C.fclose(x_face_int_prev)
+
+    var y_face_int_prev = C.fopen('y_face_int_prev.dat', 'w')
+    for i = 0,Nx do
+      for j = 0,Ny+1 do
+        for k = 0,Nz do
+          C.fprintf(y_face_int_prev, '%lf ', [y_faces[1]][{i,j,k}].I[M])
+        end
+        C.fprintf(y_face_int_prev, '\n')
+      end
+    end
+    C.fclose(y_face_int_prev)
+
+    var z_face_int_prev = C.fopen('z_face_int_prev.dat', 'w')
+    for i = 0,Nx do
+      for j = 0,Ny do
+        for k = 0,Nz+1 do
+          C.fprintf(z_face_int_prev, '%lf ', [z_faces[1]][{i,j,k}].I[M])
+        end
+        C.fprintf(z_face_int_prev, '\n')
+      end
+    end
+    C.fclose(z_face_int_prev)
+
     --Perform the sweep for computing new intensities
     --Quadrant 1 - +x, +y, +z
     for d in diagonals_private do
@@ -2714,6 +2793,52 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
                 angles, 1, 1, 1, dx, dy, dz)
       end
     end
+
+    var cell_int_rg = C.fopen('cell_int_rg.dat', 'w')
+    for i = 0,Nx do
+      for j = 0,Ny do
+        for k = 0,Nz do
+          C.fprintf(cell_int_rg, '%lf ', points[{i,j,k}].I_1[M])
+        end
+        C.fprintf(cell_int_rg, '\n')
+      end
+    end
+    C.fclose(cell_int_rg)
+
+    var x_face_int_rg = C.fopen('x_face_int_rg.dat', 'w')
+    for i = 0,Nx+1 do
+      for j = 0,Ny do
+        for k = 0,Nz do
+          C.fprintf(x_face_int_rg, '%lf ', [x_faces[1]][{i,j,k}].I[M])
+        end
+        C.fprintf(x_face_int_rg, '\n')
+      end
+    end
+    C.fclose(x_face_int_rg)
+
+    var y_face_int_rg = C.fopen('y_face_int_rg.dat', 'w')
+    for i = 0,Nx do
+      for j = 0,Ny+1 do
+        for k = 0,Nz do
+          C.fprintf(y_face_int_rg, '%lf ', [y_faces[1]][{i,j,k}].I[M])
+        end
+        C.fprintf(y_face_int_rg, '\n')
+      end
+    end
+    C.fclose(y_face_int_rg)
+
+    var z_face_int_rg = C.fopen('z_face_int_rg.dat', 'w')
+    for i = 0,Nx do
+      for j = 0,Ny do
+        for k = 0,Nz+1 do
+          C.fprintf(z_face_int_rg, '%lf ', [z_faces[1]][{i,j,k}].I[M])
+        end
+        C.fprintf(z_face_int_rg, '\n')
+      end
+    end
+    C.fclose(z_face_int_rg)
+
+    C.exit(0)
 
     -- Quadrant 2 - +x, +y, -z
     for d in diagonals_private do

@@ -137,7 +137,7 @@ local task main()
   [DOM.DeclSymbols(config)];
   [DOM.InitRegions()];
   InitPoints(points);
-  [DOM.ComputeRadiationField(config, colors, p_points)];
+  [DOM.ComputeRadiationField(config, colors, points, p_points)];
   writeIntensity(points)
 end
 
