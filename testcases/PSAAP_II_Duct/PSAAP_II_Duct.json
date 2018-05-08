@@ -1,0 +1,151 @@
+{
+    "Mapping" : {
+        "xTiles" : 1,
+        "yTiles" : 1,
+        "zTiles" : 1,
+        "sampleId" : -1,
+        "wallTime" : 2880
+    },
+
+    "Grid" : {
+        "xNum" : 270,
+        "yNum" :  40,
+        "zNum" :  40,
+        "origin" : [0.0, 0.0, 0.0],
+        "xWidth" : 0.27,
+        "yWidth" : 0.04,
+        "zWidth" : 0.04
+    },
+
+    "BC" : {
+        "xBCLeft"  : "NSCBC_SubsonicInflow",
+        "xBCLeftVel" : [1.0, 0.0, 0.0],
+        "xBCLeftHeat" : {
+            "type" : "Constant",
+            "temperature" : 300.0
+        },
+        "xBCLeftInflowProfile" : {
+            "type" : "DuctProfile",
+            "meanVelocity" : 8.0
+        },
+        "xBCRight" : "NSCBC_SubsonicOutflow",
+        "xBCRightVel" : [0.0, 0.0, 0.0],
+        "xBCRightHeat" : {
+            "type" : "Constant",
+            "temperature" : 0.0
+        },
+        "xBCRightP_inf" : 104040.0,
+        "yBCLeft"  : "NonUniformTemperatureWall",
+        "yBCLeftVel" : [0.0, 0.0, 0.0],
+        "yBCLeftHeat" : {
+            "type" : "Parabola",
+            "T_left" : 300.0,
+            "T_right" : 300.0,
+            "T_mid" : 330.0
+        },
+        "yBCRight" : "IsothermalWall",
+        "yBCRightVel" : [0.0, 0.0, 0.0],
+        "yBCRightHeat" : {
+            "type" : "Constant",
+            "temperature" : 300.0
+        },
+        "zBCLeft"  : "IsothermalWall",
+        "zBCLeftVel" : [0.0, 0.0, 0.0],
+        "zBCLeftHeat" : {
+            "type" : "Constant",
+            "temperature" : 300.0
+        },
+        "zBCRight" : "IsothermalWall",
+        "zBCRightVel" : [0.0, 0.0, 0.0],
+        "zBCRightHeat" : {
+            "type" : "Constant",
+            "temperature" : 300.0
+        }
+    },
+
+    "Integrator" : {
+        "finalTime" : 12.00001,
+        "restartIter" : -1,
+        "restartTime" : -1.0,
+        "maxIter" : 1000000000,
+        "cfl" : 0.95,
+        "fixedDeltaTime" : 1e-4
+    },
+
+    "Flow" : {
+        "gasConstant" : 289.0,
+        "gamma" : 1.4,
+        "prandtl" : 0.71,
+        "viscosityModel" : "Constant",
+        "constantVisc" : 1.87E-5,
+        "powerlawViscRef" : 0.00044,
+        "powerlawTempRef" : 1.0,
+        "sutherlandViscRef" : 1.716E-5,
+        "sutherlandTempRef" : 273.15,
+        "sutherlandSRef" : 110.4,
+        "initCase" : "Uniform",
+        "restartDir" : "",
+        "initParams" : [1.2, 104040.0, 8.0, 0.0, 0.0],
+        "bodyForce" : [9.8, 0.0, 0.0],
+        "turbForcing" : false,
+        "pertubation" : {
+            "type" : "Random",
+            "fromCell" : [10,0,0],
+            "uptoCell" : [11,40,40]
+        }
+    },
+
+    "Particles" : {
+        "initCase" : "Uniform",
+        "restartDir" : "",
+        "initNum" : 64000000,
+        "maxNum" : 100000000,
+        "restitutionCoeff" : 1.0,
+        "convectiveCoeff" : 2.0,
+        "absorptivity" : 1.0,
+        "heatCapacity" : 4.5e+2,
+        "initTemperature" : 300.0,
+        "density" : 8900.0,
+        "diameterMean" : 12e-6,
+        "bodyForce" : [9.8, 0.0, 0.0],
+        "maxSkew" : 0.0,
+        "maxXferNum" : 1000
+    },
+
+    "Radiation" : {
+        "type" : "Algebraic",
+        "intensity" : 92592.5925925,
+        "qa" : 1.0,
+        "qs" : 0.0,
+        "xNum" : 135,
+        "yNum" :  20,
+        "zNum" :  20,
+        "angles" : 14,
+        "xHiEmiss" : 1.0,
+        "xLoEmiss" : 1.0,
+        "yHiEmiss" : 1.0,
+        "yLoEmiss" : 1.0,
+        "zHiEmiss" : 1.0,
+        "zLoEmiss" : 1.0,
+        "xHiTemp" : 0.0,
+        "xLoTemp" : 0.0,
+        "yHiTemp" : 0.0,
+        "yLoTemp" : 1288.404,
+        "zHiTemp" : 0.0,
+        "zLoTemp" : 0.0,
+        "xHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "xLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "yHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "yLoWindow" : { "fromCell" : [15,0], "uptoCell" : [176,40] },
+        "zHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "zLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] }
+    },
+
+    "IO" : {
+        "wrtRestart" : true,
+        "restartEveryTimeSteps" : 100,
+        "consoleFrequency" : 10,
+        "headerFrequency" : 100,
+        "probes" : []
+    }
+}
