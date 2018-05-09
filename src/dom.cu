@@ -17,6 +17,7 @@
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/scan.h>
 #include <thrust/tuple.h>
+#include <thrust/transform.h>
 
 typedef std::size_t size_t;
 typedef thrust::tuple<double,double> Double2;
@@ -336,7 +337,9 @@ struct CellInt2FaceInt : public thrust::unary_function<Double2,double> {
   double operator()(const Double2& args) const {
     double cell_int = get<0>(args);
     double face_int_prev = get<1>(args);
-    return cell_int / gamma_ - (1-gamma_)/gamma_ * face_int_prev;
+    double face_int_next =
+      cell_int / gamma_ - (1-gamma_)/gamma_ * face_int_prev;
+    return fmax(0.0, face_int_next);
   }
   __host__ __device__
   CellInt2FaceInt(double gamma) : gamma_(gamma) {}
@@ -347,6 +350,13 @@ struct Project2nd : public thrust::unary_function<Double2,double> {
   __host__ __device__
   double operator()(const Double2& tup) const {
     return get<1>(tup);
+  }
+};
+
+struct Clamp : public thrust::unary_function<double,double> {
+  __host__ __device__
+  double operator()(double x) const {
+    return fmax(0.0, x);
   }
 };
 
@@ -425,6 +435,12 @@ void sweep(DeviceArray/*(NX,NY,NZ)*/& cell_int,
           c2y),
         NZ,
         y_face_int.z_row(i,j+1));
+      // Clamp z-face intensity values
+      thrust::transform(
+        z_face_int.z_row(i,j) + 1,
+        z_face_int.z_row(i,j) + NZ + 1,
+        z_face_int.z_row(i,j) + 1,
+        Clamp());
     }
   }
 }
