@@ -2701,7 +2701,7 @@ function Exports.ComputeRadiationField(config, tiles, points, p_points) return r
       end
     end
 
-    regentlib.assert(ntx == 0 and nty == 0 and ntz == 0, '')
+    regentlib.assert(ntx == 1 and nty == 1 and ntz == 1, '')
     var M = 0
     for m = 0, NUM_ANGLES do
       if angles[m].xi > 0 and angles[m].eta > 0 and angles[m].mu > 0 then
@@ -2711,10 +2711,10 @@ function Exports.ComputeRadiationField(config, tiles, points, p_points) return r
     end
 
     var setup = C.fopen('setup.dat', 'w')
-    C.printf('%d\n%d\n%d\n', Nx, Ny, Nz)
-    C.printf('%.17e\n%.17e\n%.17e\n', gamma, gamma, gamma)
-    C.printf('%.17e\n%.17e\n%.17e\n', dx, dy, dz)
-    C.printf('%.17e\n%.17e\n%.17e\n', angles[M].xi, angles[M].eta, angles[M].mu)
+    C.fprintf(setup, '%d\n%d\n%d\n', Nx, Ny, Nz)
+    C.fprintf(setup, '%.17e\n%.17e\n%.17e\n', gamma, gamma, gamma)
+    C.fprintf(setup, '%.17e\n%.17e\n%.17e\n', dx, dy, dz)
+    C.fprintf(setup, '%.17e\n%.17e\n%.17e\n', angles[M].xi, angles[M].eta, angles[M].mu)
     C.fclose(setup)
 
     var cell_source = C.fopen('cell_source.dat', 'w')
