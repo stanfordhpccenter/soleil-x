@@ -2701,6 +2701,7 @@ function Exports.ComputeRadiationField(config, tiles, points, p_points) return r
       end
     end
 
+    regentlib.assert(ntx == 0 and nty == 0 and ntz == 0, '')
     var M = 0
     for m = 0, NUM_ANGLES do
       if angles[m].xi > 0 and angles[m].eta > 0 and angles[m].mu > 0 then
@@ -2708,17 +2709,19 @@ function Exports.ComputeRadiationField(config, tiles, points, p_points) return r
         break
       end
     end
-    C.printf('GRID %d %d %d\n', Nx, Ny, Nz)
-    C.printf('TILES %d %d %d\n', ntx, nty, ntz)
-    C.printf('GAMMA %lf %lf %lf\n', gamma, gamma, gamma)
-    C.printf('CELL_WIDTH %lf %lf %lf\n', dx, dy, dz)
-    C.printf('ANGLE %lf %lf %lf\n', angles[M].xi, angles[M].eta, angles[M].mu)
+
+    var setup = C.fopen('setup.dat', 'w')
+    C.printf('%d\n%d\n%d\n', Nx, Ny, Nz)
+    C.printf('%.17e\n%.17e\n%.17e\n', gamma, gamma, gamma)
+    C.printf('%.17e\n%.17e\n%.17e\n', dx, dy, dz)
+    C.printf('%.17e\n%.17e\n%.17e\n', angles[M].xi, angles[M].eta, angles[M].mu)
+    C.fclose(setup)
 
     var cell_source = C.fopen('cell_source.dat', 'w')
     for i = 0,Nx do
       for j = 0,Ny do
         for k = 0,Nz do
-          C.fprintf(cell_source,'%lf\n', points[{i,j,k}].S)
+          C.fprintf(cell_source,'%.17e\n', points[{i,j,k}].S)
         end
       end
     end
@@ -2728,7 +2731,7 @@ function Exports.ComputeRadiationField(config, tiles, points, p_points) return r
     for i = 0,Nx do
       for j = 0,Ny do
         for k = 0,Nz do
-          C.fprintf(cell_sigma, '%lf\n', points[{i,j,k}].sigma)
+          C.fprintf(cell_sigma, '%.17e\n', points[{i,j,k}].sigma)
         end
       end
     end
@@ -2738,7 +2741,7 @@ function Exports.ComputeRadiationField(config, tiles, points, p_points) return r
     for i = 0,Nx do
       for j = 0,Ny do
         for k = 0,Nz do
-          C.fprintf(cell_int_prev, '%lf\n', points[{i,j,k}].I_1[M])
+          C.fprintf(cell_int_prev, '%.17e\n', points[{i,j,k}].I_1[M])
         end
       end
     end
@@ -2748,7 +2751,7 @@ function Exports.ComputeRadiationField(config, tiles, points, p_points) return r
     for i = 0,Nx+1 do
       for j = 0,Ny do
         for k = 0,Nz do
-          C.fprintf(x_face_int_prev, '%lf\n', [x_faces[1]][{i,j,k}].I[M])
+          C.fprintf(x_face_int_prev, '%.17e\n', [x_faces[1]][{i,j,k}].I[M])
         end
       end
     end
@@ -2758,7 +2761,7 @@ function Exports.ComputeRadiationField(config, tiles, points, p_points) return r
     for i = 0,Nx do
       for j = 0,Ny+1 do
         for k = 0,Nz do
-          C.fprintf(y_face_int_prev, '%lf\n', [y_faces[1]][{i,j,k}].I[M])
+          C.fprintf(y_face_int_prev, '%.17e\n', [y_faces[1]][{i,j,k}].I[M])
         end
       end
     end
@@ -2768,7 +2771,7 @@ function Exports.ComputeRadiationField(config, tiles, points, p_points) return r
     for i = 0,Nx do
       for j = 0,Ny do
         for k = 0,Nz+1 do
-          C.fprintf(z_face_int_prev, '%lf\n', [z_faces[1]][{i,j,k}].I[M])
+          C.fprintf(z_face_int_prev, '%.17e\n', [z_faces[1]][{i,j,k}].I[M])
         end
       end
     end
@@ -2792,7 +2795,7 @@ function Exports.ComputeRadiationField(config, tiles, points, p_points) return r
     for i = 0,Nx do
       for j = 0,Ny do
         for k = 0,Nz do
-          C.fprintf(cell_int_rg, '%lf\n', points[{i,j,k}].I_1[M])
+          C.fprintf(cell_int_rg, '%.17e\n', points[{i,j,k}].I_1[M])
         end
       end
     end
@@ -2802,7 +2805,7 @@ function Exports.ComputeRadiationField(config, tiles, points, p_points) return r
     for i = 0,Nx+1 do
       for j = 0,Ny do
         for k = 0,Nz do
-          C.fprintf(x_face_int_rg, '%lf\n', [x_faces[1]][{i,j,k}].I[M])
+          C.fprintf(x_face_int_rg, '%.17e\n', [x_faces[1]][{i,j,k}].I[M])
         end
       end
     end
@@ -2812,7 +2815,7 @@ function Exports.ComputeRadiationField(config, tiles, points, p_points) return r
     for i = 0,Nx do
       for j = 0,Ny+1 do
         for k = 0,Nz do
-          C.fprintf(y_face_int_rg, '%lf\n', [y_faces[1]][{i,j,k}].I[M])
+          C.fprintf(y_face_int_rg, '%.17e\n', [y_faces[1]][{i,j,k}].I[M])
         end
       end
     end
@@ -2822,7 +2825,7 @@ function Exports.ComputeRadiationField(config, tiles, points, p_points) return r
     for i = 0,Nx do
       for j = 0,Ny do
         for k = 0,Nz+1 do
-          C.fprintf(z_face_int_rg, '%lf\n', [z_faces[1]][{i,j,k}].I[M])
+          C.fprintf(z_face_int_rg, '%.17e\n', [z_faces[1]][{i,j,k}].I[M])
         end
       end
     end

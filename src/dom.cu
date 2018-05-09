@@ -63,7 +63,7 @@ public:
     for (size_t i = 0; i < nx_; ++i) {
       for (size_t j = 0; j < ny_; ++j) {
         for (size_t k = 0; k < nz_; ++k) {
-          fprintf(fout, "%lf\n", (*this)(i,j,k));
+          fprintf(fout, "%.17e\n", (*this)(i,j,k));
         }
       }
     }
@@ -434,10 +434,18 @@ void sweep(DeviceArray/*(NX,NY,NZ)*/& cell_int,
 //=============================================================================
 
 int main() {
-  size_t NX = 64, NY = 64, NZ = 64;
-  double x_gamma = 0.5, y_gamma = 0.5, z_gamma = 0.5;
-  double dx = 0.098175, dy = 0.098175, dz = 0.098175;
-  double xi = 0.577350, eta = 0.577350, mu = 0.577350;
+  size_t NX, NY, NZ;
+  double x_gamma, y_gamma, z_gamma;
+  double dx, dy, dz;
+  double xi, eta, mu;
+
+  {
+    std::fstream setup("setup.dat", std::fstream::in);
+    setup >> NX >> NY >> NZ;
+    setup >> x_gamma >> y_gamma >> z_gamma;
+    setup >> dx >> dy >> dz;
+    setup >> xi >> eta >> mu;
+  }
 
   HostArray h_cell_int(NX,NY,NZ);
   HostArray h_cell_source(NX,NY,NZ);
