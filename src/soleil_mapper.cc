@@ -105,12 +105,57 @@ public:
     return DefaultMapper::default_policy_select_initial_processor(ctx, task);
   }
 
-  // TODO: Assign priorities to sweep tasks such that we prioritize the tile
-  // that has more dependencies downstream.
+  // Assign priorities to sweep tasks such that we prioritize the tile that has
+  // more dependencies downstream.
   virtual TaskPriority default_policy_select_task_priority(
                               MapperContext ctx,
                               const Task& task) {
-    return DefaultMapper::default_policy_select_task_priority(ctx, task);
+    if (!STARTS_WITH(task.get_task_name(), "sweep_")) {
+      return DefaultMapper::default_policy_select_task_priority(ctx, task);
+    }
+    // Compute direction of sweep.
+    int sweep_id = atoi(task.get_task_name() + sizeof("sweep_") - 1) - 1;
+    CHECK(0 <= sweep_id && sweep_id <= 7,
+          "Task %s: invalid sweep id", task.get_task_name());
+    bool x_rev = (sweep_id >> 0) & 1;
+    bool y_rev = (sweep_id >> 1) & 1;
+    bool z_rev = (sweep_id >> 2) & 1;
+    // Retrieve sample information from parent work task.
+    CHECK(task.parent_task != NULL &&
+          strcmp(task.parent_task->get_task_name(), "work") == 0,
+          "DOM tasks should only be launched from the work task directly.");
+    const Config* config = find_config(&task);
+    unsigned sample_id = config->Mapping.sampleId;
+    // Find the tile this task launch is centered on.
+    DomainPoint tile = DomainPoint::nil();
+    for (const RegionRequirement& req : task.regions) {
+      assert(req.region.exists());
+      const char* name = NULL;
+      runtime->retrieve_name(ctx, req.region.get_field_space(), name);
+      if (strcmp(name, "Radiation_columns") == 0) {
+        tile = runtime->get_logical_region_color_point(ctx, req.region);
+        break;
+      }
+    }
+    CHECK(!tile.is_null(),
+          "Cannot retrieve tile from DOM task launch -- did you change the"
+          " names of the field spaces?");
+    CHECK(tile.get_dim() == 3 &&
+          tile[0] < config->Mapping.xTiles &&
+          tile[1] < config->Mapping.yTiles &&
+          tile[2] < config->Mapping.zTiles,
+          "DOM task launches should only use the top-level tiling.");
+    // Assign priority according to the number of diagonals between this launch
+    // and the end of the domain.
+    int priority =
+      (x_rev ? tile[0] : config->Mapping.xTiles - tile[0] - 1) +
+      (y_rev ? tile[1] : config->Mapping.yTiles - tile[1] - 1) +
+      (z_rev ? tile[2] : config->Mapping.zTiles - tile[2] - 1);
+    LOG.debug() << "Sample " << sample_id << ":"
+                << " Task " << task.get_task_name()
+                << " on tile " << tile
+                << " given priority " << priority;
+    return priority;
   }
 
   // TODO: Select appropriate memories for instances that will be communicated,
