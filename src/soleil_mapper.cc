@@ -55,12 +55,20 @@ public:
             config.Mapping.yTiles > 0 &&
             config.Mapping.zTiles > 0,
             "Invalid tiling");
+      unsigned num_tiles =
+        config.Mapping.xTiles * config.Mapping.yTiles * config.Mapping.zTiles;
+      // Store information for the sample this mapper instance belongs to.
+      if (node_id >= allocated_ranks &&
+          node_id < allocated_ranks + num_tiles) {
+	sample_id_ = sample_mappings_.size();
+        x_tiles_ = config.Mapping.xTiles;
+	y_tiles_ = config.Mapping.yTiles;
+	z_tiles_ = config.Mapping.zTiles;
+      }
       sample_mappings_.push_back(SampleMapping{
         .first_rank = allocated_ranks,
       });
-      allocated_ranks += config.Mapping.xTiles
-                       * config.Mapping.yTiles
-                       * config.Mapping.zTiles;
+      allocated_ranks += num_tiles;
     };
     for (int i = 0; i < args.argc; ++i) {
       if (strcmp(args.argv[i], "-i") == 0 && i < args.argc-1) {
@@ -120,12 +128,6 @@ public:
     bool x_rev = (sweep_id >> 0) & 1;
     bool y_rev = (sweep_id >> 1) & 1;
     bool z_rev = (sweep_id >> 2) & 1;
-    // Retrieve sample information from parent work task.
-    CHECK(task.parent_task != NULL &&
-          strcmp(task.parent_task->get_task_name(), "work") == 0,
-          "DOM tasks should only be launched from the work task directly.");
-    const Config* config = find_config(&task);
-    unsigned sample_id = config->Mapping.sampleId;
     // Find the tile this task launch is centered on.
     DomainPoint tile = DomainPoint::nil();
     for (const RegionRequirement& req : task.regions) {
@@ -141,17 +143,17 @@ public:
           "Cannot retrieve tile from DOM task launch -- did you change the"
           " names of the field spaces?");
     CHECK(tile.get_dim() == 3 &&
-          tile[0] < config->Mapping.xTiles &&
-          tile[1] < config->Mapping.yTiles &&
-          tile[2] < config->Mapping.zTiles,
+          tile[0] < x_tiles_ &&
+          tile[1] < y_tiles_ &&
+          tile[2] < z_tiles_,
           "DOM task launches should only use the top-level tiling.");
     // Assign priority according to the number of diagonals between this launch
     // and the end of the domain.
     int priority =
-      (x_rev ? tile[0] : config->Mapping.xTiles - tile[0] - 1) +
-      (y_rev ? tile[1] : config->Mapping.yTiles - tile[1] - 1) +
-      (z_rev ? tile[2] : config->Mapping.zTiles - tile[2] - 1);
-    LOG.debug() << "Sample " << sample_id << ":"
+      (x_rev ? tile[0] : x_tiles_ - tile[0] - 1) +
+      (y_rev ? tile[1] : y_tiles_ - tile[1] - 1) +
+      (z_rev ? tile[2] : z_tiles_ - tile[2] - 1);
+    LOG.debug() << "Sample " << sample_id_ << ":"
                 << " Task " << task.get_task_name()
                 << " on tile " << tile
                 << " given priority " << priority;
@@ -254,6 +256,10 @@ private:
 
 private:
   std::vector<SampleMapping> sample_mappings_;
+  unsigned sample_id_;
+  unsigned x_tiles_;
+  unsigned y_tiles_;
+  unsigned z_tiles_;
 };
 
 //=============================================================================
