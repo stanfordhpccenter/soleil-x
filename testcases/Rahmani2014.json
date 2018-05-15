@@ -25,6 +25,10 @@
             "type" : "Constant",
             "temperature" : 300.0
         },
+        "xBCLeftInflowProfile" : {
+            "type" : "Constant",
+            "elocity" : 1.0
+        },
         "xBCRight" : "NSCBC_SubsonicOutflow",
         "xBCRightVel" : [0.0, 0.0, 0.0],
         "xBCRightHeat" : {
