@@ -268,11 +268,11 @@ terra Exports.createDir(name : &int8)
   end
 end
 
-terra Exports.createFile(name : &int8) : &C.FILE
-  var file = C.fopen(name, 'w')
+terra Exports.openFile(name : &int8, mode : &int8) : &C.FILE
+  var file = C.fopen(name, mode)
   if file == nil then
     var stderr = C.fdopen(2, 'w')
-    C.fprintf(stderr, 'Cannot open file %s for writing: ', name)
+    C.fprintf(stderr, 'Cannot open file %s in mode "%s": ', name, mode)
     C.fflush(stderr)
     C.perror('')
     C.fflush(stderr)

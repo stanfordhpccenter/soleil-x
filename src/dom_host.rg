@@ -136,7 +136,9 @@ local task main()
   -- Inline quotes from external module
   [DOM.DeclSymbols(config)];
   [DOM.InitRegions()];
-  InitPoints(points);
+  for color in colors do
+    InitPoints(p_points[color])
+  end
   [DOM.ComputeRadiationField(config, colors, p_points)];
   writeIntensity(points)
 end

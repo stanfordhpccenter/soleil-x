@@ -90,18 +90,6 @@ local struct tile_info {
 -- MODULE-LOCAL TASKS
 -------------------------------------------------------------------------------
 
--- Initialize face values
-local task initialize_faces(faces : region(ispace(int3d), face))
-where
-  reads writes (faces.I)
-do
-  for f in faces do
-    for m = 0, NUM_ANGLES do
-      f.I[m] = 0.0
-    end
-  end
-end
-
 -- Initialize angle quads
 local task initialize_angles(angles : region(ispace(int1d), angle))
 where
@@ -319,8 +307,8 @@ do
   var epsw = config.Radiation.xLoEmiss
   var Tw = config.Radiation.xLoTemp
 
-  for j = limits.lo.y, limits.hi.y + 1 do
-    for k = limits.lo.z, limits.hi.z + 1 do
+  for k = limits.lo.z, limits.hi.z + 1 do
+    for j = limits.lo.y, limits.hi.y + 1 do
       var value = 0.0
 
       -- Calculate reflect
@@ -398,8 +386,8 @@ do
   var epsw = config.Radiation.xHiEmiss
   var Tw = config.Radiation.xHiTemp
 
-  for j = limits.lo.y, limits.hi.y + 1 do
-    for k = limits.lo.z, limits.hi.z + 1 do
+  for k = limits.lo.z, limits.hi.z + 1 do
+    for j = limits.lo.y, limits.hi.y + 1 do
       var value = 0.0
 
       -- Calculate reflect
@@ -477,8 +465,8 @@ do
   var epsw = config.Radiation.yHiEmiss
   var Tw = config.Radiation.yHiTemp
 
-  for i = limits.lo.x, limits.hi.x + 1 do
-    for k = limits.lo.z, limits.hi.z + 1 do
+  for k = limits.lo.z, limits.hi.z + 1 do
+    for i = limits.lo.x, limits.hi.x + 1 do
       var value = 0.0
 
       -- Calculate reflect
@@ -556,8 +544,8 @@ do
   var epsw = config.Radiation.yLoEmiss
   var Tw = config.Radiation.yLoTemp
 
-  for i = limits.lo.x, limits.hi.x + 1 do
-    for k = limits.lo.z, limits.hi.z + 1 do
+  for k = limits.lo.z, limits.hi.z + 1 do
+    for i = limits.lo.x, limits.hi.x + 1 do
       var value = 0.0
 
       -- Calculate reflect
@@ -635,8 +623,8 @@ do
   var epsw = config.Radiation.zLoEmiss
   var Tw = config.Radiation.zLoTemp
 
-  for i = limits.lo.x, limits.hi.x + 1 do
-    for j = limits.lo.y, limits.hi.y + 1 do
+  for j = limits.lo.y, limits.hi.y + 1 do
+    for i = limits.lo.x, limits.hi.x + 1 do
       var value = 0.0
 
       -- Calculate reflect
@@ -714,8 +702,8 @@ do
   var epsw = config.Radiation.zHiEmiss
   var Tw = config.Radiation.zHiTemp
 
-  for i = limits.lo.x, limits.hi.x + 1 do
-    for j = limits.lo.y, limits.hi.y + 1 do
+  for j = limits.lo.y, limits.hi.y + 1 do
+    for i = limits.lo.x, limits.hi.x + 1 do
       var value = 0.0
 
       -- Calculate reflect
@@ -829,18 +817,18 @@ do
   end
 
 
-  -- Outer loop over all angles.
-  for m = 0, NUM_ANGLES do
+  -- Use our direction and increments for the sweep.
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
-      (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
+  for k = startz,endz,dindz do
+    for j = starty,endy,dindy do
+      for i = startx,endx,dindx do
 
-      -- Use our direction and increments for the sweep.
+      -- Loop over all angles.
+      for m = 0, NUM_ANGLES do
 
-      for k = startz,endz,dindz do
-        for j = starty,endy,dindy do
-          for i = startx,endx,dindx do
+        if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+          (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
+          (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
             -- indx and indy are the upwind indices
             var indx : int64 = i - min(dindx,0)
@@ -973,19 +961,18 @@ do
     endz = limits.lo.z - 1
   end
 
+  -- Use our direction and increments for the sweep.
 
-  -- Outer loop over all angles.
-  for m = 0, NUM_ANGLES do
+  for k = startz,endz,dindz do
+    for j = starty,endy,dindy do
+      for i = startx,endx,dindx do
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
-      (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
+      -- Loop over all angles.
+      for m = 0, NUM_ANGLES do
 
-      -- Use our direction and increments for the sweep.
-
-      for k = startz,endz,dindz do
-        for j = starty,endy,dindy do
-          for i = startx,endx,dindx do
+        if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+          (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
+          (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
             -- indx and indy are the upwind indices
             var indx : int64 = i - min(dindx,0)
@@ -1120,18 +1107,18 @@ do
   end
 
 
-  -- Outer loop over all angles.
-  for m = 0, NUM_ANGLES do
+  -- Use our direction and increments for the sweep.
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
-      (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
+  for k = startz,endz,dindz do
+    for j = starty,endy,dindy do
+      for i = startx,endx,dindx do
 
-      -- Use our direction and increments for the sweep.
+      -- Loop over all angles.
+      for m = 0, NUM_ANGLES do
 
-      for k = startz,endz,dindz do
-        for j = starty,endy,dindy do
-          for i = startx,endx,dindx do
+        if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+          (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
+          (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
             -- indx and indy are the upwind indices
             var indx : int64 = i - min(dindx,0)
@@ -1266,18 +1253,18 @@ do
   end
 
 
-  -- Outer loop over all angles.
-  for m = 0, NUM_ANGLES do
+  -- Use our direction and increments for the sweep.
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
-      (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
+  for k = startz,endz,dindz do
+    for j = starty,endy,dindy do
+      for i = startx,endx,dindx do
 
-      -- Use our direction and increments for the sweep.
+      -- Loop over all angles.
+      for m = 0, NUM_ANGLES do
 
-      for k = startz,endz,dindz do
-        for j = starty,endy,dindy do
-          for i = startx,endx,dindx do
+        if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+          (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
+          (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
             -- indx and indy are the upwind indices
             var indx : int64 = i - min(dindx,0)
@@ -1412,18 +1399,18 @@ do
   end
 
 
-  -- Outer loop over all angles.
-  for m = 0, NUM_ANGLES do
+  -- Use our direction and increments for the sweep.
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
-      (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
+  for k = startz,endz,dindz do
+    for j = starty,endy,dindy do
+      for i = startx,endx,dindx do
 
-      -- Use our direction and increments for the sweep.
+      -- Loop over all angles.
+      for m = 0, NUM_ANGLES do
 
-      for k = startz,endz,dindz do
-        for j = starty,endy,dindy do
-          for i = startx,endx,dindx do
+        if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+          (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
+          (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
             -- indx and indy are the upwind indices
             var indx : int64 = i - min(dindx,0)
@@ -1558,18 +1545,18 @@ do
   end
 
 
-  -- Outer loop over all angles.
-  for m = 0, NUM_ANGLES do
+  -- Use our direction and increments for the sweep.
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
-      (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
+  for k = startz,endz,dindz do
+    for j = starty,endy,dindy do
+      for i = startx,endx,dindx do
 
-      -- Use our direction and increments for the sweep.
+      -- Loop over all angles.
+      for m = 0, NUM_ANGLES do
 
-      for k = startz,endz,dindz do
-        for j = starty,endy,dindy do
-          for i = startx,endx,dindx do
+        if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+          (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
+          (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
             -- indx and indy are the upwind indices
             var indx : int64 = i - min(dindx,0)
@@ -1704,18 +1691,18 @@ do
   end
 
 
-  -- Outer loop over all angles.
-  for m = 0, NUM_ANGLES do
+  -- Use our direction and increments for the sweep.
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
-      (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
+  for k = startz,endz,dindz do
+    for j = starty,endy,dindy do
+      for i = startx,endx,dindx do
 
-      -- Use our direction and increments for the sweep.
+      -- Loop over all angles.
+      for m = 0, NUM_ANGLES do
 
-      for k = startz,endz,dindz do
-        for j = starty,endy,dindy do
-          for i = startx,endx,dindx do
+        if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+          (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
+          (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
             -- indx and indy are the upwind indices
             var indx : int64 = i - min(dindx,0)
@@ -1850,18 +1837,18 @@ do
   end
 
 
-  -- Outer loop over all angles.
-  for m = 0, NUM_ANGLES do
+  -- Use our direction and increments for the sweep.
 
-    if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
-      (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
-      (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
+  for k = startz,endz,dindz do
+    for j = starty,endy,dindy do
+      for i = startx,endx,dindx do
 
-      -- Use our direction and increments for the sweep.
+      -- Loop over all angles.
+      for m = 0, NUM_ANGLES do
 
-      for k = startz,endz,dindz do
-        for j = starty,endy,dindy do
-          for i = startx,endx,dindx do
+        if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
+          (angles[m].eta * eta > 0 or (angles[m].eta == 0 and eta < 0)) and
+          (angles[m].mu * mu > 0 or (angles[m].mu == 0 and mu < 0)) then
 
             -- indx and indy are the upwind indices
             var indx : int64 = i - min(dindx,0)
@@ -1950,47 +1937,81 @@ do
   __demand(__openmp)
   for p in points do
     for m = 0, NUM_ANGLES do
-
-      if p.I_1[m] > 0 then
-        res += pow((p.I_1[m]-p.Iiter_1[m]),2.0)
-          / pow((p.I_1[m]),2.0)
+      var v1 = p.I_1[m]
+      if v1 > 0 then
+        var v2 = v1 - p.Iiter_1[m]
+        res += (v2 * v2) / (v1 * v1)
       end
-
-      if p.I_2[m] > 0 then
-        res += pow((p.I_2[m]-p.Iiter_2[m]),2.0)
-          / pow((p.I_2[m]),2.0)
+    end
+  end
+  __demand(__openmp)
+  for p in points do
+    for m = 0, NUM_ANGLES do
+      var v1 = p.I_2[m]
+      if v1 > 0 then
+        var v2 = v1 - p.Iiter_2[m]
+        res += (v2 * v2) / (v1 * v1)
       end
-
-      if p.I_3[m] > 0 then
-        res += pow((p.I_3[m]-p.Iiter_3[m]),2.0)
-          / pow((p.I_3[m]),2.0)
+    end
+  end
+  __demand(__openmp)
+  for p in points do
+    for m = 0, NUM_ANGLES do
+      var v1 = p.I_3[m]
+      if v1 > 0 then
+        var v2 = v1 - p.Iiter_3[m]
+        res += (v2 * v2) / (v1 * v1)
       end
-
-      if p.I_4[m] > 0 then
-        res += pow((p.I_4[m]-p.Iiter_4[m]),2.0)
-          / pow((p.I_4[m]),2.0)
+    end
+  end
+  __demand(__openmp)
+  for p in points do
+    for m = 0, NUM_ANGLES do
+      var v1 = p.I_4[m]
+      if v1 > 0 then
+        var v2 = v1 - p.Iiter_4[m]
+        res += (v2 * v2) / (v1 * v1)
       end
-
-      if p.I_5[m] > 0 then
-        res += pow((p.I_5[m]-p.Iiter_5[m]),2.0)
-          / pow((p.I_5[m]),2.0)
+    end
+  end
+  __demand(__openmp)
+  for p in points do
+    for m = 0, NUM_ANGLES do
+      var v1 = p.I_5[m]
+      if v1 > 0 then
+        var v2 = v1 - p.Iiter_5[m]
+        res += (v2 * v2) / (v1 * v1)
       end
-
-      if p.I_6[m] > 0 then
-        res += pow((p.I_6[m]-p.Iiter_6[m]),2.0)
-          / pow((p.I_6[m]),2.0)
+    end
+  end
+  __demand(__openmp)
+  for p in points do
+    for m = 0, NUM_ANGLES do
+      var v1 = p.I_6[m]
+      if v1 > 0 then
+        var v2 = v1 - p.Iiter_6[m]
+        res += (v2 * v2) / (v1 * v1)
       end
-
-      if p.I_7[m] > 0 then
-        res += pow((p.I_7[m]-p.Iiter_7[m]),2.0)
-          / pow((p.I_7[m]),2.0)
+    end
+  end
+  __demand(__openmp)
+  for p in points do
+    for m = 0, NUM_ANGLES do
+      var v1 = p.I_7[m]
+      if v1 > 0 then
+        var v2 = v1 - p.Iiter_7[m]
+        res += (v2 * v2) / (v1 * v1)
       end
-
-      if p.I_8[m] > 0 then
-        res += pow((p.I_8[m]-p.Iiter_8[m]),2.0)
-          / pow((p.I_8[m]),2.0)
+    end
+  end
+  __demand(__openmp)
+  for p in points do
+    for m = 0, NUM_ANGLES do
+      var v1 = p.I_8[m]
+      if v1 > 0 then
+        var v2 = v1 - p.Iiter_8[m]
+        res += (v2 * v2) / (v1 * v1)
       end
-
     end
   end
 
@@ -2004,16 +2025,53 @@ where
   reads writes (points.{Iiter_1, Iiter_2, Iiter_3, Iiter_4,
                         Iiter_5, Iiter_6, Iiter_7, Iiter_8})
 do
-  __demand(__openmp)
+  -- Request that outer loop is not vectorized, to ensure the inner one gets
+  -- vectorized instead.
+  __forbid(__vectorize) __demand(__openmp)
   for p in points do
     for m = 0, NUM_ANGLES do
       p.Iiter_1[m] = p.I_1[m]
+    end
+  end
+  __forbid(__vectorize) __demand(__openmp)
+  for p in points do
+    for m = 0, NUM_ANGLES do
       p.Iiter_2[m] = p.I_2[m]
+    end
+  end
+  __forbid(__vectorize) __demand(__openmp)
+  for p in points do
+    for m = 0, NUM_ANGLES do
       p.Iiter_3[m] = p.I_3[m]
+    end
+  end
+  __forbid(__vectorize) __demand(__openmp)
+  for p in points do
+    for m = 0, NUM_ANGLES do
       p.Iiter_4[m] = p.I_4[m]
+    end
+  end
+  __forbid(__vectorize) __demand(__openmp)
+  for p in points do
+    for m = 0, NUM_ANGLES do
       p.Iiter_5[m] = p.I_5[m]
+    end
+  end
+  __forbid(__vectorize) __demand(__openmp)
+  for p in points do
+    for m = 0, NUM_ANGLES do
       p.Iiter_6[m] = p.I_6[m]
+    end
+  end
+  __forbid(__vectorize) __demand(__openmp)
+  for p in points do
+    for m = 0, NUM_ANGLES do
       p.Iiter_7[m] = p.I_7[m]
+    end
+  end
+  __forbid(__vectorize) __demand(__openmp)
+  for p in points do
+    for m = 0, NUM_ANGLES do
       p.Iiter_8[m] = p.I_8[m]
     end
   end
@@ -2057,6 +2115,10 @@ local ntx = regentlib.newsymbol('ntx')
 local nty = regentlib.newsymbol('nty')
 local ntz = regentlib.newsymbol('ntz')
 
+local grid_x = regentlib.newsymbol('grid_x')
+local grid_y = regentlib.newsymbol('grid_y')
+local grid_z = regentlib.newsymbol('grid_z')
+
 local x_faces = {
   regentlib.newsymbol('x_faces_1'),
   regentlib.newsymbol('x_faces_2'),
@@ -2095,69 +2157,36 @@ local tiles_private = regentlib.newsymbol('tiles_private')
 local x_tiles_shared = regentlib.newsymbol('x_tiles_shared')
 local y_tiles_shared = regentlib.newsymbol('y_tiles_shared')
 local z_tiles_shared = regentlib.newsymbol('z_tiles_shared')
-local diagonals_private = regentlib.newsymbol('diagonals_private')
-local diagonals_shared = regentlib.newsymbol('diagonals_shared')
 
-local s_x_faces = {
-  regentlib.newsymbol('s_x_faces_1'),
-  regentlib.newsymbol('s_x_faces_2'),
-  regentlib.newsymbol('s_x_faces_3'),
-  regentlib.newsymbol('s_x_faces_4'),
-  regentlib.newsymbol('s_x_faces_5'),
-  regentlib.newsymbol('s_x_faces_6'),
-  regentlib.newsymbol('s_x_faces_7'),
-  regentlib.newsymbol('s_x_faces_8'),
+local p_x_faces_equal = {
+  regentlib.newsymbol('p_x_faces_equal_1'),
+  regentlib.newsymbol('p_x_faces_equal_2'),
+  regentlib.newsymbol('p_x_faces_equal_3'),
+  regentlib.newsymbol('p_x_faces_equal_4'),
+  regentlib.newsymbol('p_x_faces_equal_5'),
+  regentlib.newsymbol('p_x_faces_equal_6'),
+  regentlib.newsymbol('p_x_faces_equal_7'),
+  regentlib.newsymbol('p_x_faces_equal_8'),
 }
-local s_y_faces = {
-  regentlib.newsymbol('s_y_faces_1'),
-  regentlib.newsymbol('s_y_faces_2'),
-  regentlib.newsymbol('s_y_faces_3'),
-  regentlib.newsymbol('s_y_faces_4'),
-  regentlib.newsymbol('s_y_faces_5'),
-  regentlib.newsymbol('s_y_faces_6'),
-  regentlib.newsymbol('s_y_faces_7'),
-  regentlib.newsymbol('s_y_faces_8'),
+local p_y_faces_equal = {
+  regentlib.newsymbol('p_y_faces_equal_1'),
+  regentlib.newsymbol('p_y_faces_equal_2'),
+  regentlib.newsymbol('p_y_faces_equal_3'),
+  regentlib.newsymbol('p_y_faces_equal_4'),
+  regentlib.newsymbol('p_y_faces_equal_5'),
+  regentlib.newsymbol('p_y_faces_equal_6'),
+  regentlib.newsymbol('p_y_faces_equal_7'),
+  regentlib.newsymbol('p_y_faces_equal_8'),
 }
-local s_z_faces = {
-  regentlib.newsymbol('s_z_faces_1'),
-  regentlib.newsymbol('s_z_faces_2'),
-  regentlib.newsymbol('s_z_faces_3'),
-  regentlib.newsymbol('s_z_faces_4'),
-  regentlib.newsymbol('s_z_faces_5'),
-  regentlib.newsymbol('s_z_faces_6'),
-  regentlib.newsymbol('s_z_faces_7'),
-  regentlib.newsymbol('s_z_faces_8'),
-}
-
-local s_x_faces_by_tile = {
-  regentlib.newsymbol('s_x_faces_by_tile_1'),
-  regentlib.newsymbol('s_x_faces_by_tile_2'),
-  regentlib.newsymbol('s_x_faces_by_tile_3'),
-  regentlib.newsymbol('s_x_faces_by_tile_4'),
-  regentlib.newsymbol('s_x_faces_by_tile_5'),
-  regentlib.newsymbol('s_x_faces_by_tile_6'),
-  regentlib.newsymbol('s_x_faces_by_tile_7'),
-  regentlib.newsymbol('s_x_faces_by_tile_8'),
-}
-local s_y_faces_by_tile = {
-  regentlib.newsymbol('s_y_faces_by_tile_1'),
-  regentlib.newsymbol('s_y_faces_by_tile_2'),
-  regentlib.newsymbol('s_y_faces_by_tile_3'),
-  regentlib.newsymbol('s_y_faces_by_tile_4'),
-  regentlib.newsymbol('s_y_faces_by_tile_5'),
-  regentlib.newsymbol('s_y_faces_by_tile_6'),
-  regentlib.newsymbol('s_y_faces_by_tile_7'),
-  regentlib.newsymbol('s_y_faces_by_tile_8'),
-}
-local s_z_faces_by_tile = {
-  regentlib.newsymbol('s_z_faces_by_tile_1'),
-  regentlib.newsymbol('s_z_faces_by_tile_2'),
-  regentlib.newsymbol('s_z_faces_by_tile_3'),
-  regentlib.newsymbol('s_z_faces_by_tile_4'),
-  regentlib.newsymbol('s_z_faces_by_tile_5'),
-  regentlib.newsymbol('s_z_faces_by_tile_6'),
-  regentlib.newsymbol('s_z_faces_by_tile_7'),
-  regentlib.newsymbol('s_z_faces_by_tile_8'),
+local p_z_faces_equal = {
+  regentlib.newsymbol('p_z_faces_equal_1'),
+  regentlib.newsymbol('p_z_faces_equal_2'),
+  regentlib.newsymbol('p_z_faces_equal_3'),
+  regentlib.newsymbol('p_z_faces_equal_4'),
+  regentlib.newsymbol('p_z_faces_equal_5'),
+  regentlib.newsymbol('p_z_faces_equal_6'),
+  regentlib.newsymbol('p_z_faces_equal_7'),
+  regentlib.newsymbol('p_z_faces_equal_8'),
 }
 
 local p_x_faces = {
@@ -2191,412 +2220,115 @@ local p_z_faces = {
   regentlib.newsymbol('p_z_faces_8'),
 }
 
-local tiles_by_diagonal = {
-  regentlib.newsymbol('tiles_by_diagonal_1'),
-  regentlib.newsymbol('tiles_by_diagonal_2'),
-  regentlib.newsymbol('tiles_by_diagonal_3'),
-  regentlib.newsymbol('tiles_by_diagonal_4'),
-  regentlib.newsymbol('tiles_by_diagonal_5'),
-  regentlib.newsymbol('tiles_by_diagonal_6'),
-  regentlib.newsymbol('tiles_by_diagonal_7'),
-  regentlib.newsymbol('tiles_by_diagonal_8'),
-}
+function Exports.DeclSymbols(config)
 
-function Exports.DeclSymbols(config) return rquote
+  local decl_symbols = rquote
+    -- Number of points in each dimension
+    var [Nx] = config.Radiation.xNum
+    var [Ny] = config.Radiation.yNum
+    var [Nz] = config.Radiation.zNum
 
-  -- Number of points in each dimension
-  var [Nx] = config.Radiation.xNum
-  var [Ny] = config.Radiation.yNum
-  var [Nz] = config.Radiation.zNum
+    -- Number of tiles in each dimension
+    var [ntx] = config.Mapping.xTiles
+    var [nty] = config.Mapping.yTiles
+    var [ntz] = config.Mapping.zTiles
 
-  -- Number of tiles in each dimension
-  var [ntx] = config.Mapping.xTiles
-  var [nty] = config.Mapping.yTiles
-  var [ntz] = config.Mapping.zTiles
+    -- Regions for faces (+1 in one direction since one more face than points)
+    var [grid_x] = ispace(int3d, {x = Nx+1, y = Ny,   z = Nz  })
+    var [grid_y] = ispace(int3d, {x = Nx,   y = Ny+1, z = Nz  })
+    var [grid_z] = ispace(int3d, {x = Nx,   y = Ny,   z = Nz+1})
 
-  -- Regions for faces (+1 in one direction since one more face than points)
-  var grid_x = ispace(int3d, {x = Nx+1, y = Ny,   z = Nz  })
-  var grid_y = ispace(int3d, {x = Nx,   y = Ny+1, z = Nz  })
-  var grid_z = ispace(int3d, {x = Nx,   y = Ny,   z = Nz+1})
+    -- 1D Region for angle values
+    var angle_indices = ispace(int1d, NUM_ANGLES)
+    var [angles] = region(angle_indices, angle)
+  end
 
-  var [x_faces[1]] = region(grid_x, face)
-  var [x_faces[2]] = region(grid_x, face)
-  var [x_faces[3]] = region(grid_x, face)
-  var [x_faces[4]] = region(grid_x, face)
-  var [x_faces[5]] = region(grid_x, face)
-  var [x_faces[6]] = region(grid_x, face)
-  var [x_faces[7]] = region(grid_x, face)
-  var [x_faces[8]] = region(grid_x, face)
+  for i = 1, 8 do
+    decl_symbols = rquote
+      [decl_symbols];
+      var [x_faces[i]] = region([grid_x], face)
+      var [y_faces[i]] = region([grid_y], face)
+      var [z_faces[i]] = region([grid_z], face)
+    end
+  end
 
-  var [y_faces[1]] = region(grid_y, face)
-  var [y_faces[2]] = region(grid_y, face)
-  var [y_faces[3]] = region(grid_y, face)
-  var [y_faces[4]] = region(grid_y, face)
-  var [y_faces[5]] = region(grid_y, face)
-  var [y_faces[6]] = region(grid_y, face)
-  var [y_faces[7]] = region(grid_y, face)
-  var [y_faces[8]] = region(grid_y, face)
-
-  var [z_faces[1]] = region(grid_z, face)
-  var [z_faces[2]] = region(grid_z, face)
-  var [z_faces[3]] = region(grid_z, face)
-  var [z_faces[4]] = region(grid_z, face)
-  var [z_faces[5]] = region(grid_z, face)
-  var [z_faces[6]] = region(grid_z, face)
-  var [z_faces[7]] = region(grid_z, face)
-  var [z_faces[8]] = region(grid_z, face)
-
-  -- 1D Region for angle values
-  var angle_indices = ispace(int1d, NUM_ANGLES)
-  var [angles] = region(angle_indices, angle)
+  decl_symbols = rquote
+    [decl_symbols];
+    -- extra tile required for shared edge
+    var [tiles_private]  = ispace(int3d, {x = ntx,   y = nty,   z = ntz  })
+    var [x_tiles_shared] = ispace(int3d, {x = ntx+1, y = nty,   z = ntz  })
+    var [y_tiles_shared] = ispace(int3d, {x = ntx,   y = nty+1, z = ntz  })
+    var [z_tiles_shared] = ispace(int3d, {x = ntx,   y = nty,   z = ntz+1})
+  end
 
   -- Partition faces
 
-  -- extra tile required for shared edge
-  var [tiles_private]  = ispace(int3d, {x = ntx,   y = nty,   z = ntz  })
-  var [x_tiles_shared] = ispace(int3d, {x = ntx+1, y = nty,   z = ntz  })
-  var [y_tiles_shared] = ispace(int3d, {x = ntx,   y = nty+1, z = ntz  })
-  var [z_tiles_shared] = ispace(int3d, {x = ntx,   y = nty,   z = ntz+1})
-  var [diagonals_private] = ispace(int1d, ntx-1 + nty-1 + ntz-1 + 1)
-  var [diagonals_shared]  = ispace(int1d, ntx-1 + nty-1 + ntz-1 + 2)
+  local directions = {
+    rexpr array(true,true,true) end,
+    rexpr array(true,true,false) end,
+    rexpr array(true,false,true) end,
+    rexpr array(true,false,false) end,
+    rexpr array(false,true,true) end,
+    rexpr array(false,true,false) end,
+    rexpr array(false,false,true) end,
+    rexpr array(false,false,false) end,
+  }
 
-  -- x
+  for i = 1, 8 do
 
-  color_faces([x_faces[1]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(true,true,true))
-  var x_1_by_privacy = partition([x_faces[1]].is_private, ispace(int1d,2))
-  var p_x_1 = x_1_by_privacy[1]
-  var p_x_1_by_diagonal = partition(p_x_1.diagonal, diagonals_private)
-  var p_x_1_by_tile = partition(p_x_1.tile, tiles_private)
-  var [p_x_faces[1]] = cross_product(p_x_1_by_diagonal, p_x_1_by_tile)
-  var s_x_1 = x_1_by_privacy[0]
-  var s_x_1_by_diagonal = partition(s_x_1.diagonal, diagonals_shared)
-  var [s_x_faces_by_tile[1]] = partition(s_x_1.tile, x_tiles_shared)
-  var [s_x_faces[1]] = cross_product(s_x_1_by_diagonal, [s_x_faces_by_tile[1]])
+    local x_by_privacy = regentlib.newsymbol('x_by_privacy_' .. tostring(i))
+    local p_x = regentlib.newsymbol('p_x_' .. tostring(i))
+    local s_x = regentlib.newsymbol('s_x_' .. tostring(i))
 
-  color_faces([x_faces[2]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(true,true,false))
-  var x_2_by_privacy = partition([x_faces[2]].is_private, ispace(int1d,2))
-  var p_x_2 = x_2_by_privacy[1]
-  var p_x_2_by_diagonal = partition(p_x_2.diagonal, diagonals_private)
-  var p_x_2_by_tile = partition(p_x_2.tile, tiles_private)
-  var [p_x_faces[2]] = cross_product(p_x_2_by_diagonal, p_x_2_by_tile)
-  var s_x_2 = x_2_by_privacy[0]
-  var s_x_2_by_diagonal = partition(s_x_2.diagonal, diagonals_shared)
-  var [s_x_faces_by_tile[2]] = partition(s_x_2.tile, x_tiles_shared)
-  var [s_x_faces[2]] = cross_product(s_x_2_by_diagonal, [s_x_faces_by_tile[2]])
+    local y_by_privacy = regentlib.newsymbol('y_by_privacy_' .. tostring(i))
+    local p_y = regentlib.newsymbol('p_y_' .. tostring(i))
+    local s_y = regentlib.newsymbol('s_y_' .. tostring(i))
 
-  color_faces([x_faces[3]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(true,false,true))
-  var x_3_by_privacy = partition([x_faces[3]].is_private, ispace(int1d,2))
-  var p_x_3 = x_3_by_privacy[1]
-  var p_x_3_by_diagonal = partition(p_x_3.diagonal, diagonals_private)
-  var p_x_3_by_tile = partition(p_x_3.tile, tiles_private)
-  var [p_x_faces[3]] = cross_product(p_x_3_by_diagonal, p_x_3_by_tile)
-  var s_x_3 = x_3_by_privacy[0]
-  var s_x_3_by_diagonal = partition(s_x_3.diagonal, diagonals_shared)
-  var [s_x_faces_by_tile[3]] = partition(s_x_3.tile, x_tiles_shared)
-  var [s_x_faces[3]] = cross_product(s_x_3_by_diagonal, [s_x_faces_by_tile[3]])
+    local z_by_privacy = regentlib.newsymbol('z_by_privacy_' .. tostring(i))
+    local p_z = regentlib.newsymbol('p_z_' .. tostring(i))
+    local s_z = regentlib.newsymbol('s_z_' .. tostring(i))
 
-  color_faces([x_faces[4]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(true,false,false))
-  var x_4_by_privacy = partition([x_faces[4]].is_private, ispace(int1d,2))
-  var p_x_4 = x_4_by_privacy[1]
-  var p_x_4_by_diagonal = partition(p_x_4.diagonal, diagonals_private)
-  var p_x_4_by_tile = partition(p_x_4.tile, tiles_private)
-  var [p_x_faces[4]] = cross_product(p_x_4_by_diagonal, p_x_4_by_tile)
-  var s_x_4 = x_4_by_privacy[0]
-  var s_x_4_by_diagonal = partition(s_x_4.diagonal, diagonals_shared)
-  var [s_x_faces_by_tile[4]] = partition(s_x_4.tile, x_tiles_shared)
-  var [s_x_faces[4]] = cross_product(s_x_4_by_diagonal, [s_x_faces_by_tile[4]])
+    decl_symbols = rquote
+      [decl_symbols];
+      -- x
+      var [p_x_faces_equal[i]] = partition(equal, [x_faces[i]], [tiles_private])
+      for c in [tiles_private] do
+        color_faces([p_x_faces_equal[i]][c], Nx, Ny, Nz, ntx, nty, ntz, 0, [directions[i]])
+      end
+      var [x_by_privacy] = partition([x_faces[i]].is_private, ispace(int1d,2))
+      var [p_x] = [x_by_privacy][1]
+      var [p_x_faces[i]] = partition([p_x].tile, [tiles_private])
+      var [s_x] = [x_by_privacy][0]
+      var [s_x_faces[i]] = partition([s_x].tile, [x_tiles_shared])
+      -- y
+      var [p_y_faces_equal[i]] = partition(equal, [y_faces[i]], [tiles_private])
+      for c in [tiles_private] do
+        color_faces([p_y_faces_equal[i]][c], Nx, Ny, Nz, ntx, nty, ntz, 1, [directions[i]])
+      end
+      var [y_by_privacy] = partition([y_faces[i]].is_private, ispace(int1d,2))
+      var [p_y] = [y_by_privacy][1]
+      var [p_y_faces[i]] = partition([p_y].tile, [tiles_private])
+      var [s_y] = [y_by_privacy][0]
+      var [s_y_faces[i]] = partition([s_y].tile, [y_tiles_shared])
+      -- z
+      var [p_z_faces_equal[i]] = partition(equal, [z_faces[i]], [tiles_private])
+      for c in [tiles_private] do
+        color_faces([p_z_faces_equal[i]][c], Nx, Ny, Nz, ntx, nty, ntz, 2, [directions[i]])
+      end
+      var [z_by_privacy] = partition([z_faces[i]].is_private, ispace(int1d,2))
+      var [p_z] = [z_by_privacy][1]
+      var [p_z_faces[i]] = partition([p_z].tile, [tiles_private])
+      var [s_z] = [z_by_privacy][0]
+      var [s_z_faces[i]] = partition([s_z].tile, [z_tiles_shared])
+    end
+  end
 
-  color_faces([x_faces[5]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(false,true,true))
-  var x_5_by_privacy = partition([x_faces[5]].is_private, ispace(int1d,2))
-  var p_x_5 = x_5_by_privacy[1]
-  var p_x_5_by_diagonal = partition(p_x_5.diagonal, diagonals_private)
-  var p_x_5_by_tile = partition(p_x_5.tile, tiles_private)
-  var [p_x_faces[5]] = cross_product(p_x_5_by_diagonal, p_x_5_by_tile)
-  var s_x_5 = x_5_by_privacy[0]
-  var s_x_5_by_diagonal = partition(s_x_5.diagonal, diagonals_shared)
-  var [s_x_faces_by_tile[5]] = partition(s_x_5.tile, x_tiles_shared)
-  var [s_x_faces[5]] = cross_product(s_x_5_by_diagonal, [s_x_faces_by_tile[5]])
-
-  color_faces([x_faces[6]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(false,true,false))
-  var x_6_by_privacy = partition([x_faces[6]].is_private, ispace(int1d,2))
-  var p_x_6 = x_6_by_privacy[1]
-  var p_x_6_by_diagonal = partition(p_x_6.diagonal, diagonals_private)
-  var p_x_6_by_tile = partition(p_x_6.tile, tiles_private)
-  var [p_x_faces[6]] = cross_product(p_x_6_by_diagonal, p_x_6_by_tile)
-  var s_x_6 = x_6_by_privacy[0]
-  var s_x_6_by_diagonal = partition(s_x_6.diagonal, diagonals_shared)
-  var [s_x_faces_by_tile[6]] = partition(s_x_6.tile, x_tiles_shared)
-  var [s_x_faces[6]] = cross_product(s_x_6_by_diagonal, [s_x_faces_by_tile[6]])
-
-  color_faces([x_faces[7]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(false,false,true))
-  var x_7_by_privacy = partition([x_faces[7]].is_private, ispace(int1d,2))
-  var p_x_7 = x_7_by_privacy[1]
-  var p_x_7_by_diagonal = partition(p_x_7.diagonal, diagonals_private)
-  var p_x_7_by_tile = partition(p_x_7.tile, tiles_private)
-  var [p_x_faces[7]] = cross_product(p_x_7_by_diagonal, p_x_7_by_tile)
-  var s_x_7 = x_7_by_privacy[0]
-  var s_x_7_by_diagonal = partition(s_x_7.diagonal, diagonals_shared)
-  var [s_x_faces_by_tile[7]] = partition(s_x_7.tile, x_tiles_shared)
-  var [s_x_faces[7]] = cross_product(s_x_7_by_diagonal, [s_x_faces_by_tile[7]])
-
-  color_faces([x_faces[8]], Nx, Ny, Nz, ntx, nty, ntz, 0, array(false,false,false))
-  var x_8_by_privacy = partition([x_faces[8]].is_private, ispace(int1d,2))
-  var p_x_8 = x_8_by_privacy[1]
-  var p_x_8_by_diagonal = partition(p_x_8.diagonal, diagonals_private)
-  var p_x_8_by_tile = partition(p_x_8.tile, tiles_private)
-  var [p_x_faces[8]] = cross_product(p_x_8_by_diagonal, p_x_8_by_tile)
-  var s_x_8 = x_8_by_privacy[0]
-  var s_x_8_by_diagonal = partition(s_x_8.diagonal, diagonals_shared)
-  var [s_x_faces_by_tile[8]] = partition(s_x_8.tile, x_tiles_shared)
-  var [s_x_faces[8]] = cross_product(s_x_8_by_diagonal, [s_x_faces_by_tile[8]])
-
-  -- y
-
-  color_faces([y_faces[1]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(true,true,true))
-  var y_1_by_privacy = partition([y_faces[1]].is_private, ispace(int1d,2))
-  var p_y_1 = y_1_by_privacy[1]
-  var p_y_1_by_diagonal = partition(p_y_1.diagonal, diagonals_private)
-  var p_y_1_by_tile = partition(p_y_1.tile, tiles_private)
-  var [p_y_faces[1]] = cross_product(p_y_1_by_diagonal, p_y_1_by_tile)
-  var s_y_1 = y_1_by_privacy[0]
-  var s_y_1_by_diagonal = partition(s_y_1.diagonal, diagonals_shared)
-  var [s_y_faces_by_tile[1]] = partition(s_y_1.tile, y_tiles_shared)
-  var [s_y_faces[1]] = cross_product(s_y_1_by_diagonal, [s_y_faces_by_tile[1]])
-
-  color_faces([y_faces[2]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(true,true,false))
-  var y_2_by_privacy = partition([y_faces[2]].is_private, ispace(int1d,2))
-  var p_y_2 = y_2_by_privacy[1]
-  var p_y_2_by_diagonal = partition(p_y_2.diagonal, diagonals_private)
-  var p_y_2_by_tile = partition(p_y_2.tile, tiles_private)
-  var [p_y_faces[2]] = cross_product(p_y_2_by_diagonal, p_y_2_by_tile)
-  var s_y_2 = y_2_by_privacy[0]
-  var s_y_2_by_diagonal = partition(s_y_2.diagonal, diagonals_shared)
-  var [s_y_faces_by_tile[2]] = partition(s_y_2.tile, y_tiles_shared)
-  var [s_y_faces[2]] = cross_product(s_y_2_by_diagonal, [s_y_faces_by_tile[2]])
-
-  color_faces([y_faces[3]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(true,false,true))
-  var y_3_by_privacy = partition([y_faces[3]].is_private, ispace(int1d,2))
-  var p_y_3 = y_3_by_privacy[1]
-  var p_y_3_by_diagonal = partition(p_y_3.diagonal, diagonals_private)
-  var p_y_3_by_tile = partition(p_y_3.tile, tiles_private)
-  var [p_y_faces[3]] = cross_product(p_y_3_by_diagonal, p_y_3_by_tile)
-  var s_y_3 = y_3_by_privacy[0]
-  var s_y_3_by_diagonal = partition(s_y_3.diagonal, diagonals_shared)
-  var [s_y_faces_by_tile[3]] = partition(s_y_3.tile, y_tiles_shared)
-  var [s_y_faces[3]] = cross_product(s_y_3_by_diagonal, [s_y_faces_by_tile[3]])
-
-  color_faces([y_faces[4]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(true,false,false))
-  var y_4_by_privacy = partition([y_faces[4]].is_private, ispace(int1d,2))
-  var p_y_4 = y_4_by_privacy[1]
-  var p_y_4_by_diagonal = partition(p_y_4.diagonal, diagonals_private)
-  var p_y_4_by_tile = partition(p_y_4.tile, tiles_private)
-  var [p_y_faces[4]] = cross_product(p_y_4_by_diagonal, p_y_4_by_tile)
-  var s_y_4 = y_4_by_privacy[0]
-  var s_y_4_by_diagonal = partition(s_y_4.diagonal, diagonals_shared)
-  var [s_y_faces_by_tile[4]] = partition(s_y_4.tile, y_tiles_shared)
-  var [s_y_faces[4]] = cross_product(s_y_4_by_diagonal, [s_y_faces_by_tile[4]])
-
-  color_faces([y_faces[5]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(false,true,true))
-  var y_5_by_privacy = partition([y_faces[5]].is_private, ispace(int1d,2))
-  var p_y_5 = y_5_by_privacy[1]
-  var p_y_5_by_diagonal = partition(p_y_5.diagonal, diagonals_private)
-  var p_y_5_by_tile = partition(p_y_5.tile, tiles_private)
-  var [p_y_faces[5]] = cross_product(p_y_5_by_diagonal, p_y_5_by_tile)
-  var s_y_5 = y_5_by_privacy[0]
-  var s_y_5_by_diagonal = partition(s_y_5.diagonal, diagonals_shared)
-  var [s_y_faces_by_tile[5]] = partition(s_y_5.tile, y_tiles_shared)
-  var [s_y_faces[5]] = cross_product(s_y_5_by_diagonal, [s_y_faces_by_tile[5]])
-
-  color_faces([y_faces[6]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(false,true,false))
-  var y_6_by_privacy = partition([y_faces[6]].is_private, ispace(int1d,2))
-  var p_y_6 = y_6_by_privacy[1]
-  var p_y_6_by_diagonal = partition(p_y_6.diagonal, diagonals_private)
-  var p_y_6_by_tile = partition(p_y_6.tile, tiles_private)
-  var [p_y_faces[6]] = cross_product(p_y_6_by_diagonal, p_y_6_by_tile)
-  var s_y_6 = y_6_by_privacy[0]
-  var s_y_6_by_diagonal = partition(s_y_6.diagonal, diagonals_shared)
-  var [s_y_faces_by_tile[6]] = partition(s_y_6.tile, y_tiles_shared)
-  var [s_y_faces[6]] = cross_product(s_y_6_by_diagonal, [s_y_faces_by_tile[6]])
-
-  color_faces([y_faces[7]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(false,false,true))
-  var y_7_by_privacy = partition([y_faces[7]].is_private, ispace(int1d,2))
-  var p_y_7 = y_7_by_privacy[1]
-  var p_y_7_by_diagonal = partition(p_y_7.diagonal, diagonals_private)
-  var p_y_7_by_tile = partition(p_y_7.tile, tiles_private)
-  var [p_y_faces[7]] = cross_product(p_y_7_by_diagonal, p_y_7_by_tile)
-  var s_y_7 = y_7_by_privacy[0]
-  var s_y_7_by_diagonal = partition(s_y_7.diagonal, diagonals_shared)
-  var [s_y_faces_by_tile[7]] = partition(s_y_7.tile, y_tiles_shared)
-  var [s_y_faces[7]] = cross_product(s_y_7_by_diagonal, [s_y_faces_by_tile[7]])
-
-  color_faces([y_faces[8]], Nx, Ny, Nz, ntx, nty, ntz, 1, array(false,false,false))
-  var y_8_by_privacy = partition([y_faces[8]].is_private, ispace(int1d,2))
-  var p_y_8 = y_8_by_privacy[1]
-  var p_y_8_by_diagonal = partition(p_y_8.diagonal, diagonals_private)
-  var p_y_8_by_tile = partition(p_y_8.tile, tiles_private)
-  var [p_y_faces[8]] = cross_product(p_y_8_by_diagonal, p_y_8_by_tile)
-  var s_y_8 = y_8_by_privacy[0]
-  var s_y_8_by_diagonal = partition(s_y_8.diagonal, diagonals_shared)
-  var [s_y_faces_by_tile[8]] = partition(s_y_8.tile, y_tiles_shared)
-  var [s_y_faces[8]] = cross_product(s_y_8_by_diagonal, [s_y_faces_by_tile[8]])
-
-  -- z
-
-  color_faces([z_faces[1]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(true,true,true))
-  var z_1_by_privacy = partition([z_faces[1]].is_private, ispace(int1d,2))
-  var p_z_1 = z_1_by_privacy[1]
-  var p_z_1_by_diagonal = partition(p_z_1.diagonal, diagonals_private)
-  var p_z_1_by_tile = partition(p_z_1.tile, tiles_private)
-  var [p_z_faces[1]] = cross_product(p_z_1_by_diagonal, p_z_1_by_tile)
-  var s_z_1 = z_1_by_privacy[0]
-  var s_z_1_by_diagonal = partition(s_z_1.diagonal, diagonals_shared)
-  var [s_z_faces_by_tile[1]] = partition(s_z_1.tile, z_tiles_shared)
-  var [s_z_faces[1]] = cross_product(s_z_1_by_diagonal, [s_z_faces_by_tile[1]])
-
-  color_faces([z_faces[2]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(true,true,false))
-  var z_2_by_privacy = partition([z_faces[2]].is_private, ispace(int1d,2))
-  var p_z_2 = z_2_by_privacy[1]
-  var p_z_2_by_diagonal = partition(p_z_2.diagonal, diagonals_private)
-  var p_z_2_by_tile = partition(p_z_2.tile, tiles_private)
-  var [p_z_faces[2]] = cross_product(p_z_2_by_diagonal, p_z_2_by_tile)
-  var s_z_2 = z_2_by_privacy[0]
-  var s_z_2_by_diagonal = partition(s_z_2.diagonal, diagonals_shared)
-  var [s_z_faces_by_tile[2]] = partition(s_z_2.tile, z_tiles_shared)
-  var [s_z_faces[2]] = cross_product(s_z_2_by_diagonal, [s_z_faces_by_tile[2]])
-
-  color_faces([z_faces[3]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(true,false,true))
-  var z_3_by_privacy = partition([z_faces[3]].is_private, ispace(int1d,2))
-  var p_z_3 = z_3_by_privacy[1]
-  var p_z_3_by_diagonal = partition(p_z_3.diagonal, diagonals_private)
-  var p_z_3_by_tile = partition(p_z_3.tile, tiles_private)
-  var [p_z_faces[3]] = cross_product(p_z_3_by_diagonal, p_z_3_by_tile)
-  var s_z_3 = z_3_by_privacy[0]
-  var s_z_3_by_diagonal = partition(s_z_3.diagonal, diagonals_shared)
-  var [s_z_faces_by_tile[3]] = partition(s_z_3.tile, z_tiles_shared)
-  var [s_z_faces[3]] = cross_product(s_z_3_by_diagonal, [s_z_faces_by_tile[3]])
-
-  color_faces([z_faces[4]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(true,false,false))
-  var z_4_by_privacy = partition([z_faces[4]].is_private, ispace(int1d,2))
-  var p_z_4 = z_4_by_privacy[1]
-  var p_z_4_by_diagonal = partition(p_z_4.diagonal, diagonals_private)
-  var p_z_4_by_tile = partition(p_z_4.tile, tiles_private)
-  var [p_z_faces[4]] = cross_product(p_z_4_by_diagonal, p_z_4_by_tile)
-  var s_z_4 = z_4_by_privacy[0]
-  var s_z_4_by_diagonal = partition(s_z_4.diagonal, diagonals_shared)
-  var [s_z_faces_by_tile[4]] = partition(s_z_4.tile, z_tiles_shared)
-  var [s_z_faces[4]] = cross_product(s_z_4_by_diagonal, [s_z_faces_by_tile[4]])
-
-  color_faces([z_faces[5]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(false,true,true))
-  var z_5_by_privacy = partition([z_faces[5]].is_private, ispace(int1d,2))
-  var p_z_5 = z_5_by_privacy[1]
-  var p_z_5_by_diagonal = partition(p_z_5.diagonal, diagonals_private)
-  var p_z_5_by_tile = partition(p_z_5.tile, tiles_private)
-  var [p_z_faces[5]] = cross_product(p_z_5_by_diagonal, p_z_5_by_tile)
-  var s_z_5 = z_5_by_privacy[0]
-  var s_z_5_by_diagonal = partition(s_z_5.diagonal, diagonals_shared)
-  var [s_z_faces_by_tile[5]] = partition(s_z_5.tile, z_tiles_shared)
-  var [s_z_faces[5]] = cross_product(s_z_5_by_diagonal, [s_z_faces_by_tile[5]])
-
-  color_faces([z_faces[6]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(false,true,false))
-  var z_6_by_privacy = partition([z_faces[6]].is_private, ispace(int1d,2))
-  var p_z_6 = z_6_by_privacy[1]
-  var p_z_6_by_diagonal = partition(p_z_6.diagonal, diagonals_private)
-  var p_z_6_by_tile = partition(p_z_6.tile, tiles_private)
-  var [p_z_faces[6]] = cross_product(p_z_6_by_diagonal, p_z_6_by_tile)
-  var s_z_6 = z_6_by_privacy[0]
-  var s_z_6_by_diagonal = partition(s_z_6.diagonal, diagonals_shared)
-  var [s_z_faces_by_tile[6]] = partition(s_z_6.tile, z_tiles_shared)
-  var [s_z_faces[6]] = cross_product(s_z_6_by_diagonal, [s_z_faces_by_tile[6]])
-
-  color_faces([z_faces[7]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(false,false,true))
-  var z_7_by_privacy = partition([z_faces[7]].is_private, ispace(int1d,2))
-  var p_z_7 = z_7_by_privacy[1]
-  var p_z_7_by_diagonal = partition(p_z_7.diagonal, diagonals_private)
-  var p_z_7_by_tile = partition(p_z_7.tile, tiles_private)
-  var [p_z_faces[7]] = cross_product(p_z_7_by_diagonal, p_z_7_by_tile)
-  var s_z_7 = z_7_by_privacy[0]
-  var s_z_7_by_diagonal = partition(s_z_7.diagonal, diagonals_shared)
-  var [s_z_faces_by_tile[7]] = partition(s_z_7.tile, z_tiles_shared)
-  var [s_z_faces[7]] = cross_product(s_z_7_by_diagonal, [s_z_faces_by_tile[7]])
-
-  color_faces([z_faces[8]], Nx, Ny, Nz, ntx, nty, ntz, 2, array(false,false,false))
-  var z_8_by_privacy = partition([z_faces[8]].is_private, ispace(int1d,2))
-  var p_z_8 = z_8_by_privacy[1]
-  var p_z_8_by_diagonal = partition(p_z_8.diagonal, diagonals_private)
-  var p_z_8_by_tile = partition(p_z_8.tile, tiles_private)
-  var [p_z_faces[8]] = cross_product(p_z_8_by_diagonal, p_z_8_by_tile)
-  var s_z_8 = z_8_by_privacy[0]
-  var s_z_8_by_diagonal = partition(s_z_8.diagonal, diagonals_shared)
-  var [s_z_faces_by_tile[8]] = partition(s_z_8.tile, z_tiles_shared)
-  var [s_z_faces[8]] = cross_product(s_z_8_by_diagonal, [s_z_faces_by_tile[8]])
-
-  -- Construct index spaces for the diagonal launches
-
-  var r_tiles_1 = region(tiles_private, tile_info)
-  fill_tile_info(r_tiles_1, array(true,true,true))
-  var [tiles_by_diagonal[1]] = partition(r_tiles_1.diagonal, diagonals_private)
-
-  var r_tiles_2 = region(tiles_private, tile_info)
-  fill_tile_info(r_tiles_2, array(true,true,false))
-  var [tiles_by_diagonal[2]] = partition(r_tiles_2.diagonal, diagonals_private)
-
-  var r_tiles_3 = region(tiles_private, tile_info)
-  fill_tile_info(r_tiles_3, array(true,false,true))
-  var [tiles_by_diagonal[3]] = partition(r_tiles_3.diagonal, diagonals_private)
-
-  var r_tiles_4 = region(tiles_private, tile_info)
-  fill_tile_info(r_tiles_4, array(true,false,false))
-  var [tiles_by_diagonal[4]] = partition(r_tiles_4.diagonal, diagonals_private)
-
-  var r_tiles_5 = region(tiles_private, tile_info)
-  fill_tile_info(r_tiles_5, array(false,true,true))
-  var [tiles_by_diagonal[5]] = partition(r_tiles_5.diagonal, diagonals_private)
-
-  var r_tiles_6 = region(tiles_private, tile_info)
-  fill_tile_info(r_tiles_6, array(false,true,false))
-  var [tiles_by_diagonal[6]] = partition(r_tiles_6.diagonal, diagonals_private)
-
-  var r_tiles_7 = region(tiles_private, tile_info)
-  fill_tile_info(r_tiles_7, array(false,false,true))
-  var [tiles_by_diagonal[7]] = partition(r_tiles_7.diagonal, diagonals_private)
-
-  var r_tiles_8 = region(tiles_private, tile_info)
-  fill_tile_info(r_tiles_8, array(false,false,false))
-  var [tiles_by_diagonal[8]] = partition(r_tiles_8.diagonal, diagonals_private)
-
-end end
+  return decl_symbols
+end
 
 function Exports.InitRegions() return rquote
 
-  -- Initialize face values
-  initialize_faces([x_faces[1]])
-  initialize_faces([x_faces[2]])
-  initialize_faces([x_faces[3]])
-  initialize_faces([x_faces[4]])
-  initialize_faces([x_faces[5]])
-  initialize_faces([x_faces[6]])
-  initialize_faces([x_faces[7]])
-  initialize_faces([x_faces[8]])
-
-  initialize_faces([y_faces[1]])
-  initialize_faces([y_faces[2]])
-  initialize_faces([y_faces[3]])
-  initialize_faces([y_faces[4]])
-  initialize_faces([y_faces[5]])
-  initialize_faces([y_faces[6]])
-  initialize_faces([y_faces[7]])
-  initialize_faces([y_faces[8]])
-
-  initialize_faces([z_faces[1]])
-  initialize_faces([z_faces[2]])
-  initialize_faces([z_faces[3]])
-  initialize_faces([z_faces[4]])
-  initialize_faces([z_faces[5]])
-  initialize_faces([z_faces[6]])
-  initialize_faces([z_faces[7]])
-  initialize_faces([z_faces[8]])
-
-  -- Initialize constant values
+  -- Initialize angle values
   initialize_angles(angles)
 
 end end
@@ -2607,7 +2339,6 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
   var dy = config.Grid.yWidth / config.Radiation.yNum
   var dz = config.Grid.zWidth / config.Radiation.zNum
 
-  var iter = 1
   var omega = config.Radiation.qs/(config.Radiation.qa+config.Radiation.qs)
 
   -- Compute until convergence
@@ -2623,25 +2354,29 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     -- TODO: Should launch these on just the boundaries
     for j = 0, nty do
       for k = 0, ntz do
-        bound_x_lo([s_x_faces_by_tile[1]][{0,j,k}],
-                   [s_x_faces_by_tile[2]][{0,j,k}],
-                   [s_x_faces_by_tile[3]][{0,j,k}],
-                   [s_x_faces_by_tile[4]][{0,j,k}],
-                   [s_x_faces_by_tile[5]][{0,j,k}],
-                   [s_x_faces_by_tile[6]][{0,j,k}],
-                   [s_x_faces_by_tile[7]][{0,j,k}],
-                   [s_x_faces_by_tile[8]][{0,j,k}],
+        bound_x_lo([s_x_faces[1]][{0,j,k}],
+                   [s_x_faces[2]][{0,j,k}],
+                   [s_x_faces[3]][{0,j,k}],
+                   [s_x_faces[4]][{0,j,k}],
+                   [s_x_faces[5]][{0,j,k}],
+                   [s_x_faces[6]][{0,j,k}],
+                   [s_x_faces[7]][{0,j,k}],
+                   [s_x_faces[8]][{0,j,k}],
                    angles,
                    config)
+      end
+    end
 
-        bound_x_hi([s_x_faces_by_tile[1]][{ntx,j,k}],
-                   [s_x_faces_by_tile[2]][{ntx,j,k}],
-                   [s_x_faces_by_tile[3]][{ntx,j,k}],
-                   [s_x_faces_by_tile[4]][{ntx,j,k}],
-                   [s_x_faces_by_tile[5]][{ntx,j,k}],
-                   [s_x_faces_by_tile[6]][{ntx,j,k}],
-                   [s_x_faces_by_tile[7]][{ntx,j,k}],
-                   [s_x_faces_by_tile[8]][{ntx,j,k}],
+    for j = 0, nty do
+      for k = 0, ntz do
+        bound_x_hi([s_x_faces[1]][{ntx,j,k}],
+                   [s_x_faces[2]][{ntx,j,k}],
+                   [s_x_faces[3]][{ntx,j,k}],
+                   [s_x_faces[4]][{ntx,j,k}],
+                   [s_x_faces[5]][{ntx,j,k}],
+                   [s_x_faces[6]][{ntx,j,k}],
+                   [s_x_faces[7]][{ntx,j,k}],
+                   [s_x_faces[8]][{ntx,j,k}],
                    angles,
                    config)
       end
@@ -2650,25 +2385,29 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     -- Update y faces
     for i = 0, ntx do
       for k = 0, ntz do
-        bound_y_lo([s_y_faces_by_tile[1]][{i,0,k}],
-                   [s_y_faces_by_tile[2]][{i,0,k}],
-                   [s_y_faces_by_tile[3]][{i,0,k}],
-                   [s_y_faces_by_tile[4]][{i,0,k}],
-                   [s_y_faces_by_tile[5]][{i,0,k}],
-                   [s_y_faces_by_tile[6]][{i,0,k}],
-                   [s_y_faces_by_tile[7]][{i,0,k}],
-                   [s_y_faces_by_tile[8]][{i,0,k}],
+        bound_y_lo([s_y_faces[1]][{i,0,k}],
+                   [s_y_faces[2]][{i,0,k}],
+                   [s_y_faces[3]][{i,0,k}],
+                   [s_y_faces[4]][{i,0,k}],
+                   [s_y_faces[5]][{i,0,k}],
+                   [s_y_faces[6]][{i,0,k}],
+                   [s_y_faces[7]][{i,0,k}],
+                   [s_y_faces[8]][{i,0,k}],
                    angles,
                    config)
+      end
+    end
 
-        bound_y_hi([s_y_faces_by_tile[1]][{i,nty,k}],
-                   [s_y_faces_by_tile[2]][{i,nty,k}],
-                   [s_y_faces_by_tile[3]][{i,nty,k}],
-                   [s_y_faces_by_tile[4]][{i,nty,k}],
-                   [s_y_faces_by_tile[5]][{i,nty,k}],
-                   [s_y_faces_by_tile[6]][{i,nty,k}],
-                   [s_y_faces_by_tile[7]][{i,nty,k}],
-                   [s_y_faces_by_tile[8]][{i,nty,k}],
+    for i = 0, ntx do
+      for k = 0, ntz do
+        bound_y_hi([s_y_faces[1]][{i,nty,k}],
+                   [s_y_faces[2]][{i,nty,k}],
+                   [s_y_faces[3]][{i,nty,k}],
+                   [s_y_faces[4]][{i,nty,k}],
+                   [s_y_faces[5]][{i,nty,k}],
+                   [s_y_faces[6]][{i,nty,k}],
+                   [s_y_faces[7]][{i,nty,k}],
+                   [s_y_faces[8]][{i,nty,k}],
                    angles,
                    config)
       end
@@ -2677,25 +2416,29 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     -- Update z faces
     for i = 0, ntx do
       for j = 0, nty do
-        bound_z_lo([s_z_faces_by_tile[1]][{i,j,0}],
-                   [s_z_faces_by_tile[2]][{i,j,0}],
-                   [s_z_faces_by_tile[3]][{i,j,0}],
-                   [s_z_faces_by_tile[4]][{i,j,0}],
-                   [s_z_faces_by_tile[5]][{i,j,0}],
-                   [s_z_faces_by_tile[6]][{i,j,0}],
-                   [s_z_faces_by_tile[7]][{i,j,0}],
-                   [s_z_faces_by_tile[8]][{i,j,0}],
+        bound_z_lo([s_z_faces[1]][{i,j,0}],
+                   [s_z_faces[2]][{i,j,0}],
+                   [s_z_faces[3]][{i,j,0}],
+                   [s_z_faces[4]][{i,j,0}],
+                   [s_z_faces[5]][{i,j,0}],
+                   [s_z_faces[6]][{i,j,0}],
+                   [s_z_faces[7]][{i,j,0}],
+                   [s_z_faces[8]][{i,j,0}],
                    angles,
                    config)
+      end
+    end
 
-        bound_z_hi([s_z_faces_by_tile[1]][{i,j,ntz}],
-                   [s_z_faces_by_tile[2]][{i,j,ntz}],
-                   [s_z_faces_by_tile[3]][{i,j,ntz}],
-                   [s_z_faces_by_tile[4]][{i,j,ntz}],
-                   [s_z_faces_by_tile[5]][{i,j,ntz}],
-                   [s_z_faces_by_tile[6]][{i,j,ntz}],
-                   [s_z_faces_by_tile[7]][{i,j,ntz}],
-                   [s_z_faces_by_tile[8]][{i,j,ntz}],
+    for i = 0, ntx do
+      for j = 0, nty do
+        bound_z_hi([s_z_faces[1]][{i,j,ntz}],
+                   [s_z_faces[2]][{i,j,ntz}],
+                   [s_z_faces[3]][{i,j,ntz}],
+                   [s_z_faces[4]][{i,j,ntz}],
+                   [s_z_faces[5]][{i,j,ntz}],
+                   [s_z_faces[6]][{i,j,ntz}],
+                   [s_z_faces[7]][{i,j,ntz}],
+                   [s_z_faces[8]][{i,j,ntz}],
                    angles,
                    config)
       end
@@ -2703,106 +2446,114 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
 
     --Perform the sweep for computing new intensities
     --Quadrant 1 - +x, +y, +z
-    for d in diagonals_private do
-      __demand(__parallel)
-      for t in [tiles_by_diagonal[1]][d] do
-        sweep_1(p_points[t],
-                [p_x_faces[1]][d][t], [p_y_faces[1]][d][t], [p_z_faces[1]][d][t],
-                [s_x_faces[1]][d][t], [s_x_faces[1]][d+1][t+int3d{1,0,0}],
-                [s_y_faces[1]][d][t], [s_y_faces[1]][d+1][t+int3d{0,1,0}],
-                [s_z_faces[1]][d][t], [s_z_faces[1]][d+1][t+int3d{0,0,1}],
-                angles, 1, 1, 1, dx, dy, dz)
+    for i = 0, ntx do
+      for j = 0, nty do
+        for k = 0, ntz do
+          sweep_1(p_points[{i,j,k}],
+                  [p_x_faces[1]][{i,j,k}], [p_y_faces[1]][{i,j,k}], [p_z_faces[1]][{i,j,k}],
+                  [s_x_faces[1]][{i,j,k}], [s_x_faces[1]][{i+1,j,k}],
+                  [s_y_faces[1]][{i,j,k}], [s_y_faces[1]][{i,j+1,k}],
+                  [s_z_faces[1]][{i,j,k}], [s_z_faces[1]][{i,j,k+1}],
+                  angles, 1, 1, 1, dx, dy, dz)
+        end
       end
     end
 
     -- Quadrant 2 - +x, +y, -z
-    for d in diagonals_private do
-      __demand(__parallel)
-      for t in [tiles_by_diagonal[2]][d] do
-        sweep_2(p_points[t],
-                [p_x_faces[2]][d][t], [p_y_faces[2]][d][t], [p_z_faces[2]][d][t],
-                [s_x_faces[2]][d][t], [s_x_faces[2]][d+1][t+int3d{1,0,0}],
-                [s_y_faces[2]][d][t], [s_y_faces[2]][d+1][t+int3d{0,1,0}],
-                [s_z_faces[2]][d][t+int3d{0,0,1}], [s_z_faces[2]][d+1][t],
-                angles, 1, 1, -1, dx, dy, dz)
+    for i = 0, ntx do
+      for j = 0, nty do
+        for k = ntz-1, -1, -1 do
+          sweep_2(p_points[{i,j,k}],
+                  [p_x_faces[2]][{i,j,k}], [p_y_faces[2]][{i,j,k}], [p_z_faces[2]][{i,j,k}],
+                  [s_x_faces[2]][{i,j,k}], [s_x_faces[2]][{i+1,j,k}],
+                  [s_y_faces[2]][{i,j,k}], [s_y_faces[2]][{i,j+1,k}],
+                  [s_z_faces[2]][{i,j,k+1}], [s_z_faces[2]][{i,j,k}],
+                  angles, 1, 1, -1, dx, dy, dz)
+        end
       end
     end
 
     -- Quadrant 3 - +x, -y, +z
-    for d in diagonals_private do
-      __demand(__parallel)
-      for t in [tiles_by_diagonal[3]][d] do
-        sweep_3(p_points[t],
-                [p_x_faces[3]][d][t], [p_y_faces[3]][d][t], [p_z_faces[3]][d][t],
-                [s_x_faces[3]][d][t], [s_x_faces[3]][d+1][t+int3d{1,0,0}],
-                [s_y_faces[3]][d][t+int3d{0,1,0}], [s_y_faces[3]][d+1][t],
-                [s_z_faces[3]][d][t], [s_z_faces[3]][d+1][t+int3d{0,0,1}],
-                angles, 1, -1, 1, dx, dy, dz)
+    for i = 0, ntx do
+      for j = nty-1, -1, -1 do
+        for k = 0, ntz do
+          sweep_3(p_points[{i,j,k}],
+                  [p_x_faces[3]][{i,j,k}], [p_y_faces[3]][{i,j,k}], [p_z_faces[3]][{i,j,k}],
+                  [s_x_faces[3]][{i,j,k}], [s_x_faces[3]][{i+1,j,k}],
+                  [s_y_faces[3]][{i,j+1,k}], [s_y_faces[3]][{i,j,k}],
+                  [s_z_faces[3]][{i,j,k}], [s_z_faces[3]][{i,j,k+1}],
+                  angles, 1, -1, 1, dx, dy, dz)
+        end
       end
     end
 
     -- Quadrant 4 - +x, -y, -z
-    for d in diagonals_private do
-      __demand(__parallel)
-      for t in [tiles_by_diagonal[4]][d] do
-        sweep_4(p_points[t],
-                [p_x_faces[4]][d][t], [p_y_faces[4]][d][t], [p_z_faces[4]][d][t],
-                [s_x_faces[4]][d][t], [s_x_faces[4]][d+1][t+int3d{1,0,0}],
-                [s_y_faces[4]][d][t+int3d{0,1,0}], [s_y_faces[4]][d+1][t],
-                [s_z_faces[4]][d][t+int3d{0,0,1}], [s_z_faces[4]][d+1][t],
-                angles, 1, -1, -1, dx, dy, dz)
+    for i = 0, ntx do
+      for j = nty-1, -1, -1 do
+        for k = ntz-1, -1, -1 do
+          sweep_4(p_points[{i,j,k}],
+                  [p_x_faces[4]][{i,j,k}], [p_y_faces[4]][{i,j,k}], [p_z_faces[4]][{i,j,k}],
+                  [s_x_faces[4]][{i,j,k}], [s_x_faces[4]][{i+1,j,k}],
+                  [s_y_faces[4]][{i,j+1,k}], [s_y_faces[4]][{i,j,k}],
+                  [s_z_faces[4]][{i,j,k+1}], [s_z_faces[4]][{i,j,k}],
+                  angles, 1, -1, -1, dx, dy, dz)
+        end
       end
     end
 
     -- Quadrant 5 - -x, +y, +z
-    for d in diagonals_private do
-      __demand(__parallel)
-      for t in [tiles_by_diagonal[5]][d] do
-        sweep_5(p_points[t],
-                [p_x_faces[5]][d][t], [p_y_faces[5]][d][t], [p_z_faces[5]][d][t],
-                [s_x_faces[5]][d][t+int3d{1,0,0}], [s_x_faces[5]][d+1][t],
-                [s_y_faces[5]][d][t], [s_y_faces[5]][d+1][t+int3d{0,1,0}],
-                [s_z_faces[5]][d][t], [s_z_faces[5]][d+1][t+int3d{0,0,1}],
-                angles, -1, 1, 1, dx, dy, dz)
+    for i = ntx-1, -1, -1 do
+      for j = 0, nty do
+        for k = 0, ntz do
+          sweep_5(p_points[{i,j,k}],
+                  [p_x_faces[5]][{i,j,k}], [p_y_faces[5]][{i,j,k}], [p_z_faces[5]][{i,j,k}],
+                  [s_x_faces[5]][{i+1,j,k}], [s_x_faces[5]][{i,j,k}],
+                  [s_y_faces[5]][{i,j,k}], [s_y_faces[5]][{i,j+1,k}],
+                  [s_z_faces[5]][{i,j,k}], [s_z_faces[5]][{i,j,k+1}],
+                  angles, -1, 1, 1, dx, dy, dz)
+        end
       end
     end
 
     -- Quadrant 6 - -x, +y, -z
-    for d in diagonals_private do
-      __demand(__parallel)
-      for t in [tiles_by_diagonal[6]][d] do
-        sweep_6(p_points[t],
-                [p_x_faces[6]][d][t], [p_y_faces[6]][d][t], [p_z_faces[6]][d][t],
-                [s_x_faces[6]][d][t+int3d{1,0,0}], [s_x_faces[6]][d+1][t],
-                [s_y_faces[6]][d][t], [s_y_faces[6]][d+1][t+int3d{0,1,0}],
-                [s_z_faces[6]][d][t+int3d{0,0,1}], [s_z_faces[6]][d+1][t],
-                angles, -1, 1, -1, dx, dy, dz)
+    for i = ntx-1, -1, -1 do
+      for j = 0, nty do
+        for k = ntz-1, -1, -1 do
+          sweep_6(p_points[{i,j,k}],
+                  [p_x_faces[6]][{i,j,k}], [p_y_faces[6]][{i,j,k}], [p_z_faces[6]][{i,j,k}],
+                  [s_x_faces[6]][{i+1,j,k}], [s_x_faces[6]][{i,j,k}],
+                  [s_y_faces[6]][{i,j,k}], [s_y_faces[6]][{i,j+1,k}],
+                  [s_z_faces[6]][{i,j,k+1}], [s_z_faces[6]][{i,j,k}],
+                  angles, -1, 1, -1, dx, dy, dz)
+        end
       end
     end
 
     -- Quadrant 7 - -x, -y, +z
-    for d in diagonals_private do
-      __demand(__parallel)
-      for t in [tiles_by_diagonal[7]][d] do
-        sweep_7(p_points[t],
-                [p_x_faces[7]][d][t], [p_y_faces[7]][d][t], [p_z_faces[7]][d][t],
-                [s_x_faces[7]][d][t+int3d{1,0,0}], [s_x_faces[7]][d+1][t],
-                [s_y_faces[7]][d][t+int3d{0,1,0}], [s_y_faces[7]][d+1][t],
-                [s_z_faces[7]][d][t], [s_z_faces[7]][d+1][t+int3d{0,0,1}],
-                angles, -1, -1, 1, dx, dy, dz)
+    for i = ntx-1, -1, -1 do
+      for j = nty-1, -1, -1 do
+        for k = 0, ntz do
+          sweep_7(p_points[{i,j,k}],
+                  [p_x_faces[7]][{i,j,k}], [p_y_faces[7]][{i,j,k}], [p_z_faces[7]][{i,j,k}],
+                  [s_x_faces[7]][{i+1,j,k}], [s_x_faces[7]][{i,j,k}],
+                  [s_y_faces[7]][{i,j+1,k}], [s_y_faces[7]][{i,j,k}],
+                  [s_z_faces[7]][{i,j,k}], [s_z_faces[7]][{i,j,k+1}],
+                  angles, -1, -1, 1, dx, dy, dz)
+        end
       end
     end
 
     -- Quadrant 8 - -x, -y, -z
-    for d in diagonals_private do
-      __demand(__parallel)
-      for t in [tiles_by_diagonal[8]][d] do
-        sweep_8(p_points[t],
-                [p_x_faces[8]][d][t], [p_y_faces[8]][d][t], [p_z_faces[8]][d][t],
-                [s_x_faces[8]][d][t+int3d{1,0,0}], [s_x_faces[8]][d+1][t],
-                [s_y_faces[8]][d][t+int3d{0,1,0}], [s_y_faces[8]][d+1][t],
-                [s_z_faces[8]][d][t+int3d{0,0,1}], [s_z_faces[8]][d+1][t],
-                angles, -1, -1, -1, dx, dy, dz)
+    for i = ntx-1, -1, -1 do
+      for j = nty-1, -1, -1 do
+        for k = ntz-1, -1, -1 do
+          sweep_8(p_points[{i,j,k}],
+                  [p_x_faces[8]][{i,j,k}], [p_y_faces[8]][{i,j,k}], [p_z_faces[8]][{i,j,k}],
+                  [s_x_faces[8]][{i+1,j,k}], [s_x_faces[8]][{i,j,k}],
+                  [s_y_faces[8]][{i,j+1,k}], [s_y_faces[8]][{i,j,k}],
+                  [s_z_faces[8]][{i,j,k+1}], [s_z_faces[8]][{i,j,k}],
+                  angles, -1, -1, -1, dx, dy, dz)
+        end
       end
     end
 
@@ -2813,19 +2564,10 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     end
     res = sqrt(res/(Nx*Ny*Nz*(NUM_ANGLES)))
 
-    -- Update the intensities and the iteration number
+    -- Update the intensities
     for t in tiles do
       update(p_points[t])
     end
-
-    if (iter == 1) then
-      C.printf("\n")
-      C.printf(" Iteration     Residual         \n")
-      C.printf(" ------------------------------ \n")
-    end
-    C.printf( "   %3d    %.15e \n", iter, res)
-
-    iter += 1
 
   end
 
