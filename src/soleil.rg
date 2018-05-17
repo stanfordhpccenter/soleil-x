@@ -32,6 +32,8 @@ local USE_HDF = assert(os.getenv('USE_HDF')) ~= '0'
 
 local NUM_ANGLES = 14
 
+local PERTUBATION_MODES = 40
+
 -------------------------------------------------------------------------------
 -- DATA STRUCTURES
 -------------------------------------------------------------------------------
@@ -155,8 +157,6 @@ local DOM = (require 'dom')(NUM_ANGLES, Radiation_columns, Config)
 
 local PI = 3.1415926535898
 
-local FILE_PTR_SIZE = sizeof(&C.FILE)
-
 -------------------------------------------------------------------------------
 -- MACROS
 -------------------------------------------------------------------------------
@@ -167,36 +167,43 @@ local FILE_PTR_SIZE = sizeof(&C.FILE)
 -- I/O ROUTINES
 -------------------------------------------------------------------------------
 
-local task Fluid_dump(colors : ispace(int3d),
-                      filename : &int8,
-                      r : region(ispace(int3d),Fluid_columns),
-                      s : region(ispace(int3d),Fluid_columns),
-                      p_r : partition(disjoint, r, colors),
-                      p_s : partition(disjoint, s, colors))
+local __demand(__inline)
+task Fluid_dump(colors : ispace(int3d),
+                filename : &int8,
+                r : region(ispace(int3d),Fluid_columns),
+                s : region(ispace(int3d),Fluid_columns),
+                p_r : partition(disjoint, r, colors),
+                p_s : partition(disjoint, s, colors))
   regentlib.assert(false, 'Recompile with USE_HDF=1')
 end
-local task Fluid_load(colors : ispace(int3d),
-                      filename : &int8,
-                      r : region(ispace(int3d),Fluid_columns),
-                      s : region(ispace(int3d),Fluid_columns),
-                      p_r : partition(disjoint, r, colors),
-                      p_s : partition(disjoint, s, colors))
+
+local __demand(__inline)
+task Fluid_load(colors : ispace(int3d),
+                filename : &int8,
+                r : region(ispace(int3d),Fluid_columns),
+                s : region(ispace(int3d),Fluid_columns),
+                p_r : partition(disjoint, r, colors),
+                p_s : partition(disjoint, s, colors))
   regentlib.assert(false, 'Recompile with USE_HDF=1')
 end
-local task particles_dump(colors : ispace(int3d),
-                          filename : &int8,
-                          r : region(ispace(int1d),particles_columns),
-                          s : region(ispace(int1d),particles_columns),
-                          p_r : partition(disjoint, r, colors),
-                          p_s : partition(disjoint, s, colors))
+
+local __demand(__inline)
+task particles_dump(colors : ispace(int3d),
+                    filename : &int8,
+                    r : region(ispace(int1d),particles_columns),
+                    s : region(ispace(int1d),particles_columns),
+                    p_r : partition(disjoint, r, colors),
+                    p_s : partition(disjoint, s, colors))
   regentlib.assert(false, 'Recompile with USE_HDF=1')
 end
-local task particles_load(colors : ispace(int3d),
-                          filename : &int8,
-                          r : region(ispace(int1d),particles_columns),
-                          s : region(ispace(int1d),particles_columns),
-                          p_r : partition(disjoint, r, colors),
-                          p_s : partition(disjoint, s, colors))
+
+local __demand(__inline)
+task particles_load(colors : ispace(int3d),
+                    filename : &int8,
+                    r : region(ispace(int1d),particles_columns),
+                    s : region(ispace(int1d),particles_columns),
+                    p_r : partition(disjoint, r, colors),
+                    p_s : partition(disjoint, s, colors))
   regentlib.assert(false, 'Recompile with USE_HDF=1')
 end
 
@@ -208,6 +215,33 @@ if USE_HDF then
   particles_dump, particles_load = HDF.mkHDFTasks(
     int1d, int3d, particles_columns,
     {"cell","position","velocity","temperature","diameter","__valid"})
+end
+
+local __demand(__parallel)
+task Probes_write(Fluid : region(ispace(int3d), Fluid_columns),
+                  exitCond : bool,
+                  Integrator_timeStep : int,
+                  config : Config)
+where
+  reads(Fluid.temperature)
+do
+  var bounds = Fluid.bounds
+  for i = 0,config.IO.probes.length do
+    var probe = config.IO.probes.values[i]
+    var coords = probe.coords
+    if (exitCond or Integrator_timeStep % probe.frequency == 0)
+    and bounds.lo.x <= coords[0] and coords[0] <= bounds.hi.x
+    and bounds.lo.y <= coords[1] and coords[1] <= bounds.hi.y
+    and bounds.lo.z <= coords[2] and coords[2] <= bounds.hi.z then
+      var filename = [&int8](C.malloc(256))
+      C.snprintf(filename, 256, '%s/probe%d.csv', config.Mapping.outDir, i)
+      var file = UTIL.openFile(filename, 'a')
+      C.free(filename)
+      var temp = Fluid[int3d{coords[0],coords[1],coords[2]}].temperature
+      C.fprintf(probeFiles[i], '%d\t%lf\n', Integrator_timeStep, temp)
+      C.fclose(file)
+    end
+  end
 end
 
 -------------------------------------------------------------------------------
@@ -1398,20 +1432,17 @@ do
   end
 end
 
+__demand(__parallel)
 task Flow_Perturb(Fluid : region(ispace(int3d), Fluid_columns),
                   config : Config,
-                  Pertubation_modes : int,
-                  Pertubation_kx : region(ispace(int1d), double),
-                  Pertubation_ky : region(ispace(int1d), double),
-                  Pertubation_kz : region(ispace(int1d), double),
-                  Pertubation_um : region(ispace(int1d), double),
-                  Pertubation_sxm : region(ispace(int1d), double),
-                  Pertubation_sym : region(ispace(int1d), double),
-                  Pertubation_szm : region(ispace(int1d), double))
+                  Pertubation_kx : double[PERTUBATION_MODES],
+                  Pertubation_ky : double[PERTUBATION_MODES],
+                  Pertubation_kz : double[PERTUBATION_MODES],
+                  Pertubation_um : double[PERTUBATION_MODES],
+                  Pertubation_sxm : double[PERTUBATION_MODES],
+                  Pertubation_sym : double[PERTUBATION_MODES],
+                  Pertubation_szm : double[PERTUBATION_MODES])
 where
-  reads(Pertubation_kx, Pertubation_ky, Pertubation_kz,
-        Pertubation_um,
-        Pertubation_sxm, Pertubation_sym, Pertubation_szm),
   reads writes(Fluid.velocity)
 do
   var Grid_xCellWidth = config.Grid.xWidth / config.Grid.xNum
@@ -1433,7 +1464,7 @@ do
       var u = 0.0
       var v = 0.0
       var w = 0.0
-      for i = 0,Pertubation_modes do
+      for i = 0,PERTUBATION_MODES do
         var arg = Pertubation_kx[i]*xc
                 + Pertubation_ky[i]*yc
                 + Pertubation_kz[i]*zc
@@ -5783,7 +5814,7 @@ end
 -- MAIN FUNCTION
 -------------------------------------------------------------------------------
 
-__forbid(__optimize)
+__forbid(__optimize) __demand(__inner)
 task work(config : Config)
 
   -----------------------------------------------------------------------------
@@ -5793,17 +5824,8 @@ task work(config : Config)
   -- Open long-running files
   var consoleFile = [&int8](C.malloc(256))
   C.snprintf(consoleFile, 256, '%s/console.txt', config.Mapping.outDir)
-  var console = UTIL.createFile(consoleFile)
+  var console = UTIL.openFile(consoleFile, 'w')
   C.free(consoleFile)
-  --var probeFiles = [&&C.FILE](C.malloc(config.IO.probes.length * FILE_PTR_SIZE))
-  --for i = 0,config.IO.probes.length do
-  --  var filename = [&int8](C.malloc(256))
-  --  C.snprintf(filename, 256, '%s/probe%d.csv', config.Mapping.outDir, i)
-  --  probeFiles[i] = UTIL.createFile(filename)
-  --  C.free(filename)
-  --  C.fprintf(probeFiles[i], 'TimeStep\tTemperature\n')
-  --  C.fflush(probeFiles[i])
-  --end
 
   -- Start timer
   var startTime = regentlib.c.legion_get_current_time_in_micros() / 1000
@@ -5928,15 +5950,13 @@ task work(config : Config)
   -- Random pertubation variables
   -----------------------------------------------------------------------------
 
-  var Pertubation_modes = 40
-  var Pertubation_ispace = ispace(int1d, Pertubation_modes)
-  var Pertubation_kx = region(Pertubation_ispace, double)
-  var Pertubation_ky = region(Pertubation_ispace, double)
-  var Pertubation_kz = region(Pertubation_ispace, double)
-  var Pertubation_um = region(Pertubation_ispace, double)
-  var Pertubation_sxm = region(Pertubation_ispace, double)
-  var Pertubation_sym = region(Pertubation_ispace, double)
-  var Pertubation_szm = region(Pertubation_ispace, double)
+  var Pertubation_kx : double[PERTUBATION_MODES]
+  var Pertubation_ky : double[PERTUBATION_MODES]
+  var Pertubation_kz : double[PERTUBATION_MODES]
+  var Pertubation_um : double[PERTUBATION_MODES]
+  var Pertubation_sxm : double[PERTUBATION_MODES]
+  var Pertubation_sym : double[PERTUBATION_MODES]
+  var Pertubation_szm : double[PERTUBATION_MODES]
 
   -----------------------------------------------------------------------------
   -- Particle Variables
@@ -7290,14 +7310,7 @@ task work(config : Config)
           C.free(dirname)
         end
       end
-      --for i = 0,config.IO.probes.length do
-      --  var probe = config.IO.probes.values[i]
-      --  if exitCond or Integrator_timeStep % probe.frequency == 0 then
-      --    var temp = Fluid[int3d{probe.coords[0],probe.coords[1],probe.coords[2]}].temperature
-      --    C.fprintf(probeFiles[i], '%d\t%lf\n', Integrator_timeStep, temp)
-      --    C.fflush(probeFiles[i])
-      --  end
-      --end
+      Probes_write(Fluid, exitCond, Integrator_timeStep, config)
 
       -- Check exit condition after I/O
       if exitCond then
@@ -7484,86 +7497,84 @@ task work(config : Config)
                                       Grid_yBnum, Grid_yNum,
                                       Grid_zBnum, Grid_zNum)
 
-        --if config.Flow.pertubation.type == SCHEMA.PertubationModel_Random then
-        --  -- Set up pertubation constants
-        --  -- Number of nodes in perturbed volume
-        --  var nx = config.Flow.pertubation.u.Random.uptoCell[0]
-        --         - config.Flow.pertubation.u.Random.fromCell[0] + 1
-        --  var ny = config.Flow.pertubation.u.Random.uptoCell[1]
-        --         - config.Flow.pertubation.u.Random.fromCell[1] + 1
-        --  var nz = config.Flow.pertubation.u.Random.uptoCell[2]
-        --         - config.Flow.pertubation.u.Random.fromCell[2] + 1
-        --  -- Domain dimensions
-        --  var lx = Grid_xCellWidth * nx
-        --  var ly = Grid_yCellWidth * ny
-        --  var lz = Grid_zCellWidth * nz
-        --  -- Other constants
-        --  var ke_ = 40.0                            -- Peak wave number
-        --  var alpha = 1.452762113                   -- Scaling constant
-        --  var kv = 1.0e-5                           -- Kinematic viscosity
-        --  var urms = 0.25                           -- RMS velocity fluctuation
-        --  var ke = sqrt(5.0/12)*ke_                 -- Peak wave number
-        --  var wn1 = 2.0*PI/pow(lx*ly*lz,1.0/3.0)    -- Smallest wavenumber
-        --  var L = 0.746834/ke                       -- Integral length scale
-        --  var eps = urms*urms*urms/L                -- Dissipation rate
-        --  var keta = pow(eps,0.25)*pow(kv,-3.0/4.0) -- Kolmogorov wave number
-        --  var wnn = max( PI/Grid_xCellWidth,        -- Nyquist limit
-        --            max( PI/Grid_yCellWidth,
-        --                 PI/Grid_zCellWidth ) )
-        --  var dk = (wnn-wn1)/Pertubation_modes      -- Wavenumber step
-        --  -- Fill in arrays
-        --  for i = 0,Pertubation_modes do
-        --    -- Generate random angles
-        --    var phi = 2.0*PI*C.drand48()
-        --    var nu = C.drand48()
-        --    var theta = acos( 2.0*nu - 1.0 )
-        --    var phi1 = 2.0*PI*C.drand48()
-        --    var nu1 = C.drand48()
-        --    -- Wavenumber at cell centers
-        --    var wn = wn1 + 0.5*dk + i*dk
-        --    -- Wavenumber vector from random angles
-        --    Pertubation_kx[i] = sin( theta )*cos( phi )*wn
-        --    Pertubation_ky[i] = sin( theta )*sin( phi )*wn
-        --    Pertubation_kz[i] = cos( theta )*wn
-        --    -- Create divergence vector
-        --    var ktx = sin( Pertubation_kx[i]*Grid_xCellWidth/2.0 )
-        --            / Grid_xCellWidth
-        --    var kty = sin( Pertubation_ky[i]*Grid_yCellWidth/2.0 )
-        --            / Grid_yCellWidth
-        --    var ktz = sin( Pertubation_kz[i]*Grid_zCellWidth/2.0 )
-        --            / Grid_zCellWidth
-        --    -- Enforce Mass Conservation
-        --    var theta1 = acos( 2.0*nu1 - 1.0 )
-        --    var zetax = sin( theta1 )*cos( phi1 )
-        --    var zetay = sin( theta1 )*sin( phi1 )
-        --    var zetaz = cos( theta1 )
-        --    Pertubation_sxm[i] = zetay*ktz - zetaz*kty
-        --    Pertubation_sym[i] = -( zetax*ktz - zetaz*ktx  )
-        --    Pertubation_szm[i] = zetax*kty - zetay*ktx
-        --    var smag = sqrt( Pertubation_sxm[i]*Pertubation_sxm[i] +
-        --                     Pertubation_sym[i]*Pertubation_sym[i] +
-        --                     Pertubation_szm[i]*Pertubation_szm[i] )
-        --    Pertubation_sxm[i] = Pertubation_sxm[i]/smag
-        --    Pertubation_sym[i] = Pertubation_sym[i]/smag
-        --    Pertubation_szm[i] = Pertubation_szm[i]/smag
-        --    -- Generate energy spectrum
-        --    var r1 = wn/ke
-        --    var r2 = wn/keta
-        --    var espec = alpha
-        --              * ( urms*urms/ke )
-        --              * ( r1*r1*r1*r1 / ( pow((1.0+r1*r1),(17.0/6.0)) ) )
-        --              * exp( -2.0*r2*r2 )
-        --    espec = max(0,espec)
-        --    Pertubation_um[i] = sqrt( espec*dk )
-        --  end
-        --  -- Insert random pertubations in the fluid
-        --  for c in primColors do
-        --    Flow_Perturb(Fluid_primPart[c], config, Pertubation_modes,
-        --                 Pertubation_kx, Pertubation_ky, Pertubation_kz,
-        --                 Pertubation_um,
-        --                 Pertubation_sxm, Pertubation_sym, Pertubation_szm)
-        --  end
-        --end
+        if config.Flow.pertubation.type == SCHEMA.PertubationModel_Random then
+          -- Set up pertubation constants
+          -- Number of nodes in perturbed volume
+          var nx = config.Flow.pertubation.u.Random.uptoCell[0]
+            - config.Flow.pertubation.u.Random.fromCell[0] + 1
+          var ny = config.Flow.pertubation.u.Random.uptoCell[1]
+            - config.Flow.pertubation.u.Random.fromCell[1] + 1
+          var nz = config.Flow.pertubation.u.Random.uptoCell[2]
+            - config.Flow.pertubation.u.Random.fromCell[2] + 1
+          -- Domain dimensions
+          var lx = Grid_xCellWidth * nx
+          var ly = Grid_yCellWidth * ny
+          var lz = Grid_zCellWidth * nz
+          -- Other constants
+          var ke_ = 40.0                            -- Peak wave number
+          var alpha = 1.452762113                   -- Scaling constant
+          var kv = 1.0e-5                           -- Kinematic viscosity
+          var urms = 0.25                           -- RMS velocity fluctuation
+          var ke = sqrt(5.0/12)*ke_                 -- Peak wave number
+          var wn1 = 2.0*PI/pow(lx*ly*lz,1.0/3.0)    -- Smallest wavenumber
+          var L = 0.746834/ke                       -- Integral length scale
+          var eps = urms*urms*urms/L                -- Dissipation rate
+          var keta = pow(eps,0.25)*pow(kv,-3.0/4.0) -- Kolmogorov wave number
+          var wnn = max( PI/Grid_xCellWidth,        -- Nyquist limit
+                         max( PI/Grid_yCellWidth,
+                              PI/Grid_zCellWidth ) )
+          var dk = (wnn-wn1)/PERTUBATION_MODES      -- Wavenumber step
+          -- Fill in arrays
+          for i = 0,PERTUBATION_MODES do
+            -- Generate random angles
+            var phi = 2.0*PI*C.drand48()
+            var nu = C.drand48()
+            var theta = acos( 2.0*nu - 1.0 )
+            var phi1 = 2.0*PI*C.drand48()
+            var nu1 = C.drand48()
+            -- Wavenumber at cell centers
+            var wn = wn1 + 0.5*dk + i*dk
+            -- Wavenumber vector from random angles
+            Pertubation_kx[i] = sin( theta )*cos( phi )*wn
+            Pertubation_ky[i] = sin( theta )*sin( phi )*wn
+            Pertubation_kz[i] = cos( theta )*wn
+            -- Create divergence vector
+            var ktx = sin( Pertubation_kx[i]*Grid_xCellWidth/2.0 )
+              / Grid_xCellWidth
+            var kty = sin( Pertubation_ky[i]*Grid_yCellWidth/2.0 )
+              / Grid_yCellWidth
+            var ktz = sin( Pertubation_kz[i]*Grid_zCellWidth/2.0 )
+              / Grid_zCellWidth
+            -- Enforce Mass Conservation
+            var theta1 = acos( 2.0*nu1 - 1.0 )
+            var zetax = sin( theta1 )*cos( phi1 )
+            var zetay = sin( theta1 )*sin( phi1 )
+            var zetaz = cos( theta1 )
+            Pertubation_sxm[i] = zetay*ktz - zetaz*kty
+            Pertubation_sym[i] = -( zetax*ktz - zetaz*ktx  )
+            Pertubation_szm[i] = zetax*kty - zetay*ktx
+            var smag = sqrt( Pertubation_sxm[i]*Pertubation_sxm[i] +
+                               Pertubation_sym[i]*Pertubation_sym[i] +
+                               Pertubation_szm[i]*Pertubation_szm[i] )
+            Pertubation_sxm[i] = Pertubation_sxm[i]/smag
+            Pertubation_sym[i] = Pertubation_sym[i]/smag
+            Pertubation_szm[i] = Pertubation_szm[i]/smag
+            -- Generate energy spectrum
+            var r1 = wn/ke
+            var r2 = wn/keta
+            var espec = alpha
+              * ( urms*urms/ke )
+              * ( r1*r1*r1*r1 / ( pow((1.0+r1*r1),(17.0/6.0)) ) )
+              * exp( -2.0*r2*r2 )
+            espec = max(0,espec)
+            Pertubation_um[i] = sqrt( espec*dk )
+          end
+          -- Insert random pertubations in the fluid
+          Flow_Perturb(Fluid, config,
+                       Pertubation_kx, Pertubation_ky, Pertubation_kz,
+                       Pertubation_um,
+                       Pertubation_sxm, Pertubation_sym, Pertubation_szm)
+        end
 
         Flow_ComputeVelocityGradientAll(Fluid,
                                         Grid_xBnum, Grid_xCellWidth, Grid_xNum,
@@ -7690,11 +7701,7 @@ task work(config : Config)
             (endTime - startTime) / 1000, (endTime - startTime) % 1000)
   C.fflush(console)
 
-  ---- Close long-running files
-  --for i = 0,config.IO.probes.length do
-  --  C.fclose(probeFiles[i])
-  --end
-  --C.free(probeFiles)
+  -- Close long-running files
   C.fclose(console)
 
 end -- work task

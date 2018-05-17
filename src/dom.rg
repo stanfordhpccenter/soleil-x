@@ -90,40 +90,6 @@ local struct tile_info {
 -- MODULE-LOCAL TASKS
 -------------------------------------------------------------------------------
 
--- Initialize face values
-local initialize_faces
-
-__demand(__inline)
-task initialize_faces(faces : region(ispace(int3d), face))
-where
-  reads writes (faces.I)
-do
-  for f in faces do
-    for m = 0, NUM_ANGLES do
-      f.I[m] = 0.0
-    end
-  end
-end
-
-local initialize_all_faces
-do
-  local params = terralib.newlist()
-  local privs = terralib.newlist()
-  local launches = rquote end
-  for i = 1, 8 do
-    local param = regentlib.newsymbol(region(ispace(int3d), face),
-                                      "faces_" .. tostring(i))
-    params:insert(param)
-    privs:insert(regentlib.privilege(regentlib.reads, param, "I"))
-    privs:insert(regentlib.privilege(regentlib.writes, param, "I"))
-    launches = rquote
-      [launches];
-      initialize_faces([param])
-    end
-  end
-  task initialize_all_faces([params]) where [privs] do [launches] end
-end
-
 -- Initialize angle quads
 local task initialize_angles(angles : region(ispace(int1d), angle))
 where
@@ -857,7 +823,7 @@ do
     for j = starty,endy,dindy do
       for i = startx,endx,dindx do
 
-      -- Outer loop over all angles.
+      -- Loop over all angles.
       for m = 0, NUM_ANGLES do
 
         if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
@@ -1001,7 +967,7 @@ do
     for j = starty,endy,dindy do
       for i = startx,endx,dindx do
 
-      -- Outer loop over all angles.
+      -- Loop over all angles.
       for m = 0, NUM_ANGLES do
 
         if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
@@ -1147,7 +1113,7 @@ do
     for j = starty,endy,dindy do
       for i = startx,endx,dindx do
 
-      -- Outer loop over all angles.
+      -- Loop over all angles.
       for m = 0, NUM_ANGLES do
 
         if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
@@ -1293,7 +1259,7 @@ do
     for j = starty,endy,dindy do
       for i = startx,endx,dindx do
 
-      -- Outer loop over all angles.
+      -- Loop over all angles.
       for m = 0, NUM_ANGLES do
 
         if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
@@ -1439,7 +1405,7 @@ do
     for j = starty,endy,dindy do
       for i = startx,endx,dindx do
 
-      -- Outer loop over all angles.
+      -- Loop over all angles.
       for m = 0, NUM_ANGLES do
 
         if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
@@ -1585,7 +1551,7 @@ do
     for j = starty,endy,dindy do
       for i = startx,endx,dindx do
 
-      -- Outer loop over all angles.
+      -- Loop over all angles.
       for m = 0, NUM_ANGLES do
 
         if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
@@ -1731,7 +1697,7 @@ do
     for j = starty,endy,dindy do
       for i = startx,endx,dindx do
 
-      -- Outer loop over all angles.
+      -- Loop over all angles.
       for m = 0, NUM_ANGLES do
 
         if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
@@ -1877,7 +1843,7 @@ do
     for j = starty,endy,dindy do
       for i = startx,endx,dindx do
 
-      -- Outer loop over all angles.
+      -- Loop over all angles.
       for m = 0, NUM_ANGLES do
 
         if (angles[m].xi * xi > 0 or (angles[m].xi == 0 and xi < 0)) and
@@ -1978,6 +1944,7 @@ do
       end
     end
   end
+  __demand(__openmp)
   for p in points do
     for m = 0, NUM_ANGLES do
       var v1 = p.I_2[m]
@@ -1987,6 +1954,7 @@ do
       end
     end
   end
+  __demand(__openmp)
   for p in points do
     for m = 0, NUM_ANGLES do
       var v1 = p.I_3[m]
@@ -1996,6 +1964,7 @@ do
       end
     end
   end
+  __demand(__openmp)
   for p in points do
     for m = 0, NUM_ANGLES do
       var v1 = p.I_4[m]
@@ -2005,6 +1974,7 @@ do
       end
     end
   end
+  __demand(__openmp)
   for p in points do
     for m = 0, NUM_ANGLES do
       var v1 = p.I_5[m]
@@ -2014,6 +1984,7 @@ do
       end
     end
   end
+  __demand(__openmp)
   for p in points do
     for m = 0, NUM_ANGLES do
       var v1 = p.I_6[m]
@@ -2023,6 +1994,7 @@ do
       end
     end
   end
+  __demand(__openmp)
   for p in points do
     for m = 0, NUM_ANGLES do
       var v1 = p.I_7[m]
@@ -2032,6 +2004,7 @@ do
       end
     end
   end
+  __demand(__openmp)
   for p in points do
     for m = 0, NUM_ANGLES do
       var v1 = p.I_8[m]
@@ -2052,49 +2025,51 @@ where
   reads writes (points.{Iiter_1, Iiter_2, Iiter_3, Iiter_4,
                         Iiter_5, Iiter_6, Iiter_7, Iiter_8})
 do
-  __forbid(__vectorize)
+  -- Request that outer loop is not vectorized, to ensure the inner one gets
+  -- vectorized instead.
+  __forbid(__vectorize) __demand(__openmp)
   for p in points do
     for m = 0, NUM_ANGLES do
       p.Iiter_1[m] = p.I_1[m]
     end
   end
-  __forbid(__vectorize)
+  __forbid(__vectorize) __demand(__openmp)
   for p in points do
     for m = 0, NUM_ANGLES do
       p.Iiter_2[m] = p.I_2[m]
     end
   end
-  __forbid(__vectorize)
+  __forbid(__vectorize) __demand(__openmp)
   for p in points do
     for m = 0, NUM_ANGLES do
       p.Iiter_3[m] = p.I_3[m]
     end
   end
-  __forbid(__vectorize)
+  __forbid(__vectorize) __demand(__openmp)
   for p in points do
     for m = 0, NUM_ANGLES do
       p.Iiter_4[m] = p.I_4[m]
     end
   end
-  __forbid(__vectorize)
+  __forbid(__vectorize) __demand(__openmp)
   for p in points do
     for m = 0, NUM_ANGLES do
       p.Iiter_5[m] = p.I_5[m]
     end
   end
-  __forbid(__vectorize)
+  __forbid(__vectorize) __demand(__openmp)
   for p in points do
     for m = 0, NUM_ANGLES do
       p.Iiter_6[m] = p.I_6[m]
     end
   end
-  __forbid(__vectorize)
+  __forbid(__vectorize) __demand(__openmp)
   for p in points do
     for m = 0, NUM_ANGLES do
       p.Iiter_7[m] = p.I_7[m]
     end
   end
-  __forbid(__vectorize)
+  __forbid(__vectorize) __demand(__openmp)
   for p in points do
     for m = 0, NUM_ANGLES do
       p.Iiter_8[m] = p.I_8[m]
@@ -2140,6 +2115,10 @@ local ntx = regentlib.newsymbol('ntx')
 local nty = regentlib.newsymbol('nty')
 local ntz = regentlib.newsymbol('ntz')
 
+local grid_x = regentlib.newsymbol('grid_x')
+local grid_y = regentlib.newsymbol('grid_y')
+local grid_z = regentlib.newsymbol('grid_z')
+
 local x_faces = {
   regentlib.newsymbol('x_faces_1'),
   regentlib.newsymbol('x_faces_2'),
@@ -2179,37 +2158,6 @@ local x_tiles_shared = regentlib.newsymbol('x_tiles_shared')
 local y_tiles_shared = regentlib.newsymbol('y_tiles_shared')
 local z_tiles_shared = regentlib.newsymbol('z_tiles_shared')
 
-local s_x_faces_by_tile = {
-  regentlib.newsymbol('s_x_faces_by_tile_1'),
-  regentlib.newsymbol('s_x_faces_by_tile_2'),
-  regentlib.newsymbol('s_x_faces_by_tile_3'),
-  regentlib.newsymbol('s_x_faces_by_tile_4'),
-  regentlib.newsymbol('s_x_faces_by_tile_5'),
-  regentlib.newsymbol('s_x_faces_by_tile_6'),
-  regentlib.newsymbol('s_x_faces_by_tile_7'),
-  regentlib.newsymbol('s_x_faces_by_tile_8'),
-}
-local s_y_faces_by_tile = {
-  regentlib.newsymbol('s_y_faces_by_tile_1'),
-  regentlib.newsymbol('s_y_faces_by_tile_2'),
-  regentlib.newsymbol('s_y_faces_by_tile_3'),
-  regentlib.newsymbol('s_y_faces_by_tile_4'),
-  regentlib.newsymbol('s_y_faces_by_tile_5'),
-  regentlib.newsymbol('s_y_faces_by_tile_6'),
-  regentlib.newsymbol('s_y_faces_by_tile_7'),
-  regentlib.newsymbol('s_y_faces_by_tile_8'),
-}
-local s_z_faces_by_tile = {
-  regentlib.newsymbol('s_z_faces_by_tile_1'),
-  regentlib.newsymbol('s_z_faces_by_tile_2'),
-  regentlib.newsymbol('s_z_faces_by_tile_3'),
-  regentlib.newsymbol('s_z_faces_by_tile_4'),
-  regentlib.newsymbol('s_z_faces_by_tile_5'),
-  regentlib.newsymbol('s_z_faces_by_tile_6'),
-  regentlib.newsymbol('s_z_faces_by_tile_7'),
-  regentlib.newsymbol('s_z_faces_by_tile_8'),
-}
-
 local p_x_faces_equal = {
   regentlib.newsymbol('p_x_faces_equal_1'),
   regentlib.newsymbol('p_x_faces_equal_2'),
@@ -2241,43 +2189,40 @@ local p_z_faces_equal = {
   regentlib.newsymbol('p_z_faces_equal_8'),
 }
 
-local p_x_faces_by_tile = {
-  regentlib.newsymbol('p_x_faces_by_tile_1'),
-  regentlib.newsymbol('p_x_faces_by_tile_2'),
-  regentlib.newsymbol('p_x_faces_by_tile_3'),
-  regentlib.newsymbol('p_x_faces_by_tile_4'),
-  regentlib.newsymbol('p_x_faces_by_tile_5'),
-  regentlib.newsymbol('p_x_faces_by_tile_6'),
-  regentlib.newsymbol('p_x_faces_by_tile_7'),
-  regentlib.newsymbol('p_x_faces_by_tile_8'),
+local p_x_faces = {
+  regentlib.newsymbol('p_x_faces_1'),
+  regentlib.newsymbol('p_x_faces_2'),
+  regentlib.newsymbol('p_x_faces_3'),
+  regentlib.newsymbol('p_x_faces_4'),
+  regentlib.newsymbol('p_x_faces_5'),
+  regentlib.newsymbol('p_x_faces_6'),
+  regentlib.newsymbol('p_x_faces_7'),
+  regentlib.newsymbol('p_x_faces_8'),
 }
-local p_y_faces_by_tile = {
-  regentlib.newsymbol('p_y_faces_by_tile_1'),
-  regentlib.newsymbol('p_y_faces_by_tile_2'),
-  regentlib.newsymbol('p_y_faces_by_tile_3'),
-  regentlib.newsymbol('p_y_faces_by_tile_4'),
-  regentlib.newsymbol('p_y_faces_by_tile_5'),
-  regentlib.newsymbol('p_y_faces_by_tile_6'),
-  regentlib.newsymbol('p_y_faces_by_tile_7'),
-  regentlib.newsymbol('p_y_faces_by_tile_8'),
+local p_y_faces = {
+  regentlib.newsymbol('p_y_faces_1'),
+  regentlib.newsymbol('p_y_faces_2'),
+  regentlib.newsymbol('p_y_faces_3'),
+  regentlib.newsymbol('p_y_faces_4'),
+  regentlib.newsymbol('p_y_faces_5'),
+  regentlib.newsymbol('p_y_faces_6'),
+  regentlib.newsymbol('p_y_faces_7'),
+  regentlib.newsymbol('p_y_faces_8'),
 }
-local p_z_faces_by_tile = {
-  regentlib.newsymbol('p_z_faces_by_tile_1'),
-  regentlib.newsymbol('p_z_faces_by_tile_2'),
-  regentlib.newsymbol('p_z_faces_by_tile_3'),
-  regentlib.newsymbol('p_z_faces_by_tile_4'),
-  regentlib.newsymbol('p_z_faces_by_tile_5'),
-  regentlib.newsymbol('p_z_faces_by_tile_6'),
-  regentlib.newsymbol('p_z_faces_by_tile_7'),
-  regentlib.newsymbol('p_z_faces_by_tile_8'),
+local p_z_faces = {
+  regentlib.newsymbol('p_z_faces_1'),
+  regentlib.newsymbol('p_z_faces_2'),
+  regentlib.newsymbol('p_z_faces_3'),
+  regentlib.newsymbol('p_z_faces_4'),
+  regentlib.newsymbol('p_z_faces_5'),
+  regentlib.newsymbol('p_z_faces_6'),
+  regentlib.newsymbol('p_z_faces_7'),
+  regentlib.newsymbol('p_z_faces_8'),
 }
 
 function Exports.DeclSymbols(config)
-  local grid_x = regentlib.newsymbol('grid_x')
-  local grid_y = regentlib.newsymbol('grid_y')
-  local grid_z = regentlib.newsymbol('grid_z')
 
-  local create_regions = rquote
+  local decl_symbols = rquote
     -- Number of points in each dimension
     var [Nx] = config.Radiation.xNum
     var [Ny] = config.Radiation.yNum
@@ -2299,16 +2244,16 @@ function Exports.DeclSymbols(config)
   end
 
   for i = 1, 8 do
-    create_regions = rquote
-      [create_regions];
+    decl_symbols = rquote
+      [decl_symbols];
       var [x_faces[i]] = region([grid_x], face)
       var [y_faces[i]] = region([grid_y], face)
       var [z_faces[i]] = region([grid_z], face)
     end
   end
 
-  create_regions = rquote
-    [create_regions];
+  decl_symbols = rquote
+    [decl_symbols];
     -- extra tile required for shared edge
     var [tiles_private]  = ispace(int3d, {x = ntx,   y = nty,   z = ntz  })
     var [x_tiles_shared] = ispace(int3d, {x = ntx+1, y = nty,   z = ntz  })
@@ -2329,8 +2274,6 @@ function Exports.DeclSymbols(config)
     rexpr array(false,false,false) end,
   }
 
-  local partition_faces = rquote end
-
   for i = 1, 8 do
 
     local x_by_privacy = regentlib.newsymbol('x_by_privacy_' .. tostring(i))
@@ -2345,9 +2288,8 @@ function Exports.DeclSymbols(config)
     local p_z = regentlib.newsymbol('p_z_' .. tostring(i))
     local s_z = regentlib.newsymbol('s_z_' .. tostring(i))
 
-    partition_faces = rquote
-      [partition_faces];
-
+    decl_symbols = rquote
+      [decl_symbols];
       -- x
       var [p_x_faces_equal[i]] = partition(equal, [x_faces[i]], [tiles_private])
       for c in [tiles_private] do
@@ -2355,10 +2297,9 @@ function Exports.DeclSymbols(config)
       end
       var [x_by_privacy] = partition([x_faces[i]].is_private, ispace(int1d,2))
       var [p_x] = [x_by_privacy][1]
-      var [p_x_faces_by_tile[i]] = partition([p_x].tile, [tiles_private])
+      var [p_x_faces[i]] = partition([p_x].tile, [tiles_private])
       var [s_x] = [x_by_privacy][0]
-      var [s_x_faces_by_tile[i]] = partition([s_x].tile, [x_tiles_shared])
-
+      var [s_x_faces[i]] = partition([s_x].tile, [x_tiles_shared])
       -- y
       var [p_y_faces_equal[i]] = partition(equal, [y_faces[i]], [tiles_private])
       for c in [tiles_private] do
@@ -2366,10 +2307,9 @@ function Exports.DeclSymbols(config)
       end
       var [y_by_privacy] = partition([y_faces[i]].is_private, ispace(int1d,2))
       var [p_y] = [y_by_privacy][1]
-      var [p_y_faces_by_tile[i]] = partition([p_y].tile, [tiles_private])
+      var [p_y_faces[i]] = partition([p_y].tile, [tiles_private])
       var [s_y] = [y_by_privacy][0]
-      var [s_y_faces_by_tile[i]] = partition([s_y].tile, [y_tiles_shared])
-
+      var [s_y_faces[i]] = partition([s_y].tile, [y_tiles_shared])
       -- z
       var [p_z_faces_equal[i]] = partition(equal, [z_faces[i]], [tiles_private])
       for c in [tiles_private] do
@@ -2377,57 +2317,20 @@ function Exports.DeclSymbols(config)
       end
       var [z_by_privacy] = partition([z_faces[i]].is_private, ispace(int1d,2))
       var [p_z] = [z_by_privacy][1]
-      var [p_z_faces_by_tile[i]] = partition([p_z].tile, [tiles_private])
+      var [p_z_faces[i]] = partition([p_z].tile, [tiles_private])
       var [s_z] = [z_by_privacy][0]
-      var [s_z_faces_by_tile[i]] = partition([s_z].tile, [z_tiles_shared])
+      var [s_z_faces[i]] = partition([s_z].tile, [z_tiles_shared])
     end
   end
 
-  return rquote
-    [create_regions];
-    [partition_faces];
-  end
+  return decl_symbols
 end
 
-function Exports.InitRegions()
-  -- Initialize face values
-  local init_faces = rquote end
+function Exports.InitRegions() return rquote
 
-  local p_partitions = { p_x_faces_by_tile,
-                         p_y_faces_by_tile,
-                         p_z_faces_by_tile }
-  local s_partitions = { s_x_faces_by_tile,
-                         s_y_faces_by_tile,
-                         s_z_faces_by_tile }
-  local s_colors = { x_tiles_shared,
-                     y_tiles_shared,
-                     z_tiles_shared }
+  -- Initialize angle values
+  initialize_angles(angles)
 
-  for k = 1, 3 do
-    local p_color = regentlib.newsymbol("c")
-    local s_color = regentlib.newsymbol("c")
-    local p_args = terralib.newlist()
-    local s_args = terralib.newlist()
-    for i = 1, 8 do
-      p_args:insert(rexpr [p_partitions[k][i]][ [p_color] ] end)
-      s_args:insert(rexpr [s_partitions[k][i]][ [s_color] ] end)
-    end
-    init_faces = rquote
-      [init_faces];
-      --for [p_color] in [tiles_private] do
-      --  initialize_all_faces([p_args])
-      --end
-      --for [s_color] in [s_colors[k]] do
-      --  initialize_all_faces([s_args])
-      --end
-    end
-  end
-
-  return rquote
-    [init_faces];
-
-    -- Initialize constant values
-    initialize_angles(angles)
 end end
 
 function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
@@ -2436,7 +2339,6 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
   var dy = config.Grid.yWidth / config.Radiation.yNum
   var dz = config.Grid.zWidth / config.Radiation.zNum
 
-  var iter = 1
   var omega = config.Radiation.qs/(config.Radiation.qa+config.Radiation.qs)
 
   -- Compute until convergence
@@ -2452,14 +2354,14 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     -- TODO: Should launch these on just the boundaries
     for j = 0, nty do
       for k = 0, ntz do
-        bound_x_lo([s_x_faces_by_tile[1]][{0,j,k}],
-                   [s_x_faces_by_tile[2]][{0,j,k}],
-                   [s_x_faces_by_tile[3]][{0,j,k}],
-                   [s_x_faces_by_tile[4]][{0,j,k}],
-                   [s_x_faces_by_tile[5]][{0,j,k}],
-                   [s_x_faces_by_tile[6]][{0,j,k}],
-                   [s_x_faces_by_tile[7]][{0,j,k}],
-                   [s_x_faces_by_tile[8]][{0,j,k}],
+        bound_x_lo([s_x_faces[1]][{0,j,k}],
+                   [s_x_faces[2]][{0,j,k}],
+                   [s_x_faces[3]][{0,j,k}],
+                   [s_x_faces[4]][{0,j,k}],
+                   [s_x_faces[5]][{0,j,k}],
+                   [s_x_faces[6]][{0,j,k}],
+                   [s_x_faces[7]][{0,j,k}],
+                   [s_x_faces[8]][{0,j,k}],
                    angles,
                    config)
       end
@@ -2467,14 +2369,14 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
 
     for j = 0, nty do
       for k = 0, ntz do
-        bound_x_hi([s_x_faces_by_tile[1]][{ntx,j,k}],
-                   [s_x_faces_by_tile[2]][{ntx,j,k}],
-                   [s_x_faces_by_tile[3]][{ntx,j,k}],
-                   [s_x_faces_by_tile[4]][{ntx,j,k}],
-                   [s_x_faces_by_tile[5]][{ntx,j,k}],
-                   [s_x_faces_by_tile[6]][{ntx,j,k}],
-                   [s_x_faces_by_tile[7]][{ntx,j,k}],
-                   [s_x_faces_by_tile[8]][{ntx,j,k}],
+        bound_x_hi([s_x_faces[1]][{ntx,j,k}],
+                   [s_x_faces[2]][{ntx,j,k}],
+                   [s_x_faces[3]][{ntx,j,k}],
+                   [s_x_faces[4]][{ntx,j,k}],
+                   [s_x_faces[5]][{ntx,j,k}],
+                   [s_x_faces[6]][{ntx,j,k}],
+                   [s_x_faces[7]][{ntx,j,k}],
+                   [s_x_faces[8]][{ntx,j,k}],
                    angles,
                    config)
       end
@@ -2483,14 +2385,14 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     -- Update y faces
     for i = 0, ntx do
       for k = 0, ntz do
-        bound_y_lo([s_y_faces_by_tile[1]][{i,0,k}],
-                   [s_y_faces_by_tile[2]][{i,0,k}],
-                   [s_y_faces_by_tile[3]][{i,0,k}],
-                   [s_y_faces_by_tile[4]][{i,0,k}],
-                   [s_y_faces_by_tile[5]][{i,0,k}],
-                   [s_y_faces_by_tile[6]][{i,0,k}],
-                   [s_y_faces_by_tile[7]][{i,0,k}],
-                   [s_y_faces_by_tile[8]][{i,0,k}],
+        bound_y_lo([s_y_faces[1]][{i,0,k}],
+                   [s_y_faces[2]][{i,0,k}],
+                   [s_y_faces[3]][{i,0,k}],
+                   [s_y_faces[4]][{i,0,k}],
+                   [s_y_faces[5]][{i,0,k}],
+                   [s_y_faces[6]][{i,0,k}],
+                   [s_y_faces[7]][{i,0,k}],
+                   [s_y_faces[8]][{i,0,k}],
                    angles,
                    config)
       end
@@ -2498,14 +2400,14 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
 
     for i = 0, ntx do
       for k = 0, ntz do
-        bound_y_hi([s_y_faces_by_tile[1]][{i,nty,k}],
-                   [s_y_faces_by_tile[2]][{i,nty,k}],
-                   [s_y_faces_by_tile[3]][{i,nty,k}],
-                   [s_y_faces_by_tile[4]][{i,nty,k}],
-                   [s_y_faces_by_tile[5]][{i,nty,k}],
-                   [s_y_faces_by_tile[6]][{i,nty,k}],
-                   [s_y_faces_by_tile[7]][{i,nty,k}],
-                   [s_y_faces_by_tile[8]][{i,nty,k}],
+        bound_y_hi([s_y_faces[1]][{i,nty,k}],
+                   [s_y_faces[2]][{i,nty,k}],
+                   [s_y_faces[3]][{i,nty,k}],
+                   [s_y_faces[4]][{i,nty,k}],
+                   [s_y_faces[5]][{i,nty,k}],
+                   [s_y_faces[6]][{i,nty,k}],
+                   [s_y_faces[7]][{i,nty,k}],
+                   [s_y_faces[8]][{i,nty,k}],
                    angles,
                    config)
       end
@@ -2514,14 +2416,14 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     -- Update z faces
     for i = 0, ntx do
       for j = 0, nty do
-        bound_z_lo([s_z_faces_by_tile[1]][{i,j,0}],
-                   [s_z_faces_by_tile[2]][{i,j,0}],
-                   [s_z_faces_by_tile[3]][{i,j,0}],
-                   [s_z_faces_by_tile[4]][{i,j,0}],
-                   [s_z_faces_by_tile[5]][{i,j,0}],
-                   [s_z_faces_by_tile[6]][{i,j,0}],
-                   [s_z_faces_by_tile[7]][{i,j,0}],
-                   [s_z_faces_by_tile[8]][{i,j,0}],
+        bound_z_lo([s_z_faces[1]][{i,j,0}],
+                   [s_z_faces[2]][{i,j,0}],
+                   [s_z_faces[3]][{i,j,0}],
+                   [s_z_faces[4]][{i,j,0}],
+                   [s_z_faces[5]][{i,j,0}],
+                   [s_z_faces[6]][{i,j,0}],
+                   [s_z_faces[7]][{i,j,0}],
+                   [s_z_faces[8]][{i,j,0}],
                    angles,
                    config)
       end
@@ -2529,14 +2431,14 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
 
     for i = 0, ntx do
       for j = 0, nty do
-        bound_z_hi([s_z_faces_by_tile[1]][{i,j,ntz}],
-                   [s_z_faces_by_tile[2]][{i,j,ntz}],
-                   [s_z_faces_by_tile[3]][{i,j,ntz}],
-                   [s_z_faces_by_tile[4]][{i,j,ntz}],
-                   [s_z_faces_by_tile[5]][{i,j,ntz}],
-                   [s_z_faces_by_tile[6]][{i,j,ntz}],
-                   [s_z_faces_by_tile[7]][{i,j,ntz}],
-                   [s_z_faces_by_tile[8]][{i,j,ntz}],
+        bound_z_hi([s_z_faces[1]][{i,j,ntz}],
+                   [s_z_faces[2]][{i,j,ntz}],
+                   [s_z_faces[3]][{i,j,ntz}],
+                   [s_z_faces[4]][{i,j,ntz}],
+                   [s_z_faces[5]][{i,j,ntz}],
+                   [s_z_faces[6]][{i,j,ntz}],
+                   [s_z_faces[7]][{i,j,ntz}],
+                   [s_z_faces[8]][{i,j,ntz}],
                    angles,
                    config)
       end
@@ -2548,10 +2450,10 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
       for j = 0, nty do
         for k = 0, ntz do
           sweep_1(p_points[{i,j,k}],
-                  [p_x_faces_by_tile[1]][{i,j,k}], [p_y_faces_by_tile[1]][{i,j,k}], [p_z_faces_by_tile[1]][{i,j,k}],
-                  [s_x_faces_by_tile[1]][{i,j,k}], [s_x_faces_by_tile[1]][{i+1,j,k}],
-                  [s_y_faces_by_tile[1]][{i,j,k}], [s_y_faces_by_tile[1]][{i,j+1,k}],
-                  [s_z_faces_by_tile[1]][{i,j,k}], [s_z_faces_by_tile[1]][{i,j,k+1}],
+                  [p_x_faces[1]][{i,j,k}], [p_y_faces[1]][{i,j,k}], [p_z_faces[1]][{i,j,k}],
+                  [s_x_faces[1]][{i,j,k}], [s_x_faces[1]][{i+1,j,k}],
+                  [s_y_faces[1]][{i,j,k}], [s_y_faces[1]][{i,j+1,k}],
+                  [s_z_faces[1]][{i,j,k}], [s_z_faces[1]][{i,j,k+1}],
                   angles, 1, 1, 1, dx, dy, dz)
         end
       end
@@ -2562,10 +2464,10 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
       for j = 0, nty do
         for k = ntz-1, -1, -1 do
           sweep_2(p_points[{i,j,k}],
-                  [p_x_faces_by_tile[2]][{i,j,k}], [p_y_faces_by_tile[2]][{i,j,k}], [p_z_faces_by_tile[2]][{i,j,k}],
-                  [s_x_faces_by_tile[2]][{i,j,k}], [s_x_faces_by_tile[2]][{i+1,j,k}],
-                  [s_y_faces_by_tile[2]][{i,j,k}], [s_y_faces_by_tile[2]][{i,j+1,k}],
-                  [s_z_faces_by_tile[2]][{i,j,k+1}], [s_z_faces_by_tile[2]][{i,j,k}],
+                  [p_x_faces[2]][{i,j,k}], [p_y_faces[2]][{i,j,k}], [p_z_faces[2]][{i,j,k}],
+                  [s_x_faces[2]][{i,j,k}], [s_x_faces[2]][{i+1,j,k}],
+                  [s_y_faces[2]][{i,j,k}], [s_y_faces[2]][{i,j+1,k}],
+                  [s_z_faces[2]][{i,j,k+1}], [s_z_faces[2]][{i,j,k}],
                   angles, 1, 1, -1, dx, dy, dz)
         end
       end
@@ -2576,10 +2478,10 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
       for j = nty-1, -1, -1 do
         for k = 0, ntz do
           sweep_3(p_points[{i,j,k}],
-                  [p_x_faces_by_tile[3]][{i,j,k}], [p_y_faces_by_tile[3]][{i,j,k}], [p_z_faces_by_tile[3]][{i,j,k}],
-                  [s_x_faces_by_tile[3]][{i,j,k}], [s_x_faces_by_tile[3]][{i+1,j,k}],
-                  [s_y_faces_by_tile[3]][{i,j+1,k}], [s_y_faces_by_tile[3]][{i,j,k}],
-                  [s_z_faces_by_tile[3]][{i,j,k}], [s_z_faces_by_tile[3]][{i,j,k+1}],
+                  [p_x_faces[3]][{i,j,k}], [p_y_faces[3]][{i,j,k}], [p_z_faces[3]][{i,j,k}],
+                  [s_x_faces[3]][{i,j,k}], [s_x_faces[3]][{i+1,j,k}],
+                  [s_y_faces[3]][{i,j+1,k}], [s_y_faces[3]][{i,j,k}],
+                  [s_z_faces[3]][{i,j,k}], [s_z_faces[3]][{i,j,k+1}],
                   angles, 1, -1, 1, dx, dy, dz)
         end
       end
@@ -2590,10 +2492,10 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
       for j = nty-1, -1, -1 do
         for k = ntz-1, -1, -1 do
           sweep_4(p_points[{i,j,k}],
-                  [p_x_faces_by_tile[4]][{i,j,k}], [p_y_faces_by_tile[4]][{i,j,k}], [p_z_faces_by_tile[4]][{i,j,k}],
-                  [s_x_faces_by_tile[4]][{i,j,k}], [s_x_faces_by_tile[4]][{i+1,j,k}],
-                  [s_y_faces_by_tile[4]][{i,j+1,k}], [s_y_faces_by_tile[4]][{i,j,k}],
-                  [s_z_faces_by_tile[4]][{i,j,k+1}], [s_z_faces_by_tile[4]][{i,j,k}],
+                  [p_x_faces[4]][{i,j,k}], [p_y_faces[4]][{i,j,k}], [p_z_faces[4]][{i,j,k}],
+                  [s_x_faces[4]][{i,j,k}], [s_x_faces[4]][{i+1,j,k}],
+                  [s_y_faces[4]][{i,j+1,k}], [s_y_faces[4]][{i,j,k}],
+                  [s_z_faces[4]][{i,j,k+1}], [s_z_faces[4]][{i,j,k}],
                   angles, 1, -1, -1, dx, dy, dz)
         end
       end
@@ -2604,10 +2506,10 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
       for j = 0, nty do
         for k = 0, ntz do
           sweep_5(p_points[{i,j,k}],
-                  [p_x_faces_by_tile[5]][{i,j,k}], [p_y_faces_by_tile[5]][{i,j,k}], [p_z_faces_by_tile[5]][{i,j,k}],
-                  [s_x_faces_by_tile[5]][{i+1,j,k}], [s_x_faces_by_tile[5]][{i,j,k}],
-                  [s_y_faces_by_tile[5]][{i,j,k}], [s_y_faces_by_tile[5]][{i,j+1,k}],
-                  [s_z_faces_by_tile[5]][{i,j,k}], [s_z_faces_by_tile[5]][{i,j,k+1}],
+                  [p_x_faces[5]][{i,j,k}], [p_y_faces[5]][{i,j,k}], [p_z_faces[5]][{i,j,k}],
+                  [s_x_faces[5]][{i+1,j,k}], [s_x_faces[5]][{i,j,k}],
+                  [s_y_faces[5]][{i,j,k}], [s_y_faces[5]][{i,j+1,k}],
+                  [s_z_faces[5]][{i,j,k}], [s_z_faces[5]][{i,j,k+1}],
                   angles, -1, 1, 1, dx, dy, dz)
         end
       end
@@ -2618,10 +2520,10 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
       for j = 0, nty do
         for k = ntz-1, -1, -1 do
           sweep_6(p_points[{i,j,k}],
-                  [p_x_faces_by_tile[6]][{i,j,k}], [p_y_faces_by_tile[6]][{i,j,k}], [p_z_faces_by_tile[6]][{i,j,k}],
-                  [s_x_faces_by_tile[6]][{i+1,j,k}], [s_x_faces_by_tile[6]][{i,j,k}],
-                  [s_y_faces_by_tile[6]][{i,j,k}], [s_y_faces_by_tile[6]][{i,j+1,k}],
-                  [s_z_faces_by_tile[6]][{i,j,k+1}], [s_z_faces_by_tile[6]][{i,j,k}],
+                  [p_x_faces[6]][{i,j,k}], [p_y_faces[6]][{i,j,k}], [p_z_faces[6]][{i,j,k}],
+                  [s_x_faces[6]][{i+1,j,k}], [s_x_faces[6]][{i,j,k}],
+                  [s_y_faces[6]][{i,j,k}], [s_y_faces[6]][{i,j+1,k}],
+                  [s_z_faces[6]][{i,j,k+1}], [s_z_faces[6]][{i,j,k}],
                   angles, -1, 1, -1, dx, dy, dz)
         end
       end
@@ -2632,10 +2534,10 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
       for j = nty-1, -1, -1 do
         for k = 0, ntz do
           sweep_7(p_points[{i,j,k}],
-                  [p_x_faces_by_tile[7]][{i,j,k}], [p_y_faces_by_tile[7]][{i,j,k}], [p_z_faces_by_tile[7]][{i,j,k}],
-                  [s_x_faces_by_tile[7]][{i+1,j,k}], [s_x_faces_by_tile[7]][{i,j,k}],
-                  [s_y_faces_by_tile[7]][{i,j+1,k}], [s_y_faces_by_tile[7]][{i,j,k}],
-                  [s_z_faces_by_tile[7]][{i,j,k}], [s_z_faces_by_tile[7]][{i,j,k+1}],
+                  [p_x_faces[7]][{i,j,k}], [p_y_faces[7]][{i,j,k}], [p_z_faces[7]][{i,j,k}],
+                  [s_x_faces[7]][{i+1,j,k}], [s_x_faces[7]][{i,j,k}],
+                  [s_y_faces[7]][{i,j+1,k}], [s_y_faces[7]][{i,j,k}],
+                  [s_z_faces[7]][{i,j,k}], [s_z_faces[7]][{i,j,k+1}],
                   angles, -1, -1, 1, dx, dy, dz)
         end
       end
@@ -2646,10 +2548,10 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
       for j = nty-1, -1, -1 do
         for k = ntz-1, -1, -1 do
           sweep_8(p_points[{i,j,k}],
-                  [p_x_faces_by_tile[8]][{i,j,k}], [p_y_faces_by_tile[8]][{i,j,k}], [p_z_faces_by_tile[8]][{i,j,k}],
-                  [s_x_faces_by_tile[8]][{i+1,j,k}], [s_x_faces_by_tile[8]][{i,j,k}],
-                  [s_y_faces_by_tile[8]][{i,j+1,k}], [s_y_faces_by_tile[8]][{i,j,k}],
-                  [s_z_faces_by_tile[8]][{i,j,k+1}], [s_z_faces_by_tile[8]][{i,j,k}],
+                  [p_x_faces[8]][{i,j,k}], [p_y_faces[8]][{i,j,k}], [p_z_faces[8]][{i,j,k}],
+                  [s_x_faces[8]][{i+1,j,k}], [s_x_faces[8]][{i,j,k}],
+                  [s_y_faces[8]][{i,j+1,k}], [s_y_faces[8]][{i,j,k}],
+                  [s_z_faces[8]][{i,j,k+1}], [s_z_faces[8]][{i,j,k}],
                   angles, -1, -1, -1, dx, dy, dz)
         end
       end
@@ -2662,19 +2564,10 @@ function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
     end
     res = sqrt(res/(Nx*Ny*Nz*(NUM_ANGLES)))
 
-    -- Update the intensities and the iteration number
+    -- Update the intensities
     for t in tiles do
       update(p_points[t])
     end
-
-    --if (iter == 1) then
-    --  C.printf("\n")
-    --  C.printf(" Iteration     Residual         \n")
-    --  C.printf(" ------------------------------ \n")
-    --end
-    --C.printf( "   %3d    %.15e \n", iter, res)
-
-    iter += 1
 
   end
 
