@@ -28,7 +28,7 @@ ifeq ($(USE_CUDA), 1)
 else
   SOLEIL_FLAGS := -fflow 0 -fopenmp 1 -finner 1 -fcuda 0
 endif
-DOM_HOST_FLAGS := -fflow 0 -fopenmp 0 -finner 1 -fcuda 0
+DOM_HOST_FLAGS := -fflow 0 -fopenmp 1 -finner 1 -fcuda 0
 
 # Link flags
 ifdef CRAYPE_VERSION
@@ -66,10 +66,7 @@ soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o
 soleil.o: soleil.rg soleil_mapper.h config_schema.h hdf_helper.rg dom.rg util.rg
 	$(REGENT) soleil.rg $(SOLEIL_FLAGS)
 
-dom_mapper.o: dom_mapper.cc dom_mapper.h config_schema.h
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
-
-dom_host.exec: dom_host.o dom_mapper.o config_schema.o json.o
+dom_host.exec: dom_host.o config_schema.o json.o
 	$(CXX) -o $@ $^ $(LINK_FLAGS)
 
 dom_host.o: dom_host.rg config_schema.h dom.rg util.rg

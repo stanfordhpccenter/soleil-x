@@ -10,7 +10,6 @@ import 'regent'
 
 local C = regentlib.c
 local SCHEMA = terralib.includec("config_schema.h")
-local MAPPER = terralib.includec("dom_mapper.h")
 
 -------------------------------------------------------------------------------
 -- Compile-time configuration options
@@ -112,8 +111,7 @@ end
 -- Proxy main
 -------------------------------------------------------------------------------
 
-__demand(__replicable)
-task main()
+local task main()
   -- Read configuration
   var args = C.legion_runtime_get_input_args()
   var stderr = C.fdopen(2, 'w')
@@ -142,7 +140,7 @@ task main()
     InitPoints(p_points[color])
   end
   [DOM.ComputeRadiationField(config, colors, p_points)];
-  --writeIntensity(points)
+  writeIntensity(points)
 end
 
-regentlib.saveobj(main, 'dom_host.o', 'object', MAPPER.register_mappers)
+regentlib.saveobj(main, 'dom_host.o', 'object')

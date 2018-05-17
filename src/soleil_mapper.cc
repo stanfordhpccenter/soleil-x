@@ -87,7 +87,6 @@ public:
   virtual Processor default_policy_select_initial_processor(
                               MapperContext ctx,
                               const Task& task) {
-#if 0
     // DOM sweep & boundary tasks are individually launched; find the tile on
     // which they're centered and send them to the rank responsible for that.
     // TODO: Cache the decision.
@@ -154,7 +153,6 @@ public:
 		  << " mapped to rank " << rank;
       return procs[rank];
     }
-#endif
     // Send each work task to the first in the set of ranks allocated to the
     // corresponding sample.
     if (strcmp(task.get_task_name(), "work") == 0) {
@@ -205,7 +203,6 @@ public:
     return req.region;
   }
 
-#if 0
   // Farm index-space launches made by work tasks across all the ranks
   // allocated to the corresponding sample.
   // TODO: Cache the decision.
@@ -253,7 +250,6 @@ public:
       }
     }
   }
-#endif
 
 private:
   // TODO: This interface only returns the first processor of the desired kind
