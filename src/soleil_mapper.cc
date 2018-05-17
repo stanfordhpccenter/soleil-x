@@ -194,36 +194,41 @@ public:
     CHECK(task.parent_task != NULL &&
           strcmp(task.parent_task->get_task_name(), "work") == 0,
           "Index-space launches only allowed in work task");
-    CHECK(input.domain.get_dim() == 3,
-          "Index-space launches should only use the top-level tiling.");
     output.verify_correctness = false;
     // Retrieve sample information from parent task.
     const Config* config = find_config(&task);
     unsigned sample_id = config->Mapping.sampleId;
     assert(sample_id < sample_mappings_.size());
     const SampleMapping& mapping = sample_mappings_[sample_id];
+    CHECK(input.domain.get_dim() == 3 &&
+          input.domain.lo()[0] == 0 &&
+          input.domain.lo()[1] == 0 &&
+          input.domain.lo()[2] == 0 &&
+          input.domain.hi()[0] == config->Mapping.xTiles - 1 &&
+          input.domain.hi()[1] == config->Mapping.yTiles - 1 &&
+          input.domain.hi()[2] == config->Mapping.zTiles - 1,
+          "Index-space launches in the work task should only use the"
+          " top-level tiling.");
     // Select the 1st (and only) processor of the same kind as the original
-    // target, on each rank.
+    // target, on each rank allocated to this sample.
     const std::vector<Processor>& procs =
       remote_procs(task.target_proc.kind());
     // Distribute tiles to the ranks in row-major order.
-    for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
-      CHECK(itr.p[0] >= 0 && itr.p[0] < config->Mapping.xTiles &&
-	    itr.p[1] >= 0 && itr.p[1] < config->Mapping.yTiles &&
-	    itr.p[2] >= 0 && itr.p[2] < config->Mapping.zTiles,
-            "Out-of-bounds point on index-space launch");
-      int rank = mapping.first_rank
-               + itr.p[0] * config->Mapping.yTiles * config->Mapping.zTiles
-               + itr.p[1] * config->Mapping.zTiles
-               + itr.p[2];
-      output.slices.emplace_back(Domain(itr.p, itr.p),
-                                 procs[rank],
-                                 false /*recurse*/,
-                                 false /*stealable*/);
-      LOG.debug() << "Sample " << sample_id << ":"
-                  << " Index-space launch: Task " << task.get_task_name()
-                  << " on tile " << itr.p
-                  << " mapped to rank " << rank;
+    int next_rank = mapping.first_rank;
+    for (int x = 0; x < config->Mapping.xTiles; ++x) {
+      for (int y = 0; y < config->Mapping.yTiles; ++y) {
+        for (int z = 0; z < config->Mapping.zTiles; ++z) {
+          output.slices.emplace_back(Rect<3>(Point<3>(x,y,z), Point<3>(x,y,z)),
+                                     procs[next_rank],
+                                     false /*recurse*/,
+                                     false /*stealable*/);
+          LOG.debug() << "Sample " << sample_id << ":"
+                      << " Index-space launch: Task " << task.get_task_name()
+		      << " on tile (" << x << "," << y << "," << z << ")"
+		      << " mapped to rank " << next_rank;
+          next_rank++;
+        }
+      }
     }
   }
 
