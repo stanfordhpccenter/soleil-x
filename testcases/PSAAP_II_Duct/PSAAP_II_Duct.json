@@ -9,7 +9,7 @@
     },
 
     "Grid" : {
-        "xNum" : 270,
+        "xNum" : 272,
         "yNum" : 40,
         "zNum" : 40,
         "origin" : [0.0, 0.0, 0.0],
@@ -115,11 +115,11 @@
     },
 
     "Radiation" : {
-        "type" : "Algebraic",
+        "type" : "DOM",
         "intensity" : 92592.5925925,
         "qa" : 1.0,
         "qs" : 0.0,
-        "xNum" : 135,
+        "xNum" : 136,
         "yNum" :  20,
         "zNum" :  20,
         "angles" : 14,
@@ -145,9 +145,9 @@
 
     "IO" : {
         "wrtRestart" : true,
-        "restartEveryTimeSteps" : 100,
-        "consoleFrequency" : 10,
-        "headerFrequency" : 100,
+        "restartEveryTimeSteps" : 1,
+        "consoleFrequency" : 1,
+        "headerFrequency" : 10,
         "probes" : []
     }
 }
