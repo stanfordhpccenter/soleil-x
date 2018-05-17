@@ -2158,6 +2158,37 @@ local x_tiles_shared = regentlib.newsymbol('x_tiles_shared')
 local y_tiles_shared = regentlib.newsymbol('y_tiles_shared')
 local z_tiles_shared = regentlib.newsymbol('z_tiles_shared')
 
+local s_x_faces = {
+  regentlib.newsymbol('s_x_faces_1'),
+  regentlib.newsymbol('s_x_faces_2'),
+  regentlib.newsymbol('s_x_faces_3'),
+  regentlib.newsymbol('s_x_faces_4'),
+  regentlib.newsymbol('s_x_faces_5'),
+  regentlib.newsymbol('s_x_faces_6'),
+  regentlib.newsymbol('s_x_faces_7'),
+  regentlib.newsymbol('s_x_faces_8'),
+}
+local s_y_faces = {
+  regentlib.newsymbol('s_y_faces_1'),
+  regentlib.newsymbol('s_y_faces_2'),
+  regentlib.newsymbol('s_y_faces_3'),
+  regentlib.newsymbol('s_y_faces_4'),
+  regentlib.newsymbol('s_y_faces_5'),
+  regentlib.newsymbol('s_y_faces_6'),
+  regentlib.newsymbol('s_y_faces_7'),
+  regentlib.newsymbol('s_y_faces_8'),
+}
+local s_z_faces = {
+  regentlib.newsymbol('s_z_faces_1'),
+  regentlib.newsymbol('s_z_faces_2'),
+  regentlib.newsymbol('s_z_faces_3'),
+  regentlib.newsymbol('s_z_faces_4'),
+  regentlib.newsymbol('s_z_faces_5'),
+  regentlib.newsymbol('s_z_faces_6'),
+  regentlib.newsymbol('s_z_faces_7'),
+  regentlib.newsymbol('s_z_faces_8'),
+}
+
 local p_x_faces_equal = {
   regentlib.newsymbol('p_x_faces_equal_1'),
   regentlib.newsymbol('p_x_faces_equal_2'),

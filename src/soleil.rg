@@ -238,7 +238,7 @@ do
       var file = UTIL.openFile(filename, 'a')
       C.free(filename)
       var temp = Fluid[int3d{coords[0],coords[1],coords[2]}].temperature
-      C.fprintf(probeFiles[i], '%d\t%lf\n', Integrator_timeStep, temp)
+      C.fprintf(file, '%d\t%lf\n', Integrator_timeStep, temp)
       C.fclose(file)
     end
   end
