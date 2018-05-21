@@ -4978,7 +4978,7 @@ task main()
     -- Main time-step loop
     ---------------------------------------------------------------------------
 
-    var cfl = config.Integrator.cfl
+    var cfl : double = config.Integrator.cfl
     regentlib.assert(cfl > 0, "Fixed time-stepping is not supported")
     var maxIter = config.Integrator.maxIter
     if print_ts then maxIter += prune * 2 end
@@ -4987,7 +4987,6 @@ task main()
     while Integrator_timeStep < maxIter do
       __demand(__trace)
       for Integrator_stage = 1, 5 do
-        Integrator_maxSpectralRadius = [-math.huge]
         Integrator_maxSpectralRadius max=
           CalculateMaxSpectralRadius(Fluid,
                                      print_ts and Integrator_stage == 1 and
@@ -5705,7 +5704,7 @@ task main()
     -- Main time-step loop
     ---------------------------------------------------------------------------
 
-    var cfl = config.Integrator.cfl
+    var cfl : double = config.Integrator.cfl
     regentlib.assert(cfl > 0, "Fixed time-stepping is not supported")
     var maxIter = config.Integrator.maxIter
     if print_ts then maxIter += prune * 2 end
@@ -5714,7 +5713,6 @@ task main()
     while Integrator_timeStep < maxIter do
       __demand(__trace)
       for Integrator_stage = 1, 5 do
-        Integrator_maxSpectralRadius = [-math.huge]
         Integrator_maxSpectralRadius max=
           CalculateMaxSpectralRadius(Fluid,
                                      print_ts and Integrator_stage == 1 and
