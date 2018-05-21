@@ -6,12 +6,9 @@ $(error SOLEIL_DIR is not set)
 endif
 
 # CUDA options
-USE_CUDA ?= 1
-
-# HDF options
-export USE_HDF ?= 1
-export HDF_HEADER ?= hdf5.h
-HDF_LIBNAME ?= hdf5
+USE_CUDA ?= 0
+USE_OPENMP ?= 1
+export USE_PARTICLES ?= 0
 
 # C compiler options
 CFLAGS += -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime
@@ -19,14 +16,15 @@ CXXFLAGS += -std=c++11 -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)
 
 # Regent options
 export INCLUDE_PATH := .
-ifdef HDF_ROOT
-  export INCLUDE_PATH := $(INCLUDE_PATH);$(HDF_ROOT)/include
-endif
 REGENT := $(LEGION_DIR)/language/regent.py -g
 ifeq ($(USE_CUDA), 1)
   SOLEIL_FLAGS := -fflow 0 -fopenmp 1 -finner 1 -fcuda 1 -fcuda-offline 1
 else
-  SOLEIL_FLAGS := -fflow 0 -fopenmp 1 -finner 1 -fcuda 0
+ifeq ($(USE_OPENMP), 1)
+	SOLEIL_FLAGS := -fflow 1 -fflow-spmd 1 -fflow-spmd-shardsize 1 -fopenmp 1 -finner 1 -fcuda 0
+else
+	SOLEIL_FLAGS := -fflow 1 -fflow-spmd 1 -fflow-spmd-shardsize 8 -fopenmp 0 -finner 1 -fcuda 0
+endif
 endif
 DOM_HOST_FLAGS := -fflow 0 -fopenmp 1 -finner 1 -fcuda 0
 
@@ -37,17 +35,6 @@ ifdef CRAYPE_VERSION
   LINK_FLAGS += $(CRAY_UDREG_POST_LINK_OPTS) -ludreg
 endif
 LINK_FLAGS += -L$(LEGION_DIR)/bindings/regent -lregent
-ifdef HDF_ROOT
-  LINK_FLAGS += -L$(HDF_ROOT)/lib
-  ifeq ($(shell uname),Darwin)
-    export DYLD_LIBRARY_PATH := $(DYLD_LIBRARY_PATH):$(HDF_ROOT)/lib
-  else
-    export LD_LIBRARY_PATH := $(LD_LIBRARY_PATH):$(HDF_ROOT)/lib
-  endif
-endif
-ifeq ($(USE_HDF), 1)
-  LINK_FLAGS += -l$(HDF_LIBNAME)
-endif
 LINK_FLAGS += -lm
 
 .PHONY: default all clean
@@ -63,8 +50,8 @@ clean:
 soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o
 	$(CXX) -o $@ $^ $(LINK_FLAGS)
 
-soleil.o: soleil.rg soleil_mapper.h config_schema.h hdf_helper.rg dom.rg util.rg
-	$(REGENT) soleil.rg $(SOLEIL_FLAGS)
+soleil.o: soleil.rg soleil_mapper.h config_schema.h util.rg
+	time $(REGENT) soleil.rg $(SOLEIL_FLAGS)
 
 dom_host.exec: dom_host.o config_schema.o json.o
 	$(CXX) -o $@ $^ $(LINK_FLAGS)
