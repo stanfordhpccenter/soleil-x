@@ -2091,7 +2091,7 @@ ebb Flow.UpdateGhostStep2 (c : fluidGrid)
   end
 end
 
-function Flow.UpdateGhost()
+function Flow.UpdateGhostConservedAndVelocity()
   fluidGrid:foreach(Flow.UpdateGhostStep1)
   fluidGrid:foreach(Flow.UpdateGhostStep2)
 end
@@ -3055,7 +3055,7 @@ function Flow.UpdateAuxiliaryVelocityConservedAndGradients()
   fluidGrid:foreach(Flow.UpdateAuxiliaryVelocity)
   --Flow.UpdateGhostConserved()
   --Flow.UpdateGhostVelocity()
-  Flow.UpdateGhost()
+  Flow.UpdateGhostConservedAndVelocity()
   Flow.ComputeVelocityGradients()
 end
 
