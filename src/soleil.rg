@@ -3797,9 +3797,9 @@ do
       var K_o = double(0.0)
       var force = [double[3]](array(0.0, 0.0, 0.0))
       W = (Flow_averagePD+Flow_averageDissipation)
-      G = 300.0
-      t_o = double(3.00889e-06)
-      K_o = double(66.27348)
+      G = 67.0
+      t_o = double(0.029594998)
+      K_o = double(0.098919475)
       A = (((-W)-((G*(Flow_averageK-K_o))/t_o))/(2.0*Flow_averageK))
       force = vs_mul_double_3(Fluid[c].velocity, (Fluid[c].rho*A))
       var tmp = force
