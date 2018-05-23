@@ -503,6 +503,24 @@ do
   end
 end
 
+__demand(__parallel)
+task Flow_InitializeRandom(Fluid : region(ispace(int3d), Fluid_columns),
+                           Flow_initParams : double[5])
+where
+  writes(Fluid.{rho, pressure}),
+  reads writes(Fluid.velocity)
+do
+  var magnitude = Flow_initParams[2]
+  __demand(__openmp)
+  for c in Fluid do
+    Fluid[c].rho = Flow_initParams[0]
+    Fluid[c].pressure = Flow_initParams[1]
+    Fluid[c].velocity[0] = 2 * (C.drand48() - 0.5) * magnitude
+    Fluid[c].velocity[1] = 2 * (C.drand48() - 0.5) * magnitude
+    Fluid[c].velocity[2] = 2 * (C.drand48() - 0.5) * magnitude
+  end
+end
+
 __demand(__inline)
 task vs_mul_double_3(a : double[3],b : double) : double[3]
   return array([&double](a)[0] * b, [&double](a)[1] * b, [&double](a)[2] * b)
@@ -7090,6 +7108,9 @@ task work(config : Config)
 
     if (config.Flow.initCase == SCHEMA.FlowInitCase_Uniform) then
       Flow_InitializeUniform(Fluid, Flow_initParams)
+    end
+    if (config.Flow.initCase == SCHEMA.FlowInitCase_Random) then
+      Flow_InitializeRandom(Fluid, Flow_initParams)
     end
     if (config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen2DVortex) then
       Flow_InitializeTaylorGreen2D(Fluid, Flow_initParams, Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth, Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth, Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
