@@ -163,6 +163,13 @@ local PI = 3.1415926535898
 
 -- TODO: Define macros for in_boundary, neg_depth etc.
 
+local __demand(__inline)
+task drand48_r(state : &C.drand48_data)
+  var res : double[1]
+  C.drand48_r(state, [&double](res))
+  return res[0]
+end
+
 -------------------------------------------------------------------------------
 -- I/O ROUTINES
 -------------------------------------------------------------------------------
@@ -217,7 +224,7 @@ if USE_HDF then
     {"cell","position","velocity","temperature","diameter","__valid"})
 end
 
-local __demand(__parallel)
+-- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Probes_write(Fluid : region(ispace(int3d), Fluid_columns),
                   exitCond : bool,
                   Integrator_timeStep : int,
@@ -267,7 +274,7 @@ task GetDynamicViscosity(temperature : double,
   return viscosity
 end
 
-__demand(__parallel)
+__demand(__parallel, __cuda)
 task InitParticlesUniform(particles : region(ispace(int1d), particles_columns),
                           cells : region(ispace(int3d), Fluid_columns),
                           config : Config,
@@ -503,7 +510,7 @@ do
   end
 end
 
-__demand(__parallel)
+__demand(__parallel) -- NO CUDA, NO OPENMP
 task Flow_InitializeRandom(Fluid : region(ispace(int3d), Fluid_columns),
                            Flow_initParams : double[5])
 where
@@ -511,13 +518,15 @@ where
   reads writes(Fluid.velocity)
 do
   var magnitude = Flow_initParams[2]
-  __demand(__openmp)
+  var state : C.drand48_data[1]
+  var statePtr = [&C.drand48_data](state)
+  C.srand48_r(regentlib.c.legion_get_current_time_in_nanos(), statePtr)
   for c in Fluid do
     Fluid[c].rho = Flow_initParams[0]
     Fluid[c].pressure = Flow_initParams[1]
-    Fluid[c].velocity[0] = 2 * (C.drand48() - 0.5) * magnitude
-    Fluid[c].velocity[1] = 2 * (C.drand48() - 0.5) * magnitude
-    Fluid[c].velocity[2] = 2 * (C.drand48() - 0.5) * magnitude
+    Fluid[c].velocity[0] = 2 * (drand48_r(statePtr) - 0.5) * magnitude
+    Fluid[c].velocity[1] = 2 * (drand48_r(statePtr) - 0.5) * magnitude
+    Fluid[c].velocity[2] = 2 * (drand48_r(statePtr) - 0.5) * magnitude
   end
 end
 
@@ -575,19 +584,22 @@ do
   end
 end
 
-__demand(__parallel)
+__demand(__parallel) -- NO CUDA, NO OPENMP
 task Flow_InitializePerturbed(Fluid : region(ispace(int3d), Fluid_columns),
                               Flow_initParams : double[5])
 where
   writes(Fluid.{rho, pressure}),
   reads writes(Fluid.velocity)
 do
+  var state : C.drand48_data[1]
+  var statePtr = [&C.drand48_data](state)
+  C.srand48_r(regentlib.c.legion_get_current_time_in_nanos(), statePtr)
   for c in Fluid do
     Fluid[c].rho = Flow_initParams[0]
     Fluid[c].pressure = Flow_initParams[1]
-    Fluid[c].velocity[0] = (Flow_initParams[2]+(((double(C.rand())/2147483647)-double(0.5))*10.0))
-    Fluid[c].velocity[1] = (Flow_initParams[3]+(((double(C.rand())/2147483647)-double(0.5))*10.0))
-    Fluid[c].velocity[2] = (Flow_initParams[4]+(((double(C.rand())/2147483647)-double(0.5))*10.0))
+    Fluid[c].velocity[0] = Flow_initParams[2] + (drand48_r(statePtr)-0.5)*10.0
+    Fluid[c].velocity[1] = Flow_initParams[3] + (drand48_r(statePtr)-0.5)*10.0
+    Fluid[c].velocity[2] = Flow_initParams[4] + (drand48_r(statePtr)-0.5)*10.0
   end
 end
 
@@ -1450,7 +1462,7 @@ do
   end
 end
 
-__demand(__parallel)
+__demand(__parallel) -- NO CUDA, NO OPENMP
 task Flow_Perturb(Fluid : region(ispace(int3d), Fluid_columns),
                   config : Config,
                   Pertubation_kx : double[PERTUBATION_MODES],
@@ -1466,16 +1478,22 @@ do
   var Grid_xCellWidth = config.Grid.xWidth / config.Grid.xNum
   var Grid_yCellWidth = config.Grid.yWidth / config.Grid.yNum
   var Grid_zCellWidth = config.Grid.zWidth / config.Grid.zNum
+  var xFrom = config.Flow.pertubation.u.Random.fromCell[0]
+  var xUpto = config.Flow.pertubation.u.Random.uptoCell[0]
+  var yFrom = config.Flow.pertubation.u.Random.fromCell[1]
+  var yUpto = config.Flow.pertubation.u.Random.uptoCell[1]
+  var zFrom = config.Flow.pertubation.u.Random.fromCell[2]
+  var zUpto = config.Flow.pertubation.u.Random.uptoCell[2]
+  var state : C.drand48_data[1]
+  var statePtr = [&C.drand48_data](state)
+  C.srand48_r(regentlib.c.legion_get_current_time_in_nanos(), statePtr)
   -- For every grid point do the Fourier summation
   for c in Fluid do
     -- Only modify cells inside the perturbed volume
-    if  c.x >= config.Flow.pertubation.u.Random.fromCell[0]
-    and c.x <= config.Flow.pertubation.u.Random.uptoCell[0]
-    and c.y >= config.Flow.pertubation.u.Random.fromCell[1]
-    and c.y <= config.Flow.pertubation.u.Random.uptoCell[1]
-    and c.z >= config.Flow.pertubation.u.Random.fromCell[2]
-    and c.z <= config.Flow.pertubation.u.Random.uptoCell[2] then
-      var psi = (C.drand48() - 0.5) * PI
+    if  c.x >= xFrom and c.x <= xUpto
+    and c.y >= yFrom and c.y <= yUpto
+    and c.z >= zFrom and c.z <= zUpto then
+      var psi = (drand48_r(statePtr) - 0.5) * PI
       var xc = Grid_xCellWidth/2.0 + c.x*Grid_xCellWidth
       var yc = Grid_yCellWidth/2.0 + c.y*Grid_yCellWidth
       var zc = Grid_zCellWidth/2.0 + c.z*Grid_zCellWidth
@@ -2263,7 +2281,7 @@ do
   end
 end
 
-__demand(__parallel)
+__demand(__parallel, __cuda)
 task Particles_CalculateNumber(particles : region(ispace(int1d), particles_columns))
 where
   reads(particles.__valid)
@@ -2272,7 +2290,7 @@ do
   __demand(__openmp)
   for p in particles do
     if particles[p].__valid then
-      acc += int64(1)
+      acc += 1
     end
   end
   return acc
@@ -3405,6 +3423,7 @@ where
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
+  __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
     var xPosGhost  = (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)
@@ -3872,7 +3891,7 @@ task locate(pos : double[3],
   return int3d({xidx, yidx, zidx})
 end
 
-__demand(__cuda)
+__demand(__cuda) -- MANUALLY PARALLELIZED
 task Particles_LocateInCells(particles : region(ispace(int1d), particles_columns),
                              BC_xBCPeriodic : bool, BC_yBCPeriodic : bool, BC_zBCPeriodic : bool,
                              Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
@@ -3923,6 +3942,7 @@ terra particles_getOffset()
   return [&int8](&x.__valid) - [&int8](&x)
 end
 
+-- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task particles_pushAll(partColor : int3d,
                        r : region(ispace(int1d), particles_columns),
                        q0 : region(ispace(int1d), int8[376]),
@@ -4520,6 +4540,7 @@ terra particles_pullElement(src : &int8)
   return dst
 end
 
+-- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task particles_pullAll(color : int3d,
                        r : region(ispace(int1d), particles_columns),
                        q0 : region(ispace(int1d), int8[376]),
@@ -5351,7 +5372,7 @@ do
   end
 end
 
-__demand(__cuda)
+__demand(__cuda) -- MANUALLY PARALLELIZED
 task Radiation_AccumulateParticleValues(particles : region(ispace(int1d), particles_columns),
                                         Fluid : region(ispace(int3d), Fluid_columns),
                                         Radiation : region(ispace(int3d), Radiation_columns))
@@ -5389,7 +5410,7 @@ do
   end
 end
 
-__demand(__cuda)
+__demand(__cuda) -- MANUALLY PARALLELIZED
 task Particles_AbsorbRadiation(particles : region(ispace(int1d), particles_columns),
                                Fluid : region(ispace(int3d), Fluid_columns),
                                Radiation : region(ispace(int3d), Radiation_columns),
@@ -5574,9 +5595,9 @@ do
   end
 end
 
+-- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Particles_HandleCollisions(particles : region(ispace(int1d), particles_columns),
                                 Integrator_deltaTime : double, Particles_restitutionCoeff : double )
--- Authors: T. Jaravel, M. Papadakis
 -- This is an adaption of collisionPrt routine of the Soleil-MPI version
 -- TODO: search box implementation
 where
@@ -5800,6 +5821,7 @@ do
   end
 end
 
+__demand(__cuda) -- MANUALLY PARALLELIZED
 task Particles_DeleteEscapingParticles(particles : region(ispace(int1d), particles_columns),
                                        Grid_xRealOrigin : double, Grid_xRealWidth : double,
                                        Grid_yRealOrigin : double, Grid_yRealWidth : double,
@@ -5839,14 +5861,19 @@ task work(config : Config)
   -- Preparation
   -----------------------------------------------------------------------------
 
+  -- Start timer
+  var startTime = regentlib.c.legion_get_current_time_in_micros() / 1000
+
   -- Open long-running files
   var consoleFile = [&int8](C.malloc(256))
   C.snprintf(consoleFile, 256, '%s/console.txt', config.Mapping.outDir)
   var console = UTIL.openFile(consoleFile, 'w')
   C.free(consoleFile)
 
-  -- Start timer
-  var startTime = regentlib.c.legion_get_current_time_in_micros() / 1000
+  -- Seed RNG
+  var state : C.drand48_data[1]
+  var statePtr = [&C.drand48_data](state)
+  C.srand48_r(regentlib.c.legion_get_current_time_in_nanos(), statePtr)
 
   -----------------------------------------------------------------------------
   -- Grid Variables
@@ -7331,7 +7358,9 @@ task work(config : Config)
           C.free(dirname)
         end
       end
-      Probes_write(Fluid, exitCond, Integrator_timeStep, config)
+      for c in primColors do
+        Probes_write(Fluid_primPart[c], exitCond, Integrator_timeStep, config)
+      end
 
       -- Check exit condition after I/O
       if exitCond then
@@ -7548,11 +7577,11 @@ task work(config : Config)
           -- Fill in arrays
           for i = 0,PERTUBATION_MODES do
             -- Generate random angles
-            var phi = 2.0*PI*C.drand48()
-            var nu = C.drand48()
+            var phi = 2.0*PI*drand48_r(statePtr)
+            var nu = drand48_r(statePtr)
             var theta = acos( 2.0*nu - 1.0 )
-            var phi1 = 2.0*PI*C.drand48()
-            var nu1 = C.drand48()
+            var phi1 = 2.0*PI*drand48_r(statePtr)
+            var nu1 = drand48_r(statePtr)
             -- Wavenumber at cell centers
             var wn = wn1 + 0.5*dk + i*dk
             -- Wavenumber vector from random angles
