@@ -169,7 +169,7 @@ local PI = 3.1415926535898
 
 local __demand(__inline)
 task Fluid_dump(colors : ispace(int3d),
-                filename : &int8,
+                dirname : &int8,
                 r : region(ispace(int3d),Fluid_columns),
                 s : region(ispace(int3d),Fluid_columns),
                 p_r : partition(disjoint, r, colors),
@@ -179,7 +179,7 @@ end
 
 local __demand(__inline)
 task Fluid_load(colors : ispace(int3d),
-                filename : &int8,
+                dirname : &int8,
                 r : region(ispace(int3d),Fluid_columns),
                 s : region(ispace(int3d),Fluid_columns),
                 p_r : partition(disjoint, r, colors),
@@ -189,7 +189,7 @@ end
 
 local __demand(__inline)
 task particles_dump(colors : ispace(int3d),
-                    filename : &int8,
+                    dirname : &int8,
                     r : region(ispace(int1d),particles_columns),
                     s : region(ispace(int1d),particles_columns),
                     p_r : partition(disjoint, r, colors),
@@ -199,7 +199,7 @@ end
 
 local __demand(__inline)
 task particles_load(colors : ispace(int3d),
-                    filename : &int8,
+                    dirname : &int8,
                     r : region(ispace(int1d),particles_columns),
                     s : region(ispace(int1d),particles_columns),
                     p_r : partition(disjoint, r, colors),
@@ -253,7 +253,7 @@ task GetDynamicViscosity(temperature : double,
                          Flow_constantVisc : double,
                          Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
                          Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                         Flow_viscosityModel : SCHEMA.ViscosityModel) : double
+                         Flow_viscosityModel : SCHEMA.ViscosityModel)
   var viscosity = double(0.0)
   if (Flow_viscosityModel == SCHEMA.ViscosityModel_Constant) then
     viscosity = Flow_constantVisc
@@ -522,7 +522,7 @@ do
 end
 
 __demand(__inline)
-task vs_mul_double_3(a : double[3],b : double) : double[3]
+task vs_mul_double_3(a : double[3], b : double)
   return array([&double](a)[0] * b, [&double](a)[1] * b, [&double](a)[2] * b)
 end
 
@@ -716,7 +716,7 @@ do
 end
 
 __demand(__inline)
-task dot_double_3(a : double[3],b : double[3]) : double
+task dot_double_3(a : double[3], b : double[3])
   return [&double](a)[0] * [&double](b)[0] + [&double](a)[1] * [&double](b)[1] + [&double](a)[2] * [&double](b)[2]
 end
 
@@ -781,7 +781,7 @@ do
 end
 
 __demand(__inline)
-task vs_div_double_3(a : double[3],b : double) : double[3]
+task vs_div_double_3(a : double[3], b : double)
   return array([&double](a)[0] / b, [&double](a)[1] / b, [&double](a)[2] / b)
 end
 
@@ -906,12 +906,12 @@ do
 end
 
 __demand(__inline)
-task vv_mul_double_3(a : double[3],b : double[3]) : double[3]
+task vv_mul_double_3(a : double[3], b : double[3])
   return array([&double](a)[0] * [&double](b)[0], [&double](a)[1] * [&double](b)[1], [&double](a)[2] * [&double](b)[2])
 end
 
 __demand(__inline)
-task vv_add_double_3(a : double[3],b : double[3]) : double[3]
+task vv_add_double_3(a : double[3], b : double[3])
   return array([&double](a)[0] + [&double](b)[0], [&double](a)[1] + [&double](b)[1], [&double](a)[2] + [&double](b)[2])
 end
 
@@ -1505,7 +1505,7 @@ do
 end
 
 __demand(__inline)
-task vv_sub_double_3(a : double[3],b : double[3]) : double[3]
+task vv_sub_double_3(a : double[3], b : double[3])
   return array([&double](a)[0] - [&double](b)[0], [&double](a)[1] - [&double](b)[1], [&double](a)[2] - [&double](b)[2])
 end
 
@@ -2264,7 +2264,7 @@ do
 end
 
 __demand(__parallel)
-task Particles_CalculateNumber(particles : region(ispace(int1d), particles_columns)) : int64
+task Particles_CalculateNumber(particles : region(ispace(int1d), particles_columns))
 where
   reads(particles.__valid)
 do
@@ -2283,7 +2283,7 @@ task CalculateAveragePressure(Fluid : region(ispace(int3d), Fluid_columns),
                               Grid_cellVolume : double,
                               Grid_xBnum : int32, Grid_xNum : int32,
                               Grid_yBnum : int32, Grid_yNum : int32,
-                              Grid_zBnum : int32, Grid_zNum : int32) : double
+                              Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.pressure)
 do
@@ -2302,7 +2302,7 @@ task CalculateAverageTemperature(Fluid : region(ispace(int3d), Fluid_columns),
                                  Grid_cellVolume : double,
                                  Grid_xBnum : int32, Grid_xNum : int32,
                                  Grid_yBnum : int32, Grid_yNum : int32,
-                                 Grid_zBnum : int32, Grid_zNum : int32) : double
+                                 Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.temperature)
 do
@@ -2321,7 +2321,7 @@ task CalculateAverageKineticEnergy(Fluid : region(ispace(int3d), Fluid_columns),
                                    Grid_cellVolume : double,
                                    Grid_xBnum : int32, Grid_xNum : int32,
                                    Grid_yBnum : int32, Grid_yNum : int32,
-                                   Grid_zBnum : int32, Grid_zNum : int32) : double
+                                   Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.kineticEnergy)
 do
@@ -2339,7 +2339,7 @@ __demand(__parallel, __cuda)
 task CalculateMinTemperature(Fluid : region(ispace(int3d), Fluid_columns),
                              Grid_xBnum : int32, Grid_xNum : int32,
                              Grid_yBnum : int32, Grid_yNum : int32,
-                             Grid_zBnum : int32, Grid_zNum : int32) : double
+                             Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.temperature)
 do
@@ -2357,7 +2357,7 @@ __demand(__parallel, __cuda)
 task CalculateMaxTemperature(Fluid : region(ispace(int3d), Fluid_columns),
                              Grid_xBnum : int32, Grid_xNum : int32,
                              Grid_yBnum : int32, Grid_yNum : int32,
-                             Grid_zBnum : int32, Grid_zNum : int32) : double
+                             Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.temperature)
 do
@@ -2372,7 +2372,7 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Particles_IntegrateQuantities(particles : region(ispace(int1d), particles_columns)) : double
+task Particles_IntegrateQuantities(particles : region(ispace(int1d), particles_columns))
 where
   reads(particles.{temperature, __valid})
 do
@@ -2434,7 +2434,7 @@ do
 end
 
 __demand(__inline)
-task GetSoundSpeed(temperature : double, Flow_gamma : double, Flow_gasConstant : double) : double
+task GetSoundSpeed(temperature : double, Flow_gamma : double, Flow_gasConstant : double)
   return sqrt(((Flow_gamma*Flow_gasConstant)*temperature))
 end
 
@@ -2445,7 +2445,7 @@ task CalculateMaxMachNumber(Fluid : region(ispace(int3d), Fluid_columns),
                             Flow_gasConstant : double,
                             Grid_xBnum : int32, Grid_xNum : int32,
                             Grid_yBnum : int32, Grid_yNum : int32,
-                            Grid_zBnum : int32, Grid_zNum : int32) : double
+                            Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{velocity, temperature})
 do
@@ -2480,7 +2480,7 @@ task CalculateConvectiveSpectralRadius(Fluid : region(ispace(int3d), Fluid_colum
                                        Flow_gamma : double,
                                        Flow_gasConstant : double,
                                        Grid_dXYZInverseSquare : double,
-                                       Grid_xCellWidth : double, Grid_yCellWidth : double, Grid_zCellWidth : double) : double
+                                       Grid_xCellWidth : double, Grid_yCellWidth : double, Grid_zCellWidth : double)
 where
   reads(Fluid.{velocity, temperature}),
   reads writes(Fluid.convectiveSpectralRadius)
@@ -2501,7 +2501,7 @@ task CalculateViscousSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns)
                                     Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
                                     Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
                                     Flow_viscosityModel : SCHEMA.ViscosityModel,
-                                    Grid_dXYZInverseSquare : double) : double
+                                    Grid_dXYZInverseSquare : double)
 where
   reads(Fluid.{rho, temperature, sgsEddyViscosity}),
   reads writes(Fluid.viscousSpectralRadius)
@@ -2526,7 +2526,7 @@ task CalculateHeatConductionSpectralRadius(Fluid : region(ispace(int3d), Fluid_c
                                            Flow_prandtl : double,
                                            Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
                                            Flow_viscosityModel : SCHEMA.ViscosityModel,
-                                           Grid_dXYZInverseSquare : double) : double
+                                           Grid_dXYZInverseSquare : double)
 where
   reads(Fluid.{rho, temperature, sgsEddyKappa}),
   reads writes(Fluid.heatConductionSpectralRadius)
@@ -2729,7 +2729,7 @@ end
 __demand(__inline)
 task CenteredInviscidFlux(c_l : int3d,
                           c_r : int3d,
-                          Fluid : region(ispace(int3d), Fluid_columns)) : double[5]
+                          Fluid : region(ispace(int3d), Fluid_columns))
 where
   reads(Fluid.{rho, velocity, pressure, rhoVelocity, rhoEnthalpy})
 do
@@ -2774,7 +2774,7 @@ end
 __demand(__inline)
 task CenteredInviscidFlux_(c_l : int3d,
                            c_r : int3d,
-                           Fluid : region(ispace(int3d), Fluid_columns)) : double[5]
+                           Fluid : region(ispace(int3d), Fluid_columns))
 where
   reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnthalpy})
 do
@@ -2819,7 +2819,7 @@ end
 __demand(__inline)
 task CenteredInviscidFlux__(c_l : int3d,
                             c_r : int3d,
-                            Fluid : region(ispace(int3d), Fluid_columns)) : double[5]
+                            Fluid : region(ispace(int3d), Fluid_columns))
 where
   reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnthalpy})
 do
@@ -2911,22 +2911,22 @@ do
 
       var temperature = Fluid[c].temperature
       var temperature_stencil = Fluid[stencil].temperature
-      var muFace = double(0.5) * (GetDynamicViscosity(temperature,
-                                                      Flow_constantVisc,
-                                                      Flow_powerlawTempRef,
-                                                      Flow_powerlawViscRef,
-                                                      Flow_sutherlandSRef,
-                                                      Flow_sutherlandTempRef,
-                                                      Flow_sutherlandViscRef,
-                                                      Flow_viscosityModel) +
-                                  GetDynamicViscosity(temperature_stencil,
-                                                      Flow_constantVisc,
-                                                      Flow_powerlawTempRef,
-                                                      Flow_powerlawViscRef,
-                                                      Flow_sutherlandSRef,
-                                                      Flow_sutherlandTempRef,
-                                                      Flow_sutherlandViscRef,
-                                                      Flow_viscosityModel))
+      var muFace = 0.5 * GetDynamicViscosity(temperature,
+                                             Flow_constantVisc,
+                                             Flow_powerlawTempRef,
+                                             Flow_powerlawViscRef,
+                                             Flow_sutherlandSRef,
+                                             Flow_sutherlandTempRef,
+                                             Flow_sutherlandViscRef,
+                                             Flow_viscosityModel)
+                 + 0.5 * GetDynamicViscosity(temperature_stencil,
+                                             Flow_constantVisc,
+                                             Flow_powerlawTempRef,
+                                             Flow_powerlawViscRef,
+                                             Flow_sutherlandSRef,
+                                             Flow_sutherlandTempRef,
+                                             Flow_sutherlandViscRef,
+                                             Flow_viscosityModel)
 
       var velocity_stencil = Fluid[stencil].velocity
       var velocity = Fluid[c].velocity
@@ -2962,22 +2962,22 @@ do
 
       var temperature = Fluid[c].temperature
       var temperature_stencil = Fluid[stencil].temperature
-      var muFace = double(0.5) * (GetDynamicViscosity(temperature,
-                                                      Flow_constantVisc,
-                                                      Flow_powerlawTempRef,
-                                                      Flow_powerlawViscRef,
-                                                      Flow_sutherlandSRef,
-                                                      Flow_sutherlandTempRef,
-                                                      Flow_sutherlandViscRef,
-                                                      Flow_viscosityModel) +
-                                  GetDynamicViscosity(temperature_stencil,
-                                                      Flow_constantVisc,
-                                                      Flow_powerlawTempRef,
-                                                      Flow_powerlawViscRef,
-                                                      Flow_sutherlandSRef,
-                                                      Flow_sutherlandTempRef,
-                                                      Flow_sutherlandViscRef,
-                                                      Flow_viscosityModel))
+      var muFace = 0.5 * GetDynamicViscosity(temperature,
+                                             Flow_constantVisc,
+                                             Flow_powerlawTempRef,
+                                             Flow_powerlawViscRef,
+                                             Flow_sutherlandSRef,
+                                             Flow_sutherlandTempRef,
+                                             Flow_sutherlandViscRef,
+                                             Flow_viscosityModel)
+                 + 0.5 * GetDynamicViscosity(temperature_stencil,
+                                             Flow_constantVisc,
+                                             Flow_powerlawTempRef,
+                                             Flow_powerlawViscRef,
+                                             Flow_sutherlandSRef,
+                                             Flow_sutherlandTempRef,
+                                             Flow_sutherlandViscRef,
+                                             Flow_viscosityModel)
 
       var velocity_stencil = Fluid[stencil].velocity
       var velocity = Fluid[c].velocity
@@ -3013,22 +3013,22 @@ do
 
       var temperature = Fluid[c].temperature
       var temperature_stencil = Fluid[stencil].temperature
-      var muFace = double(0.5) * (GetDynamicViscosity(temperature,
-                                                      Flow_constantVisc,
-                                                      Flow_powerlawTempRef,
-                                                      Flow_powerlawViscRef,
-                                                      Flow_sutherlandSRef,
-                                                      Flow_sutherlandTempRef,
-                                                      Flow_sutherlandViscRef,
-                                                      Flow_viscosityModel) +
-                                  GetDynamicViscosity(temperature_stencil,
-                                                      Flow_constantVisc,
-                                                      Flow_powerlawTempRef,
-                                                      Flow_powerlawViscRef,
-                                                      Flow_sutherlandSRef,
-                                                      Flow_sutherlandTempRef,
-                                                      Flow_sutherlandViscRef,
-                                                      Flow_viscosityModel))
+      var muFace = 0.5 * GetDynamicViscosity(temperature,
+                                             Flow_constantVisc,
+                                             Flow_powerlawTempRef,
+                                             Flow_powerlawViscRef,
+                                             Flow_sutherlandSRef,
+                                             Flow_sutherlandTempRef,
+                                             Flow_sutherlandViscRef,
+                                             Flow_viscosityModel)
+                 + 0.5 * GetDynamicViscosity(temperature_stencil,
+                                             Flow_constantVisc,
+                                             Flow_powerlawTempRef,
+                                             Flow_powerlawViscRef,
+                                             Flow_sutherlandSRef,
+                                             Flow_sutherlandTempRef,
+                                             Flow_sutherlandViscRef,
+                                             Flow_viscosityModel)
 
       var velocity_stencil = Fluid[stencil].velocity
       var velocity = Fluid[c].velocity
@@ -3278,7 +3278,7 @@ do
         var c_int = ((c+{1, 0, 0})%Fluid.bounds)
 
         -- compute amplitudes of waves leaving the domain
-        var c_sound = GetSoundSpeed(Fluid[c_bnd].temperature, Flow_gamma, Flow_gasConstant) -- sound speed
+        var c_sound = GetSoundSpeed(Fluid[c_bnd].temperature, Flow_gamma, Flow_gasConstant)
         var lambda_1 = Fluid[c_bnd].velocity[0] - c_sound
         var dP_dx = (Fluid[c_int].pressure    - Fluid[c_bnd].pressure)    /  Grid_xCellWidth
         var du_dx = (Fluid[c_int].velocity[0] - Fluid[c_bnd].velocity[0]) /  Grid_xCellWidth
@@ -3320,7 +3320,7 @@ do
         var c_int = ((c+{-1, 0, 0})%Fluid.bounds)
 
         var sigma = 0.25 -- Specified constant
-        var c_sound = GetSoundSpeed(Fluid[c_bnd].temperature, Flow_gamma, Flow_gasConstant) -- sound speed
+        var c_sound = GetSoundSpeed(Fluid[c_bnd].temperature, Flow_gamma, Flow_gasConstant)
         var K = sigma*(1.0-maxMach*maxMach)*c_sound/Flow_lengthScale
 
         var L1 = K*(Fluid[c_bnd].pressure - BC_xPosP_inf)
@@ -3721,7 +3721,7 @@ task CalculateAveragePD(Fluid : region(ispace(int3d), Fluid_columns),
                         Grid_cellVolume : double,
                         Grid_xBnum : int32, Grid_xNum : int32,
                         Grid_yBnum : int32, Grid_yNum : int32,
-                        Grid_zBnum : int32, Grid_zNum : int32) : double
+                        Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.PD)
 do
@@ -3740,7 +3740,7 @@ task CalculateAverageDissipation(Fluid : region(ispace(int3d), Fluid_columns),
                                  Grid_cellVolume : double,
                                  Grid_xBnum : int32, Grid_xNum : int32,
                                  Grid_yBnum : int32, Grid_yNum : int32,
-                                 Grid_zBnum : int32, Grid_zNum : int32) : double
+                                 Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.dissipation)
 do
@@ -3759,7 +3759,7 @@ task CalculateAverageK(Fluid : region(ispace(int3d), Fluid_columns),
                        Grid_cellVolume : double,
                        Grid_xBnum : int32, Grid_xNum : int32,
                        Grid_yBnum : int32, Grid_yNum : int32,
-                       Grid_zBnum : int32, Grid_zNum : int32) : double
+                       Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{rho, velocity})
 do
@@ -3781,7 +3781,7 @@ task Flow_AddTurbulentSource(Fluid : region(ispace(int3d), Fluid_columns),
                              Grid_cellVolume : double,
                              Grid_xBnum : int32, Grid_xNum : int32,
                              Grid_yBnum : int32, Grid_yNum : int32,
-                             Grid_zBnum : int32, Grid_zNum : int32) : double
+                             Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{rho, velocity}),
   reads writes(Fluid.{rhoVelocity_t, rhoEnergy_t})
@@ -3838,7 +3838,7 @@ task locate(pos : double[3],
             BC_xBCPeriodic : bool, BC_yBCPeriodic : bool, BC_zBCPeriodic : bool,
             Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
             Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
-            Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double) : int3d
+            Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
   var xcw = (Grid_xWidth/double(Grid_xNum))
   var xro = (Grid_xOrigin-(double(Grid_xBnum)*xcw))
   var xpos = ((pos[0]-xro)/xcw)
@@ -3894,19 +3894,19 @@ __demand(__inline)
 task Fluid_elemColor(idx : int3d,
                      xNum  : int32, yNum  : int32, zNum  : int32,
                      xBnum : int32, yBnum : int32, zBnum : int32,
-                     NX_   : int32, NY_   : int32, NZ_   : int32) : int3d
+                     NX_   : int32, NY_   : int32, NZ_   : int32)
   idx.x = min(max(idx.x, xBnum), ((xNum+xBnum)-1))
   idx.y = min(max(idx.y, yBnum), ((yNum+yBnum)-1))
   idx.z = min(max(idx.z, zBnum), ((zNum+zBnum)-1))
   return int3d({((idx.x-xBnum)/(xNum/NX_)), ((idx.y-yBnum)/(yNum/NY_)), ((idx.z-zBnum)/(zNum/NZ_))})
 end
 
-terra particles_pushElement(dst : &opaque,idx : int32,src : particles_columns) : {}
+terra particles_pushElement(dst : &opaque,idx : int32,src : particles_columns)
   var ptr = [&int8](dst) + idx * 376
   C.memcpy([&opaque](ptr), [&opaque](&src), [uint64](376))
 end
 
-terra particles_getBasePointer(pr : regentlib.c.legion_physical_region_t,fid : uint32,runtime : regentlib.c.legion_runtime_t) : &opaque
+terra particles_getBasePointer(pr : regentlib.c.legion_physical_region_t,fid : uint32,runtime : regentlib.c.legion_runtime_t)
   var acc = regentlib.c.legion_physical_region_get_field_accessor_array_1d(pr, fid)
   var lr = regentlib.c.legion_physical_region_get_logical_region(pr)
   var domain = regentlib.c.legion_index_space_get_domain(runtime, lr.index_space)
@@ -3918,7 +3918,7 @@ terra particles_getBasePointer(pr : regentlib.c.legion_physical_region_t,fid : u
   return p
 end
 
-terra particles_getOffset() : int64
+terra particles_getOffset()
   var x : particles_columns
   return [&int8](&x.__valid) - [&int8](&x)
 end
@@ -4514,7 +4514,7 @@ do
   end
 end
 
-terra particles_pullElement(src : &int8) : particles_columns
+terra particles_pullElement(src : &int8)
   var dst : particles_columns
   C.memcpy([&opaque](&dst), [&opaque](src), [uint64](376))
   return dst
@@ -4955,7 +4955,7 @@ task TrilinearInterpolateVelocity(xyz : double[3],
                                   c111 : double[3],
                                   Grid_xCellWidth : double, Grid_xRealOrigin : double,
                                   Grid_yCellWidth : double, Grid_yRealOrigin : double,
-                                  Grid_zCellWidth : double, Grid_zRealOrigin : double) : double[3]
+                                  Grid_zCellWidth : double, Grid_zRealOrigin : double)
   var dX = fmod((((xyz[0]-Grid_xRealOrigin)/Grid_xCellWidth)+double(0.5)), 1.0)
   var dY = fmod((((xyz[1]-Grid_yRealOrigin)/Grid_yCellWidth)+double(0.5)), 1.0)
   var dZ = fmod((((xyz[2]-Grid_zRealOrigin)/Grid_zCellWidth)+double(0.5)), 1.0)
@@ -4977,7 +4977,7 @@ task InterpolateTriVelocity(c : int3d,
                             Fluid : region(ispace(int3d), Fluid_columns),
                             Grid_xCellWidth : double, Grid_xRealOrigin : double,
                             Grid_yCellWidth : double, Grid_yRealOrigin : double,
-                            Grid_zCellWidth : double, Grid_zRealOrigin : double) : double[3]
+                            Grid_zCellWidth : double, Grid_zRealOrigin : double)
 where
   reads(Fluid.{centerCoordinates, velocity})
 do
@@ -5121,7 +5121,7 @@ task TrilinearInterpolateTemp(xyz : double[3],
                               c111 : double,
                               Grid_xCellWidth : double, Grid_xRealOrigin : double,
                               Grid_yCellWidth : double, Grid_yRealOrigin : double,
-                              Grid_zCellWidth : double, Grid_zRealOrigin : double) : double
+                              Grid_zCellWidth : double, Grid_zRealOrigin : double)
   var dX = fmod((((xyz[0]-Grid_xRealOrigin)/Grid_xCellWidth)+double(0.5)), 1.0)
   var dY = fmod((((xyz[1]-Grid_yRealOrigin)/Grid_yCellWidth)+double(0.5)), 1.0)
   var dZ = fmod((((xyz[2]-Grid_zRealOrigin)/Grid_zCellWidth)+double(0.5)), 1.0)
@@ -5143,7 +5143,7 @@ task InterpolateTriTemp(c : int3d,
                         Fluid : region(ispace(int3d), Fluid_columns),
                         Grid_xCellWidth : double, Grid_xRealOrigin : double,
                         Grid_yCellWidth : double, Grid_yRealOrigin : double,
-                        Grid_zCellWidth : double, Grid_zRealOrigin : double) : double
+                        Grid_zCellWidth : double, Grid_zRealOrigin : double)
 where
   reads(Fluid.{centerCoordinates, temperature})
 do
@@ -5803,7 +5803,7 @@ end
 task Particles_DeleteEscapingParticles(particles : region(ispace(int1d), particles_columns),
                                        Grid_xRealOrigin : double, Grid_xRealWidth : double,
                                        Grid_yRealOrigin : double, Grid_yRealWidth : double,
-                                       Grid_zRealOrigin : double, Grid_zRealWidth : double) : int64
+                                       Grid_zRealOrigin : double, Grid_zRealWidth : double)
 where
   reads(particles.position),
   reads writes(particles.__valid)
