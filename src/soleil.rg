@@ -7329,7 +7329,7 @@ task work(config : Config)
         C.fprintf(console, " Min Flow Temp: %11.6f K. Max Flow Temp: %11.6f K.\n", Flow_minTemperature, Flow_maxTemperature)
         C.fprintf(console, " Current number of particles: %d.\n", Particles_number)
         C.fprintf(console, "\n")
-        C.fprintf(console, "    Iter     Time(s)   Avg Press    Avg Temp      Avg KE  Particle T\n")
+        C.fprintf(console, "    Iter     Time(s)   Avg Press    Avg Temp      Avg KE  Avg dissip  Particle T\n")
         C.fflush(console)
       end
       if exitCond or Integrator_timeStep % config.IO.consoleFrequency == 0 then
@@ -7345,7 +7345,7 @@ task work(config : Config)
         Flow_averageTemperature = (Flow_averageTemperature/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
         Flow_averageKineticEnergy = (Flow_averageKineticEnergy/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
         Particles_averageTemperature = (Particles_averageTemperature/Particles_number)
-        C.fprintf(console, "%8d %11.6f %11.6f %11.6f %11.6f %11.6f\n", Integrator_timeStep, Integrator_simTime, Flow_averagePressure, Flow_averageTemperature, Flow_averageKineticEnergy, Particles_averageTemperature)
+        C.fprintf(console, "%8d %11.6f %11.6f %11.6f %11.6f %11.6f %11.6f\n", Integrator_timeStep, Integrator_simTime, Flow_averagePressure, Flow_averageTemperature, Flow_averageKineticEnergy, Flow_averageDissipation, Particles_averageTemperature)
         C.fflush(console)
       end
       if config.IO.wrtRestart then
