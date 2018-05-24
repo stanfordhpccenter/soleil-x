@@ -31,7 +31,7 @@ NUM_RANKS="$(( NUM_RANKS + NUM_RANKS%2 ))"
 # NOTE: We have to run through the pick_hcas.py script, due to a GASNet bug.
 # NOTE: We have to disable MPI's CUDA hijack; it interferes with Realm's.
 jsrun -n "$NUM_RANKS" -r 2 -a 1 -c 21 -g 3 -b rs \
-    -E LD_LIBRARY_PATH -E SOLEIL_DIR  \
+    -E LD_LIBRARY_PATH -E SOLEIL_DIR -E REALM_BACKTRACE \
     --smpiargs="-x PAMI_DISABLE_CUDA_HOOK=1 -disable_gpu_hooks" \
     "$SOLEIL_DIR"/src/pick_hcas.py \
     "$SOLEIL_DIR"/src/soleil.exec $ARGS $GPU_OPTS \

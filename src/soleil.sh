@@ -77,6 +77,8 @@ else
     fi
 fi
 
+export REALM_BACKTRACE=1
+
 ###############################################################################
 
 function run_titan {
@@ -125,7 +127,7 @@ function run_sapling {
         GPU_OPTS="-ll:gpu 1 -ll:fsize 2048"
     fi
     mpiexec -H "$NODES" --bind-to none \
-        -x LD_LIBRARY_PATH -x SOLEIL_DIR  \
+        -x LD_LIBRARY_PATH -x SOLEIL_DIR -x REALM_BACKTRACE \
         "$SOLEIL_DIR"/src/soleil.exec $ARGS $GPU_OPTS \
         -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 \
         -ll:csize 20000
