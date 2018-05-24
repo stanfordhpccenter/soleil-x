@@ -304,7 +304,7 @@ task GetDynamicViscosity(temperature : double,
   return viscosity
 end
 
-__demand(__parallel, __cuda)
+__demand(__parallel) -- NO CUDA
 task InitParticlesUniform(particles : region(ispace(int1d), particles_columns),
                           cells : region(ispace(int3d), Fluid_columns),
                           config : Config,
@@ -314,7 +314,7 @@ where
   reads writes(particles)
 do
   var pBase = 0
-  for p in particles do
+  for p in particles do -- this loop trips up the CUDA codegen
     pBase = int32(p)
     break
   end
