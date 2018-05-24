@@ -57,7 +57,7 @@ print 'Grid size is ', shape
 keys = fic.keys()
 
 #Splitting Velocity in three components, should be possible to have it as a vector though
-to_add = ['Velocity_Z', 'Velocity_Y', 'Velocity_X']
+to_add = ['Velocity_X', 'Velocity_Y', 'Velocity_Z']
 for k,key in enumerate(to_add):
   if not( key in keys):
     fic[key] =  fic['velocity'][:][:,:,:,k]
