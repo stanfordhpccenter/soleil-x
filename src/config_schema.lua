@@ -167,9 +167,7 @@ Exports.Config = {
     wrtRestart = bool,
     -- how often to write restart files
     restartEveryTimeSteps = int,
-    -- how often to write intermediate statistics to the console
-    consoleFrequency = int,
-    headerFrequency = int,
+    -- Temperature probes
     probes = UpTo(5,{
       coords = Array(3,int),
       frequency = int,

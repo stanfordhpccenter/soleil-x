@@ -5869,6 +5869,17 @@ task work(config : Config)
   C.snprintf(consoleFile, 256, '%s/console.txt', config.Mapping.outDir)
   var console = UTIL.openFile(consoleFile, 'w')
   C.free(consoleFile)
+  C.fprintf(console, ['Iter\t'..
+                      'Sim Time\t'..
+                      'Wall T\t'..
+                      'Delta Time\t'..
+                      'Avg Press\t'..
+                      'Avg Temp\t'..
+                      'Average KE\t'..
+                      'Avg Dissip\t'..
+                      '#Part\t'..
+                      'Particle T\n'])
+  C.fflush(console)
 
   -- Seed RNG
   var state : C.drand48_data[1]
@@ -7318,36 +7329,41 @@ task work(config : Config)
         Integrator_simTime >= config.Integrator.finalTime or
         Integrator_timeStep >= config.Integrator.maxIter
 
-      -- Perform IO (on user-requested timesteps, and always on the last one)
-      if exitCond or Integrator_timeStep % config.IO.headerFrequency == 0 then
-        var Flow_minTemperature = math.huge
-        var Flow_maxTemperature = -math.huge
-        Flow_minTemperature min= CalculateMinTemperature(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-        Flow_maxTemperature max= CalculateMaxTemperature(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-        C.fprintf(console, "\n")
-        C.fprintf(console, " Current time step: %2.6e s.\n", Integrator_deltaTime)
-        C.fprintf(console, " Min Flow Temp: %11.6f K. Max Flow Temp: %11.6f K.\n", Flow_minTemperature, Flow_maxTemperature)
-        C.fprintf(console, " Current number of particles: %d.\n", Particles_number)
-        C.fprintf(console, "\n")
-        C.fprintf(console, "    Iter     Time(s)   Avg Press    Avg Temp      Avg KE  Avg dissip  Particle T\n")
-        C.fflush(console)
-      end
-      if exitCond or Integrator_timeStep % config.IO.consoleFrequency == 0 then
-        var Flow_averagePressure = 0.0
-        var Flow_averageTemperature = 0.0
-        var Flow_averageKineticEnergy = 0.0
-        var Particles_averageTemperature = 0.0
-        Flow_averagePressure += CalculateAveragePressure(Fluid, Grid_cellVolume, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-        Flow_averageTemperature += CalculateAverageTemperature(Fluid, Grid_cellVolume, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-        Flow_averageKineticEnergy += CalculateAverageKineticEnergy(Fluid, Grid_cellVolume, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-        Particles_averageTemperature += Particles_IntegrateQuantities(particles)
-        Flow_averagePressure = (Flow_averagePressure/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
-        Flow_averageTemperature = (Flow_averageTemperature/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
-        Flow_averageKineticEnergy = (Flow_averageKineticEnergy/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
-        Particles_averageTemperature = (Particles_averageTemperature/Particles_number)
-        C.fprintf(console, "%8d %11.6f %11.6f %11.6f %11.6f %11.6f %11.6f\n", Integrator_timeStep, Integrator_simTime, Flow_averagePressure, Flow_averageTemperature, Flow_averageKineticEnergy, Flow_averageDissipation, Particles_averageTemperature)
-        C.fflush(console)
-      end
+      -- Perform IO
+      var currTime = regentlib.c.legion_get_current_time_in_micros() / 1000
+      var Flow_averagePressure = 0.0
+      var Flow_averageTemperature = 0.0
+      var Flow_averageKineticEnergy = 0.0
+      var Particles_averageTemperature = 0.0
+      Flow_averagePressure += CalculateAveragePressure(Fluid, Grid_cellVolume, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
+      Flow_averageTemperature += CalculateAverageTemperature(Fluid, Grid_cellVolume, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
+      Flow_averageKineticEnergy += CalculateAverageKineticEnergy(Fluid, Grid_cellVolume, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
+      Particles_averageTemperature += Particles_IntegrateQuantities(particles)
+      Flow_averagePressure = (Flow_averagePressure/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
+      Flow_averageTemperature = (Flow_averageTemperature/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
+      Flow_averageKineticEnergy = (Flow_averageKineticEnergy/(((Grid_xNum*Grid_yNum)*Grid_zNum)*Grid_cellVolume))
+      Particles_averageTemperature = (Particles_averageTemperature/Particles_number)
+      C.fprintf(console, ['%d\t'..
+                          '%e\t'..
+                          '%lld.%03lld\t'..
+                          '%e\t'..
+                          '%e\t'..
+                          '%e\t'..
+                          '%e\t'..
+                          '%e\t'..
+                          '%d\t'..
+                          '%e\n'],
+                Integrator_timeStep,
+                Integrator_simTime,
+                (currTime - startTime) / 1000, (currTime - startTime) % 1000,
+                Integrator_deltaTime,
+                Flow_averagePressure,
+                Flow_averageTemperature,
+                Flow_averageKineticEnergy,
+                Flow_averageDissipation,
+                Particles_number,
+                Particles_averageTemperature)
+      C.fflush(console)
       if config.IO.wrtRestart then
         if exitCond or Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 then
           var dirname = [&int8](C.malloc(256))

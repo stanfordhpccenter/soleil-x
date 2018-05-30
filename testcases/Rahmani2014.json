@@ -144,8 +144,6 @@
     "IO" : {
         "wrtRestart" : true,
         "restartEveryTimeSteps" : 10,
-        "consoleFrequency" : 1,
-        "headerFrequency" : 10,
         "probes" : []
     }
 }

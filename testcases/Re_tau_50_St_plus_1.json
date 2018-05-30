@@ -140,8 +140,6 @@
     "IO" : {
         "wrtRestart" : true,
         "restartEveryTimeSteps" : 20,
-        "consoleFrequency" : 1,
-        "headerFrequency" : 10,
         "probes" : [{"coords" : [63,16,16], "frequency" : 1}]
     }
 }
