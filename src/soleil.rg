@@ -5871,12 +5871,11 @@ task work(config : Config)
   C.free(consoleFile)
   C.fprintf(console, ['Iter\t'..
                       'Sim Time\t'..
-                      'Wall T\t'..
+                      'Wall t\t'..
                       'Delta Time\t'..
                       'Avg Press\t'..
                       'Avg Temp\t'..
                       'Average KE\t'..
-                      'Avg Dissip\t'..
                       '#Part\t'..
                       'Particle T\n'])
   C.fflush(console)
@@ -7350,7 +7349,6 @@ task work(config : Config)
                           '%e\t'..
                           '%e\t'..
                           '%e\t'..
-                          '%e\t'..
                           '%d\t'..
                           '%e\n'],
                 Integrator_timeStep,
@@ -7360,7 +7358,6 @@ task work(config : Config)
                 Flow_averagePressure,
                 Flow_averageTemperature,
                 Flow_averageKineticEnergy,
-                Flow_averageDissipation,
                 Particles_number,
                 Particles_averageTemperature)
       C.fflush(console)

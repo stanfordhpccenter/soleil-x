@@ -30,6 +30,7 @@ def check_task():
     if '__openmp' not in demands and 'NO OPENMP' not in annots:
         warn('Task has no OpenMP loop')
 
+# TODO: Warn if launching a non-inlined task
 def check_in_openmp(line, lineno):
     def warn(msg):
         print 'Warning: Line %s: %s' % (lineno, msg)
