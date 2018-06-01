@@ -54,6 +54,8 @@ Exports.Config = {
     outDir = String(256),
     -- expected wall-clock execution time, in minutes
     wallTime = int,
+    -- mapping target for the sample
+    target = String(10),
   },
   Grid = {
     -- number of cells in the fluid grid, on the x,y,z dimensions
