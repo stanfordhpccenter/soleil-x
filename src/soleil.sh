@@ -27,7 +27,7 @@ tilesPerRank = config['Mapping']['tilesPerRank']
 xRanks = int(tiles[0]) / int(tilesPerRank[0])
 yRanks = int(tiles[1]) / int(tilesPerRank[1])
 zRanks = int(tiles[2]) / int(tilesPerRank[2])
-print xRanks * yRanks * zRanks
+print xRanks * yRanks * zRanks"
 }
 
 ###############################################################################

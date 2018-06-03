@@ -47,12 +47,15 @@ static const Config* find_config(const Task* task) {
 class SampleMapping {
 public:
   SampleMapping(const Config& config, AddressSpace first_rank)
-    : tiles_per_rank_{config.Mapping.tilesPerRank[0],
-                      config.Mapping.tilesPerRank[1],
-                      config.Mapping.tilesPerRank[2]},
-      ranks_per_dim_{config.Mapping.tiles[0] / config.Mapping.tilesPerRank[0],
-                     config.Mapping.tiles[1] / config.Mapping.tilesPerRank[1],
-                     config.Mapping.tiles[2] / config.Mapping.tilesPerRank[2]},
+    : tiles_per_rank_{static_cast<unsigned>(config.Mapping.tilesPerRank[0]),
+                      static_cast<unsigned>(config.Mapping.tilesPerRank[1]),
+                      static_cast<unsigned>(config.Mapping.tilesPerRank[2])},
+      ranks_per_dim_{static_cast<unsigned>(config.Mapping.tiles[0]
+                                           / config.Mapping.tilesPerRank[0]),
+                     static_cast<unsigned>(config.Mapping.tiles[1]
+                                           / config.Mapping.tilesPerRank[1]),
+                     static_cast<unsigned>(config.Mapping.tiles[2]
+                                           / config.Mapping.tilesPerRank[2])},
       first_rank_(first_rank) {}
   AddressSpace get_rank(unsigned x, unsigned y, unsigned z) const {
     return first_rank_ +
@@ -113,9 +116,9 @@ public:
             config.Mapping.tiles[2] % config.Mapping.tilesPerRank[2] == 0,
             "Invalid tiling for sample %d", num_samples);
       sample_mappings_.emplace_back(config, reqd_ranks);
-      unsigned num_ranks = sample_mappings_.back().num_ranks()
+      unsigned num_ranks = sample_mappings_.back().num_ranks();
       if (reqd_ranks <= node_id && node_id < reqd_ranks + num_ranks) {
-	local_sample_id_ = num_samples;
+        local_sample_id_ = num_samples;
       }
       reqd_ranks += num_ranks;
       num_samples++;
@@ -140,7 +143,7 @@ public:
           reqd_ranks, supplied_ranks);
     if (reqd_ranks < supplied_ranks) {
       LOG.warning() << supplied_ranks << " rank(s) supplied to Legion,"
-                    << " but only " << reqd_ranks << " required"
+                    << " but only " << reqd_ranks << " required";
     }
     // Cache processor information.
     Machine::ProcessorQuery query(machine);
@@ -216,9 +219,9 @@ public:
       Processor target_proc = procs[target_proc_id % procs.size()];
       LOG.debug() << "Sample " << sample_id << ":"
                   << " Sequential launch:"
-                  << " Task '" << task.get_task_name() << "'"
-		  << " on tile " << tile
-		  << " mapped to rank " << target_rank
+                  << " Task " << task.get_task_name()
+                  << " on tile " << tile
+                  << " mapped to rank " << target_rank
                   << " processor " << target_proc;
       return target_proc;
     }
@@ -233,8 +236,8 @@ public:
       Processor target_proc = remote_cpus[target_rank];
       LOG.debug() << "Sample " << sample_id << ":"
                   << " Sequential launch:"
-                  << " Task 'work'"
-		  << " mapped to rank " << target_rank
+                  << " Task work"
+                  << " mapped to rank " << target_rank
                   << " processor " << target_proc;
       return target_proc;
     }
@@ -284,7 +287,7 @@ public:
       (y_rev ? tile[1] : local_mapping.y_tiles() - tile[1] - 1) +
       (z_rev ? tile[2] : local_mapping.z_tiles() - tile[2] - 1);
     LOG.debug() << "Sample " << local_sample_id_ << ":"
-                << " Task '" << task.get_task_name() << "'"
+                << " Task " << task.get_task_name()
                 << " on tile " << tile
                 << " given priority " << priority;
     return priority;
@@ -335,16 +338,16 @@ public:
           input.domain.lo()[0] == 0 &&
           input.domain.lo()[1] == 0 &&
           input.domain.lo()[2] == 0 &&
-          input.domain.hi()[0] == config->Mapping.tiles[0] - 1 &&
-          input.domain.hi()[1] == config->Mapping.tiles[1] - 1 &&
-          input.domain.hi()[2] == config->Mapping.tiles[2] - 1,
+          input.domain.hi()[0] == mapping.x_tiles() - 1 &&
+          input.domain.hi()[1] == mapping.y_tiles() - 1 &&
+          input.domain.hi()[2] == mapping.z_tiles() - 1,
           "Index-space launches in the work task should only use the"
           " top-level tiling.");
     // Allocate tasks among all the processors of the same kind as the original
     // target, on each rank allocated to this sample.
-    for (unsigned x = 0; x < config->Mapping.tiles[0]; ++x) {
-      for (unsigned y = 0; y < config->Mapping.tiles[1]; ++y) {
-        for (unsigned z = 0; z < config->Mapping.tiles[2]; ++z) {
+    for (unsigned x = 0; x < mapping.x_tiles(); ++x) {
+      for (unsigned y = 0; y < mapping.y_tiles(); ++y) {
+        for (unsigned z = 0; z < mapping.z_tiles(); ++z) {
           AddressSpace target_rank = mapping.get_rank(x, y, z);
           const std::vector<Processor>& procs =
             get_procs(target_rank, task.target_proc.kind());
@@ -356,10 +359,10 @@ public:
                                      false /*stealable*/);
           LOG.debug() << "Sample " << sample_id << ":"
                       << " Index-space launch:"
-                      << " Task '" << task.get_task_name() << "'"
-		      << " on tile (" << x << "," << y << "," << z << ")"
-		      << " mapped to rank " << target_rank
-		      << " processor " << target_proc;
+                      << " Task " << task.get_task_name()
+                      << " on tile (" << x << "," << y << "," << z << ")"
+                      << " mapped to rank " << target_rank
+                      << " processor " << target_proc;
         }
       }
     }
