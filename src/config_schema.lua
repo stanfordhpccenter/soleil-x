@@ -40,11 +40,10 @@ local Window = {
 -- Main config struct
 Exports.Config = {
   Mapping = {
-    -- number of tiles in which to split the domain, on the x,y,z dimensions;
-    -- each tile will occupy a different node
-    xTiles = int,
-    yTiles = int,
-    zTiles = int,
+    -- number of tiles in which to split the domain, on the x,y,z dimensions
+    tiles = Array(3,int),
+    -- number of tiles to allocate to each rank, on the x,y,z dimensions
+    tilesPerRank = Array(3,int),
     -- unique id assigned to each sample, according to its order in the command
     -- line (first sample is 0, second is 1 etc.); the initial value of this
     -- option is irrelevant, it will be overriden by the code

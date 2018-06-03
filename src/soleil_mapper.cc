@@ -29,47 +29,99 @@ static Realm::Logger LOG("soleil_mapper");
 #define STARTS_WITH(str, prefix)                \
   (strncmp((str), (prefix), sizeof(prefix) - 1) == 0)
 
+static const Config* find_config(const Task* task) {
+  for(; task != NULL; task = task->parent_task) {
+    if (strcmp(task->get_task_name(), "work") == 0) {
+      const char* ptr = static_cast<const char*>(task->args);
+      return reinterpret_cast<const Config*>(ptr + sizeof(uint64_t));
+    }
+  }
+  return NULL;
+}
+
 //=============================================================================
 
-struct SampleMapping {
-  AddressSpace first_rank;
+// Maps super-tiles to ranks, in row-major order. Within a super-tile, tiles
+// are assigned unique processor IDs, in row-major order. The mapper will have
+// to match those IDs to real processors (not necessarily one per ID).
+class SampleMapping {
+public:
+  SampleMapping(const Config& config, AddressSpace first_rank)
+    : tiles_per_rank_{config.Mapping.tilesPerRank[0],
+                      config.Mapping.tilesPerRank[1],
+                      config.Mapping.tilesPerRank[2]},
+      ranks_per_dim_{config.Mapping.tiles[0] / config.Mapping.tilesPerRank[0],
+                     config.Mapping.tiles[1] / config.Mapping.tilesPerRank[1],
+                     config.Mapping.tiles[2] / config.Mapping.tilesPerRank[2]},
+      first_rank_(first_rank) {}
+  AddressSpace get_rank(unsigned x, unsigned y, unsigned z) const {
+    return first_rank_ +
+      (x / tiles_per_rank_[0]) * ranks_per_dim_[1] * ranks_per_dim_[2] +
+      (y / tiles_per_rank_[1]) * ranks_per_dim_[2] +
+      (z / tiles_per_rank_[2]);
+  }
+  unsigned get_proc_id(unsigned x, unsigned y, unsigned z) const {
+    return
+      (x % tiles_per_rank_[0]) * tiles_per_rank_[1] * tiles_per_rank_[2] +
+      (y % tiles_per_rank_[1]) * tiles_per_rank_[2] +
+      (z % tiles_per_rank_[2]);
+  }
+  unsigned num_ranks() const {
+    return ranks_per_dim_[0] * ranks_per_dim_[1] * ranks_per_dim_[2];
+  }
+  unsigned x_tiles() const {
+    return tiles_per_rank_[0] * ranks_per_dim_[0];
+  }
+  unsigned y_tiles() const {
+    return tiles_per_rank_[1] * ranks_per_dim_[1];
+  }
+  unsigned z_tiles() const {
+    return tiles_per_rank_[2] * ranks_per_dim_[2];
+  }
+  unsigned num_tiles() const {
+    return x_tiles() * y_tiles() * z_tiles();
+  }
+private:
+  unsigned tiles_per_rank_[3];
+  unsigned ranks_per_dim_[3];
+  AddressSpace first_rank_;
 };
 
-// Maps every sample to a disjoint set of ranks. Each sample gets one rank for
-// every tile, as specified in its config file.
+//=============================================================================
+
 class SoleilMapper : public DefaultMapper {
 public:
-  SoleilMapper(MapperRuntime* rt,
-               Machine machine,
-               Processor local)
-    : DefaultMapper(rt, machine, local, "soleil_mapper") {
+  SoleilMapper(MapperRuntime* rt, Machine machine, Processor local)
+    : DefaultMapper(rt, machine, local, "soleil_mapper"),
+      all_procs_(remote_cpus.size()) {
     // Set the umask of the process to clear S_IWGRP and S_IWOTH.
     umask(022);
     // Assign ranks sequentially to samples, each sample getting one rank for
-    // each tile.
-    InputArgs args = Runtime::get_input_args();
-    unsigned allocated_ranks = 0;
+    // each super-tile.
+    AddressSpace reqd_ranks = 0;
+    unsigned num_samples = 0;
     auto process_config = [&](char* config_file) {
       Config config = parse_config(config_file);
-      CHECK(config.Mapping.xTiles > 0 &&
-            config.Mapping.yTiles > 0 &&
-            config.Mapping.zTiles > 0,
-            "Invalid tiling");
-      unsigned num_tiles =
-        config.Mapping.xTiles * config.Mapping.yTiles * config.Mapping.zTiles;
-      // Store information for the sample this mapper instance belongs to.
-      if (node_id >= allocated_ranks &&
-          node_id < allocated_ranks + num_tiles) {
-	sample_id_ = sample_mappings_.size();
-        x_tiles_ = config.Mapping.xTiles;
-	y_tiles_ = config.Mapping.yTiles;
-	z_tiles_ = config.Mapping.zTiles;
+      CHECK(config.Mapping.tiles[0] > 0 &&
+            config.Mapping.tiles[1] > 0 &&
+            config.Mapping.tiles[2] > 0 &&
+            config.Mapping.tilesPerRank[0] > 0 &&
+            config.Mapping.tilesPerRank[1] > 0 &&
+            config.Mapping.tilesPerRank[2] > 0 &&
+            config.Mapping.tiles[0] % config.Mapping.tilesPerRank[0] == 0 &&
+            config.Mapping.tiles[1] % config.Mapping.tilesPerRank[1] == 0 &&
+            config.Mapping.tiles[2] % config.Mapping.tilesPerRank[2] == 0,
+            "Invalid tiling for sample %d", num_samples);
+      sample_mappings_.emplace_back(config, reqd_ranks);
+      unsigned num_ranks = sample_mappings_.back().num_ranks()
+      if (reqd_ranks <= node_id && node_id < reqd_ranks + num_ranks) {
+	local_sample_id_ = num_samples;
       }
-      sample_mappings_.push_back(SampleMapping{
-        .first_rank = allocated_ranks,
-      });
-      allocated_ranks += num_tiles;
+      reqd_ranks += num_ranks;
+      num_samples++;
     };
+    // Locate all config files specified on the command-line arguments.
+    InputArgs args = Runtime::get_input_args();
     for (int i = 0; i < args.argc; ++i) {
       if (strcmp(args.argv[i], "-i") == 0 && i < args.argc-1) {
         process_config(args.argv[i+1]);
@@ -81,14 +133,22 @@ public:
         }
       }
     }
-    unsigned total_ranks = remote_cpus.size();
-    CHECK(allocated_ranks <= total_ranks,
+    // Verify that we have enough ranks.
+    unsigned supplied_ranks = remote_cpus.size();
+    CHECK(reqd_ranks <= supplied_ranks,
           "%d rank(s) required, but %d rank(s) supplied to Legion",
-          allocated_ranks, total_ranks);
-    if (allocated_ranks < total_ranks) {
-      LOG.warning() << total_ranks - allocated_ranks << " rank(s) are unused";
+          reqd_ranks, supplied_ranks);
+    if (reqd_ranks < supplied_ranks) {
+      LOG.warning() << supplied_ranks << " rank(s) supplied to Legion,"
+                    << " but only " << reqd_ranks << " required"
     }
-    // TODO: Verify we're running with 1 OpenMP/CPU processor per rank.
+    // Cache processor information.
+    Machine::ProcessorQuery query(machine);
+    for (auto it = query.begin(); it != query.end(); it++) {
+      AddressSpace rank = it->address_space();
+      Processor::Kind kind = it->kind();
+      get_procs(rank, kind).push_back(*it);
+    }
   }
 
 public:
@@ -106,6 +166,7 @@ public:
             "DOM tasks should only be launched from the work task directly.");
       // Retrieve sample information from parent work task.
       const Config* config = find_config(&task);
+      assert(config != NULL);
       unsigned sample_id = config->Mapping.sampleId;
       assert(sample_id < sample_mappings_.size());
       const SampleMapping& mapping = sample_mappings_[sample_id];
@@ -140,39 +201,41 @@ public:
           if (match[1].str().compare("z") == 0) { tile[2]--; }
         }
       }
-      CHECK(tile[0] < config->Mapping.xTiles &&
-            tile[1] < config->Mapping.yTiles &&
-            tile[2] < config->Mapping.zTiles,
+      // Assign rank according to the precomputed mapping, then round-robin
+      // over all the processors of the preffered kind within that rank.
+      CHECK(0 <= tile[0] && tile[0] < config->Mapping.tiles[0] &&
+            0 <= tile[1] && tile[1] < config->Mapping.tiles[1] &&
+            0 <= tile[2] && tile[2] < config->Mapping.tiles[2],
             "DOM task launches should only use the top-level tiling.");
-      // Select the 1st (and only) processor of the preferred kind on each
-      // target rank.
+      AddressSpace target_rank = mapping.get_rank(tile[0], tile[1], tile[2]);
       VariantInfo info =
         default_find_preferred_variant(task, ctx, false/*needs tight*/);
-      const std::vector<Processor>& procs = remote_procs(info.proc_kind);
-      // Assign tasks to this sample's ranks in row-major order.
-      int rank =
-	mapping.first_rank +
-	tile[2] +
-	config->Mapping.zTiles * tile[1] +
-	config->Mapping.zTiles * config->Mapping.yTiles * tile[0];
+      const std::vector<Processor>& procs =
+        get_procs(target_rank, info.proc_kind);
+      unsigned target_proc_id = mapping.get_proc_id(tile[0], tile[1], tile[2]);
+      Processor target_proc = procs[target_proc_id % procs.size()];
       LOG.debug() << "Sample " << sample_id << ":"
-                  << " Sequential launch: Task " << task.get_task_name()
+                  << " Sequential launch:"
+                  << " Task '" << task.get_task_name() << "'"
 		  << " on tile " << tile
-		  << " mapped to rank " << rank;
-      return procs[rank];
+		  << " mapped to rank " << target_rank
+                  << " processor " << target_proc;
+      return target_proc;
     }
     // Send each work task to the first in the set of ranks allocated to the
     // corresponding sample.
     if (strcmp(task.get_task_name(), "work") == 0) {
       const Config* config = find_config(&task);
+      assert(config != NULL);
       unsigned sample_id = config->Mapping.sampleId;
       assert(sample_id < sample_mappings_.size());
-      AddressSpace target_rank = sample_mappings_[sample_id].first_rank;
+      AddressSpace target_rank = sample_mappings_[sample_id].get_rank(0,0,0);
       Processor target_proc = remote_cpus[target_rank];
       LOG.debug() << "Sample " << sample_id << ":"
-                  << " Sequential launch: Work task"
-		  << " for sample " << sample_id
-		  << " mapped to rank " << target_rank;
+                  << " Sequential launch:"
+                  << " Task 'work'"
+		  << " mapped to rank " << target_rank
+                  << " processor " << target_proc;
       return target_proc;
     }
     // For other tasks, defer to the default mapping policy.
@@ -208,19 +271,20 @@ public:
     CHECK(!tile.is_null(),
           "Cannot retrieve tile from DOM task launch -- did you change the"
           " names of the field spaces?");
+    const SampleMapping& local_mapping = sample_mappings_[local_sample_id_];
     CHECK(tile.get_dim() == 3 &&
-          tile[0] < x_tiles_ &&
-          tile[1] < y_tiles_ &&
-          tile[2] < z_tiles_,
+          0 <= tile[0] && tile[0] < local_mapping.x_tiles() &&
+          0 <= tile[1] && tile[1] < local_mapping.y_tiles() &&
+          0 <= tile[2] && tile[2] < local_mapping.z_tiles(),
           "DOM task launches should only use the top-level tiling.");
     // Assign priority according to the number of diagonals between this launch
     // and the end of the domain.
     int priority =
-      (x_rev ? tile[0] : x_tiles_ - tile[0] - 1) +
-      (y_rev ? tile[1] : y_tiles_ - tile[1] - 1) +
-      (z_rev ? tile[2] : z_tiles_ - tile[2] - 1);
-    LOG.debug() << "Sample " << sample_id_ << ":"
-                << " Task " << task.get_task_name()
+      (x_rev ? tile[0] : local_mapping.x_tiles() - tile[0] - 1) +
+      (y_rev ? tile[1] : local_mapping.y_tiles() - tile[1] - 1) +
+      (z_rev ? tile[2] : local_mapping.z_tiles() - tile[2] - 1);
+    LOG.debug() << "Sample " << local_sample_id_ << ":"
+                << " Task '" << task.get_task_name() << "'"
                 << " on tile " << tile
                 << " given priority " << priority;
     return priority;
@@ -263,6 +327,7 @@ public:
     output.verify_correctness = false;
     // Retrieve sample information from parent task.
     const Config* config = find_config(&task);
+    assert(config != NULL);
     unsigned sample_id = config->Mapping.sampleId;
     assert(sample_id < sample_mappings_.size());
     const SampleMapping& mapping = sample_mappings_[sample_id];
@@ -270,67 +335,50 @@ public:
           input.domain.lo()[0] == 0 &&
           input.domain.lo()[1] == 0 &&
           input.domain.lo()[2] == 0 &&
-          input.domain.hi()[0] == config->Mapping.xTiles - 1 &&
-          input.domain.hi()[1] == config->Mapping.yTiles - 1 &&
-          input.domain.hi()[2] == config->Mapping.zTiles - 1,
+          input.domain.hi()[0] == config->Mapping.tiles[0] - 1 &&
+          input.domain.hi()[1] == config->Mapping.tiles[1] - 1 &&
+          input.domain.hi()[2] == config->Mapping.tiles[2] - 1,
           "Index-space launches in the work task should only use the"
           " top-level tiling.");
-    // Select the 1st (and only) processor of the same kind as the original
+    // Allocate tasks among all the processors of the same kind as the original
     // target, on each rank allocated to this sample.
-    const std::vector<Processor>& procs =
-      remote_procs(task.target_proc.kind());
-    // Distribute tiles to the ranks in row-major order.
-    int next_rank = mapping.first_rank;
-    for (int x = 0; x < config->Mapping.xTiles; ++x) {
-      for (int y = 0; y < config->Mapping.yTiles; ++y) {
-        for (int z = 0; z < config->Mapping.zTiles; ++z) {
+    for (unsigned x = 0; x < config->Mapping.tiles[0]; ++x) {
+      for (unsigned y = 0; y < config->Mapping.tiles[1]; ++y) {
+        for (unsigned z = 0; z < config->Mapping.tiles[2]; ++z) {
+          AddressSpace target_rank = mapping.get_rank(x, y, z);
+          const std::vector<Processor>& procs =
+            get_procs(target_rank, task.target_proc.kind());
+          unsigned target_proc_id = mapping.get_proc_id(x, y, z);
+          Processor target_proc = procs[target_proc_id % procs.size()];
           output.slices.emplace_back(Rect<3>(Point<3>(x,y,z), Point<3>(x,y,z)),
-                                     procs[next_rank],
+                                     target_proc,
                                      false /*recurse*/,
                                      false /*stealable*/);
           LOG.debug() << "Sample " << sample_id << ":"
-                      << " Index-space launch: Task " << task.get_task_name()
+                      << " Index-space launch:"
+                      << " Task '" << task.get_task_name() << "'"
 		      << " on tile (" << x << "," << y << "," << z << ")"
-		      << " mapped to rank " << next_rank;
-          next_rank++;
+		      << " mapped to rank " << target_rank
+		      << " processor " << target_proc;
         }
       }
     }
   }
 
 private:
-  // TODO: This interface only returns the first processor of the desired kind
-  // on each machine; also handle the case where there's more (e.g. >1 GPUs).
-  const std::vector<Processor>& remote_procs(Processor::Kind kind) {
-    switch (kind) {
-    case TOC_PROC: return remote_gpus;
-    case LOC_PROC: return remote_cpus;
-    case IO_PROC:  return remote_ios;
-    case PROC_SET: return remote_procsets;
-    case OMP_PROC: return remote_omps;
-    case PY_PROC:  return remote_pys;
-    default:       assert(false);
+  std::vector<Processor>& get_procs(AddressSpace rank, Processor::Kind kind) {
+    assert(rank < all_procs_.size());
+    auto& rank_procs = all_procs_[rank];
+    if (kind >= rank_procs.size()) {
+      rank_procs.resize(kind + 1);
     }
-    // Should never reach here
-    return remote_cpus;
-  }
-
-  const Config* find_config(const Task* task) {
-    for(; task != NULL; task = task->parent_task) {
-      if (strcmp(task->get_task_name(), "work") == 0) {
-        const char* ptr = static_cast<const char*>(task->args);
-        return reinterpret_cast<const Config*>(ptr + sizeof(uint64_t));
-      }
-    }
-    return NULL;
+    return rank_procs[kind];
   }
 
 private:
   std::vector<SampleMapping> sample_mappings_;
-  unsigned sample_id_;
-  unsigned x_tiles_;
-  unsigned y_tiles_;
-  unsigned z_tiles_;
+  std::vector<std::vector<std::vector<Processor> > > all_procs_;
+  unsigned local_sample_id_;
 };
 
 //=============================================================================

@@ -328,7 +328,7 @@ do
   hi.z = min(hi.z, ((config.Grid.zNum+zBnum)-1))
   var xSize = ((hi.x-lo.x)+1)
   var ySize = ((hi.y-lo.y)+1)
-  var particlesPerTask = (config.Particles.initNum/((config.Mapping.xTiles*config.Mapping.yTiles)*config.Mapping.zTiles))
+  var particlesPerTask = config.Particles.initNum / (config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2])
   var Particles_density = config.Particles.density
   var Particles_initTemperature = config.Particles.initTemperature
   var Particles_diameterMean = config.Particles.diameterMean
@@ -5890,9 +5890,9 @@ task work(config : Config)
   -----------------------------------------------------------------------------
 
   -- Number of partitions
-  var NX = config.Mapping.xTiles
-  var NY = config.Mapping.yTiles
-  var NZ = config.Mapping.zTiles
+  var NX = config.Mapping.tiles[0]
+  var NY = config.Mapping.tiles[1]
+  var NZ = config.Mapping.tiles[2]
 
   -- Number of interior grid cells
   var Grid_xNum = config.Grid.xNum
@@ -7308,7 +7308,10 @@ task work(config : Config)
     end
     if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform) then
       InitParticlesUniform(particles, Fluid, config, Grid_xBnum, Grid_yBnum, Grid_zBnum)
-      Particles_number = int64(((config.Particles.initNum/((config.Mapping.xTiles*config.Mapping.yTiles)*config.Mapping.zTiles))*((config.Mapping.xTiles*config.Mapping.yTiles)*config.Mapping.zTiles)))
+      Particles_number =
+        config.Particles.initNum
+        / (config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2])
+        * (config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2])
     end
 
     -- Initialize radiation

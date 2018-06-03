@@ -131,7 +131,7 @@ local task main()
   -- Initialize symbols
   var is = ispace(int3d, {config.Radiation.xNum, config.Radiation.yNum, config.Radiation.zNum})
   var points = region(is, Point)
-  var colors = ispace(int3d, {config.Mapping.xTiles, config.Mapping.yTiles, config.Mapping.zTiles})
+  var colors = ispace(int3d, {config.Mapping.tiles[0], config.Mapping.tiles[1], config.Mapping.tiles[2]})
   var p_points = partition(equal, points, colors);
   -- Inline quotes from external module
   [DOM.DeclSymbols(config)];

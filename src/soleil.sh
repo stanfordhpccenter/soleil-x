@@ -22,10 +22,12 @@ function get_num_ranks {
     python -c "
 import json
 config = json.load(open('$1'))
-xTiles = int(config['Mapping']['xTiles'])
-yTiles = int(config['Mapping']['yTiles'])
-zTiles = int(config['Mapping']['zTiles'])
-print xTiles * yTiles * zTiles"
+tiles = config['Mapping']['tiles']
+tilesPerRank = config['Mapping']['tilesPerRank']
+xRanks = int(tiles[0]) / int(tilesPerRank[0])
+yRanks = int(tiles[1]) / int(tilesPerRank[1])
+zRanks = int(tiles[2]) / int(tilesPerRank[2])
+print xRanks * yRanks * zRanks
 }
 
 ###############################################################################
