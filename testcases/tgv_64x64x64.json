@@ -20,45 +20,45 @@
 
     "BC" : {
         "xBCLeft" : "Periodic",
-        "xBCLeftVel" : [0.0, 0.0, 0.0],
+        "xBCLeftVel" : [-1.0, -1.0, -1.0],
         "xBCLeftHeat" : {
             "type" : "Constant",
-            "temperature" : 0.0
+            "temperature" : -1.0
         },
         "xBCLeftInflowProfile" : {
             "type" : "Constant",
             "velocity" : -1.0
         },
         "xBCRight" : "Periodic",
-        "xBCRightVel" : [0.0, 0.0, 0.0],
+        "xBCRightVel" : [-1.0, -1.0, -1.0],
         "xBCRightHeat" : {
             "type" : "Constant",
-            "temperature" : 0.0
+            "temperature" : -1.0
         },
         "xBCRightP_inf" : -1.0,
         "yBCLeft" : "Periodic",
-        "yBCLeftVel" : [0.0, 0.0, 0.0],
+        "yBCLeftVel" : [-1.0, -1.0, -1.0],
         "yBCLeftHeat" : {
             "type" : "Constant",
-            "temperature" : 0.0
+            "temperature" : -1.0
         },
         "yBCRight" : "Periodic",
-        "yBCRightVel" : [0.0, 0.0, 0.0],
+        "yBCRightVel" : [-1.0, -1.0, -1.0],
         "yBCRightHeat" : {
             "type" : "Constant",
-            "temperature" : 0.0
+            "temperature" : -1.0
         },
         "zBCLeft" : "Periodic",
-        "zBCLeftVel" : [0.0, 0.0, 0.0],
+        "zBCLeftVel" : [-1.0, -1.0, -1.0],
         "zBCLeftHeat" : {
             "type" : "Constant",
-            "temperature" : 0.0
+            "temperature" : -1.0
         },
         "zBCRight" : "Periodic",
-        "zBCRightVel" : [0.0, 0.0, 0.0],
+        "zBCRightVel" : [-1.0, -1.0, -1.0],
         "zBCRightHeat" : {
             "type" : "Constant",
-            "temperature" : 0.0
+            "temperature" : -1.0
         }
     },
 
