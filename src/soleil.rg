@@ -157,6 +157,14 @@ local DOM = (require 'dom')(NUM_ANGLES, Radiation_columns, Config)
 
 local PI = 3.1415926535898
 
+local SIZEOF_PARTICLE = sizeof(particles_columns)
+
+local terra validFieldOffset()
+  var x : particles_columns
+  return [int64]([&int8](&(x.__valid)) - [&int8](&x))
+end
+local VALID_FIELD_OFFSET = validFieldOffset()
+
 -------------------------------------------------------------------------------
 -- MACROS
 -------------------------------------------------------------------------------
@@ -3921,8 +3929,8 @@ task Fluid_elemColor(idx : int3d,
 end
 
 terra particles_pushElement(dst : &opaque,idx : int32,src : particles_columns)
-  var ptr = [&int8](dst) + idx * 376
-  C.memcpy([&opaque](ptr), [&opaque](&src), [uint64](376))
+  var ptr = [&int8](dst) + idx * SIZEOF_PARTICLE
+  C.memcpy([&opaque](ptr), [&opaque](&src), [uint64](SIZEOF_PARTICLE))
 end
 
 terra particles_getBasePointer(pr : regentlib.c.legion_physical_region_t,fid : uint32,runtime : regentlib.c.legion_runtime_t)
@@ -3945,32 +3953,32 @@ end
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task particles_pushAll(partColor : int3d,
                        r : region(ispace(int1d), particles_columns),
-                       q0 : region(ispace(int1d), int8[376]),
-                       q1 : region(ispace(int1d), int8[376]),
-                       q2 : region(ispace(int1d), int8[376]),
-                       q3 : region(ispace(int1d), int8[376]),
-                       q4 : region(ispace(int1d), int8[376]),
-                       q5 : region(ispace(int1d), int8[376]),
-                       q6 : region(ispace(int1d), int8[376]),
-                       q7 : region(ispace(int1d), int8[376]),
-                       q8 : region(ispace(int1d), int8[376]),
-                       q9 : region(ispace(int1d), int8[376]),
-                       q10 : region(ispace(int1d), int8[376]),
-                       q11 : region(ispace(int1d), int8[376]),
-                       q12 : region(ispace(int1d), int8[376]),
-                       q13 : region(ispace(int1d), int8[376]),
-                       q14 : region(ispace(int1d), int8[376]),
-                       q15 : region(ispace(int1d), int8[376]),
-                       q16 : region(ispace(int1d), int8[376]),
-                       q17 : region(ispace(int1d), int8[376]),
-                       q18 : region(ispace(int1d), int8[376]),
-                       q19 : region(ispace(int1d), int8[376]),
-                       q20 : region(ispace(int1d), int8[376]),
-                       q21 : region(ispace(int1d), int8[376]),
-                       q22 : region(ispace(int1d), int8[376]),
-                       q23 : region(ispace(int1d), int8[376]),
-                       q24 : region(ispace(int1d), int8[376]),
-                       q25 : region(ispace(int1d), int8[376]),
+                       q0 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q1 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q2 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q3 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q4 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q5 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q6 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q7 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q8 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q9 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q10 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q11 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q12 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q13 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q14 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q15 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q16 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q17 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q18 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q19 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q20 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q21 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q22 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q23 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q24 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q25 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
                        rngXNum : int32,  rngYNum  : int32, rngZNum  : int32,
                        rngXbnum : int32, rngYbnum : int32, rngZbnum : int32,
                        NX_ : int32, NY_ : int32, NZ_ : int32)
@@ -4005,107 +4013,107 @@ where
   reads writes(q25)
 do
   for qPtr in q0 do
-    q0[qPtr][368LL] = int8(false)
+    q0[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr0 = particles_getBasePointer(__physical(q0)[0], __fields(q0)[0], __runtime())
   for qPtr in q1 do
-    q1[qPtr][368LL] = int8(false)
+    q1[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr1 = particles_getBasePointer(__physical(q1)[0], __fields(q1)[0], __runtime())
   for qPtr in q2 do
-    q2[qPtr][368LL] = int8(false)
+    q2[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr2 = particles_getBasePointer(__physical(q2)[0], __fields(q2)[0], __runtime())
   for qPtr in q3 do
-    q3[qPtr][368LL] = int8(false)
+    q3[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr3 = particles_getBasePointer(__physical(q3)[0], __fields(q3)[0], __runtime())
   for qPtr in q4 do
-    q4[qPtr][368LL] = int8(false)
+    q4[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr4 = particles_getBasePointer(__physical(q4)[0], __fields(q4)[0], __runtime())
   for qPtr in q5 do
-    q5[qPtr][368LL] = int8(false)
+    q5[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr5 = particles_getBasePointer(__physical(q5)[0], __fields(q5)[0], __runtime())
   for qPtr in q6 do
-    q6[qPtr][368LL] = int8(false)
+    q6[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr6 = particles_getBasePointer(__physical(q6)[0], __fields(q6)[0], __runtime())
   for qPtr in q7 do
-    q7[qPtr][368LL] = int8(false)
+    q7[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr7 = particles_getBasePointer(__physical(q7)[0], __fields(q7)[0], __runtime())
   for qPtr in q8 do
-    q8[qPtr][368LL] = int8(false)
+    q8[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr8 = particles_getBasePointer(__physical(q8)[0], __fields(q8)[0], __runtime())
   for qPtr in q9 do
-    q9[qPtr][368LL] = int8(false)
+    q9[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr9 = particles_getBasePointer(__physical(q9)[0], __fields(q9)[0], __runtime())
   for qPtr in q10 do
-    q10[qPtr][368LL] = int8(false)
+    q10[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr10 = particles_getBasePointer(__physical(q10)[0], __fields(q10)[0], __runtime())
   for qPtr in q11 do
-    q11[qPtr][368LL] = int8(false)
+    q11[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr11 = particles_getBasePointer(__physical(q11)[0], __fields(q11)[0], __runtime())
   for qPtr in q12 do
-    q12[qPtr][368LL] = int8(false)
+    q12[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr12 = particles_getBasePointer(__physical(q12)[0], __fields(q12)[0], __runtime())
   for qPtr in q13 do
-    q13[qPtr][368LL] = int8(false)
+    q13[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr13 = particles_getBasePointer(__physical(q13)[0], __fields(q13)[0], __runtime())
   for qPtr in q14 do
-    q14[qPtr][368LL] = int8(false)
+    q14[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr14 = particles_getBasePointer(__physical(q14)[0], __fields(q14)[0], __runtime())
   for qPtr in q15 do
-    q15[qPtr][368LL] = int8(false)
+    q15[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr15 = particles_getBasePointer(__physical(q15)[0], __fields(q15)[0], __runtime())
   for qPtr in q16 do
-    q16[qPtr][368LL] = int8(false)
+    q16[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr16 = particles_getBasePointer(__physical(q16)[0], __fields(q16)[0], __runtime())
   for qPtr in q17 do
-    q17[qPtr][368LL] = int8(false)
+    q17[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr17 = particles_getBasePointer(__physical(q17)[0], __fields(q17)[0], __runtime())
   for qPtr in q18 do
-    q18[qPtr][368LL] = int8(false)
+    q18[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr18 = particles_getBasePointer(__physical(q18)[0], __fields(q18)[0], __runtime())
   for qPtr in q19 do
-    q19[qPtr][368LL] = int8(false)
+    q19[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr19 = particles_getBasePointer(__physical(q19)[0], __fields(q19)[0], __runtime())
   for qPtr in q20 do
-    q20[qPtr][368LL] = int8(false)
+    q20[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr20 = particles_getBasePointer(__physical(q20)[0], __fields(q20)[0], __runtime())
   for qPtr in q21 do
-    q21[qPtr][368LL] = int8(false)
+    q21[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr21 = particles_getBasePointer(__physical(q21)[0], __fields(q21)[0], __runtime())
   for qPtr in q22 do
-    q22[qPtr][368LL] = int8(false)
+    q22[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr22 = particles_getBasePointer(__physical(q22)[0], __fields(q22)[0], __runtime())
   for qPtr in q23 do
-    q23[qPtr][368LL] = int8(false)
+    q23[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr23 = particles_getBasePointer(__physical(q23)[0], __fields(q23)[0], __runtime())
   for qPtr in q24 do
-    q24[qPtr][368LL] = int8(false)
+    q24[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr24 = particles_getBasePointer(__physical(q24)[0], __fields(q24)[0], __runtime())
   for qPtr in q25 do
-    q25[qPtr][368LL] = int8(false)
+    q25[qPtr][VALID_FIELD_OFFSET] = int8(false)
   end
   var qBasePtr25 = particles_getBasePointer(__physical(q25)[0], __fields(q25)[0], __runtime())
   for rPtr in r do
@@ -4117,10 +4125,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q0 do
-              if (not bool(q0[qPtr][368LL])) then
+              if (not bool(q0[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr0, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q0[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q0[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4133,10 +4141,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q1 do
-              if (not bool(q1[qPtr][368LL])) then
+              if (not bool(q1[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr1, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q1[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q1[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4149,10 +4157,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q2 do
-              if (not bool(q2[qPtr][368LL])) then
+              if (not bool(q2[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr2, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q2[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q2[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4165,10 +4173,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q3 do
-              if (not bool(q3[qPtr][368LL])) then
+              if (not bool(q3[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr3, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q3[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q3[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4181,10 +4189,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q4 do
-              if (not bool(q4[qPtr][368LL])) then
+              if (not bool(q4[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr4, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q4[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q4[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4197,10 +4205,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q5 do
-              if (not bool(q5[qPtr][368LL])) then
+              if (not bool(q5[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr5, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q5[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q5[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4213,10 +4221,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q6 do
-              if (not bool(q6[qPtr][368LL])) then
+              if (not bool(q6[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr6, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q6[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q6[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4229,10 +4237,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q7 do
-              if (not bool(q7[qPtr][368LL])) then
+              if (not bool(q7[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr7, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q7[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q7[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4245,10 +4253,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q8 do
-              if (not bool(q8[qPtr][368LL])) then
+              if (not bool(q8[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr8, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q8[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q8[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4261,10 +4269,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q9 do
-              if (not bool(q9[qPtr][368LL])) then
+              if (not bool(q9[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr9, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q9[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q9[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4277,10 +4285,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q10 do
-              if (not bool(q10[qPtr][368LL])) then
+              if (not bool(q10[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr10, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q10[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q10[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4293,10 +4301,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q11 do
-              if (not bool(q11[qPtr][368LL])) then
+              if (not bool(q11[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr11, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q11[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q11[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4309,10 +4317,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q12 do
-              if (not bool(q12[qPtr][368LL])) then
+              if (not bool(q12[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr12, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q12[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q12[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4325,10 +4333,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q13 do
-              if (not bool(q13[qPtr][368LL])) then
+              if (not bool(q13[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr13, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q13[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q13[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4341,10 +4349,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q14 do
-              if (not bool(q14[qPtr][368LL])) then
+              if (not bool(q14[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr14, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q14[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q14[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4357,10 +4365,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q15 do
-              if (not bool(q15[qPtr][368LL])) then
+              if (not bool(q15[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr15, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q15[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q15[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4373,10 +4381,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q16 do
-              if (not bool(q16[qPtr][368LL])) then
+              if (not bool(q16[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr16, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q16[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q16[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4389,10 +4397,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q17 do
-              if (not bool(q17[qPtr][368LL])) then
+              if (not bool(q17[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr17, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q17[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q17[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4405,10 +4413,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q18 do
-              if (not bool(q18[qPtr][368LL])) then
+              if (not bool(q18[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr18, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q18[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q18[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4421,10 +4429,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q19 do
-              if (not bool(q19[qPtr][368LL])) then
+              if (not bool(q19[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr19, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q19[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q19[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4437,10 +4445,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q20 do
-              if (not bool(q20[qPtr][368LL])) then
+              if (not bool(q20[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr20, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q20[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q20[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4453,10 +4461,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q21 do
-              if (not bool(q21[qPtr][368LL])) then
+              if (not bool(q21[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr21, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q21[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q21[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4469,10 +4477,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q22 do
-              if (not bool(q22[qPtr][368LL])) then
+              if (not bool(q22[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr22, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q22[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q22[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4485,10 +4493,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q23 do
-              if (not bool(q23[qPtr][368LL])) then
+              if (not bool(q23[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr23, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q23[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q23[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4501,10 +4509,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q24 do
-              if (not bool(q24[qPtr][368LL])) then
+              if (not bool(q24[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr24, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q24[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q24[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4517,10 +4525,10 @@ do
           if (rPtr.__valid and (elemColor==(((partColor+colorOff)+{NX_, NY_, NZ_})%{NX_, NY_, NZ_}))) then
             var idx = 0
             for qPtr in q25 do
-              if (not bool(q25[qPtr][368LL])) then
+              if (not bool(q25[qPtr][VALID_FIELD_OFFSET])) then
                 particles_pushElement(qBasePtr25, idx, r[rPtr])
                 rPtr.__valid = false
-                regentlib.assert(bool(q25[qPtr][368LL]), "Element did not get copied properly")
+                regentlib.assert(bool(q25[qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
               end
               idx += 1
@@ -4536,39 +4544,39 @@ end
 
 terra particles_pullElement(src : &int8)
   var dst : particles_columns
-  C.memcpy([&opaque](&dst), [&opaque](src), [uint64](376))
+  C.memcpy([&opaque](&dst), [&opaque](src), [uint64](SIZEOF_PARTICLE))
   return dst
 end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task particles_pullAll(color : int3d,
                        r : region(ispace(int1d), particles_columns),
-                       q0 : region(ispace(int1d), int8[376]),
-                       q1 : region(ispace(int1d), int8[376]),
-                       q2 : region(ispace(int1d), int8[376]),
-                       q3 : region(ispace(int1d), int8[376]),
-                       q4 : region(ispace(int1d), int8[376]),
-                       q5 : region(ispace(int1d), int8[376]),
-                       q6 : region(ispace(int1d), int8[376]),
-                       q7 : region(ispace(int1d), int8[376]),
-                       q8 : region(ispace(int1d), int8[376]),
-                       q9 : region(ispace(int1d), int8[376]),
-                       q10 : region(ispace(int1d), int8[376]),
-                       q11 : region(ispace(int1d), int8[376]),
-                       q12 : region(ispace(int1d), int8[376]),
-                       q13 : region(ispace(int1d), int8[376]),
-                       q14 : region(ispace(int1d), int8[376]),
-                       q15 : region(ispace(int1d), int8[376]),
-                       q16 : region(ispace(int1d), int8[376]),
-                       q17 : region(ispace(int1d), int8[376]),
-                       q18 : region(ispace(int1d), int8[376]),
-                       q19 : region(ispace(int1d), int8[376]),
-                       q20 : region(ispace(int1d), int8[376]),
-                       q21 : region(ispace(int1d), int8[376]),
-                       q22 : region(ispace(int1d), int8[376]),
-                       q23 : region(ispace(int1d), int8[376]),
-                       q24 : region(ispace(int1d), int8[376]),
-                       q25 : region(ispace(int1d), int8[376]))
+                       q0 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q1 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q2 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q3 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q4 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q5 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q6 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q7 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q8 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q9 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q10 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q11 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q12 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q13 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q14 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q15 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q16 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q17 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q18 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q19 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q20 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q21 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q22 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q23 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q24 : region(ispace(int1d), int8[SIZEOF_PARTICLE]),
+                       q25 : region(ispace(int1d), int8[SIZEOF_PARTICLE]))
 where
   reads writes(r),
   reads writes(q0),
@@ -4599,7 +4607,7 @@ where
   reads writes(q25)
 do
   for qPtr in q0 do
-    if bool(q0[qPtr][368LL]) then
+    if bool(q0[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4613,7 +4621,7 @@ do
     end
   end
   for qPtr in q1 do
-    if bool(q1[qPtr][368LL]) then
+    if bool(q1[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4627,7 +4635,7 @@ do
     end
   end
   for qPtr in q2 do
-    if bool(q2[qPtr][368LL]) then
+    if bool(q2[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4641,7 +4649,7 @@ do
     end
   end
   for qPtr in q3 do
-    if bool(q3[qPtr][368LL]) then
+    if bool(q3[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4655,7 +4663,7 @@ do
     end
   end
   for qPtr in q4 do
-    if bool(q4[qPtr][368LL]) then
+    if bool(q4[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4669,7 +4677,7 @@ do
     end
   end
   for qPtr in q5 do
-    if bool(q5[qPtr][368LL]) then
+    if bool(q5[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4683,7 +4691,7 @@ do
     end
   end
   for qPtr in q6 do
-    if bool(q6[qPtr][368LL]) then
+    if bool(q6[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4697,7 +4705,7 @@ do
     end
   end
   for qPtr in q7 do
-    if bool(q7[qPtr][368LL]) then
+    if bool(q7[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4711,7 +4719,7 @@ do
     end
   end
   for qPtr in q8 do
-    if bool(q8[qPtr][368LL]) then
+    if bool(q8[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4725,7 +4733,7 @@ do
     end
   end
   for qPtr in q9 do
-    if bool(q9[qPtr][368LL]) then
+    if bool(q9[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4739,7 +4747,7 @@ do
     end
   end
   for qPtr in q10 do
-    if bool(q10[qPtr][368LL]) then
+    if bool(q10[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4753,7 +4761,7 @@ do
     end
   end
   for qPtr in q11 do
-    if bool(q11[qPtr][368LL]) then
+    if bool(q11[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4767,7 +4775,7 @@ do
     end
   end
   for qPtr in q12 do
-    if bool(q12[qPtr][368LL]) then
+    if bool(q12[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4781,7 +4789,7 @@ do
     end
   end
   for qPtr in q13 do
-    if bool(q13[qPtr][368LL]) then
+    if bool(q13[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4795,7 +4803,7 @@ do
     end
   end
   for qPtr in q14 do
-    if bool(q14[qPtr][368LL]) then
+    if bool(q14[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4809,7 +4817,7 @@ do
     end
   end
   for qPtr in q15 do
-    if bool(q15[qPtr][368LL]) then
+    if bool(q15[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4823,7 +4831,7 @@ do
     end
   end
   for qPtr in q16 do
-    if bool(q16[qPtr][368LL]) then
+    if bool(q16[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4837,7 +4845,7 @@ do
     end
   end
   for qPtr in q17 do
-    if bool(q17[qPtr][368LL]) then
+    if bool(q17[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4851,7 +4859,7 @@ do
     end
   end
   for qPtr in q18 do
-    if bool(q18[qPtr][368LL]) then
+    if bool(q18[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4865,7 +4873,7 @@ do
     end
   end
   for qPtr in q19 do
-    if bool(q19[qPtr][368LL]) then
+    if bool(q19[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4879,7 +4887,7 @@ do
     end
   end
   for qPtr in q20 do
-    if bool(q20[qPtr][368LL]) then
+    if bool(q20[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4893,7 +4901,7 @@ do
     end
   end
   for qPtr in q21 do
-    if bool(q21[qPtr][368LL]) then
+    if bool(q21[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4907,7 +4915,7 @@ do
     end
   end
   for qPtr in q22 do
-    if bool(q22[qPtr][368LL]) then
+    if bool(q22[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4921,7 +4929,7 @@ do
     end
   end
   for qPtr in q23 do
-    if bool(q23[qPtr][368LL]) then
+    if bool(q23[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4935,7 +4943,7 @@ do
     end
   end
   for qPtr in q24 do
-    if bool(q24[qPtr][368LL]) then
+    if bool(q24[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -4949,7 +4957,7 @@ do
     end
   end
   for qPtr in q25 do
-    if bool(q25[qPtr][368LL]) then
+    if bool(q25[qPtr][VALID_FIELD_OFFSET]) then
       var copied = false
       for rPtr in r do
         if (not rPtr.__valid) then
@@ -6119,7 +6127,7 @@ task work(config : Config)
   var particles_primPart = partition(disjoint, particles, coloring__11738, primColors)
   var particles_copy_primPart = partition(disjoint, particles_copy, coloring__11738, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(coloring__11738)
-  var particles_queue_0 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_0 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6147,7 +6155,7 @@ task work(config : Config)
   end
   var particles_qDstPart_0 = partition(aliased, particles_queue_0, dstColoring, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring)
-  var particles_queue_1 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_1 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__11761 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6175,7 +6183,7 @@ task work(config : Config)
   end
   var particles_qDstPart_1 = partition(aliased, particles_queue_1, dstColoring__11768, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__11768)
-  var particles_queue_2 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_2 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__11775 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6203,7 +6211,7 @@ task work(config : Config)
   end
   var particles_qDstPart_2 = partition(aliased, particles_queue_2, dstColoring__11782, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__11782)
-  var particles_queue_3 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_3 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__11789 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6231,7 +6239,7 @@ task work(config : Config)
   end
   var particles_qDstPart_3 = partition(aliased, particles_queue_3, dstColoring__11796, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__11796)
-  var particles_queue_4 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_4 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__11803 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6259,7 +6267,7 @@ task work(config : Config)
   end
   var particles_qDstPart_4 = partition(aliased, particles_queue_4, dstColoring__11810, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__11810)
-  var particles_queue_5 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_5 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__11817 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6287,7 +6295,7 @@ task work(config : Config)
   end
   var particles_qDstPart_5 = partition(aliased, particles_queue_5, dstColoring__11824, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__11824)
-  var particles_queue_6 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_6 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__11831 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6315,7 +6323,7 @@ task work(config : Config)
   end
   var particles_qDstPart_6 = partition(aliased, particles_queue_6, dstColoring__11838, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__11838)
-  var particles_queue_7 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_7 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__11845 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6343,7 +6351,7 @@ task work(config : Config)
   end
   var particles_qDstPart_7 = partition(aliased, particles_queue_7, dstColoring__11852, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__11852)
-  var particles_queue_8 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_8 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__11859 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6371,7 +6379,7 @@ task work(config : Config)
   end
   var particles_qDstPart_8 = partition(aliased, particles_queue_8, dstColoring__11866, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__11866)
-  var particles_queue_9 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_9 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__11873 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6399,7 +6407,7 @@ task work(config : Config)
   end
   var particles_qDstPart_9 = partition(aliased, particles_queue_9, dstColoring__11880, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__11880)
-  var particles_queue_10 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_10 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__11887 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6427,7 +6435,7 @@ task work(config : Config)
   end
   var particles_qDstPart_10 = partition(aliased, particles_queue_10, dstColoring__11894, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__11894)
-  var particles_queue_11 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_11 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__11901 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6455,7 +6463,7 @@ task work(config : Config)
   end
   var particles_qDstPart_11 = partition(aliased, particles_queue_11, dstColoring__11908, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__11908)
-  var particles_queue_12 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_12 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__11915 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6483,7 +6491,7 @@ task work(config : Config)
   end
   var particles_qDstPart_12 = partition(aliased, particles_queue_12, dstColoring__11922, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__11922)
-  var particles_queue_13 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_13 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__11929 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6511,7 +6519,7 @@ task work(config : Config)
   end
   var particles_qDstPart_13 = partition(aliased, particles_queue_13, dstColoring__11936, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__11936)
-  var particles_queue_14 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_14 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__11943 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6539,7 +6547,7 @@ task work(config : Config)
   end
   var particles_qDstPart_14 = partition(aliased, particles_queue_14, dstColoring__11950, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__11950)
-  var particles_queue_15 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_15 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__11957 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6567,7 +6575,7 @@ task work(config : Config)
   end
   var particles_qDstPart_15 = partition(aliased, particles_queue_15, dstColoring__11964, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__11964)
-  var particles_queue_16 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_16 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__11971 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6595,7 +6603,7 @@ task work(config : Config)
   end
   var particles_qDstPart_16 = partition(aliased, particles_queue_16, dstColoring__11978, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__11978)
-  var particles_queue_17 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_17 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__11985 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6623,7 +6631,7 @@ task work(config : Config)
   end
   var particles_qDstPart_17 = partition(aliased, particles_queue_17, dstColoring__11992, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__11992)
-  var particles_queue_18 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_18 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__11999 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6651,7 +6659,7 @@ task work(config : Config)
   end
   var particles_qDstPart_18 = partition(aliased, particles_queue_18, dstColoring__12006, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__12006)
-  var particles_queue_19 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_19 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__12013 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6679,7 +6687,7 @@ task work(config : Config)
   end
   var particles_qDstPart_19 = partition(aliased, particles_queue_19, dstColoring__12020, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__12020)
-  var particles_queue_20 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_20 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__12027 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6707,7 +6715,7 @@ task work(config : Config)
   end
   var particles_qDstPart_20 = partition(aliased, particles_queue_20, dstColoring__12034, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__12034)
-  var particles_queue_21 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_21 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__12041 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6735,7 +6743,7 @@ task work(config : Config)
   end
   var particles_qDstPart_21 = partition(aliased, particles_queue_21, dstColoring__12048, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__12048)
-  var particles_queue_22 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_22 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__12055 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6763,7 +6771,7 @@ task work(config : Config)
   end
   var particles_qDstPart_22 = partition(aliased, particles_queue_22, dstColoring__12062, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__12062)
-  var particles_queue_23 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_23 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__12069 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6791,7 +6799,7 @@ task work(config : Config)
   end
   var particles_qDstPart_23 = partition(aliased, particles_queue_23, dstColoring__12076, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__12076)
-  var particles_queue_24 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_24 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__12083 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
@@ -6819,7 +6827,7 @@ task work(config : Config)
   end
   var particles_qDstPart_24 = partition(aliased, particles_queue_24, dstColoring__12090, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(dstColoring__12090)
-  var particles_queue_25 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[376])
+  var particles_queue_25 = region(ispace(int1d, int1d((Particles_maxXferNum*((NX*NY)*NZ)))), int8[SIZEOF_PARTICLE])
   var srcColoring__12097 = regentlib.c.legion_domain_point_coloring_create()
   for z : int32 = 0, NZ do
     for y : int32 = 0, NY do
