@@ -144,6 +144,15 @@ function TerraList:pop()
   return res
 end
 
+-- int, (() -> T) -> T*
+function Exports.generate(n, generator)
+  local res = terralib.newlist()
+  for i = 1,n do
+    res:insert(generator())
+  end
+  return res
+end
+
 -------------------------------------------------------------------------------
 -- Strings
 -------------------------------------------------------------------------------
