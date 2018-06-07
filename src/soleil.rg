@@ -5002,10 +5002,6 @@ task work(config : Config)
   var Grid_yCellWidth = config.Grid.yWidth / config.Grid.yNum
   var Grid_zCellWidth = config.Grid.zWidth / config.Grid.zNum
   var Grid_cellVolume = Grid_xCellWidth * Grid_yCellWidth * Grid_zCellWidth
-  var Grid_dXYZInverseSquare =
-    1.0/Grid_xCellWidth/Grid_xCellWidth +
-    1.0/Grid_yCellWidth/Grid_yCellWidth +
-    1.0/Grid_zCellWidth/Grid_zCellWidth
 
   var BC_xBCPeriodic = (config.BC.xBCLeft == SCHEMA.FlowBC_Periodic)
   var BC_xPosSign : double[3]
@@ -5626,6 +5622,10 @@ task work(config : Config)
         var Integrator_maxConvectiveSpectralRadius = 0.0
         var Integrator_maxViscousSpectralRadius = 0.0
         var Integrator_maxHeatConductionSpectralRadius = 0.0
+        var Grid_dXYZInverseSquare =
+          1.0/Grid_xCellWidth/Grid_xCellWidth +
+          1.0/Grid_yCellWidth/Grid_yCellWidth +
+          1.0/Grid_zCellWidth/Grid_zCellWidth
         Integrator_maxConvectiveSpectralRadius max= CalculateConvectiveSpectralRadius(Fluid, config.Flow.gamma, config.Flow.gasConstant, Grid_dXYZInverseSquare, Grid_xCellWidth, Grid_yCellWidth, Grid_zCellWidth)
         Integrator_maxViscousSpectralRadius max= CalculateViscousSpectralRadius(Fluid, config.Flow.constantVisc, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid_dXYZInverseSquare)
         Integrator_maxHeatConductionSpectralRadius max= CalculateHeatConductionSpectralRadius(Fluid, config.Flow.constantVisc, config.Flow.gamma, config.Flow.gasConstant, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.prandtl, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid_dXYZInverseSquare)
