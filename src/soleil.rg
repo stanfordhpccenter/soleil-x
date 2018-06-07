@@ -4959,28 +4959,81 @@ end
 -- MAIN FUNCTION
 -------------------------------------------------------------------------------
 
+local config = regentlib.newsymbol(Config)
+local startTime = regentlib.newsymbol()
+local console = regentlib.newsymbol()
+local Grid_xCellWidth = regentlib.newsymbol()
+local Grid_yCellWidth = regentlib.newsymbol()
+local Grid_zCellWidth = regentlib.newsymbol()
+local Grid_cellVolume = regentlib.newsymbol()
+local BC_xBCPeriodic = regentlib.newsymbol()
+local BC_xPosSign = regentlib.newsymbol(double[3])
+local BC_xNegSign = regentlib.newsymbol(double[3])
+local BC_xPosVelocity = regentlib.newsymbol(double[3])
+local BC_xNegVelocity = regentlib.newsymbol(double[3])
+local BC_xPosTemperature = regentlib.newsymbol(double)
+local BC_xNegTemperature = regentlib.newsymbol(double)
+local BC_yBCPeriodic = regentlib.newsymbol()
+local BC_yPosSign = regentlib.newsymbol(double[3])
+local BC_yNegSign = regentlib.newsymbol(double[3])
+local BC_yPosVelocity = regentlib.newsymbol(double[3])
+local BC_yNegVelocity = regentlib.newsymbol(double[3])
+local BC_yPosTemperature = regentlib.newsymbol(double)
+local BC_yNegTemperature = regentlib.newsymbol(double)
+local BC_zBCPeriodic = regentlib.newsymbol()
+local BC_zPosSign = regentlib.newsymbol(double[3])
+local BC_zNegSign = regentlib.newsymbol(double[3])
+local BC_zPosVelocity = regentlib.newsymbol(double[3])
+local BC_zNegVelocity = regentlib.newsymbol(double[3])
+local BC_zPosTemperature = regentlib.newsymbol(double)
+local BC_zNegTemperature = regentlib.newsymbol(double)
+local BC_xBCParticlesPeriodic = regentlib.newsymbol()
+local BC_yBCParticlesPeriodic = regentlib.newsymbol()
+local BC_zBCParticlesPeriodic = regentlib.newsymbol()
+local Grid_xBnum = regentlib.newsymbol()
+local Grid_yBnum = regentlib.newsymbol()
+local Grid_zBnum = regentlib.newsymbol()
+local Grid_xRealOrigin = regentlib.newsymbol()
+local Grid_yRealOrigin = regentlib.newsymbol()
+local Grid_zRealOrigin = regentlib.newsymbol()
+local Grid_xRealWidth = regentlib.newsymbol()
+local Grid_yRealWidth = regentlib.newsymbol()
+local Grid_zRealWidth = regentlib.newsymbol()
+local Integrator_simTime = regentlib.newsymbol()
+local Integrator_timeStep = regentlib.newsymbol()
+local Particles_number = regentlib.newsymbol()
+local Fluid = regentlib.newsymbol()
+local Fluid_copy = regentlib.newsymbol()
+local particles = regentlib.newsymbol()
+local particles_copy = regentlib.newsymbol()
+local Radiation = regentlib.newsymbol()
+local primColors = regentlib.newsymbol()
+local Fluid_primPart = regentlib.newsymbol()
+local Fluid_copy_primPart = regentlib.newsymbol()
+local particles_primPart = regentlib.newsymbol()
+local particles_copy_primPart = regentlib.newsymbol()
+local Radiation_primPart = regentlib.newsymbol()
 local qSrcParts = UTIL.generate(26, function()
   return regentlib.newsymbol()
 end)
-
 local qDstParts = UTIL.generate(26, function()
   return regentlib.newsymbol()
 end)
 
 __forbid(__optimize) __demand(__inner)
-task work(config : Config)
+task work([config])
 
   -----------------------------------------------------------------------------
   -- Preparation
   -----------------------------------------------------------------------------
 
   -- Start timer
-  var startTime = regentlib.c.legion_get_current_time_in_micros() / 1000
+  var [startTime] = regentlib.c.legion_get_current_time_in_micros() / 1000
 
   -- Open long-running files
   var consoleFile = [&int8](C.malloc(256))
   C.snprintf(consoleFile, 256, '%s/console.txt', config.Mapping.outDir)
-  var console = UTIL.openFile(consoleFile, 'w')
+  var [console] = UTIL.openFile(consoleFile, 'w')
   C.free(consoleFile)
   C.fprintf(console, ['Iter\t'..
                       'Sim Time\t'..
@@ -4998,60 +5051,60 @@ task work(config : Config)
   -----------------------------------------------------------------------------
 
   -- Cell step size (TODO: Change when we go to non-uniform meshes)
-  var Grid_xCellWidth = config.Grid.xWidth / config.Grid.xNum
-  var Grid_yCellWidth = config.Grid.yWidth / config.Grid.yNum
-  var Grid_zCellWidth = config.Grid.zWidth / config.Grid.zNum
-  var Grid_cellVolume = Grid_xCellWidth * Grid_yCellWidth * Grid_zCellWidth
+  var [Grid_xCellWidth] = config.Grid.xWidth / config.Grid.xNum
+  var [Grid_yCellWidth] = config.Grid.yWidth / config.Grid.yNum
+  var [Grid_zCellWidth] = config.Grid.zWidth / config.Grid.zNum
+  var [Grid_cellVolume] = Grid_xCellWidth * Grid_yCellWidth * Grid_zCellWidth
 
-  var BC_xBCPeriodic = (config.BC.xBCLeft == SCHEMA.FlowBC_Periodic)
-  var BC_xPosSign : double[3]
-  var BC_xNegSign : double[3]
-  var BC_xPosVelocity : double[3]
-  var BC_xNegVelocity : double[3]
-  var BC_xPosTemperature : double
-  var BC_xNegTemperature : double
+  var [BC_xBCPeriodic] = (config.BC.xBCLeft == SCHEMA.FlowBC_Periodic)
+  var [BC_xPosSign]
+  var [BC_xNegSign]
+  var [BC_xPosVelocity]
+  var [BC_xNegVelocity]
+  var [BC_xPosTemperature]
+  var [BC_xNegTemperature]
 
-  var BC_yBCPeriodic = (config.BC.yBCLeft == SCHEMA.FlowBC_Periodic)
-  var BC_yPosSign : double[3]
-  var BC_yNegSign : double[3]
-  var BC_yPosVelocity : double[3]
-  var BC_yNegVelocity : double[3]
-  var BC_yPosTemperature : double
-  var BC_yNegTemperature : double
+  var [BC_yBCPeriodic] = (config.BC.yBCLeft == SCHEMA.FlowBC_Periodic)
+  var [BC_yPosSign]
+  var [BC_yNegSign]
+  var [BC_yPosVelocity]
+  var [BC_yNegVelocity]
+  var [BC_yPosTemperature]
+  var [BC_yNegTemperature]
 
-  var BC_zBCPeriodic = (config.BC.zBCLeft == SCHEMA.FlowBC_Periodic)
-  var BC_zPosSign : double[3]
-  var BC_zNegSign : double[3]
-  var BC_zPosVelocity : double[3]
-  var BC_zNegVelocity : double[3]
-  var BC_zPosTemperature : double
-  var BC_zNegTemperature : double
+  var [BC_zBCPeriodic] = (config.BC.zBCLeft == SCHEMA.FlowBC_Periodic)
+  var [BC_zPosSign]
+  var [BC_zNegSign]
+  var [BC_zPosVelocity]
+  var [BC_zNegVelocity]
+  var [BC_zPosTemperature]
+  var [BC_zNegTemperature]
 
-  var BC_xBCParticlesPeriodic = false
-  var BC_yBCParticlesPeriodic = false
-  var BC_zBCParticlesPeriodic = false
+  var [BC_xBCParticlesPeriodic] = false
+  var [BC_yBCParticlesPeriodic] = false
+  var [BC_zBCParticlesPeriodic] = false
 
   -- Determine number of ghost cells in each direction
   -- 0 ghost cells if periodic and 1 otherwise
-  var Grid_xBnum = 1
-  var Grid_yBnum = 1
-  var Grid_zBnum = 1
+  var [Grid_xBnum] = 1
+  var [Grid_yBnum] = 1
+  var [Grid_zBnum] = 1
   if BC_xBCPeriodic then Grid_xBnum = 0 end
   if BC_yBCPeriodic then Grid_yBnum = 0 end
   if BC_zBCPeriodic then Grid_zBnum = 0 end
 
   -- Compute real origin and width, accounting for ghost cells
-  var Grid_xRealOrigin = (config.Grid.origin[0]-(Grid_xCellWidth*Grid_xBnum))
-  var Grid_yRealOrigin = (config.Grid.origin[1]-(Grid_yCellWidth*Grid_yBnum))
-  var Grid_zRealOrigin = (config.Grid.origin[2]-(Grid_zCellWidth*Grid_zBnum))
-  var Grid_xRealWidth = (config.Grid.xWidth+(2*(Grid_xCellWidth*Grid_xBnum)))
-  var Grid_yRealWidth = (config.Grid.yWidth+(2*(Grid_yCellWidth*Grid_yBnum)))
-  var Grid_zRealWidth = (config.Grid.zWidth+(2*(Grid_zCellWidth*Grid_zBnum)))
+  var [Grid_xRealOrigin] = (config.Grid.origin[0]-(Grid_xCellWidth*Grid_xBnum))
+  var [Grid_yRealOrigin] = (config.Grid.origin[1]-(Grid_yCellWidth*Grid_yBnum))
+  var [Grid_zRealOrigin] = (config.Grid.origin[2]-(Grid_zCellWidth*Grid_zBnum))
+  var [Grid_xRealWidth] = (config.Grid.xWidth+(2*(Grid_xCellWidth*Grid_xBnum)))
+  var [Grid_yRealWidth] = (config.Grid.yWidth+(2*(Grid_yCellWidth*Grid_yBnum)))
+  var [Grid_zRealWidth] = (config.Grid.zWidth+(2*(Grid_zCellWidth*Grid_zBnum)))
 
-  var Integrator_simTime = 0.0
-  var Integrator_timeStep = 0
+  var [Integrator_simTime] = 0.0
+  var [Integrator_timeStep] = 0
 
-  var Particles_number = int64(0)
+  var [Particles_number] = int64(0)
 
   if ((not ((config.Grid.xNum%config.Radiation.xNum)==0)) or ((not ((config.Grid.yNum%config.Radiation.yNum)==0)) or (not ((config.Grid.zNum%config.Radiation.zNum)==0)))) then
     regentlib.assert(false, "Inexact coarsening factor")
@@ -5295,20 +5348,20 @@ task work(config : Config)
 
   -- Create Fluid Regions
   var is = ispace(int3d, int3d({x = (config.Grid.xNum+(2*Grid_xBnum)), y = (config.Grid.yNum+(2*Grid_yBnum)), z = (config.Grid.zNum+(2*Grid_zBnum))}))
-  var Fluid = region(is, Fluid_columns)
-  var Fluid_copy = region(is, Fluid_columns)
+  var [Fluid] = region(is, Fluid_columns)
+  var [Fluid_copy] = region(is, Fluid_columns)
 
   -- Create Particles Regions
   var is__11726 = ispace(int1d, int1d((ceil(((config.Particles.maxNum/((config.Mapping.tiles[0]*config.Mapping.tiles[1])*config.Mapping.tiles[2]))*config.Particles.maxSkew))*((config.Mapping.tiles[0]*config.Mapping.tiles[1])*config.Mapping.tiles[2]))))
-  var particles = region(is__11726, particles_columns)
-  var particles_copy = region(is__11726, particles_columns)
+  var [particles] = region(is__11726, particles_columns)
+  var [particles_copy] = region(is__11726, particles_columns)
 
   -- Create Radiation Regions
   var is__11729 = ispace(int3d, int3d({x = config.Radiation.xNum, y = config.Radiation.yNum, z = config.Radiation.zNum}))
-  var Radiation = region(is__11729, Radiation_columns)
+  var [Radiation] = region(is__11729, Radiation_columns)
 
   -- Partitioning domain
-  var primColors = ispace(int3d, int3d({config.Mapping.tiles[0], config.Mapping.tiles[1], config.Mapping.tiles[2]}))
+  var [primColors] = ispace(int3d, int3d({config.Mapping.tiles[0], config.Mapping.tiles[1], config.Mapping.tiles[2]}))
 
   -- Fluid Partitioning
   regentlib.assert(((config.Grid.xNum%config.Mapping.tiles[0])==0), "Uneven partitioning of fluid grid on x")
@@ -5338,8 +5391,8 @@ task work(config : Config)
     end
     regentlib.c.legion_domain_point_coloring_color_domain(coloring, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
   end
-  var Fluid_primPart = partition(disjoint, Fluid, coloring, primColors)
-  var Fluid_copy_primPart = partition(disjoint, Fluid_copy, coloring, primColors)
+  var [Fluid_primPart] = partition(disjoint, Fluid, coloring, primColors)
+  var [Fluid_copy_primPart] = partition(disjoint, Fluid_copy, coloring, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(coloring)
 
   -- Particles Partitioning
@@ -5357,8 +5410,8 @@ task work(config : Config)
       end
     end
   end
-  var particles_primPart = partition(disjoint, particles, coloring__11738, primColors)
-  var particles_copy_primPart = partition(disjoint, particles_copy, coloring__11738, primColors)
+  var [particles_primPart] = partition(disjoint, particles, coloring__11738, primColors)
+  var [particles_copy_primPart] = partition(disjoint, particles_copy, coloring__11738, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(coloring__11738);
   @ESCAPE for i = 1,26 do @EMIT
     var queue = region(ispace(int1d,config.Particles.maxXferNum*config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2]), int8[SIZEOF_PARTICLE])
@@ -5400,7 +5453,7 @@ task work(config : Config)
                       hi = int3d{x = (config.Radiation.xNum/config.Mapping.tiles[0])*(c.x+1)-1, y = (config.Radiation.yNum/config.Mapping.tiles[1])*(c.y+1)-1, z = (config.Radiation.zNum/config.Mapping.tiles[2])*(c.z+1)-1}}
     regentlib.c.legion_domain_point_coloring_color_domain(coloring__12110, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
   end
-  var Radiation_primPart = partition(disjoint, Radiation, coloring__12110, primColors)
+  var [Radiation_primPart] = partition(disjoint, Radiation, coloring__12110, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(coloring__12110);
 
   -- DOM code declarations
