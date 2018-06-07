@@ -117,7 +117,7 @@ end
 
 -- SchemaT -> bool
 function isStruct(typ)
-  if type(typ) ~= 'table' then
+  if type(typ) ~= 'table' or getmetatable(typ) ~= nil then
     return false
   end
   for k,v in pairs(typ) do
@@ -187,23 +187,20 @@ local function convertSchemaT(typ)
   else assert(false) end
 end
 
--- string, terralib.expr? -> terralib.quote
-local function errorOut(msg, name)
-  if name then
-    return quote
-      var stderr = C.fdopen(2, 'w')
-      C.fprintf(stderr, '%s for option %s\n', msg, name)
-      C.fflush(stderr)
-      C.exit(1)
-    end
-  else
-    return quote
-      var stderr = C.fdopen(2, 'w')
-      C.fprintf(stderr, '%s\n', msg)
-      C.fflush(stderr)
-      C.exit(1)
-    end
+-- string, terralib.expr* -> terralib.quote
+local function errorOut(msg, ...)
+  local args = {...}
+  return quote
+    var stderr = C.fdopen(2, 'w')
+    C.fprintf(stderr, [msg..'\n'], [args])
+    C.fflush(stderr)
+    C.exit(1)
   end
+end
+
+-- string, terralib.expr -> terralib.quote
+local function fldReadErr(msg, name)
+  return errorOut(msg..' for field %s', name)
 end
 
 -- terralib.symbol, terralib.expr, terralib.expr, SchemaT -> terralib.quote
@@ -211,38 +208,38 @@ local function emitValueParser(name, lval, rval, typ)
   if typ == bool then
     return quote
       if [rval].type ~= JSON.json_boolean then
-        [errorOut('Wrong type', name)]
+        [fldReadErr('Wrong type', name)]
       end
       [lval] = [bool]([rval].u.boolean)
     end
   elseif typ == int then
     return quote
       if [rval].type ~= JSON.json_integer then
-        [errorOut('Wrong type', name)]
+        [fldReadErr('Wrong type', name)]
       end
       [lval] = [rval].u.integer
     end
   elseif typ == double then
     return quote
       if [rval].type ~= JSON.json_double then
-        [errorOut('Wrong type', name)]
+        [fldReadErr('Wrong type', name)]
       end
       [lval] = [rval].u.dbl
     end
   elseif isString(typ) then
     return quote
       if [rval].type ~= JSON.json_string then
-        [errorOut('Wrong type', name)]
+        [fldReadErr('Wrong type', name)]
       end
       if [rval].u.string.length >= [typ.maxLen] then
-        [errorOut('String too long', name)]
+        [fldReadErr('String too long', name)]
       end
       C.strncpy([lval], [rval].u.string.ptr, [typ.maxLen])
     end
   elseif isEnum(typ) then
     return quote
       if [rval].type ~= JSON.json_string then
-        [errorOut('Wrong type', name)]
+        [fldReadErr('Wrong type', name)]
       end
       var found = false
       escape for choice,value in pairs(typ) do emit quote
@@ -252,16 +249,16 @@ local function emitValueParser(name, lval, rval, typ)
         end
       end end end
       if not found then
-        [errorOut('Unexpected value', name)]
+        [fldReadErr('Unexpected value', name)]
       end
     end
   elseif isArray(typ) then
     return quote
       if [rval].type ~= JSON.json_array then
-        [errorOut('Wrong type', name)]
+        [fldReadErr('Wrong type', name)]
       end
       if [rval].u.array.length ~= [typ.num] then
-        [errorOut('Wrong length', name)]
+        [fldReadErr('Wrong length', name)]
       end
       for i = 0,[typ.num] do
         var rval_i = [rval].u.array.values[i]
@@ -271,10 +268,10 @@ local function emitValueParser(name, lval, rval, typ)
   elseif isUpTo(typ) then
     return quote
       if [rval].type ~= JSON.json_array then
-        [errorOut('Wrong type', name)]
+        [fldReadErr('Wrong type', name)]
       end
       if [rval].u.array.length > [typ.max] then
-        [errorOut('Too many values', name)]
+        [fldReadErr('Too many values', name)]
       end
       [lval].length = [rval].u.array.length
       for i = 0,[rval].u.array.length do
@@ -285,7 +282,7 @@ local function emitValueParser(name, lval, rval, typ)
   elseif isUnion(typ) then
     return quote
       if [rval].type ~= JSON.json_object then
-        [errorOut('Wrong type', name)]
+        [fldReadErr('Wrong type', name)]
       end
       var foundType = false
       for i = 0,[rval].u.object.length do
@@ -294,7 +291,7 @@ local function emitValueParser(name, lval, rval, typ)
         if C.strcmp(nodeName, 'type') == 0 then
           foundType = true
           if nodeValue.type ~= JSON.json_string then
-            [errorOut('Type field on union not a string', name)]
+            [fldReadErr('Type field on union not a string', name)]
           end
           escape local j = 0; for choice,fields in pairs(typ) do emit quote
             if C.strcmp(nodeValue.u.string.ptr, [choice]) == 0 then
@@ -303,18 +300,18 @@ local function emitValueParser(name, lval, rval, typ)
               break
             end
           end j = j + 1; end end
-          [errorOut('Unrecognized type on union', name)]
+          [fldReadErr('Unrecognized type on union', name)]
         end
       end
       if not foundType then
-        [errorOut('Missing type field on union', name)]
+        [fldReadErr('Missing type field on union', name)]
       end
     end
   elseif isStruct(typ) then
     return quote
       var totalParsed = 0
       if [rval].type ~= JSON.json_object then
-        [errorOut('Wrong type', name)]
+        [fldReadErr('Wrong type', name)]
       end
       for i = 0,[rval].u.object.length do
         var nodeName = [rval].u.object.values[i].name
@@ -336,7 +333,7 @@ local function emitValueParser(name, lval, rval, typ)
       end
       -- TODO: Assuming the json file contains no duplicate values
       if totalParsed < [UTIL.tableSize(typ)] then
-        [errorOut('Missing options from config file')]
+        [errorOut('Missing fields from input file')]
       end
     end
   else assert(false) end
@@ -353,15 +350,46 @@ local baseName = arg[1]:sub(1, arg[1]:len() - ext:len())
 
 local SCHEMA = dofile(arg[1])
 
-local configStruct = convertSchemaT(SCHEMA.Config)
-configStruct.name = 'Config'
+local structs = {} -- map(string,terralib.struct)
+local parsers = {} -- map(string,terralib.function)
+for name,typ in pairs(SCHEMA) do
+  if isStruct(typ) then
+    local st = convertSchemaT(typ)
+    st.name = name
+    structs[name] = st
+    parsers['parse_'..name] = terra(fname : &int8) : st
+      var output : st
+      var f = C.fopen(fname, 'r')
+      if f == nil then [errorOut('Cannot open %s', fname)] end
+      var res1 = C.fseek(f, 0, C.SEEK_END)
+      if res1 ~= 0 then [errorOut('Cannot seek to end of %s', fname)] end
+      var len = C.ftell(f)
+      if len < 0 then [errorOut('Cannot ftell %s', fname)] end
+      var res2 = C.fseek(f, 0, C.SEEK_SET)
+      if res2 ~= 0 then [errorOut('Cannot seek to start of %s', fname)] end
+      var buf = [&int8](C.malloc(len))
+      if buf == nil then [errorOut('Malloc error while parsing %s', fname)] end
+      var res3 = C.fread(buf, 1, len, f)
+      if res3 < len then [errorOut('Cannot read from %s', fname)] end
+      C.fclose(f)
+      var errMsg : int8[256]
+      var settings = JSON.json_settings{ 0, 0, nil, nil, nil, 0 }
+      settings.settings = JSON.json_enable_comments
+      var root = JSON.json_parse_ex(&settings, buf, len, errMsg)
+      if root == nil then [errorOut('JSON parsing error: %s', errMsg)] end
+      [emitValueParser(name, output, root, typ)]
+      JSON.json_value_free(root)
+      C.free(buf)
+      return output
+    end
+  end
+end
+
 local hdrFile = io.open(baseName..'.h', 'w')
 hdrFile:write('// DO NOT EDIT THIS FILE, IT IS AUTOMATICALLY GENERATED\n')
 hdrFile:write('\n')
 hdrFile:write('#include <stdbool.h>\n')
 hdrFile:write('#include <stdint.h>\n')
-hdrFile:write('\n')
-hdrFile:write(UTIL.prettyPrintStruct(configStruct, true)..';\n')
 for name,typ in pairs(SCHEMA) do
   if isEnum(typ) then
     hdrFile:write('\n')
@@ -379,42 +407,18 @@ for name,typ in pairs(SCHEMA) do
     end
   end
 end
-hdrFile:write('\n')
-hdrFile:write('#ifdef __cplusplus\n')
-hdrFile:write('extern "C" {\n')
-hdrFile:write('#endif\n')
-hdrFile:write('struct Config parse_config(char* filename);\n')
-hdrFile:write('#ifdef __cplusplus\n')
-hdrFile:write('}\n')
-hdrFile:write('#endif\n')
+for name,st in pairs(structs) do
+  hdrFile:write('\n')
+  hdrFile:write(UTIL.prettyPrintStruct(st, true)..';\n')
+  hdrFile:write('\n')
+  hdrFile:write('#ifdef __cplusplus\n')
+  hdrFile:write('extern "C" {\n')
+  hdrFile:write('#endif\n')
+  hdrFile:write('struct '..name..' parse_'..name..'(char* filename);\n')
+  hdrFile:write('#ifdef __cplusplus\n')
+  hdrFile:write('}\n')
+  hdrFile:write('#endif\n')
+end
 hdrFile:close()
 
-local terra parse_config(filename : &int8) : configStruct
-  var config : configStruct
-  var f = C.fopen(filename, 'r');
-  if f == nil then [errorOut('Cannot open config file')] end
-  var res1 = C.fseek(f, 0, C.SEEK_END);
-  if res1 ~= 0 then [errorOut('Cannot seek to end of config file')] end
-  var len = C.ftell(f);
-  if len < 0 then [errorOut('Cannot ftell config file')] end
-  var res2 = C.fseek(f, 0, C.SEEK_SET);
-  if res2 ~= 0 then [errorOut('Cannot seek to start of config file')] end
-  var buf = [&int8](C.malloc(len));
-  if buf == nil then [errorOut('Malloc error while parsing config')] end
-  var res3 = C.fread(buf, 1, len, f);
-  if res3 < len then [errorOut('Cannot read from config file')] end
-  C.fclose(f);
-  var errMsg : int8[256]
-  var settings = JSON.json_settings{ 0, 0, nil, nil, nil, 0 }
-  settings.settings = JSON.json_enable_comments
-  var root = JSON.json_parse_ex(&settings, buf, len, errMsg)
-  if root == nil then
-    C.printf('JSON parsing error: %s\n', errMsg)
-    C.exit(1)
-  end
-  [emitValueParser('Config', config, root, SCHEMA.Config)]
-  JSON.json_value_free(root)
-  C.free(buf)
-  return config
-end
-terralib.saveobj(baseName..'.o', 'object', {parse_config=parse_config})
+terralib.saveobj(baseName..'.o', 'object', parsers)

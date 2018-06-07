@@ -76,8 +76,8 @@ dom_host.o: dom_host.rg config_schema.h dom.rg util.rg
 soleil_mapper.o: soleil_mapper.cc soleil_mapper.h config_schema.h
 	$(CXX) $(CXXFLAGS) -c -o  $@ $<
 
-config_schema.o config_schema.h: config_helper.rg config_schema.lua json.h util.rg
-	$(REGENT) config_helper.rg config_schema.lua
+config_schema.o config_schema.h: process_schema.rg config_schema.lua json.h util.rg
+	$(REGENT) process_schema.rg config_schema.lua
 
 json.o: json.c json.h
 	$(CC) $(CFLAGS) -c -o $@ $<
