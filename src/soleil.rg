@@ -172,9 +172,9 @@ local VALID_FIELD_OFFSET = validFieldOffset()
 -- TODO: Define macros for in_boundary, neg_depth etc.
 
 local __demand(__inline)
-task drand48_r(state : &C.drand48_data)
+task drand48_r(rngState : &C.drand48_data)
   var res : double[1]
-  C.drand48_r(state, [&double](res))
+  C.drand48_r(rngState, [&double](res))
   return res[0]
 end
 
@@ -558,15 +558,15 @@ where
   reads writes(Fluid.velocity)
 do
   var magnitude = Flow_initParams[2]
-  var state : C.drand48_data[1]
-  var statePtr = [&C.drand48_data](state)
-  C.srand48_r(regentlib.c.legion_get_current_time_in_nanos(), statePtr)
+  var rngState : C.drand48_data[1]
+  var rngStatePtr = [&C.drand48_data](rngState)
+  C.srand48_r(regentlib.c.legion_get_current_time_in_nanos(), rngStatePtr)
   for c in Fluid do
     Fluid[c].rho = Flow_initParams[0]
     Fluid[c].pressure = Flow_initParams[1]
-    Fluid[c].velocity[0] = 2 * (drand48_r(statePtr) - 0.5) * magnitude
-    Fluid[c].velocity[1] = 2 * (drand48_r(statePtr) - 0.5) * magnitude
-    Fluid[c].velocity[2] = 2 * (drand48_r(statePtr) - 0.5) * magnitude
+    Fluid[c].velocity[0] = 2 * (drand48_r(rngStatePtr) - 0.5) * magnitude
+    Fluid[c].velocity[1] = 2 * (drand48_r(rngStatePtr) - 0.5) * magnitude
+    Fluid[c].velocity[2] = 2 * (drand48_r(rngStatePtr) - 0.5) * magnitude
   end
 end
 
@@ -626,15 +626,15 @@ where
   writes(Fluid.{rho, pressure}),
   reads writes(Fluid.velocity)
 do
-  var state : C.drand48_data[1]
-  var statePtr = [&C.drand48_data](state)
-  C.srand48_r(regentlib.c.legion_get_current_time_in_nanos(), statePtr)
+  var rngState : C.drand48_data[1]
+  var rngStatePtr = [&C.drand48_data](rngState)
+  C.srand48_r(regentlib.c.legion_get_current_time_in_nanos(), rngStatePtr)
   for c in Fluid do
     Fluid[c].rho = Flow_initParams[0]
     Fluid[c].pressure = Flow_initParams[1]
-    Fluid[c].velocity[0] = Flow_initParams[2] + (drand48_r(statePtr)-0.5)*10.0
-    Fluid[c].velocity[1] = Flow_initParams[3] + (drand48_r(statePtr)-0.5)*10.0
-    Fluid[c].velocity[2] = Flow_initParams[4] + (drand48_r(statePtr)-0.5)*10.0
+    Fluid[c].velocity[0] = Flow_initParams[2] + (drand48_r(rngStatePtr)-0.5)*10.0
+    Fluid[c].velocity[1] = Flow_initParams[3] + (drand48_r(rngStatePtr)-0.5)*10.0
+    Fluid[c].velocity[2] = Flow_initParams[4] + (drand48_r(rngStatePtr)-0.5)*10.0
   end
 end
 
@@ -1499,16 +1499,16 @@ do
   var yUpto = config.Flow.pertubation.u.Random.uptoCell[1]
   var zFrom = config.Flow.pertubation.u.Random.fromCell[2]
   var zUpto = config.Flow.pertubation.u.Random.uptoCell[2]
-  var state : C.drand48_data[1]
-  var statePtr = [&C.drand48_data](state)
-  C.srand48_r(regentlib.c.legion_get_current_time_in_nanos(), statePtr)
+  var rngState : C.drand48_data[1]
+  var rngStatePtr = [&C.drand48_data](rngState)
+  C.srand48_r(regentlib.c.legion_get_current_time_in_nanos(), rngStatePtr)
   -- For every grid point do the Fourier summation
   for c in Fluid do
     -- Only modify cells inside the perturbed volume
     if  c.x >= xFrom and c.x <= xUpto
     and c.y >= yFrom and c.y <= yUpto
     and c.z >= zFrom and c.z <= zUpto then
-      var psi = (drand48_r(statePtr) - 0.5) * PI
+      var psi = (drand48_r(rngStatePtr) - 0.5) * PI
       var xc = Grid_xCellWidth/2.0 + c.x*Grid_xCellWidth
       var yc = Grid_yCellWidth/2.0 + c.y*Grid_yCellWidth
       var zc = Grid_zCellWidth/2.0 + c.z*Grid_zCellWidth
@@ -4993,11 +4993,6 @@ task work(config : Config)
                       'Particle T\n'])
   C.fflush(console)
 
-  -- Seed RNG
-  var state : C.drand48_data[1]
-  var statePtr = [&C.drand48_data](state)
-  C.srand48_r(regentlib.c.legion_get_current_time_in_nanos(), statePtr)
-
   -----------------------------------------------------------------------------
   -- Grid Variables
   -----------------------------------------------------------------------------
@@ -5082,13 +5077,7 @@ task work(config : Config)
   -----------------------------------------------------------------------------
 
   var Integrator_simTime = 0.0
-  var Integrator_time_old = 0.0
   var Integrator_timeStep = 0
-  var Integrator_deltaTime = double(0.0001)
-  var Integrator_stage = 0
-  var Integrator_maxConvectiveSpectralRadius = 0.0
-  var Integrator_maxViscousSpectralRadius = 0.0
-  var Integrator_maxHeatConductionSpectralRadius = 0.0
 
   -----------------------------------------------------------------------------
   -- Flow Variables
@@ -5108,23 +5097,6 @@ task work(config : Config)
 
   var Flow_initParams = config.Flow.initParams
   var Flow_bodyForce = config.Flow.bodyForce
-
-  var Flow_averagePD = 0.0
-  var Flow_averageDissipation = 0.0
-  var Flow_averageFe = 0.0
-  var Flow_averageK = 0.0
-
-  -----------------------------------------------------------------------------
-  -- Random pertubation variables
-  -----------------------------------------------------------------------------
-
-  var Pertubation_kx : double[PERTUBATION_MODES]
-  var Pertubation_ky : double[PERTUBATION_MODES]
-  var Pertubation_kz : double[PERTUBATION_MODES]
-  var Pertubation_um : double[PERTUBATION_MODES]
-  var Pertubation_sxm : double[PERTUBATION_MODES]
-  var Pertubation_sym : double[PERTUBATION_MODES]
-  var Pertubation_szm : double[PERTUBATION_MODES]
 
   -----------------------------------------------------------------------------
   -- Particle Variables
@@ -5158,123 +5130,7 @@ task work(config : Config)
   var Radiation_cellVolume = ((Radiation_xCellWidth*Radiation_yCellWidth)*Radiation_zCellWidth)
 
   -----------------------------------------------------------------------------
-  -- Create Regions and Partitions
-  -----------------------------------------------------------------------------
-
-  -- Create Fluid Regions
-  var is = ispace(int3d, int3d({x = (Grid_xNum+(2*Grid_xBnum)), y = (Grid_yNum+(2*Grid_yBnum)), z = (Grid_zNum+(2*Grid_zBnum))}))
-  var Fluid = region(is, Fluid_columns)
-  var Fluid_copy = region(is, Fluid_columns)
-
-  -- Create Particles Regions
-  var is__11726 = ispace(int1d, int1d((ceil(((Particles_maxNum/((NX*NY)*NZ))*Particles_maxSkew))*((NX*NY)*NZ))))
-  var particles = region(is__11726, particles_columns)
-  var particles_copy = region(is__11726, particles_columns)
-
-  -- Create Radiation Regions
-  var is__11729 = ispace(int3d, int3d({x = Radiation_xNum, y = Radiation_yNum, z = Radiation_zNum}))
-  var Radiation = region(is__11729, Radiation_columns)
-  var Radiation_copy = region(is__11729, Radiation_columns)
-
-  -- Partitioning domain
-  var primColors = ispace(int3d, int3d({NX, NY, NZ}))
-
-  -- Fluid Partitioning
-  regentlib.assert(((Grid_xNum%NX)==0), "Uneven partitioning of fluid grid on x")
-  regentlib.assert(((Grid_yNum%NY)==0), "Uneven partitioning of fluid grid on y")
-  regentlib.assert(((Grid_zNum%NZ)==0), "Uneven partitioning of fluid grid on z")
-  var coloring = regentlib.c.legion_domain_point_coloring_create()
-  for c in primColors do
-    var rect = rect3d({lo = int3d({x = (Grid_xBnum+((Grid_xNum/NX)*c.x)), y = (Grid_yBnum+((Grid_yNum/NY)*c.y)), z = (Grid_zBnum+((Grid_zNum/NZ)*c.z))}),
-                       hi = int3d({x = ((Grid_xBnum+((Grid_xNum/NX)*(c.x+1)))-1), y = ((Grid_yBnum+((Grid_yNum/NY)*(c.y+1)))-1), z = ((Grid_zBnum+((Grid_zNum/NZ)*(c.z+1)))-1)})})
-    if (c.x==0) then
-      rect.lo.x -= Grid_xBnum
-    end
-    if (c.x==(NX-1)) then
-      rect.hi.x += Grid_xBnum
-    end
-    if (c.y==0) then
-      rect.lo.y -= Grid_yBnum
-    end
-    if (c.y==(NY-1)) then
-      rect.hi.y += Grid_yBnum
-    end
-    if (c.z==0) then
-      rect.lo.z -= Grid_zBnum
-    end
-    if (c.z==(NZ-1)) then
-      rect.hi.z += Grid_zBnum
-    end
-    regentlib.c.legion_domain_point_coloring_color_domain(coloring, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
-  end
-  var Fluid_primPart = partition(disjoint, Fluid, coloring, primColors)
-  var Fluid_copy_primPart = partition(disjoint, Fluid_copy, coloring, primColors)
-  regentlib.c.legion_domain_point_coloring_destroy(coloring)
-
-  -- Particles Partitioning
-  regentlib.assert(((Particles_maxNum%((NX*NY)*NZ))==0), "Uneven partitioning of particles")
-  var coloring__11738 = regentlib.c.legion_domain_point_coloring_create()
-  for z : int32 = 0, NZ do
-    for y : int32 = 0, NY do
-      for x : int32 = 0, NX do
-        var rBase : int64
-        for rStart in particles do
-          rBase = int64((rStart+(((((z*NX)*NY)+(y*NX))+x)*ceil(((Particles_maxNum/((NX*NY)*NZ))*Particles_maxSkew)))))
-          break
-        end
-        regentlib.c.legion_domain_point_coloring_color_domain(coloring__11738, regentlib.c.legion_domain_point_t(int3d({x, y, z})), regentlib.c.legion_domain_t(rect1d({rBase, ((rBase+ceil(((Particles_maxNum/((NX*NY)*NZ))*Particles_maxSkew)))-1)})))
-      end
-    end
-  end
-  var particles_primPart = partition(disjoint, particles, coloring__11738, primColors)
-  var particles_copy_primPart = partition(disjoint, particles_copy, coloring__11738, primColors)
-  regentlib.c.legion_domain_point_coloring_destroy(coloring__11738);
-  @ESCAPE for i = 1,26 do @EMIT
-    var queue = region(ispace(int1d,Particles_maxXferNum*NX*NY*NZ), int8[SIZEOF_PARTICLE])
-    var srcColoring = regentlib.c.legion_domain_point_coloring_create()
-    for z = 0, NZ do
-      for y = 0, NY do
-        for x = 0, NX do
-          var qBase : int64
-          for qStart in queue do
-            qBase = qStart + (z*NX*NY+y*NX+x)*Particles_maxXferNum
-            break
-          end
-          regentlib.c.legion_domain_point_coloring_color_domain(srcColoring, int3d{x,y,z}, rect1d{qBase,qBase+Particles_maxXferNum-1})
-        end
-      end
-    end
-    var [qSrcParts[i]] = partition(disjoint, queue, srcColoring, primColors)
-    regentlib.c.legion_domain_point_coloring_destroy(srcColoring)
-    var dstColoring = regentlib.c.legion_domain_point_coloring_create()
-    for c in primColors do
-      var srcBase : int64
-      for qptr in [qSrcParts[i]][ (c-[colorOffsets[i]]+{NX,NY,NZ}) % {NX,NY,NZ} ] do
-        srcBase = qptr
-        break
-      end
-      regentlib.c.legion_domain_point_coloring_color_domain(dstColoring, c, rect1d{srcBase,srcBase+Particles_maxXferNum-1})
-    end
-    var [qDstParts[i]] = partition(aliased, queue, dstColoring, primColors)
-    regentlib.c.legion_domain_point_coloring_destroy(dstColoring)
-  @TIME end @EPACSE
-
-  -- Radiation Partitioning
-  regentlib.assert(((Radiation_xNum%NX)==0), "Uneven partitioning of radiation grid on x")
-  regentlib.assert(((Radiation_yNum%NY)==0), "Uneven partitioning of radiation grid on y")
-  regentlib.assert(((Radiation_zNum%NZ)==0), "Uneven partitioning of radiation grid on z")
-  var coloring__12110 = regentlib.c.legion_domain_point_coloring_create()
-  for c in primColors do
-    var rect = rect3d{lo = int3d{x = (Radiation_xNum/NX)*c.x,       y = (Radiation_yNum/NY)*c.y,       z = (Radiation_zNum/NZ)*c.z      },
-                      hi = int3d{x = (Radiation_xNum/NX)*(c.x+1)-1, y = (Radiation_yNum/NY)*(c.y+1)-1, z = (Radiation_zNum/NZ)*(c.z+1)-1}}
-    regentlib.c.legion_domain_point_coloring_color_domain(coloring__12110, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
-  end
-  var Radiation_primPart = partition(disjoint, Radiation, coloring__12110, primColors)
-  var Radiation_copy_primPart = partition(disjoint, Radiation_copy, coloring__12110, primColors)
-  regentlib.c.legion_domain_point_coloring_destroy(coloring__12110)
-
-  -----------------------------------------------------------------------------
-  -- Set up BC's, timestepping, and finalize
+  -- Set up BC's & timestepping
   -----------------------------------------------------------------------------
 
   if ((not ((Grid_xNum%Radiation_xNum)==0)) or ((not ((Grid_yNum%Radiation_yNum)==0)) or (not ((Grid_zNum%Radiation_zNum)==0)))) then
@@ -5426,7 +5282,7 @@ task work(config : Config)
     end
   end
 
-
+  -- Set up flow BC's in z direction
   if ((config.BC.zBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.zBCRight == SCHEMA.FlowBC_Periodic)) then
     BC_zPosSign = array(1.0, 1.0, 1.0)
     BC_zNegSign = array(1.0, 1.0, 1.0)
@@ -5513,6 +5369,122 @@ task work(config : Config)
     Integrator_timeStep = config.Integrator.restartIter
     Integrator_simTime = config.Integrator.restartTime
   end
+
+  -----------------------------------------------------------------------------
+  -- Create Regions and Partitions
+  -----------------------------------------------------------------------------
+
+  -- Create Fluid Regions
+  var is = ispace(int3d, int3d({x = (Grid_xNum+(2*Grid_xBnum)), y = (Grid_yNum+(2*Grid_yBnum)), z = (Grid_zNum+(2*Grid_zBnum))}))
+  var Fluid = region(is, Fluid_columns)
+  var Fluid_copy = region(is, Fluid_columns)
+
+  -- Create Particles Regions
+  var is__11726 = ispace(int1d, int1d((ceil(((Particles_maxNum/((NX*NY)*NZ))*Particles_maxSkew))*((NX*NY)*NZ))))
+  var particles = region(is__11726, particles_columns)
+  var particles_copy = region(is__11726, particles_columns)
+
+  -- Create Radiation Regions
+  var is__11729 = ispace(int3d, int3d({x = Radiation_xNum, y = Radiation_yNum, z = Radiation_zNum}))
+  var Radiation = region(is__11729, Radiation_columns)
+  var Radiation_copy = region(is__11729, Radiation_columns)
+
+  -- Partitioning domain
+  var primColors = ispace(int3d, int3d({NX, NY, NZ}))
+
+  -- Fluid Partitioning
+  regentlib.assert(((Grid_xNum%NX)==0), "Uneven partitioning of fluid grid on x")
+  regentlib.assert(((Grid_yNum%NY)==0), "Uneven partitioning of fluid grid on y")
+  regentlib.assert(((Grid_zNum%NZ)==0), "Uneven partitioning of fluid grid on z")
+  var coloring = regentlib.c.legion_domain_point_coloring_create()
+  for c in primColors do
+    var rect = rect3d({lo = int3d({x = (Grid_xBnum+((Grid_xNum/NX)*c.x)), y = (Grid_yBnum+((Grid_yNum/NY)*c.y)), z = (Grid_zBnum+((Grid_zNum/NZ)*c.z))}),
+                       hi = int3d({x = ((Grid_xBnum+((Grid_xNum/NX)*(c.x+1)))-1), y = ((Grid_yBnum+((Grid_yNum/NY)*(c.y+1)))-1), z = ((Grid_zBnum+((Grid_zNum/NZ)*(c.z+1)))-1)})})
+    if (c.x==0) then
+      rect.lo.x -= Grid_xBnum
+    end
+    if (c.x==(NX-1)) then
+      rect.hi.x += Grid_xBnum
+    end
+    if (c.y==0) then
+      rect.lo.y -= Grid_yBnum
+    end
+    if (c.y==(NY-1)) then
+      rect.hi.y += Grid_yBnum
+    end
+    if (c.z==0) then
+      rect.lo.z -= Grid_zBnum
+    end
+    if (c.z==(NZ-1)) then
+      rect.hi.z += Grid_zBnum
+    end
+    regentlib.c.legion_domain_point_coloring_color_domain(coloring, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
+  end
+  var Fluid_primPart = partition(disjoint, Fluid, coloring, primColors)
+  var Fluid_copy_primPart = partition(disjoint, Fluid_copy, coloring, primColors)
+  regentlib.c.legion_domain_point_coloring_destroy(coloring)
+
+  -- Particles Partitioning
+  regentlib.assert(((Particles_maxNum%((NX*NY)*NZ))==0), "Uneven partitioning of particles")
+  var coloring__11738 = regentlib.c.legion_domain_point_coloring_create()
+  for z : int32 = 0, NZ do
+    for y : int32 = 0, NY do
+      for x : int32 = 0, NX do
+        var rBase : int64
+        for rStart in particles do
+          rBase = int64((rStart+(((((z*NX)*NY)+(y*NX))+x)*ceil(((Particles_maxNum/((NX*NY)*NZ))*Particles_maxSkew)))))
+          break
+        end
+        regentlib.c.legion_domain_point_coloring_color_domain(coloring__11738, regentlib.c.legion_domain_point_t(int3d({x, y, z})), regentlib.c.legion_domain_t(rect1d({rBase, ((rBase+ceil(((Particles_maxNum/((NX*NY)*NZ))*Particles_maxSkew)))-1)})))
+      end
+    end
+  end
+  var particles_primPart = partition(disjoint, particles, coloring__11738, primColors)
+  var particles_copy_primPart = partition(disjoint, particles_copy, coloring__11738, primColors)
+  regentlib.c.legion_domain_point_coloring_destroy(coloring__11738);
+  @ESCAPE for i = 1,26 do @EMIT
+    var queue = region(ispace(int1d,Particles_maxXferNum*NX*NY*NZ), int8[SIZEOF_PARTICLE])
+    var srcColoring = regentlib.c.legion_domain_point_coloring_create()
+    for z = 0, NZ do
+      for y = 0, NY do
+        for x = 0, NX do
+          var qBase : int64
+          for qStart in queue do
+            qBase = qStart + (z*NX*NY+y*NX+x)*Particles_maxXferNum
+            break
+          end
+          regentlib.c.legion_domain_point_coloring_color_domain(srcColoring, int3d{x,y,z}, rect1d{qBase,qBase+Particles_maxXferNum-1})
+        end
+      end
+    end
+    var [qSrcParts[i]] = partition(disjoint, queue, srcColoring, primColors)
+    regentlib.c.legion_domain_point_coloring_destroy(srcColoring)
+    var dstColoring = regentlib.c.legion_domain_point_coloring_create()
+    for c in primColors do
+      var srcBase : int64
+      for qptr in [qSrcParts[i]][ (c-[colorOffsets[i]]+{NX,NY,NZ}) % {NX,NY,NZ} ] do
+        srcBase = qptr
+        break
+      end
+      regentlib.c.legion_domain_point_coloring_color_domain(dstColoring, c, rect1d{srcBase,srcBase+Particles_maxXferNum-1})
+    end
+    var [qDstParts[i]] = partition(aliased, queue, dstColoring, primColors)
+    regentlib.c.legion_domain_point_coloring_destroy(dstColoring)
+  @TIME end @EPACSE
+
+  -- Radiation Partitioning
+  regentlib.assert(((Radiation_xNum%NX)==0), "Uneven partitioning of radiation grid on x")
+  regentlib.assert(((Radiation_yNum%NY)==0), "Uneven partitioning of radiation grid on y")
+  regentlib.assert(((Radiation_zNum%NZ)==0), "Uneven partitioning of radiation grid on z")
+  var coloring__12110 = regentlib.c.legion_domain_point_coloring_create()
+  for c in primColors do
+    var rect = rect3d{lo = int3d{x = (Radiation_xNum/NX)*c.x,       y = (Radiation_yNum/NY)*c.y,       z = (Radiation_zNum/NZ)*c.z      },
+                      hi = int3d{x = (Radiation_xNum/NX)*(c.x+1)-1, y = (Radiation_yNum/NY)*(c.y+1)-1, z = (Radiation_zNum/NZ)*(c.z+1)-1}}
+    regentlib.c.legion_domain_point_coloring_color_domain(coloring__12110, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
+  end
+  var Radiation_primPart = partition(disjoint, Radiation, coloring__12110, primColors)
+  var Radiation_copy_primPart = partition(disjoint, Radiation_copy, coloring__12110, primColors)
+  regentlib.c.legion_domain_point_coloring_destroy(coloring__12110)
 
   -- DOM code declarations
   [DOM.DeclSymbols(config)];
@@ -5725,6 +5697,20 @@ task work(config : Config)
         Integrator_simTime >= config.Integrator.finalTime or
         Integrator_timeStep >= config.Integrator.maxIter
 
+      -- Determine time step size
+      var Integrator_deltaTime : double
+      if (config.Integrator.cfl<0) then
+        Integrator_deltaTime = config.Integrator.fixedDeltaTime
+      else
+        var Integrator_maxConvectiveSpectralRadius = 0.0
+        var Integrator_maxViscousSpectralRadius = 0.0
+        var Integrator_maxHeatConductionSpectralRadius = 0.0
+        Integrator_maxConvectiveSpectralRadius max= CalculateConvectiveSpectralRadius(Fluid, Flow_gamma, Flow_gasConstant, Grid_dXYZInverseSquare, Grid_xCellWidth, Grid_yCellWidth, Grid_zCellWidth)
+        Integrator_maxViscousSpectralRadius max= CalculateViscousSpectralRadius(Fluid, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel, Grid_dXYZInverseSquare)
+        Integrator_maxHeatConductionSpectralRadius max= CalculateHeatConductionSpectralRadius(Fluid, Flow_constantVisc, Flow_gamma, Flow_gasConstant, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_prandtl, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel, Grid_dXYZInverseSquare)
+        Integrator_deltaTime = (config.Integrator.cfl/max(Integrator_maxConvectiveSpectralRadius, max(Integrator_maxViscousSpectralRadius, Integrator_maxHeatConductionSpectralRadius)))
+      end
+
       -- Perform IO
       var currTime = regentlib.c.legion_get_current_time_in_micros() / 1000
       var Flow_averagePressure = 0.0
@@ -5777,21 +5763,11 @@ task work(config : Config)
         break
       end
 
-      -- Determine time step size
-      if (config.Integrator.cfl<0) then
-        Integrator_deltaTime = config.Integrator.fixedDeltaTime
-      else
-        Integrator_maxConvectiveSpectralRadius max= CalculateConvectiveSpectralRadius(Fluid, Flow_gamma, Flow_gasConstant, Grid_dXYZInverseSquare, Grid_xCellWidth, Grid_yCellWidth, Grid_zCellWidth)
-        Integrator_maxViscousSpectralRadius max= CalculateViscousSpectralRadius(Fluid, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel, Grid_dXYZInverseSquare)
-        Integrator_maxHeatConductionSpectralRadius max= CalculateHeatConductionSpectralRadius(Fluid, Flow_constantVisc, Flow_gamma, Flow_gasConstant, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_prandtl, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel, Grid_dXYZInverseSquare)
-        Integrator_deltaTime = (config.Integrator.cfl/max(Integrator_maxConvectiveSpectralRadius, max(Integrator_maxViscousSpectralRadius, Integrator_maxHeatConductionSpectralRadius)))
-      end
-
       Flow_InitializeTemporaries(Fluid)
       Particles_InitializeTemporaries(particles)
 
-      Integrator_time_old = Integrator_simTime
-      Integrator_stage = 1
+      var Integrator_time_old = Integrator_simTime
+      var Integrator_stage = 1
       while (Integrator_stage<5) do
 
         Flow_InitializeTimeDerivatives(Fluid)
@@ -5869,10 +5845,10 @@ task work(config : Config)
 
         -- Add turbulent forcing
         if config.Flow.turbForcing then
-          Flow_averagePD = 0.0
-          Flow_averageDissipation = 0.0
-          Flow_averageFe = 0.0
-          Flow_averageK = 0.0
+          var Flow_averagePD = 0.0
+          var Flow_averageDissipation = 0.0
+          var Flow_averageFe = 0.0
+          var Flow_averageK = 0.0
           Flow_UpdatePD(Fluid, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
           Flow_ResetDissipation(Fluid)
           Flow_ComputeDissipationX(Fluid, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel, Grid_xBnum, Grid_xNum, Grid_xCellWidth, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
@@ -5965,6 +5941,18 @@ task work(config : Config)
                                       Grid_zBnum, Grid_zNum)
 
         if config.Flow.pertubation.type == SCHEMA.PertubationModel_Random then
+          -- Seed RNG
+          var rngState : C.drand48_data[1]
+          var rngStatePtr = [&C.drand48_data](rngState)
+          C.srand48_r(regentlib.c.legion_get_current_time_in_nanos(), rngStatePtr)
+          -- Random pertubation arrays
+          var Pertubation_kx : double[PERTUBATION_MODES]
+          var Pertubation_ky : double[PERTUBATION_MODES]
+          var Pertubation_kz : double[PERTUBATION_MODES]
+          var Pertubation_um : double[PERTUBATION_MODES]
+          var Pertubation_sxm : double[PERTUBATION_MODES]
+          var Pertubation_sym : double[PERTUBATION_MODES]
+          var Pertubation_szm : double[PERTUBATION_MODES]
           -- Set up pertubation constants
           -- Number of nodes in perturbed volume
           var nx = config.Flow.pertubation.u.Random.uptoCell[0]
@@ -5994,11 +5982,11 @@ task work(config : Config)
           -- Fill in arrays
           for i = 0,PERTUBATION_MODES do
             -- Generate random angles
-            var phi = 2.0*PI*drand48_r(statePtr)
-            var nu = drand48_r(statePtr)
+            var phi = 2.0*PI*drand48_r(rngStatePtr)
+            var nu = drand48_r(rngStatePtr)
             var theta = acos( 2.0*nu - 1.0 )
-            var phi1 = 2.0*PI*drand48_r(statePtr)
-            var nu1 = drand48_r(statePtr)
+            var phi1 = 2.0*PI*drand48_r(rngStatePtr)
+            var nu1 = drand48_r(rngStatePtr)
             -- Wavenumber at cell centers
             var wn = wn1 + 0.5*dk + i*dk
             -- Wavenumber vector from random angles
@@ -6134,7 +6122,7 @@ task work(config : Config)
         Particles_UpdateAuxiliaryStep2(particles)
 
         Integrator_simTime = (Integrator_time_old+((double(0.5)*(1+(Integrator_stage/3)))*Integrator_deltaTime))
-        Integrator_stage = (Integrator_stage+1)
+        Integrator_stage += 1
 
         for c in primColors do
           Particles_number += Particles_DeleteEscapingParticles(particles_primPart[c], Grid_xRealOrigin, Grid_xRealWidth, Grid_yRealOrigin, Grid_yRealWidth, Grid_zRealOrigin, Grid_zRealWidth)
@@ -6152,7 +6140,7 @@ task work(config : Config)
                                                  Integrator_deltaTime)
       end
 
-      Integrator_timeStep = (Integrator_timeStep+1)
+      Integrator_timeStep += 1
 
     end -- time-steping loop
 
