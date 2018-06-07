@@ -4994,41 +4994,42 @@ task work(config : Config)
   C.fflush(console)
 
   -----------------------------------------------------------------------------
-  -- Grid Variables
+  -- Declare & initialize state variables
   -----------------------------------------------------------------------------
 
   -- Cell step size (TODO: Change when we go to non-uniform meshes)
-  var Grid_xCellWidth = (config.Grid.xWidth/config.Grid.xNum)
-  var Grid_yCellWidth = (config.Grid.yWidth/config.Grid.yNum)
-  var Grid_zCellWidth = (config.Grid.zWidth/config.Grid.zNum)
-
-  var Grid_cellVolume = ((Grid_xCellWidth*Grid_yCellWidth)*Grid_zCellWidth)
-  var Grid_dXYZInverseSquare = (((((1/Grid_xCellWidth)*1)/Grid_xCellWidth)+(((1/Grid_yCellWidth)*1)/Grid_yCellWidth))+(((1/Grid_zCellWidth)*1)/Grid_zCellWidth))
+  var Grid_xCellWidth = config.Grid.xWidth / config.Grid.xNum
+  var Grid_yCellWidth = config.Grid.yWidth / config.Grid.yNum
+  var Grid_zCellWidth = config.Grid.zWidth / config.Grid.zNum
+  var Grid_cellVolume = Grid_xCellWidth * Grid_yCellWidth * Grid_zCellWidth
+  var Grid_dXYZInverseSquare =
+    1.0/Grid_xCellWidth/Grid_xCellWidth +
+    1.0/Grid_yCellWidth/Grid_yCellWidth +
+    1.0/Grid_zCellWidth/Grid_zCellWidth
 
   var BC_xBCPeriodic = (config.BC.xBCLeft == SCHEMA.FlowBC_Periodic)
-  var BC_xPosSign = array(double(0.1), double(0.1), double(0.1))
-  var BC_xNegSign = array(double(0.1), double(0.1), double(0.1))
-  var BC_xPosVelocity = array(double(0.1), double(0.1), double(0.1))
-  var BC_xNegVelocity = array(double(0.1), double(0.1), double(0.1))
-  var BC_xPosTemperature = 0.0
-  var BC_xNegTemperature = 0.0
-  var BC_xPosP_inf = 0.0 -- Outlet pressure at inf
+  var BC_xPosSign : double[3]
+  var BC_xNegSign : double[3]
+  var BC_xPosVelocity : double[3]
+  var BC_xNegVelocity : double[3]
+  var BC_xPosTemperature : double
+  var BC_xNegTemperature : double
 
   var BC_yBCPeriodic = (config.BC.yBCLeft == SCHEMA.FlowBC_Periodic)
-  var BC_yPosSign = array(double(0.1), double(0.1), double(0.1))
-  var BC_yNegSign = array(double(0.1), double(0.1), double(0.1))
-  var BC_yPosVelocity = array(double(0.1), double(0.1), double(0.1))
-  var BC_yNegVelocity = array(double(0.1), double(0.1), double(0.1))
-  var BC_yPosTemperature = 0.0
-  var BC_yNegTemperature = 0.0
+  var BC_yPosSign : double[3]
+  var BC_yNegSign : double[3]
+  var BC_yPosVelocity : double[3]
+  var BC_yNegVelocity : double[3]
+  var BC_yPosTemperature : double
+  var BC_yNegTemperature : double
 
   var BC_zBCPeriodic = (config.BC.zBCLeft == SCHEMA.FlowBC_Periodic)
-  var BC_zPosSign = array(double(0.1), double(0.1), double(0.1))
-  var BC_zNegSign = array(double(0.1), double(0.1), double(0.1))
-  var BC_zPosVelocity = array(double(0.1), double(0.1), double(0.1))
-  var BC_zNegVelocity = array(double(0.1), double(0.1), double(0.1))
-  var BC_zPosTemperature = 0.0
-  var BC_zNegTemperature = 0.0
+  var BC_zPosSign : double[3]
+  var BC_zNegSign : double[3]
+  var BC_zPosVelocity : double[3]
+  var BC_zNegVelocity : double[3]
+  var BC_zPosTemperature : double
+  var BC_zNegTemperature : double
 
   var BC_xBCParticlesPeriodic = false
   var BC_yBCParticlesPeriodic = false
@@ -5043,43 +5044,18 @@ task work(config : Config)
   if BC_yBCPeriodic then Grid_yBnum = 0 end
   if BC_zBCPeriodic then Grid_zBnum = 0 end
 
-  -- Compute real origin and width accounting for ghost cel
+  -- Compute real origin and width, accounting for ghost cells
   var Grid_xRealOrigin = (config.Grid.origin[0]-(Grid_xCellWidth*Grid_xBnum))
   var Grid_yRealOrigin = (config.Grid.origin[1]-(Grid_yCellWidth*Grid_yBnum))
   var Grid_zRealOrigin = (config.Grid.origin[2]-(Grid_zCellWidth*Grid_zBnum))
-
   var Grid_xRealWidth = (config.Grid.xWidth+(2*(Grid_xCellWidth*Grid_xBnum)))
   var Grid_yRealWidth = (config.Grid.yWidth+(2*(Grid_yCellWidth*Grid_yBnum)))
   var Grid_zRealWidth = (config.Grid.zWidth+(2*(Grid_zCellWidth*Grid_zBnum)))
 
-  -----------------------------------------------------------------------------
-  -- Time Integrator Variables
-  -----------------------------------------------------------------------------
-
   var Integrator_simTime = 0.0
   var Integrator_timeStep = 0
 
-  -----------------------------------------------------------------------------
-  -- Particle Variables
-  -----------------------------------------------------------------------------
-
   var Particles_number = int64(0)
-
-  -----------------------------------------------------------------------------
-  -- Radiation Variables
-  -----------------------------------------------------------------------------
-
-  var Radiation_xPeriodic = false
-  var Radiation_yPeriodic = false
-  var Radiation_zPeriodic = false
-  var Radiation_xCellWidth = (config.Grid.xWidth/config.Radiation.xNum)
-  var Radiation_yCellWidth = (config.Grid.yWidth/config.Radiation.yNum)
-  var Radiation_zCellWidth = (config.Grid.zWidth/config.Radiation.zNum)
-  var Radiation_cellVolume = ((Radiation_xCellWidth*Radiation_yCellWidth)*Radiation_zCellWidth)
-
-  -----------------------------------------------------------------------------
-  -- Set up BC's & timestepping
-  -----------------------------------------------------------------------------
 
   if ((not ((config.Grid.xNum%config.Radiation.xNum)==0)) or ((not ((config.Grid.yNum%config.Radiation.yNum)==0)) or (not ((config.Grid.zNum%config.Radiation.zNum)==0)))) then
     regentlib.assert(false, "Inexact coarsening factor")
@@ -5109,7 +5085,6 @@ task work(config : Config)
     else
       regentlib.assert(false, 'Only constant heat model supported')
     end
-    BC_xPosP_inf = config.BC.xBCRightP_inf
     BC_xBCParticlesPeriodic = true
   else
     if (config.BC.xBCLeft == SCHEMA.FlowBC_Symmetry) then
@@ -5335,7 +5310,6 @@ task work(config : Config)
   -- Create Radiation Regions
   var is__11729 = ispace(int3d, int3d({x = config.Radiation.xNum, y = config.Radiation.yNum, z = config.Radiation.zNum}))
   var Radiation = region(is__11729, Radiation_columns)
-  var Radiation_copy = region(is__11729, Radiation_columns)
 
   -- Partitioning domain
   var primColors = ispace(int3d, int3d({config.Mapping.tiles[0], config.Mapping.tiles[1], config.Mapping.tiles[2]}))
@@ -5431,7 +5405,6 @@ task work(config : Config)
     regentlib.c.legion_domain_point_coloring_color_domain(coloring__12110, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
   end
   var Radiation_primPart = partition(disjoint, Radiation, coloring__12110, primColors)
-  var Radiation_copy_primPart = partition(disjoint, Radiation_copy, coloring__12110, primColors)
   regentlib.c.legion_domain_point_coloring_destroy(coloring__12110);
 
   -- DOM code declarations
@@ -5771,7 +5744,7 @@ task work(config : Config)
                                             config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
                                             config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
                                             config.Flow.viscosityModel,
-                                            BC_xPosP_inf,
+                                            config.BC.xBCRightP_inf,
                                             Grid_xBnum, Grid_xCellWidth, config.Grid.xNum,
                                             Grid_yBnum, Grid_yCellWidth, config.Grid.yNum,
                                             Grid_zBnum, Grid_zCellWidth, config.Grid.zNum)
@@ -5847,6 +5820,10 @@ task work(config : Config)
           for c in primColors do
             Radiation_AccumulateParticleValues(particles_primPart[c], Fluid_primPart[c], Radiation_primPart[c])
           end
+          var Radiation_xCellWidth = (config.Grid.xWidth/config.Radiation.xNum)
+          var Radiation_yCellWidth = (config.Grid.yWidth/config.Radiation.yNum)
+          var Radiation_zCellWidth = (config.Grid.zWidth/config.Radiation.zNum)
+          var Radiation_cellVolume = Radiation_xCellWidth * Radiation_yCellWidth * Radiation_zCellWidth
           Radiation_UpdateFieldValues(Radiation, Radiation_cellVolume, config.Radiation.qa, config.Radiation.qs);
           [DOM.ComputeRadiationField(config, primColors, Radiation_primPart)];
           for c in primColors do
