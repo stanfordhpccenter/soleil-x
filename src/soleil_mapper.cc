@@ -104,7 +104,7 @@ public:
     AddressSpace reqd_ranks = 0;
     unsigned num_samples = 0;
     auto process_config = [&](char* config_file) {
-      Config config = parse_config(config_file);
+      Config config = parse_Config(config_file);
       CHECK(config.Mapping.tiles[0] > 0 &&
             config.Mapping.tiles[1] > 0 &&
             config.Mapping.tiles[2] > 0 &&

@@ -402,7 +402,7 @@ do
   for f in Fluid do
     var xFactor = (Grid_xNum/Radiation_xNum)
     var yFactor = (Grid_yNum/Radiation_yNum)
-    var zFactor = (Radiation_zNum/Radiation_zNum)
+    var zFactor = (Grid_zNum/Radiation_zNum)
     if (not ((((((max(int32((uint64(Grid_xBnum)-int3d(f).x)), 0)>0) or (max(int32((int3d(f).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(f).y)), 0)>0)) or (max(int32((int3d(f).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(f).z)), 0)>0)) or (max(int32((int3d(f).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) then
       Fluid[f].to_Radiation = int3d({(((int3d(f).x-uint64(Grid_xBnum))/uint64(xFactor))+uint64(Radiation_xBnum)), (((int3d(f).y-uint64(Grid_yBnum))/uint64(yFactor))+uint64(Radiation_yBnum)), (((int3d(f).z-uint64(Grid_zBnum))/uint64(zFactor))+uint64(Radiation_zBnum))})
     else
@@ -6193,7 +6193,7 @@ end -- work task
 
 __demand(__inline)
 task launchSample(configFile : &int8, num : int, outDirBase : &int8)
-  var config = SCHEMA.parse_config(configFile)
+  var config = SCHEMA.parse_Config(configFile)
   config.Mapping.sampleId = num
   var outDir = [&int8](C.malloc(256))
   C.snprintf(outDir, 256, "%s/sample%d", outDirBase, num)
