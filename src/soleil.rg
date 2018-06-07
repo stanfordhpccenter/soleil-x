@@ -392,19 +392,21 @@ task SetCoarseningField(Fluid : region(ispace(int3d), Fluid_columns),
                         Grid_xBnum : int32, Grid_xNum : int32,
                         Grid_yBnum : int32, Grid_yNum : int32,
                         Grid_zBnum : int32, Grid_zNum : int32,
-                        Radiation_xBnum : int32, Radiation_xNum : int32,
-                        Radiation_yBnum : int32, Radiation_yNum : int32,
-                        Radiation_zBnum : int32, Radiation_zNum : int32)
+                        Radiation_xNum : int32,
+                        Radiation_yNum : int32,
+                        Radiation_zNum : int32)
 where
   reads writes(Fluid.to_Radiation)
 do
+  var xFactor = (Grid_xNum/Radiation_xNum)
+  var yFactor = (Grid_yNum/Radiation_yNum)
+  var zFactor = (Grid_zNum/Radiation_zNum)
   __demand(__openmp)
   for f in Fluid do
-    var xFactor = (Grid_xNum/Radiation_xNum)
-    var yFactor = (Grid_yNum/Radiation_yNum)
-    var zFactor = (Grid_zNum/Radiation_zNum)
     if (not ((((((max(int32((uint64(Grid_xBnum)-int3d(f).x)), 0)>0) or (max(int32((int3d(f).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(f).y)), 0)>0)) or (max(int32((int3d(f).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(f).z)), 0)>0)) or (max(int32((int3d(f).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) then
-      Fluid[f].to_Radiation = int3d({(((int3d(f).x-uint64(Grid_xBnum))/uint64(xFactor))+uint64(Radiation_xBnum)), (((int3d(f).y-uint64(Grid_yBnum))/uint64(yFactor))+uint64(Radiation_yBnum)), (((int3d(f).z-uint64(Grid_zBnum))/uint64(zFactor))+uint64(Radiation_zBnum))})
+      Fluid[f].to_Radiation = int3d{(int3d(f).x-Grid_xBnum)/xFactor,
+                                    (int3d(f).y-Grid_yBnum)/yFactor,
+                                    (int3d(f).z-Grid_zBnum)/zFactor}
     else
       Fluid[f].to_Radiation = int3d({uint64(0ULL), uint64(0ULL), uint64(0ULL)})
     end
@@ -5147,9 +5149,6 @@ task work(config : Config)
   var Radiation_xNum = config.Radiation.xNum
   var Radiation_yNum = config.Radiation.yNum
   var Radiation_zNum = config.Radiation.zNum
-  var Radiation_xBnum = 0
-  var Radiation_yBnum = 0
-  var Radiation_zBnum = 0
   var Radiation_xPeriodic = false
   var Radiation_yPeriodic = false
   var Radiation_zPeriodic = false
@@ -5173,7 +5172,7 @@ task work(config : Config)
   var particles_copy = region(is__11726, particles_columns)
 
   -- Create Radiation Regions
-  var is__11729 = ispace(int3d, int3d({x = (Radiation_xNum+(2*Radiation_xBnum)), y = (Radiation_yNum+(2*Radiation_yBnum)), z = (Radiation_zNum+(2*Radiation_zBnum))}))
+  var is__11729 = ispace(int3d, int3d({x = Radiation_xNum, y = Radiation_yNum, z = Radiation_zNum}))
   var Radiation = region(is__11729, Radiation_columns)
   var Radiation_copy = region(is__11729, Radiation_columns)
 
@@ -5266,25 +5265,8 @@ task work(config : Config)
   regentlib.assert(((Radiation_zNum%NZ)==0), "Uneven partitioning of radiation grid on z")
   var coloring__12110 = regentlib.c.legion_domain_point_coloring_create()
   for c in primColors do
-    var rect = rect3d({lo = int3d({x = (Radiation_xBnum+((Radiation_xNum/NX)*c.x)), y = (Radiation_yBnum+((Radiation_yNum/NY)*c.y)), z = (Radiation_zBnum+((Radiation_zNum/NZ)*c.z))}), hi = int3d({x = ((Radiation_xBnum+((Radiation_xNum/NX)*(c.x+1)))-1), y = ((Radiation_yBnum+((Radiation_yNum/NY)*(c.y+1)))-1), z = ((Radiation_zBnum+((Radiation_zNum/NZ)*(c.z+1)))-1)})})
-    if (c.x==0) then
-      rect.lo.x -= Radiation_xBnum
-    end
-    if (c.x==(NX-1)) then
-      rect.hi.x += Radiation_xBnum
-    end
-    if (c.y==0) then
-      rect.lo.y -= Radiation_yBnum
-    end
-    if (c.y==(NY-1)) then
-      rect.hi.y += Radiation_yBnum
-    end
-    if (c.z==0) then
-      rect.lo.z -= Radiation_zBnum
-    end
-    if (c.z==(NZ-1)) then
-      rect.hi.z += Radiation_zBnum
-    end
+    var rect = rect3d{lo = int3d{x = (Radiation_xNum/NX)*c.x,       y = (Radiation_yNum/NY)*c.y,       z = (Radiation_zNum/NZ)*c.z      },
+                      hi = int3d{x = (Radiation_xNum/NX)*(c.x+1)-1, y = (Radiation_yNum/NY)*(c.y+1)-1, z = (Radiation_zNum/NZ)*(c.z+1)-1}}
     regentlib.c.legion_domain_point_coloring_color_domain(coloring__12110, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
   end
   var Radiation_primPart = partition(disjoint, Radiation, coloring__12110, primColors)
@@ -5546,9 +5528,9 @@ task work(config : Config)
                        Grid_xBnum, Grid_xNum,
                        Grid_yBnum, Grid_yNum,
                        Grid_zBnum, Grid_zNum,
-                       Radiation_xBnum, Radiation_xNum,
-                       Radiation_yBnum, Radiation_yNum,
-                       Radiation_zBnum, Radiation_zNum)
+                       Radiation_xNum,
+                       Radiation_yNum,
+                       Radiation_zNum)
     Flow_InitializeCell(Fluid)
     Flow_InitializeCenterCoordinates(Fluid,
                                      Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth,
