@@ -18,6 +18,7 @@ local ceil = regentlib.ceil(double)
 local cos = regentlib.cos(double)
 local exp = regentlib.exp(double)
 local fabs = regentlib.fabs(double)
+local floor = regentlib.floor(double)
 local fmod = regentlib.fmod(double)
 local pow = regentlib.pow(double)
 local sin = regentlib.sin(double)
@@ -3864,46 +3865,29 @@ end
 
 __demand(__inline)
 task locate(pos : double[3],
-            BC_xBCPeriodic : bool, BC_yBCPeriodic : bool, BC_zBCPeriodic : bool,
             Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
             Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
             Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
-  var xcw = (Grid_xWidth/double(Grid_xNum))
-  var xro = (Grid_xOrigin-(double(Grid_xBnum)*xcw))
-  var xpos = ((pos[0]-xro)/xcw)
-  var xrnum = (Grid_xNum+(2*Grid_xBnum))
-  var xidx : uint64
-  if BC_xBCPeriodic then
-    xidx = (uint64((fmod(xpos, double(xrnum))+double(xrnum)))%uint64(xrnum))
-  else
-    xidx = uint64(max(0.0, min(double((xrnum-1)), xpos)))
-  end
-  var ycw = (Grid_yWidth/double(Grid_yNum))
-  var yro = (Grid_yOrigin-(double(Grid_yBnum)*ycw))
-  var ypos = ((pos[1]-yro)/ycw)
-  var yrnum = (Grid_yNum+(2*Grid_yBnum))
-  var yidx : uint64
-  if BC_yBCPeriodic then
-    yidx = (uint64((fmod(ypos, double(yrnum))+double(yrnum)))%uint64(yrnum))
-  else
-    yidx = uint64(max(0.0, min(double((yrnum-1)), ypos)))
-  end
-  var zcw = (Grid_zWidth/double(Grid_zNum))
-  var zro = (Grid_zOrigin-(double(Grid_zBnum)*zcw))
-  var zpos = ((pos[2]-zro)/zcw)
-  var zrnum = (Grid_zNum+(2*Grid_zBnum))
-  var zidx : uint64
-  if BC_zBCPeriodic then
-    zidx = (uint64((fmod(zpos, double(zrnum))+double(zrnum)))%uint64(zrnum))
-  else
-    zidx = uint64(max(0.0, min(double((zrnum-1)), zpos)))
-  end
-  return int3d({xidx, yidx, zidx})
+  var xcw = Grid_xWidth/Grid_xNum
+  var xro = Grid_xOrigin-Grid_xBnum*xcw
+  var xpos = floor((pos[0]-xro)/xcw)
+  var xrnum = Grid_xNum+2*Grid_xBnum
+  var xidx = max(0, min(xrnum-1, xpos))
+  var ycw = Grid_yWidth/Grid_yNum
+  var yro = Grid_yOrigin-Grid_yBnum*ycw
+  var ypos = floor((pos[1]-yro)/ycw)
+  var yrnum = Grid_yNum+2*Grid_yBnum
+  var yidx = max(0, min(yrnum-1, ypos))
+  var zcw = Grid_zWidth/Grid_zNum
+  var zro = Grid_zOrigin-Grid_zBnum*zcw
+  var zpos = floor((pos[2]-zro)/zcw)
+  var zrnum = Grid_zNum+2*Grid_zBnum
+  var zidx = max(0, min(zrnum-1, zpos))
+  return int3d{xidx, yidx, zidx}
 end
 
 __demand(__cuda) -- MANUALLY PARALLELIZED
 task Particles_LocateInCells(particles : region(ispace(int1d), particles_columns),
-                             BC_xBCPeriodic : bool, BC_yBCPeriodic : bool, BC_zBCPeriodic : bool,
                              Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
                              Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
                              Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
@@ -3914,7 +3898,10 @@ do
   __demand(__openmp)
   for p in particles do
     if particles[p].__valid then
-      particles[p].cell = locate(particles[p].position, BC_xBCPeriodic, BC_yBCPeriodic, BC_zBCPeriodic, Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth, Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth, Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
+      particles[p].cell = locate(particles[p].position,
+                                 Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth,
+                                 Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth,
+                                 Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
     end
   end
 end
@@ -4793,9 +4780,9 @@ end
 
 __demand(__parallel, __cuda)
 task Particles_UpdateAuxiliaryStep1(particles : region(ispace(int1d), particles_columns),
-                                    BC_xBCParticlesPeriodic : bool,
-                                    BC_yBCParticlesPeriodic : bool,
-                                    BC_zBCParticlesPeriodic : bool,
+                                    BC_xBCParticles : SCHEMA.ParticlesBC,
+                                    BC_yBCParticles : SCHEMA.ParticlesBC,
+                                    BC_zBCParticles : SCHEMA.ParticlesBC,
                                     Grid_xOrigin : double, Grid_xWidth : double,
                                     Grid_yOrigin : double, Grid_yWidth : double,
                                     Grid_zOrigin : double, Grid_zWidth : double,
@@ -4817,9 +4804,9 @@ do
       particles[p].velocity_t_ghost[1] = particles[p].velocity_t[1]
       particles[p].velocity_t_ghost[2] = particles[p].velocity_t[2]
       if (particles[p].position[0]<Grid_xOrigin) then
-        if BC_xBCParticlesPeriodic then
+        if BC_xBCParticles == SCHEMA.ParticlesBC_Periodic then
           particles[p].position_ghost[0] = (particles[p].position[0]+Grid_xWidth)
-        else
+        elseif BC_xBCParticles == SCHEMA.ParticlesBC_Bounce then
           particles[p].position_ghost[0] = Grid_xOrigin
           var impulse = ((-(1.0+Particles_restitutionCoeff))*particles[p].velocity[0])
           if (impulse<=0.0) then
@@ -4829,12 +4816,14 @@ do
           if (contact_force>0.0) then
             particles[p].velocity_t_ghost[0] += contact_force
           end
+        else -- BC_xBCParticles == SCHEMA.ParticlesBC_Disappear
+          -- Do nothing, let out-of-bounds particles get deleted
         end
       end
       if (particles[p].position[0]>(Grid_xOrigin+Grid_xWidth)) then
-        if BC_xBCParticlesPeriodic then
+        if BC_xBCParticles == SCHEMA.ParticlesBC_Periodic then
           particles[p].position_ghost[0] = (particles[p].position[0]-Grid_xWidth)
-        else
+        elseif BC_xBCParticles == SCHEMA.ParticlesBC_Bounce then
           particles[p].position_ghost[0] = (Grid_xOrigin+Grid_xWidth)
           var impulse = ((-(1.0+Particles_restitutionCoeff))*particles[p].velocity[0])
           if (impulse>=0.0) then
@@ -4844,12 +4833,14 @@ do
           if (contact_force<0.0) then
             particles[p].velocity_t_ghost[0] += contact_force
           end
+        else -- BC_xBCParticles == SCHEMA.ParticlesBC_Disappear
+          -- Do nothing, let out-of-bounds particles get deleted
         end
       end
       if (particles[p].position[1]<Grid_yOrigin) then
-        if BC_yBCParticlesPeriodic then
+        if BC_yBCParticles == SCHEMA.ParticlesBC_Periodic then
           particles[p].position_ghost[1] = (particles[p].position[1]+Grid_yWidth)
-        else
+        elseif BC_yBCParticles == SCHEMA.ParticlesBC_Bounce then
           particles[p].position_ghost[1] = Grid_yOrigin
           var impulse = ((-(1.0+Particles_restitutionCoeff))*particles[p].velocity[1])
           if (impulse<=0.0) then
@@ -4859,12 +4850,14 @@ do
           if (contact_force>0.0) then
             particles[p].velocity_t_ghost[1] += contact_force
           end
+        else -- BC_yBCParticles == SCHEMA.ParticlesBC_Disappear
+          -- Do nothing, let out-of-bounds particles get deleted
         end
       end
       if (particles[p].position[1]>(Grid_yOrigin+Grid_yWidth)) then
-        if BC_yBCParticlesPeriodic then
+        if BC_yBCParticles == SCHEMA.ParticlesBC_Periodic then
           particles[p].position_ghost[1] = (particles[p].position[1]-Grid_yWidth)
-        else
+        elseif BC_yBCParticles == SCHEMA.ParticlesBC_Bounce then
           particles[p].position_ghost[1] = (Grid_yOrigin+Grid_yWidth)
           var impulse = ((-(1.0+Particles_restitutionCoeff))*particles[p].velocity[1])
           if (impulse>=0.0) then
@@ -4874,12 +4867,14 @@ do
           if (contact_force<0.0) then
             particles[p].velocity_t_ghost[1] += contact_force
           end
+        else -- BC_yBCParticles == SCHEMA.ParticlesBC_Disappear
+          -- Do nothing, let out-of-bounds particles get deleted
         end
       end
       if (particles[p].position[2]<Grid_zOrigin) then
-        if BC_zBCParticlesPeriodic then
+        if BC_zBCParticles == SCHEMA.ParticlesBC_Periodic then
           particles[p].position_ghost[2] = (particles[p].position[2]+Grid_zWidth)
-        else
+        elseif BC_zBCParticles == SCHEMA.ParticlesBC_Bounce then
           particles[p].position_ghost[2] = Grid_zOrigin
           var impulse = ((-(1.0+Particles_restitutionCoeff))*particles[p].velocity[2])
           if (impulse<=0.0) then
@@ -4889,12 +4884,14 @@ do
           if (contact_force>0.0) then
             particles[p].velocity_t_ghost[2] += contact_force
           end
+        else -- BC_zBCParticles == SCHEMA.ParticlesBC_Disappear
+          -- Do nothing, let out-of-bounds particles get deleted
         end
       end
       if (particles[p].position[2]>(Grid_zOrigin+Grid_zWidth)) then
-        if BC_zBCParticlesPeriodic then
+        if BC_zBCParticles == SCHEMA.ParticlesBC_Periodic then
           particles[p].position_ghost[2] = (particles[p].position[2]-Grid_zWidth)
-        else
+        elseif BC_zBCParticles == SCHEMA.ParticlesBC_Bounce then
           particles[p].position_ghost[2] = (Grid_zOrigin+Grid_zWidth)
           var impulse = ((-(1.0+Particles_restitutionCoeff))*particles[p].velocity[2])
           if (impulse>=0.0) then
@@ -4904,6 +4901,8 @@ do
           if (contact_force<0.0) then
             particles[p].velocity_t_ghost[2] += contact_force
           end
+        else -- BC_zBCParticles == SCHEMA.ParticlesBC_Disappear
+          -- Do nothing, let out-of-bounds particles get deleted
         end
       end
     end
@@ -4928,9 +4927,9 @@ end
 
 __demand(__cuda) -- MANUALLY PARALLELIZED
 task Particles_DeleteEscapingParticles(particles : region(ispace(int1d), particles_columns),
-                                       Grid_xRealOrigin : double, Grid_xRealWidth : double,
-                                       Grid_yRealOrigin : double, Grid_yRealWidth : double,
-                                       Grid_zRealOrigin : double, Grid_zRealWidth : double)
+                                       Grid_xOrigin : double, Grid_xWidth : double,
+                                       Grid_yOrigin : double, Grid_yWidth : double,
+                                       Grid_zOrigin : double, Grid_zWidth : double)
 where
   reads(particles.position),
   reads writes(particles.__valid)
@@ -4939,16 +4938,16 @@ do
   __demand(__openmp)
   for p in particles do
     if particles[p].__valid then
-      var min_x = Grid_xRealOrigin
-      var max_x = (Grid_xRealOrigin+Grid_xRealWidth)
-      var min_y = Grid_yRealOrigin
-      var max_y = (Grid_yRealOrigin+Grid_yRealWidth)
-      var min_z = Grid_zRealOrigin
-      var max_z = (Grid_zRealOrigin+Grid_zRealWidth)
+      var min_x = Grid_xOrigin
+      var max_x = Grid_xOrigin+Grid_xWidth
+      var min_y = Grid_yOrigin
+      var max_y = Grid_yOrigin+Grid_yWidth
+      var min_z = Grid_zOrigin
+      var max_z = Grid_zOrigin+Grid_zWidth
       var pos = particles[p].position
-      if ((((((pos[0]>max_x) or (pos[0]<min_x)) or (pos[1]>max_y)) or (pos[1]<min_y)) or (pos[2]>max_z)) or (pos[2]<min_z)) then
+      if pos[0]>max_x or pos[0]<min_x or pos[1]>max_y or pos[1]<min_y or pos[2]>max_z or pos[2]<min_z then
         particles[p].__valid = false
-        acc += (-int64(1))
+        acc -= 1
       end
     end
   end
@@ -4978,35 +4977,29 @@ local function mkFullSim() local Exports = {}
     xRealOrigin = regentlib.newsymbol(),
     yRealOrigin = regentlib.newsymbol(),
     zRealOrigin = regentlib.newsymbol(),
-    xRealWidth = regentlib.newsymbol(),
-    yRealWidth = regentlib.newsymbol(),
-    zRealWidth = regentlib.newsymbol(),
   }
   local BC = {
-    xBCPeriodic = regentlib.newsymbol(),
     xPosSign = regentlib.newsymbol(double[3]),
     xNegSign = regentlib.newsymbol(double[3]),
     xPosVelocity = regentlib.newsymbol(double[3]),
     xNegVelocity = regentlib.newsymbol(double[3]),
     xPosTemperature = regentlib.newsymbol(double),
     xNegTemperature = regentlib.newsymbol(double),
-    yBCPeriodic = regentlib.newsymbol(),
     yPosSign = regentlib.newsymbol(double[3]),
     yNegSign = regentlib.newsymbol(double[3]),
     yPosVelocity = regentlib.newsymbol(double[3]),
     yNegVelocity = regentlib.newsymbol(double[3]),
     yPosTemperature = regentlib.newsymbol(double),
     yNegTemperature = regentlib.newsymbol(double),
-    zBCPeriodic = regentlib.newsymbol(),
     zPosSign = regentlib.newsymbol(double[3]),
     zNegSign = regentlib.newsymbol(double[3]),
     zPosVelocity = regentlib.newsymbol(double[3]),
     zNegVelocity = regentlib.newsymbol(double[3]),
     zPosTemperature = regentlib.newsymbol(double),
     zNegTemperature = regentlib.newsymbol(double),
-    xBCParticlesPeriodic = regentlib.newsymbol(),
-    yBCParticlesPeriodic = regentlib.newsymbol(),
-    zBCParticlesPeriodic = regentlib.newsymbol(),
+    xBCParticles = regentlib.newsymbol(SCHEMA.ParticlesBC),
+    yBCParticles = regentlib.newsymbol(SCHEMA.ParticlesBC),
+    zBCParticles = regentlib.newsymbol(SCHEMA.ParticlesBC),
   }
   local Integrator_simTime = regentlib.newsymbol()
   local Integrator_timeStep = regentlib.newsymbol()
@@ -5068,7 +5061,6 @@ local function mkFullSim() local Exports = {}
     var [Grid.zCellWidth] = config.Grid.zWidth / config.Grid.zNum
     var [Grid.cellVolume] = Grid.xCellWidth * Grid.yCellWidth * Grid.zCellWidth
 
-    var [BC.xBCPeriodic] = (config.BC.xBCLeft == SCHEMA.FlowBC_Periodic)
     var [BC.xPosSign]
     var [BC.xNegSign]
     var [BC.xPosVelocity]
@@ -5076,7 +5068,6 @@ local function mkFullSim() local Exports = {}
     var [BC.xPosTemperature]
     var [BC.xNegTemperature]
 
-    var [BC.yBCPeriodic] = (config.BC.yBCLeft == SCHEMA.FlowBC_Periodic)
     var [BC.yPosSign]
     var [BC.yNegSign]
     var [BC.yPosVelocity]
@@ -5084,7 +5075,6 @@ local function mkFullSim() local Exports = {}
     var [BC.yPosTemperature]
     var [BC.yNegTemperature]
 
-    var [BC.zBCPeriodic] = (config.BC.zBCLeft == SCHEMA.FlowBC_Periodic)
     var [BC.zPosSign]
     var [BC.zNegSign]
     var [BC.zPosVelocity]
@@ -5092,26 +5082,23 @@ local function mkFullSim() local Exports = {}
     var [BC.zPosTemperature]
     var [BC.zNegTemperature]
 
-    var [BC.xBCParticlesPeriodic] = false
-    var [BC.yBCParticlesPeriodic] = false
-    var [BC.zBCParticlesPeriodic] = false
+    var [BC.xBCParticles]
+    var [BC.yBCParticles]
+    var [BC.zBCParticles]
 
     -- Determine number of ghost cells in each direction
     -- 0 ghost cells if periodic and 1 otherwise
     var [Grid.xBnum] = 1
     var [Grid.yBnum] = 1
     var [Grid.zBnum] = 1
-    if BC.xBCPeriodic then Grid.xBnum = 0 end
-    if BC.yBCPeriodic then Grid.yBnum = 0 end
-    if BC.zBCPeriodic then Grid.zBnum = 0 end
+    if config.BC.xBCLeft == SCHEMA.FlowBC_Periodic then Grid.xBnum = 0 end
+    if config.BC.yBCLeft == SCHEMA.FlowBC_Periodic then Grid.yBnum = 0 end
+    if config.BC.zBCLeft == SCHEMA.FlowBC_Periodic then Grid.zBnum = 0 end
 
-    -- Compute real origin and width, accounting for ghost cells
+    -- Compute real origin, accounting for ghost cells
     var [Grid.xRealOrigin] = (config.Grid.origin[0]-(Grid.xCellWidth*Grid.xBnum))
     var [Grid.yRealOrigin] = (config.Grid.origin[1]-(Grid.yCellWidth*Grid.yBnum))
     var [Grid.zRealOrigin] = (config.Grid.origin[2]-(Grid.zCellWidth*Grid.zBnum))
-    var [Grid.xRealWidth] = (config.Grid.xWidth+(2*(Grid.xCellWidth*Grid.xBnum)))
-    var [Grid.yRealWidth] = (config.Grid.yWidth+(2*(Grid.yCellWidth*Grid.yBnum)))
-    var [Grid.zRealWidth] = (config.Grid.zWidth+(2*(Grid.zCellWidth*Grid.zBnum)))
 
     var [Integrator_simTime] = 0.0
     var [Integrator_timeStep] = 0
@@ -5130,7 +5117,7 @@ local function mkFullSim() local Exports = {}
       BC.xNegVelocity = array(0.0, 0.0, 0.0)
       BC.xPosTemperature = -1.0
       BC.xNegTemperature = -1.0
-      BC.xBCParticlesPeriodic = true
+      BC.xBCParticles = SCHEMA.ParticlesBC_Periodic
     elseif ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
       BC.xPosSign = array(0.0, 0.0, 0.0)
       BC.xNegSign = array(0.0, 0.0, 0.0)
@@ -5146,18 +5133,18 @@ local function mkFullSim() local Exports = {}
       else
         regentlib.assert(false, 'Only constant heat model supported')
       end
-      BC.xBCParticlesPeriodic = true
+      BC.xBCParticles = SCHEMA.ParticlesBC_Disappear
     else
       if (config.BC.xBCLeft == SCHEMA.FlowBC_Symmetry) then
         BC.xNegSign = array(-1.0, 1.0, 1.0)
         BC.xNegVelocity = array(0.0, 0.0, 0.0)
         BC.xNegTemperature = -1.0
-        BC.xBCParticlesPeriodic = false
+        BC.xBCParticles = SCHEMA.ParticlesBC_Bounce
       elseif (config.BC.xBCLeft == SCHEMA.FlowBC_AdiabaticWall) then
         BC.xNegSign = array(-1.0, -1.0, -1.0)
         BC.xNegVelocity = array((2*config.BC.xBCLeftVel[0]), (2*config.BC.xBCLeftVel[1]), (2*config.BC.xBCLeftVel[2]))
         BC.xNegTemperature = -1.0
-        BC.xBCParticlesPeriodic = false
+        BC.xBCParticles = SCHEMA.ParticlesBC_Bounce
       elseif (config.BC.xBCLeft == SCHEMA.FlowBC_IsothermalWall) then
         BC.xNegSign = array(-1.0, -1.0, -1.0)
         BC.xNegVelocity = array((2*config.BC.xBCLeftVel[0]), (2*config.BC.xBCLeftVel[1]), (2*config.BC.xBCLeftVel[2]))
@@ -5166,7 +5153,7 @@ local function mkFullSim() local Exports = {}
         else
           regentlib.assert(false, 'Only constant heat model supported')
         end
-        BC.xBCParticlesPeriodic = false
+        BC.xBCParticles = SCHEMA.ParticlesBC_Bounce
       else
         regentlib.assert(false, "Boundary conditions in xBCLeft not implemented")
       end
@@ -5175,12 +5162,12 @@ local function mkFullSim() local Exports = {}
         BC.xPosSign = array(-1.0, 1.0, 1.0)
         BC.xPosVelocity = array(0.0, 0.0, 0.0)
         BC.xPosTemperature = -1.0
-        BC.xBCParticlesPeriodic = false
+        BC.xBCParticles = SCHEMA.ParticlesBC_Bounce
       elseif (config.BC.xBCRight == SCHEMA.FlowBC_AdiabaticWall) then
         BC.xPosSign = array(-1.0, -1.0, -1.0)
         BC.xPosVelocity = array((2*config.BC.xBCRightVel[0]), (2*config.BC.xBCRightVel[1]), (2*config.BC.xBCRightVel[2]))
         BC.xPosTemperature = -1.0
-        BC.xBCParticlesPeriodic = false
+        BC.xBCParticles = SCHEMA.ParticlesBC_Bounce
       elseif (config.BC.xBCRight == SCHEMA.FlowBC_IsothermalWall) then
         BC.xPosSign = array(-1.0, -1.0, -1.0)
         BC.xPosVelocity = array((2*config.BC.xBCRightVel[0]), (2*config.BC.xBCRightVel[1]), (2*config.BC.xBCRightVel[2]))
@@ -5189,7 +5176,7 @@ local function mkFullSim() local Exports = {}
         else
           regentlib.assert(false, 'Only constant heat model supported')
         end
-        BC.xBCParticlesPeriodic = false
+        BC.xBCParticles = SCHEMA.ParticlesBC_Bounce
       else
         regentlib.assert(false, "Boundary conditions in xBCRight not implemented")
       end
@@ -5203,18 +5190,18 @@ local function mkFullSim() local Exports = {}
       BC.yNegVelocity = array(0.0, 0.0, 0.0)
       BC.yPosTemperature = -1.0
       BC.yNegTemperature = -1.0
-      BC.yBCParticlesPeriodic = true
+      BC.yBCParticles = SCHEMA.ParticlesBC_Periodic
     else
       if (config.BC.yBCLeft == SCHEMA.FlowBC_Symmetry) then
         BC.yNegSign = array(1.0, -1.0, 1.0)
         BC.yNegVelocity = array(0.0, 0.0, 0.0)
         BC.yNegTemperature = -1.0
-        BC.yBCParticlesPeriodic = false
+        BC.yBCParticles = SCHEMA.ParticlesBC_Bounce
       elseif (config.BC.yBCLeft == SCHEMA.FlowBC_AdiabaticWall) then
         BC.yNegSign = array(-1.0, -1.0, -1.0)
         BC.yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
         BC.yNegTemperature = -1.0
-        BC.yBCParticlesPeriodic = false
+        BC.yBCParticles = SCHEMA.ParticlesBC_Bounce
       elseif (config.BC.yBCLeft == SCHEMA.FlowBC_IsothermalWall) then
         BC.yNegSign = array(-1.0, -1.0, -1.0)
         BC.yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
@@ -5223,14 +5210,14 @@ local function mkFullSim() local Exports = {}
         else
           regentlib.assert(false, 'Only constant heat model supported')
         end
-        BC.yBCParticlesPeriodic = false
+        BC.yBCParticles = SCHEMA.ParticlesBC_Bounce
       elseif (config.BC.yBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
         BC.yNegSign = array(-1.0, -1.0, -1.0)
         BC.yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
         if not (config.BC.yBCLeftHeat.type == SCHEMA.WallHeatModel_Parabola) then
           regentlib.assert(false, 'Only parabolia heat model supported')
         end
-        BC.yBCParticlesPeriodic = false
+        BC.yBCParticles = SCHEMA.ParticlesBC_Bounce
       else
         regentlib.assert(false, "Boundary conditions in y not implemented")
       end
@@ -5239,12 +5226,12 @@ local function mkFullSim() local Exports = {}
         BC.yPosSign = array(1.0, -1.0, 1.0)
         BC.yPosVelocity = array(0.0, 0.0, 0.0)
         BC.yPosTemperature = -1.0
-        BC.yBCParticlesPeriodic = false
+        BC.yBCParticles = SCHEMA.ParticlesBC_Bounce
       elseif (config.BC.yBCRight == SCHEMA.FlowBC_AdiabaticWall) then
         BC.yPosSign = array(-1.0, -1.0, -1.0)
         BC.yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
         BC.yPosTemperature = -1.0
-        BC.yBCParticlesPeriodic = false
+        BC.yBCParticles = SCHEMA.ParticlesBC_Bounce
       elseif (config.BC.yBCRight == SCHEMA.FlowBC_IsothermalWall) then
         BC.yPosSign = array(-1.0, -1.0, -1.0)
         BC.yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
@@ -5253,14 +5240,14 @@ local function mkFullSim() local Exports = {}
         else
           regentlib.assert(false, 'Only constant heat model supported')
         end
-        BC.yBCParticlesPeriodic = false
+        BC.yBCParticles = SCHEMA.ParticlesBC_Bounce
       elseif (config.BC.yBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
         BC.yPosSign = array(-1.0, -1.0, -1.0)
         BC.yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
         if not (config.BC.yBCRightHeat.type == SCHEMA.WallHeatModel_Parabola) then
           regentlib.assert(false, 'Only parabolia heat model supported')
         end
-        BC.yBCParticlesPeriodic = false
+        BC.yBCParticles = SCHEMA.ParticlesBC_Bounce
       else
         regentlib.assert(false, "Boundary conditions in y not implemented")
       end
@@ -5274,18 +5261,18 @@ local function mkFullSim() local Exports = {}
       BC.zNegVelocity = array(0.0, 0.0, 0.0)
       BC.zPosTemperature = -1.0
       BC.zNegTemperature = -1.0
-      BC.zBCParticlesPeriodic = true
+      BC.zBCParticles = SCHEMA.ParticlesBC_Periodic
     else
       if (config.BC.zBCLeft == SCHEMA.FlowBC_Symmetry) then
         BC.zNegSign = array(1.0, 1.0, -1.0)
         BC.zNegVelocity = array(0.0, 0.0, 0.0)
         BC.zNegTemperature = -1.0
-        BC.zBCParticlesPeriodic = false
+        BC.zBCParticles = SCHEMA.ParticlesBC_Bounce
       elseif (config.BC.zBCLeft == SCHEMA.FlowBC_AdiabaticWall) then
         BC.zNegSign = array(-1.0, -1.0, -1.0)
         BC.zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
         BC.zNegTemperature = -1.0
-        BC.zBCParticlesPeriodic = false
+        BC.zBCParticles = SCHEMA.ParticlesBC_Bounce
       elseif (config.BC.zBCLeft == SCHEMA.FlowBC_IsothermalWall) then
         BC.zNegSign = array(-1.0, -1.0, -1.0)
         BC.zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
@@ -5294,14 +5281,14 @@ local function mkFullSim() local Exports = {}
         else
           regentlib.assert(false, 'Only constant heat model supported')
         end
-        BC.zBCParticlesPeriodic = false
+        BC.zBCParticles = SCHEMA.ParticlesBC_Bounce
       elseif (config.BC.zBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
         BC.zNegSign = array(-1.0, -1.0, -1.0)
         BC.zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
         if not (config.BC.zBCLeftHeat.type == SCHEMA.WallHeatModel_Parabola) then
           regentlib.assert(false, 'Only parabolia heat model supported')
         end
-        BC.zBCParticlesPeriodic = false
+        BC.zBCParticles = SCHEMA.ParticlesBC_Bounce
       else
         regentlib.assert(false, "Boundary conditions in zBCLeft not implemented")
       end
@@ -5310,12 +5297,12 @@ local function mkFullSim() local Exports = {}
         BC.zPosSign = array(1.0, 1.0, -1.0)
         BC.zPosVelocity = array(0.0, 0.0, 0.0)
         BC.zPosTemperature = -1.0
-        BC.zBCParticlesPeriodic = false
+        BC.zBCParticles = SCHEMA.ParticlesBC_Bounce
       elseif (config.BC.zBCRight == SCHEMA.FlowBC_AdiabaticWall) then
         BC.zPosSign = array(-1.0, -1.0, -1.0)
         BC.zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
         BC.zPosTemperature = -1.0
-        BC.zBCParticlesPeriodic = false
+        BC.zBCParticles = SCHEMA.ParticlesBC_Bounce
       elseif (config.BC.zBCRight == SCHEMA.FlowBC_IsothermalWall) then
         BC.zPosSign = array(-1.0, -1.0, -1.0)
         BC.zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
@@ -5324,14 +5311,14 @@ local function mkFullSim() local Exports = {}
         else
           regentlib.assert(false, 'Only constant heat model supported')
         end
-        BC.zBCParticlesPeriodic = false
+        BC.zBCParticles = SCHEMA.ParticlesBC_Bounce
       elseif (config.BC.zBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
         BC.zPosSign = array(-1.0, -1.0, -1.0)
         BC.zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
         if not (config.BC.zBCRightHeat.type == SCHEMA.WallHeatModel_Parabola) then
           regentlib.assert(false, 'Only parabolia heat model supported')
         end
-        BC.zBCParticlesPeriodic = false
+        BC.zBCParticles = SCHEMA.ParticlesBC_Bounce
       else
         regentlib.assert(false, "Boundary conditions in zBCRight not implemented")
       end
@@ -5869,7 +5856,10 @@ local function mkFullSim() local Exports = {}
 
         -- Move particles to new partitions
         for c in primColors do
-          Particles_LocateInCells(particles_primPart[c], BC.xBCPeriodic, BC.yBCPeriodic, BC.zBCPeriodic, Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth, Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth, Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+          Particles_LocateInCells(particles_primPart[c],
+                                  Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
+                                  Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
+                                  Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
         end
         for c in primColors do
           particles_pushAll(c,
@@ -6115,9 +6105,9 @@ local function mkFullSim() local Exports = {}
           end
         end
         Particles_UpdateAuxiliaryStep1(particles,
-                                       BC.xBCParticlesPeriodic,
-                                       BC.yBCParticlesPeriodic,
-                                       BC.zBCParticlesPeriodic,
+                                       BC.xBCParticles,
+                                       BC.yBCParticles,
+                                       BC.zBCParticles,
                                        config.Grid.origin[0], config.Grid.xWidth,
                                        config.Grid.origin[1], config.Grid.yWidth,
                                        config.Grid.origin[2], config.Grid.zWidth,
@@ -6128,7 +6118,11 @@ local function mkFullSim() local Exports = {}
         Integrator_stage += 1
 
         for c in primColors do
-          Particles_number += Particles_DeleteEscapingParticles(particles_primPart[c], Grid.xRealOrigin, Grid.xRealWidth, Grid.yRealOrigin, Grid.yRealWidth, Grid.zRealOrigin, Grid.zRealWidth)
+          Particles_number +=
+            Particles_DeleteEscapingParticles(particles_primPart[c],
+                                              config.Grid.origin[0], config.Grid.xWidth,
+                                              config.Grid.origin[1], config.Grid.yWidth,
+                                              config.Grid.origin[2], config.Grid.zWidth)
         end
 
       end -- RK4 sub-time-stepping
