@@ -4956,715 +4956,736 @@ do
 end
 
 -------------------------------------------------------------------------------
--- MAIN FUNCTION
+-- MAIN SIMULATION
 -------------------------------------------------------------------------------
 
-local config = regentlib.newsymbol(Config)
-local startTime = regentlib.newsymbol()
-local console = regentlib.newsymbol()
-local Grid = {
-  xCellWidth = regentlib.newsymbol(),
-  yCellWidth = regentlib.newsymbol(),
-  zCellWidth = regentlib.newsymbol(),
-  cellVolume = regentlib.newsymbol(),
-  xBnum = regentlib.newsymbol(),
-  yBnum = regentlib.newsymbol(),
-  zBnum = regentlib.newsymbol(),
-  xRealOrigin = regentlib.newsymbol(),
-  yRealOrigin = regentlib.newsymbol(),
-  zRealOrigin = regentlib.newsymbol(),
-  xRealWidth = regentlib.newsymbol(),
-  yRealWidth = regentlib.newsymbol(),
-  zRealWidth = regentlib.newsymbol(),
-}
-local BC = {
-  xBCPeriodic = regentlib.newsymbol(),
-  xPosSign = regentlib.newsymbol(double[3]),
-  xNegSign = regentlib.newsymbol(double[3]),
-  xPosVelocity = regentlib.newsymbol(double[3]),
-  xNegVelocity = regentlib.newsymbol(double[3]),
-  xPosTemperature = regentlib.newsymbol(double),
-  xNegTemperature = regentlib.newsymbol(double),
-  yBCPeriodic = regentlib.newsymbol(),
-  yPosSign = regentlib.newsymbol(double[3]),
-  yNegSign = regentlib.newsymbol(double[3]),
-  yPosVelocity = regentlib.newsymbol(double[3]),
-  yNegVelocity = regentlib.newsymbol(double[3]),
-  yPosTemperature = regentlib.newsymbol(double),
-  yNegTemperature = regentlib.newsymbol(double),
-  zBCPeriodic = regentlib.newsymbol(),
-  zPosSign = regentlib.newsymbol(double[3]),
-  zNegSign = regentlib.newsymbol(double[3]),
-  zPosVelocity = regentlib.newsymbol(double[3]),
-  zNegVelocity = regentlib.newsymbol(double[3]),
-  zPosTemperature = regentlib.newsymbol(double),
-  zNegTemperature = regentlib.newsymbol(double),
-  xBCParticlesPeriodic = regentlib.newsymbol(),
-  yBCParticlesPeriodic = regentlib.newsymbol(),
-  zBCParticlesPeriodic = regentlib.newsymbol(),
-}
-local Integrator_simTime = regentlib.newsymbol()
-local Integrator_timeStep = regentlib.newsymbol()
-local Particles_number = regentlib.newsymbol()
-local Fluid = regentlib.newsymbol()
-local Fluid_copy = regentlib.newsymbol()
-local particles = regentlib.newsymbol()
-local particles_copy = regentlib.newsymbol()
-local Radiation = regentlib.newsymbol()
-local primColors = regentlib.newsymbol()
-local Fluid_primPart = regentlib.newsymbol()
-local Fluid_copy_primPart = regentlib.newsymbol()
-local particles_primPart = regentlib.newsymbol()
-local particles_copy_primPart = regentlib.newsymbol()
-local Radiation_primPart = regentlib.newsymbol()
-local qSrcParts = UTIL.generate(26, function()
-  return regentlib.newsymbol()
-end)
-local qDstParts = UTIL.generate(26, function()
-  return regentlib.newsymbol()
-end)
-
-__forbid(__optimize) __demand(__inner)
-task work([config])
+local function mkFullSim() local Exports = {}
 
   -----------------------------------------------------------------------------
-  -- Preparation
+  -- Symbols shared between quotes
   -----------------------------------------------------------------------------
 
-  -- Start timer
-  var [startTime] = regentlib.c.legion_get_current_time_in_micros() / 1000
-
-  -- Open long-running files
-  var consoleFile = [&int8](C.malloc(256))
-  C.snprintf(consoleFile, 256, '%s/console.txt', config.Mapping.outDir)
-  var [console] = UTIL.openFile(consoleFile, 'w')
-  C.free(consoleFile)
-  C.fprintf(console, ['Iter\t'..
-                      'Sim Time\t'..
-                      'Wall t\t'..
-                      'Delta Time\t'..
-                      'Avg Press\t'..
-                      'Avg Temp\t'..
-                      'Average KE\t'..
-                      '#Part\t'..
-                      'Particle T\n'])
-  C.fflush(console)
+  local startTime = regentlib.newsymbol()
+  local console = regentlib.newsymbol()
+  local Grid = {
+    xCellWidth = regentlib.newsymbol(),
+    yCellWidth = regentlib.newsymbol(),
+    zCellWidth = regentlib.newsymbol(),
+    cellVolume = regentlib.newsymbol(),
+    xBnum = regentlib.newsymbol(),
+    yBnum = regentlib.newsymbol(),
+    zBnum = regentlib.newsymbol(),
+    xRealOrigin = regentlib.newsymbol(),
+    yRealOrigin = regentlib.newsymbol(),
+    zRealOrigin = regentlib.newsymbol(),
+    xRealWidth = regentlib.newsymbol(),
+    yRealWidth = regentlib.newsymbol(),
+    zRealWidth = regentlib.newsymbol(),
+  }
+  local BC = {
+    xBCPeriodic = regentlib.newsymbol(),
+    xPosSign = regentlib.newsymbol(double[3]),
+    xNegSign = regentlib.newsymbol(double[3]),
+    xPosVelocity = regentlib.newsymbol(double[3]),
+    xNegVelocity = regentlib.newsymbol(double[3]),
+    xPosTemperature = regentlib.newsymbol(double),
+    xNegTemperature = regentlib.newsymbol(double),
+    yBCPeriodic = regentlib.newsymbol(),
+    yPosSign = regentlib.newsymbol(double[3]),
+    yNegSign = regentlib.newsymbol(double[3]),
+    yPosVelocity = regentlib.newsymbol(double[3]),
+    yNegVelocity = regentlib.newsymbol(double[3]),
+    yPosTemperature = regentlib.newsymbol(double),
+    yNegTemperature = regentlib.newsymbol(double),
+    zBCPeriodic = regentlib.newsymbol(),
+    zPosSign = regentlib.newsymbol(double[3]),
+    zNegSign = regentlib.newsymbol(double[3]),
+    zPosVelocity = regentlib.newsymbol(double[3]),
+    zNegVelocity = regentlib.newsymbol(double[3]),
+    zPosTemperature = regentlib.newsymbol(double),
+    zNegTemperature = regentlib.newsymbol(double),
+    xBCParticlesPeriodic = regentlib.newsymbol(),
+    yBCParticlesPeriodic = regentlib.newsymbol(),
+    zBCParticlesPeriodic = regentlib.newsymbol(),
+  }
+  local Integrator_simTime = regentlib.newsymbol()
+  local Integrator_timeStep = regentlib.newsymbol()
+  local Particles_number = regentlib.newsymbol()
+  local Fluid = regentlib.newsymbol()
+  local Fluid_copy = regentlib.newsymbol()
+  local particles = regentlib.newsymbol()
+  local particles_copy = regentlib.newsymbol()
+  local Radiation = regentlib.newsymbol()
+  local primColors = regentlib.newsymbol()
+  local Fluid_primPart = regentlib.newsymbol()
+  local Fluid_copy_primPart = regentlib.newsymbol()
+  local particles_primPart = regentlib.newsymbol()
+  local particles_copy_primPart = regentlib.newsymbol()
+  local Radiation_primPart = regentlib.newsymbol()
+  local qSrcParts = UTIL.generate(26, function()
+    return regentlib.newsymbol()
+  end)
+  local qDstParts = UTIL.generate(26, function()
+    return regentlib.newsymbol()
+  end)
 
   -----------------------------------------------------------------------------
-  -- Declare & initialize state variables
+  -- Symbol declaration & initialization
   -----------------------------------------------------------------------------
 
-  -- Cell step size (TODO: Change when we go to non-uniform meshes)
-  var [Grid.xCellWidth] = config.Grid.xWidth / config.Grid.xNum
-  var [Grid.yCellWidth] = config.Grid.yWidth / config.Grid.yNum
-  var [Grid.zCellWidth] = config.Grid.zWidth / config.Grid.zNum
-  var [Grid.cellVolume] = Grid.xCellWidth * Grid.yCellWidth * Grid.zCellWidth
+  function Exports.DeclSymbols(config) return rquote
 
-  var [BC.xBCPeriodic] = (config.BC.xBCLeft == SCHEMA.FlowBC_Periodic)
-  var [BC.xPosSign]
-  var [BC.xNegSign]
-  var [BC.xPosVelocity]
-  var [BC.xNegVelocity]
-  var [BC.xPosTemperature]
-  var [BC.xNegTemperature]
+    ---------------------------------------------------------------------------
+    -- Preparation
+    ---------------------------------------------------------------------------
 
-  var [BC.yBCPeriodic] = (config.BC.yBCLeft == SCHEMA.FlowBC_Periodic)
-  var [BC.yPosSign]
-  var [BC.yNegSign]
-  var [BC.yPosVelocity]
-  var [BC.yNegVelocity]
-  var [BC.yPosTemperature]
-  var [BC.yNegTemperature]
+    -- Start timer
+    var [startTime] = regentlib.c.legion_get_current_time_in_micros() / 1000
 
-  var [BC.zBCPeriodic] = (config.BC.zBCLeft == SCHEMA.FlowBC_Periodic)
-  var [BC.zPosSign]
-  var [BC.zNegSign]
-  var [BC.zPosVelocity]
-  var [BC.zNegVelocity]
-  var [BC.zPosTemperature]
-  var [BC.zNegTemperature]
+    -- Open long-running files
+    var consoleFile = [&int8](C.malloc(256))
+    C.snprintf(consoleFile, 256, '%s/console.txt', config.Mapping.outDir)
+    var [console] = UTIL.openFile(consoleFile, 'w')
+    C.free(consoleFile)
+    C.fprintf(console, ['Iter\t'..
+                        'Sim Time\t'..
+                        'Wall t\t'..
+                        'Delta Time\t'..
+                        'Avg Press\t'..
+                        'Avg Temp\t'..
+                        'Average KE\t'..
+                        '#Part\t'..
+                        'Particle T\n'])
+    C.fflush(console)
 
-  var [BC.xBCParticlesPeriodic] = false
-  var [BC.yBCParticlesPeriodic] = false
-  var [BC.zBCParticlesPeriodic] = false
+    -----------------------------------------------------------------------------
+    -- Declare & initialize state variables
+    -----------------------------------------------------------------------------
 
-  -- Determine number of ghost cells in each direction
-  -- 0 ghost cells if periodic and 1 otherwise
-  var [Grid.xBnum] = 1
-  var [Grid.yBnum] = 1
-  var [Grid.zBnum] = 1
-  if BC.xBCPeriodic then Grid.xBnum = 0 end
-  if BC.yBCPeriodic then Grid.yBnum = 0 end
-  if BC.zBCPeriodic then Grid.zBnum = 0 end
+    -- Cell step size (TODO: Change when we go to non-uniform meshes)
+    var [Grid.xCellWidth] = config.Grid.xWidth / config.Grid.xNum
+    var [Grid.yCellWidth] = config.Grid.yWidth / config.Grid.yNum
+    var [Grid.zCellWidth] = config.Grid.zWidth / config.Grid.zNum
+    var [Grid.cellVolume] = Grid.xCellWidth * Grid.yCellWidth * Grid.zCellWidth
 
-  -- Compute real origin and width, accounting for ghost cells
-  var [Grid.xRealOrigin] = (config.Grid.origin[0]-(Grid.xCellWidth*Grid.xBnum))
-  var [Grid.yRealOrigin] = (config.Grid.origin[1]-(Grid.yCellWidth*Grid.yBnum))
-  var [Grid.zRealOrigin] = (config.Grid.origin[2]-(Grid.zCellWidth*Grid.zBnum))
-  var [Grid.xRealWidth] = (config.Grid.xWidth+(2*(Grid.xCellWidth*Grid.xBnum)))
-  var [Grid.yRealWidth] = (config.Grid.yWidth+(2*(Grid.yCellWidth*Grid.yBnum)))
-  var [Grid.zRealWidth] = (config.Grid.zWidth+(2*(Grid.zCellWidth*Grid.zBnum)))
+    var [BC.xBCPeriodic] = (config.BC.xBCLeft == SCHEMA.FlowBC_Periodic)
+    var [BC.xPosSign]
+    var [BC.xNegSign]
+    var [BC.xPosVelocity]
+    var [BC.xNegVelocity]
+    var [BC.xPosTemperature]
+    var [BC.xNegTemperature]
 
-  var [Integrator_simTime] = 0.0
-  var [Integrator_timeStep] = 0
+    var [BC.yBCPeriodic] = (config.BC.yBCLeft == SCHEMA.FlowBC_Periodic)
+    var [BC.yPosSign]
+    var [BC.yNegSign]
+    var [BC.yPosVelocity]
+    var [BC.yNegVelocity]
+    var [BC.yPosTemperature]
+    var [BC.yNegTemperature]
 
-  var [Particles_number] = int64(0)
+    var [BC.zBCPeriodic] = (config.BC.zBCLeft == SCHEMA.FlowBC_Periodic)
+    var [BC.zPosSign]
+    var [BC.zNegSign]
+    var [BC.zPosVelocity]
+    var [BC.zNegVelocity]
+    var [BC.zPosTemperature]
+    var [BC.zNegTemperature]
 
-  if ((not ((config.Grid.xNum%config.Radiation.xNum)==0)) or ((not ((config.Grid.yNum%config.Radiation.yNum)==0)) or (not ((config.Grid.zNum%config.Radiation.zNum)==0)))) then
-    regentlib.assert(false, "Inexact coarsening factor")
-  end
+    var [BC.xBCParticlesPeriodic] = false
+    var [BC.yBCParticlesPeriodic] = false
+    var [BC.zBCParticlesPeriodic] = false
 
-  -- Set up flow BC's in x direction
-  if ((config.BC.xBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.xBCRight == SCHEMA.FlowBC_Periodic)) then
-    BC.xPosSign = array(1.0, 1.0, 1.0)
-    BC.xNegSign = array(1.0, 1.0, 1.0)
-    BC.xPosVelocity = array(0.0, 0.0, 0.0)
-    BC.xNegVelocity = array(0.0, 0.0, 0.0)
-    BC.xPosTemperature = -1.0
-    BC.xNegTemperature = -1.0
-    BC.xBCParticlesPeriodic = true
-  elseif ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-    BC.xPosSign = array(0.0, 0.0, 0.0)
-    BC.xNegSign = array(0.0, 0.0, 0.0)
-    BC.xPosVelocity = array(config.BC.xBCRightVel[0], config.BC.xBCRightVel[1], config.BC.xBCRightVel[2])
-    BC.xNegVelocity = array(config.BC.xBCLeftVel[0],  config.BC.xBCLeftVel[1],  config.BC.xBCLeftVel[2] )
-    if config.BC.xBCRightHeat.type == SCHEMA.WallHeatModel_Constant then
-      BC.xPosTemperature = config.BC.xBCRightHeat.u.Constant.temperature
-    else
-      regentlib.assert(false, 'Only constant heat model supported')
-    end
-    if config.BC.xBCLeftHeat.type == SCHEMA.WallHeatModel_Constant then
-      BC.xNegTemperature = config.BC.xBCLeftHeat.u.Constant.temperature
-    else
-      regentlib.assert(false, 'Only constant heat model supported')
-    end
-    BC.xBCParticlesPeriodic = true
-  else
-    if (config.BC.xBCLeft == SCHEMA.FlowBC_Symmetry) then
-      BC.xNegSign = array(-1.0, 1.0, 1.0)
-      BC.xNegVelocity = array(0.0, 0.0, 0.0)
-      BC.xNegTemperature = -1.0
-      BC.xBCParticlesPeriodic = false
-    elseif (config.BC.xBCLeft == SCHEMA.FlowBC_AdiabaticWall) then
-      BC.xNegSign = array(-1.0, -1.0, -1.0)
-      BC.xNegVelocity = array((2*config.BC.xBCLeftVel[0]), (2*config.BC.xBCLeftVel[1]), (2*config.BC.xBCLeftVel[2]))
-      BC.xNegTemperature = -1.0
-      BC.xBCParticlesPeriodic = false
-    elseif (config.BC.xBCLeft == SCHEMA.FlowBC_IsothermalWall) then
-      BC.xNegSign = array(-1.0, -1.0, -1.0)
-      BC.xNegVelocity = array((2*config.BC.xBCLeftVel[0]), (2*config.BC.xBCLeftVel[1]), (2*config.BC.xBCLeftVel[2]))
-      if config.BC.xBCLeftHeat.type == SCHEMA.WallHeatModel_Constant then
-        BC.xNegTemperature = config.BC.xBCLeftHeat.u.Constant.temperature
-      else
-        regentlib.assert(false, 'Only constant heat model supported')
-      end
-      BC.xBCParticlesPeriodic = false
-    else
-      regentlib.assert(false, "Boundary conditions in xBCLeft not implemented")
+    -- Determine number of ghost cells in each direction
+    -- 0 ghost cells if periodic and 1 otherwise
+    var [Grid.xBnum] = 1
+    var [Grid.yBnum] = 1
+    var [Grid.zBnum] = 1
+    if BC.xBCPeriodic then Grid.xBnum = 0 end
+    if BC.yBCPeriodic then Grid.yBnum = 0 end
+    if BC.zBCPeriodic then Grid.zBnum = 0 end
+
+    -- Compute real origin and width, accounting for ghost cells
+    var [Grid.xRealOrigin] = (config.Grid.origin[0]-(Grid.xCellWidth*Grid.xBnum))
+    var [Grid.yRealOrigin] = (config.Grid.origin[1]-(Grid.yCellWidth*Grid.yBnum))
+    var [Grid.zRealOrigin] = (config.Grid.origin[2]-(Grid.zCellWidth*Grid.zBnum))
+    var [Grid.xRealWidth] = (config.Grid.xWidth+(2*(Grid.xCellWidth*Grid.xBnum)))
+    var [Grid.yRealWidth] = (config.Grid.yWidth+(2*(Grid.yCellWidth*Grid.yBnum)))
+    var [Grid.zRealWidth] = (config.Grid.zWidth+(2*(Grid.zCellWidth*Grid.zBnum)))
+
+    var [Integrator_simTime] = 0.0
+    var [Integrator_timeStep] = 0
+
+    var [Particles_number] = int64(0)
+
+    if ((not ((config.Grid.xNum%config.Radiation.xNum)==0)) or ((not ((config.Grid.yNum%config.Radiation.yNum)==0)) or (not ((config.Grid.zNum%config.Radiation.zNum)==0)))) then
+      regentlib.assert(false, "Inexact coarsening factor")
     end
 
-    if (config.BC.xBCRight == SCHEMA.FlowBC_Symmetry) then
-      BC.xPosSign = array(-1.0, 1.0, 1.0)
+    -- Set up flow BC's in x direction
+    if ((config.BC.xBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.xBCRight == SCHEMA.FlowBC_Periodic)) then
+      BC.xPosSign = array(1.0, 1.0, 1.0)
+      BC.xNegSign = array(1.0, 1.0, 1.0)
       BC.xPosVelocity = array(0.0, 0.0, 0.0)
+      BC.xNegVelocity = array(0.0, 0.0, 0.0)
       BC.xPosTemperature = -1.0
-      BC.xBCParticlesPeriodic = false
-    elseif (config.BC.xBCRight == SCHEMA.FlowBC_AdiabaticWall) then
-      BC.xPosSign = array(-1.0, -1.0, -1.0)
-      BC.xPosVelocity = array((2*config.BC.xBCRightVel[0]), (2*config.BC.xBCRightVel[1]), (2*config.BC.xBCRightVel[2]))
-      BC.xPosTemperature = -1.0
-      BC.xBCParticlesPeriodic = false
-    elseif (config.BC.xBCRight == SCHEMA.FlowBC_IsothermalWall) then
-      BC.xPosSign = array(-1.0, -1.0, -1.0)
-      BC.xPosVelocity = array((2*config.BC.xBCRightVel[0]), (2*config.BC.xBCRightVel[1]), (2*config.BC.xBCRightVel[2]))
+      BC.xNegTemperature = -1.0
+      BC.xBCParticlesPeriodic = true
+    elseif ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
+      BC.xPosSign = array(0.0, 0.0, 0.0)
+      BC.xNegSign = array(0.0, 0.0, 0.0)
+      BC.xPosVelocity = array(config.BC.xBCRightVel[0], config.BC.xBCRightVel[1], config.BC.xBCRightVel[2])
+      BC.xNegVelocity = array(config.BC.xBCLeftVel[0],  config.BC.xBCLeftVel[1],  config.BC.xBCLeftVel[2] )
       if config.BC.xBCRightHeat.type == SCHEMA.WallHeatModel_Constant then
         BC.xPosTemperature = config.BC.xBCRightHeat.u.Constant.temperature
       else
         regentlib.assert(false, 'Only constant heat model supported')
       end
-      BC.xBCParticlesPeriodic = false
-    else
-      regentlib.assert(false, "Boundary conditions in xBCRight not implemented")
-    end
-  end
-
-  -- Set up flow BC's in y direction
-  if ((config.BC.yBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.yBCRight == SCHEMA.FlowBC_Periodic)) then
-    BC.yPosSign = array(1.0, 1.0, 1.0)
-    BC.yNegSign = array(1.0, 1.0, 1.0)
-    BC.yPosVelocity = array(0.0, 0.0, 0.0)
-    BC.yNegVelocity = array(0.0, 0.0, 0.0)
-    BC.yPosTemperature = -1.0
-    BC.yNegTemperature = -1.0
-    BC.yBCParticlesPeriodic = true
-  else
-    if (config.BC.yBCLeft == SCHEMA.FlowBC_Symmetry) then
-      BC.yNegSign = array(1.0, -1.0, 1.0)
-      BC.yNegVelocity = array(0.0, 0.0, 0.0)
-      BC.yNegTemperature = -1.0
-      BC.yBCParticlesPeriodic = false
-    elseif (config.BC.yBCLeft == SCHEMA.FlowBC_AdiabaticWall) then
-      BC.yNegSign = array(-1.0, -1.0, -1.0)
-      BC.yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
-      BC.yNegTemperature = -1.0
-      BC.yBCParticlesPeriodic = false
-    elseif (config.BC.yBCLeft == SCHEMA.FlowBC_IsothermalWall) then
-      BC.yNegSign = array(-1.0, -1.0, -1.0)
-      BC.yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
-      if config.BC.yBCLeftHeat.type == SCHEMA.WallHeatModel_Constant then
-        BC.yNegTemperature = config.BC.yBCLeftHeat.u.Constant.temperature
+      if config.BC.xBCLeftHeat.type == SCHEMA.WallHeatModel_Constant then
+        BC.xNegTemperature = config.BC.xBCLeftHeat.u.Constant.temperature
       else
         regentlib.assert(false, 'Only constant heat model supported')
       end
-      BC.yBCParticlesPeriodic = false
-    elseif (config.BC.yBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
-      BC.yNegSign = array(-1.0, -1.0, -1.0)
-      BC.yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
-      if not (config.BC.yBCLeftHeat.type == SCHEMA.WallHeatModel_Parabola) then
-        regentlib.assert(false, 'Only parabolia heat model supported')
-      end
-      BC.yBCParticlesPeriodic = false
+      BC.xBCParticlesPeriodic = true
     else
-      regentlib.assert(false, "Boundary conditions in y not implemented")
-    end
-
-    if (config.BC.yBCRight == SCHEMA.FlowBC_Symmetry) then
-      BC.yPosSign = array(1.0, -1.0, 1.0)
-      BC.yPosVelocity = array(0.0, 0.0, 0.0)
-      BC.yPosTemperature = -1.0
-      BC.yBCParticlesPeriodic = false
-    elseif (config.BC.yBCRight == SCHEMA.FlowBC_AdiabaticWall) then
-      BC.yPosSign = array(-1.0, -1.0, -1.0)
-      BC.yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
-      BC.yPosTemperature = -1.0
-      BC.yBCParticlesPeriodic = false
-    elseif (config.BC.yBCRight == SCHEMA.FlowBC_IsothermalWall) then
-      BC.yPosSign = array(-1.0, -1.0, -1.0)
-      BC.yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
-      if config.BC.yBCRightHeat.type == SCHEMA.WallHeatModel_Constant then
-        BC.yPosTemperature = config.BC.yBCRightHeat.u.Constant.temperature
-      else
-        regentlib.assert(false, 'Only constant heat model supported')
-      end
-      BC.yBCParticlesPeriodic = false
-    elseif (config.BC.yBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
-      BC.yPosSign = array(-1.0, -1.0, -1.0)
-      BC.yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
-      if not (config.BC.yBCRightHeat.type == SCHEMA.WallHeatModel_Parabola) then
-        regentlib.assert(false, 'Only parabolia heat model supported')
-      end
-      BC.yBCParticlesPeriodic = false
-    else
-      regentlib.assert(false, "Boundary conditions in y not implemented")
-    end
-  end
-
-  -- Set up flow BC's in z direction
-  if ((config.BC.zBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.zBCRight == SCHEMA.FlowBC_Periodic)) then
-    BC.zPosSign = array(1.0, 1.0, 1.0)
-    BC.zNegSign = array(1.0, 1.0, 1.0)
-    BC.zPosVelocity = array(0.0, 0.0, 0.0)
-    BC.zNegVelocity = array(0.0, 0.0, 0.0)
-    BC.zPosTemperature = -1.0
-    BC.zNegTemperature = -1.0
-    BC.zBCParticlesPeriodic = true
-  else
-    if (config.BC.zBCLeft == SCHEMA.FlowBC_Symmetry) then
-      BC.zNegSign = array(1.0, 1.0, -1.0)
-      BC.zNegVelocity = array(0.0, 0.0, 0.0)
-      BC.zNegTemperature = -1.0
-      BC.zBCParticlesPeriodic = false
-    elseif (config.BC.zBCLeft == SCHEMA.FlowBC_AdiabaticWall) then
-      BC.zNegSign = array(-1.0, -1.0, -1.0)
-      BC.zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
-      BC.zNegTemperature = -1.0
-      BC.zBCParticlesPeriodic = false
-    elseif (config.BC.zBCLeft == SCHEMA.FlowBC_IsothermalWall) then
-      BC.zNegSign = array(-1.0, -1.0, -1.0)
-      BC.zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
-      if config.BC.zBCLeftHeat.type == SCHEMA.WallHeatModel_Constant then
-        BC.zNegTemperature = config.BC.zBCLeftHeat.u.Constant.temperature
-      else
-        regentlib.assert(false, 'Only constant heat model supported')
-      end
-      BC.zBCParticlesPeriodic = false
-    elseif (config.BC.zBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
-      BC.zNegSign = array(-1.0, -1.0, -1.0)
-      BC.zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
-      if not (config.BC.zBCLeftHeat.type == SCHEMA.WallHeatModel_Parabola) then
-        regentlib.assert(false, 'Only parabolia heat model supported')
-      end
-      BC.zBCParticlesPeriodic = false
-    else
-      regentlib.assert(false, "Boundary conditions in zBCLeft not implemented")
-    end
-
-    if (config.BC.zBCRight == SCHEMA.FlowBC_Symmetry) then
-      BC.zPosSign = array(1.0, 1.0, -1.0)
-      BC.zPosVelocity = array(0.0, 0.0, 0.0)
-      BC.zPosTemperature = -1.0
-      BC.zBCParticlesPeriodic = false
-    elseif (config.BC.zBCRight == SCHEMA.FlowBC_AdiabaticWall) then
-      BC.zPosSign = array(-1.0, -1.0, -1.0)
-      BC.zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
-      BC.zPosTemperature = -1.0
-      BC.zBCParticlesPeriodic = false
-    elseif (config.BC.zBCRight == SCHEMA.FlowBC_IsothermalWall) then
-      BC.zPosSign = array(-1.0, -1.0, -1.0)
-      BC.zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
-      if config.BC.zBCRightHeat.type == SCHEMA.WallHeatModel_Constant then
-        BC.zPosTemperature = config.BC.zBCRightHeat.u.Constant.temperature
-      else
-        regentlib.assert(false, 'Only constant heat model supported')
-      end
-      BC.zBCParticlesPeriodic = false
-    elseif (config.BC.zBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
-      BC.zPosSign = array(-1.0, -1.0, -1.0)
-      BC.zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
-      if not (config.BC.zBCRightHeat.type == SCHEMA.WallHeatModel_Parabola) then
-        regentlib.assert(false, 'Only parabolia heat model supported')
-      end
-      BC.zBCParticlesPeriodic = false
-    else
-      regentlib.assert(false, "Boundary conditions in zBCRight not implemented")
-    end
-  end
-
-  -- Check if boundary conditions in each direction are either both periodic or both non-periodic
-  if (not (((config.BC.xBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.xBCRight == SCHEMA.FlowBC_Periodic)) or ((not (config.BC.xBCLeft == SCHEMA.FlowBC_Periodic)) and (not (config.BC.xBCRight == SCHEMA.FlowBC_Periodic))))) then
-    regentlib.assert(false, "Boundary conditions in x should match for periodicity")
-  end
-  if (not (((config.BC.yBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.yBCRight == SCHEMA.FlowBC_Periodic)) or ((not (config.BC.yBCLeft == SCHEMA.FlowBC_Periodic)) and (not (config.BC.yBCRight == SCHEMA.FlowBC_Periodic))))) then
-    regentlib.assert(false, "Boundary conditions in y should match for periodicity")
-  end
-  if (not (((config.BC.zBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.zBCRight == SCHEMA.FlowBC_Periodic)) or ((not (config.BC.zBCLeft == SCHEMA.FlowBC_Periodic)) and (not (config.BC.zBCRight == SCHEMA.FlowBC_Periodic))))) then
-    regentlib.assert(false, "Boundary conditions in z should match for periodicity")
-  end
-
-  -- Restarting
-  if (config.Flow.initCase == SCHEMA.FlowInitCase_Restart) then
-    Integrator_timeStep = config.Integrator.restartIter
-    Integrator_simTime = config.Integrator.restartTime
-  end
-
-  -----------------------------------------------------------------------------
-  -- Create Regions and Partitions
-  -----------------------------------------------------------------------------
-
-  -- Create Fluid Regions
-  var is = ispace(int3d, int3d({x = (config.Grid.xNum+(2*Grid.xBnum)), y = (config.Grid.yNum+(2*Grid.yBnum)), z = (config.Grid.zNum+(2*Grid.zBnum))}))
-  var [Fluid] = region(is, Fluid_columns)
-  var [Fluid_copy] = region(is, Fluid_columns)
-
-  -- Create Particles Regions
-  var is__11726 = ispace(int1d, int1d((ceil(((config.Particles.maxNum/((config.Mapping.tiles[0]*config.Mapping.tiles[1])*config.Mapping.tiles[2]))*config.Particles.maxSkew))*((config.Mapping.tiles[0]*config.Mapping.tiles[1])*config.Mapping.tiles[2]))))
-  var [particles] = region(is__11726, particles_columns)
-  var [particles_copy] = region(is__11726, particles_columns)
-
-  -- Create Radiation Regions
-  var is__11729 = ispace(int3d, int3d({x = config.Radiation.xNum, y = config.Radiation.yNum, z = config.Radiation.zNum}))
-  var [Radiation] = region(is__11729, Radiation_columns)
-
-  -- Partitioning domain
-  var [primColors] = ispace(int3d, int3d({config.Mapping.tiles[0], config.Mapping.tiles[1], config.Mapping.tiles[2]}))
-
-  -- Fluid Partitioning
-  regentlib.assert(((config.Grid.xNum%config.Mapping.tiles[0])==0), "Uneven partitioning of fluid grid on x")
-  regentlib.assert(((config.Grid.yNum%config.Mapping.tiles[1])==0), "Uneven partitioning of fluid grid on y")
-  regentlib.assert(((config.Grid.zNum%config.Mapping.tiles[2])==0), "Uneven partitioning of fluid grid on z")
-  var coloring = regentlib.c.legion_domain_point_coloring_create()
-  for c in primColors do
-    var rect = rect3d({lo = int3d({x = (Grid.xBnum+((config.Grid.xNum/config.Mapping.tiles[0])*c.x)), y = (Grid.yBnum+((config.Grid.yNum/config.Mapping.tiles[1])*c.y)), z = (Grid.zBnum+((config.Grid.zNum/config.Mapping.tiles[2])*c.z))}),
-                       hi = int3d({x = ((Grid.xBnum+((config.Grid.xNum/config.Mapping.tiles[0])*(c.x+1)))-1), y = ((Grid.yBnum+((config.Grid.yNum/config.Mapping.tiles[1])*(c.y+1)))-1), z = ((Grid.zBnum+((config.Grid.zNum/config.Mapping.tiles[2])*(c.z+1)))-1)})})
-    if (c.x==0) then
-      rect.lo.x -= Grid.xBnum
-    end
-    if (c.x==(config.Mapping.tiles[0]-1)) then
-      rect.hi.x += Grid.xBnum
-    end
-    if (c.y==0) then
-      rect.lo.y -= Grid.yBnum
-    end
-    if (c.y==(config.Mapping.tiles[1]-1)) then
-      rect.hi.y += Grid.yBnum
-    end
-    if (c.z==0) then
-      rect.lo.z -= Grid.zBnum
-    end
-    if (c.z==(config.Mapping.tiles[2]-1)) then
-      rect.hi.z += Grid.zBnum
-    end
-    regentlib.c.legion_domain_point_coloring_color_domain(coloring, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
-  end
-  var [Fluid_primPart] = partition(disjoint, Fluid, coloring, primColors)
-  var [Fluid_copy_primPart] = partition(disjoint, Fluid_copy, coloring, primColors)
-  regentlib.c.legion_domain_point_coloring_destroy(coloring)
-
-  -- Particles Partitioning
-  regentlib.assert(((config.Particles.maxNum%((config.Mapping.tiles[0]*config.Mapping.tiles[1])*config.Mapping.tiles[2]))==0), "Uneven partitioning of particles")
-  var coloring__11738 = regentlib.c.legion_domain_point_coloring_create()
-  for z : int32 = 0, config.Mapping.tiles[2] do
-    for y : int32 = 0, config.Mapping.tiles[1] do
-      for x : int32 = 0, config.Mapping.tiles[0] do
-        var rBase : int64
-        for rStart in particles do
-          rBase = int64((rStart+(((((z*config.Mapping.tiles[0])*config.Mapping.tiles[1])+(y*config.Mapping.tiles[0]))+x)*ceil(((config.Particles.maxNum/((config.Mapping.tiles[0]*config.Mapping.tiles[1])*config.Mapping.tiles[2]))*config.Particles.maxSkew)))))
-          break
+      if (config.BC.xBCLeft == SCHEMA.FlowBC_Symmetry) then
+        BC.xNegSign = array(-1.0, 1.0, 1.0)
+        BC.xNegVelocity = array(0.0, 0.0, 0.0)
+        BC.xNegTemperature = -1.0
+        BC.xBCParticlesPeriodic = false
+      elseif (config.BC.xBCLeft == SCHEMA.FlowBC_AdiabaticWall) then
+        BC.xNegSign = array(-1.0, -1.0, -1.0)
+        BC.xNegVelocity = array((2*config.BC.xBCLeftVel[0]), (2*config.BC.xBCLeftVel[1]), (2*config.BC.xBCLeftVel[2]))
+        BC.xNegTemperature = -1.0
+        BC.xBCParticlesPeriodic = false
+      elseif (config.BC.xBCLeft == SCHEMA.FlowBC_IsothermalWall) then
+        BC.xNegSign = array(-1.0, -1.0, -1.0)
+        BC.xNegVelocity = array((2*config.BC.xBCLeftVel[0]), (2*config.BC.xBCLeftVel[1]), (2*config.BC.xBCLeftVel[2]))
+        if config.BC.xBCLeftHeat.type == SCHEMA.WallHeatModel_Constant then
+          BC.xNegTemperature = config.BC.xBCLeftHeat.u.Constant.temperature
+        else
+          regentlib.assert(false, 'Only constant heat model supported')
         end
-        regentlib.c.legion_domain_point_coloring_color_domain(coloring__11738, regentlib.c.legion_domain_point_t(int3d({x, y, z})), regentlib.c.legion_domain_t(rect1d({rBase, ((rBase+ceil(((config.Particles.maxNum/((config.Mapping.tiles[0]*config.Mapping.tiles[1])*config.Mapping.tiles[2]))*config.Particles.maxSkew)))-1)})))
+        BC.xBCParticlesPeriodic = false
+      else
+        regentlib.assert(false, "Boundary conditions in xBCLeft not implemented")
+      end
+
+      if (config.BC.xBCRight == SCHEMA.FlowBC_Symmetry) then
+        BC.xPosSign = array(-1.0, 1.0, 1.0)
+        BC.xPosVelocity = array(0.0, 0.0, 0.0)
+        BC.xPosTemperature = -1.0
+        BC.xBCParticlesPeriodic = false
+      elseif (config.BC.xBCRight == SCHEMA.FlowBC_AdiabaticWall) then
+        BC.xPosSign = array(-1.0, -1.0, -1.0)
+        BC.xPosVelocity = array((2*config.BC.xBCRightVel[0]), (2*config.BC.xBCRightVel[1]), (2*config.BC.xBCRightVel[2]))
+        BC.xPosTemperature = -1.0
+        BC.xBCParticlesPeriodic = false
+      elseif (config.BC.xBCRight == SCHEMA.FlowBC_IsothermalWall) then
+        BC.xPosSign = array(-1.0, -1.0, -1.0)
+        BC.xPosVelocity = array((2*config.BC.xBCRightVel[0]), (2*config.BC.xBCRightVel[1]), (2*config.BC.xBCRightVel[2]))
+        if config.BC.xBCRightHeat.type == SCHEMA.WallHeatModel_Constant then
+          BC.xPosTemperature = config.BC.xBCRightHeat.u.Constant.temperature
+        else
+          regentlib.assert(false, 'Only constant heat model supported')
+        end
+        BC.xBCParticlesPeriodic = false
+      else
+        regentlib.assert(false, "Boundary conditions in xBCRight not implemented")
       end
     end
-  end
-  var [particles_primPart] = partition(disjoint, particles, coloring__11738, primColors)
-  var [particles_copy_primPart] = partition(disjoint, particles_copy, coloring__11738, primColors)
-  regentlib.c.legion_domain_point_coloring_destroy(coloring__11738);
-  @ESCAPE for i = 1,26 do @EMIT
-    var queue = region(ispace(int1d,config.Particles.maxXferNum*config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2]), int8[SIZEOF_PARTICLE])
-    var srcColoring = regentlib.c.legion_domain_point_coloring_create()
-    for z = 0, config.Mapping.tiles[2] do
-      for y = 0, config.Mapping.tiles[1] do
-        for x = 0, config.Mapping.tiles[0] do
-          var qBase : int64
-          for qStart in queue do
-            qBase = qStart + (z*config.Mapping.tiles[0]*config.Mapping.tiles[1]+y*config.Mapping.tiles[0]+x)*config.Particles.maxXferNum
+
+    -- Set up flow BC's in y direction
+    if ((config.BC.yBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.yBCRight == SCHEMA.FlowBC_Periodic)) then
+      BC.yPosSign = array(1.0, 1.0, 1.0)
+      BC.yNegSign = array(1.0, 1.0, 1.0)
+      BC.yPosVelocity = array(0.0, 0.0, 0.0)
+      BC.yNegVelocity = array(0.0, 0.0, 0.0)
+      BC.yPosTemperature = -1.0
+      BC.yNegTemperature = -1.0
+      BC.yBCParticlesPeriodic = true
+    else
+      if (config.BC.yBCLeft == SCHEMA.FlowBC_Symmetry) then
+        BC.yNegSign = array(1.0, -1.0, 1.0)
+        BC.yNegVelocity = array(0.0, 0.0, 0.0)
+        BC.yNegTemperature = -1.0
+        BC.yBCParticlesPeriodic = false
+      elseif (config.BC.yBCLeft == SCHEMA.FlowBC_AdiabaticWall) then
+        BC.yNegSign = array(-1.0, -1.0, -1.0)
+        BC.yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
+        BC.yNegTemperature = -1.0
+        BC.yBCParticlesPeriodic = false
+      elseif (config.BC.yBCLeft == SCHEMA.FlowBC_IsothermalWall) then
+        BC.yNegSign = array(-1.0, -1.0, -1.0)
+        BC.yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
+        if config.BC.yBCLeftHeat.type == SCHEMA.WallHeatModel_Constant then
+          BC.yNegTemperature = config.BC.yBCLeftHeat.u.Constant.temperature
+        else
+          regentlib.assert(false, 'Only constant heat model supported')
+        end
+        BC.yBCParticlesPeriodic = false
+      elseif (config.BC.yBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+        BC.yNegSign = array(-1.0, -1.0, -1.0)
+        BC.yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
+        if not (config.BC.yBCLeftHeat.type == SCHEMA.WallHeatModel_Parabola) then
+          regentlib.assert(false, 'Only parabolia heat model supported')
+        end
+        BC.yBCParticlesPeriodic = false
+      else
+        regentlib.assert(false, "Boundary conditions in y not implemented")
+      end
+
+      if (config.BC.yBCRight == SCHEMA.FlowBC_Symmetry) then
+        BC.yPosSign = array(1.0, -1.0, 1.0)
+        BC.yPosVelocity = array(0.0, 0.0, 0.0)
+        BC.yPosTemperature = -1.0
+        BC.yBCParticlesPeriodic = false
+      elseif (config.BC.yBCRight == SCHEMA.FlowBC_AdiabaticWall) then
+        BC.yPosSign = array(-1.0, -1.0, -1.0)
+        BC.yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
+        BC.yPosTemperature = -1.0
+        BC.yBCParticlesPeriodic = false
+      elseif (config.BC.yBCRight == SCHEMA.FlowBC_IsothermalWall) then
+        BC.yPosSign = array(-1.0, -1.0, -1.0)
+        BC.yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
+        if config.BC.yBCRightHeat.type == SCHEMA.WallHeatModel_Constant then
+          BC.yPosTemperature = config.BC.yBCRightHeat.u.Constant.temperature
+        else
+          regentlib.assert(false, 'Only constant heat model supported')
+        end
+        BC.yBCParticlesPeriodic = false
+      elseif (config.BC.yBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+        BC.yPosSign = array(-1.0, -1.0, -1.0)
+        BC.yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
+        if not (config.BC.yBCRightHeat.type == SCHEMA.WallHeatModel_Parabola) then
+          regentlib.assert(false, 'Only parabolia heat model supported')
+        end
+        BC.yBCParticlesPeriodic = false
+      else
+        regentlib.assert(false, "Boundary conditions in y not implemented")
+      end
+    end
+
+    -- Set up flow BC's in z direction
+    if ((config.BC.zBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.zBCRight == SCHEMA.FlowBC_Periodic)) then
+      BC.zPosSign = array(1.0, 1.0, 1.0)
+      BC.zNegSign = array(1.0, 1.0, 1.0)
+      BC.zPosVelocity = array(0.0, 0.0, 0.0)
+      BC.zNegVelocity = array(0.0, 0.0, 0.0)
+      BC.zPosTemperature = -1.0
+      BC.zNegTemperature = -1.0
+      BC.zBCParticlesPeriodic = true
+    else
+      if (config.BC.zBCLeft == SCHEMA.FlowBC_Symmetry) then
+        BC.zNegSign = array(1.0, 1.0, -1.0)
+        BC.zNegVelocity = array(0.0, 0.0, 0.0)
+        BC.zNegTemperature = -1.0
+        BC.zBCParticlesPeriodic = false
+      elseif (config.BC.zBCLeft == SCHEMA.FlowBC_AdiabaticWall) then
+        BC.zNegSign = array(-1.0, -1.0, -1.0)
+        BC.zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
+        BC.zNegTemperature = -1.0
+        BC.zBCParticlesPeriodic = false
+      elseif (config.BC.zBCLeft == SCHEMA.FlowBC_IsothermalWall) then
+        BC.zNegSign = array(-1.0, -1.0, -1.0)
+        BC.zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
+        if config.BC.zBCLeftHeat.type == SCHEMA.WallHeatModel_Constant then
+          BC.zNegTemperature = config.BC.zBCLeftHeat.u.Constant.temperature
+        else
+          regentlib.assert(false, 'Only constant heat model supported')
+        end
+        BC.zBCParticlesPeriodic = false
+      elseif (config.BC.zBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+        BC.zNegSign = array(-1.0, -1.0, -1.0)
+        BC.zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
+        if not (config.BC.zBCLeftHeat.type == SCHEMA.WallHeatModel_Parabola) then
+          regentlib.assert(false, 'Only parabolia heat model supported')
+        end
+        BC.zBCParticlesPeriodic = false
+      else
+        regentlib.assert(false, "Boundary conditions in zBCLeft not implemented")
+      end
+
+      if (config.BC.zBCRight == SCHEMA.FlowBC_Symmetry) then
+        BC.zPosSign = array(1.0, 1.0, -1.0)
+        BC.zPosVelocity = array(0.0, 0.0, 0.0)
+        BC.zPosTemperature = -1.0
+        BC.zBCParticlesPeriodic = false
+      elseif (config.BC.zBCRight == SCHEMA.FlowBC_AdiabaticWall) then
+        BC.zPosSign = array(-1.0, -1.0, -1.0)
+        BC.zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
+        BC.zPosTemperature = -1.0
+        BC.zBCParticlesPeriodic = false
+      elseif (config.BC.zBCRight == SCHEMA.FlowBC_IsothermalWall) then
+        BC.zPosSign = array(-1.0, -1.0, -1.0)
+        BC.zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
+        if config.BC.zBCRightHeat.type == SCHEMA.WallHeatModel_Constant then
+          BC.zPosTemperature = config.BC.zBCRightHeat.u.Constant.temperature
+        else
+          regentlib.assert(false, 'Only constant heat model supported')
+        end
+        BC.zBCParticlesPeriodic = false
+      elseif (config.BC.zBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+        BC.zPosSign = array(-1.0, -1.0, -1.0)
+        BC.zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
+        if not (config.BC.zBCRightHeat.type == SCHEMA.WallHeatModel_Parabola) then
+          regentlib.assert(false, 'Only parabolia heat model supported')
+        end
+        BC.zBCParticlesPeriodic = false
+      else
+        regentlib.assert(false, "Boundary conditions in zBCRight not implemented")
+      end
+    end
+
+    -- Check if boundary conditions in each direction are either both periodic or both non-periodic
+    if (not (((config.BC.xBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.xBCRight == SCHEMA.FlowBC_Periodic)) or ((not (config.BC.xBCLeft == SCHEMA.FlowBC_Periodic)) and (not (config.BC.xBCRight == SCHEMA.FlowBC_Periodic))))) then
+      regentlib.assert(false, "Boundary conditions in x should match for periodicity")
+    end
+    if (not (((config.BC.yBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.yBCRight == SCHEMA.FlowBC_Periodic)) or ((not (config.BC.yBCLeft == SCHEMA.FlowBC_Periodic)) and (not (config.BC.yBCRight == SCHEMA.FlowBC_Periodic))))) then
+      regentlib.assert(false, "Boundary conditions in y should match for periodicity")
+    end
+    if (not (((config.BC.zBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.zBCRight == SCHEMA.FlowBC_Periodic)) or ((not (config.BC.zBCLeft == SCHEMA.FlowBC_Periodic)) and (not (config.BC.zBCRight == SCHEMA.FlowBC_Periodic))))) then
+      regentlib.assert(false, "Boundary conditions in z should match for periodicity")
+    end
+
+    -- Restarting
+    if (config.Flow.initCase == SCHEMA.FlowInitCase_Restart) then
+      Integrator_timeStep = config.Integrator.restartIter
+      Integrator_simTime = config.Integrator.restartTime
+    end
+
+    ---------------------------------------------------------------------------
+    -- Create Regions and Partitions
+    ---------------------------------------------------------------------------
+
+    -- Create Fluid Regions
+    var is = ispace(int3d, int3d({x = (config.Grid.xNum+(2*Grid.xBnum)), y = (config.Grid.yNum+(2*Grid.yBnum)), z = (config.Grid.zNum+(2*Grid.zBnum))}))
+    var [Fluid] = region(is, Fluid_columns)
+    var [Fluid_copy] = region(is, Fluid_columns)
+
+    -- Create Particles Regions
+    var is__11726 = ispace(int1d, int1d((ceil(((config.Particles.maxNum/((config.Mapping.tiles[0]*config.Mapping.tiles[1])*config.Mapping.tiles[2]))*config.Particles.maxSkew))*((config.Mapping.tiles[0]*config.Mapping.tiles[1])*config.Mapping.tiles[2]))))
+    var [particles] = region(is__11726, particles_columns)
+    var [particles_copy] = region(is__11726, particles_columns)
+
+    -- Create Radiation Regions
+    var is__11729 = ispace(int3d, int3d({x = config.Radiation.xNum, y = config.Radiation.yNum, z = config.Radiation.zNum}))
+    var [Radiation] = region(is__11729, Radiation_columns)
+
+    -- Partitioning domain
+    var [primColors] = ispace(int3d, int3d({config.Mapping.tiles[0], config.Mapping.tiles[1], config.Mapping.tiles[2]}))
+
+    -- Fluid Partitioning
+    regentlib.assert(((config.Grid.xNum%config.Mapping.tiles[0])==0), "Uneven partitioning of fluid grid on x")
+    regentlib.assert(((config.Grid.yNum%config.Mapping.tiles[1])==0), "Uneven partitioning of fluid grid on y")
+    regentlib.assert(((config.Grid.zNum%config.Mapping.tiles[2])==0), "Uneven partitioning of fluid grid on z")
+    var coloring = regentlib.c.legion_domain_point_coloring_create()
+    for c in primColors do
+      var rect = rect3d({lo = int3d({x = (Grid.xBnum+((config.Grid.xNum/config.Mapping.tiles[0])*c.x)), y = (Grid.yBnum+((config.Grid.yNum/config.Mapping.tiles[1])*c.y)), z = (Grid.zBnum+((config.Grid.zNum/config.Mapping.tiles[2])*c.z))}),
+                         hi = int3d({x = ((Grid.xBnum+((config.Grid.xNum/config.Mapping.tiles[0])*(c.x+1)))-1), y = ((Grid.yBnum+((config.Grid.yNum/config.Mapping.tiles[1])*(c.y+1)))-1), z = ((Grid.zBnum+((config.Grid.zNum/config.Mapping.tiles[2])*(c.z+1)))-1)})})
+      if (c.x==0) then
+        rect.lo.x -= Grid.xBnum
+      end
+      if (c.x==(config.Mapping.tiles[0]-1)) then
+        rect.hi.x += Grid.xBnum
+      end
+      if (c.y==0) then
+        rect.lo.y -= Grid.yBnum
+      end
+      if (c.y==(config.Mapping.tiles[1]-1)) then
+        rect.hi.y += Grid.yBnum
+      end
+      if (c.z==0) then
+        rect.lo.z -= Grid.zBnum
+      end
+      if (c.z==(config.Mapping.tiles[2]-1)) then
+        rect.hi.z += Grid.zBnum
+      end
+      regentlib.c.legion_domain_point_coloring_color_domain(coloring, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
+    end
+    var [Fluid_primPart] = partition(disjoint, Fluid, coloring, primColors)
+    var [Fluid_copy_primPart] = partition(disjoint, Fluid_copy, coloring, primColors)
+    regentlib.c.legion_domain_point_coloring_destroy(coloring)
+
+    -- Particles Partitioning
+    regentlib.assert(((config.Particles.maxNum%((config.Mapping.tiles[0]*config.Mapping.tiles[1])*config.Mapping.tiles[2]))==0), "Uneven partitioning of particles")
+    var coloring__11738 = regentlib.c.legion_domain_point_coloring_create()
+    for z : int32 = 0, config.Mapping.tiles[2] do
+      for y : int32 = 0, config.Mapping.tiles[1] do
+        for x : int32 = 0, config.Mapping.tiles[0] do
+          var rBase : int64
+          for rStart in particles do
+            rBase = int64((rStart+(((((z*config.Mapping.tiles[0])*config.Mapping.tiles[1])+(y*config.Mapping.tiles[0]))+x)*ceil(((config.Particles.maxNum/((config.Mapping.tiles[0]*config.Mapping.tiles[1])*config.Mapping.tiles[2]))*config.Particles.maxSkew)))))
             break
           end
-          regentlib.c.legion_domain_point_coloring_color_domain(srcColoring, int3d{x,y,z}, rect1d{qBase,qBase+config.Particles.maxXferNum-1})
+          regentlib.c.legion_domain_point_coloring_color_domain(coloring__11738, regentlib.c.legion_domain_point_t(int3d({x, y, z})), regentlib.c.legion_domain_t(rect1d({rBase, ((rBase+ceil(((config.Particles.maxNum/((config.Mapping.tiles[0]*config.Mapping.tiles[1])*config.Mapping.tiles[2]))*config.Particles.maxSkew)))-1)})))
         end
       end
     end
-    var [qSrcParts[i]] = partition(disjoint, queue, srcColoring, primColors)
-    regentlib.c.legion_domain_point_coloring_destroy(srcColoring)
-    var dstColoring = regentlib.c.legion_domain_point_coloring_create()
-    for c in primColors do
-      var srcBase : int64
-      for qptr in [qSrcParts[i]][ (c-[colorOffsets[i]]+{config.Mapping.tiles[0],config.Mapping.tiles[1],config.Mapping.tiles[2]}) % {config.Mapping.tiles[0],config.Mapping.tiles[1],config.Mapping.tiles[2]} ] do
-        srcBase = qptr
-        break
+    var [particles_primPart] = partition(disjoint, particles, coloring__11738, primColors)
+    var [particles_copy_primPart] = partition(disjoint, particles_copy, coloring__11738, primColors)
+    regentlib.c.legion_domain_point_coloring_destroy(coloring__11738);
+    @ESCAPE for i = 1,26 do @EMIT
+      var queue = region(ispace(int1d,config.Particles.maxXferNum*config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2]), int8[SIZEOF_PARTICLE])
+      var srcColoring = regentlib.c.legion_domain_point_coloring_create()
+      for z = 0, config.Mapping.tiles[2] do
+        for y = 0, config.Mapping.tiles[1] do
+          for x = 0, config.Mapping.tiles[0] do
+            var qBase : int64
+            for qStart in queue do
+              qBase = qStart + (z*config.Mapping.tiles[0]*config.Mapping.tiles[1]+y*config.Mapping.tiles[0]+x)*config.Particles.maxXferNum
+              break
+            end
+            regentlib.c.legion_domain_point_coloring_color_domain(srcColoring, int3d{x,y,z}, rect1d{qBase,qBase+config.Particles.maxXferNum-1})
+          end
+        end
       end
-      regentlib.c.legion_domain_point_coloring_color_domain(dstColoring, c, rect1d{srcBase,srcBase+config.Particles.maxXferNum-1})
+      var [qSrcParts[i]] = partition(disjoint, queue, srcColoring, primColors)
+      regentlib.c.legion_domain_point_coloring_destroy(srcColoring)
+      var dstColoring = regentlib.c.legion_domain_point_coloring_create()
+      for c in primColors do
+        var srcBase : int64
+        for qptr in [qSrcParts[i]][ (c-[colorOffsets[i]]+{config.Mapping.tiles[0],config.Mapping.tiles[1],config.Mapping.tiles[2]}) % {config.Mapping.tiles[0],config.Mapping.tiles[1],config.Mapping.tiles[2]} ] do
+          srcBase = qptr
+          break
+        end
+        regentlib.c.legion_domain_point_coloring_color_domain(dstColoring, c, rect1d{srcBase,srcBase+config.Particles.maxXferNum-1})
+      end
+      var [qDstParts[i]] = partition(aliased, queue, dstColoring, primColors)
+      regentlib.c.legion_domain_point_coloring_destroy(dstColoring)
+    @TIME end @EPACSE
+
+    -- Radiation Partitioning
+    regentlib.assert(((config.Radiation.xNum%config.Mapping.tiles[0])==0), "Uneven partitioning of radiation grid on x")
+    regentlib.assert(((config.Radiation.yNum%config.Mapping.tiles[1])==0), "Uneven partitioning of radiation grid on y")
+    regentlib.assert(((config.Radiation.zNum%config.Mapping.tiles[2])==0), "Uneven partitioning of radiation grid on z")
+    var coloring__12110 = regentlib.c.legion_domain_point_coloring_create()
+    for c in primColors do
+      var rect = rect3d{lo = int3d{x = (config.Radiation.xNum/config.Mapping.tiles[0])*c.x,       y = (config.Radiation.yNum/config.Mapping.tiles[1])*c.y,       z = (config.Radiation.zNum/config.Mapping.tiles[2])*c.z      },
+                        hi = int3d{x = (config.Radiation.xNum/config.Mapping.tiles[0])*(c.x+1)-1, y = (config.Radiation.yNum/config.Mapping.tiles[1])*(c.y+1)-1, z = (config.Radiation.zNum/config.Mapping.tiles[2])*(c.z+1)-1}}
+      regentlib.c.legion_domain_point_coloring_color_domain(coloring__12110, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
     end
-    var [qDstParts[i]] = partition(aliased, queue, dstColoring, primColors)
-    regentlib.c.legion_domain_point_coloring_destroy(dstColoring)
-  @TIME end @EPACSE
+    var [Radiation_primPart] = partition(disjoint, Radiation, coloring__12110, primColors)
+    regentlib.c.legion_domain_point_coloring_destroy(coloring__12110);
 
-  -- Radiation Partitioning
-  regentlib.assert(((config.Radiation.xNum%config.Mapping.tiles[0])==0), "Uneven partitioning of radiation grid on x")
-  regentlib.assert(((config.Radiation.yNum%config.Mapping.tiles[1])==0), "Uneven partitioning of radiation grid on y")
-  regentlib.assert(((config.Radiation.zNum%config.Mapping.tiles[2])==0), "Uneven partitioning of radiation grid on z")
-  var coloring__12110 = regentlib.c.legion_domain_point_coloring_create()
-  for c in primColors do
-    var rect = rect3d{lo = int3d{x = (config.Radiation.xNum/config.Mapping.tiles[0])*c.x,       y = (config.Radiation.yNum/config.Mapping.tiles[1])*c.y,       z = (config.Radiation.zNum/config.Mapping.tiles[2])*c.z      },
-                      hi = int3d{x = (config.Radiation.xNum/config.Mapping.tiles[0])*(c.x+1)-1, y = (config.Radiation.yNum/config.Mapping.tiles[1])*(c.y+1)-1, z = (config.Radiation.zNum/config.Mapping.tiles[2])*(c.z+1)-1}}
-    regentlib.c.legion_domain_point_coloring_color_domain(coloring__12110, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
-  end
-  var [Radiation_primPart] = partition(disjoint, Radiation, coloring__12110, primColors)
-  regentlib.c.legion_domain_point_coloring_destroy(coloring__12110);
+    ---------------------------------------------------------------------------
+    -- DOM code declarations
+    ---------------------------------------------------------------------------
 
-  -- DOM code declarations
-  [DOM.DeclSymbols(config)];
+    [DOM.DeclSymbols(config)];
+
+  end end -- Exports.DeclSymbols
 
   -----------------------------------------------------------------------------
-  -- Code that gets farmed to the tiles
+  -- Region initialization
   -----------------------------------------------------------------------------
 
-  __parallelize_with Fluid_primPart, particles_primPart, Radiation_primPart, primColors, (image(Fluid, particles_primPart, particles.cell)<=Fluid_primPart) do
+  function Exports.InitRegions(config) return rquote
 
-    particles_initValidField(particles)
-    SetCoarseningField(Fluid,
-                       Grid.xBnum, config.Grid.xNum,
-                       Grid.yBnum, config.Grid.yNum,
-                       Grid.zBnum, config.Grid.zNum,
-                       config.Radiation.xNum,
-                       config.Radiation.yNum,
-                       config.Radiation.zNum)
-    Flow_InitializeCell(Fluid)
-    Flow_InitializeCenterCoordinates(Fluid,
-                                     Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
-                                     Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
-                                     Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+    __parallelize_with Fluid_primPart, particles_primPart, Radiation_primPart, primColors, image(Fluid,particles_primPart,particles.cell) <= Fluid_primPart do
 
-    if (config.Flow.initCase == SCHEMA.FlowInitCase_Uniform) then
-      Flow_InitializeUniform(Fluid, config.Flow.initParams)
-    end
-    if (config.Flow.initCase == SCHEMA.FlowInitCase_Random) then
-      Flow_InitializeRandom(Fluid, config.Flow.initParams)
-    end
-    if (config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen2DVortex) then
-      Flow_InitializeTaylorGreen2D(Fluid, config.Flow.initParams, Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth, Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth, Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
-    end
-    if (config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen3DVortex) then
-      Flow_InitializeTaylorGreen3D(Fluid, config.Flow.initParams, Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth, Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth, Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
-    end
-    if (config.Flow.initCase == SCHEMA.FlowInitCase_Perturbed) then
-      Flow_InitializePerturbed(Fluid, config.Flow.initParams)
-    end
-    if (config.Flow.initCase == SCHEMA.FlowInitCase_Restart) then
-      Fluid_load(primColors, config.Flow.restartDir, Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
-    end
-    -- initialize ghost cells to their specified values in NSCBC case
-    if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-        Flow_InitializeGhostNSCBC(Fluid,
-                                  config,
-                                  config.Flow.gasConstant,
-                                  BC.xNegTemperature,
-                                  config.Flow.constantVisc,
-                                  config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                  config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                  config.Flow.viscosityModel,
-                                  Grid.xBnum, config.Grid.xNum,
-                                  Grid.yBnum, config.Grid.yNum,
-                                  Grid.zBnum, config.Grid.zNum)
-    end
+      particles_initValidField(particles)
+      SetCoarseningField(Fluid,
+                         Grid.xBnum, config.Grid.xNum,
+                         Grid.yBnum, config.Grid.yNum,
+                         Grid.zBnum, config.Grid.zNum,
+                         config.Radiation.xNum,
+                         config.Radiation.yNum,
+                         config.Radiation.zNum)
+      Flow_InitializeCell(Fluid)
+      Flow_InitializeCenterCoordinates(Fluid,
+                                       Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
+                                       Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
+                                       Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
 
-    -- update interior cells from initialized primitive values values
-    Flow_UpdateConservedFromPrimitive(Fluid, config.Flow.gamma, config.Flow.gasConstant, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-    if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-      Flow_UpdateConservedFromPrimitiveGhostNSCBC(Fluid,
-                                                  config,
-                                                  config.Flow.gamma, config.Flow.gasConstant,
-                                                  Grid.xBnum, config.Grid.xNum,
-                                                  Grid.yBnum, config.Grid.yNum,
-                                                  Grid.zBnum, config.Grid.zNum)
-    end
+      if (config.Flow.initCase == SCHEMA.FlowInitCase_Uniform) then
+        Flow_InitializeUniform(Fluid, config.Flow.initParams)
+      end
+      if (config.Flow.initCase == SCHEMA.FlowInitCase_Random) then
+        Flow_InitializeRandom(Fluid, config.Flow.initParams)
+      end
+      if (config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen2DVortex) then
+        Flow_InitializeTaylorGreen2D(Fluid, config.Flow.initParams, Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth, Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth, Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+      end
+      if (config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen3DVortex) then
+        Flow_InitializeTaylorGreen3D(Fluid, config.Flow.initParams, Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth, Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth, Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+      end
+      if (config.Flow.initCase == SCHEMA.FlowInitCase_Perturbed) then
+        Flow_InitializePerturbed(Fluid, config.Flow.initParams)
+      end
+      if (config.Flow.initCase == SCHEMA.FlowInitCase_Restart) then
+        Fluid_load(primColors, config.Flow.restartDir, Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
+      end
+      -- initialize ghost cells to their specified values in NSCBC case
+      if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
+          Flow_InitializeGhostNSCBC(Fluid,
+                                    config,
+                                    config.Flow.gasConstant,
+                                    BC.xNegTemperature,
+                                    config.Flow.constantVisc,
+                                    config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                    config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                    config.Flow.viscosityModel,
+                                    Grid.xBnum, config.Grid.xNum,
+                                    Grid.yBnum, config.Grid.yNum,
+                                    Grid.zBnum, config.Grid.zNum)
+      end
 
-    Flow_UpdateAuxiliaryVelocity(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-    if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-      Flow_UpdateAuxiliaryVelocityGhostNSCBC(Fluid,
-                                             config,
-                                             config.Flow.constantVisc,
-                                             config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                             config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                             config.Flow.viscosityModel,
-                                             Grid.xBnum, config.Grid.xNum,
-                                             Grid.yBnum, config.Grid.yNum,
-                                             Grid.zBnum, config.Grid.zNum)
-    end
-    Flow_UpdateGhostVelocityStep1(Fluid,
-                                  config,
-                                  BC.xNegVelocity, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
-                                  BC.yNegVelocity, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
-                                  BC.zNegVelocity, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
-                                  Grid.xBnum, config.Grid.xNum,
-                                  Grid.yBnum, config.Grid.yNum,
-                                  Grid.zBnum, config.Grid.zNum)
-    Flow_UpdateGhostVelocityStep2(Fluid,
-                                  config,
-                                  Grid.xBnum, config.Grid.xNum,
-                                  Grid.yBnum, config.Grid.yNum,
-                                  Grid.zBnum, config.Grid.zNum)
+      -- update interior cells from initialized primitive values values
+      Flow_UpdateConservedFromPrimitive(Fluid, config.Flow.gamma, config.Flow.gasConstant, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+      if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
+        Flow_UpdateConservedFromPrimitiveGhostNSCBC(Fluid,
+                                                    config,
+                                                    config.Flow.gamma, config.Flow.gasConstant,
+                                                    Grid.xBnum, config.Grid.xNum,
+                                                    Grid.yBnum, config.Grid.yNum,
+                                                    Grid.zBnum, config.Grid.zNum)
+      end
 
-    Flow_UpdateGhostConservedStep1(Fluid,
-                                   config,
-                                   BC.xNegTemperature, BC.xNegVelocity, BC.xPosTemperature, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
-                                   BC.yNegTemperature, BC.yNegVelocity, BC.yPosTemperature, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
-                                   BC.zNegTemperature, BC.zNegVelocity, BC.zPosTemperature, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
-                                   config.Flow.gamma, config.Flow.gasConstant,
-                                   config.Flow.constantVisc,
-                                   config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                   config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                   config.Flow.viscosityModel,
-                                   Grid.xBnum, config.Grid.xNum,
-                                   Grid.yBnum, config.Grid.yNum,
-                                   Grid.zBnum, config.Grid.zNum)
-    Flow_UpdateGhostConservedStep2(Fluid,
-                                   config,
-                                   Grid.xBnum, config.Grid.xNum,
-                                   Grid.yBnum, config.Grid.yNum,
-                                   Grid.zBnum, config.Grid.zNum)
+      Flow_UpdateAuxiliaryVelocity(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+      if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
+        Flow_UpdateAuxiliaryVelocityGhostNSCBC(Fluid,
+                                               config,
+                                               config.Flow.constantVisc,
+                                               config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                               config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                               config.Flow.viscosityModel,
+                                               Grid.xBnum, config.Grid.xNum,
+                                               Grid.yBnum, config.Grid.yNum,
+                                               Grid.zBnum, config.Grid.zNum)
+      end
+      Flow_UpdateGhostVelocityStep1(Fluid,
+                                    config,
+                                    BC.xNegVelocity, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
+                                    BC.yNegVelocity, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
+                                    BC.zNegVelocity, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
+                                    Grid.xBnum, config.Grid.xNum,
+                                    Grid.yBnum, config.Grid.yNum,
+                                    Grid.zBnum, config.Grid.zNum)
+      Flow_UpdateGhostVelocityStep2(Fluid,
+                                    config,
+                                    Grid.xBnum, config.Grid.xNum,
+                                    Grid.yBnum, config.Grid.yNum,
+                                    Grid.zBnum, config.Grid.zNum)
 
-    Flow_ComputeVelocityGradientAll(Fluid,
-                                    Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                    Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                    Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-    if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-      Flow_ComputeVelocityGradientGhostNSCBC(Fluid,
-                                             config,
-                                             Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                             Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                             Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-    end
-    Flow_UpdateGhostVelocityGradientStep1(Fluid,
+      Flow_UpdateGhostConservedStep1(Fluid,
+                                     config,
+                                     BC.xNegTemperature, BC.xNegVelocity, BC.xPosTemperature, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
+                                     BC.yNegTemperature, BC.yNegVelocity, BC.yPosTemperature, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
+                                     BC.zNegTemperature, BC.zNegVelocity, BC.zPosTemperature, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
+                                     config.Flow.gamma, config.Flow.gasConstant,
+                                     config.Flow.constantVisc,
+                                     config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                     config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                     config.Flow.viscosityModel,
+                                     Grid.xBnum, config.Grid.xNum,
+                                     Grid.yBnum, config.Grid.yNum,
+                                     Grid.zBnum, config.Grid.zNum)
+      Flow_UpdateGhostConservedStep2(Fluid,
+                                     config,
+                                     Grid.xBnum, config.Grid.xNum,
+                                     Grid.yBnum, config.Grid.yNum,
+                                     Grid.zBnum, config.Grid.zNum)
+
+      Flow_ComputeVelocityGradientAll(Fluid,
+                                      Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                                      Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                                      Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
+        Flow_ComputeVelocityGradientGhostNSCBC(Fluid,
+                                               config,
+                                               Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                                               Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                                               Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      end
+      Flow_UpdateGhostVelocityGradientStep1(Fluid,
+                                            config,
+                                            BC.xNegSign, BC.yNegSign, BC.zNegSign,
+                                            BC.xPosSign, BC.yPosSign, BC.zPosSign,
+                                            Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                                            Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                                            Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      Flow_UpdateGhostVelocityGradientStep2(Fluid,
+                                            config,
+                                            Grid.xBnum, config.Grid.xNum,
+                                            Grid.yBnum, config.Grid.yNum,
+                                            Grid.zBnum, config.Grid.zNum)
+
+      Flow_UpdateAuxiliaryThermodynamics(Fluid, config.Flow.gamma, config.Flow.gasConstant, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+      if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
+        Flow_UpdateAuxiliaryThermodynamicsGhostNSCBC(Fluid,
+                                                     config,
+                                                     config.Flow.gamma,
+                                                     config.Flow.gasConstant,
+                                                     BC.xNegTemperature,
+                                                     Grid.xBnum, config.Grid.xNum,
+                                                     Grid.yBnum, config.Grid.yNum,
+                                                     Grid.zBnum, config.Grid.zNum)
+      end
+      Flow_UpdateGhostThermodynamicsStep1(Fluid,
                                           config,
-                                          BC.xNegSign, BC.yNegSign, BC.zNegSign,
-                                          BC.xPosSign, BC.yPosSign, BC.zPosSign,
-                                          Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                          Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                          Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-    Flow_UpdateGhostVelocityGradientStep2(Fluid,
+                                          config.Flow.gamma,
+                                          config.Flow.gasConstant,
+                                          BC.xNegTemperature, BC.xPosTemperature,
+                                          BC.yNegTemperature, BC.yPosTemperature,
+                                          BC.zNegTemperature, BC.zPosTemperature,
+                                          Grid.xBnum, config.Grid.xNum,
+                                          Grid.yBnum, config.Grid.yNum,
+                                          Grid.zBnum, config.Grid.zNum)
+      Flow_UpdateGhostThermodynamicsStep2(Fluid,
                                           config,
                                           Grid.xBnum, config.Grid.xNum,
                                           Grid.yBnum, config.Grid.yNum,
                                           Grid.zBnum, config.Grid.zNum)
 
-    Flow_UpdateAuxiliaryThermodynamics(Fluid, config.Flow.gamma, config.Flow.gasConstant, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-    if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-      Flow_UpdateAuxiliaryThermodynamicsGhostNSCBC(Fluid,
-                                                   config,
-                                                   config.Flow.gamma,
-                                                   config.Flow.gasConstant,
-                                                   BC.xNegTemperature,
-                                                   Grid.xBnum, config.Grid.xNum,
-                                                   Grid.yBnum, config.Grid.yNum,
-                                                   Grid.zBnum, config.Grid.zNum)
-    end
-    Flow_UpdateGhostThermodynamicsStep1(Fluid,
-                                        config,
-                                        config.Flow.gamma,
-                                        config.Flow.gasConstant,
-                                        BC.xNegTemperature, BC.xPosTemperature,
-                                        BC.yNegTemperature, BC.yPosTemperature,
-                                        BC.zNegTemperature, BC.zPosTemperature,
-                                        Grid.xBnum, config.Grid.xNum,
-                                        Grid.yBnum, config.Grid.yNum,
-                                        Grid.zBnum, config.Grid.zNum)
-    Flow_UpdateGhostThermodynamicsStep2(Fluid,
-                                        config,
-                                        Grid.xBnum, config.Grid.xNum,
-                                        Grid.yBnum, config.Grid.yNum,
-                                        Grid.zBnum, config.Grid.zNum)
+      Flow_UpdateGhostFieldsStep1(Fluid,
+                                  config,
+                                  BC.xNegTemperature, BC.xNegVelocity, BC.xPosTemperature, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
+                                  BC.yNegTemperature, BC.yNegVelocity, BC.yPosTemperature, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
+                                  BC.zNegTemperature, BC.zNegVelocity, BC.zPosTemperature, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
+                                  config.Flow.gamma, config.Flow.gasConstant,
+                                  Grid.xBnum, config.Grid.xNum,
+                                  Grid.yBnum, config.Grid.yNum,
+                                  Grid.zBnum, config.Grid.zNum)
+      Flow_UpdateGhostFieldsStep2(Fluid,
+                                  Grid.xBnum, config.Grid.xNum,
+                                  Grid.yBnum, config.Grid.yNum,
+                                  Grid.zBnum, config.Grid.zNum)
 
-    Flow_UpdateGhostFieldsStep1(Fluid,
-                                config,
-                                BC.xNegTemperature, BC.xNegVelocity, BC.xPosTemperature, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
-                                BC.yNegTemperature, BC.yNegVelocity, BC.yPosTemperature, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
-                                BC.zNegTemperature, BC.zNegVelocity, BC.zPosTemperature, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
-                                config.Flow.gamma, config.Flow.gasConstant,
-                                Grid.xBnum, config.Grid.xNum,
-                                Grid.yBnum, config.Grid.yNum,
-                                Grid.zBnum, config.Grid.zNum)
-    Flow_UpdateGhostFieldsStep2(Fluid,
-                                Grid.xBnum, config.Grid.xNum,
-                                Grid.yBnum, config.Grid.yNum,
-                                Grid.zBnum, config.Grid.zNum)
+      -- Initialize particles
+      if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Random) then
+        regentlib.assert(false, "Random particle initialization is disabled")
+      end
+      if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart) then
+        particles_load(primColors, config.Particles.restartDir, particles, particles_copy, particles_primPart, particles_copy_primPart)
+        Particles_InitializeDensity(particles, config.Particles.density)
+        Particles_number += Particles_CalculateNumber(particles)
+      end
+      if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform) then
+        InitParticlesUniform(particles, Fluid, config, Grid.xBnum, Grid.yBnum, Grid.zBnum)
+        Particles_number =
+          config.Particles.initNum
+          / (config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2])
+          * (config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2])
+      end
 
-    -- Initialize particles
-    if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Random) then
-      regentlib.assert(false, "Random particle initialization is disabled")
-    end
-    if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart) then
-      particles_load(primColors, config.Particles.restartDir, particles, particles_copy, particles_primPart, particles_copy_primPart)
-      Particles_InitializeDensity(particles, config.Particles.density)
-      Particles_number += Particles_CalculateNumber(particles)
-    end
-    if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform) then
-      InitParticlesUniform(particles, Fluid, config, Grid.xBnum, Grid.yBnum, Grid.zBnum)
-      Particles_number =
-        config.Particles.initNum
-        / (config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2])
-        * (config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2])
-    end
+      -- Initialize radiation
+      if (config.Radiation.type == SCHEMA.RadiationType_DOM) then
+        Radiation_InitializeCell(Radiation);
+        [DOM.InitRegions()];
+      end
 
-    -- Initialize radiation
-    if (config.Radiation.type == SCHEMA.RadiationType_DOM) then
-      Radiation_InitializeCell(Radiation);
-      [DOM.InitRegions()];
-    end
+    end -- __parallelize_with
 
-    ---------------------------------------------------------------------------
-    -- Main time-step loop
-    ---------------------------------------------------------------------------
+  end end -- Exports.InitRegions
 
-    while true do
+  -----------------------------------------------------------------------------
+  -- Main time-step loop body
+  -----------------------------------------------------------------------------
+
+  function Exports.MainLoopBody(config) return rquote
+
+    __parallelize_with Fluid_primPart, particles_primPart, Radiation_primPart, primColors, image(Fluid,particles_primPart,particles.cell) <= Fluid_primPart do
 
       -- Calculate exit condition, but don't exit yet
       var exitCond =
@@ -6124,24 +6145,44 @@ task work([config])
 
       Integrator_timeStep += 1
 
-    end -- time-steping loop
+    end -- __parallelize_with
 
-  end -- __parallelize_with
+  end end -- Exports.MainLoopBody
 
   -----------------------------------------------------------------------------
-  -- Cleanup
+  -- Cleanup code
   -----------------------------------------------------------------------------
 
-  -- Stop timer
-  var endTime = regentlib.c.legion_get_current_time_in_micros() / 1000
-  C.fprintf(console, 'Total time: %lld.%03lld seconds\n',
-            (endTime - startTime) / 1000, (endTime - startTime) % 1000)
-  C.fflush(console)
+  function Exports.Cleanup() return rquote
 
-  -- Close long-running files
-  C.fclose(console)
+    -- Stop timer
+    var endTime = regentlib.c.legion_get_current_time_in_micros() / 1000
+    C.fprintf(console, 'Total time: %lld.%03lld seconds\n',
+              (endTime - startTime) / 1000, (endTime - startTime) % 1000)
+    C.fflush(console)
 
-end -- work task
+    -- Close long-running files
+    C.fclose(console)
+
+  end end -- Exports.Cleanup
+
+return Exports end -- mkFullSim
+
+-------------------------------------------------------------------------------
+-- TOP-LEVEL INTERFACE
+-------------------------------------------------------------------------------
+
+local SIM = mkFullSim()
+
+__forbid(__optimize) __demand(__inner)
+task work(config : Config)
+  [SIM.DeclSymbols(config)];
+  [SIM.InitRegions(config)];
+  while true do
+    [SIM.MainLoopBody(config)];
+  end
+  [SIM.Cleanup()];
+end
 
 __demand(__inline)
 task launchSample(configFile : &int8, num : int, outDirBase : &int8)
