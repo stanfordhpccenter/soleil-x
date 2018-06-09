@@ -4947,7 +4947,7 @@ do
       var pos = particles[p].position
       if pos[0]>max_x or pos[0]<min_x or pos[1]>max_y or pos[1]<min_y or pos[2]>max_z or pos[2]<min_z then
         particles[p].__valid = false
-        acc -= 1
+        acc += (-1)
       end
     end
   end
