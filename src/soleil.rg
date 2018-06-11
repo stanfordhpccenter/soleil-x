@@ -41,7 +41,7 @@ local PERTUBATION_MODES = 40
 
 local Config = SCHEMA.Config
 
-local struct particles_columns {
+local struct Particles_columns {
   cell : int3d;
   position : double[3];
   velocity : double[3];
@@ -158,10 +158,10 @@ local DOM = (require 'dom')(NUM_ANGLES, Radiation_columns, Config)
 
 local PI = 3.1415926535898
 
-local SIZEOF_PARTICLE = sizeof(particles_columns)
+local SIZEOF_PARTICLE = sizeof(Particles_columns)
 
 local terra validFieldOffset()
-  var x : particles_columns
+  var x : Particles_columns
   return [int64]([&int8](&(x.__valid)) - [&int8](&x))
 end
 local VALID_FIELD_OFFSET = validFieldOffset()
@@ -234,20 +234,20 @@ task Fluid_load(colors : ispace(int3d),
 end
 
 local __demand(__inline)
-task particles_dump(colors : ispace(int3d),
+task Particles_dump(colors : ispace(int3d),
                     dirname : &int8,
-                    r : region(ispace(int1d),particles_columns),
-                    s : region(ispace(int1d),particles_columns),
+                    r : region(ispace(int1d),Particles_columns),
+                    s : region(ispace(int1d),Particles_columns),
                     p_r : partition(disjoint, r, colors),
                     p_s : partition(disjoint, s, colors))
   regentlib.assert(false, 'Recompile with USE_HDF=1')
 end
 
 local __demand(__inline)
-task particles_load(colors : ispace(int3d),
+task Particles_load(colors : ispace(int3d),
                     dirname : &int8,
-                    r : region(ispace(int1d),particles_columns),
-                    s : region(ispace(int1d),particles_columns),
+                    r : region(ispace(int1d),Particles_columns),
+                    s : region(ispace(int1d),Particles_columns),
                     p_r : partition(disjoint, r, colors),
                     p_s : partition(disjoint, s, colors))
   regentlib.assert(false, 'Recompile with USE_HDF=1')
@@ -258,8 +258,8 @@ if USE_HDF then
   Fluid_dump, Fluid_load = HDF.mkHDFTasks(
     int3d, int3d, Fluid_columns,
     {"rho","pressure","velocity","temperature"})
-  particles_dump, particles_load = HDF.mkHDFTasks(
-    int1d, int3d, particles_columns,
+  Particles_dump, Particles_load = HDF.mkHDFTasks(
+    int1d, int3d, Particles_columns,
     {"cell","position","velocity","temperature","diameter","__valid"})
 end
 
@@ -314,16 +314,16 @@ task GetDynamicViscosity(temperature : double,
 end
 
 __demand(__parallel) -- NO CUDA
-task InitParticlesUniform(particles : region(ispace(int1d), particles_columns),
+task InitParticlesUniform(Particles : region(ispace(int1d), Particles_columns),
                           cells : region(ispace(int3d), Fluid_columns),
                           config : Config,
                           xBnum : int32, yBnum : int32, zBnum : int32)
 where
   reads(cells.{centerCoordinates, velocity}),
-  reads writes(particles)
+  reads writes(Particles)
 do
   var pBase = 0
-  for p in particles do -- this loop trips up the CUDA codegen
+  for p in Particles do -- this loop trips up the CUDA codegen
     pBase = int32(p)
     break
   end
@@ -342,7 +342,7 @@ do
   var Particles_initTemperature = config.Particles.initTemperature
   var Particles_diameterMean = config.Particles.diameterMean
   __demand(__openmp)
-  for p in particles do
+  for p in Particles do
     if ((int32(p)-pBase)<particlesPerTask) then
       p.__valid = true
       var relIdx = (int32(p)-pBase)
@@ -358,17 +358,17 @@ do
 end
 
 __demand(__parallel, __cuda)
-task AddRadiation(particles : region(ispace(int1d), particles_columns),
+task AddRadiation(Particles : region(ispace(int1d), Particles_columns),
                   config : Config)
 where
-  reads(particles.{density, diameter}),
-  reads writes(particles.temperature_t)
+  reads(Particles.{density, diameter}),
+  reads writes(Particles.temperature_t)
 do
   var absorptivity = config.Particles.absorptivity
   var intensity = config.Radiation.intensity
   var heatCapacity = config.Particles.heatCapacity
   __demand(__openmp)
-  for p in particles do
+  for p in Particles do
     var crossSectionArea = (((2*acos(0))*pow(p.diameter, 2))/4)
     var volume = (((2*acos(0))*pow(p.diameter, 3))/6)
     var mass = (volume*p.density)
@@ -378,7 +378,7 @@ do
 end
 
 __demand(__parallel, __cuda)
-task particles_initValidField(r : region(ispace(int1d), particles_columns))
+task Particles_initValidField(r : region(ispace(int1d), Particles_columns))
 where
   writes(r.__valid)
 do
@@ -2278,29 +2278,29 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Particles_InitializeDensity(particles : region(ispace(int1d), particles_columns),
+task Particles_InitializeDensity(Particles : region(ispace(int1d), Particles_columns),
                                  Particles_density : double)
 where
-  reads(particles.__valid),
-  writes(particles.density)
+  reads(Particles.__valid),
+  writes(Particles.density)
 do
   __demand(__openmp)
-  for p in particles do
-    if particles[p].__valid then
-      particles[p].density = Particles_density
+  for p in Particles do
+    if Particles[p].__valid then
+      Particles[p].density = Particles_density
     end
   end
 end
 
 __demand(__parallel, __cuda)
-task Particles_CalculateNumber(particles : region(ispace(int1d), particles_columns))
+task Particles_CalculateNumber(Particles : region(ispace(int1d), Particles_columns))
 where
-  reads(particles.__valid)
+  reads(Particles.__valid)
 do
   var acc = int64(0)
   __demand(__openmp)
-  for p in particles do
-    if particles[p].__valid then
+  for p in Particles do
+    if Particles[p].__valid then
       acc += 1
     end
   end
@@ -2401,15 +2401,15 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Particles_IntegrateQuantities(particles : region(ispace(int1d), particles_columns))
+task Particles_IntegrateQuantities(Particles : region(ispace(int1d), Particles_columns))
 where
-  reads(particles.{temperature, __valid})
+  reads(Particles.{temperature, __valid})
 do
   var acc = 0.0
   __demand(__openmp)
-  for p in particles do
-    if particles[p].__valid then
-      acc += particles[p].temperature
+  for p in Particles do
+    if Particles[p].__valid then
+      acc += Particles[p].temperature
     end
   end
   return acc
@@ -2591,20 +2591,20 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Particles_InitializeTemporaries(particles : region(ispace(int1d), particles_columns))
+task Particles_InitializeTemporaries(Particles : region(ispace(int1d), Particles_columns))
 where
-  reads(particles.{position, velocity, temperature, __valid}),
-  writes(particles.{position_new, position_old, temperature_new, temperature_old, velocity_new, velocity_old})
+  reads(Particles.{position, velocity, temperature, __valid}),
+  writes(Particles.{position_new, position_old, temperature_new, temperature_old, velocity_new, velocity_old})
 do
   __demand(__openmp)
-  for p in particles do
-    if particles[p].__valid then
-      particles[p].position_old = particles[p].position
-      particles[p].velocity_old = particles[p].velocity
-      particles[p].temperature_old = particles[p].temperature
-      particles[p].position_new = particles[p].position
-      particles[p].velocity_new = particles[p].velocity
-      particles[p].temperature_new = particles[p].temperature
+  for p in Particles do
+    if Particles[p].__valid then
+      Particles[p].position_old = Particles[p].position
+      Particles[p].velocity_old = Particles[p].velocity
+      Particles[p].temperature_old = Particles[p].temperature
+      Particles[p].position_new = Particles[p].position
+      Particles[p].velocity_new = Particles[p].velocity
+      Particles[p].temperature_new = Particles[p].temperature
     end
   end
 end
@@ -2625,17 +2625,17 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Particles_InitializeTimeDerivatives(particles : region(ispace(int1d), particles_columns))
+task Particles_InitializeTimeDerivatives(Particles : region(ispace(int1d), Particles_columns))
 where
-  reads(particles.__valid),
-  writes(particles.{position_t, velocity_t, temperature_t})
+  reads(Particles.__valid),
+  writes(Particles.{position_t, velocity_t, temperature_t})
 do
   __demand(__openmp)
-  for p in particles do
-    if particles[p].__valid then
-      particles[p].position_t = [double[3]](array(0.0, 0.0, 0.0))
-      particles[p].velocity_t = [double[3]](array(0.0, 0.0, 0.0))
-      particles[p].temperature_t = 0.0
+  for p in Particles do
+    if Particles[p].__valid then
+      Particles[p].position_t = [double[3]](array(0.0, 0.0, 0.0))
+      Particles[p].velocity_t = [double[3]](array(0.0, 0.0, 0.0))
+      Particles[p].temperature_t = 0.0
     end
   end
 end
@@ -3887,18 +3887,18 @@ task locate(pos : double[3],
 end
 
 __demand(__cuda) -- MANUALLY PARALLELIZED
-task Particles_LocateInCells(particles : region(ispace(int1d), particles_columns),
+task Particles_LocateInCells(Particles : region(ispace(int1d), Particles_columns),
                              Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
                              Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
                              Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
 where
-  reads(particles.{position, __valid}),
-  writes(particles.cell)
+  reads(Particles.{position, __valid}),
+  writes(Particles.cell)
 do
   __demand(__openmp)
-  for p in particles do
-    if particles[p].__valid then
-      particles[p].cell = locate(particles[p].position,
+  for p in Particles do
+    if Particles[p].__valid then
+      Particles[p].cell = locate(Particles[p].position,
                                  Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth,
                                  Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth,
                                  Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
@@ -3917,12 +3917,12 @@ task Fluid_elemColor(idx : int3d,
   return int3d({((idx.x-xBnum)/(xNum/NX_)), ((idx.y-yBnum)/(yNum/NY_)), ((idx.z-zBnum)/(zNum/NZ_))})
 end
 
-terra particles_pushElement(dst : &opaque,idx : int32,src : particles_columns)
+terra Particles_pushElement(dst : &opaque,idx : int32,src : Particles_columns)
   var ptr = [&int8](dst) + idx * SIZEOF_PARTICLE
   C.memcpy([&opaque](ptr), [&opaque](&src), [uint64](SIZEOF_PARTICLE))
 end
 
-terra particles_getBasePointer(pr : regentlib.c.legion_physical_region_t,fid : uint32,runtime : regentlib.c.legion_runtime_t)
+terra Particles_getBasePointer(pr : regentlib.c.legion_physical_region_t,fid : uint32,runtime : regentlib.c.legion_runtime_t)
   var acc = regentlib.c.legion_physical_region_get_field_accessor_array_1d(pr, fid)
   var lr = regentlib.c.legion_physical_region_get_logical_region(pr)
   var domain = regentlib.c.legion_index_space_get_domain(runtime, lr.index_space)
@@ -3934,8 +3934,8 @@ terra particles_getBasePointer(pr : regentlib.c.legion_physical_region_t,fid : u
   return p
 end
 
-terra particles_getOffset()
-  var x : particles_columns
+terra Particles_getOffset()
+  var x : Particles_columns
   return [&int8](&x.__valid) - [&int8](&x)
 end
 
@@ -3985,8 +3985,8 @@ local colorOffsets = terralib.newlist({
 })
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task particles_pushAll(partColor : int3d,
-                       r : region(ispace(int1d), particles_columns),
+task Particles_pushAll(partColor : int3d,
+                       r : region(ispace(int1d), Particles_columns),
                        [queueRegions],
                        rngXNum : int32,  rngYNum  : int32, rngZNum  : int32,
                        rngXbnum : int32, rngYbnum : int32, rngZbnum : int32,
@@ -3998,7 +3998,7 @@ do
     for qPtr in [queueRegions[i]] do
       [queueRegions[i]][qPtr][VALID_FIELD_OFFSET] = int8(false)
     end
-    var [qBasePtrs[i]] = particles_getBasePointer(__physical([queueRegions[i]])[0], __fields([queueRegions[i]])[0], __runtime())
+    var [qBasePtrs[i]] = Particles_getBasePointer(__physical([queueRegions[i]])[0], __fields([queueRegions[i]])[0], __runtime())
   @TIME end @EPACSE
   for rPtr in r do
     if rPtr.__valid then
@@ -4009,7 +4009,7 @@ do
             var idx = 0
             for qPtr in [queueRegions[i]] do
               if not bool([queueRegions[i]][qPtr][VALID_FIELD_OFFSET]) then
-                particles_pushElement([qBasePtrs[i]], idx, r[rPtr])
+                Particles_pushElement([qBasePtrs[i]], idx, r[rPtr])
                 rPtr.__valid = false
                 regentlib.assert(bool([queueRegions[i]][qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
@@ -4025,15 +4025,15 @@ do
   end
 end
 
-terra particles_pullElement(src : &int8)
-  var dst : particles_columns
+terra Particles_pullElement(src : &int8)
+  var dst : Particles_columns
   C.memcpy([&opaque](&dst), [&opaque](src), [uint64](SIZEOF_PARTICLE))
   return dst
 end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task particles_pullAll(color : int3d,
-                       r : region(ispace(int1d), particles_columns),
+task Particles_pullAll(color : int3d,
+                       r : region(ispace(int1d), Particles_columns),
                        [queueRegions])
 where
   reads writes(r), [queueReadPrivs], [queueWritePrivs]
@@ -4044,7 +4044,7 @@ do
         var copied = false
         for rPtr in r do
           if (not rPtr.__valid) then
-            r[rPtr] = particles_pullElement([&int8]([queueRegions[i]][qPtr]))
+            r[rPtr] = Particles_pullElement([&int8]([queueRegions[i]][qPtr]))
             copied = true
             regentlib.assert(rPtr.__valid, "Pulled particle was not copied correctly")
             break
@@ -4389,7 +4389,7 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Particles_AddFlowCoupling(particles : region(ispace(int1d), particles_columns),
+task Particles_AddFlowCoupling(Particles : region(ispace(int1d), Particles_columns),
                                Fluid : region(ispace(int3d), Fluid_columns),
                                Flow_constantVisc : double,
                                Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
@@ -4402,52 +4402,52 @@ task Particles_AddFlowCoupling(particles : region(ispace(int1d), particles_colum
                                Particles_heatCapacity : double)
 where
   reads(Fluid.{centerCoordinates, velocity, temperature}),
-  reads(particles.{cell, position, velocity, diameter, density, temperature, __valid}),
-  reads writes(particles.{position_t, velocity_t, temperature_t, deltaTemperatureTerm, deltaVelocityOverRelaxationTime})
+  reads(Particles.{cell, position, velocity, diameter, density, temperature, __valid}),
+  reads writes(Particles.{position_t, velocity_t, temperature_t, deltaTemperatureTerm, deltaVelocityOverRelaxationTime})
 do
   __demand(__openmp)
-  for p in particles do
-    if particles[p].__valid then
-      var flowVelocity = InterpolateTriVelocity(particles[p].cell, particles[p].position, Fluid, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin)
-      var flowTemperature = InterpolateTriTemp(particles[p].cell, particles[p].position, Fluid, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin)
+  for p in Particles do
+    if Particles[p].__valid then
+      var flowVelocity = InterpolateTriVelocity(Particles[p].cell, Particles[p].position, Fluid, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin)
+      var flowTemperature = InterpolateTriTemp(Particles[p].cell, Particles[p].position, Fluid, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin)
       var flowDynamicViscosity = GetDynamicViscosity(flowTemperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
-      var tmp = particles[p].velocity
-      var v = particles[p].position_t
+      var tmp = Particles[p].velocity
+      var v = Particles[p].position_t
       v[0] += tmp[0]
       v[1] += tmp[1]
       v[2] += tmp[2]
-      particles[p].position_t = v
+      Particles[p].position_t = v
       var particleReynoldsNumber = 0.0
-      var relaxationTime = (((particles[p].density*pow(particles[p].diameter, 2.0))/(18.0*flowDynamicViscosity))/(1.0+(double(0.15)*pow(particleReynoldsNumber, double(0.687)))))
-      particles[p].deltaVelocityOverRelaxationTime = vs_div(vv_sub(flowVelocity, particles[p].velocity), relaxationTime)
-      particles[p].deltaTemperatureTerm = (((PI*pow(particles[p].diameter, 2.0))*Particles_convectiveCoeff)*(flowTemperature-particles[p].temperature))
-      var tmp__10496 = particles[p].deltaVelocityOverRelaxationTime
-      var v__10497 = particles[p].velocity_t
+      var relaxationTime = (((Particles[p].density*pow(Particles[p].diameter, 2.0))/(18.0*flowDynamicViscosity))/(1.0+(double(0.15)*pow(particleReynoldsNumber, double(0.687)))))
+      Particles[p].deltaVelocityOverRelaxationTime = vs_div(vv_sub(flowVelocity, Particles[p].velocity), relaxationTime)
+      Particles[p].deltaTemperatureTerm = (((PI*pow(Particles[p].diameter, 2.0))*Particles_convectiveCoeff)*(flowTemperature-Particles[p].temperature))
+      var tmp__10496 = Particles[p].deltaVelocityOverRelaxationTime
+      var v__10497 = Particles[p].velocity_t
       v__10497[0] += tmp__10496[0]
       v__10497[1] += tmp__10496[1]
       v__10497[2] += tmp__10496[2]
-      particles[p].velocity_t = v__10497
-      particles[p].temperature_t += (particles[p].deltaTemperatureTerm/((((PI*pow(particles[p].diameter, 3.0))/6.0)*particles[p].density)*Particles_heatCapacity))
+      Particles[p].velocity_t = v__10497
+      Particles[p].temperature_t += (Particles[p].deltaTemperatureTerm/((((PI*pow(Particles[p].diameter, 3.0))/6.0)*Particles[p].density)*Particles_heatCapacity))
     end
   end
 end
 
 __demand(__parallel, __cuda)
-task Particles_AddBodyForces(particles : region(ispace(int1d), particles_columns),
+task Particles_AddBodyForces(Particles : region(ispace(int1d), Particles_columns),
                              Particles_bodyForce : double[3])
 where
-  reads(particles.__valid),
-  reads writes(particles.velocity_t)
+  reads(Particles.__valid),
+  reads writes(Particles.velocity_t)
 do
   __demand(__openmp)
-  for p in particles do
-    if particles[p].__valid then
+  for p in Particles do
+    if Particles[p].__valid then
       var tmp = Particles_bodyForce
-      var v = particles[p].velocity_t
+      var v = Particles[p].velocity_t
       v[0] += tmp[0]
       v[1] += tmp[1]
       v[2] += tmp[2]
-      particles[p].velocity_t = v
+      Particles[p].velocity_t = v
     end
   end
 end
@@ -4465,19 +4465,19 @@ do
 end
 
 __demand(__cuda) -- MANUALLY PARALLELIZED
-task Radiation_AccumulateParticleValues(particles : region(ispace(int1d), particles_columns),
+task Radiation_AccumulateParticleValues(Particles : region(ispace(int1d), Particles_columns),
                                         Fluid : region(ispace(int3d), Fluid_columns),
                                         Radiation : region(ispace(int3d), Radiation_columns))
 where
   reads(Fluid.to_Radiation),
-  reads(particles.{cell, diameter, temperature, __valid}),
+  reads(Particles.{cell, diameter, temperature, __valid}),
   reads writes(Radiation.{acc_d2, acc_d2t4})
 do
   __demand(__openmp)
-  for p in particles do
-    if particles[p].__valid then
-      Radiation[Fluid[particles[p].cell].to_Radiation].acc_d2 += pow(particles[p].diameter, 2.0)
-      Radiation[Fluid[particles[p].cell].to_Radiation].acc_d2t4 += (pow(particles[p].diameter, 2.0)*pow(particles[p].temperature, 4.0))
+  for p in Particles do
+    if Particles[p].__valid then
+      Radiation[Fluid[Particles[p].cell].to_Radiation].acc_d2 += pow(Particles[p].diameter, 2.0)
+      Radiation[Fluid[Particles[p].cell].to_Radiation].acc_d2t4 += (pow(Particles[p].diameter, 2.0)*pow(Particles[p].temperature, 4.0))
     end
   end
 end
@@ -4503,7 +4503,7 @@ do
 end
 
 __demand(__cuda) -- MANUALLY PARALLELIZED
-task Particles_AbsorbRadiation(particles : region(ispace(int1d), particles_columns),
+task Particles_AbsorbRadiation(Particles : region(ispace(int1d), Particles_columns),
                                Fluid : region(ispace(int3d), Fluid_columns),
                                Radiation : region(ispace(int3d), Radiation_columns),
                                Particles_heatCapacity : double,
@@ -4511,37 +4511,37 @@ task Particles_AbsorbRadiation(particles : region(ispace(int1d), particles_colum
 where
   reads(Fluid.to_Radiation),
   reads(Radiation.G),
-  reads(particles.{cell, density, diameter, temperature, __valid}),
-  reads writes(particles.temperature_t)
+  reads(Particles.{cell, density, diameter, temperature, __valid}),
+  reads writes(Particles.temperature_t)
 do
   __demand(__openmp)
-  for p in particles do
-    if particles[p].__valid then
-      var t4 = pow(particles[p].temperature, 4.0)
-      var alpha = ((((PI*Radiation_qa)*pow(particles[p].diameter, 2.0))*(Radiation[Fluid[particles[p].cell].to_Radiation].G-((4.0*double(5.67e-08))*t4)))/4.0)
-      particles[p].temperature_t += (alpha/((((PI*pow(particles[p].diameter, 3.0))/6.0)*particles[p].density)*Particles_heatCapacity))
+  for p in Particles do
+    if Particles[p].__valid then
+      var t4 = pow(Particles[p].temperature, 4.0)
+      var alpha = ((((PI*Radiation_qa)*pow(Particles[p].diameter, 2.0))*(Radiation[Fluid[Particles[p].cell].to_Radiation].G-((4.0*double(5.67e-08))*t4)))/4.0)
+      Particles[p].temperature_t += (alpha/((((PI*pow(Particles[p].diameter, 3.0))/6.0)*Particles[p].density)*Particles_heatCapacity))
     end
   end
 end
 
 __demand(__parallel, __cuda)
-task Flow_AddParticlesCoupling(particles : region(ispace(int1d), particles_columns),
+task Flow_AddParticlesCoupling(Particles : region(ispace(int1d), Particles_columns),
                                Fluid : region(ispace(int3d), Fluid_columns),
                                Grid_cellVolume : double)
 where
-  reads(particles.{cell, diameter, density, deltaTemperatureTerm, deltaVelocityOverRelaxationTime, __valid}),
+  reads(Particles.{cell, diameter, density, deltaTemperatureTerm, deltaVelocityOverRelaxationTime, __valid}),
   reads writes(Fluid.{rhoVelocity_t, rhoEnergy_t})
 do
   __demand(__openmp)
-  for p in particles do
-    if particles[p].__valid then
-      var tmp = vs_div(vs_mul(particles[p].deltaVelocityOverRelaxationTime, (-(((PI*pow(particles[p].diameter, 3.0))/6.0)*particles[p].density))), Grid_cellVolume)
-      var v = Fluid[particles[p].cell].rhoVelocity_t
+  for p in Particles do
+    if Particles[p].__valid then
+      var tmp = vs_div(vs_mul(Particles[p].deltaVelocityOverRelaxationTime, (-(((PI*pow(Particles[p].diameter, 3.0))/6.0)*Particles[p].density))), Grid_cellVolume)
+      var v = Fluid[Particles[p].cell].rhoVelocity_t
       v[0] += tmp[0]
       v[1] += tmp[1]
       v[2] += tmp[2]
-      Fluid[particles[p].cell].rhoVelocity_t = v
-      Fluid[particles[p].cell].rhoEnergy_t += ((-particles[p].deltaTemperatureTerm)/Grid_cellVolume)
+      Fluid[Particles[p].cell].rhoVelocity_t = v
+      Fluid[Particles[p].cell].rhoEnergy_t += ((-Particles[p].deltaTemperatureTerm)/Grid_cellVolume)
     end
   end
 end
@@ -4613,92 +4613,92 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Particles_UpdateVars(particles : region(ispace(int1d), particles_columns),
+task Particles_UpdateVars(Particles : region(ispace(int1d), Particles_columns),
                           Integrator_deltaTime : double,
                           Integrator_stage : int32)
 where
-  reads(particles.{position_old, velocity_old, temperature_old}),
-  reads(particles.{position_t, velocity_t, temperature_t, __valid}),
-  reads writes(particles.{position, position_new}),
-  reads writes(particles.{temperature, temperature_new}),
-  reads writes(particles.{velocity, velocity_new})
+  reads(Particles.{position_old, velocity_old, temperature_old}),
+  reads(Particles.{position_t, velocity_t, temperature_t, __valid}),
+  reads writes(Particles.{position, position_new}),
+  reads writes(Particles.{temperature, temperature_new}),
+  reads writes(Particles.{velocity, velocity_new})
 do
   __demand(__openmp)
-  for p in particles do
-    if particles[p].__valid then
+  for p in Particles do
+    if Particles[p].__valid then
       var deltaTime = Integrator_deltaTime
       if Integrator_stage == 1 then
-        var tmp = vs_mul(particles[p].position_t, ((1.0/6.0)*deltaTime))
-        var v = particles[p].position_new
+        var tmp = vs_mul(Particles[p].position_t, ((1.0/6.0)*deltaTime))
+        var v = Particles[p].position_new
         v[0] += tmp[0]
         v[1] += tmp[1]
         v[2] += tmp[2]
-        particles[p].position_new = v
-        particles[p].position = vv_add(particles[p].position_old, vs_mul(particles[p].position_t, (double(0.5)*deltaTime)))
-        var tmp__11020 = vs_mul(particles[p].velocity_t, ((1.0/6.0)*deltaTime))
-        var v__11021 = particles[p].velocity_new
+        Particles[p].position_new = v
+        Particles[p].position = vv_add(Particles[p].position_old, vs_mul(Particles[p].position_t, (double(0.5)*deltaTime)))
+        var tmp__11020 = vs_mul(Particles[p].velocity_t, ((1.0/6.0)*deltaTime))
+        var v__11021 = Particles[p].velocity_new
         v__11021[0] += tmp__11020[0]
         v__11021[1] += tmp__11020[1]
         v__11021[2] += tmp__11020[2]
-        particles[p].velocity_new = v__11021
-        particles[p].velocity = vv_add(particles[p].velocity_old, vs_mul(particles[p].velocity_t, (double(0.5)*deltaTime)))
-        particles[p].temperature_new += (((1.0/6.0)*deltaTime)*particles[p].temperature_t)
-        particles[p].temperature = (particles[p].temperature_old+((double(0.5)*deltaTime)*particles[p].temperature_t))
+        Particles[p].velocity_new = v__11021
+        Particles[p].velocity = vv_add(Particles[p].velocity_old, vs_mul(Particles[p].velocity_t, (double(0.5)*deltaTime)))
+        Particles[p].temperature_new += (((1.0/6.0)*deltaTime)*Particles[p].temperature_t)
+        Particles[p].temperature = (Particles[p].temperature_old+((double(0.5)*deltaTime)*Particles[p].temperature_t))
       elseif Integrator_stage == 2 then
-        var tmp = vs_mul(particles[p].position_t, ((1.0/3.0)*deltaTime))
-        var v = particles[p].position_new
+        var tmp = vs_mul(Particles[p].position_t, ((1.0/3.0)*deltaTime))
+        var v = Particles[p].position_new
         v[0] += tmp[0]
         v[1] += tmp[1]
         v[2] += tmp[2]
-        particles[p].position_new = v
-        particles[p].position = vv_add(particles[p].position_old, vs_mul(particles[p].position_t, (double(0.5)*deltaTime)))
-        var tmp__11024 = vs_mul(particles[p].velocity_t, ((1.0/3.0)*deltaTime))
-        var v__11025 = particles[p].velocity_new
+        Particles[p].position_new = v
+        Particles[p].position = vv_add(Particles[p].position_old, vs_mul(Particles[p].position_t, (double(0.5)*deltaTime)))
+        var tmp__11024 = vs_mul(Particles[p].velocity_t, ((1.0/3.0)*deltaTime))
+        var v__11025 = Particles[p].velocity_new
         v__11025[0] += tmp__11024[0]
         v__11025[1] += tmp__11024[1]
         v__11025[2] += tmp__11024[2]
-        particles[p].velocity_new = v__11025
-        particles[p].velocity = vv_add(particles[p].velocity_old, vs_mul(particles[p].velocity_t, (double(0.5)*deltaTime)))
-        particles[p].temperature_new += (((1.0/3.0)*deltaTime)*particles[p].temperature_t)
-        particles[p].temperature = (particles[p].temperature_old+((double(0.5)*deltaTime)*particles[p].temperature_t))
+        Particles[p].velocity_new = v__11025
+        Particles[p].velocity = vv_add(Particles[p].velocity_old, vs_mul(Particles[p].velocity_t, (double(0.5)*deltaTime)))
+        Particles[p].temperature_new += (((1.0/3.0)*deltaTime)*Particles[p].temperature_t)
+        Particles[p].temperature = (Particles[p].temperature_old+((double(0.5)*deltaTime)*Particles[p].temperature_t))
       elseif Integrator_stage == 3 then
-        var tmp = vs_mul(particles[p].position_t, ((1.0/3.0)*deltaTime))
-        var v = particles[p].position_new
+        var tmp = vs_mul(Particles[p].position_t, ((1.0/3.0)*deltaTime))
+        var v = Particles[p].position_new
         v[0] += tmp[0]
         v[1] += tmp[1]
         v[2] += tmp[2]
-        particles[p].position_new = v
-        particles[p].position = vv_add(particles[p].position_old, vs_mul(particles[p].position_t, (1.0*deltaTime)))
-        var tmp__11028 = vs_mul(particles[p].velocity_t, ((1.0/3.0)*deltaTime))
-        var v__11029 = particles[p].velocity_new
+        Particles[p].position_new = v
+        Particles[p].position = vv_add(Particles[p].position_old, vs_mul(Particles[p].position_t, (1.0*deltaTime)))
+        var tmp__11028 = vs_mul(Particles[p].velocity_t, ((1.0/3.0)*deltaTime))
+        var v__11029 = Particles[p].velocity_new
         v__11029[0] += tmp__11028[0]
         v__11029[1] += tmp__11028[1]
         v__11029[2] += tmp__11028[2]
-        particles[p].velocity_new = v__11029
-        particles[p].velocity = vv_add(particles[p].velocity_old, vs_mul(particles[p].velocity_t, (1.0*deltaTime)))
-        particles[p].temperature_new += (((1.0/3.0)*deltaTime)*particles[p].temperature_t)
-        particles[p].temperature = (particles[p].temperature_old+((1.0*deltaTime)*particles[p].temperature_t))
+        Particles[p].velocity_new = v__11029
+        Particles[p].velocity = vv_add(Particles[p].velocity_old, vs_mul(Particles[p].velocity_t, (1.0*deltaTime)))
+        Particles[p].temperature_new += (((1.0/3.0)*deltaTime)*Particles[p].temperature_t)
+        Particles[p].temperature = (Particles[p].temperature_old+((1.0*deltaTime)*Particles[p].temperature_t))
       else -- Integrator_stage == 4
-        particles[p].position = vv_add(particles[p].position_new, vs_mul(particles[p].position_t, ((1.0/6.0)*deltaTime)))
-        particles[p].velocity = vv_add(particles[p].velocity_new, vs_mul(particles[p].velocity_t, ((1.0/6.0)*deltaTime)))
-        particles[p].temperature = (particles[p].temperature_new+(((1.0/6.0)*deltaTime)*particles[p].temperature_t))
+        Particles[p].position = vv_add(Particles[p].position_new, vs_mul(Particles[p].position_t, ((1.0/6.0)*deltaTime)))
+        Particles[p].velocity = vv_add(Particles[p].velocity_new, vs_mul(Particles[p].velocity_t, ((1.0/6.0)*deltaTime)))
+        Particles[p].temperature = (Particles[p].temperature_new+(((1.0/6.0)*deltaTime)*Particles[p].temperature_t))
       end
     end
   end
 end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task Particles_HandleCollisions(particles : region(ispace(int1d), particles_columns),
+task Particles_HandleCollisions(Particles : region(ispace(int1d), Particles_columns),
                                 Integrator_deltaTime : double, Particles_restitutionCoeff : double )
 -- This is an adaption of collisionPrt routine of the Soleil-MPI version
 -- TODO: search box implementation
 where
-  reads(particles.{position_old, diameter, density, __valid}),
-  reads writes(particles.{position, velocity})
+  reads(Particles.{position_old, diameter, density, __valid}),
+  reads writes(Particles.{position, velocity})
 do
-  for p1 in particles do
+  for p1 in Particles do
     if p1.__valid then
-      for p2 in particles do
+      for p2 in Particles do
         if p2.__valid and p1 < p2 then
 
           -- Relative position of particles
@@ -4779,7 +4779,7 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Particles_UpdateAuxiliaryStep1(particles : region(ispace(int1d), particles_columns),
+task Particles_UpdateAuxiliaryStep1(Particles : region(ispace(int1d), Particles_columns),
                                     BC_xBCParticles : SCHEMA.ParticlesBC,
                                     BC_yBCParticles : SCHEMA.ParticlesBC,
                                     BC_zBCParticles : SCHEMA.ParticlesBC,
@@ -4788,118 +4788,118 @@ task Particles_UpdateAuxiliaryStep1(particles : region(ispace(int1d), particles_
                                     Grid_zOrigin : double, Grid_zWidth : double,
                                     Particles_restitutionCoeff : double)
 where
-  reads(particles.{position, velocity, velocity_t, __valid}),
-  reads writes(particles.{position_ghost, velocity_ghost, velocity_t_ghost})
+  reads(Particles.{position, velocity, velocity_t, __valid}),
+  reads writes(Particles.{position_ghost, velocity_ghost, velocity_t_ghost})
 do
   __demand(__openmp)
-  for p in particles do
-    if particles[p].__valid then
-      particles[p].position_ghost[0] = particles[p].position[0]
-      particles[p].position_ghost[1] = particles[p].position[1]
-      particles[p].position_ghost[2] = particles[p].position[2]
-      particles[p].velocity_ghost[0] = particles[p].velocity[0]
-      particles[p].velocity_ghost[1] = particles[p].velocity[1]
-      particles[p].velocity_ghost[2] = particles[p].velocity[2]
-      particles[p].velocity_t_ghost[0] = particles[p].velocity_t[0]
-      particles[p].velocity_t_ghost[1] = particles[p].velocity_t[1]
-      particles[p].velocity_t_ghost[2] = particles[p].velocity_t[2]
-      if (particles[p].position[0]<Grid_xOrigin) then
+  for p in Particles do
+    if Particles[p].__valid then
+      Particles[p].position_ghost[0] = Particles[p].position[0]
+      Particles[p].position_ghost[1] = Particles[p].position[1]
+      Particles[p].position_ghost[2] = Particles[p].position[2]
+      Particles[p].velocity_ghost[0] = Particles[p].velocity[0]
+      Particles[p].velocity_ghost[1] = Particles[p].velocity[1]
+      Particles[p].velocity_ghost[2] = Particles[p].velocity[2]
+      Particles[p].velocity_t_ghost[0] = Particles[p].velocity_t[0]
+      Particles[p].velocity_t_ghost[1] = Particles[p].velocity_t[1]
+      Particles[p].velocity_t_ghost[2] = Particles[p].velocity_t[2]
+      if (Particles[p].position[0]<Grid_xOrigin) then
         if BC_xBCParticles == SCHEMA.ParticlesBC_Periodic then
-          particles[p].position_ghost[0] = (particles[p].position[0]+Grid_xWidth)
+          Particles[p].position_ghost[0] = (Particles[p].position[0]+Grid_xWidth)
         elseif BC_xBCParticles == SCHEMA.ParticlesBC_Bounce then
-          particles[p].position_ghost[0] = Grid_xOrigin
-          var impulse = ((-(1.0+Particles_restitutionCoeff))*particles[p].velocity[0])
+          Particles[p].position_ghost[0] = Grid_xOrigin
+          var impulse = ((-(1.0+Particles_restitutionCoeff))*Particles[p].velocity[0])
           if (impulse<=0.0) then
-            particles[p].velocity_ghost[0] += impulse
+            Particles[p].velocity_ghost[0] += impulse
           end
-          var contact_force = (double(-1)*particles[p].velocity_t[0])
+          var contact_force = (double(-1)*Particles[p].velocity_t[0])
           if (contact_force>0.0) then
-            particles[p].velocity_t_ghost[0] += contact_force
+            Particles[p].velocity_t_ghost[0] += contact_force
           end
         else -- BC_xBCParticles == SCHEMA.ParticlesBC_Disappear
           -- Do nothing, let out-of-bounds particles get deleted
         end
       end
-      if (particles[p].position[0]>(Grid_xOrigin+Grid_xWidth)) then
+      if (Particles[p].position[0]>(Grid_xOrigin+Grid_xWidth)) then
         if BC_xBCParticles == SCHEMA.ParticlesBC_Periodic then
-          particles[p].position_ghost[0] = (particles[p].position[0]-Grid_xWidth)
+          Particles[p].position_ghost[0] = (Particles[p].position[0]-Grid_xWidth)
         elseif BC_xBCParticles == SCHEMA.ParticlesBC_Bounce then
-          particles[p].position_ghost[0] = (Grid_xOrigin+Grid_xWidth)
-          var impulse = ((-(1.0+Particles_restitutionCoeff))*particles[p].velocity[0])
+          Particles[p].position_ghost[0] = (Grid_xOrigin+Grid_xWidth)
+          var impulse = ((-(1.0+Particles_restitutionCoeff))*Particles[p].velocity[0])
           if (impulse>=0.0) then
-            particles[p].velocity_ghost[0] += impulse
+            Particles[p].velocity_ghost[0] += impulse
           end
-          var contact_force = (double(-1)*particles[p].velocity_t[0])
+          var contact_force = (double(-1)*Particles[p].velocity_t[0])
           if (contact_force<0.0) then
-            particles[p].velocity_t_ghost[0] += contact_force
+            Particles[p].velocity_t_ghost[0] += contact_force
           end
         else -- BC_xBCParticles == SCHEMA.ParticlesBC_Disappear
           -- Do nothing, let out-of-bounds particles get deleted
         end
       end
-      if (particles[p].position[1]<Grid_yOrigin) then
+      if (Particles[p].position[1]<Grid_yOrigin) then
         if BC_yBCParticles == SCHEMA.ParticlesBC_Periodic then
-          particles[p].position_ghost[1] = (particles[p].position[1]+Grid_yWidth)
+          Particles[p].position_ghost[1] = (Particles[p].position[1]+Grid_yWidth)
         elseif BC_yBCParticles == SCHEMA.ParticlesBC_Bounce then
-          particles[p].position_ghost[1] = Grid_yOrigin
-          var impulse = ((-(1.0+Particles_restitutionCoeff))*particles[p].velocity[1])
+          Particles[p].position_ghost[1] = Grid_yOrigin
+          var impulse = ((-(1.0+Particles_restitutionCoeff))*Particles[p].velocity[1])
           if (impulse<=0.0) then
-            particles[p].velocity_ghost[1] += impulse
+            Particles[p].velocity_ghost[1] += impulse
           end
-          var contact_force = (double(-1)*particles[p].velocity_t[1])
+          var contact_force = (double(-1)*Particles[p].velocity_t[1])
           if (contact_force>0.0) then
-            particles[p].velocity_t_ghost[1] += contact_force
+            Particles[p].velocity_t_ghost[1] += contact_force
           end
         else -- BC_yBCParticles == SCHEMA.ParticlesBC_Disappear
           -- Do nothing, let out-of-bounds particles get deleted
         end
       end
-      if (particles[p].position[1]>(Grid_yOrigin+Grid_yWidth)) then
+      if (Particles[p].position[1]>(Grid_yOrigin+Grid_yWidth)) then
         if BC_yBCParticles == SCHEMA.ParticlesBC_Periodic then
-          particles[p].position_ghost[1] = (particles[p].position[1]-Grid_yWidth)
+          Particles[p].position_ghost[1] = (Particles[p].position[1]-Grid_yWidth)
         elseif BC_yBCParticles == SCHEMA.ParticlesBC_Bounce then
-          particles[p].position_ghost[1] = (Grid_yOrigin+Grid_yWidth)
-          var impulse = ((-(1.0+Particles_restitutionCoeff))*particles[p].velocity[1])
+          Particles[p].position_ghost[1] = (Grid_yOrigin+Grid_yWidth)
+          var impulse = ((-(1.0+Particles_restitutionCoeff))*Particles[p].velocity[1])
           if (impulse>=0.0) then
-            particles[p].velocity_ghost[1] += impulse
+            Particles[p].velocity_ghost[1] += impulse
           end
-          var contact_force = (double(-1)*particles[p].velocity_t[1])
+          var contact_force = (double(-1)*Particles[p].velocity_t[1])
           if (contact_force<0.0) then
-            particles[p].velocity_t_ghost[1] += contact_force
+            Particles[p].velocity_t_ghost[1] += contact_force
           end
         else -- BC_yBCParticles == SCHEMA.ParticlesBC_Disappear
           -- Do nothing, let out-of-bounds particles get deleted
         end
       end
-      if (particles[p].position[2]<Grid_zOrigin) then
+      if (Particles[p].position[2]<Grid_zOrigin) then
         if BC_zBCParticles == SCHEMA.ParticlesBC_Periodic then
-          particles[p].position_ghost[2] = (particles[p].position[2]+Grid_zWidth)
+          Particles[p].position_ghost[2] = (Particles[p].position[2]+Grid_zWidth)
         elseif BC_zBCParticles == SCHEMA.ParticlesBC_Bounce then
-          particles[p].position_ghost[2] = Grid_zOrigin
-          var impulse = ((-(1.0+Particles_restitutionCoeff))*particles[p].velocity[2])
+          Particles[p].position_ghost[2] = Grid_zOrigin
+          var impulse = ((-(1.0+Particles_restitutionCoeff))*Particles[p].velocity[2])
           if (impulse<=0.0) then
-            particles[p].velocity_ghost[2] += impulse
+            Particles[p].velocity_ghost[2] += impulse
           end
-          var contact_force = (double(-1)*particles[p].velocity_t[2])
+          var contact_force = (double(-1)*Particles[p].velocity_t[2])
           if (contact_force>0.0) then
-            particles[p].velocity_t_ghost[2] += contact_force
+            Particles[p].velocity_t_ghost[2] += contact_force
           end
         else -- BC_zBCParticles == SCHEMA.ParticlesBC_Disappear
           -- Do nothing, let out-of-bounds particles get deleted
         end
       end
-      if (particles[p].position[2]>(Grid_zOrigin+Grid_zWidth)) then
+      if (Particles[p].position[2]>(Grid_zOrigin+Grid_zWidth)) then
         if BC_zBCParticles == SCHEMA.ParticlesBC_Periodic then
-          particles[p].position_ghost[2] = (particles[p].position[2]-Grid_zWidth)
+          Particles[p].position_ghost[2] = (Particles[p].position[2]-Grid_zWidth)
         elseif BC_zBCParticles == SCHEMA.ParticlesBC_Bounce then
-          particles[p].position_ghost[2] = (Grid_zOrigin+Grid_zWidth)
-          var impulse = ((-(1.0+Particles_restitutionCoeff))*particles[p].velocity[2])
+          Particles[p].position_ghost[2] = (Grid_zOrigin+Grid_zWidth)
+          var impulse = ((-(1.0+Particles_restitutionCoeff))*Particles[p].velocity[2])
           if (impulse>=0.0) then
-            particles[p].velocity_ghost[2] += impulse
+            Particles[p].velocity_ghost[2] += impulse
           end
-          var contact_force = (double(-1)*particles[p].velocity_t[2])
+          var contact_force = (double(-1)*Particles[p].velocity_t[2])
           if (contact_force<0.0) then
-            particles[p].velocity_t_ghost[2] += contact_force
+            Particles[p].velocity_t_ghost[2] += contact_force
           end
         else -- BC_zBCParticles == SCHEMA.ParticlesBC_Disappear
           -- Do nothing, let out-of-bounds particles get deleted
@@ -4910,43 +4910,43 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Particles_UpdateAuxiliaryStep2(particles : region(ispace(int1d), particles_columns))
+task Particles_UpdateAuxiliaryStep2(Particles : region(ispace(int1d), Particles_columns))
 where
-  reads(particles.{position_ghost, velocity_ghost, velocity_t_ghost, __valid}),
-  reads writes(particles.{position, velocity, velocity_t})
+  reads(Particles.{position_ghost, velocity_ghost, velocity_t_ghost, __valid}),
+  reads writes(Particles.{position, velocity, velocity_t})
 do
   __demand(__openmp)
-  for p in particles do
-    if particles[p].__valid then
-      particles[p].position = particles[p].position_ghost
-      particles[p].velocity = particles[p].velocity_ghost
-      particles[p].velocity_t = particles[p].velocity_t_ghost
+  for p in Particles do
+    if Particles[p].__valid then
+      Particles[p].position = Particles[p].position_ghost
+      Particles[p].velocity = Particles[p].velocity_ghost
+      Particles[p].velocity_t = Particles[p].velocity_t_ghost
     end
   end
 end
 
 __demand(__cuda) -- MANUALLY PARALLELIZED
-task Particles_DeleteEscapingParticles(particles : region(ispace(int1d), particles_columns),
+task Particles_DeleteEscapingParticles(Particles : region(ispace(int1d), Particles_columns),
                                        Grid_xOrigin : double, Grid_xWidth : double,
                                        Grid_yOrigin : double, Grid_yWidth : double,
                                        Grid_zOrigin : double, Grid_zWidth : double)
 where
-  reads(particles.position),
-  reads writes(particles.__valid)
+  reads(Particles.position),
+  reads writes(Particles.__valid)
 do
   var acc = int64(0)
   __demand(__openmp)
-  for p in particles do
-    if particles[p].__valid then
+  for p in Particles do
+    if Particles[p].__valid then
       var min_x = Grid_xOrigin
       var max_x = Grid_xOrigin+Grid_xWidth
       var min_y = Grid_yOrigin
       var max_y = Grid_yOrigin+Grid_yWidth
       var min_z = Grid_zOrigin
       var max_z = Grid_zOrigin+Grid_zWidth
-      var pos = particles[p].position
+      var pos = Particles[p].position
       if pos[0]>max_x or pos[0]<min_x or pos[1]>max_y or pos[1]<min_y or pos[2]>max_z or pos[2]<min_z then
-        particles[p].__valid = false
+        Particles[p].__valid = false
         acc += (-1)
       end
     end
@@ -5006,14 +5006,14 @@ local function mkFullSim() local Exports = {}
   local Particles_number = regentlib.newsymbol()
   local Fluid = regentlib.newsymbol()
   local Fluid_copy = regentlib.newsymbol()
-  local particles = regentlib.newsymbol()
-  local particles_copy = regentlib.newsymbol()
+  local Particles = regentlib.newsymbol()
+  local Particles_copy = regentlib.newsymbol()
   local Radiation = regentlib.newsymbol()
   local primColors = regentlib.newsymbol()
   local Fluid_primPart = regentlib.newsymbol()
   local Fluid_copy_primPart = regentlib.newsymbol()
-  local particles_primPart = regentlib.newsymbol()
-  local particles_copy_primPart = regentlib.newsymbol()
+  local Particles_primPart = regentlib.newsymbol()
+  local Particles_copy_primPart = regentlib.newsymbol()
   local Radiation_primPart = regentlib.newsymbol()
   local qSrcParts = UTIL.generate(26, function()
     return regentlib.newsymbol()
@@ -5352,8 +5352,8 @@ local function mkFullSim() local Exports = {}
 
     -- Create Particles Regions
     var is__11726 = ispace(int1d, int1d((ceil(((config.Particles.maxNum/((config.Mapping.tiles[0]*config.Mapping.tiles[1])*config.Mapping.tiles[2]))*config.Particles.maxSkew))*((config.Mapping.tiles[0]*config.Mapping.tiles[1])*config.Mapping.tiles[2]))))
-    var [particles] = region(is__11726, particles_columns)
-    var [particles_copy] = region(is__11726, particles_columns)
+    var [Particles] = region(is__11726, Particles_columns)
+    var [Particles_copy] = region(is__11726, Particles_columns)
 
     -- Create Radiation Regions
     var is__11729 = ispace(int3d, int3d({x = config.Radiation.xNum, y = config.Radiation.yNum, z = config.Radiation.zNum}))
@@ -5401,7 +5401,7 @@ local function mkFullSim() local Exports = {}
       for y : int32 = 0, config.Mapping.tiles[1] do
         for x : int32 = 0, config.Mapping.tiles[0] do
           var rBase : int64
-          for rStart in particles do
+          for rStart in Particles do
             rBase = int64((rStart+(((((z*config.Mapping.tiles[0])*config.Mapping.tiles[1])+(y*config.Mapping.tiles[0]))+x)*ceil(((config.Particles.maxNum/((config.Mapping.tiles[0]*config.Mapping.tiles[1])*config.Mapping.tiles[2]))*config.Particles.maxSkew)))))
             break
           end
@@ -5409,8 +5409,8 @@ local function mkFullSim() local Exports = {}
         end
       end
     end
-    var [particles_primPart] = partition(disjoint, particles, coloring__11738, primColors)
-    var [particles_copy_primPart] = partition(disjoint, particles_copy, coloring__11738, primColors)
+    var [Particles_primPart] = partition(disjoint, Particles, coloring__11738, primColors)
+    var [Particles_copy_primPart] = partition(disjoint, Particles_copy, coloring__11738, primColors)
     regentlib.c.legion_domain_point_coloring_destroy(coloring__11738);
     @ESCAPE for i = 1,26 do @EMIT
       var queue = region(ispace(int1d,config.Particles.maxXferNum*config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2]), int8[SIZEOF_PARTICLE])
@@ -5469,9 +5469,9 @@ local function mkFullSim() local Exports = {}
 
   function Exports.InitRegions(config) return rquote
 
-    __parallelize_with Fluid_primPart, particles_primPart, Radiation_primPart, primColors, image(Fluid,particles_primPart,particles.cell) <= Fluid_primPart do
+    __parallelize_with Fluid_primPart, Particles_primPart, Radiation_primPart, primColors, image(Fluid,Particles_primPart,Particles.cell) <= Fluid_primPart do
 
-      particles_initValidField(particles)
+      Particles_initValidField(Particles)
       SetCoarseningField(Fluid,
                          Grid.xBnum, config.Grid.xNum,
                          Grid.yBnum, config.Grid.yNum,
@@ -5644,12 +5644,12 @@ local function mkFullSim() local Exports = {}
         regentlib.assert(false, "Random particle initialization is disabled")
       end
       if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart) then
-        particles_load(primColors, config.Particles.restartDir, particles, particles_copy, particles_primPart, particles_copy_primPart)
-        Particles_InitializeDensity(particles, config.Particles.density)
-        Particles_number += Particles_CalculateNumber(particles)
+        Particles_load(primColors, config.Particles.restartDir, Particles, Particles_copy, Particles_primPart, Particles_copy_primPart)
+        Particles_InitializeDensity(Particles, config.Particles.density)
+        Particles_number += Particles_CalculateNumber(Particles)
       end
       if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform) then
-        InitParticlesUniform(particles, Fluid, config, Grid.xBnum, Grid.yBnum, Grid.zBnum)
+        InitParticlesUniform(Particles, Fluid, config, Grid.xBnum, Grid.yBnum, Grid.zBnum)
         Particles_number =
           config.Particles.initNum
           / (config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2])
@@ -5672,7 +5672,7 @@ local function mkFullSim() local Exports = {}
 
   function Exports.MainLoopBody(config) return rquote
 
-    __parallelize_with Fluid_primPart, particles_primPart, Radiation_primPart, primColors, image(Fluid,particles_primPart,particles.cell) <= Fluid_primPart do
+    __parallelize_with Fluid_primPart, Particles_primPart, Radiation_primPart, primColors, image(Fluid,Particles_primPart,Particles.cell) <= Fluid_primPart do
 
       -- Calculate exit condition, but don't exit yet
       var exitCond =
@@ -5706,7 +5706,7 @@ local function mkFullSim() local Exports = {}
       Flow_averagePressure += CalculateAveragePressure(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
       Flow_averageTemperature += CalculateAverageTemperature(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
       Flow_averageKineticEnergy += CalculateAverageKineticEnergy(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-      Particles_averageTemperature += Particles_IntegrateQuantities(particles)
+      Particles_averageTemperature += Particles_IntegrateQuantities(Particles)
       Flow_averagePressure = (Flow_averagePressure/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
       Flow_averageTemperature = (Flow_averageTemperature/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
       Flow_averageKineticEnergy = (Flow_averageKineticEnergy/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
@@ -5736,7 +5736,7 @@ local function mkFullSim() local Exports = {}
           C.snprintf(dirname, 256, '%s/fluid_iter%d', config.Mapping.outDir, Integrator_timeStep)
           Fluid_dump(primColors, dirname, Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
           C.snprintf(dirname, 256, '%s/particles_iter%d', config.Mapping.outDir, Integrator_timeStep)
-          particles_dump(primColors, dirname, particles, particles_copy, particles_primPart, particles_copy_primPart)
+          Particles_dump(primColors, dirname, Particles, Particles_copy, Particles_primPart, Particles_copy_primPart)
           C.free(dirname)
         end
       end
@@ -5750,14 +5750,14 @@ local function mkFullSim() local Exports = {}
       end
 
       Flow_InitializeTemporaries(Fluid)
-      Particles_InitializeTemporaries(particles)
+      Particles_InitializeTemporaries(Particles)
 
       var Integrator_time_old = Integrator_simTime
       var Integrator_stage = 1
       while (Integrator_stage<5) do
 
         Flow_InitializeTimeDerivatives(Fluid)
-        Particles_InitializeTimeDerivatives(particles)
+        Particles_InitializeTimeDerivatives(Particles)
 
         Flow_AddGetFlux(Fluid,
                         config,
@@ -5856,37 +5856,37 @@ local function mkFullSim() local Exports = {}
 
         -- Move particles to new partitions
         for c in primColors do
-          Particles_LocateInCells(particles_primPart[c],
+          Particles_LocateInCells(Particles_primPart[c],
                                   Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
                                   Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
                                   Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
         end
         for c in primColors do
-          particles_pushAll(c,
-                            particles_primPart[c],
+          Particles_pushAll(c,
+                            Particles_primPart[c],
                             [qSrcParts:map(function(p) return rexpr p[c] end end)],
                             config.Grid.xNum, config.Grid.yNum, config.Grid.zNum,
                             Grid.xBnum, Grid.yBnum, Grid.zBnum,
                             config.Mapping.tiles[0], config.Mapping.tiles[1], config.Mapping.tiles[2])
         end
         for c in primColors do
-          particles_pullAll(c,
-                            particles_primPart[c],
+          Particles_pullAll(c,
+                            Particles_primPart[c],
                             [qDstParts:map(function(p) return rexpr p[c] end end)])
         end
 
         -- Add fluid forces to particles
-        Particles_AddFlowCoupling(particles, Fluid, config.Flow.constantVisc, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid.xCellWidth, Grid.xRealOrigin, Grid.yCellWidth, Grid.yRealOrigin, Grid.zCellWidth, Grid.zRealOrigin, config.Particles.convectiveCoeff, config.Particles.heatCapacity)
-        Particles_AddBodyForces(particles, config.Particles.bodyForce)
+        Particles_AddFlowCoupling(Particles, Fluid, config.Flow.constantVisc, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid.xCellWidth, Grid.xRealOrigin, Grid.yCellWidth, Grid.yRealOrigin, Grid.zCellWidth, Grid.zRealOrigin, config.Particles.convectiveCoeff, config.Particles.heatCapacity)
+        Particles_AddBodyForces(Particles, config.Particles.bodyForce)
 
         -- Add radiation
         if (config.Radiation.type == SCHEMA.RadiationType_Algebraic) then
-          AddRadiation(particles, config)
+          AddRadiation(Particles, config)
         end
         if (config.Radiation.type == SCHEMA.RadiationType_DOM) then
           Radiation_ClearAccumulators(Radiation)
           for c in primColors do
-            Radiation_AccumulateParticleValues(particles_primPart[c], Fluid_primPart[c], Radiation_primPart[c])
+            Radiation_AccumulateParticleValues(Particles_primPart[c], Fluid_primPart[c], Radiation_primPart[c])
           end
           var Radiation_xCellWidth = (config.Grid.xWidth/config.Radiation.xNum)
           var Radiation_yCellWidth = (config.Grid.yWidth/config.Radiation.yNum)
@@ -5895,16 +5895,16 @@ local function mkFullSim() local Exports = {}
           Radiation_UpdateFieldValues(Radiation, Radiation_cellVolume, config.Radiation.qa, config.Radiation.qs);
           [DOM.ComputeRadiationField(config, primColors, Radiation_primPart)];
           for c in primColors do
-            Particles_AbsorbRadiation(particles_primPart[c], Fluid_primPart[c], Radiation_primPart[c], config.Particles.heatCapacity, config.Radiation.qa)
+            Particles_AbsorbRadiation(Particles_primPart[c], Fluid_primPart[c], Radiation_primPart[c], config.Particles.heatCapacity, config.Radiation.qa)
           end
         end
 
         -- Add particle forces to fluid
-        Flow_AddParticlesCoupling(particles, Fluid, Grid.cellVolume)
+        Flow_AddParticlesCoupling(Particles, Fluid, Grid.cellVolume)
 
         -- Time step
         Flow_UpdateVars(Fluid, Integrator_deltaTime, Integrator_stage)
-        Particles_UpdateVars(particles, Integrator_deltaTime, Integrator_stage)
+        Particles_UpdateVars(Particles, Integrator_deltaTime, Integrator_stage)
 
         -- Now the new conserved variables values are used so update everything else
         Flow_UpdateAuxiliaryVelocity(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
@@ -6101,10 +6101,10 @@ local function mkFullSim() local Exports = {}
         -- TODO: Collisions across tiles are not handled.
         if config.Particles.collisions and Integrator_stage==4 then
           for c in primColors do
-            Particles_HandleCollisions(particles_primPart[c], Integrator_deltaTime, config.Particles.restitutionCoeff)
+            Particles_HandleCollisions(Particles_primPart[c], Integrator_deltaTime, config.Particles.restitutionCoeff)
           end
         end
-        Particles_UpdateAuxiliaryStep1(particles,
+        Particles_UpdateAuxiliaryStep1(Particles,
                                        BC.xBCParticles,
                                        BC.yBCParticles,
                                        BC.zBCParticles,
@@ -6112,14 +6112,14 @@ local function mkFullSim() local Exports = {}
                                        config.Grid.origin[1], config.Grid.yWidth,
                                        config.Grid.origin[2], config.Grid.zWidth,
                                        config.Particles.restitutionCoeff)
-        Particles_UpdateAuxiliaryStep2(particles)
+        Particles_UpdateAuxiliaryStep2(Particles)
 
         Integrator_simTime = (Integrator_time_old+((double(0.5)*(1+(Integrator_stage/3)))*Integrator_deltaTime))
         Integrator_stage += 1
 
         for c in primColors do
           Particles_number +=
-            Particles_DeleteEscapingParticles(particles_primPart[c],
+            Particles_DeleteEscapingParticles(Particles_primPart[c],
                                               config.Grid.origin[0], config.Grid.xWidth,
                                               config.Grid.origin[1], config.Grid.yWidth,
                                               config.Grid.origin[2], config.Grid.zWidth)
