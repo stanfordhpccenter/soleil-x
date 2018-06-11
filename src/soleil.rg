@@ -5009,12 +5009,12 @@ local function mkFullSim() local Exports = {}
   local Particles = regentlib.newsymbol()
   local Particles_copy = regentlib.newsymbol()
   local Radiation = regentlib.newsymbol()
-  local primColors = regentlib.newsymbol()
-  local Fluid_primPart = regentlib.newsymbol()
-  local Fluid_copy_primPart = regentlib.newsymbol()
-  local Particles_primPart = regentlib.newsymbol()
-  local Particles_copy_primPart = regentlib.newsymbol()
-  local Radiation_primPart = regentlib.newsymbol()
+  local tiles = regentlib.newsymbol()
+  local p_Fluid = regentlib.newsymbol()
+  local p_Fluid_copy = regentlib.newsymbol()
+  local p_Particles = regentlib.newsymbol()
+  local p_Particles_copy = regentlib.newsymbol()
+  local p_Radiation = regentlib.newsymbol()
   local qSrcParts = UTIL.generate(26, function()
     return regentlib.newsymbol()
   end)
@@ -5360,14 +5360,14 @@ local function mkFullSim() local Exports = {}
     var [Radiation] = region(is__11729, Radiation_columns)
 
     -- Partitioning domain
-    var [primColors] = ispace(int3d, int3d({config.Mapping.tiles[0], config.Mapping.tiles[1], config.Mapping.tiles[2]}))
+    var [tiles] = ispace(int3d, int3d({config.Mapping.tiles[0], config.Mapping.tiles[1], config.Mapping.tiles[2]}))
 
     -- Fluid Partitioning
     regentlib.assert(((config.Grid.xNum%config.Mapping.tiles[0])==0), "Uneven partitioning of fluid grid on x")
     regentlib.assert(((config.Grid.yNum%config.Mapping.tiles[1])==0), "Uneven partitioning of fluid grid on y")
     regentlib.assert(((config.Grid.zNum%config.Mapping.tiles[2])==0), "Uneven partitioning of fluid grid on z")
     var coloring = regentlib.c.legion_domain_point_coloring_create()
-    for c in primColors do
+    for c in tiles do
       var rect = rect3d({lo = int3d({x = (Grid.xBnum+((config.Grid.xNum/config.Mapping.tiles[0])*c.x)), y = (Grid.yBnum+((config.Grid.yNum/config.Mapping.tiles[1])*c.y)), z = (Grid.zBnum+((config.Grid.zNum/config.Mapping.tiles[2])*c.z))}),
                          hi = int3d({x = ((Grid.xBnum+((config.Grid.xNum/config.Mapping.tiles[0])*(c.x+1)))-1), y = ((Grid.yBnum+((config.Grid.yNum/config.Mapping.tiles[1])*(c.y+1)))-1), z = ((Grid.zBnum+((config.Grid.zNum/config.Mapping.tiles[2])*(c.z+1)))-1)})})
       if (c.x==0) then
@@ -5390,8 +5390,8 @@ local function mkFullSim() local Exports = {}
       end
       regentlib.c.legion_domain_point_coloring_color_domain(coloring, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
     end
-    var [Fluid_primPart] = partition(disjoint, Fluid, coloring, primColors)
-    var [Fluid_copy_primPart] = partition(disjoint, Fluid_copy, coloring, primColors)
+    var [p_Fluid] = partition(disjoint, Fluid, coloring, tiles)
+    var [p_Fluid_copy] = partition(disjoint, Fluid_copy, coloring, tiles)
     regentlib.c.legion_domain_point_coloring_destroy(coloring)
 
     -- Particles Partitioning
@@ -5409,8 +5409,8 @@ local function mkFullSim() local Exports = {}
         end
       end
     end
-    var [Particles_primPart] = partition(disjoint, Particles, coloring__11738, primColors)
-    var [Particles_copy_primPart] = partition(disjoint, Particles_copy, coloring__11738, primColors)
+    var [p_Particles] = partition(disjoint, Particles, coloring__11738, tiles)
+    var [p_Particles_copy] = partition(disjoint, Particles_copy, coloring__11738, tiles)
     regentlib.c.legion_domain_point_coloring_destroy(coloring__11738);
     @ESCAPE for i = 1,26 do @EMIT
       var queue = region(ispace(int1d,config.Particles.maxXferNum*config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2]), int8[SIZEOF_PARTICLE])
@@ -5427,10 +5427,10 @@ local function mkFullSim() local Exports = {}
           end
         end
       end
-      var [qSrcParts[i]] = partition(disjoint, queue, srcColoring, primColors)
+      var [qSrcParts[i]] = partition(disjoint, queue, srcColoring, tiles)
       regentlib.c.legion_domain_point_coloring_destroy(srcColoring)
       var dstColoring = regentlib.c.legion_domain_point_coloring_create()
-      for c in primColors do
+      for c in tiles do
         var srcBase : int64
         for qptr in [qSrcParts[i]][ (c-[colorOffsets[i]]+{config.Mapping.tiles[0],config.Mapping.tiles[1],config.Mapping.tiles[2]}) % {config.Mapping.tiles[0],config.Mapping.tiles[1],config.Mapping.tiles[2]} ] do
           srcBase = qptr
@@ -5438,7 +5438,7 @@ local function mkFullSim() local Exports = {}
         end
         regentlib.c.legion_domain_point_coloring_color_domain(dstColoring, c, rect1d{srcBase,srcBase+config.Particles.maxXferNum-1})
       end
-      var [qDstParts[i]] = partition(aliased, queue, dstColoring, primColors)
+      var [qDstParts[i]] = partition(aliased, queue, dstColoring, tiles)
       regentlib.c.legion_domain_point_coloring_destroy(dstColoring)
     @TIME end @EPACSE
 
@@ -5447,12 +5447,12 @@ local function mkFullSim() local Exports = {}
     regentlib.assert(((config.Radiation.yNum%config.Mapping.tiles[1])==0), "Uneven partitioning of radiation grid on y")
     regentlib.assert(((config.Radiation.zNum%config.Mapping.tiles[2])==0), "Uneven partitioning of radiation grid on z")
     var coloring__12110 = regentlib.c.legion_domain_point_coloring_create()
-    for c in primColors do
+    for c in tiles do
       var rect = rect3d{lo = int3d{x = (config.Radiation.xNum/config.Mapping.tiles[0])*c.x,       y = (config.Radiation.yNum/config.Mapping.tiles[1])*c.y,       z = (config.Radiation.zNum/config.Mapping.tiles[2])*c.z      },
                         hi = int3d{x = (config.Radiation.xNum/config.Mapping.tiles[0])*(c.x+1)-1, y = (config.Radiation.yNum/config.Mapping.tiles[1])*(c.y+1)-1, z = (config.Radiation.zNum/config.Mapping.tiles[2])*(c.z+1)-1}}
       regentlib.c.legion_domain_point_coloring_color_domain(coloring__12110, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
     end
-    var [Radiation_primPart] = partition(disjoint, Radiation, coloring__12110, primColors)
+    var [p_Radiation] = partition(disjoint, Radiation, coloring__12110, tiles)
     regentlib.c.legion_domain_point_coloring_destroy(coloring__12110);
 
     ---------------------------------------------------------------------------
@@ -5469,7 +5469,7 @@ local function mkFullSim() local Exports = {}
 
   function Exports.InitRegions(config) return rquote
 
-    __parallelize_with Fluid_primPart, Particles_primPart, Radiation_primPart, primColors, image(Fluid,Particles_primPart,Particles.cell) <= Fluid_primPart do
+    __parallelize_with p_Fluid, p_Particles, p_Radiation, tiles, image(Fluid,p_Particles,Particles.cell) <= p_Fluid do
 
       Particles_initValidField(Particles)
       SetCoarseningField(Fluid,
@@ -5501,7 +5501,7 @@ local function mkFullSim() local Exports = {}
         Flow_InitializePerturbed(Fluid, config.Flow.initParams)
       end
       if (config.Flow.initCase == SCHEMA.FlowInitCase_Restart) then
-        Fluid_load(primColors, config.Flow.restartDir, Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
+        Fluid_load(tiles, config.Flow.restartDir, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
       end
       -- initialize ghost cells to their specified values in NSCBC case
       if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
@@ -5644,7 +5644,7 @@ local function mkFullSim() local Exports = {}
         regentlib.assert(false, "Random particle initialization is disabled")
       end
       if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart) then
-        Particles_load(primColors, config.Particles.restartDir, Particles, Particles_copy, Particles_primPart, Particles_copy_primPart)
+        Particles_load(tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
         Particles_InitializeDensity(Particles, config.Particles.density)
         Particles_number += Particles_CalculateNumber(Particles)
       end
@@ -5672,7 +5672,7 @@ local function mkFullSim() local Exports = {}
 
   function Exports.MainLoopBody(config) return rquote
 
-    __parallelize_with Fluid_primPart, Particles_primPart, Radiation_primPart, primColors, image(Fluid,Particles_primPart,Particles.cell) <= Fluid_primPart do
+    __parallelize_with p_Fluid, p_Particles, p_Radiation, tiles, image(Fluid,p_Particles,Particles.cell) <= p_Fluid do
 
       -- Calculate exit condition, but don't exit yet
       var exitCond =
@@ -5734,14 +5734,14 @@ local function mkFullSim() local Exports = {}
         if exitCond or Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 then
           var dirname = [&int8](C.malloc(256))
           C.snprintf(dirname, 256, '%s/fluid_iter%d', config.Mapping.outDir, Integrator_timeStep)
-          Fluid_dump(primColors, dirname, Fluid, Fluid_copy, Fluid_primPart, Fluid_copy_primPart)
+          Fluid_dump(tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
           C.snprintf(dirname, 256, '%s/particles_iter%d', config.Mapping.outDir, Integrator_timeStep)
-          Particles_dump(primColors, dirname, Particles, Particles_copy, Particles_primPart, Particles_copy_primPart)
+          Particles_dump(tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
           C.free(dirname)
         end
       end
-      for c in primColors do
-        Probes_write(Fluid_primPart[c], exitCond, Integrator_timeStep, config)
+      for c in tiles do
+        Probes_write(p_Fluid[c], exitCond, Integrator_timeStep, config)
       end
 
       -- Check exit condition after I/O
@@ -5855,23 +5855,23 @@ local function mkFullSim() local Exports = {}
         end
 
         -- Move particles to new partitions
-        for c in primColors do
-          Particles_LocateInCells(Particles_primPart[c],
+        for c in tiles do
+          Particles_LocateInCells(p_Particles[c],
                                   Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
                                   Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
                                   Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
         end
-        for c in primColors do
+        for c in tiles do
           Particles_pushAll(c,
-                            Particles_primPart[c],
+                            p_Particles[c],
                             [qSrcParts:map(function(p) return rexpr p[c] end end)],
                             config.Grid.xNum, config.Grid.yNum, config.Grid.zNum,
                             Grid.xBnum, Grid.yBnum, Grid.zBnum,
                             config.Mapping.tiles[0], config.Mapping.tiles[1], config.Mapping.tiles[2])
         end
-        for c in primColors do
+        for c in tiles do
           Particles_pullAll(c,
-                            Particles_primPart[c],
+                            p_Particles[c],
                             [qDstParts:map(function(p) return rexpr p[c] end end)])
         end
 
@@ -5885,17 +5885,17 @@ local function mkFullSim() local Exports = {}
         end
         if (config.Radiation.type == SCHEMA.RadiationType_DOM) then
           Radiation_ClearAccumulators(Radiation)
-          for c in primColors do
-            Radiation_AccumulateParticleValues(Particles_primPart[c], Fluid_primPart[c], Radiation_primPart[c])
+          for c in tiles do
+            Radiation_AccumulateParticleValues(p_Particles[c], p_Fluid[c], p_Radiation[c])
           end
           var Radiation_xCellWidth = (config.Grid.xWidth/config.Radiation.xNum)
           var Radiation_yCellWidth = (config.Grid.yWidth/config.Radiation.yNum)
           var Radiation_zCellWidth = (config.Grid.zWidth/config.Radiation.zNum)
           var Radiation_cellVolume = Radiation_xCellWidth * Radiation_yCellWidth * Radiation_zCellWidth
           Radiation_UpdateFieldValues(Radiation, Radiation_cellVolume, config.Radiation.qa, config.Radiation.qs);
-          [DOM.ComputeRadiationField(config, primColors, Radiation_primPart)];
-          for c in primColors do
-            Particles_AbsorbRadiation(Particles_primPart[c], Fluid_primPart[c], Radiation_primPart[c], config.Particles.heatCapacity, config.Radiation.qa)
+          [DOM.ComputeRadiationField(config, tiles, p_Radiation)];
+          for c in tiles do
+            Particles_AbsorbRadiation(p_Particles[c], p_Fluid[c], p_Radiation[c], config.Particles.heatCapacity, config.Radiation.qa)
           end
         end
 
@@ -6100,8 +6100,8 @@ local function mkFullSim() local Exports = {}
 
         -- TODO: Collisions across tiles are not handled.
         if config.Particles.collisions and Integrator_stage==4 then
-          for c in primColors do
-            Particles_HandleCollisions(Particles_primPart[c], Integrator_deltaTime, config.Particles.restitutionCoeff)
+          for c in tiles do
+            Particles_HandleCollisions(p_Particles[c], Integrator_deltaTime, config.Particles.restitutionCoeff)
           end
         end
         Particles_UpdateAuxiliaryStep1(Particles,
@@ -6117,9 +6117,9 @@ local function mkFullSim() local Exports = {}
         Integrator_simTime = (Integrator_time_old+((double(0.5)*(1+(Integrator_stage/3)))*Integrator_deltaTime))
         Integrator_stage += 1
 
-        for c in primColors do
+        for c in tiles do
           Particles_number +=
-            Particles_DeleteEscapingParticles(Particles_primPart[c],
+            Particles_DeleteEscapingParticles(p_Particles[c],
                                               config.Grid.origin[0], config.Grid.xWidth,
                                               config.Grid.origin[1], config.Grid.yWidth,
                                               config.Grid.origin[2], config.Grid.zWidth)
