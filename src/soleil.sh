@@ -54,11 +54,6 @@ for (( i = 1; i <= $#; i++ )); do
     if [[ "${!i}" == "-i" ]] && (( $i < $# )); then
         j=$((i+1))
         parse_config "${!j}"
-    elif [[ "${!i}" == "-I" ]] && (( $i < $# )); then
-        j=$((i+1))
-        while IFS='' read -r LINE || [[ -n "$LINE" ]]; do
-            parse_config "$LINE"
-        done < "${!j}"
     fi
 done
 if (( NUM_RANKS < 1 )); then

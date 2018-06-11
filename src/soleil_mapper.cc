@@ -128,12 +128,6 @@ public:
     for (int i = 0; i < args.argc; ++i) {
       if (strcmp(args.argv[i], "-i") == 0 && i < args.argc-1) {
         process_config(args.argv[i+1]);
-      } else if (strcmp(args.argv[i], "-I") == 0 && i < args.argc-1) {
-        std::ifstream csv_file(args.argv[i+1]);
-        std::string json_filename;
-        while (std::getline(csv_file, json_filename)) {
-          process_config(&json_filename[0]);
-        }
       }
     }
     // Verify that we have enough ranks.

@@ -6216,17 +6216,6 @@ task main()
     if C.strcmp(args.argv[i], '-i') == 0 and i < args.argc-1 then
       launchSample(args.argv[i+1], launched, outDirBase)
       launched += 1
-    elseif C.strcmp(args.argv[i], '-I') == 0 and i < args.argc-1 then
-      var csvFile = C.fopen(args.argv[i+1], 'r')
-      var jsonFileName : int8[256]
-      while C.fgets(jsonFileName, 256, csvFile) ~= [&int8](0) do
-        if jsonFileName[C.strlen(jsonFileName) - 1] == 10 then -- 10 == '\n'
-          jsonFileName[C.strlen(jsonFileName) - 1] = 0
-        end
-        launchSample(jsonFileName, launched, outDirBase)
-        launched += 1
-      end
-      C.fclose(csvFile)
     end
   end
   if launched < 1 then
