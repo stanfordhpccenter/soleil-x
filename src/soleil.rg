@@ -5023,6 +5023,22 @@ local function mkFullSim() local Exports = {}
   end)
 
   -----------------------------------------------------------------------------
+  -- Exported symbols
+  -----------------------------------------------------------------------------
+
+  Exports.Fluid = Fluid
+  Exports.Fluid_copy = Fluid_copy
+  Exports.Particles = Particles
+  Exports.Particles_copy = Particles_copy
+  Exports.Radiation = Radiation
+  Exports.tiles = tiles
+  Exports.p_Fluid = p_Fluid
+  Exports.p_Fluid_copy = p_Fluid_copy
+  Exports.p_Particles = p_Particles
+  Exports.p_Particles_copy = p_Particles_copy
+  Exports.p_Radiation = p_Radiation
+
+  -----------------------------------------------------------------------------
   -- Symbol declaration & initialization
   -----------------------------------------------------------------------------
 
@@ -5469,66 +5485,438 @@ local function mkFullSim() local Exports = {}
 
   function Exports.InitRegions(config) return rquote
 
-    __parallelize_with p_Fluid, p_Particles, p_Radiation, tiles, image(Fluid,p_Particles,Particles.cell) <= p_Fluid do
+    Particles_initValidField(Particles)
+    SetCoarseningField(Fluid,
+                       Grid.xBnum, config.Grid.xNum,
+                       Grid.yBnum, config.Grid.yNum,
+                       Grid.zBnum, config.Grid.zNum,
+                       config.Radiation.xNum,
+                       config.Radiation.yNum,
+                       config.Radiation.zNum)
+    Flow_InitializeCell(Fluid)
+    Flow_InitializeCenterCoordinates(Fluid,
+                                     Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
+                                     Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
+                                     Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
 
-      Particles_initValidField(Particles)
-      SetCoarseningField(Fluid,
+    if (config.Flow.initCase == SCHEMA.FlowInitCase_Uniform) then
+      Flow_InitializeUniform(Fluid, config.Flow.initParams)
+    end
+    if (config.Flow.initCase == SCHEMA.FlowInitCase_Random) then
+      Flow_InitializeRandom(Fluid, config.Flow.initParams)
+    end
+    if (config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen2DVortex) then
+      Flow_InitializeTaylorGreen2D(Fluid, config.Flow.initParams, Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth, Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth, Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+    end
+    if (config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen3DVortex) then
+      Flow_InitializeTaylorGreen3D(Fluid, config.Flow.initParams, Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth, Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth, Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+    end
+    if (config.Flow.initCase == SCHEMA.FlowInitCase_Perturbed) then
+      Flow_InitializePerturbed(Fluid, config.Flow.initParams)
+    end
+    if (config.Flow.initCase == SCHEMA.FlowInitCase_Restart) then
+      Fluid_load(tiles, config.Flow.restartDir, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
+    end
+    -- initialize ghost cells to their specified values in NSCBC case
+    if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
+        Flow_InitializeGhostNSCBC(Fluid,
+                                  config,
+                                  config.Flow.gasConstant,
+                                  BC.xNegTemperature,
+                                  config.Flow.constantVisc,
+                                  config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                  config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                  config.Flow.viscosityModel,
+                                  Grid.xBnum, config.Grid.xNum,
+                                  Grid.yBnum, config.Grid.yNum,
+                                  Grid.zBnum, config.Grid.zNum)
+    end
+
+    -- update interior cells from initialized primitive values values
+    Flow_UpdateConservedFromPrimitive(Fluid, config.Flow.gamma, config.Flow.gasConstant, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+    if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
+      Flow_UpdateConservedFromPrimitiveGhostNSCBC(Fluid,
+                                                  config,
+                                                  config.Flow.gamma, config.Flow.gasConstant,
+                                                  Grid.xBnum, config.Grid.xNum,
+                                                  Grid.yBnum, config.Grid.yNum,
+                                                  Grid.zBnum, config.Grid.zNum)
+    end
+
+    Flow_UpdateAuxiliaryVelocity(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+    if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
+      Flow_UpdateAuxiliaryVelocityGhostNSCBC(Fluid,
+                                             config,
+                                             config.Flow.constantVisc,
+                                             config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                             config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                             config.Flow.viscosityModel,
+                                             Grid.xBnum, config.Grid.xNum,
+                                             Grid.yBnum, config.Grid.yNum,
+                                             Grid.zBnum, config.Grid.zNum)
+    end
+    Flow_UpdateGhostVelocityStep1(Fluid,
+                                  config,
+                                  BC.xNegVelocity, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
+                                  BC.yNegVelocity, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
+                                  BC.zNegVelocity, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
+                                  Grid.xBnum, config.Grid.xNum,
+                                  Grid.yBnum, config.Grid.yNum,
+                                  Grid.zBnum, config.Grid.zNum)
+    Flow_UpdateGhostVelocityStep2(Fluid,
+                                  config,
+                                  Grid.xBnum, config.Grid.xNum,
+                                  Grid.yBnum, config.Grid.yNum,
+                                  Grid.zBnum, config.Grid.zNum)
+
+    Flow_UpdateGhostConservedStep1(Fluid,
+                                   config,
+                                   BC.xNegTemperature, BC.xNegVelocity, BC.xPosTemperature, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
+                                   BC.yNegTemperature, BC.yNegVelocity, BC.yPosTemperature, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
+                                   BC.zNegTemperature, BC.zNegVelocity, BC.zPosTemperature, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
+                                   config.Flow.gamma, config.Flow.gasConstant,
+                                   config.Flow.constantVisc,
+                                   config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                   config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                   config.Flow.viscosityModel,
+                                   Grid.xBnum, config.Grid.xNum,
+                                   Grid.yBnum, config.Grid.yNum,
+                                   Grid.zBnum, config.Grid.zNum)
+    Flow_UpdateGhostConservedStep2(Fluid,
+                                   config,
+                                   Grid.xBnum, config.Grid.xNum,
+                                   Grid.yBnum, config.Grid.yNum,
+                                   Grid.zBnum, config.Grid.zNum)
+
+    Flow_ComputeVelocityGradientAll(Fluid,
+                                    Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                                    Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                                    Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+    if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
+      Flow_ComputeVelocityGradientGhostNSCBC(Fluid,
+                                             config,
+                                             Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                                             Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                                             Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+    end
+    Flow_UpdateGhostVelocityGradientStep1(Fluid,
+                                          config,
+                                          BC.xNegSign, BC.yNegSign, BC.zNegSign,
+                                          BC.xPosSign, BC.yPosSign, BC.zPosSign,
+                                          Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                                          Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                                          Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+    Flow_UpdateGhostVelocityGradientStep2(Fluid,
+                                          config,
+                                          Grid.xBnum, config.Grid.xNum,
+                                          Grid.yBnum, config.Grid.yNum,
+                                          Grid.zBnum, config.Grid.zNum)
+
+    Flow_UpdateAuxiliaryThermodynamics(Fluid, config.Flow.gamma, config.Flow.gasConstant, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+    if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
+      Flow_UpdateAuxiliaryThermodynamicsGhostNSCBC(Fluid,
+                                                   config,
+                                                   config.Flow.gamma,
+                                                   config.Flow.gasConstant,
+                                                   BC.xNegTemperature,
+                                                   Grid.xBnum, config.Grid.xNum,
+                                                   Grid.yBnum, config.Grid.yNum,
+                                                   Grid.zBnum, config.Grid.zNum)
+    end
+    Flow_UpdateGhostThermodynamicsStep1(Fluid,
+                                        config,
+                                        config.Flow.gamma,
+                                        config.Flow.gasConstant,
+                                        BC.xNegTemperature, BC.xPosTemperature,
+                                        BC.yNegTemperature, BC.yPosTemperature,
+                                        BC.zNegTemperature, BC.zPosTemperature,
+                                        Grid.xBnum, config.Grid.xNum,
+                                        Grid.yBnum, config.Grid.yNum,
+                                        Grid.zBnum, config.Grid.zNum)
+    Flow_UpdateGhostThermodynamicsStep2(Fluid,
+                                        config,
+                                        Grid.xBnum, config.Grid.xNum,
+                                        Grid.yBnum, config.Grid.yNum,
+                                        Grid.zBnum, config.Grid.zNum)
+
+    Flow_UpdateGhostFieldsStep1(Fluid,
+                                config,
+                                BC.xNegTemperature, BC.xNegVelocity, BC.xPosTemperature, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
+                                BC.yNegTemperature, BC.yNegVelocity, BC.yPosTemperature, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
+                                BC.zNegTemperature, BC.zNegVelocity, BC.zPosTemperature, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
+                                config.Flow.gamma, config.Flow.gasConstant,
+                                Grid.xBnum, config.Grid.xNum,
+                                Grid.yBnum, config.Grid.yNum,
+                                Grid.zBnum, config.Grid.zNum)
+    Flow_UpdateGhostFieldsStep2(Fluid,
+                                Grid.xBnum, config.Grid.xNum,
+                                Grid.yBnum, config.Grid.yNum,
+                                Grid.zBnum, config.Grid.zNum)
+
+    -- Initialize particles
+    if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Random) then
+      regentlib.assert(false, "Random particle initialization is disabled")
+    end
+    if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart) then
+      Particles_load(tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
+      Particles_InitializeDensity(Particles, config.Particles.density)
+      Particles_number += Particles_CalculateNumber(Particles)
+    end
+    if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform) then
+      InitParticlesUniform(Particles, Fluid, config, Grid.xBnum, Grid.yBnum, Grid.zBnum)
+      Particles_number =
+        config.Particles.initNum
+        / (config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2])
+        * (config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2])
+    end
+
+    -- Initialize radiation
+    if (config.Radiation.type == SCHEMA.RadiationType_DOM) then
+      Radiation_InitializeCell(Radiation);
+      [DOM.InitRegions()];
+    end
+
+  end end -- Exports.InitRegions
+
+  -----------------------------------------------------------------------------
+  -- Main time-step loop body
+  -----------------------------------------------------------------------------
+
+  function Exports.MainLoopBody(config) return rquote
+
+    -- Calculate exit condition, but don't exit yet
+    var exitCond =
+      Integrator_simTime >= config.Integrator.finalTime or
+      Integrator_timeStep >= config.Integrator.maxIter
+
+    -- Determine time step size
+    var Integrator_deltaTime : double
+    if (config.Integrator.cfl<0) then
+      Integrator_deltaTime = config.Integrator.fixedDeltaTime
+    else
+      var Integrator_maxConvectiveSpectralRadius = 0.0
+      var Integrator_maxViscousSpectralRadius = 0.0
+      var Integrator_maxHeatConductionSpectralRadius = 0.0
+      var Grid_dXYZInverseSquare =
+        1.0/Grid.xCellWidth/Grid.xCellWidth +
+        1.0/Grid.yCellWidth/Grid.yCellWidth +
+        1.0/Grid.zCellWidth/Grid.zCellWidth
+      Integrator_maxConvectiveSpectralRadius max= CalculateConvectiveSpectralRadius(Fluid, config.Flow.gamma, config.Flow.gasConstant, Grid_dXYZInverseSquare, Grid.xCellWidth, Grid.yCellWidth, Grid.zCellWidth)
+      Integrator_maxViscousSpectralRadius max= CalculateViscousSpectralRadius(Fluid, config.Flow.constantVisc, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid_dXYZInverseSquare)
+      Integrator_maxHeatConductionSpectralRadius max= CalculateHeatConductionSpectralRadius(Fluid, config.Flow.constantVisc, config.Flow.gamma, config.Flow.gasConstant, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.prandtl, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid_dXYZInverseSquare)
+      Integrator_deltaTime = (config.Integrator.cfl/max(Integrator_maxConvectiveSpectralRadius, max(Integrator_maxViscousSpectralRadius, Integrator_maxHeatConductionSpectralRadius)))
+    end
+
+    -- Perform IO
+    var currTime = regentlib.c.legion_get_current_time_in_micros() / 1000
+    var Flow_averagePressure = 0.0
+    var Flow_averageTemperature = 0.0
+    var Flow_averageKineticEnergy = 0.0
+    var Particles_averageTemperature = 0.0
+    Flow_averagePressure += CalculateAveragePressure(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+    Flow_averageTemperature += CalculateAverageTemperature(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+    Flow_averageKineticEnergy += CalculateAverageKineticEnergy(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+    Particles_averageTemperature += Particles_IntegrateQuantities(Particles)
+    Flow_averagePressure = (Flow_averagePressure/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
+    Flow_averageTemperature = (Flow_averageTemperature/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
+    Flow_averageKineticEnergy = (Flow_averageKineticEnergy/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
+    Particles_averageTemperature = (Particles_averageTemperature/Particles_number)
+    C.fprintf(console, ['%d\t'..
+                        '%e\t'..
+                        '%lld.%03lld\t'..
+                        '%e\t'..
+                        '%e\t'..
+                        '%e\t'..
+                        '%e\t'..
+                        '%d\t'..
+                        '%e\n'],
+              Integrator_timeStep,
+              Integrator_simTime,
+              (currTime - startTime) / 1000, (currTime - startTime) % 1000,
+              Integrator_deltaTime,
+              Flow_averagePressure,
+              Flow_averageTemperature,
+              Flow_averageKineticEnergy,
+              Particles_number,
+              Particles_averageTemperature)
+    C.fflush(console)
+    if config.IO.wrtRestart then
+      if exitCond or Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 then
+        var dirname = [&int8](C.malloc(256))
+        C.snprintf(dirname, 256, '%s/fluid_iter%d', config.Mapping.outDir, Integrator_timeStep)
+        Fluid_dump(tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
+        C.snprintf(dirname, 256, '%s/particles_iter%d', config.Mapping.outDir, Integrator_timeStep)
+        Particles_dump(tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
+        C.free(dirname)
+      end
+    end
+    for c in tiles do
+      Probes_write(p_Fluid[c], exitCond, Integrator_timeStep, config)
+    end
+
+    -- Check exit condition after I/O
+    if exitCond then
+      break
+    end
+
+    Flow_InitializeTemporaries(Fluid)
+    Particles_InitializeTemporaries(Particles)
+
+    var Integrator_time_old = Integrator_simTime
+    var Integrator_stage = 1
+    while (Integrator_stage<5) do
+
+      Flow_InitializeTimeDerivatives(Fluid)
+      Particles_InitializeTimeDerivatives(Particles)
+
+      Flow_AddGetFlux(Fluid,
+                      config,
+                      config.Flow.constantVisc,
+                      config.Flow.gamma, config.Flow.gasConstant,
+                      config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                      config.Flow.prandtl,
+                      config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                      config.Flow.viscosityModel,
+                      Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                      Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                      Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      Flow_AddUpdateUsingFlux(Fluid,
+                              Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                              Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                              Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+
+      if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
+        Flow_AddGetFluxGhostNSCBC(Fluid,
+                                  config,
+                                  config.Flow.constantVisc,
+                                  config.Flow.gamma,
+                                  config.Flow.gasConstant,
+                                  config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                  config.Flow.prandtl,
+                                  config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                  config.Flow.viscosityModel,
+                                  Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                                  Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                                  Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+
+        var maxMach = -math.huge
+        maxMach max= CalculateMaxMachNumber(Fluid,
+                                            config,
+                                            config.Flow.gamma, config.Flow.gasConstant,
+                                            Grid.xBnum, config.Grid.xNum,
+                                            Grid.yBnum, config.Grid.yNum,
+                                            Grid.zBnum, config.Grid.zNum)
+
+        var Flow_lengthScale = config.Grid.xWidth
+
+        Flow_AddUpdateUsingFluxGhostNSCBC(Fluid,
+                                          config,
+                                          config.Flow.gamma, config.Flow.gasConstant,
+                                          config.Flow.prandtl,
+                                          maxMach,
+                                          Flow_lengthScale,
+                                          config.Flow.constantVisc,
+                                          config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                          config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                          config.Flow.viscosityModel,
+                                          config.BC.xBCRightP_inf,
+                                          Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                                          Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                                          Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      end
+
+      Flow_AddBodyForces(Fluid,
+                         config.Flow.bodyForce,
                          Grid.xBnum, config.Grid.xNum,
                          Grid.yBnum, config.Grid.yNum,
-                         Grid.zBnum, config.Grid.zNum,
-                         config.Radiation.xNum,
-                         config.Radiation.yNum,
-                         config.Radiation.zNum)
-      Flow_InitializeCell(Fluid)
-      Flow_InitializeCenterCoordinates(Fluid,
-                                       Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
-                                       Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
-                                       Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
-
-      if (config.Flow.initCase == SCHEMA.FlowInitCase_Uniform) then
-        Flow_InitializeUniform(Fluid, config.Flow.initParams)
-      end
-      if (config.Flow.initCase == SCHEMA.FlowInitCase_Random) then
-        Flow_InitializeRandom(Fluid, config.Flow.initParams)
-      end
-      if (config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen2DVortex) then
-        Flow_InitializeTaylorGreen2D(Fluid, config.Flow.initParams, Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth, Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth, Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
-      end
-      if (config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen3DVortex) then
-        Flow_InitializeTaylorGreen3D(Fluid, config.Flow.initParams, Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth, Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth, Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
-      end
-      if (config.Flow.initCase == SCHEMA.FlowInitCase_Perturbed) then
-        Flow_InitializePerturbed(Fluid, config.Flow.initParams)
-      end
-      if (config.Flow.initCase == SCHEMA.FlowInitCase_Restart) then
-        Fluid_load(tiles, config.Flow.restartDir, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
-      end
-      -- initialize ghost cells to their specified values in NSCBC case
+                         Grid.zBnum, config.Grid.zNum)
       if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-          Flow_InitializeGhostNSCBC(Fluid,
-                                    config,
-                                    config.Flow.gasConstant,
-                                    BC.xNegTemperature,
-                                    config.Flow.constantVisc,
-                                    config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                    config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                    config.Flow.viscosityModel,
-                                    Grid.xBnum, config.Grid.xNum,
-                                    Grid.yBnum, config.Grid.yNum,
-                                    Grid.zBnum, config.Grid.zNum)
+        Flow_AddBodyForcesGhostNSCBC(Fluid,
+                                     config,
+                                     config.Flow.bodyForce,
+                                     Grid.xBnum, config.Grid.xNum,
+                                     Grid.yBnum, config.Grid.yNum,
+                                     Grid.zBnum, config.Grid.zNum)
       end
 
-      -- update interior cells from initialized primitive values values
-      Flow_UpdateConservedFromPrimitive(Fluid, config.Flow.gamma, config.Flow.gasConstant, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-      if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-        Flow_UpdateConservedFromPrimitiveGhostNSCBC(Fluid,
-                                                    config,
-                                                    config.Flow.gamma, config.Flow.gasConstant,
-                                                    Grid.xBnum, config.Grid.xNum,
-                                                    Grid.yBnum, config.Grid.yNum,
-                                                    Grid.zBnum, config.Grid.zNum)
+      -- Add turbulent forcing
+      if config.Flow.turbForcing then
+        var Flow_averagePD = 0.0
+        var Flow_averageDissipation = 0.0
+        var Flow_averageFe = 0.0
+        var Flow_averageK = 0.0
+        Flow_UpdatePD(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+        Flow_ResetDissipation(Fluid)
+        Flow_ComputeDissipationX(Fluid, config.Flow.constantVisc, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid.xBnum, config.Grid.xNum, Grid.xCellWidth, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+        Flow_UpdateDissipationX(Fluid, Grid.xBnum, config.Grid.xNum, Grid.xCellWidth, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+        Flow_ComputeDissipationY(Fluid, config.Flow.constantVisc, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.yCellWidth, Grid.zBnum, config.Grid.zNum)
+        Flow_UpdateDissipationY(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.yCellWidth, Grid.zBnum, config.Grid.zNum)
+        Flow_ComputeDissipationZ(Fluid, config.Flow.constantVisc, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum, Grid.zCellWidth)
+        Flow_UpdateDissipationZ(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum, Grid.zCellWidth)
+        Flow_averagePD += CalculateAveragePD(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+        Flow_averagePD = (Flow_averagePD/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
+        Flow_averageDissipation += CalculateAverageDissipation(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+        Flow_averageDissipation = (Flow_averageDissipation/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
+        Flow_averageK += CalculateAverageK(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+        Flow_averageK = (Flow_averageK/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
+        Flow_averageFe += Flow_AddTurbulentSource(Fluid, Flow_averageDissipation, Flow_averageK, Flow_averagePD, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+        Flow_averageFe = (Flow_averageFe/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
+        Flow_AdjustTurbulentSource(Fluid, Flow_averageFe, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
       end
 
+      -- Move particles to new partitions
+      for c in tiles do
+        Particles_LocateInCells(p_Particles[c],
+                                Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
+                                Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
+                                Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+      end
+      for c in tiles do
+        Particles_pushAll(c,
+                          p_Particles[c],
+                          [qSrcParts:map(function(p) return rexpr p[c] end end)],
+                          config.Grid.xNum, config.Grid.yNum, config.Grid.zNum,
+                          Grid.xBnum, Grid.yBnum, Grid.zBnum,
+                          config.Mapping.tiles[0], config.Mapping.tiles[1], config.Mapping.tiles[2])
+      end
+      for c in tiles do
+        Particles_pullAll(c,
+                          p_Particles[c],
+                          [qDstParts:map(function(p) return rexpr p[c] end end)])
+      end
+
+      -- Add fluid forces to particles
+      Particles_AddFlowCoupling(Particles, Fluid, config.Flow.constantVisc, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid.xCellWidth, Grid.xRealOrigin, Grid.yCellWidth, Grid.yRealOrigin, Grid.zCellWidth, Grid.zRealOrigin, config.Particles.convectiveCoeff, config.Particles.heatCapacity)
+      Particles_AddBodyForces(Particles, config.Particles.bodyForce)
+
+      -- Add radiation
+      if (config.Radiation.type == SCHEMA.RadiationType_Algebraic) then
+        AddRadiation(Particles, config)
+      end
+      if (config.Radiation.type == SCHEMA.RadiationType_DOM) then
+        Radiation_ClearAccumulators(Radiation)
+        for c in tiles do
+          Radiation_AccumulateParticleValues(p_Particles[c], p_Fluid[c], p_Radiation[c])
+        end
+        var Radiation_xCellWidth = (config.Grid.xWidth/config.Radiation.xNum)
+        var Radiation_yCellWidth = (config.Grid.yWidth/config.Radiation.yNum)
+        var Radiation_zCellWidth = (config.Grid.zWidth/config.Radiation.zNum)
+        var Radiation_cellVolume = Radiation_xCellWidth * Radiation_yCellWidth * Radiation_zCellWidth
+        Radiation_UpdateFieldValues(Radiation, Radiation_cellVolume, config.Radiation.qa, config.Radiation.qs);
+        [DOM.ComputeRadiationField(config, tiles, p_Radiation)];
+        for c in tiles do
+          Particles_AbsorbRadiation(p_Particles[c], p_Fluid[c], p_Radiation[c], config.Particles.heatCapacity, config.Radiation.qa)
+        end
+      end
+
+      -- Add particle forces to fluid
+      Flow_AddParticlesCoupling(Particles, Fluid, Grid.cellVolume)
+
+      -- Time step
+      Flow_UpdateVars(Fluid, Integrator_deltaTime, Integrator_stage)
+      Particles_UpdateVars(Particles, Integrator_deltaTime, Integrator_stage)
+
+      -- Now the new conserved variables values are used so update everything else
       Flow_UpdateAuxiliaryVelocity(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
       if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
         Flow_UpdateAuxiliaryVelocityGhostNSCBC(Fluid,
@@ -5555,24 +5943,96 @@ local function mkFullSim() local Exports = {}
                                     Grid.yBnum, config.Grid.yNum,
                                     Grid.zBnum, config.Grid.zNum)
 
-      Flow_UpdateGhostConservedStep1(Fluid,
-                                     config,
-                                     BC.xNegTemperature, BC.xNegVelocity, BC.xPosTemperature, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
-                                     BC.yNegTemperature, BC.yNegVelocity, BC.yPosTemperature, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
-                                     BC.zNegTemperature, BC.zNegVelocity, BC.zPosTemperature, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
-                                     config.Flow.gamma, config.Flow.gasConstant,
-                                     config.Flow.constantVisc,
-                                     config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                     config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                     config.Flow.viscosityModel,
-                                     Grid.xBnum, config.Grid.xNum,
-                                     Grid.yBnum, config.Grid.yNum,
-                                     Grid.zBnum, config.Grid.zNum)
-      Flow_UpdateGhostConservedStep2(Fluid,
-                                     config,
-                                     Grid.xBnum, config.Grid.xNum,
-                                     Grid.yBnum, config.Grid.yNum,
-                                     Grid.zBnum, config.Grid.zNum)
+      if config.Flow.pertubation.type == SCHEMA.PertubationModel_Random then
+        -- Seed RNG
+        var rngState : C.drand48_data[1]
+        var rngStatePtr = [&C.drand48_data](rngState)
+        C.srand48_r(regentlib.c.legion_get_current_time_in_nanos(), rngStatePtr)
+        -- Random pertubation arrays
+        var Pertubation_kx : double[PERTUBATION_MODES]
+        var Pertubation_ky : double[PERTUBATION_MODES]
+        var Pertubation_kz : double[PERTUBATION_MODES]
+        var Pertubation_um : double[PERTUBATION_MODES]
+        var Pertubation_sxm : double[PERTUBATION_MODES]
+        var Pertubation_sym : double[PERTUBATION_MODES]
+        var Pertubation_szm : double[PERTUBATION_MODES]
+        -- Set up pertubation constants
+        -- Number of nodes in perturbed volume
+        var nx = config.Flow.pertubation.u.Random.uptoCell[0]
+          - config.Flow.pertubation.u.Random.fromCell[0] + 1
+        var ny = config.Flow.pertubation.u.Random.uptoCell[1]
+          - config.Flow.pertubation.u.Random.fromCell[1] + 1
+        var nz = config.Flow.pertubation.u.Random.uptoCell[2]
+          - config.Flow.pertubation.u.Random.fromCell[2] + 1
+        -- Domain dimensions
+        var lx = Grid.xCellWidth * nx
+        var ly = Grid.yCellWidth * ny
+        var lz = Grid.zCellWidth * nz
+        -- Other constants
+        var ke_ = 40.0                            -- Peak wave number
+        var alpha = 1.452762113                   -- Scaling constant
+        var kv = 1.0e-5                           -- Kinematic viscosity  -- TODO COMPUTE REAL VALUE HERE.. BASED ON AVERAGE?
+        var urms = 0.25                           -- RMS velocity fluctuation -- TODO Make a function of mean velocity?
+        var ke = sqrt(5.0/12)*ke_                 -- Peak wave number
+        var wn1 = 2.0*PI/pow(lx*ly*lz,1.0/3.0)    -- Smallest wavenumber
+        var L = 0.746834/ke                       -- Integral length scale
+        var eps = urms*urms*urms/L                -- Dissipation rate
+        var keta = pow(eps,0.25)*pow(kv,-3.0/4.0) -- Kolmogorov wave number
+        var wnn = max( PI/Grid.xCellWidth,        -- Nyquist limit
+                       max( PI/Grid.yCellWidth,
+                            PI/Grid.zCellWidth ) )
+        var dk = (wnn-wn1)/PERTUBATION_MODES      -- Wavenumber step
+        -- Fill in arrays
+        for i = 0,PERTUBATION_MODES do
+          -- Generate random angles
+          var phi = 2.0*PI*drand48_r(rngStatePtr)
+          var nu = drand48_r(rngStatePtr)
+          var theta = acos( 2.0*nu - 1.0 )
+          var phi1 = 2.0*PI*drand48_r(rngStatePtr)
+          var nu1 = drand48_r(rngStatePtr)
+          -- Wavenumber at cell centers
+          var wn = wn1 + 0.5*dk + i*dk
+          -- Wavenumber vector from random angles
+          Pertubation_kx[i] = sin( theta )*cos( phi )*wn
+          Pertubation_ky[i] = sin( theta )*sin( phi )*wn
+          Pertubation_kz[i] = cos( theta )*wn
+          -- Create divergence vector
+          var ktx = sin( Pertubation_kx[i]*Grid.xCellWidth/2.0 )
+            / Grid.xCellWidth
+          var kty = sin( Pertubation_ky[i]*Grid.yCellWidth/2.0 )
+            / Grid.yCellWidth
+          var ktz = sin( Pertubation_kz[i]*Grid.zCellWidth/2.0 )
+            / Grid.zCellWidth
+          -- Enforce Mass Conservation
+          var theta1 = acos( 2.0*nu1 - 1.0 )
+          var zetax = sin( theta1 )*cos( phi1 )
+          var zetay = sin( theta1 )*sin( phi1 )
+          var zetaz = cos( theta1 )
+          Pertubation_sxm[i] = zetay*ktz - zetaz*kty
+          Pertubation_sym[i] = -( zetax*ktz - zetaz*ktx  )
+          Pertubation_szm[i] = zetax*kty - zetay*ktx
+          var smag = sqrt( Pertubation_sxm[i]*Pertubation_sxm[i] +
+                             Pertubation_sym[i]*Pertubation_sym[i] +
+                             Pertubation_szm[i]*Pertubation_szm[i] )
+          Pertubation_sxm[i] = Pertubation_sxm[i]/smag
+          Pertubation_sym[i] = Pertubation_sym[i]/smag
+          Pertubation_szm[i] = Pertubation_szm[i]/smag
+          -- Generate energy spectrum
+          var r1 = wn/ke
+          var r2 = wn/keta
+          var espec = alpha
+            * ( urms*urms/ke )
+            * ( r1*r1*r1*r1 / ( pow((1.0+r1*r1),(17.0/6.0)) ) )
+            * exp( -2.0*r2*r2 )
+          espec = max(0,espec)
+          Pertubation_um[i] = sqrt( espec*dk )
+        end
+        -- Insert random pertubations in the fluid
+        Flow_Perturb(Fluid, config,
+                     Pertubation_kx, Pertubation_ky, Pertubation_kz,
+                     Pertubation_um,
+                     Pertubation_sxm, Pertubation_sym, Pertubation_szm)
+      end
 
       Flow_ComputeVelocityGradientAll(Fluid,
                                       Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
@@ -5598,7 +6058,11 @@ local function mkFullSim() local Exports = {}
                                             Grid.yBnum, config.Grid.yNum,
                                             Grid.zBnum, config.Grid.zNum)
 
-      Flow_UpdateAuxiliaryThermodynamics(Fluid, config.Flow.gamma, config.Flow.gasConstant, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+      Flow_UpdateAuxiliaryThermodynamics(Fluid,
+                                         config.Flow.gamma, config.Flow.gasConstant,
+                                         Grid.xBnum, config.Grid.xNum,
+                                         Grid.yBnum, config.Grid.yNum,
+                                         Grid.zBnum, config.Grid.zNum)
       if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
         Flow_UpdateAuxiliaryThermodynamicsGhostNSCBC(Fluid,
                                                      config,
@@ -5625,521 +6089,65 @@ local function mkFullSim() local Exports = {}
                                           Grid.yBnum, config.Grid.yNum,
                                           Grid.zBnum, config.Grid.zNum)
 
-      Flow_UpdateGhostFieldsStep1(Fluid,
-                                  config,
-                                  BC.xNegTemperature, BC.xNegVelocity, BC.xPosTemperature, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
-                                  BC.yNegTemperature, BC.yNegVelocity, BC.yPosTemperature, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
-                                  BC.zNegTemperature, BC.zNegVelocity, BC.zPosTemperature, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
-                                  config.Flow.gamma, config.Flow.gasConstant,
-                                  Grid.xBnum, config.Grid.xNum,
-                                  Grid.yBnum, config.Grid.yNum,
-                                  Grid.zBnum, config.Grid.zNum)
-      Flow_UpdateGhostFieldsStep2(Fluid,
-                                  Grid.xBnum, config.Grid.xNum,
-                                  Grid.yBnum, config.Grid.yNum,
-                                  Grid.zBnum, config.Grid.zNum)
+      Flow_UpdateGhostConservedStep1(Fluid,
+                                     config,
+                                     BC.xNegTemperature, BC.xNegVelocity, BC.xPosTemperature, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
+                                     BC.yNegTemperature, BC.yNegVelocity, BC.yPosTemperature, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
+                                     BC.zNegTemperature, BC.zNegVelocity, BC.zPosTemperature, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
+                                     config.Flow.gamma, config.Flow.gasConstant,
+                                     config.Flow.constantVisc,
+                                     config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                     config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                     config.Flow.viscosityModel,
+                                     Grid.xBnum, config.Grid.xNum,
+                                     Grid.yBnum, config.Grid.yNum,
+                                     Grid.zBnum, config.Grid.zNum)
+      Flow_UpdateGhostConservedStep2(Fluid,
+                                     config,
+                                     Grid.xBnum, config.Grid.xNum,
+                                     Grid.yBnum, config.Grid.yNum,
+                                     Grid.zBnum, config.Grid.zNum)
 
-      -- Initialize particles
-      if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Random) then
-        regentlib.assert(false, "Random particle initialization is disabled")
-      end
-      if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart) then
-        Particles_load(tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
-        Particles_InitializeDensity(Particles, config.Particles.density)
-        Particles_number += Particles_CalculateNumber(Particles)
-      end
-      if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform) then
-        InitParticlesUniform(Particles, Fluid, config, Grid.xBnum, Grid.yBnum, Grid.zBnum)
-        Particles_number =
-          config.Particles.initNum
-          / (config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2])
-          * (config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2])
-      end
-
-      -- Initialize radiation
-      if (config.Radiation.type == SCHEMA.RadiationType_DOM) then
-        Radiation_InitializeCell(Radiation);
-        [DOM.InitRegions()];
-      end
-
-    end -- __parallelize_with
-
-  end end -- Exports.InitRegions
-
-  -----------------------------------------------------------------------------
-  -- Main time-step loop body
-  -----------------------------------------------------------------------------
-
-  function Exports.MainLoopBody(config) return rquote
-
-    __parallelize_with p_Fluid, p_Particles, p_Radiation, tiles, image(Fluid,p_Particles,Particles.cell) <= p_Fluid do
-
-      -- Calculate exit condition, but don't exit yet
-      var exitCond =
-        Integrator_simTime >= config.Integrator.finalTime or
-        Integrator_timeStep >= config.Integrator.maxIter
-
-      -- Determine time step size
-      var Integrator_deltaTime : double
-      if (config.Integrator.cfl<0) then
-        Integrator_deltaTime = config.Integrator.fixedDeltaTime
-      else
-        var Integrator_maxConvectiveSpectralRadius = 0.0
-        var Integrator_maxViscousSpectralRadius = 0.0
-        var Integrator_maxHeatConductionSpectralRadius = 0.0
-        var Grid_dXYZInverseSquare =
-          1.0/Grid.xCellWidth/Grid.xCellWidth +
-          1.0/Grid.yCellWidth/Grid.yCellWidth +
-          1.0/Grid.zCellWidth/Grid.zCellWidth
-        Integrator_maxConvectiveSpectralRadius max= CalculateConvectiveSpectralRadius(Fluid, config.Flow.gamma, config.Flow.gasConstant, Grid_dXYZInverseSquare, Grid.xCellWidth, Grid.yCellWidth, Grid.zCellWidth)
-        Integrator_maxViscousSpectralRadius max= CalculateViscousSpectralRadius(Fluid, config.Flow.constantVisc, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid_dXYZInverseSquare)
-        Integrator_maxHeatConductionSpectralRadius max= CalculateHeatConductionSpectralRadius(Fluid, config.Flow.constantVisc, config.Flow.gamma, config.Flow.gasConstant, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.prandtl, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid_dXYZInverseSquare)
-        Integrator_deltaTime = (config.Integrator.cfl/max(Integrator_maxConvectiveSpectralRadius, max(Integrator_maxViscousSpectralRadius, Integrator_maxHeatConductionSpectralRadius)))
-      end
-
-      -- Perform IO
-      var currTime = regentlib.c.legion_get_current_time_in_micros() / 1000
-      var Flow_averagePressure = 0.0
-      var Flow_averageTemperature = 0.0
-      var Flow_averageKineticEnergy = 0.0
-      var Particles_averageTemperature = 0.0
-      Flow_averagePressure += CalculateAveragePressure(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-      Flow_averageTemperature += CalculateAverageTemperature(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-      Flow_averageKineticEnergy += CalculateAverageKineticEnergy(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-      Particles_averageTemperature += Particles_IntegrateQuantities(Particles)
-      Flow_averagePressure = (Flow_averagePressure/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
-      Flow_averageTemperature = (Flow_averageTemperature/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
-      Flow_averageKineticEnergy = (Flow_averageKineticEnergy/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
-      Particles_averageTemperature = (Particles_averageTemperature/Particles_number)
-      C.fprintf(console, ['%d\t'..
-                          '%e\t'..
-                          '%lld.%03lld\t'..
-                          '%e\t'..
-                          '%e\t'..
-                          '%e\t'..
-                          '%e\t'..
-                          '%d\t'..
-                          '%e\n'],
-                Integrator_timeStep,
-                Integrator_simTime,
-                (currTime - startTime) / 1000, (currTime - startTime) % 1000,
-                Integrator_deltaTime,
-                Flow_averagePressure,
-                Flow_averageTemperature,
-                Flow_averageKineticEnergy,
-                Particles_number,
-                Particles_averageTemperature)
-      C.fflush(console)
-      if config.IO.wrtRestart then
-        if exitCond or Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 then
-          var dirname = [&int8](C.malloc(256))
-          C.snprintf(dirname, 256, '%s/fluid_iter%d', config.Mapping.outDir, Integrator_timeStep)
-          Fluid_dump(tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
-          C.snprintf(dirname, 256, '%s/particles_iter%d', config.Mapping.outDir, Integrator_timeStep)
-          Particles_dump(tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
-          C.free(dirname)
+      -- TODO: Collisions across tiles are not handled.
+      if config.Particles.collisions and Integrator_stage==4 then
+        for c in tiles do
+          Particles_HandleCollisions(p_Particles[c], Integrator_deltaTime, config.Particles.restitutionCoeff)
         end
       end
+      Particles_UpdateAuxiliaryStep1(Particles,
+                                     BC.xBCParticles,
+                                     BC.yBCParticles,
+                                     BC.zBCParticles,
+                                     config.Grid.origin[0], config.Grid.xWidth,
+                                     config.Grid.origin[1], config.Grid.yWidth,
+                                     config.Grid.origin[2], config.Grid.zWidth,
+                                     config.Particles.restitutionCoeff)
+      Particles_UpdateAuxiliaryStep2(Particles)
+
+      Integrator_simTime = (Integrator_time_old+((double(0.5)*(1+(Integrator_stage/3)))*Integrator_deltaTime))
+      Integrator_stage += 1
+
       for c in tiles do
-        Probes_write(p_Fluid[c], exitCond, Integrator_timeStep, config)
+        Particles_number +=
+          Particles_DeleteEscapingParticles(p_Particles[c],
+                                            config.Grid.origin[0], config.Grid.xWidth,
+                                            config.Grid.origin[1], config.Grid.yWidth,
+                                            config.Grid.origin[2], config.Grid.zWidth)
       end
 
-      -- Check exit condition after I/O
-      if exitCond then
-        break
-      end
+    end -- RK4 sub-time-stepping
 
-      Flow_InitializeTemporaries(Fluid)
-      Particles_InitializeTemporaries(Particles)
+    -- update time derivatives at boundary for NSCBC
+    if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
+      Flow_UpdateNSCBCGhostCellTimeDerivatives(Fluid,
+                                               config,
+                                               Grid.xBnum, config.Grid.xNum,
+                                               Grid.yBnum, config.Grid.yNum,
+                                               Grid.zBnum, config.Grid.zNum,
+                                               Integrator_deltaTime)
+    end
 
-      var Integrator_time_old = Integrator_simTime
-      var Integrator_stage = 1
-      while (Integrator_stage<5) do
-
-        Flow_InitializeTimeDerivatives(Fluid)
-        Particles_InitializeTimeDerivatives(Particles)
-
-        Flow_AddGetFlux(Fluid,
-                        config,
-                        config.Flow.constantVisc,
-                        config.Flow.gamma, config.Flow.gasConstant,
-                        config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                        config.Flow.prandtl,
-                        config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                        config.Flow.viscosityModel,
-                        Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                        Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                        Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-        Flow_AddUpdateUsingFlux(Fluid,
-                                Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-
-        if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-          Flow_AddGetFluxGhostNSCBC(Fluid,
-                                    config,
-                                    config.Flow.constantVisc,
-                                    config.Flow.gamma,
-                                    config.Flow.gasConstant,
-                                    config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                    config.Flow.prandtl,
-                                    config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                    config.Flow.viscosityModel,
-                                    Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                    Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                    Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-
-          var maxMach = -math.huge
-          maxMach max= CalculateMaxMachNumber(Fluid,
-                                              config,
-                                              config.Flow.gamma, config.Flow.gasConstant,
-                                              Grid.xBnum, config.Grid.xNum,
-                                              Grid.yBnum, config.Grid.yNum,
-                                              Grid.zBnum, config.Grid.zNum)
-
-          var Flow_lengthScale = config.Grid.xWidth
-
-          Flow_AddUpdateUsingFluxGhostNSCBC(Fluid,
-                                            config,
-                                            config.Flow.gamma, config.Flow.gasConstant,
-                                            config.Flow.prandtl,
-                                            maxMach,
-                                            Flow_lengthScale,
-                                            config.Flow.constantVisc,
-                                            config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                            config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                            config.Flow.viscosityModel,
-                                            config.BC.xBCRightP_inf,
-                                            Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                            Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                            Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-        end
-
-        Flow_AddBodyForces(Fluid,
-                           config.Flow.bodyForce,
-                           Grid.xBnum, config.Grid.xNum,
-                           Grid.yBnum, config.Grid.yNum,
-                           Grid.zBnum, config.Grid.zNum)
-        if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-          Flow_AddBodyForcesGhostNSCBC(Fluid,
-                                       config,
-                                       config.Flow.bodyForce,
-                                       Grid.xBnum, config.Grid.xNum,
-                                       Grid.yBnum, config.Grid.yNum,
-                                       Grid.zBnum, config.Grid.zNum)
-        end
-
-        -- Add turbulent forcing
-        if config.Flow.turbForcing then
-          var Flow_averagePD = 0.0
-          var Flow_averageDissipation = 0.0
-          var Flow_averageFe = 0.0
-          var Flow_averageK = 0.0
-          Flow_UpdatePD(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-          Flow_ResetDissipation(Fluid)
-          Flow_ComputeDissipationX(Fluid, config.Flow.constantVisc, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid.xBnum, config.Grid.xNum, Grid.xCellWidth, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-          Flow_UpdateDissipationX(Fluid, Grid.xBnum, config.Grid.xNum, Grid.xCellWidth, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-          Flow_ComputeDissipationY(Fluid, config.Flow.constantVisc, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.yCellWidth, Grid.zBnum, config.Grid.zNum)
-          Flow_UpdateDissipationY(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.yCellWidth, Grid.zBnum, config.Grid.zNum)
-          Flow_ComputeDissipationZ(Fluid, config.Flow.constantVisc, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum, Grid.zCellWidth)
-          Flow_UpdateDissipationZ(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum, Grid.zCellWidth)
-          Flow_averagePD += CalculateAveragePD(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-          Flow_averagePD = (Flow_averagePD/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
-          Flow_averageDissipation += CalculateAverageDissipation(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-          Flow_averageDissipation = (Flow_averageDissipation/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
-          Flow_averageK += CalculateAverageK(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-          Flow_averageK = (Flow_averageK/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
-          Flow_averageFe += Flow_AddTurbulentSource(Fluid, Flow_averageDissipation, Flow_averageK, Flow_averagePD, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-          Flow_averageFe = (Flow_averageFe/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
-          Flow_AdjustTurbulentSource(Fluid, Flow_averageFe, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-        end
-
-        -- Move particles to new partitions
-        for c in tiles do
-          Particles_LocateInCells(p_Particles[c],
-                                  Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
-                                  Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
-                                  Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
-        end
-        for c in tiles do
-          Particles_pushAll(c,
-                            p_Particles[c],
-                            [qSrcParts:map(function(p) return rexpr p[c] end end)],
-                            config.Grid.xNum, config.Grid.yNum, config.Grid.zNum,
-                            Grid.xBnum, Grid.yBnum, Grid.zBnum,
-                            config.Mapping.tiles[0], config.Mapping.tiles[1], config.Mapping.tiles[2])
-        end
-        for c in tiles do
-          Particles_pullAll(c,
-                            p_Particles[c],
-                            [qDstParts:map(function(p) return rexpr p[c] end end)])
-        end
-
-        -- Add fluid forces to particles
-        Particles_AddFlowCoupling(Particles, Fluid, config.Flow.constantVisc, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid.xCellWidth, Grid.xRealOrigin, Grid.yCellWidth, Grid.yRealOrigin, Grid.zCellWidth, Grid.zRealOrigin, config.Particles.convectiveCoeff, config.Particles.heatCapacity)
-        Particles_AddBodyForces(Particles, config.Particles.bodyForce)
-
-        -- Add radiation
-        if (config.Radiation.type == SCHEMA.RadiationType_Algebraic) then
-          AddRadiation(Particles, config)
-        end
-        if (config.Radiation.type == SCHEMA.RadiationType_DOM) then
-          Radiation_ClearAccumulators(Radiation)
-          for c in tiles do
-            Radiation_AccumulateParticleValues(p_Particles[c], p_Fluid[c], p_Radiation[c])
-          end
-          var Radiation_xCellWidth = (config.Grid.xWidth/config.Radiation.xNum)
-          var Radiation_yCellWidth = (config.Grid.yWidth/config.Radiation.yNum)
-          var Radiation_zCellWidth = (config.Grid.zWidth/config.Radiation.zNum)
-          var Radiation_cellVolume = Radiation_xCellWidth * Radiation_yCellWidth * Radiation_zCellWidth
-          Radiation_UpdateFieldValues(Radiation, Radiation_cellVolume, config.Radiation.qa, config.Radiation.qs);
-          [DOM.ComputeRadiationField(config, tiles, p_Radiation)];
-          for c in tiles do
-            Particles_AbsorbRadiation(p_Particles[c], p_Fluid[c], p_Radiation[c], config.Particles.heatCapacity, config.Radiation.qa)
-          end
-        end
-
-        -- Add particle forces to fluid
-        Flow_AddParticlesCoupling(Particles, Fluid, Grid.cellVolume)
-
-        -- Time step
-        Flow_UpdateVars(Fluid, Integrator_deltaTime, Integrator_stage)
-        Particles_UpdateVars(Particles, Integrator_deltaTime, Integrator_stage)
-
-        -- Now the new conserved variables values are used so update everything else
-        Flow_UpdateAuxiliaryVelocity(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-        if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-          Flow_UpdateAuxiliaryVelocityGhostNSCBC(Fluid,
-                                                 config,
-                                                 config.Flow.constantVisc,
-                                                 config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                                 config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                                 config.Flow.viscosityModel,
-                                                 Grid.xBnum, config.Grid.xNum,
-                                                 Grid.yBnum, config.Grid.yNum,
-                                                 Grid.zBnum, config.Grid.zNum)
-        end
-        Flow_UpdateGhostVelocityStep1(Fluid,
-                                      config,
-                                      BC.xNegVelocity, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
-                                      BC.yNegVelocity, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
-                                      BC.zNegVelocity, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
-                                      Grid.xBnum, config.Grid.xNum,
-                                      Grid.yBnum, config.Grid.yNum,
-                                      Grid.zBnum, config.Grid.zNum)
-        Flow_UpdateGhostVelocityStep2(Fluid,
-                                      config,
-                                      Grid.xBnum, config.Grid.xNum,
-                                      Grid.yBnum, config.Grid.yNum,
-                                      Grid.zBnum, config.Grid.zNum)
-
-        if config.Flow.pertubation.type == SCHEMA.PertubationModel_Random then
-          -- Seed RNG
-          var rngState : C.drand48_data[1]
-          var rngStatePtr = [&C.drand48_data](rngState)
-          C.srand48_r(regentlib.c.legion_get_current_time_in_nanos(), rngStatePtr)
-          -- Random pertubation arrays
-          var Pertubation_kx : double[PERTUBATION_MODES]
-          var Pertubation_ky : double[PERTUBATION_MODES]
-          var Pertubation_kz : double[PERTUBATION_MODES]
-          var Pertubation_um : double[PERTUBATION_MODES]
-          var Pertubation_sxm : double[PERTUBATION_MODES]
-          var Pertubation_sym : double[PERTUBATION_MODES]
-          var Pertubation_szm : double[PERTUBATION_MODES]
-          -- Set up pertubation constants
-          -- Number of nodes in perturbed volume
-          var nx = config.Flow.pertubation.u.Random.uptoCell[0]
-            - config.Flow.pertubation.u.Random.fromCell[0] + 1
-          var ny = config.Flow.pertubation.u.Random.uptoCell[1]
-            - config.Flow.pertubation.u.Random.fromCell[1] + 1
-          var nz = config.Flow.pertubation.u.Random.uptoCell[2]
-            - config.Flow.pertubation.u.Random.fromCell[2] + 1
-          -- Domain dimensions
-          var lx = Grid.xCellWidth * nx
-          var ly = Grid.yCellWidth * ny
-          var lz = Grid.zCellWidth * nz
-          -- Other constants
-          var ke_ = 40.0                            -- Peak wave number
-          var alpha = 1.452762113                   -- Scaling constant
-          var kv = 1.0e-5                           -- Kinematic viscosity  -- TODO COMPUTE REAL VALUE HERE.. BASED ON AVERAGE?
-          var urms = 0.25                           -- RMS velocity fluctuation -- TODO Make a function of mean velocity?
-          var ke = sqrt(5.0/12)*ke_                 -- Peak wave number
-          var wn1 = 2.0*PI/pow(lx*ly*lz,1.0/3.0)    -- Smallest wavenumber
-          var L = 0.746834/ke                       -- Integral length scale
-          var eps = urms*urms*urms/L                -- Dissipation rate
-          var keta = pow(eps,0.25)*pow(kv,-3.0/4.0) -- Kolmogorov wave number
-          var wnn = max( PI/Grid.xCellWidth,        -- Nyquist limit
-                         max( PI/Grid.yCellWidth,
-                              PI/Grid.zCellWidth ) )
-          var dk = (wnn-wn1)/PERTUBATION_MODES      -- Wavenumber step
-          -- Fill in arrays
-          for i = 0,PERTUBATION_MODES do
-            -- Generate random angles
-            var phi = 2.0*PI*drand48_r(rngStatePtr)
-            var nu = drand48_r(rngStatePtr)
-            var theta = acos( 2.0*nu - 1.0 )
-            var phi1 = 2.0*PI*drand48_r(rngStatePtr)
-            var nu1 = drand48_r(rngStatePtr)
-            -- Wavenumber at cell centers
-            var wn = wn1 + 0.5*dk + i*dk
-            -- Wavenumber vector from random angles
-            Pertubation_kx[i] = sin( theta )*cos( phi )*wn
-            Pertubation_ky[i] = sin( theta )*sin( phi )*wn
-            Pertubation_kz[i] = cos( theta )*wn
-            -- Create divergence vector
-            var ktx = sin( Pertubation_kx[i]*Grid.xCellWidth/2.0 )
-              / Grid.xCellWidth
-            var kty = sin( Pertubation_ky[i]*Grid.yCellWidth/2.0 )
-              / Grid.yCellWidth
-            var ktz = sin( Pertubation_kz[i]*Grid.zCellWidth/2.0 )
-              / Grid.zCellWidth
-            -- Enforce Mass Conservation
-            var theta1 = acos( 2.0*nu1 - 1.0 )
-            var zetax = sin( theta1 )*cos( phi1 )
-            var zetay = sin( theta1 )*sin( phi1 )
-            var zetaz = cos( theta1 )
-            Pertubation_sxm[i] = zetay*ktz - zetaz*kty
-            Pertubation_sym[i] = -( zetax*ktz - zetaz*ktx  )
-            Pertubation_szm[i] = zetax*kty - zetay*ktx
-            var smag = sqrt( Pertubation_sxm[i]*Pertubation_sxm[i] +
-                               Pertubation_sym[i]*Pertubation_sym[i] +
-                               Pertubation_szm[i]*Pertubation_szm[i] )
-            Pertubation_sxm[i] = Pertubation_sxm[i]/smag
-            Pertubation_sym[i] = Pertubation_sym[i]/smag
-            Pertubation_szm[i] = Pertubation_szm[i]/smag
-            -- Generate energy spectrum
-            var r1 = wn/ke
-            var r2 = wn/keta
-            var espec = alpha
-              * ( urms*urms/ke )
-              * ( r1*r1*r1*r1 / ( pow((1.0+r1*r1),(17.0/6.0)) ) )
-              * exp( -2.0*r2*r2 )
-            espec = max(0,espec)
-            Pertubation_um[i] = sqrt( espec*dk )
-          end
-          -- Insert random pertubations in the fluid
-          Flow_Perturb(Fluid, config,
-                       Pertubation_kx, Pertubation_ky, Pertubation_kz,
-                       Pertubation_um,
-                       Pertubation_sxm, Pertubation_sym, Pertubation_szm)
-        end
-
-        Flow_ComputeVelocityGradientAll(Fluid,
-                                        Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                        Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                        Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-        if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-          Flow_ComputeVelocityGradientGhostNSCBC(Fluid,
-                                                 config,
-                                                 Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                                 Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                                 Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-        end
-        Flow_UpdateGhostVelocityGradientStep1(Fluid,
-                                              config,
-                                              BC.xNegSign, BC.yNegSign, BC.zNegSign,
-                                              BC.xPosSign, BC.yPosSign, BC.zPosSign,
-                                              Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                              Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                              Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-        Flow_UpdateGhostVelocityGradientStep2(Fluid,
-                                              config,
-                                              Grid.xBnum, config.Grid.xNum,
-                                              Grid.yBnum, config.Grid.yNum,
-                                              Grid.zBnum, config.Grid.zNum)
-
-        Flow_UpdateAuxiliaryThermodynamics(Fluid,
-                                           config.Flow.gamma, config.Flow.gasConstant,
-                                           Grid.xBnum, config.Grid.xNum,
-                                           Grid.yBnum, config.Grid.yNum,
-                                           Grid.zBnum, config.Grid.zNum)
-        if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-          Flow_UpdateAuxiliaryThermodynamicsGhostNSCBC(Fluid,
-                                                       config,
-                                                       config.Flow.gamma,
-                                                       config.Flow.gasConstant,
-                                                       BC.xNegTemperature,
-                                                       Grid.xBnum, config.Grid.xNum,
-                                                       Grid.yBnum, config.Grid.yNum,
-                                                       Grid.zBnum, config.Grid.zNum)
-        end
-        Flow_UpdateGhostThermodynamicsStep1(Fluid,
-                                            config,
-                                            config.Flow.gamma,
-                                            config.Flow.gasConstant,
-                                            BC.xNegTemperature, BC.xPosTemperature,
-                                            BC.yNegTemperature, BC.yPosTemperature,
-                                            BC.zNegTemperature, BC.zPosTemperature,
-                                            Grid.xBnum, config.Grid.xNum,
-                                            Grid.yBnum, config.Grid.yNum,
-                                            Grid.zBnum, config.Grid.zNum)
-        Flow_UpdateGhostThermodynamicsStep2(Fluid,
-                                            config,
-                                            Grid.xBnum, config.Grid.xNum,
-                                            Grid.yBnum, config.Grid.yNum,
-                                            Grid.zBnum, config.Grid.zNum)
-
-        Flow_UpdateGhostConservedStep1(Fluid,
-                                       config,
-                                       BC.xNegTemperature, BC.xNegVelocity, BC.xPosTemperature, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
-                                       BC.yNegTemperature, BC.yNegVelocity, BC.yPosTemperature, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
-                                       BC.zNegTemperature, BC.zNegVelocity, BC.zPosTemperature, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
-                                       config.Flow.gamma, config.Flow.gasConstant,
-                                       config.Flow.constantVisc,
-                                       config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                       config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                       config.Flow.viscosityModel,
-                                       Grid.xBnum, config.Grid.xNum,
-                                       Grid.yBnum, config.Grid.yNum,
-                                       Grid.zBnum, config.Grid.zNum)
-        Flow_UpdateGhostConservedStep2(Fluid,
-                                       config,
-                                       Grid.xBnum, config.Grid.xNum,
-                                       Grid.yBnum, config.Grid.yNum,
-                                       Grid.zBnum, config.Grid.zNum)
-
-        -- TODO: Collisions across tiles are not handled.
-        if config.Particles.collisions and Integrator_stage==4 then
-          for c in tiles do
-            Particles_HandleCollisions(p_Particles[c], Integrator_deltaTime, config.Particles.restitutionCoeff)
-          end
-        end
-        Particles_UpdateAuxiliaryStep1(Particles,
-                                       BC.xBCParticles,
-                                       BC.yBCParticles,
-                                       BC.zBCParticles,
-                                       config.Grid.origin[0], config.Grid.xWidth,
-                                       config.Grid.origin[1], config.Grid.yWidth,
-                                       config.Grid.origin[2], config.Grid.zWidth,
-                                       config.Particles.restitutionCoeff)
-        Particles_UpdateAuxiliaryStep2(Particles)
-
-        Integrator_simTime = (Integrator_time_old+((double(0.5)*(1+(Integrator_stage/3)))*Integrator_deltaTime))
-        Integrator_stage += 1
-
-        for c in tiles do
-          Particles_number +=
-            Particles_DeleteEscapingParticles(p_Particles[c],
-                                              config.Grid.origin[0], config.Grid.xWidth,
-                                              config.Grid.origin[1], config.Grid.yWidth,
-                                              config.Grid.origin[2], config.Grid.zWidth)
-        end
-
-      end -- RK4 sub-time-stepping
-
-      -- update time derivatives at boundary for NSCBC
-      if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-        Flow_UpdateNSCBCGhostCellTimeDerivatives(Fluid,
-                                                 config,
-                                                 Grid.xBnum, config.Grid.xNum,
-                                                 Grid.yBnum, config.Grid.yNum,
-                                                 Grid.zBnum, config.Grid.zNum,
-                                                 Integrator_deltaTime)
-      end
-
-      Integrator_timeStep += 1
-
-    end -- __parallelize_with
+    Integrator_timeStep += 1
 
   end end -- Exports.MainLoopBody
 
@@ -6171,9 +6179,14 @@ local SIM = mkFullSim()
 __forbid(__optimize) __demand(__inner)
 task work(config : Config)
   [SIM.DeclSymbols(config)];
-  [SIM.InitRegions(config)];
-  while true do
-    [SIM.MainLoopBody(config)];
+  __parallelize_with
+    SIM.p_Fluid, SIM.p_Particles, SIM.p_Radiation, SIM.tiles,
+    image(SIM.Fluid, SIM.p_Particles, [SIM.Particles].cell) <= SIM.p_Fluid
+  do
+    [SIM.InitRegions(config)];
+    while true do
+      [SIM.MainLoopBody(config)];
+    end
   end
   [SIM.Cleanup()];
 end
