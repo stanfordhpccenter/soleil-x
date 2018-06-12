@@ -4958,7 +4958,9 @@ end
 -- MAIN SIMULATION
 -------------------------------------------------------------------------------
 
-local function mkFullSim() local Exports = {}
+local function mkInstance() local INSTANCE = {}
+
+  local DOM_INST = DOM.mkInstance()
 
   -----------------------------------------------------------------------------
   -- Symbols shared between quotes
@@ -5026,23 +5028,23 @@ local function mkFullSim() local Exports = {}
   -- Exported symbols
   -----------------------------------------------------------------------------
 
-  Exports.Fluid = Fluid
-  Exports.Fluid_copy = Fluid_copy
-  Exports.Particles = Particles
-  Exports.Particles_copy = Particles_copy
-  Exports.Radiation = Radiation
-  Exports.tiles = tiles
-  Exports.p_Fluid = p_Fluid
-  Exports.p_Fluid_copy = p_Fluid_copy
-  Exports.p_Particles = p_Particles
-  Exports.p_Particles_copy = p_Particles_copy
-  Exports.p_Radiation = p_Radiation
+  INSTANCE.Fluid = Fluid
+  INSTANCE.Fluid_copy = Fluid_copy
+  INSTANCE.Particles = Particles
+  INSTANCE.Particles_copy = Particles_copy
+  INSTANCE.Radiation = Radiation
+  INSTANCE.tiles = tiles
+  INSTANCE.p_Fluid = p_Fluid
+  INSTANCE.p_Fluid_copy = p_Fluid_copy
+  INSTANCE.p_Particles = p_Particles
+  INSTANCE.p_Particles_copy = p_Particles_copy
+  INSTANCE.p_Radiation = p_Radiation
 
   -----------------------------------------------------------------------------
   -- Symbol declaration & initialization
   -----------------------------------------------------------------------------
 
-  function Exports.DeclSymbols(config) return rquote
+  function INSTANCE.DeclSymbols(config) return rquote
 
     ---------------------------------------------------------------------------
     -- Preparation
@@ -5475,15 +5477,15 @@ local function mkFullSim() local Exports = {}
     -- DOM code declarations
     ---------------------------------------------------------------------------
 
-    [DOM.DeclSymbols(config)];
+    [DOM_INST.DeclSymbols(config)];
 
-  end end -- Exports.DeclSymbols
+  end end -- DeclSymbols
 
   -----------------------------------------------------------------------------
   -- Region initialization
   -----------------------------------------------------------------------------
 
-  function Exports.InitRegions(config) return rquote
+  function INSTANCE.InitRegions(config) return rquote
 
     Particles_initValidField(Particles)
     SetCoarseningField(Fluid,
@@ -5673,16 +5675,16 @@ local function mkFullSim() local Exports = {}
     -- Initialize radiation
     if (config.Radiation.type == SCHEMA.RadiationType_DOM) then
       Radiation_InitializeCell(Radiation);
-      [DOM.InitRegions()];
+      [DOM_INST.InitRegions()];
     end
 
-  end end -- Exports.InitRegions
+  end end -- InitRegions
 
   -----------------------------------------------------------------------------
   -- Main time-step loop body
   -----------------------------------------------------------------------------
 
-  function Exports.MainLoopBody(config) return rquote
+  function INSTANCE.MainLoopBody(config) return rquote
 
     -- Calculate exit condition, but don't exit yet
     var exitCond =
@@ -5903,7 +5905,7 @@ local function mkFullSim() local Exports = {}
         var Radiation_zCellWidth = (config.Grid.zWidth/config.Radiation.zNum)
         var Radiation_cellVolume = Radiation_xCellWidth * Radiation_yCellWidth * Radiation_zCellWidth
         Radiation_UpdateFieldValues(Radiation, Radiation_cellVolume, config.Radiation.qa, config.Radiation.qs);
-        [DOM.ComputeRadiationField(config, tiles, p_Radiation)];
+        [DOM_INST.ComputeRadiationField(config, tiles, p_Radiation)];
         for c in tiles do
           Particles_AbsorbRadiation(p_Particles[c], p_Fluid[c], p_Radiation[c], config.Particles.heatCapacity, config.Radiation.qa)
         end
@@ -6149,13 +6151,13 @@ local function mkFullSim() local Exports = {}
 
     Integrator_timeStep += 1
 
-  end end -- Exports.MainLoopBody
+  end end -- MainLoopBody
 
   -----------------------------------------------------------------------------
   -- Cleanup code
   -----------------------------------------------------------------------------
 
-  function Exports.Cleanup() return rquote
+  function INSTANCE.Cleanup() return rquote
 
     -- Stop timer
     var endTime = regentlib.c.legion_get_current_time_in_micros() / 1000
@@ -6166,15 +6168,15 @@ local function mkFullSim() local Exports = {}
     -- Close long-running files
     C.fclose(console)
 
-  end end -- Exports.Cleanup
+  end end -- Cleanup
 
-return Exports end -- mkFullSim
+return INSTANCE end -- mkInstance
 
 -------------------------------------------------------------------------------
 -- TOP-LEVEL INTERFACE
 -------------------------------------------------------------------------------
 
-local SIM = mkFullSim()
+local SIM = mkInstance()
 
 __forbid(__optimize) __demand(__inner)
 task work(config : Config)

@@ -49,6 +49,7 @@ struct Point {
 -------------------------------------------------------------------------------
 
 local DOM = (require 'dom')(NUM_ANGLES, Point, SCHEMA.Config)
+local DOM_INST = DOM.mkInstance()
 
 -------------------------------------------------------------------------------
 -- Proxy tasks
@@ -134,12 +135,12 @@ local task main()
   var colors = ispace(int3d, {config.Mapping.tiles[0], config.Mapping.tiles[1], config.Mapping.tiles[2]})
   var p_points = partition(equal, points, colors);
   -- Inline quotes from external module
-  [DOM.DeclSymbols(config)];
-  [DOM.InitRegions()];
+  [DOM_INST.DeclSymbols(config)];
+  [DOM_INST.InitRegions()];
   for color in colors do
     InitPoints(p_points[color])
   end
-  [DOM.ComputeRadiationField(config, colors, p_points)];
+  [DOM_INST.ComputeRadiationField(config, colors, p_points)];
   writeIntensity(points)
 end
 

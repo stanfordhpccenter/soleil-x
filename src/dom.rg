@@ -4,7 +4,7 @@ import 'regent'
 -- MODULE PARAMETERS
 -------------------------------------------------------------------------------
 
-return function(NUM_ANGLES, pointsFSpace, Config)
+return function(NUM_ANGLES, pointsFSpace, Config) local MODULE = {}
 
 -------------------------------------------------------------------------------
 -- COMPILE-TIME COMPUTATION
@@ -2100,518 +2100,520 @@ do
 end
 
 -------------------------------------------------------------------------------
--- EXPORTED QUOTES
+-- FULL SIMULATION QUOTES
 -------------------------------------------------------------------------------
 
-local Exports = {}
+function MODULE.mkInstance() local INSTANCE = {}
 
--- Symbols shared between quotes
+  -- Symbols shared between quotes
 
-local Nx = regentlib.newsymbol('Nx')
-local Ny = regentlib.newsymbol('Ny')
-local Nz = regentlib.newsymbol('Nz')
+  local Nx = regentlib.newsymbol('Nx')
+  local Ny = regentlib.newsymbol('Ny')
+  local Nz = regentlib.newsymbol('Nz')
 
-local ntx = regentlib.newsymbol('ntx')
-local nty = regentlib.newsymbol('nty')
-local ntz = regentlib.newsymbol('ntz')
+  local ntx = regentlib.newsymbol('ntx')
+  local nty = regentlib.newsymbol('nty')
+  local ntz = regentlib.newsymbol('ntz')
 
-local grid_x = regentlib.newsymbol('grid_x')
-local grid_y = regentlib.newsymbol('grid_y')
-local grid_z = regentlib.newsymbol('grid_z')
+  local grid_x = regentlib.newsymbol('grid_x')
+  local grid_y = regentlib.newsymbol('grid_y')
+  local grid_z = regentlib.newsymbol('grid_z')
 
-local x_faces = {
-  regentlib.newsymbol('x_faces_1'),
-  regentlib.newsymbol('x_faces_2'),
-  regentlib.newsymbol('x_faces_3'),
-  regentlib.newsymbol('x_faces_4'),
-  regentlib.newsymbol('x_faces_5'),
-  regentlib.newsymbol('x_faces_6'),
-  regentlib.newsymbol('x_faces_7'),
-  regentlib.newsymbol('x_faces_8'),
-}
-
-local y_faces = {
-  regentlib.newsymbol('y_faces_1'),
-  regentlib.newsymbol('y_faces_2'),
-  regentlib.newsymbol('y_faces_3'),
-  regentlib.newsymbol('y_faces_4'),
-  regentlib.newsymbol('y_faces_5'),
-  regentlib.newsymbol('y_faces_6'),
-  regentlib.newsymbol('y_faces_7'),
-  regentlib.newsymbol('y_faces_8'),
-}
-
-local z_faces = {
-  regentlib.newsymbol('z_faces_1'),
-  regentlib.newsymbol('z_faces_2'),
-  regentlib.newsymbol('z_faces_3'),
-  regentlib.newsymbol('z_faces_4'),
-  regentlib.newsymbol('z_faces_5'),
-  regentlib.newsymbol('z_faces_6'),
-  regentlib.newsymbol('z_faces_7'),
-  regentlib.newsymbol('z_faces_8'),
-}
-
-local angles = regentlib.newsymbol('angles')
-local tiles_private = regentlib.newsymbol('tiles_private')
-local x_tiles_shared = regentlib.newsymbol('x_tiles_shared')
-local y_tiles_shared = regentlib.newsymbol('y_tiles_shared')
-local z_tiles_shared = regentlib.newsymbol('z_tiles_shared')
-
-local s_x_faces = {
-  regentlib.newsymbol('s_x_faces_1'),
-  regentlib.newsymbol('s_x_faces_2'),
-  regentlib.newsymbol('s_x_faces_3'),
-  regentlib.newsymbol('s_x_faces_4'),
-  regentlib.newsymbol('s_x_faces_5'),
-  regentlib.newsymbol('s_x_faces_6'),
-  regentlib.newsymbol('s_x_faces_7'),
-  regentlib.newsymbol('s_x_faces_8'),
-}
-local s_y_faces = {
-  regentlib.newsymbol('s_y_faces_1'),
-  regentlib.newsymbol('s_y_faces_2'),
-  regentlib.newsymbol('s_y_faces_3'),
-  regentlib.newsymbol('s_y_faces_4'),
-  regentlib.newsymbol('s_y_faces_5'),
-  regentlib.newsymbol('s_y_faces_6'),
-  regentlib.newsymbol('s_y_faces_7'),
-  regentlib.newsymbol('s_y_faces_8'),
-}
-local s_z_faces = {
-  regentlib.newsymbol('s_z_faces_1'),
-  regentlib.newsymbol('s_z_faces_2'),
-  regentlib.newsymbol('s_z_faces_3'),
-  regentlib.newsymbol('s_z_faces_4'),
-  regentlib.newsymbol('s_z_faces_5'),
-  regentlib.newsymbol('s_z_faces_6'),
-  regentlib.newsymbol('s_z_faces_7'),
-  regentlib.newsymbol('s_z_faces_8'),
-}
-
-local p_x_faces_equal = {
-  regentlib.newsymbol('p_x_faces_equal_1'),
-  regentlib.newsymbol('p_x_faces_equal_2'),
-  regentlib.newsymbol('p_x_faces_equal_3'),
-  regentlib.newsymbol('p_x_faces_equal_4'),
-  regentlib.newsymbol('p_x_faces_equal_5'),
-  regentlib.newsymbol('p_x_faces_equal_6'),
-  regentlib.newsymbol('p_x_faces_equal_7'),
-  regentlib.newsymbol('p_x_faces_equal_8'),
-}
-local p_y_faces_equal = {
-  regentlib.newsymbol('p_y_faces_equal_1'),
-  regentlib.newsymbol('p_y_faces_equal_2'),
-  regentlib.newsymbol('p_y_faces_equal_3'),
-  regentlib.newsymbol('p_y_faces_equal_4'),
-  regentlib.newsymbol('p_y_faces_equal_5'),
-  regentlib.newsymbol('p_y_faces_equal_6'),
-  regentlib.newsymbol('p_y_faces_equal_7'),
-  regentlib.newsymbol('p_y_faces_equal_8'),
-}
-local p_z_faces_equal = {
-  regentlib.newsymbol('p_z_faces_equal_1'),
-  regentlib.newsymbol('p_z_faces_equal_2'),
-  regentlib.newsymbol('p_z_faces_equal_3'),
-  regentlib.newsymbol('p_z_faces_equal_4'),
-  regentlib.newsymbol('p_z_faces_equal_5'),
-  regentlib.newsymbol('p_z_faces_equal_6'),
-  regentlib.newsymbol('p_z_faces_equal_7'),
-  regentlib.newsymbol('p_z_faces_equal_8'),
-}
-
-local p_x_faces = {
-  regentlib.newsymbol('p_x_faces_1'),
-  regentlib.newsymbol('p_x_faces_2'),
-  regentlib.newsymbol('p_x_faces_3'),
-  regentlib.newsymbol('p_x_faces_4'),
-  regentlib.newsymbol('p_x_faces_5'),
-  regentlib.newsymbol('p_x_faces_6'),
-  regentlib.newsymbol('p_x_faces_7'),
-  regentlib.newsymbol('p_x_faces_8'),
-}
-local p_y_faces = {
-  regentlib.newsymbol('p_y_faces_1'),
-  regentlib.newsymbol('p_y_faces_2'),
-  regentlib.newsymbol('p_y_faces_3'),
-  regentlib.newsymbol('p_y_faces_4'),
-  regentlib.newsymbol('p_y_faces_5'),
-  regentlib.newsymbol('p_y_faces_6'),
-  regentlib.newsymbol('p_y_faces_7'),
-  regentlib.newsymbol('p_y_faces_8'),
-}
-local p_z_faces = {
-  regentlib.newsymbol('p_z_faces_1'),
-  regentlib.newsymbol('p_z_faces_2'),
-  regentlib.newsymbol('p_z_faces_3'),
-  regentlib.newsymbol('p_z_faces_4'),
-  regentlib.newsymbol('p_z_faces_5'),
-  regentlib.newsymbol('p_z_faces_6'),
-  regentlib.newsymbol('p_z_faces_7'),
-  regentlib.newsymbol('p_z_faces_8'),
-}
-
-function Exports.DeclSymbols(config)
-
-  local decl_symbols = rquote
-    -- Number of points in each dimension
-    var [Nx] = config.Radiation.xNum
-    var [Ny] = config.Radiation.yNum
-    var [Nz] = config.Radiation.zNum
-
-    -- Number of tiles in each dimension
-    var [ntx] = config.Mapping.tiles[0]
-    var [nty] = config.Mapping.tiles[1]
-    var [ntz] = config.Mapping.tiles[2]
-
-    -- Regions for faces (+1 in one direction since one more face than points)
-    var [grid_x] = ispace(int3d, {x = Nx+1, y = Ny,   z = Nz  })
-    var [grid_y] = ispace(int3d, {x = Nx,   y = Ny+1, z = Nz  })
-    var [grid_z] = ispace(int3d, {x = Nx,   y = Ny,   z = Nz+1})
-
-    -- 1D Region for angle values
-    var angle_indices = ispace(int1d, NUM_ANGLES)
-    var [angles] = region(angle_indices, angle)
-  end
-
-  for i = 1, 8 do
-    decl_symbols = rquote
-      [decl_symbols];
-      var [x_faces[i]] = region([grid_x], face)
-      var [y_faces[i]] = region([grid_y], face)
-      var [z_faces[i]] = region([grid_z], face)
-    end
-  end
-
-  decl_symbols = rquote
-    [decl_symbols];
-    -- extra tile required for shared edge
-    var [tiles_private]  = ispace(int3d, {x = ntx,   y = nty,   z = ntz  })
-    var [x_tiles_shared] = ispace(int3d, {x = ntx+1, y = nty,   z = ntz  })
-    var [y_tiles_shared] = ispace(int3d, {x = ntx,   y = nty+1, z = ntz  })
-    var [z_tiles_shared] = ispace(int3d, {x = ntx,   y = nty,   z = ntz+1})
-  end
-
-  -- Partition faces
-
-  local directions = {
-    rexpr array(true,true,true) end,
-    rexpr array(true,true,false) end,
-    rexpr array(true,false,true) end,
-    rexpr array(true,false,false) end,
-    rexpr array(false,true,true) end,
-    rexpr array(false,true,false) end,
-    rexpr array(false,false,true) end,
-    rexpr array(false,false,false) end,
+  local x_faces = {
+    regentlib.newsymbol('x_faces_1'),
+    regentlib.newsymbol('x_faces_2'),
+    regentlib.newsymbol('x_faces_3'),
+    regentlib.newsymbol('x_faces_4'),
+    regentlib.newsymbol('x_faces_5'),
+    regentlib.newsymbol('x_faces_6'),
+    regentlib.newsymbol('x_faces_7'),
+    regentlib.newsymbol('x_faces_8'),
   }
 
-  for i = 1, 8 do
+  local y_faces = {
+    regentlib.newsymbol('y_faces_1'),
+    regentlib.newsymbol('y_faces_2'),
+    regentlib.newsymbol('y_faces_3'),
+    regentlib.newsymbol('y_faces_4'),
+    regentlib.newsymbol('y_faces_5'),
+    regentlib.newsymbol('y_faces_6'),
+    regentlib.newsymbol('y_faces_7'),
+    regentlib.newsymbol('y_faces_8'),
+  }
 
-    local x_by_privacy = regentlib.newsymbol('x_by_privacy_' .. tostring(i))
-    local p_x = regentlib.newsymbol('p_x_' .. tostring(i))
-    local s_x = regentlib.newsymbol('s_x_' .. tostring(i))
+  local z_faces = {
+    regentlib.newsymbol('z_faces_1'),
+    regentlib.newsymbol('z_faces_2'),
+    regentlib.newsymbol('z_faces_3'),
+    regentlib.newsymbol('z_faces_4'),
+    regentlib.newsymbol('z_faces_5'),
+    regentlib.newsymbol('z_faces_6'),
+    regentlib.newsymbol('z_faces_7'),
+    regentlib.newsymbol('z_faces_8'),
+  }
 
-    local y_by_privacy = regentlib.newsymbol('y_by_privacy_' .. tostring(i))
-    local p_y = regentlib.newsymbol('p_y_' .. tostring(i))
-    local s_y = regentlib.newsymbol('s_y_' .. tostring(i))
+  local angles = regentlib.newsymbol('angles')
+  local tiles_private = regentlib.newsymbol('tiles_private')
+  local x_tiles_shared = regentlib.newsymbol('x_tiles_shared')
+  local y_tiles_shared = regentlib.newsymbol('y_tiles_shared')
+  local z_tiles_shared = regentlib.newsymbol('z_tiles_shared')
 
-    local z_by_privacy = regentlib.newsymbol('z_by_privacy_' .. tostring(i))
-    local p_z = regentlib.newsymbol('p_z_' .. tostring(i))
-    local s_z = regentlib.newsymbol('s_z_' .. tostring(i))
+  local s_x_faces = {
+    regentlib.newsymbol('s_x_faces_1'),
+    regentlib.newsymbol('s_x_faces_2'),
+    regentlib.newsymbol('s_x_faces_3'),
+    regentlib.newsymbol('s_x_faces_4'),
+    regentlib.newsymbol('s_x_faces_5'),
+    regentlib.newsymbol('s_x_faces_6'),
+    regentlib.newsymbol('s_x_faces_7'),
+    regentlib.newsymbol('s_x_faces_8'),
+  }
+  local s_y_faces = {
+    regentlib.newsymbol('s_y_faces_1'),
+    regentlib.newsymbol('s_y_faces_2'),
+    regentlib.newsymbol('s_y_faces_3'),
+    regentlib.newsymbol('s_y_faces_4'),
+    regentlib.newsymbol('s_y_faces_5'),
+    regentlib.newsymbol('s_y_faces_6'),
+    regentlib.newsymbol('s_y_faces_7'),
+    regentlib.newsymbol('s_y_faces_8'),
+  }
+  local s_z_faces = {
+    regentlib.newsymbol('s_z_faces_1'),
+    regentlib.newsymbol('s_z_faces_2'),
+    regentlib.newsymbol('s_z_faces_3'),
+    regentlib.newsymbol('s_z_faces_4'),
+    regentlib.newsymbol('s_z_faces_5'),
+    regentlib.newsymbol('s_z_faces_6'),
+    regentlib.newsymbol('s_z_faces_7'),
+    regentlib.newsymbol('s_z_faces_8'),
+  }
+
+  local p_x_faces_equal = {
+    regentlib.newsymbol('p_x_faces_equal_1'),
+    regentlib.newsymbol('p_x_faces_equal_2'),
+    regentlib.newsymbol('p_x_faces_equal_3'),
+    regentlib.newsymbol('p_x_faces_equal_4'),
+    regentlib.newsymbol('p_x_faces_equal_5'),
+    regentlib.newsymbol('p_x_faces_equal_6'),
+    regentlib.newsymbol('p_x_faces_equal_7'),
+    regentlib.newsymbol('p_x_faces_equal_8'),
+  }
+  local p_y_faces_equal = {
+    regentlib.newsymbol('p_y_faces_equal_1'),
+    regentlib.newsymbol('p_y_faces_equal_2'),
+    regentlib.newsymbol('p_y_faces_equal_3'),
+    regentlib.newsymbol('p_y_faces_equal_4'),
+    regentlib.newsymbol('p_y_faces_equal_5'),
+    regentlib.newsymbol('p_y_faces_equal_6'),
+    regentlib.newsymbol('p_y_faces_equal_7'),
+    regentlib.newsymbol('p_y_faces_equal_8'),
+  }
+  local p_z_faces_equal = {
+    regentlib.newsymbol('p_z_faces_equal_1'),
+    regentlib.newsymbol('p_z_faces_equal_2'),
+    regentlib.newsymbol('p_z_faces_equal_3'),
+    regentlib.newsymbol('p_z_faces_equal_4'),
+    regentlib.newsymbol('p_z_faces_equal_5'),
+    regentlib.newsymbol('p_z_faces_equal_6'),
+    regentlib.newsymbol('p_z_faces_equal_7'),
+    regentlib.newsymbol('p_z_faces_equal_8'),
+  }
+
+  local p_x_faces = {
+    regentlib.newsymbol('p_x_faces_1'),
+    regentlib.newsymbol('p_x_faces_2'),
+    regentlib.newsymbol('p_x_faces_3'),
+    regentlib.newsymbol('p_x_faces_4'),
+    regentlib.newsymbol('p_x_faces_5'),
+    regentlib.newsymbol('p_x_faces_6'),
+    regentlib.newsymbol('p_x_faces_7'),
+    regentlib.newsymbol('p_x_faces_8'),
+  }
+  local p_y_faces = {
+    regentlib.newsymbol('p_y_faces_1'),
+    regentlib.newsymbol('p_y_faces_2'),
+    regentlib.newsymbol('p_y_faces_3'),
+    regentlib.newsymbol('p_y_faces_4'),
+    regentlib.newsymbol('p_y_faces_5'),
+    regentlib.newsymbol('p_y_faces_6'),
+    regentlib.newsymbol('p_y_faces_7'),
+    regentlib.newsymbol('p_y_faces_8'),
+  }
+  local p_z_faces = {
+    regentlib.newsymbol('p_z_faces_1'),
+    regentlib.newsymbol('p_z_faces_2'),
+    regentlib.newsymbol('p_z_faces_3'),
+    regentlib.newsymbol('p_z_faces_4'),
+    regentlib.newsymbol('p_z_faces_5'),
+    regentlib.newsymbol('p_z_faces_6'),
+    regentlib.newsymbol('p_z_faces_7'),
+    regentlib.newsymbol('p_z_faces_8'),
+  }
+
+  function INSTANCE.DeclSymbols(config)
+
+    local decl_symbols = rquote
+      -- Number of points in each dimension
+      var [Nx] = config.Radiation.xNum
+      var [Ny] = config.Radiation.yNum
+      var [Nz] = config.Radiation.zNum
+
+      -- Number of tiles in each dimension
+      var [ntx] = config.Mapping.tiles[0]
+      var [nty] = config.Mapping.tiles[1]
+      var [ntz] = config.Mapping.tiles[2]
+
+      -- Regions for faces (+1 in one direction since one more face than points)
+      var [grid_x] = ispace(int3d, {x = Nx+1, y = Ny,   z = Nz  })
+      var [grid_y] = ispace(int3d, {x = Nx,   y = Ny+1, z = Nz  })
+      var [grid_z] = ispace(int3d, {x = Nx,   y = Ny,   z = Nz+1})
+
+      -- 1D Region for angle values
+      var angle_indices = ispace(int1d, NUM_ANGLES)
+      var [angles] = region(angle_indices, angle)
+    end
+
+    for i = 1, 8 do
+      decl_symbols = rquote
+        [decl_symbols];
+        var [x_faces[i]] = region([grid_x], face)
+        var [y_faces[i]] = region([grid_y], face)
+        var [z_faces[i]] = region([grid_z], face)
+      end
+    end
 
     decl_symbols = rquote
       [decl_symbols];
-      -- x
-      var [p_x_faces_equal[i]] = partition(equal, [x_faces[i]], [tiles_private])
-      for c in [tiles_private] do
-        color_faces([p_x_faces_equal[i]][c], Nx, Ny, Nz, ntx, nty, ntz, 0, [directions[i]])
-      end
-      var [x_by_privacy] = partition([x_faces[i]].is_private, ispace(int1d,2))
-      var [p_x] = [x_by_privacy][1]
-      var [p_x_faces[i]] = partition([p_x].tile, [tiles_private])
-      var [s_x] = [x_by_privacy][0]
-      var [s_x_faces[i]] = partition([s_x].tile, [x_tiles_shared])
-      -- y
-      var [p_y_faces_equal[i]] = partition(equal, [y_faces[i]], [tiles_private])
-      for c in [tiles_private] do
-        color_faces([p_y_faces_equal[i]][c], Nx, Ny, Nz, ntx, nty, ntz, 1, [directions[i]])
-      end
-      var [y_by_privacy] = partition([y_faces[i]].is_private, ispace(int1d,2))
-      var [p_y] = [y_by_privacy][1]
-      var [p_y_faces[i]] = partition([p_y].tile, [tiles_private])
-      var [s_y] = [y_by_privacy][0]
-      var [s_y_faces[i]] = partition([s_y].tile, [y_tiles_shared])
-      -- z
-      var [p_z_faces_equal[i]] = partition(equal, [z_faces[i]], [tiles_private])
-      for c in [tiles_private] do
-        color_faces([p_z_faces_equal[i]][c], Nx, Ny, Nz, ntx, nty, ntz, 2, [directions[i]])
-      end
-      var [z_by_privacy] = partition([z_faces[i]].is_private, ispace(int1d,2))
-      var [p_z] = [z_by_privacy][1]
-      var [p_z_faces[i]] = partition([p_z].tile, [tiles_private])
-      var [s_z] = [z_by_privacy][0]
-      var [s_z_faces[i]] = partition([s_z].tile, [z_tiles_shared])
+      -- extra tile required for shared edge
+      var [tiles_private]  = ispace(int3d, {x = ntx,   y = nty,   z = ntz  })
+      var [x_tiles_shared] = ispace(int3d, {x = ntx+1, y = nty,   z = ntz  })
+      var [y_tiles_shared] = ispace(int3d, {x = ntx,   y = nty+1, z = ntz  })
+      var [z_tiles_shared] = ispace(int3d, {x = ntx,   y = nty,   z = ntz+1})
     end
-  end
 
-  return decl_symbols
-end
+    -- Partition faces
 
-function Exports.InitRegions() return rquote
+    local directions = {
+      rexpr array(true,true,true) end,
+      rexpr array(true,true,false) end,
+      rexpr array(true,false,true) end,
+      rexpr array(true,false,false) end,
+      rexpr array(false,true,true) end,
+      rexpr array(false,true,false) end,
+      rexpr array(false,false,true) end,
+      rexpr array(false,false,false) end,
+    }
 
-  -- Initialize angle values
-  initialize_angles(angles)
+    for i = 1, 8 do
 
-end end
+      local x_by_privacy = regentlib.newsymbol('x_by_privacy_' .. tostring(i))
+      local p_x = regentlib.newsymbol('p_x_' .. tostring(i))
+      local s_x = regentlib.newsymbol('s_x_' .. tostring(i))
 
-function Exports.ComputeRadiationField(config, tiles, p_points) return rquote
+      local y_by_privacy = regentlib.newsymbol('y_by_privacy_' .. tostring(i))
+      local p_y = regentlib.newsymbol('p_y_' .. tostring(i))
+      local s_y = regentlib.newsymbol('s_y_' .. tostring(i))
 
-  var dx = config.Grid.xWidth / config.Radiation.xNum
-  var dy = config.Grid.yWidth / config.Radiation.yNum
-  var dz = config.Grid.zWidth / config.Radiation.zNum
+      local z_by_privacy = regentlib.newsymbol('z_by_privacy_' .. tostring(i))
+      local p_z = regentlib.newsymbol('p_z_' .. tostring(i))
+      local s_z = regentlib.newsymbol('s_z_' .. tostring(i))
 
-  var omega = config.Radiation.qs/(config.Radiation.qa+config.Radiation.qs)
+      decl_symbols = rquote
+        [decl_symbols];
+        -- x
+        var [p_x_faces_equal[i]] = partition(equal, [x_faces[i]], [tiles_private])
+        for c in [tiles_private] do
+          color_faces([p_x_faces_equal[i]][c], Nx, Ny, Nz, ntx, nty, ntz, 0, [directions[i]])
+        end
+        var [x_by_privacy] = partition([x_faces[i]].is_private, ispace(int1d,2))
+        var [p_x] = [x_by_privacy][1]
+        var [p_x_faces[i]] = partition([p_x].tile, [tiles_private])
+        var [s_x] = [x_by_privacy][0]
+        var [s_x_faces[i]] = partition([s_x].tile, [x_tiles_shared])
+        -- y
+        var [p_y_faces_equal[i]] = partition(equal, [y_faces[i]], [tiles_private])
+        for c in [tiles_private] do
+          color_faces([p_y_faces_equal[i]][c], Nx, Ny, Nz, ntx, nty, ntz, 1, [directions[i]])
+        end
+        var [y_by_privacy] = partition([y_faces[i]].is_private, ispace(int1d,2))
+        var [p_y] = [y_by_privacy][1]
+        var [p_y_faces[i]] = partition([p_y].tile, [tiles_private])
+        var [s_y] = [y_by_privacy][0]
+        var [s_y_faces[i]] = partition([s_y].tile, [y_tiles_shared])
+        -- z
+        var [p_z_faces_equal[i]] = partition(equal, [z_faces[i]], [tiles_private])
+        for c in [tiles_private] do
+          color_faces([p_z_faces_equal[i]][c], Nx, Ny, Nz, ntx, nty, ntz, 2, [directions[i]])
+        end
+        var [z_by_privacy] = partition([z_faces[i]].is_private, ispace(int1d,2))
+        var [p_z] = [z_by_privacy][1]
+        var [p_z_faces[i]] = partition([p_z].tile, [tiles_private])
+        var [s_z] = [z_by_privacy][0]
+        var [s_z_faces[i]] = partition([s_z].tile, [z_tiles_shared])
+      end
+    end
 
-  -- Compute until convergence
-  var res : double = 1.0
-  while (res > tol) do
+    return decl_symbols
 
-    -- Update the source term (in this problem, isotropic)
+  end -- DeclSymbols
+
+  function INSTANCE.InitRegions() return rquote
+
+    -- Initialize angle values
+    initialize_angles(angles)
+
+  end end -- InitRegions
+
+  function INSTANCE.ComputeRadiationField(config, tiles, p_points) return rquote
+
+    var dx = config.Grid.xWidth / config.Radiation.xNum
+    var dy = config.Grid.yWidth / config.Radiation.yNum
+    var dz = config.Grid.zWidth / config.Radiation.zNum
+
+    var omega = config.Radiation.qs/(config.Radiation.qa+config.Radiation.qs)
+
+    -- Compute until convergence
+    var res : double = 1.0
+    while (res > tol) do
+
+      -- Update the source term (in this problem, isotropic)
+      for t in tiles do
+        source_term(p_points[t], angles, omega)
+      end
+
+      -- Update the grid boundary intensities
+      -- TODO: Should launch these on just the boundaries
+      for j = 0, nty do
+        for k = 0, ntz do
+          bound_x_lo([s_x_faces[1]][{0,j,k}],
+                     [s_x_faces[2]][{0,j,k}],
+                     [s_x_faces[3]][{0,j,k}],
+                     [s_x_faces[4]][{0,j,k}],
+                     [s_x_faces[5]][{0,j,k}],
+                     [s_x_faces[6]][{0,j,k}],
+                     [s_x_faces[7]][{0,j,k}],
+                     [s_x_faces[8]][{0,j,k}],
+                     angles,
+                     config)
+        end
+      end
+
+      for j = 0, nty do
+        for k = 0, ntz do
+          bound_x_hi([s_x_faces[1]][{ntx,j,k}],
+                     [s_x_faces[2]][{ntx,j,k}],
+                     [s_x_faces[3]][{ntx,j,k}],
+                     [s_x_faces[4]][{ntx,j,k}],
+                     [s_x_faces[5]][{ntx,j,k}],
+                     [s_x_faces[6]][{ntx,j,k}],
+                     [s_x_faces[7]][{ntx,j,k}],
+                     [s_x_faces[8]][{ntx,j,k}],
+                     angles,
+                     config)
+        end
+      end
+
+      -- Update y faces
+      for i = 0, ntx do
+        for k = 0, ntz do
+          bound_y_lo([s_y_faces[1]][{i,0,k}],
+                     [s_y_faces[2]][{i,0,k}],
+                     [s_y_faces[3]][{i,0,k}],
+                     [s_y_faces[4]][{i,0,k}],
+                     [s_y_faces[5]][{i,0,k}],
+                     [s_y_faces[6]][{i,0,k}],
+                     [s_y_faces[7]][{i,0,k}],
+                     [s_y_faces[8]][{i,0,k}],
+                     angles,
+                     config)
+        end
+      end
+
+      for i = 0, ntx do
+        for k = 0, ntz do
+          bound_y_hi([s_y_faces[1]][{i,nty,k}],
+                     [s_y_faces[2]][{i,nty,k}],
+                     [s_y_faces[3]][{i,nty,k}],
+                     [s_y_faces[4]][{i,nty,k}],
+                     [s_y_faces[5]][{i,nty,k}],
+                     [s_y_faces[6]][{i,nty,k}],
+                     [s_y_faces[7]][{i,nty,k}],
+                     [s_y_faces[8]][{i,nty,k}],
+                     angles,
+                     config)
+        end
+      end
+
+      -- Update z faces
+      for i = 0, ntx do
+        for j = 0, nty do
+          bound_z_lo([s_z_faces[1]][{i,j,0}],
+                     [s_z_faces[2]][{i,j,0}],
+                     [s_z_faces[3]][{i,j,0}],
+                     [s_z_faces[4]][{i,j,0}],
+                     [s_z_faces[5]][{i,j,0}],
+                     [s_z_faces[6]][{i,j,0}],
+                     [s_z_faces[7]][{i,j,0}],
+                     [s_z_faces[8]][{i,j,0}],
+                     angles,
+                     config)
+        end
+      end
+
+      for i = 0, ntx do
+        for j = 0, nty do
+          bound_z_hi([s_z_faces[1]][{i,j,ntz}],
+                     [s_z_faces[2]][{i,j,ntz}],
+                     [s_z_faces[3]][{i,j,ntz}],
+                     [s_z_faces[4]][{i,j,ntz}],
+                     [s_z_faces[5]][{i,j,ntz}],
+                     [s_z_faces[6]][{i,j,ntz}],
+                     [s_z_faces[7]][{i,j,ntz}],
+                     [s_z_faces[8]][{i,j,ntz}],
+                     angles,
+                     config)
+        end
+      end
+
+      --Perform the sweep for computing new intensities
+      --Quadrant 1 - +x, +y, +z
+      for i = 0, ntx do
+        for j = 0, nty do
+          for k = 0, ntz do
+            sweep_1(p_points[{i,j,k}],
+                    [p_x_faces[1]][{i,j,k}], [p_y_faces[1]][{i,j,k}], [p_z_faces[1]][{i,j,k}],
+                    [s_x_faces[1]][{i,j,k}], [s_x_faces[1]][{i+1,j,k}],
+                    [s_y_faces[1]][{i,j,k}], [s_y_faces[1]][{i,j+1,k}],
+                    [s_z_faces[1]][{i,j,k}], [s_z_faces[1]][{i,j,k+1}],
+                    angles, 1, 1, 1, dx, dy, dz)
+          end
+        end
+      end
+
+      -- Quadrant 2 - +x, +y, -z
+      for i = 0, ntx do
+        for j = 0, nty do
+          for k = ntz-1, -1, -1 do
+            sweep_2(p_points[{i,j,k}],
+                    [p_x_faces[2]][{i,j,k}], [p_y_faces[2]][{i,j,k}], [p_z_faces[2]][{i,j,k}],
+                    [s_x_faces[2]][{i,j,k}], [s_x_faces[2]][{i+1,j,k}],
+                    [s_y_faces[2]][{i,j,k}], [s_y_faces[2]][{i,j+1,k}],
+                    [s_z_faces[2]][{i,j,k+1}], [s_z_faces[2]][{i,j,k}],
+                    angles, 1, 1, -1, dx, dy, dz)
+          end
+        end
+      end
+
+      -- Quadrant 3 - +x, -y, +z
+      for i = 0, ntx do
+        for j = nty-1, -1, -1 do
+          for k = 0, ntz do
+            sweep_3(p_points[{i,j,k}],
+                    [p_x_faces[3]][{i,j,k}], [p_y_faces[3]][{i,j,k}], [p_z_faces[3]][{i,j,k}],
+                    [s_x_faces[3]][{i,j,k}], [s_x_faces[3]][{i+1,j,k}],
+                    [s_y_faces[3]][{i,j+1,k}], [s_y_faces[3]][{i,j,k}],
+                    [s_z_faces[3]][{i,j,k}], [s_z_faces[3]][{i,j,k+1}],
+                    angles, 1, -1, 1, dx, dy, dz)
+          end
+        end
+      end
+
+      -- Quadrant 4 - +x, -y, -z
+      for i = 0, ntx do
+        for j = nty-1, -1, -1 do
+          for k = ntz-1, -1, -1 do
+            sweep_4(p_points[{i,j,k}],
+                    [p_x_faces[4]][{i,j,k}], [p_y_faces[4]][{i,j,k}], [p_z_faces[4]][{i,j,k}],
+                    [s_x_faces[4]][{i,j,k}], [s_x_faces[4]][{i+1,j,k}],
+                    [s_y_faces[4]][{i,j+1,k}], [s_y_faces[4]][{i,j,k}],
+                    [s_z_faces[4]][{i,j,k+1}], [s_z_faces[4]][{i,j,k}],
+                    angles, 1, -1, -1, dx, dy, dz)
+          end
+        end
+      end
+
+      -- Quadrant 5 - -x, +y, +z
+      for i = ntx-1, -1, -1 do
+        for j = 0, nty do
+          for k = 0, ntz do
+            sweep_5(p_points[{i,j,k}],
+                    [p_x_faces[5]][{i,j,k}], [p_y_faces[5]][{i,j,k}], [p_z_faces[5]][{i,j,k}],
+                    [s_x_faces[5]][{i+1,j,k}], [s_x_faces[5]][{i,j,k}],
+                    [s_y_faces[5]][{i,j,k}], [s_y_faces[5]][{i,j+1,k}],
+                    [s_z_faces[5]][{i,j,k}], [s_z_faces[5]][{i,j,k+1}],
+                    angles, -1, 1, 1, dx, dy, dz)
+          end
+        end
+      end
+
+      -- Quadrant 6 - -x, +y, -z
+      for i = ntx-1, -1, -1 do
+        for j = 0, nty do
+          for k = ntz-1, -1, -1 do
+            sweep_6(p_points[{i,j,k}],
+                    [p_x_faces[6]][{i,j,k}], [p_y_faces[6]][{i,j,k}], [p_z_faces[6]][{i,j,k}],
+                    [s_x_faces[6]][{i+1,j,k}], [s_x_faces[6]][{i,j,k}],
+                    [s_y_faces[6]][{i,j,k}], [s_y_faces[6]][{i,j+1,k}],
+                    [s_z_faces[6]][{i,j,k+1}], [s_z_faces[6]][{i,j,k}],
+                    angles, -1, 1, -1, dx, dy, dz)
+          end
+        end
+      end
+
+      -- Quadrant 7 - -x, -y, +z
+      for i = ntx-1, -1, -1 do
+        for j = nty-1, -1, -1 do
+          for k = 0, ntz do
+            sweep_7(p_points[{i,j,k}],
+                    [p_x_faces[7]][{i,j,k}], [p_y_faces[7]][{i,j,k}], [p_z_faces[7]][{i,j,k}],
+                    [s_x_faces[7]][{i+1,j,k}], [s_x_faces[7]][{i,j,k}],
+                    [s_y_faces[7]][{i,j+1,k}], [s_y_faces[7]][{i,j,k}],
+                    [s_z_faces[7]][{i,j,k}], [s_z_faces[7]][{i,j,k+1}],
+                    angles, -1, -1, 1, dx, dy, dz)
+          end
+        end
+      end
+
+      -- Quadrant 8 - -x, -y, -z
+      for i = ntx-1, -1, -1 do
+        for j = nty-1, -1, -1 do
+          for k = ntz-1, -1, -1 do
+            sweep_8(p_points[{i,j,k}],
+                    [p_x_faces[8]][{i,j,k}], [p_y_faces[8]][{i,j,k}], [p_z_faces[8]][{i,j,k}],
+                    [s_x_faces[8]][{i+1,j,k}], [s_x_faces[8]][{i,j,k}],
+                    [s_y_faces[8]][{i,j+1,k}], [s_y_faces[8]][{i,j,k}],
+                    [s_z_faces[8]][{i,j,k+1}], [s_z_faces[8]][{i,j,k}],
+                    angles, -1, -1, -1, dx, dy, dz)
+          end
+        end
+      end
+
+      -- Compute the residual
+      res = 0.0
+      for t in tiles do
+        res += residual(p_points[t], Nx, Ny, Nz)
+      end
+      res = sqrt(res/(Nx*Ny*Nz*(NUM_ANGLES)))
+
+      -- Update the intensities
+      for t in tiles do
+        update(p_points[t])
+      end
+
+    end
+
+    -- Reduce intensity
     for t in tiles do
-      source_term(p_points[t], angles, omega)
+      reduce_intensity(p_points[t], angles)
     end
 
-    -- Update the grid boundary intensities
-    -- TODO: Should launch these on just the boundaries
-    for j = 0, nty do
-      for k = 0, ntz do
-        bound_x_lo([s_x_faces[1]][{0,j,k}],
-                   [s_x_faces[2]][{0,j,k}],
-                   [s_x_faces[3]][{0,j,k}],
-                   [s_x_faces[4]][{0,j,k}],
-                   [s_x_faces[5]][{0,j,k}],
-                   [s_x_faces[6]][{0,j,k}],
-                   [s_x_faces[7]][{0,j,k}],
-                   [s_x_faces[8]][{0,j,k}],
-                   angles,
-                   config)
-      end
-    end
+  end end -- ComputeRadiationField
 
-    for j = 0, nty do
-      for k = 0, ntz do
-        bound_x_hi([s_x_faces[1]][{ntx,j,k}],
-                   [s_x_faces[2]][{ntx,j,k}],
-                   [s_x_faces[3]][{ntx,j,k}],
-                   [s_x_faces[4]][{ntx,j,k}],
-                   [s_x_faces[5]][{ntx,j,k}],
-                   [s_x_faces[6]][{ntx,j,k}],
-                   [s_x_faces[7]][{ntx,j,k}],
-                   [s_x_faces[8]][{ntx,j,k}],
-                   angles,
-                   config)
-      end
-    end
-
-    -- Update y faces
-    for i = 0, ntx do
-      for k = 0, ntz do
-        bound_y_lo([s_y_faces[1]][{i,0,k}],
-                   [s_y_faces[2]][{i,0,k}],
-                   [s_y_faces[3]][{i,0,k}],
-                   [s_y_faces[4]][{i,0,k}],
-                   [s_y_faces[5]][{i,0,k}],
-                   [s_y_faces[6]][{i,0,k}],
-                   [s_y_faces[7]][{i,0,k}],
-                   [s_y_faces[8]][{i,0,k}],
-                   angles,
-                   config)
-      end
-    end
-
-    for i = 0, ntx do
-      for k = 0, ntz do
-        bound_y_hi([s_y_faces[1]][{i,nty,k}],
-                   [s_y_faces[2]][{i,nty,k}],
-                   [s_y_faces[3]][{i,nty,k}],
-                   [s_y_faces[4]][{i,nty,k}],
-                   [s_y_faces[5]][{i,nty,k}],
-                   [s_y_faces[6]][{i,nty,k}],
-                   [s_y_faces[7]][{i,nty,k}],
-                   [s_y_faces[8]][{i,nty,k}],
-                   angles,
-                   config)
-      end
-    end
-
-    -- Update z faces
-    for i = 0, ntx do
-      for j = 0, nty do
-        bound_z_lo([s_z_faces[1]][{i,j,0}],
-                   [s_z_faces[2]][{i,j,0}],
-                   [s_z_faces[3]][{i,j,0}],
-                   [s_z_faces[4]][{i,j,0}],
-                   [s_z_faces[5]][{i,j,0}],
-                   [s_z_faces[6]][{i,j,0}],
-                   [s_z_faces[7]][{i,j,0}],
-                   [s_z_faces[8]][{i,j,0}],
-                   angles,
-                   config)
-      end
-    end
-
-    for i = 0, ntx do
-      for j = 0, nty do
-        bound_z_hi([s_z_faces[1]][{i,j,ntz}],
-                   [s_z_faces[2]][{i,j,ntz}],
-                   [s_z_faces[3]][{i,j,ntz}],
-                   [s_z_faces[4]][{i,j,ntz}],
-                   [s_z_faces[5]][{i,j,ntz}],
-                   [s_z_faces[6]][{i,j,ntz}],
-                   [s_z_faces[7]][{i,j,ntz}],
-                   [s_z_faces[8]][{i,j,ntz}],
-                   angles,
-                   config)
-      end
-    end
-
-    --Perform the sweep for computing new intensities
-    --Quadrant 1 - +x, +y, +z
-    for i = 0, ntx do
-      for j = 0, nty do
-        for k = 0, ntz do
-          sweep_1(p_points[{i,j,k}],
-                  [p_x_faces[1]][{i,j,k}], [p_y_faces[1]][{i,j,k}], [p_z_faces[1]][{i,j,k}],
-                  [s_x_faces[1]][{i,j,k}], [s_x_faces[1]][{i+1,j,k}],
-                  [s_y_faces[1]][{i,j,k}], [s_y_faces[1]][{i,j+1,k}],
-                  [s_z_faces[1]][{i,j,k}], [s_z_faces[1]][{i,j,k+1}],
-                  angles, 1, 1, 1, dx, dy, dz)
-        end
-      end
-    end
-
-    -- Quadrant 2 - +x, +y, -z
-    for i = 0, ntx do
-      for j = 0, nty do
-        for k = ntz-1, -1, -1 do
-          sweep_2(p_points[{i,j,k}],
-                  [p_x_faces[2]][{i,j,k}], [p_y_faces[2]][{i,j,k}], [p_z_faces[2]][{i,j,k}],
-                  [s_x_faces[2]][{i,j,k}], [s_x_faces[2]][{i+1,j,k}],
-                  [s_y_faces[2]][{i,j,k}], [s_y_faces[2]][{i,j+1,k}],
-                  [s_z_faces[2]][{i,j,k+1}], [s_z_faces[2]][{i,j,k}],
-                  angles, 1, 1, -1, dx, dy, dz)
-        end
-      end
-    end
-
-    -- Quadrant 3 - +x, -y, +z
-    for i = 0, ntx do
-      for j = nty-1, -1, -1 do
-        for k = 0, ntz do
-          sweep_3(p_points[{i,j,k}],
-                  [p_x_faces[3]][{i,j,k}], [p_y_faces[3]][{i,j,k}], [p_z_faces[3]][{i,j,k}],
-                  [s_x_faces[3]][{i,j,k}], [s_x_faces[3]][{i+1,j,k}],
-                  [s_y_faces[3]][{i,j+1,k}], [s_y_faces[3]][{i,j,k}],
-                  [s_z_faces[3]][{i,j,k}], [s_z_faces[3]][{i,j,k+1}],
-                  angles, 1, -1, 1, dx, dy, dz)
-        end
-      end
-    end
-
-    -- Quadrant 4 - +x, -y, -z
-    for i = 0, ntx do
-      for j = nty-1, -1, -1 do
-        for k = ntz-1, -1, -1 do
-          sweep_4(p_points[{i,j,k}],
-                  [p_x_faces[4]][{i,j,k}], [p_y_faces[4]][{i,j,k}], [p_z_faces[4]][{i,j,k}],
-                  [s_x_faces[4]][{i,j,k}], [s_x_faces[4]][{i+1,j,k}],
-                  [s_y_faces[4]][{i,j+1,k}], [s_y_faces[4]][{i,j,k}],
-                  [s_z_faces[4]][{i,j,k+1}], [s_z_faces[4]][{i,j,k}],
-                  angles, 1, -1, -1, dx, dy, dz)
-        end
-      end
-    end
-
-    -- Quadrant 5 - -x, +y, +z
-    for i = ntx-1, -1, -1 do
-      for j = 0, nty do
-        for k = 0, ntz do
-          sweep_5(p_points[{i,j,k}],
-                  [p_x_faces[5]][{i,j,k}], [p_y_faces[5]][{i,j,k}], [p_z_faces[5]][{i,j,k}],
-                  [s_x_faces[5]][{i+1,j,k}], [s_x_faces[5]][{i,j,k}],
-                  [s_y_faces[5]][{i,j,k}], [s_y_faces[5]][{i,j+1,k}],
-                  [s_z_faces[5]][{i,j,k}], [s_z_faces[5]][{i,j,k+1}],
-                  angles, -1, 1, 1, dx, dy, dz)
-        end
-      end
-    end
-
-    -- Quadrant 6 - -x, +y, -z
-    for i = ntx-1, -1, -1 do
-      for j = 0, nty do
-        for k = ntz-1, -1, -1 do
-          sweep_6(p_points[{i,j,k}],
-                  [p_x_faces[6]][{i,j,k}], [p_y_faces[6]][{i,j,k}], [p_z_faces[6]][{i,j,k}],
-                  [s_x_faces[6]][{i+1,j,k}], [s_x_faces[6]][{i,j,k}],
-                  [s_y_faces[6]][{i,j,k}], [s_y_faces[6]][{i,j+1,k}],
-                  [s_z_faces[6]][{i,j,k+1}], [s_z_faces[6]][{i,j,k}],
-                  angles, -1, 1, -1, dx, dy, dz)
-        end
-      end
-    end
-
-    -- Quadrant 7 - -x, -y, +z
-    for i = ntx-1, -1, -1 do
-      for j = nty-1, -1, -1 do
-        for k = 0, ntz do
-          sweep_7(p_points[{i,j,k}],
-                  [p_x_faces[7]][{i,j,k}], [p_y_faces[7]][{i,j,k}], [p_z_faces[7]][{i,j,k}],
-                  [s_x_faces[7]][{i+1,j,k}], [s_x_faces[7]][{i,j,k}],
-                  [s_y_faces[7]][{i,j+1,k}], [s_y_faces[7]][{i,j,k}],
-                  [s_z_faces[7]][{i,j,k}], [s_z_faces[7]][{i,j,k+1}],
-                  angles, -1, -1, 1, dx, dy, dz)
-        end
-      end
-    end
-
-    -- Quadrant 8 - -x, -y, -z
-    for i = ntx-1, -1, -1 do
-      for j = nty-1, -1, -1 do
-        for k = ntz-1, -1, -1 do
-          sweep_8(p_points[{i,j,k}],
-                  [p_x_faces[8]][{i,j,k}], [p_y_faces[8]][{i,j,k}], [p_z_faces[8]][{i,j,k}],
-                  [s_x_faces[8]][{i+1,j,k}], [s_x_faces[8]][{i,j,k}],
-                  [s_y_faces[8]][{i,j+1,k}], [s_y_faces[8]][{i,j,k}],
-                  [s_z_faces[8]][{i,j,k+1}], [s_z_faces[8]][{i,j,k}],
-                  angles, -1, -1, -1, dx, dy, dz)
-        end
-      end
-    end
-
-    -- Compute the residual
-    res = 0.0
-    for t in tiles do
-      res += residual(p_points[t], Nx, Ny, Nz)
-    end
-    res = sqrt(res/(Nx*Ny*Nz*(NUM_ANGLES)))
-
-    -- Update the intensities
-    for t in tiles do
-      update(p_points[t])
-    end
-
-  end
-
-  -- Reduce intensity
-  for t in tiles do
-    reduce_intensity(p_points[t], angles)
-  end
-
-end end
+return INSTANCE end -- mkInstance
 
 -------------------------------------------------------------------------------
--- MODULE EXPORTS
+-- MODULE END
 -------------------------------------------------------------------------------
 
-return Exports
-end
+return MODULE end
