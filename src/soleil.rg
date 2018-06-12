@@ -315,11 +315,11 @@ end
 
 __demand(__parallel) -- NO CUDA
 task InitParticlesUniform(Particles : region(ispace(int1d), Particles_columns),
-                          cells : region(ispace(int3d), Fluid_columns),
+                          Fluid : region(ispace(int3d), Fluid_columns),
                           config : Config,
                           xBnum : int32, yBnum : int32, zBnum : int32)
 where
-  reads(cells.{centerCoordinates, velocity}),
+  reads(Fluid.{centerCoordinates, velocity}),
   reads writes(Particles)
 do
   var pBase = 0
@@ -327,11 +327,11 @@ do
     pBase = int32(p)
     break
   end
-  var lo = cells.bounds.lo
+  var lo = Fluid.bounds.lo
   lo.x = max(lo.x, xBnum)
   lo.y = max(lo.y, yBnum)
   lo.z = max(lo.z, zBnum)
-  var hi = cells.bounds.hi
+  var hi = Fluid.bounds.hi
   hi.x = min(hi.x, ((config.Grid.xNum+xBnum)-1))
   hi.y = min(hi.y, ((config.Grid.yNum+yBnum)-1))
   hi.z = min(hi.z, ((config.Grid.zNum+zBnum)-1))
@@ -348,8 +348,8 @@ do
       var relIdx = (int32(p)-pBase)
       var c = int3d({(lo.x+(relIdx%xSize)), (lo.y+((relIdx/xSize)%ySize)), (lo.z+((relIdx/xSize)/ySize))})
       p.cell = c
-      p.position = cells[p.cell].centerCoordinates
-      p.velocity = cells[p.cell].velocity
+      p.position = Fluid[p.cell].centerCoordinates
+      p.velocity = Fluid[p.cell].velocity
       p.density = Particles_density
       p.temperature = Particles_initTemperature
       p.diameter = Particles_diameterMean
