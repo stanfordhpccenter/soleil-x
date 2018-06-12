@@ -5866,27 +5866,6 @@ local function mkInstance() local INSTANCE = {}
         Flow_AdjustTurbulentSource(Fluid, Flow_averageFe, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
       end
 
-      -- Move particles to new partitions
-      for c in tiles do
-        Particles_LocateInCells(p_Particles[c],
-                                Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
-                                Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
-                                Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
-      end
-      for c in tiles do
-        Particles_pushAll(c,
-                          p_Particles[c],
-                          [qSrcParts:map(function(p) return rexpr p[c] end end)],
-                          config.Grid.xNum, config.Grid.yNum, config.Grid.zNum,
-                          Grid.xBnum, Grid.yBnum, Grid.zBnum,
-                          config.Mapping.tiles[0], config.Mapping.tiles[1], config.Mapping.tiles[2])
-      end
-      for c in tiles do
-        Particles_pullAll(c,
-                          p_Particles[c],
-                          [qDstParts:map(function(p) return rexpr p[c] end end)])
-      end
-
       -- Add fluid forces to particles
       Particles_AddFlowCoupling(Particles, Fluid, config.Flow.constantVisc, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid.xCellWidth, Grid.xRealOrigin, Grid.yCellWidth, Grid.yRealOrigin, Grid.zCellWidth, Grid.zRealOrigin, config.Particles.convectiveCoeff, config.Particles.heatCapacity)
       Particles_AddBodyForces(Particles, config.Particles.bodyForce)
@@ -6110,12 +6089,15 @@ local function mkInstance() local INSTANCE = {}
                                      Grid.yBnum, config.Grid.yNum,
                                      Grid.zBnum, config.Grid.zNum)
 
+      -- Handle particle collisions
       -- TODO: Collisions across tiles are not handled.
       if config.Particles.collisions and Integrator_stage==4 then
         for c in tiles do
           Particles_HandleCollisions(p_Particles[c], Integrator_deltaTime, config.Particles.restitutionCoeff)
         end
       end
+
+      -- Handle particle boundary conditions
       Particles_UpdateAuxiliaryStep1(Particles,
                                      BC.xBCParticles,
                                      BC.yBCParticles,
@@ -6125,10 +6107,6 @@ local function mkInstance() local INSTANCE = {}
                                      config.Grid.origin[2], config.Grid.zWidth,
                                      config.Particles.restitutionCoeff)
       Particles_UpdateAuxiliaryStep2(Particles)
-
-      Integrator_simTime = (Integrator_time_old+((double(0.5)*(1+(Integrator_stage/3)))*Integrator_deltaTime))
-      Integrator_stage += 1
-
       for c in tiles do
         Particles_number +=
           Particles_DeleteEscapingParticles(p_Particles[c],
@@ -6136,6 +6114,30 @@ local function mkInstance() local INSTANCE = {}
                                             config.Grid.origin[1], config.Grid.yWidth,
                                             config.Grid.origin[2], config.Grid.zWidth)
       end
+
+      -- Move particles to new partitions
+      for c in tiles do
+        Particles_LocateInCells(p_Particles[c],
+                                Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
+                                Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
+                                Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+      end
+      for c in tiles do
+        Particles_pushAll(c,
+                          p_Particles[c],
+                          [qSrcParts:map(function(p) return rexpr p[c] end end)],
+                          config.Grid.xNum, config.Grid.yNum, config.Grid.zNum,
+                          Grid.xBnum, Grid.yBnum, Grid.zBnum,
+                          config.Mapping.tiles[0], config.Mapping.tiles[1], config.Mapping.tiles[2])
+      end
+      for c in tiles do
+        Particles_pullAll(c,
+                          p_Particles[c],
+                          [qDstParts:map(function(p) return rexpr p[c] end end)])
+      end
+
+      Integrator_simTime = (Integrator_time_old+((double(0.5)*(1+(Integrator_stage/3)))*Integrator_deltaTime))
+      Integrator_stage += 1
 
     end -- RK4 sub-time-stepping
 
