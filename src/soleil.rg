@@ -215,40 +215,60 @@ end
 local __demand(__inline)
 task Fluid_dump(colors : ispace(int3d),
                 dirname : &int8,
-                r : region(ispace(int3d),Fluid_columns),
-                s : region(ispace(int3d),Fluid_columns),
-                p_r : partition(disjoint, r, colors),
-                p_s : partition(disjoint, s, colors))
+                Fluid : region(ispace(int3d),Fluid_columns),
+                Fluid_copy : region(ispace(int3d),Fluid_columns),
+                p_Fluid : partition(disjoint, Fluid, colors),
+                p_Fluid_copy : partition(disjoint, Fluid_copy, colors))
+where
+  reads(Fluid.{rho, pressure, velocity, temperature}),
+  reads writes(Fluid_copy.{rho, pressure, velocity, temperature}),
+  Fluid * Fluid_copy
+do
   regentlib.assert(false, 'Recompile with USE_HDF=1')
 end
 
 local __demand(__inline)
 task Fluid_load(colors : ispace(int3d),
                 dirname : &int8,
-                r : region(ispace(int3d),Fluid_columns),
-                s : region(ispace(int3d),Fluid_columns),
-                p_r : partition(disjoint, r, colors),
-                p_s : partition(disjoint, s, colors))
+                Fluid : region(ispace(int3d),Fluid_columns),
+                Fluid_copy : region(ispace(int3d),Fluid_columns),
+                p_Fluid : partition(disjoint, Fluid, colors),
+                p_Fluid_copy : partition(disjoint, Fluid_copy, colors))
+where
+  reads writes(Fluid.{rho, pressure, velocity, temperature}),
+  reads writes(Fluid_copy.{rho, pressure, velocity, temperature}),
+  Fluid * Fluid_copy
+do
   regentlib.assert(false, 'Recompile with USE_HDF=1')
 end
 
 local __demand(__inline)
 task Particles_dump(colors : ispace(int3d),
                     dirname : &int8,
-                    r : region(ispace(int1d),Particles_columns),
-                    s : region(ispace(int1d),Particles_columns),
-                    p_r : partition(disjoint, r, colors),
-                    p_s : partition(disjoint, s, colors))
+                    Particles : region(ispace(int1d),Particles_columns),
+                    Particles_copy : region(ispace(int1d),Particles_columns),
+                    p_Particles : partition(disjoint, Particles, colors),
+                    p_Particles_copy : partition(disjoint, Particles_copy, colors))
+where
+  reads(Particles.{cell, position, velocity, temperature, diameter, __valid}),
+  reads writes(Particles_copy.{cell, position, velocity, temperature, diameter, __valid}),
+  Particles * Particles_copy
+do
   regentlib.assert(false, 'Recompile with USE_HDF=1')
 end
 
 local __demand(__inline)
 task Particles_load(colors : ispace(int3d),
                     dirname : &int8,
-                    r : region(ispace(int1d),Particles_columns),
-                    s : region(ispace(int1d),Particles_columns),
-                    p_r : partition(disjoint, r, colors),
-                    p_s : partition(disjoint, s, colors))
+                    Particles : region(ispace(int1d),Particles_columns),
+                    Particles_copy : region(ispace(int1d),Particles_columns),
+                    p_Particles : partition(disjoint, Particles, colors),
+                    p_Particles_copy : partition(disjoint, Particles_copy, colors))
+where
+  reads writes(Particles.{cell, position, velocity, temperature, diameter, __valid}),
+  reads writes(Particles_copy.{cell, position, velocity, temperature, diameter, __valid}),
+  Particles * Particles_copy
+do
   regentlib.assert(false, 'Recompile with USE_HDF=1')
 end
 
@@ -2408,28 +2428,13 @@ end
 __demand(__parallel, __cuda)
 task Radiation_InitializeCell(Radiation : region(ispace(int3d), Radiation_columns))
 where
-  reads(Radiation.G), writes(Radiation.G),
-  reads(Radiation.I_1), writes(Radiation.I_1),
-  reads(Radiation.I_2), writes(Radiation.I_2),
-  reads(Radiation.I_3), writes(Radiation.I_3),
-  reads(Radiation.I_4), writes(Radiation.I_4),
-  reads(Radiation.I_5), writes(Radiation.I_5),
-  reads(Radiation.I_6), writes(Radiation.I_6),
-  reads(Radiation.I_7), writes(Radiation.I_7),
-  reads(Radiation.I_8), writes(Radiation.I_8),
-  reads(Radiation.Iiter_1), writes(Radiation.Iiter_1),
-  reads(Radiation.Iiter_2), writes(Radiation.Iiter_2),
-  reads(Radiation.Iiter_3), writes(Radiation.Iiter_3),
-  reads(Radiation.Iiter_4), writes(Radiation.Iiter_4),
-  reads(Radiation.Iiter_5), writes(Radiation.Iiter_5),
-  reads(Radiation.Iiter_6), writes(Radiation.Iiter_6),
-  reads(Radiation.Iiter_7), writes(Radiation.Iiter_7),
-  reads(Radiation.Iiter_8), writes(Radiation.Iiter_8),
-  reads(Radiation.S), writes(Radiation.S)
+  reads writes(Radiation.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8}),
+  reads writes(Radiation.{Iiter_1, Iiter_2, Iiter_3, Iiter_4, Iiter_5, Iiter_6, Iiter_7, Iiter_8}),
+  writes(Radiation.{G, S})
 do
   __demand(__openmp)
   for c in Radiation do
-    for m : int32 = 0, NUM_ANGLES do
+    for m = 0, NUM_ANGLES do
       Radiation[c].I_1[m] = 0.0
       Radiation[c].I_2[m] = 0.0
       Radiation[c].I_3[m] = 0.0
@@ -3980,13 +3985,16 @@ local colorOffsets = terralib.newlist({
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Particles_pushAll(partColor : int3d,
-                       r : region(ispace(int1d), Particles_columns),
+                       Particles : region(ispace(int1d), Particles_columns),
                        [queueRegions],
                        rngXNum : int32,  rngYNum  : int32, rngZNum  : int32,
                        rngXbnum : int32, rngYbnum : int32, rngZbnum : int32,
                        NX_ : int32, NY_ : int32, NZ_ : int32)
 where
-  reads(r), writes(r.__valid), [queueReadPrivs], [queueWritePrivs]
+  reads(Particles),
+  writes(Particles.__valid),
+  [queueReadPrivs],
+  [queueWritePrivs]
 do
   @ESCAPE for i = 1,26 do @EMIT
     for qPtr in [queueRegions[i]] do
@@ -3994,7 +4002,7 @@ do
     end
     var [qBasePtrs[i]] = Particles_getBasePointer(__physical([queueRegions[i]])[0], __fields([queueRegions[i]])[0], __runtime())
   @TIME end @EPACSE
-  for rPtr in r do
+  for rPtr in Particles do
     if rPtr.__valid then
       var elemColor = Fluid_elemColor(rPtr.cell, rngXNum, rngYNum, rngZNum, rngXbnum, rngYbnum, rngZbnum, NX_, NY_, NZ_)
       if elemColor ~= partColor then
@@ -4003,7 +4011,7 @@ do
             var idx = 0
             for qPtr in [queueRegions[i]] do
               if not bool([queueRegions[i]][qPtr][VALID_FIELD_OFFSET]) then
-                Particles_pushElement([qBasePtrs[i]], idx, r[rPtr])
+                Particles_pushElement([qBasePtrs[i]], idx, Particles[rPtr])
                 rPtr.__valid = false
                 regentlib.assert(bool([queueRegions[i]][qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
                 break
@@ -4027,18 +4035,20 @@ end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Particles_pullAll(color : int3d,
-                       r : region(ispace(int1d), Particles_columns),
+                       Particles : region(ispace(int1d), Particles_columns),
                        [queueRegions])
 where
-  reads writes(r), [queueReadPrivs], [queueWritePrivs]
+  reads writes(Particles),
+  [queueReadPrivs],
+  [queueWritePrivs]
 do
   @ESCAPE for i = 1,26 do @EMIT
     for qPtr in [queueRegions[i]] do
       if bool([queueRegions[i]][qPtr][VALID_FIELD_OFFSET]) then
         var copied = false
-        for rPtr in r do
+        for rPtr in Particles do
           if (not rPtr.__valid) then
-            r[rPtr] = Particles_pullElement([&int8]([queueRegions[i]][qPtr]))
+            Particles[rPtr] = Particles_pullElement([&int8]([queueRegions[i]][qPtr]))
             copied = true
             regentlib.assert(rPtr.__valid, "Pulled particle was not copied correctly")
             break
