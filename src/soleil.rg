@@ -75,9 +75,6 @@ local struct Fluid_columns {
   velocityGradientZ : double[3];
   temperature : double;
   rhoEnthalpy : double;
-  sgsEnergy : double;
-  sgsEddyViscosity : double;
-  sgsEddyKappa : double;
   convectiveSpectralRadius : double;
   viscousSpectralRadius : double;
   heatConductionSpectralRadius : double;
@@ -465,9 +462,6 @@ where
   writes(Fluid.rho_new),
   writes(Fluid.rho_old),
   writes(Fluid.rho_t),
-  writes(Fluid.sgsEddyKappa),
-  writes(Fluid.sgsEddyViscosity),
-  writes(Fluid.sgsEnergy),
   writes(Fluid.temperature),
   writes(Fluid.temperatureBoundary),
   writes(Fluid.velocity),
@@ -491,9 +485,6 @@ do
     Fluid[c].velocityGradientZ = [double[3]](array(0.0, 0.0, 0.0))
     Fluid[c].temperature = 0.0
     Fluid[c].rhoEnthalpy = 0.0
-    Fluid[c].sgsEnergy = 0.0
-    Fluid[c].sgsEddyViscosity = 0.0
-    Fluid[c].sgsEddyKappa = 0.0
     Fluid[c].convectiveSpectralRadius = 0.0
     Fluid[c].viscousSpectralRadius = 0.0
     Fluid[c].heatConductionSpectralRadius = 0.0
@@ -783,7 +774,7 @@ task Flow_UpdateConservedFromPrimitive(Fluid : region(ispace(int3d), Fluid_colum
                                        Grid_yBnum : int32, Grid_yNum : int32,
                                        Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.{rho, velocity, pressure, sgsEnergy}),
+  reads(Fluid.{rho, velocity, pressure}),
   writes(Fluid.{rhoVelocity, rhoEnergy})
 do
   __demand(__openmp)
@@ -794,7 +785,7 @@ do
       var velocity = Fluid[c].velocity
       Fluid[c].rhoVelocity = vs_mul(Fluid[c].velocity, Fluid[c].rho)
       var cv = (Flow_gasConstant/(Flow_gamma-1.0))
-      Fluid[c].rhoEnergy = ((Fluid[c].rho*((cv*tmpTemperature)+(double(0.5)*dot(velocity, velocity))))+Fluid[c].sgsEnergy)
+      Fluid[c].rhoEnergy = Fluid[c].rho*((cv*tmpTemperature)+(double(0.5)*dot(velocity, velocity)))
     end
   end
 end
@@ -808,7 +799,7 @@ task Flow_UpdateConservedFromPrimitiveGhostNSCBC(Fluid : region(ispace(int3d), F
                                                  Grid_yBnum : int32, Grid_yNum : int32,
                                                  Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.{rho, velocity, pressure, sgsEnergy}),
+  reads(Fluid.{rho, velocity, pressure}),
   writes(Fluid.{rhoVelocity, rhoEnergy})
 do
   var BC_xBCLeft = config.BC.xBCLeft
@@ -830,7 +821,7 @@ do
       var velocity = Fluid[c].velocity
       Fluid[c].rhoVelocity = vs_mul(Fluid[c].velocity, Fluid[c].rho)
       var cv = (Flow_gasConstant/(Flow_gamma-1.0))
-      Fluid[c].rhoEnergy = ((Fluid[c].rho*((cv*tmpTemperature)+(double(0.5)*dot(velocity, velocity))))+Fluid[c].sgsEnergy)
+      Fluid[c].rhoEnergy = Fluid[c].rho*((cv*tmpTemperature)+(double(0.5)*dot(velocity, velocity)))
     end
   end
 end
@@ -969,7 +960,7 @@ task Flow_UpdateGhostConservedStep1(Fluid : region(ispace(int3d), Fluid_columns)
                                     Grid_yBnum : int32, Grid_yNum : int32,
                                     Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.{rho, pressure, temperature, rhoVelocity, rhoEnergy, sgsEnergy, centerCoordinates}),
+  reads(Fluid.{rho, pressure, temperature, rhoVelocity, rhoEnergy, centerCoordinates}),
   writes(Fluid.{rhoBoundary, rhoEnergyBoundary, rhoVelocityBoundary})
 do
   var BC_xBCLeft  = config.BC.xBCLeft
@@ -1074,7 +1065,7 @@ do
 
         Fluid[c_bnd].rhoBoundary = rho
         Fluid[c_bnd].rhoVelocityBoundary = vs_mul(velocity, rho)
-        Fluid[c_bnd].rhoEnergyBoundary = rho*((cv*temperature)+(double(0.5)*dot(velocity, velocity)))+Fluid[c].sgsEnergy
+        Fluid[c_bnd].rhoEnergyBoundary = rho*((cv*temperature)+(double(0.5)*dot(velocity, velocity)))
       else
         var sign = BC_xNegSign
         var bnd_velocity = BC_xNegVelocity
@@ -2528,15 +2519,14 @@ task CalculateViscousSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns)
                                     Flow_viscosityModel : SCHEMA.ViscosityModel,
                                     Grid_dXYZInverseSquare : double)
 where
-  reads(Fluid.{rho, temperature, sgsEddyViscosity}),
+  reads(Fluid.{rho, temperature}),
   writes(Fluid.viscousSpectralRadius)
 do
   var acc = -math.huge
   __demand(__openmp)
   for c in Fluid do
     var dynamicViscosity = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
-    var eddyViscosity = Fluid[c].sgsEddyViscosity
-    var tmp = ((((2.0*(dynamicViscosity+eddyViscosity))/Fluid[c].rho)*Grid_dXYZInverseSquare)*4.0)
+    var tmp = ((((2.0*dynamicViscosity)/Fluid[c].rho)*Grid_dXYZInverseSquare)*4.0)
     Fluid[c].viscousSpectralRadius = tmp
     acc max= tmp
   end
@@ -2554,7 +2544,7 @@ task CalculateHeatConductionSpectralRadius(Fluid : region(ispace(int3d), Fluid_c
                                            Flow_viscosityModel : SCHEMA.ViscosityModel,
                                            Grid_dXYZInverseSquare : double)
 where
-  reads(Fluid.{rho, temperature, sgsEddyKappa}),
+  reads(Fluid.{rho, temperature}),
   writes(Fluid.heatConductionSpectralRadius)
 do
   var acc = -math.huge
@@ -2564,7 +2554,7 @@ do
     var cv = (Flow_gasConstant/(Flow_gamma-1.0))
     var cp = (Flow_gamma*cv)
     var kappa = ((cp/Flow_prandtl)*dynamicViscosity)
-    var tmp = ((((kappa+Fluid[c].sgsEddyKappa)/(cv*Fluid[c].rho))*Grid_dXYZInverseSquare)*4.0)
+    var tmp = (((kappa/(cv*Fluid[c].rho))*Grid_dXYZInverseSquare)*4.0)
     Fluid[c].heatConductionSpectralRadius = tmp
     acc max= tmp
   end
