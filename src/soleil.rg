@@ -2507,13 +2507,14 @@ task CalculateConvectiveSpectralRadius(Fluid : region(ispace(int3d), Fluid_colum
                                        Grid_xCellWidth : double, Grid_yCellWidth : double, Grid_zCellWidth : double)
 where
   reads(Fluid.{velocity, temperature}),
-  reads writes(Fluid.convectiveSpectralRadius)
+  writes(Fluid.convectiveSpectralRadius)
 do
   var acc = -math.huge
   __demand(__openmp)
   for c in Fluid do
-    Fluid[c].convectiveSpectralRadius = ((((fabs(Fluid[c].velocity[0])/Grid_xCellWidth)+(fabs(Fluid[c].velocity[1])/Grid_yCellWidth))+(fabs(Fluid[c].velocity[2])/Grid_zCellWidth))+(GetSoundSpeed(Fluid[c].temperature, Flow_gamma, Flow_gasConstant)*sqrt(Grid_dXYZInverseSquare)))
-    acc max= Fluid[c].convectiveSpectralRadius
+    var tmp =  ((((fabs(Fluid[c].velocity[0])/Grid_xCellWidth)+(fabs(Fluid[c].velocity[1])/Grid_yCellWidth))+(fabs(Fluid[c].velocity[2])/Grid_zCellWidth))+(GetSoundSpeed(Fluid[c].temperature, Flow_gamma, Flow_gasConstant)*sqrt(Grid_dXYZInverseSquare)))
+    Fluid[c].convectiveSpectralRadius = tmp
+    acc max= tmp
   end
   return acc
 end
@@ -2528,15 +2529,16 @@ task CalculateViscousSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns)
                                     Grid_dXYZInverseSquare : double)
 where
   reads(Fluid.{rho, temperature, sgsEddyViscosity}),
-  reads writes(Fluid.viscousSpectralRadius)
+  writes(Fluid.viscousSpectralRadius)
 do
   var acc = -math.huge
   __demand(__openmp)
   for c in Fluid do
     var dynamicViscosity = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
     var eddyViscosity = Fluid[c].sgsEddyViscosity
-    Fluid[c].viscousSpectralRadius = ((((2.0*(dynamicViscosity+eddyViscosity))/Fluid[c].rho)*Grid_dXYZInverseSquare)*4.0)
-    acc max= Fluid[c].viscousSpectralRadius
+    var tmp = ((((2.0*(dynamicViscosity+eddyViscosity))/Fluid[c].rho)*Grid_dXYZInverseSquare)*4.0)
+    Fluid[c].viscousSpectralRadius = tmp
+    acc max= tmp
   end
   return acc
 end
@@ -2553,7 +2555,7 @@ task CalculateHeatConductionSpectralRadius(Fluid : region(ispace(int3d), Fluid_c
                                            Grid_dXYZInverseSquare : double)
 where
   reads(Fluid.{rho, temperature, sgsEddyKappa}),
-  reads writes(Fluid.heatConductionSpectralRadius)
+  writes(Fluid.heatConductionSpectralRadius)
 do
   var acc = -math.huge
   __demand(__openmp)
@@ -2562,8 +2564,9 @@ do
     var cv = (Flow_gasConstant/(Flow_gamma-1.0))
     var cp = (Flow_gamma*cv)
     var kappa = ((cp/Flow_prandtl)*dynamicViscosity)
-    Fluid[c].heatConductionSpectralRadius = ((((kappa+Fluid[c].sgsEddyKappa)/(cv*Fluid[c].rho))*Grid_dXYZInverseSquare)*4.0)
-    acc max= Fluid[c].heatConductionSpectralRadius
+    var tmp = ((((kappa+Fluid[c].sgsEddyKappa)/(cv*Fluid[c].rho))*Grid_dXYZInverseSquare)*4.0)
+    Fluid[c].heatConductionSpectralRadius = tmp
+    acc max= tmp
   end
   return acc
 end
@@ -3149,9 +3152,9 @@ task Flow_AddGetFluxGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
 where
   reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnthalpy, temperature}),
   reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ}),
-  reads writes(Fluid.{rhoEnergyFluxX, rhoEnergyFluxY, rhoEnergyFluxZ}),
-  reads writes(Fluid.{rhoFluxX, rhoFluxY, rhoFluxZ}),
-  reads writes(Fluid.{rhoVelocityFluxX, rhoVelocityFluxY, rhoVelocityFluxZ})
+  reads writes(Fluid.{rhoEnergyFluxY, rhoEnergyFluxZ}),
+  reads writes(Fluid.{rhoFluxY, rhoFluxZ}),
+  reads writes(Fluid.{rhoVelocityFluxY, rhoVelocityFluxZ})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
@@ -3424,8 +3427,9 @@ task Flow_UpdateNSCBCGhostCellTimeDerivatives(Fluid : region(ispace(int3d), Flui
                                               Grid_zBnum : int32, Grid_zNum : int32,
                                               Integrator_deltaTime : double)
 where
-  reads(Fluid.{velocity, velocity_old_NSCBC, temperature, temperature_old_NSCBC}),
-  writes(Fluid.{velocity_old_NSCBC, temperature_old_NSCBC, dudtBoundary, dTdtBoundary})
+  reads(Fluid.{velocity, temperature}),
+  writes(Fluid.{dudtBoundary, dTdtBoundary}),
+  reads writes(Fluid.{velocity_old_NSCBC, temperature_old_NSCBC})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
@@ -3522,7 +3526,7 @@ task Flow_UpdatePD(Fluid : region(ispace(int3d), Fluid_columns),
                    Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{pressure, velocityGradientX, velocityGradientY, velocityGradientZ}),
-  reads writes(Fluid.PD)
+  writes(Fluid.PD)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -3556,7 +3560,7 @@ task Flow_ComputeDissipationX(Fluid : region(ispace(int3d), Fluid_columns),
                               Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{velocity, temperature, velocityGradientY, velocityGradientZ}),
-  reads writes(Fluid.dissipationFlux)
+  writes(Fluid.dissipationFlux)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -3622,7 +3626,7 @@ task Flow_ComputeDissipationY(Fluid : region(ispace(int3d), Fluid_columns),
                               Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{velocity, temperature, velocityGradientX, velocityGradientZ}),
-  reads writes(Fluid.dissipationFlux)
+  writes(Fluid.dissipationFlux)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -4398,7 +4402,8 @@ task Particles_AddFlowCoupling(Particles : region(ispace(int1d), Particles_colum
 where
   reads(Fluid.{centerCoordinates, velocity, temperature}),
   reads(Particles.{cell, position, velocity, diameter, density, temperature, __valid}),
-  reads writes(Particles.{position_t, velocity_t, temperature_t, deltaTemperatureTerm, deltaVelocityOverRelaxationTime})
+  reads writes(Particles.{position_t, velocity_t, temperature_t}),
+  writes(Particles.{deltaTemperatureTerm, deltaVelocityOverRelaxationTime})
 do
   __demand(__openmp)
   for p in Particles do
@@ -4406,23 +4411,15 @@ do
       var flowVelocity = InterpolateTriVelocity(Particles[p].cell, Particles[p].position, Fluid, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin)
       var flowTemperature = InterpolateTriTemp(Particles[p].cell, Particles[p].position, Fluid, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin)
       var flowDynamicViscosity = GetDynamicViscosity(flowTemperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
-      var tmp = Particles[p].velocity
-      var v = Particles[p].position_t
-      v[0] += tmp[0]
-      v[1] += tmp[1]
-      v[2] += tmp[2]
-      Particles[p].position_t = v
+      Particles[p].position_t = vv_add(Particles[p].position_t, Particles[p].velocity)
       var particleReynoldsNumber = 0.0
       var relaxationTime = (((Particles[p].density*pow(Particles[p].diameter, 2.0))/(18.0*flowDynamicViscosity))/(1.0+(double(0.15)*pow(particleReynoldsNumber, double(0.687)))))
-      Particles[p].deltaVelocityOverRelaxationTime = vs_div(vv_sub(flowVelocity, Particles[p].velocity), relaxationTime)
-      Particles[p].deltaTemperatureTerm = (((PI*pow(Particles[p].diameter, 2.0))*Particles_convectiveCoeff)*(flowTemperature-Particles[p].temperature))
-      var tmp__10496 = Particles[p].deltaVelocityOverRelaxationTime
-      var v__10497 = Particles[p].velocity_t
-      v__10497[0] += tmp__10496[0]
-      v__10497[1] += tmp__10496[1]
-      v__10497[2] += tmp__10496[2]
-      Particles[p].velocity_t = v__10497
-      Particles[p].temperature_t += (Particles[p].deltaTemperatureTerm/((((PI*pow(Particles[p].diameter, 3.0))/6.0)*Particles[p].density)*Particles_heatCapacity))
+      var tmp2 = vs_div(vv_sub(flowVelocity, Particles[p].velocity), relaxationTime)
+      Particles[p].deltaVelocityOverRelaxationTime = tmp2
+      Particles[p].velocity_t = vv_add(Particles[p].velocity_t, tmp2)
+      var tmp3 = (((PI*pow(Particles[p].diameter, 2.0))*Particles_convectiveCoeff)*(flowTemperature-Particles[p].temperature))
+      Particles[p].deltaTemperatureTerm = tmp3
+      Particles[p].temperature_t += (tmp3/((((PI*pow(Particles[p].diameter, 3.0))/6.0)*Particles[p].density)*Particles_heatCapacity))
     end
   end
 end
@@ -4450,7 +4447,7 @@ end
 __demand(__parallel, __cuda)
 task Radiation_ClearAccumulators(Radiation : region(ispace(int3d), Radiation_columns))
 where
-  reads writes(Radiation.{acc_d2, acc_d2t4})
+  writes(Radiation.{acc_d2, acc_d2t4})
 do
   __demand(__openmp)
   for c in Radiation do
@@ -4483,7 +4480,7 @@ task Radiation_UpdateFieldValues(Radiation : region(ispace(int3d), Radiation_col
                                  Radiation_qa : double,
                                  Radiation_qs : double)
 where
-  reads writes(Radiation.{Ib, sigma}),
+  writes(Radiation.{Ib, sigma}),
   reads(Radiation.{acc_d2, acc_d2t4})
 do
   __demand(__openmp)
@@ -4546,13 +4543,10 @@ task Flow_UpdateVars(Fluid : region(ispace(int3d), Fluid_columns),
                      Integrator_deltaTime : double,
                      Integrator_stage : int32)
 where
-  reads(Fluid.{rhoEnergy_old, rhoEnergy_new}),
-  reads(Fluid.{rhoVelocity_old, rhoVelocity_new}),
-  reads(Fluid.{rho_old, rho_new}),
-  reads(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t}),
-  reads writes(Fluid.{rho, rho_new}),
-  reads writes(Fluid.{rhoEnergy, rhoEnergy_new}),
-  reads writes(Fluid.{rhoVelocity, rhoVelocity_new})
+  reads(Fluid.{rho_old, rhoEnergy_old, rhoVelocity_old}),
+  reads(Fluid.{rho_t, rhoEnergy_t, rhoVelocity_t}),
+  writes(Fluid.{rho, rhoEnergy, rhoVelocity}),
+  reads writes(Fluid.{rho_new, rhoEnergy_new, rhoVelocity_new})
 do
   __demand(__openmp)
   for c in Fluid do
@@ -4613,10 +4607,10 @@ task Particles_UpdateVars(Particles : region(ispace(int1d), Particles_columns),
                           Integrator_stage : int32)
 where
   reads(Particles.{position_old, velocity_old, temperature_old}),
-  reads(Particles.{position_t, velocity_t, temperature_t, __valid}),
-  reads writes(Particles.{position, position_new}),
-  reads writes(Particles.{temperature, temperature_new}),
-  reads writes(Particles.{velocity, velocity_new})
+  reads(Particles.{position_t, velocity_t, temperature_t}),
+  reads(Particles.__valid),
+  writes(Particles.{position, temperature, velocity}),
+  reads writes(Particles.{position_new, temperature_new, velocity_new})
 do
   __demand(__openmp)
   for p in Particles do
@@ -5529,8 +5523,13 @@ local function mkInstance() local INSTANCE = {}
                                   Grid.zBnum, config.Grid.zNum)
     end
 
-    -- update interior cells from initialized primitive values values
-    Flow_UpdateConservedFromPrimitive(Fluid, config.Flow.gamma, config.Flow.gasConstant, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+    -- update interior cells from initialized primitive values
+    Flow_UpdateConservedFromPrimitive(Fluid,
+                                      config.Flow.gamma,
+                                      config.Flow.gasConstant,
+                                      Grid.xBnum, config.Grid.xNum,
+                                      Grid.yBnum, config.Grid.yNum,
+                                      Grid.zBnum, config.Grid.zNum)
     if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
       Flow_UpdateConservedFromPrimitiveGhostNSCBC(Fluid,
                                                   config,
