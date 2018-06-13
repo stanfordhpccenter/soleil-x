@@ -377,13 +377,13 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Particles_initValidField(r : region(ispace(int1d), Particles_columns))
+task Particles_initValidField(Particles : region(ispace(int1d), Particles_columns))
 where
-  writes(r.__valid)
+  writes(Particles.__valid)
 do
   __demand(__openmp)
-  for e in r do
-    e.__valid = false
+  for p in Particles do
+    p.__valid = false
   end
 end
 
@@ -396,7 +396,7 @@ task SetCoarseningField(Fluid : region(ispace(int3d), Fluid_columns),
                         Radiation_yNum : int32,
                         Radiation_zNum : int32)
 where
-  reads writes(Fluid.to_Radiation)
+  writes(Fluid.to_Radiation)
 do
   var xFactor = (Grid_xNum/Radiation_xNum)
   var yFactor = (Grid_yNum/Radiation_yNum)
@@ -535,16 +535,13 @@ end
 __demand(__parallel, __cuda)
 task Flow_InitializeUniform(Fluid : region(ispace(int3d), Fluid_columns), Flow_initParams : double[5])
 where
-  writes(Fluid.{rho, pressure}),
-  reads writes(Fluid.velocity)
+  writes(Fluid.{rho, pressure, velocity})
 do
   __demand(__openmp)
   for c in Fluid do
     Fluid[c].rho = Flow_initParams[0]
     Fluid[c].pressure = Flow_initParams[1]
-    Fluid[c].velocity[0] = Flow_initParams[2]
-    Fluid[c].velocity[1] = Flow_initParams[3]
-    Fluid[c].velocity[2] = Flow_initParams[4]
+    Fluid[c].velocity = array(Flow_initParams[2], Flow_initParams[3], Flow_initParams[4])
   end
 end
 
@@ -552,8 +549,7 @@ __demand(__parallel) -- NO CUDA, NO OPENMP
 task Flow_InitializeRandom(Fluid : region(ispace(int3d), Fluid_columns),
                            Flow_initParams : double[5])
 where
-  writes(Fluid.{rho, pressure}),
-  reads writes(Fluid.velocity)
+  writes(Fluid.{rho, pressure, velocity})
 do
   var magnitude = Flow_initParams[2]
   var rngState : C.drand48_data[1]
@@ -562,9 +558,9 @@ do
   for c in Fluid do
     Fluid[c].rho = Flow_initParams[0]
     Fluid[c].pressure = Flow_initParams[1]
-    Fluid[c].velocity[0] = 2 * (drand48_r(rngStatePtr) - 0.5) * magnitude
-    Fluid[c].velocity[1] = 2 * (drand48_r(rngStatePtr) - 0.5) * magnitude
-    Fluid[c].velocity[2] = 2 * (drand48_r(rngStatePtr) - 0.5) * magnitude
+    Fluid[c].velocity = array(2 * (drand48_r(rngStatePtr) - 0.5) * magnitude,
+                              2 * (drand48_r(rngStatePtr) - 0.5) * magnitude,
+                              2 * (drand48_r(rngStatePtr) - 0.5) * magnitude)
   end
 end
 
@@ -621,8 +617,7 @@ __demand(__parallel) -- NO CUDA, NO OPENMP
 task Flow_InitializePerturbed(Fluid : region(ispace(int3d), Fluid_columns),
                               Flow_initParams : double[5])
 where
-  writes(Fluid.{rho, pressure}),
-  reads writes(Fluid.velocity)
+  writes(Fluid.{rho, pressure, velocity})
 do
   var rngState : C.drand48_data[1]
   var rngStatePtr = [&C.drand48_data](rngState)
@@ -630,9 +625,9 @@ do
   for c in Fluid do
     Fluid[c].rho = Flow_initParams[0]
     Fluid[c].pressure = Flow_initParams[1]
-    Fluid[c].velocity[0] = Flow_initParams[2] + (drand48_r(rngStatePtr)-0.5)*10.0
-    Fluid[c].velocity[1] = Flow_initParams[3] + (drand48_r(rngStatePtr)-0.5)*10.0
-    Fluid[c].velocity[2] = Flow_initParams[4] + (drand48_r(rngStatePtr)-0.5)*10.0
+    Fluid[c].velocity = array(Flow_initParams[2] + (drand48_r(rngStatePtr)-0.5)*10.0,
+                              Flow_initParams[3] + (drand48_r(rngStatePtr)-0.5)*10.0,
+                              Flow_initParams[4] + (drand48_r(rngStatePtr)-0.5)*10.0)
   end
 end
 
