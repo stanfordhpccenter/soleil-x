@@ -1142,7 +1142,7 @@ do
 
       if (BC_yBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
         var sign = BC_yNegSign
-        var bnd_velocity = BC_xNegVelocity       -- velocity at face/boundary
+        var bnd_velocity = BC_yNegVelocity -- velocity at face/boundary
 
         var rho = double(0.0)
         var temperature = double(0.0)
@@ -1192,8 +1192,8 @@ do
       var c_int = ((c+{0, -1, 0})%Fluid.bounds)
       var cv = (Flow_gasConstant/(Flow_gamma-1.0))
 
-      if (BC_zBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
-        var sign = BC_zNegSign
+      if (BC_yBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+        var sign = BC_yPosSign
         var bnd_velocity = BC_yPosVelocity
 
         var rho = double(0.0)
@@ -1218,7 +1218,7 @@ do
         Fluid[c_bnd].rhoVelocityBoundary = vs_mul(velocity, rho)
         Fluid[c_bnd].rhoEnergyBoundary = (rho*((cv*temperature)+(double(0.5)*dot(velocity, velocity))))
       else
-        var sign = BC_zNegSign
+        var sign = BC_yPosSign
         var bnd_velocity = BC_yPosVelocity
         var bnd_temperature = BC_yPosTemperature
         var rho = double(0.0)
@@ -1243,7 +1243,7 @@ do
       var c_int = ((c+{0, 0, 1})%Fluid.bounds)
       var cv = (Flow_gasConstant/(Flow_gamma-1.0))
 
-      if (BC_yBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+      if (BC_zBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
         var sign = BC_zNegSign
         var bnd_velocity = BC_zNegVelocity
 
@@ -1294,7 +1294,7 @@ do
       var c_int = ((c+{0, 0, -1})%Fluid.bounds)
       var cv = (Flow_gasConstant/(Flow_gamma-1.0))
 
-      if (BC_yBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall)then
+      if (BC_zBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall)then
         var sign = BC_zPosSign
         var bnd_velocity = BC_zPosVelocity
 
