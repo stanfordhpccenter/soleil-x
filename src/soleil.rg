@@ -5584,30 +5584,6 @@ local function mkInstance() local INSTANCE = {}
                                    Grid.yBnum, config.Grid.yNum,
                                    Grid.zBnum, config.Grid.zNum)
 
-    Flow_ComputeVelocityGradientAll(Fluid,
-                                    Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                    Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                    Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-    if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-      Flow_ComputeVelocityGradientGhostNSCBC(Fluid,
-                                             config,
-                                             Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                             Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                             Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-    end
-    Flow_UpdateGhostVelocityGradientStep1(Fluid,
-                                          config,
-                                          BC.xNegSign, BC.yNegSign, BC.zNegSign,
-                                          BC.xPosSign, BC.yPosSign, BC.zPosSign,
-                                          Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                          Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                          Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-    Flow_UpdateGhostVelocityGradientStep2(Fluid,
-                                          config,
-                                          Grid.xBnum, config.Grid.xNum,
-                                          Grid.yBnum, config.Grid.yNum,
-                                          Grid.zBnum, config.Grid.zNum)
-
     Flow_UpdateAuxiliaryThermodynamics(Fluid, config.Flow.gamma, config.Flow.gasConstant, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
     if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
       Flow_UpdateAuxiliaryThermodynamicsGhostNSCBC(Fluid,
@@ -5761,6 +5737,30 @@ local function mkInstance() local INSTANCE = {}
     var Integrator_time_old = Integrator_simTime
     var Integrator_stage = 1
     while (Integrator_stage<5) do
+
+      Flow_ComputeVelocityGradientAll(Fluid,
+                                      Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                                      Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                                      Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
+        Flow_ComputeVelocityGradientGhostNSCBC(Fluid,
+                                               config,
+                                               Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                                               Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                                               Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      end
+      Flow_UpdateGhostVelocityGradientStep1(Fluid,
+                                            config,
+                                            BC.xNegSign, BC.yNegSign, BC.zNegSign,
+                                            BC.xPosSign, BC.yPosSign, BC.zPosSign,
+                                            Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                                            Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                                            Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      Flow_UpdateGhostVelocityGradientStep2(Fluid,
+                                            config,
+                                            Grid.xBnum, config.Grid.xNum,
+                                            Grid.yBnum, config.Grid.yNum,
+                                            Grid.zBnum, config.Grid.zNum)
 
       Flow_InitializeTimeDerivatives(Fluid)
       Particles_InitializeTimeDerivatives(Particles)
@@ -6008,30 +6008,6 @@ local function mkInstance() local INSTANCE = {}
                      Pertubation_um,
                      Pertubation_sxm, Pertubation_sym, Pertubation_szm)
       end
-
-      Flow_ComputeVelocityGradientAll(Fluid,
-                                      Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                      Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                      Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-      if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-        Flow_ComputeVelocityGradientGhostNSCBC(Fluid,
-                                               config,
-                                               Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                               Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                               Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-      end
-      Flow_UpdateGhostVelocityGradientStep1(Fluid,
-                                            config,
-                                            BC.xNegSign, BC.yNegSign, BC.zNegSign,
-                                            BC.xPosSign, BC.yPosSign, BC.zPosSign,
-                                            Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                            Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                            Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-      Flow_UpdateGhostVelocityGradientStep2(Fluid,
-                                            config,
-                                            Grid.xBnum, config.Grid.xNum,
-                                            Grid.yBnum, config.Grid.yNum,
-                                            Grid.zBnum, config.Grid.zNum)
 
       Flow_UpdateAuxiliaryThermodynamics(Fluid,
                                          config.Flow.gamma, config.Flow.gasConstant,
