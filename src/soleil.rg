@@ -75,7 +75,6 @@ local struct Fluid_columns {
   velocityGradientZ : double[3];
   temperature : double;
   rhoEnthalpy : double;
-  kineticEnergy : double;
   sgsEnergy : double;
   sgsEddyViscosity : double;
   sgsEddyKappa : double;
@@ -423,7 +422,6 @@ where
   writes(Fluid.dissipation),
   writes(Fluid.dissipationFlux),
   writes(Fluid.heatConductionSpectralRadius),
-  writes(Fluid.kineticEnergy),
   writes(Fluid.pressure),
   writes(Fluid.pressureBoundary),
   writes(Fluid.rho),
@@ -473,7 +471,6 @@ do
     Fluid[c].velocityGradientZ = [double[3]](array(0.0, 0.0, 0.0))
     Fluid[c].temperature = 0.0
     Fluid[c].rhoEnthalpy = 0.0
-    Fluid[c].kineticEnergy = 0.0
     Fluid[c].sgsEnergy = 0.0
     Fluid[c].sgsEddyViscosity = 0.0
     Fluid[c].sgsEddyKappa = 0.0
@@ -830,7 +827,7 @@ task Flow_UpdateAuxiliaryVelocity(Fluid : region(ispace(int3d), Fluid_columns),
                                   Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{rho, rhoVelocity}),
-  writes(Fluid.{velocity, kineticEnergy})
+  writes(Fluid.{velocity})
 do
   __demand(__openmp)
   for c in Fluid do
@@ -838,7 +835,6 @@ do
     if (not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) then
       var velocity = vs_div(Fluid[c].rhoVelocity, Fluid[c].rho)
       Fluid[c].velocity = velocity
-      Fluid[c].kineticEnergy = ((double(0.5)*Fluid[c].rho)*dot(velocity, velocity))
     end
   end
 end
@@ -855,7 +851,7 @@ task Flow_UpdateAuxiliaryVelocityGhostNSCBC(Fluid : region(ispace(int3d), Fluid_
                                             Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{rho, rhoVelocity, temperature, centerCoordinates}),
-  writes(Fluid.{velocity, kineticEnergy})
+  writes(Fluid.{velocity})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
@@ -932,13 +928,11 @@ do
         velocity[0] = meanVelocity*pow((d/d_max), (1.0/n))
       end
       Fluid[c].velocity = velocity
-      Fluid[c].kineticEnergy = ((double(0.5)*Fluid[c].rho)*dot(velocity, velocity))
     end
 
     if (NSCBC_outflow_cell) then
       var velocity = vs_div(Fluid[c].rhoVelocity, Fluid[c].rho)
       Fluid[c].velocity = velocity
-      Fluid[c].kineticEnergy = ((double(0.5)*Fluid[c].rho)*dot(velocity, velocity))
     end
   end
 end
@@ -2352,13 +2346,14 @@ task CalculateAverageKineticEnergy(Fluid : region(ispace(int3d), Fluid_columns),
                                    Grid_yBnum : int32, Grid_yNum : int32,
                                    Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.kineticEnergy)
+  reads(Fluid.{rho, velocity})
 do
   var acc = 0.0
   __demand(__openmp)
   for c in Fluid do
     if (not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) then
-      acc += (Fluid[c].kineticEnergy*Grid_cellVolume)
+      var kineticEnergy = ((double(0.5)*Fluid[c].rho)*dot(Fluid[c].velocity, Fluid[c].velocity))
+      acc += (kineticEnergy*Grid_cellVolume)
     end
   end
   return acc
