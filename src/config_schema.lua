@@ -21,7 +21,7 @@ Exports.InflowProfile = Union{
   Constant = {
     velocity = double,
   },
-  DuctProfile = {
+  Duct = {
     meanVelocity = double,
   },
 }

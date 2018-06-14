@@ -681,7 +681,7 @@ do
   -- Inflow values
   var BC_xBCLeftInflowProfile_type = config.BC.xBCLeftInflowProfile.type
   var BC_xBCLeftInflowProfile_Constant_velocity = config.BC.xBCLeftInflowProfile.u.Constant.velocity
-  var BC_xBCLeftInflowProfile_DuctProfile_meanVelocity = config.BC.xBCLeftInflowProfile.u.DuctProfile.meanVelocity
+  var BC_xBCLeftInflowProfile_Duct_meanVelocity = config.BC.xBCLeftInflowProfile.u.Duct.meanVelocity
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -702,7 +702,7 @@ do
       var velocity = [double[3]](array(0.0, 0.0, 0.0))
       if BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Constant then
         velocity[0] = BC_xBCLeftInflowProfile_Constant_velocity
-      else -- BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_DuctProfile
+      else -- BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Duct
         var y = Fluid[c].centerCoordinates[1]
         var z = Fluid[c].centerCoordinates[2]
         var y_dist_to_wall = 0.0
@@ -732,7 +732,7 @@ do
           d = z_dist_to_wall
           d_max = (Grid_zWidth/ 2.0)
         end
-        var meanVelocity = BC_xBCLeftInflowProfile_DuctProfile_meanVelocity
+        var meanVelocity = BC_xBCLeftInflowProfile_Duct_meanVelocity
         var mu = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
         var Re = Fluid[c].rho*meanVelocity*Grid_yWidth / mu
         var n = -1.7 + 1.8*log(Re)
@@ -880,7 +880,7 @@ do
   -- Inflow values
   var BC_xBCLeftInflowProfile_type = config.BC.xBCLeftInflowProfile.type
   var BC_xBCLeftInflowProfile_Constant_velocity = config.BC.xBCLeftInflowProfile.u.Constant.velocity
-  var BC_xBCLeftInflowProfile_DuctProfile_meanVelocity = config.BC.xBCLeftInflowProfile.u.DuctProfile.meanVelocity
+  var BC_xBCLeftInflowProfile_Duct_meanVelocity = config.BC.xBCLeftInflowProfile.u.Duct.meanVelocity
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -897,7 +897,7 @@ do
       var velocity = [double[3]](array(0.0, 0.0, 0.0))
       if BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Constant then
         velocity[0] = BC_xBCLeftInflowProfile_Constant_velocity
-      else -- BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_DuctProfile
+      else -- BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Duct
         var y = Fluid[c].centerCoordinates[1]
         var z = Fluid[c].centerCoordinates[2]
         var y_dist_to_wall = 0.0
@@ -927,7 +927,7 @@ do
           d = z_dist_to_wall
           d_max = (Grid_zWidth/ 2.0)
         end
-        var meanVelocity = BC_xBCLeftInflowProfile_DuctProfile_meanVelocity
+        var meanVelocity = BC_xBCLeftInflowProfile_Duct_meanVelocity
         var mu = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
         var Re = Fluid[c].rho*meanVelocity*Grid_yWidth / mu
         var n = -1.7 + 1.8*log(Re)
@@ -1000,7 +1000,7 @@ do
   -- Inflow values
   var BC_xBCLeftInflowProfile_type = config.BC.xBCLeftInflowProfile.type
   var BC_xBCLeftInflowProfile_Constant_velocity = config.BC.xBCLeftInflowProfile.u.Constant.velocity
-  var BC_xBCLeftInflowProfile_DuctProfile_meanVelocity = config.BC.xBCLeftInflowProfile.u.DuctProfile.meanVelocity
+  var BC_xBCLeftInflowProfile_Duct_meanVelocity = config.BC.xBCLeftInflowProfile.u.Duct.meanVelocity
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -1025,7 +1025,7 @@ do
         var velocity = [double[3]](array(0.0, 0.0, 0.0))
         if BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Constant then
           velocity[0] = BC_xBCLeftInflowProfile_Constant_velocity
-        else -- BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_DuctProfile
+        else -- BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Duct
           var y = Fluid[c].centerCoordinates[1]
           var z = Fluid[c].centerCoordinates[2]
           var y_dist_to_wall = 0.0
@@ -1055,7 +1055,7 @@ do
             d = z_dist_to_wall
             d_max = (Grid_zWidth/ 2.0)
           end
-          var meanVelocity = BC_xBCLeftInflowProfile_DuctProfile_meanVelocity
+          var meanVelocity = BC_xBCLeftInflowProfile_Duct_meanVelocity
           var mu = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
           var Re = Fluid[c].rho*meanVelocity*Grid_yWidth / mu
           var n = -1.7 + 1.8*log(Re)
