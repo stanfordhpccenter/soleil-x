@@ -245,8 +245,8 @@ task Particles_dump(colors : ispace(int3d),
                     p_Particles : partition(disjoint, Particles, colors),
                     p_Particles_copy : partition(disjoint, Particles_copy, colors))
 where
-  reads(Particles.{cell, position, velocity, temperature, diameter, __valid}),
-  reads writes(Particles_copy.{cell, position, velocity, temperature, diameter, __valid}),
+  reads(Particles.{position, velocity, temperature, diameter, __valid}),
+  reads writes(Particles_copy.{position, velocity, temperature, diameter, __valid}),
   Particles * Particles_copy
 do
   regentlib.assert(false, 'Recompile with USE_HDF=1')
@@ -260,8 +260,8 @@ task Particles_load(colors : ispace(int3d),
                     p_Particles : partition(disjoint, Particles, colors),
                     p_Particles_copy : partition(disjoint, Particles_copy, colors))
 where
-  reads writes(Particles.{cell, position, velocity, temperature, diameter, __valid}),
-  reads writes(Particles_copy.{cell, position, velocity, temperature, diameter, __valid}),
+  reads writes(Particles.{position, velocity, temperature, diameter, __valid}),
+  reads writes(Particles_copy.{position, velocity, temperature, diameter, __valid}),
   Particles * Particles_copy
 do
   regentlib.assert(false, 'Recompile with USE_HDF=1')
@@ -274,7 +274,7 @@ if USE_HDF then
     {"rho","pressure","velocity","temperature"})
   Particles_dump, Particles_load = HDF.mkHDFTasks(
     int1d, int3d, Particles_columns,
-    {"cell","position","velocity","temperature","diameter","density","__valid"})
+    {"position","velocity","temperature","diameter","density","__valid"})
 end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
@@ -3474,6 +3474,26 @@ terra Particles_pushElement(dst : &opaque,idx : int32,src : Particles_columns)
   C.memcpy([&opaque](ptr), [&opaque](&src), [uint64](SIZEOF_PARTICLE))
 end
 
+-- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+task Particles_CheckPartitioning(color : int3d,
+                                 Particles : region(ispace(int1d), Particles_columns),
+                                 Grid_xBnum : int32, Grid_xNum : int32, NX : int32,
+                                 Grid_yBnum : int32, Grid_yNum : int32, NY : int32,
+                                 Grid_zBnum : int32, Grid_zNum : int32, NZ : int32)
+where
+  reads(Particles.{cell, __valid})
+do
+  for p in Particles do
+    if p.__valid then
+      regentlib.assert(color == Fluid_elemColor(p.cell,
+                                                Grid_xBnum, Grid_xNum, NX,
+                                                Grid_yBnum, Grid_yNum, NY,
+                                                Grid_zBnum, Grid_zNum, NZ),
+                       'Invalid particle partitioning')
+    end
+  end
+end
+
 terra Particles_getBasePointer(pr : regentlib.c.legion_physical_region_t,fid : uint32,runtime : regentlib.c.legion_runtime_t)
   var acc = regentlib.c.legion_physical_region_get_field_accessor_array_1d(pr, fid)
   var lr = regentlib.c.legion_physical_region_get_logical_region(pr)
@@ -5178,6 +5198,19 @@ local function mkInstance() local INSTANCE = {}
     end
     if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart) then
       Particles_load(tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
+      for c in tiles do
+        Particles_LocateInCells(p_Particles[c],
+                                Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
+                                Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
+                                Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+      end
+      for c in tiles do
+        Particles_CheckPartitioning(c,
+                                    p_Particles[c],
+                                    Grid.xBnum, config.Grid.xNum, config.Mapping.tiles[0],
+                                    Grid.yBnum, config.Grid.yNum, config.Mapping.tiles[1],
+                                    Grid.zBnum, config.Grid.zNum, config.Mapping.tiles[2])
+      end
       Particles_number += Particles_CalculateNumber(Particles)
     end
     if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform) then
