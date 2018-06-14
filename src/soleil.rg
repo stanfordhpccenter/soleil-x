@@ -537,8 +537,9 @@ where
 do
   __demand(__openmp)
   for c in Fluid do
-    var xy = [double[3]](array((Grid_xOrigin+((Grid_xWidth/double(Grid_xNum))*(double((int3d(c).x-uint64(Grid_xBnum)))+double(0.5)))), (Grid_yOrigin+((Grid_yWidth/double(Grid_yNum))*(double((int3d(c).y-uint64(Grid_yBnum)))+double(0.5)))), (Grid_zOrigin+((Grid_zWidth/double(Grid_zNum))*(double((int3d(c).z-uint64(Grid_zBnum)))+double(0.5))))))
-    Fluid[c].centerCoordinates = [double[3]](array(double(xy[0]), double(xy[1]), double(xy[2])))
+    Fluid[c].centerCoordinates = array(Grid_xOrigin + (Grid_xWidth/Grid_xNum) * (c.x-Grid_xBnum+0.5),
+                                       Grid_yOrigin + (Grid_yWidth/Grid_yNum) * (c.y-Grid_yBnum+0.5),
+                                       Grid_zOrigin + (Grid_zWidth/Grid_zNum) * (c.z-Grid_zBnum+0.5))
   end
 end
 
@@ -3459,13 +3460,13 @@ end
 
 __demand(__inline)
 task Fluid_elemColor(idx : int3d,
-                     xNum  : int32, yNum  : int32, zNum  : int32,
-                     xBnum : int32, yBnum : int32, zBnum : int32,
-                     NX_   : int32, NY_   : int32, NZ_   : int32)
+                     xBnum : int32, xNum : int32, NX : int32,
+                     yBnum : int32, yNum : int32, NY : int32,
+                     zBnum : int32, zNum : int32, NZ : int32)
   idx.x = min(max(idx.x, xBnum), ((xNum+xBnum)-1))
   idx.y = min(max(idx.y, yBnum), ((yNum+yBnum)-1))
   idx.z = min(max(idx.z, zBnum), ((zNum+zBnum)-1))
-  return int3d({((idx.x-xBnum)/(xNum/NX_)), ((idx.y-yBnum)/(yNum/NY_)), ((idx.z-zBnum)/(zNum/NZ_))})
+  return int3d({((idx.x-xBnum)/(xNum/NX)), ((idx.y-yBnum)/(yNum/NY)), ((idx.z-zBnum)/(zNum/NZ))})
 end
 
 terra Particles_pushElement(dst : &opaque,idx : int32,src : Particles_columns)
@@ -3539,9 +3540,9 @@ local colorOffsets = terralib.newlist({
 task Particles_pushAll(partColor : int3d,
                        Particles : region(ispace(int1d), Particles_columns),
                        [queueRegions],
-                       rngXNum : int32,  rngYNum  : int32, rngZNum  : int32,
-                       rngXbnum : int32, rngYbnum : int32, rngZbnum : int32,
-                       NX_ : int32, NY_ : int32, NZ_ : int32)
+                       rngXbnum : int32, rngXNum : int32, NX : int32,
+                       rngYbnum : int32, rngYNum : int32, NY : int32,
+                       rngZbnum : int32, rngZNum : int32, NZ : int32)
 where
   reads(Particles),
   writes(Particles.__valid),
@@ -3556,10 +3557,13 @@ do
   @TIME end @EPACSE
   for rPtr in Particles do
     if rPtr.__valid then
-      var elemColor = Fluid_elemColor(rPtr.cell, rngXNum, rngYNum, rngZNum, rngXbnum, rngYbnum, rngZbnum, NX_, NY_, NZ_)
+      var elemColor = Fluid_elemColor(rPtr.cell,
+                                      rngXbnum, rngXNum, NX,
+                                      rngYbnum, rngYNum, NY,
+                                      rngZbnum, rngZNum, NZ)
       if elemColor ~= partColor then
         @ESCAPE for i = 1,26 do @EMIT
-          if elemColor == (partColor + [colorOffsets[i]] + {NX_,NY_,NZ_}) % {NX_,NY_,NZ_} then
+          if elemColor == (partColor + [colorOffsets[i]] + {NX,NY,NZ}) % {NX,NY,NZ} then
             var idx = 0
             for qPtr in [queueRegions[i]] do
               if not bool([queueRegions[i]][qPtr][VALID_FIELD_OFFSET]) then
@@ -5547,9 +5551,9 @@ local function mkInstance() local INSTANCE = {}
         Particles_pushAll(c,
                           p_Particles[c],
                           [qSrcParts:map(function(p) return rexpr p[c] end end)],
-                          config.Grid.xNum, config.Grid.yNum, config.Grid.zNum,
-                          Grid.xBnum, Grid.yBnum, Grid.zBnum,
-                          config.Mapping.tiles[0], config.Mapping.tiles[1], config.Mapping.tiles[2])
+                          Grid.xBnum, config.Grid.xNum, config.Mapping.tiles[0],
+                          Grid.yBnum, config.Grid.yNum, config.Mapping.tiles[1],
+                          Grid.zBnum, config.Grid.zNum, config.Mapping.tiles[2])
       end
       for c in tiles do
         Particles_pullAll(c,
