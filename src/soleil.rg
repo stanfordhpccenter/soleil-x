@@ -4687,12 +4687,12 @@ local function mkInstance() local INSTANCE = {}
       BC.xNegSign = array(0.0, 0.0, 0.0)
       BC.xPosVelocity = array(config.BC.xBCRightVel[0], config.BC.xBCRightVel[1], config.BC.xBCRightVel[2])
       BC.xNegVelocity = array(config.BC.xBCLeftVel[0],  config.BC.xBCLeftVel[1],  config.BC.xBCLeftVel[2] )
-      if config.BC.xBCRightHeat.type == SCHEMA.WallHeatModel_Constant then
+      if config.BC.xBCRightHeat.type == SCHEMA.TempProfile_Constant then
         BC.xPosTemperature = config.BC.xBCRightHeat.u.Constant.temperature
       else
         regentlib.assert(false, 'Only constant heat model supported')
       end
-      if config.BC.xBCLeftHeat.type == SCHEMA.WallHeatModel_Constant then
+      if config.BC.xBCLeftHeat.type == SCHEMA.TempProfile_Constant then
         BC.xNegTemperature = config.BC.xBCLeftHeat.u.Constant.temperature
       else
         regentlib.assert(false, 'Only constant heat model supported')
@@ -4712,7 +4712,7 @@ local function mkInstance() local INSTANCE = {}
       elseif (config.BC.xBCLeft == SCHEMA.FlowBC_IsothermalWall) then
         BC.xNegSign = array(-1.0, -1.0, -1.0)
         BC.xNegVelocity = array((2*config.BC.xBCLeftVel[0]), (2*config.BC.xBCLeftVel[1]), (2*config.BC.xBCLeftVel[2]))
-        if config.BC.xBCLeftHeat.type == SCHEMA.WallHeatModel_Constant then
+        if config.BC.xBCLeftHeat.type == SCHEMA.TempProfile_Constant then
           BC.xNegTemperature = config.BC.xBCLeftHeat.u.Constant.temperature
         else
           regentlib.assert(false, 'Only constant heat model supported')
@@ -4735,7 +4735,7 @@ local function mkInstance() local INSTANCE = {}
       elseif (config.BC.xBCRight == SCHEMA.FlowBC_IsothermalWall) then
         BC.xPosSign = array(-1.0, -1.0, -1.0)
         BC.xPosVelocity = array((2*config.BC.xBCRightVel[0]), (2*config.BC.xBCRightVel[1]), (2*config.BC.xBCRightVel[2]))
-        if config.BC.xBCRightHeat.type == SCHEMA.WallHeatModel_Constant then
+        if config.BC.xBCRightHeat.type == SCHEMA.TempProfile_Constant then
           BC.xPosTemperature = config.BC.xBCRightHeat.u.Constant.temperature
         else
           regentlib.assert(false, 'Only constant heat model supported')
@@ -4769,7 +4769,7 @@ local function mkInstance() local INSTANCE = {}
       elseif (config.BC.yBCLeft == SCHEMA.FlowBC_IsothermalWall) then
         BC.yNegSign = array(-1.0, -1.0, -1.0)
         BC.yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
-        if config.BC.yBCLeftHeat.type == SCHEMA.WallHeatModel_Constant then
+        if config.BC.yBCLeftHeat.type == SCHEMA.TempProfile_Constant then
           BC.yNegTemperature = config.BC.yBCLeftHeat.u.Constant.temperature
         else
           regentlib.assert(false, 'Only constant heat model supported')
@@ -4778,7 +4778,7 @@ local function mkInstance() local INSTANCE = {}
       elseif (config.BC.yBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
         BC.yNegSign = array(-1.0, -1.0, -1.0)
         BC.yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
-        if not (config.BC.yBCLeftHeat.type == SCHEMA.WallHeatModel_Parabola) then
+        if not (config.BC.yBCLeftHeat.type == SCHEMA.TempProfile_Parabola) then
           regentlib.assert(false, 'Only parabolia heat model supported')
         end
         BC.yBCParticles = SCHEMA.ParticlesBC_Bounce
@@ -4799,7 +4799,7 @@ local function mkInstance() local INSTANCE = {}
       elseif (config.BC.yBCRight == SCHEMA.FlowBC_IsothermalWall) then
         BC.yPosSign = array(-1.0, -1.0, -1.0)
         BC.yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
-        if config.BC.yBCRightHeat.type == SCHEMA.WallHeatModel_Constant then
+        if config.BC.yBCRightHeat.type == SCHEMA.TempProfile_Constant then
           BC.yPosTemperature = config.BC.yBCRightHeat.u.Constant.temperature
         else
           regentlib.assert(false, 'Only constant heat model supported')
@@ -4808,7 +4808,7 @@ local function mkInstance() local INSTANCE = {}
       elseif (config.BC.yBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
         BC.yPosSign = array(-1.0, -1.0, -1.0)
         BC.yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
-        if not (config.BC.yBCRightHeat.type == SCHEMA.WallHeatModel_Parabola) then
+        if not (config.BC.yBCRightHeat.type == SCHEMA.TempProfile_Parabola) then
           regentlib.assert(false, 'Only parabolia heat model supported')
         end
         BC.yBCParticles = SCHEMA.ParticlesBC_Bounce
@@ -4840,7 +4840,7 @@ local function mkInstance() local INSTANCE = {}
       elseif (config.BC.zBCLeft == SCHEMA.FlowBC_IsothermalWall) then
         BC.zNegSign = array(-1.0, -1.0, -1.0)
         BC.zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
-        if config.BC.zBCLeftHeat.type == SCHEMA.WallHeatModel_Constant then
+        if config.BC.zBCLeftHeat.type == SCHEMA.TempProfile_Constant then
           BC.zNegTemperature = config.BC.zBCLeftHeat.u.Constant.temperature
         else
           regentlib.assert(false, 'Only constant heat model supported')
@@ -4849,7 +4849,7 @@ local function mkInstance() local INSTANCE = {}
       elseif (config.BC.zBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
         BC.zNegSign = array(-1.0, -1.0, -1.0)
         BC.zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
-        if not (config.BC.zBCLeftHeat.type == SCHEMA.WallHeatModel_Parabola) then
+        if not (config.BC.zBCLeftHeat.type == SCHEMA.TempProfile_Parabola) then
           regentlib.assert(false, 'Only parabolia heat model supported')
         end
         BC.zBCParticles = SCHEMA.ParticlesBC_Bounce
@@ -4870,7 +4870,7 @@ local function mkInstance() local INSTANCE = {}
       elseif (config.BC.zBCRight == SCHEMA.FlowBC_IsothermalWall) then
         BC.zPosSign = array(-1.0, -1.0, -1.0)
         BC.zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
-        if config.BC.zBCRightHeat.type == SCHEMA.WallHeatModel_Constant then
+        if config.BC.zBCRightHeat.type == SCHEMA.TempProfile_Constant then
           BC.zPosTemperature = config.BC.zBCRightHeat.u.Constant.temperature
         else
           regentlib.assert(false, 'Only constant heat model supported')
@@ -4879,7 +4879,7 @@ local function mkInstance() local INSTANCE = {}
       elseif (config.BC.zBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
         BC.zPosSign = array(-1.0, -1.0, -1.0)
         BC.zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
-        if not (config.BC.zBCRightHeat.type == SCHEMA.WallHeatModel_Parabola) then
+        if not (config.BC.zBCRightHeat.type == SCHEMA.TempProfile_Parabola) then
           regentlib.assert(false, 'Only parabolia heat model supported')
         end
         BC.zBCParticles = SCHEMA.ParticlesBC_Bounce
