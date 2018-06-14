@@ -63,6 +63,15 @@ local struct Particles_columns {
   __valid : bool;
 }
 
+local struct Particles_primitives {
+  position : double[3];
+  velocity : double[3];
+  temperature : double;
+  diameter : double;
+  density : double;
+  __valid : bool;
+}
+
 local struct Fluid_columns {
   rho : double;
   pressure : double;
@@ -113,6 +122,13 @@ local struct Fluid_columns {
   dTdtBoundary : double;
   velocity_old_NSCBC : double[3];
   temperature_old_NSCBC : double;
+}
+
+local struct Fluid_primitives {
+  rho : double;
+  pressure : double;
+  velocity : double[3];
+  temperature : double;
 }
 
 struct Radiation_columns {
@@ -207,6 +223,13 @@ end
 -- I/O ROUTINES
 -------------------------------------------------------------------------------
 
+local function fieldNames(s)
+  return s.entries:map(function(e)
+    local name,typ = UTIL.parseStructEntry(e)
+    return name
+  end)
+end
+
 local __demand(__inline)
 task Fluid_dump(colors : ispace(int3d),
                 dirname : &int8,
@@ -215,8 +238,8 @@ task Fluid_dump(colors : ispace(int3d),
                 p_Fluid : partition(disjoint, Fluid, colors),
                 p_Fluid_copy : partition(disjoint, Fluid_copy, colors))
 where
-  reads(Fluid.{rho, pressure, velocity, temperature}),
-  reads writes(Fluid_copy.{rho, pressure, velocity, temperature}),
+  reads(Fluid.[fieldNames(Fluid_primitives)]),
+  reads writes(Fluid_copy.[fieldNames(Fluid_primitives)]),
   Fluid * Fluid_copy
 do
   regentlib.assert(false, 'Recompile with USE_HDF=1')
@@ -230,8 +253,8 @@ task Fluid_load(colors : ispace(int3d),
                 p_Fluid : partition(disjoint, Fluid, colors),
                 p_Fluid_copy : partition(disjoint, Fluid_copy, colors))
 where
-  reads writes(Fluid.{rho, pressure, velocity, temperature}),
-  reads writes(Fluid_copy.{rho, pressure, velocity, temperature}),
+  reads writes(Fluid.[fieldNames(Fluid_primitives)]),
+  reads writes(Fluid_copy.[fieldNames(Fluid_primitives)]),
   Fluid * Fluid_copy
 do
   regentlib.assert(false, 'Recompile with USE_HDF=1')
@@ -245,8 +268,8 @@ task Particles_dump(colors : ispace(int3d),
                     p_Particles : partition(disjoint, Particles, colors),
                     p_Particles_copy : partition(disjoint, Particles_copy, colors))
 where
-  reads(Particles.{position, velocity, temperature, diameter, __valid}),
-  reads writes(Particles_copy.{position, velocity, temperature, diameter, __valid}),
+  reads(Particles.[fieldNames(Particles_primitives)]),
+  reads writes(Particles_copy.[fieldNames(Particles_primitives)]),
   Particles * Particles_copy
 do
   regentlib.assert(false, 'Recompile with USE_HDF=1')
@@ -260,8 +283,8 @@ task Particles_load(colors : ispace(int3d),
                     p_Particles : partition(disjoint, Particles, colors),
                     p_Particles_copy : partition(disjoint, Particles_copy, colors))
 where
-  reads writes(Particles.{position, velocity, temperature, diameter, __valid}),
-  reads writes(Particles_copy.{position, velocity, temperature, diameter, __valid}),
+  reads writes(Particles.[fieldNames(Particles_primitives)]),
+  reads writes(Particles_copy.[fieldNames(Particles_primitives)]),
   Particles * Particles_copy
 do
   regentlib.assert(false, 'Recompile with USE_HDF=1')
@@ -270,11 +293,9 @@ end
 if USE_HDF then
   local HDF = require "hdf_helper"
   Fluid_dump, Fluid_load = HDF.mkHDFTasks(
-    int3d, int3d, Fluid_columns,
-    {"rho","pressure","velocity","temperature"})
+    int3d, int3d, Fluid_columns, fieldNames(Fluid_primitives))
   Particles_dump, Particles_load = HDF.mkHDFTasks(
-    int1d, int3d, Particles_columns,
-    {"position","velocity","temperature","diameter","density","__valid"})
+    int1d, int3d, Particles_columns, fieldNames(Particles_primitives))
 end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
