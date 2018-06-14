@@ -87,12 +87,7 @@
         "restartDir" : "",
         "initParams" : [1.2, 104040.0, 8.0, 0.0, 0.0],
         "bodyForce" : [9.8, 0.0, 0.0],
-        "turbForcing" : false,
-        "pertubation" : {
-            "type" : "Random",
-            "fromCell" : [10,0,0],
-            "uptoCell" : [11,40,40]
-        }
+        "turbForcing" : false
     },
 
     "Particles" : {

@@ -25,13 +25,6 @@ Exports.InflowProfile = Union{
     meanVelocity = double,
   },
 }
-Exports.PertubationModel = Union{
-  OFF = {},
-  Random = {
-    fromCell = Array(3,int),
-    uptoCell = Array(3,int),
-  },
-}
 local Window = {
   fromCell = Array(2,int),
   uptoCell = Array(2,int),
@@ -113,7 +106,6 @@ Exports.Config = {
     initParams = Array(5,double),
     bodyForce = Array(3,double),
     turbForcing = bool,
-    pertubation = Exports.PertubationModel,
   },
   Particles = {
     initCase = Exports.ParticlesInitCase,
