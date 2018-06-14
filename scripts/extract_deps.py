@@ -3,6 +3,8 @@
 import fileinput
 import re
 
+REGION = 'Fluid'
+
 fluid_reads = {} # map(task:string,list(field:string))
 fluid_writes = {} # map(task:string,list(field:string))
 curr_task = None
@@ -28,13 +30,15 @@ for line in fileinput.input():
     if line.startswith('end'):
         assert(not in_privs)
         curr_task = None
-    if in_privs and 'Fluid' in line:
+    if in_privs and REGION in line:
         flds = []
-        for m in re.finditer(r'Fluid\.{([^}]*)}', line):
+        for m in re.finditer(REGION + r'\.{([^}]*)}', line):
             for f in m.group(1).split(','):
                 flds.append(f.strip())
-        for m in re.finditer(r'Fluid\.(\w+)', line):
+        for m in re.finditer(REGION + r'\.(\w+)', line):
             flds.append(m.group(1))
+        if re.search(REGION + r'[^.\w]', line) is not None:
+            flds.append('ALL')
         if 'reads' in line:
             fluid_reads[curr_task].extend(flds)
         if 'writes' in line:
