@@ -274,7 +274,7 @@ if USE_HDF then
     {"rho","pressure","velocity","temperature"})
   Particles_dump, Particles_load = HDF.mkHDFTasks(
     int1d, int3d, Particles_columns,
-    {"cell","position","velocity","temperature","diameter","__valid"})
+    {"cell","position","velocity","temperature","diameter","density","__valid"})
 end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
@@ -334,7 +334,8 @@ task InitParticlesUniform(Particles : region(ispace(int1d), Particles_columns),
                           xBnum : int32, yBnum : int32, zBnum : int32)
 where
   reads(Fluid.{centerCoordinates, velocity}),
-  reads writes(Particles)
+  reads(Particles.cell),
+  writes(Particles.{__valid, cell, position, velocity, density, temperature, diameter})
 do
   var pBase = 0
   for p in Particles do -- this loop trips up the CUDA codegen
@@ -1849,21 +1850,6 @@ do
     if ghost_cell and not (NSCBC_inflow_cell or NSCBC_outflow_cell) then
       Fluid[c].pressure = Fluid[c].pressureBoundary
       Fluid[c].temperature = Fluid[c].temperatureBoundary
-    end
-  end
-end
-
-__demand(__parallel, __cuda)
-task Particles_InitializeDensity(Particles : region(ispace(int1d), Particles_columns),
-                                 Particles_density : double)
-where
-  reads(Particles.__valid),
-  writes(Particles.density)
-do
-  __demand(__openmp)
-  for p in Particles do
-    if Particles[p].__valid then
-      Particles[p].density = Particles_density
     end
   end
 end
@@ -5188,7 +5174,6 @@ local function mkInstance() local INSTANCE = {}
     end
     if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart) then
       Particles_load(tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
-      Particles_InitializeDensity(Particles, config.Particles.density)
       Particles_number += Particles_CalculateNumber(Particles)
     end
     if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform) then
