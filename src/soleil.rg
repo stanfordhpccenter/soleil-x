@@ -33,8 +33,6 @@ local USE_HDF = assert(os.getenv('USE_HDF')) ~= '0'
 
 local NUM_ANGLES = 14
 
-local PERTUBATION_MODES = 40
-
 -------------------------------------------------------------------------------
 -- DATA STRUCTURES
 -------------------------------------------------------------------------------
@@ -1474,66 +1472,6 @@ do
 
     if (ghost_cell and not (NSCBC_inflow_cell or NSCBC_outflow_cell)) then
       Fluid[c].velocity = Fluid[c].velocityBoundary
-    end
-  end
-end
-
-__demand(__parallel) -- NO CUDA, NO OPENMP
-task Flow_Perturb(Fluid : region(ispace(int3d), Fluid_columns),
-                  config : Config,
-                  Pertubation_kx : double[PERTUBATION_MODES],
-                  Pertubation_ky : double[PERTUBATION_MODES],
-                  Pertubation_kz : double[PERTUBATION_MODES],
-                  Pertubation_um : double[PERTUBATION_MODES],
-                  Pertubation_sxm : double[PERTUBATION_MODES],
-                  Pertubation_sym : double[PERTUBATION_MODES],
-                  Pertubation_szm : double[PERTUBATION_MODES])
-where
-  reads writes(Fluid.velocity)
-do
-  var Grid_xCellWidth = config.Grid.xWidth / config.Grid.xNum
-  var Grid_yCellWidth = config.Grid.yWidth / config.Grid.yNum
-  var Grid_zCellWidth = config.Grid.zWidth / config.Grid.zNum
-  var xFrom = config.Flow.pertubation.u.Random.fromCell[0]
-  var xUpto = config.Flow.pertubation.u.Random.uptoCell[0]
-  var yFrom = config.Flow.pertubation.u.Random.fromCell[1]
-  var yUpto = config.Flow.pertubation.u.Random.uptoCell[1]
-  var zFrom = config.Flow.pertubation.u.Random.fromCell[2]
-  var zUpto = config.Flow.pertubation.u.Random.uptoCell[2]
-  var rngState : C.drand48_data[1]
-  var rngStatePtr = [&C.drand48_data](rngState)
-  C.srand48_r(regentlib.c.legion_get_current_time_in_nanos(), rngStatePtr)
-  -- For every grid point do the Fourier summation
-  for c in Fluid do
-    -- Only modify cells inside the perturbed volume
-    if  c.x >= xFrom and c.x <= xUpto
-    and c.y >= yFrom and c.y <= yUpto
-    and c.z >= zFrom and c.z <= zUpto then
-      var psi = (drand48_r(rngStatePtr) - 0.5) * PI
-      var xc = Grid_xCellWidth/2.0 + c.x*Grid_xCellWidth
-      var yc = Grid_yCellWidth/2.0 + c.y*Grid_yCellWidth
-      var zc = Grid_zCellWidth/2.0 + c.z*Grid_zCellWidth
-      var u = 0.0
-      var v = 0.0
-      var w = 0.0
-      for i = 0,PERTUBATION_MODES do
-        var arg = Pertubation_kx[i]*xc
-                + Pertubation_ky[i]*yc
-                + Pertubation_kz[i]*zc
-                - psi
-        var bmx = 2.0*Pertubation_um[i]
-                * cos( arg - Pertubation_kx[i]*Grid_xCellWidth/2.0 )
-        var bmy = 2.0*Pertubation_um[i]
-                * cos( arg - Pertubation_ky[i]*Grid_yCellWidth/2.0 )
-        var bmz = 2.0*Pertubation_um[i]
-                * cos( arg - Pertubation_kz[i]*Grid_zCellWidth/2.0 )
-        u += bmx * Pertubation_sxm[i]
-        v += bmy * Pertubation_sym[i]
-        w += bmz * Pertubation_szm[i]
-      end
-      c.velocity[0] += u
-      c.velocity[1] += v
-      c.velocity[2] += w
     end
   end
 end
@@ -5536,97 +5474,6 @@ local function mkInstance() local INSTANCE = {}
                                     Grid.xBnum, config.Grid.xNum,
                                     Grid.yBnum, config.Grid.yNum,
                                     Grid.zBnum, config.Grid.zNum)
-
-      if config.Flow.pertubation.type == SCHEMA.PertubationModel_Random then
-        -- Seed RNG
-        var rngState : C.drand48_data[1]
-        var rngStatePtr = [&C.drand48_data](rngState)
-        C.srand48_r(regentlib.c.legion_get_current_time_in_nanos(), rngStatePtr)
-        -- Random pertubation arrays
-        var Pertubation_kx : double[PERTUBATION_MODES]
-        var Pertubation_ky : double[PERTUBATION_MODES]
-        var Pertubation_kz : double[PERTUBATION_MODES]
-        var Pertubation_um : double[PERTUBATION_MODES]
-        var Pertubation_sxm : double[PERTUBATION_MODES]
-        var Pertubation_sym : double[PERTUBATION_MODES]
-        var Pertubation_szm : double[PERTUBATION_MODES]
-        -- Set up pertubation constants
-        -- Number of nodes in perturbed volume
-        var nx = config.Flow.pertubation.u.Random.uptoCell[0]
-          - config.Flow.pertubation.u.Random.fromCell[0] + 1
-        var ny = config.Flow.pertubation.u.Random.uptoCell[1]
-          - config.Flow.pertubation.u.Random.fromCell[1] + 1
-        var nz = config.Flow.pertubation.u.Random.uptoCell[2]
-          - config.Flow.pertubation.u.Random.fromCell[2] + 1
-        -- Domain dimensions
-        var lx = Grid.xCellWidth * nx
-        var ly = Grid.yCellWidth * ny
-        var lz = Grid.zCellWidth * nz
-        -- Other constants
-        var ke_ = 40.0                            -- Peak wave number
-        var alpha = 1.452762113                   -- Scaling constant
-        var kv = 1.0e-5                           -- Kinematic viscosity  -- TODO COMPUTE REAL VALUE HERE.. BASED ON AVERAGE?
-        var urms = 0.25                           -- RMS velocity fluctuation -- TODO Make a function of mean velocity?
-        var ke = sqrt(5.0/12)*ke_                 -- Peak wave number
-        var wn1 = 2.0*PI/pow(lx*ly*lz,1.0/3.0)    -- Smallest wavenumber
-        var L = 0.746834/ke                       -- Integral length scale
-        var eps = urms*urms*urms/L                -- Dissipation rate
-        var keta = pow(eps,0.25)*pow(kv,-3.0/4.0) -- Kolmogorov wave number
-        var wnn = max( PI/Grid.xCellWidth,        -- Nyquist limit
-                       max( PI/Grid.yCellWidth,
-                            PI/Grid.zCellWidth ) )
-        var dk = (wnn-wn1)/PERTUBATION_MODES      -- Wavenumber step
-        -- Fill in arrays
-        for i = 0,PERTUBATION_MODES do
-          -- Generate random angles
-          var phi = 2.0*PI*drand48_r(rngStatePtr)
-          var nu = drand48_r(rngStatePtr)
-          var theta = acos( 2.0*nu - 1.0 )
-          var phi1 = 2.0*PI*drand48_r(rngStatePtr)
-          var nu1 = drand48_r(rngStatePtr)
-          -- Wavenumber at cell centers
-          var wn = wn1 + 0.5*dk + i*dk
-          -- Wavenumber vector from random angles
-          Pertubation_kx[i] = sin( theta )*cos( phi )*wn
-          Pertubation_ky[i] = sin( theta )*sin( phi )*wn
-          Pertubation_kz[i] = cos( theta )*wn
-          -- Create divergence vector
-          var ktx = sin( Pertubation_kx[i]*Grid.xCellWidth/2.0 )
-            / Grid.xCellWidth
-          var kty = sin( Pertubation_ky[i]*Grid.yCellWidth/2.0 )
-            / Grid.yCellWidth
-          var ktz = sin( Pertubation_kz[i]*Grid.zCellWidth/2.0 )
-            / Grid.zCellWidth
-          -- Enforce Mass Conservation
-          var theta1 = acos( 2.0*nu1 - 1.0 )
-          var zetax = sin( theta1 )*cos( phi1 )
-          var zetay = sin( theta1 )*sin( phi1 )
-          var zetaz = cos( theta1 )
-          Pertubation_sxm[i] = zetay*ktz - zetaz*kty
-          Pertubation_sym[i] = -( zetax*ktz - zetaz*ktx  )
-          Pertubation_szm[i] = zetax*kty - zetay*ktx
-          var smag = sqrt( Pertubation_sxm[i]*Pertubation_sxm[i] +
-                             Pertubation_sym[i]*Pertubation_sym[i] +
-                             Pertubation_szm[i]*Pertubation_szm[i] )
-          Pertubation_sxm[i] = Pertubation_sxm[i]/smag
-          Pertubation_sym[i] = Pertubation_sym[i]/smag
-          Pertubation_szm[i] = Pertubation_szm[i]/smag
-          -- Generate energy spectrum
-          var r1 = wn/ke
-          var r2 = wn/keta
-          var espec = alpha
-            * ( urms*urms/ke )
-            * ( r1*r1*r1*r1 / ( pow((1.0+r1*r1),(17.0/6.0)) ) )
-            * exp( -2.0*r2*r2 )
-          espec = max(0,espec)
-          Pertubation_um[i] = sqrt( espec*dk )
-        end
-        -- Insert random pertubations in the fluid
-        Flow_Perturb(Fluid, config,
-                     Pertubation_kx, Pertubation_ky, Pertubation_kz,
-                     Pertubation_um,
-                     Pertubation_sxm, Pertubation_sym, Pertubation_szm)
-      end
 
       Flow_UpdateAuxiliaryThermodynamics(Fluid,
                                          config.Flow.gamma, config.Flow.gasConstant,
