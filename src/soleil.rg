@@ -122,6 +122,8 @@ local struct Fluid_columns {
   dTdtBoundary : double;
   velocity_old_NSCBC : double[3];
   temperature_old_NSCBC : double;
+  velocity_inc : double[3];
+  temperature_inc : double;
 }
 
 local struct Fluid_primitives {
@@ -492,7 +494,9 @@ where
   writes(Fluid.dudtBoundary),
   writes(Fluid.dTdtBoundary),
   writes(Fluid.velocity_old_NSCBC),
-  writes(Fluid.temperature_old_NSCBC)
+  writes(Fluid.temperature_old_NSCBC),
+  writes(Fluid.velocity_inc),
+  writes(Fluid.temperature_inc)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -544,6 +548,8 @@ do
     Fluid[c].dTdtBoundary = 0.0
     Fluid[c].velocity_old_NSCBC = array(0.0, 0.0, 0.0)
     Fluid[c].temperature_old_NSCBC = 0.0
+    Fluid[c].velocity_inc = array(0.0, 0.0, 0.0)
+    Fluid[c].temperature_inc = 0.0
   end
 end
 
@@ -667,7 +673,6 @@ __demand(__parallel, __cuda)
 task Flow_InitializeGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
                                config : Config,
                                Flow_gasConstant : double,
-                               BC_xNegTemperature : double,
                                Flow_constantVisc : double,
                                Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
                                Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
@@ -699,9 +704,12 @@ do
   var Grid_yRealOrigin = (Grid_yOrigin-(Grid_yCellWidth*Grid_yBnum))
   var Grid_zRealOrigin = (Grid_zOrigin-(Grid_zCellWidth*Grid_zBnum))
   -- Inflow values
+  var BC_xBCLeftHeat_type = config.BC.xBCLeftHeat.type
+  var BC_xBCLeftHeat_Constant_temperature = config.BC.xBCLeftHeat.u.Constant.temperature
   var BC_xBCLeftInflowProfile_type = config.BC.xBCLeftInflowProfile.type
   var BC_xBCLeftInflowProfile_Constant_velocity = config.BC.xBCLeftInflowProfile.u.Constant.velocity
   var BC_xBCLeftInflowProfile_Duct_meanVelocity = config.BC.xBCLeftInflowProfile.u.Duct.meanVelocity
+  var BC_xBCLeftInflowProfile_Incoming_addedVelocity = config.BC.xBCLeftInflowProfile.u.Incoming.addedVelocity
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -722,7 +730,7 @@ do
       var velocity = array(0.0, 0.0, 0.0)
       if BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Constant then
         velocity[0] = BC_xBCLeftInflowProfile_Constant_velocity
-      else -- BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Duct
+      elseif BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Duct then
         var y = Fluid[c].centerCoordinates[1]
         var z = Fluid[c].centerCoordinates[2]
         var y_dist_to_wall = 0.0
@@ -757,18 +765,33 @@ do
         var Re = Fluid[c].rho*meanVelocity*Grid_yWidth / mu
         var n = -1.7 + 1.8*log(Re)
         velocity[0] = meanVelocity*pow((d/d_max), (1.0/n))
+      else -- BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Incoming
+        -- This value will be overwritten by the incoming fluid, so just set
+        -- it to something reasonable.
+        velocity[0] = BC_xBCLeftInflowProfile_Incoming_addedVelocity
       end
       Fluid[c_bnd].velocity = velocity
+
+      var temperature : double
+      if BC_xBCLeftHeat_type == SCHEMA.TempProfile_Constant then
+        temperature = BC_xBCLeftHeat_Constant_temperature
+      -- elseif BC_xBCLeftHeat_type == SCHEMA.TempProfile_Parabola then
+      --   regentlib.assert(false, 'Parabola heat model not supported')
+      else -- BC_xBCLeftHeat_type == SCHEMA.TempProfile_Incoming
+        -- This value will be overwritten by the incoming fluid, so just set
+        -- it to something reasonable.
+        temperature = Fluid[c_int].temperature
+      end
 
       -- Just copy over the density from the interior
       Fluid[c_bnd].rho = Fluid[c_int].rho
 
       -- Use the specified temperature to find the correct pressure for current density from EOS
-      Fluid[c_bnd].pressure = BC_xNegTemperature*Flow_gasConstant*Fluid[c_bnd].rho
+      Fluid[c_bnd].pressure = temperature*Flow_gasConstant*Fluid[c_bnd].rho
 
       -- for time stepping RHS of INFLOW
       Fluid[c_bnd].velocity_old_NSCBC = velocity
-      Fluid[c_bnd].temperature_old_NSCBC = BC_xNegTemperature
+      Fluid[c_bnd].temperature_old_NSCBC = temperature
       Fluid[c_bnd].dudtBoundary = 0.0
       Fluid[c_bnd].dTdtBoundary= 0.0
     end
@@ -901,6 +924,7 @@ do
   var BC_xBCLeftInflowProfile_type = config.BC.xBCLeftInflowProfile.type
   var BC_xBCLeftInflowProfile_Constant_velocity = config.BC.xBCLeftInflowProfile.u.Constant.velocity
   var BC_xBCLeftInflowProfile_Duct_meanVelocity = config.BC.xBCLeftInflowProfile.u.Duct.meanVelocity
+  var BC_xBCLeftInflowProfile_Incoming_addedVelocity = config.BC.xBCLeftInflowProfile.u.Incoming.addedVelocity
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -917,7 +941,7 @@ do
       var velocity = array(0.0, 0.0, 0.0)
       if BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Constant then
         velocity[0] = BC_xBCLeftInflowProfile_Constant_velocity
-      else -- BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Duct
+      elseif BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Duct then
         var y = Fluid[c].centerCoordinates[1]
         var z = Fluid[c].centerCoordinates[2]
         var y_dist_to_wall = 0.0
@@ -952,6 +976,9 @@ do
         var Re = Fluid[c].rho*meanVelocity*Grid_yWidth / mu
         var n = -1.7 + 1.8*log(Re)
         velocity[0] = meanVelocity*pow((d/d_max), (1.0/n))
+      else -- BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Incoming
+        velocity = Fluid[c].velocity_inc
+        velocity[0] += BC_xBCLeftInflowProfile_Incoming_addedVelocity
       end
       Fluid[c].velocity = velocity
     end
@@ -1024,9 +1051,12 @@ do
   var Grid_yRealOrigin = (Grid_yOrigin-(Grid_yCellWidth*Grid_yBnum))
   var Grid_zRealOrigin = (Grid_zOrigin-(Grid_zCellWidth*Grid_zBnum))
   -- Inflow values
+  var BC_xBCLeftHeat_type = config.BC.xBCLeftHeat.type
+  var BC_xBCLeftHeat_Constant_temperature = config.BC.xBCLeftHeat.u.Constant.temperature
   var BC_xBCLeftInflowProfile_type = config.BC.xBCLeftInflowProfile.type
   var BC_xBCLeftInflowProfile_Constant_velocity = config.BC.xBCLeftInflowProfile.u.Constant.velocity
   var BC_xBCLeftInflowProfile_Duct_meanVelocity = config.BC.xBCLeftInflowProfile.u.Duct.meanVelocity
+  var BC_xBCLeftInflowProfile_Incoming_addedVelocity = config.BC.xBCLeftInflowProfile.u.Incoming.addedVelocity
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0)
@@ -1051,7 +1081,7 @@ do
         var velocity = array(0.0, 0.0, 0.0)
         if BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Constant then
           velocity[0] = BC_xBCLeftInflowProfile_Constant_velocity
-        else -- BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Duct
+        elseif BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Duct then
           var y = Fluid[c].centerCoordinates[1]
           var z = Fluid[c].centerCoordinates[2]
           var y_dist_to_wall = 0.0
@@ -1086,9 +1116,18 @@ do
           var Re = Fluid[c].rho*meanVelocity*Grid_yWidth / mu
           var n = -1.7 + 1.8*log(Re)
           velocity[0] = meanVelocity*pow((d/d_max), (1.0/n))
+        else -- BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Incoming
+          velocity = Fluid[c].velocity_inc
+          velocity[0] += BC_xBCLeftInflowProfile_Incoming_addedVelocity
         end
-        var temperature = BC_xNegTemperature
-
+        var temperature : double
+        if BC_xBCLeftHeat_type == SCHEMA.TempProfile_Constant then
+          temperature = BC_xBCLeftHeat_Constant_temperature
+        -- elseif BC_xBCLeftHeat_type == SCHEMA.TempProfile_Parabola then
+        --   regentlib.assert(false, 'Parabola heat model not supported')
+        else -- BC_xBCLeftHeat_type == SCHEMA.TempProfile_Incoming
+          temperature = Fluid[c].temperature_inc
+        end
         Fluid[c_bnd].rhoBoundary = rho
         Fluid[c_bnd].rhoVelocityBoundary = vs_mul(velocity, rho)
         Fluid[c_bnd].rhoEnergyBoundary = rho*((cv*temperature)+(0.5*dot(velocity, velocity)))
@@ -1599,7 +1638,6 @@ task Flow_UpdateAuxiliaryThermodynamicsGhostNSCBC(Fluid : region(ispace(int3d), 
                                                   config : Config,
                                                   Flow_gamma : double,
                                                   Flow_gasConstant : double,
-                                                  BC_xNegTemperature : double,
                                                   Grid_xBnum : int32, Grid_xNum : int32,
                                                   Grid_yBnum : int32, Grid_yNum : int32,
                                                   Grid_zBnum : int32, Grid_zNum : int32)
@@ -1608,6 +1646,8 @@ where
   writes(Fluid.{pressure, temperature})
 do
   var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCLeftHeat_type = config.BC.xBCLeftHeat.type
+  var BC_xBCLeftHeat_Constant_temperature = config.BC.xBCLeftHeat.u.Constant.temperature
   var BC_xBCRight = config.BC.xBCRight
   __demand(__openmp)
   for c in Fluid do
@@ -1625,9 +1665,17 @@ do
 
     if (ghost_cell) then
       if (NSCBC_inflow_cell)  then
-        Fluid[c].temperature = BC_xNegTemperature
         var kineticEnergy = (0.5*Fluid[c].rho) * dot(Fluid[c].velocity,Fluid[c].velocity)
         Fluid[c].pressure = (Flow_gamma-1.0) * (Fluid[c].rhoEnergy-kineticEnergy)
+        var temperature : double
+        if BC_xBCLeftHeat_type == SCHEMA.TempProfile_Constant then
+          temperature = BC_xBCLeftHeat_Constant_temperature
+        -- elseif BC_xBCLeftHeat_type == SCHEMA.TempProfile_Parabola then
+        --   regentlib.assert(false, 'Parabola heat model not supported')
+        else -- BC_xBCLeftHeat_type == SCHEMA.TempProfile_Incoming
+          temperature = Fluid[c].temperature_inc
+        end
+        Fluid[c].temperature = temperature
       end
 
       if (NSCBC_outflow_cell)  then
@@ -4728,16 +4776,13 @@ local function mkInstance() local INSTANCE = {}
     if ((config.BC.xBCLeft == SCHEMA.FlowBC_Periodic) and (config.BC.xBCRight == SCHEMA.FlowBC_Periodic)) then
       BC.xBCParticles = SCHEMA.ParticlesBC_Periodic
     elseif ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-      if config.BC.xBCRightHeat.type == SCHEMA.TempProfile_Constant then
-        BC.xPosTemperature = config.BC.xBCRightHeat.u.Constant.temperature
-      else
-        regentlib.assert(false, 'Only constant heat model supported')
-      end
       if config.BC.xBCLeftHeat.type == SCHEMA.TempProfile_Constant then
-        BC.xNegTemperature = config.BC.xBCLeftHeat.u.Constant.temperature
-      else
-        regentlib.assert(false, 'Only constant heat model supported')
-      end
+        -- Do nothing
+      elseif config.BC.xBCLeftHeat.type == SCHEMA.TempProfile_Parabola then
+        regentlib.assert(false, 'Parabola heat model not supported')
+      elseif config.BC.xBCLeftHeat.type == SCHEMA.TempProfile_Incoming then
+        -- Do nothing
+      else regentlib.assert(false, 'Unhandled case in switch') end
       BC.xBCParticles = SCHEMA.ParticlesBC_Disappear
     else
       if (config.BC.xBCLeft == SCHEMA.FlowBC_Symmetry) then
@@ -5101,7 +5146,6 @@ local function mkInstance() local INSTANCE = {}
         Flow_InitializeGhostNSCBC(Fluid,
                                   config,
                                   config.Flow.gasConstant,
-                                  BC.xNegTemperature,
                                   config.Flow.constantVisc,
                                   config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
                                   config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
@@ -5159,7 +5203,6 @@ local function mkInstance() local INSTANCE = {}
                                                    config,
                                                    config.Flow.gamma,
                                                    config.Flow.gasConstant,
-                                                   BC.xNegTemperature,
                                                    Grid.xBnum, config.Grid.xNum,
                                                    Grid.yBnum, config.Grid.yNum,
                                                    Grid.zBnum, config.Grid.zNum)
@@ -5514,7 +5557,6 @@ local function mkInstance() local INSTANCE = {}
                                                      config,
                                                      config.Flow.gamma,
                                                      config.Flow.gasConstant,
-                                                     BC.xNegTemperature,
                                                      Grid.xBnum, config.Grid.xNum,
                                                      Grid.yBnum, config.Grid.yNum,
                                                      Grid.zBnum, config.Grid.zNum)

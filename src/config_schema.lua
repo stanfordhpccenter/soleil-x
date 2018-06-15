@@ -16,6 +16,7 @@ Exports.TempProfile = Union{
     T_right = double,
     T_mid = double,
   },
+  Incoming = {},
 }
 Exports.InflowProfile = Union{
   Constant = {
@@ -23,6 +24,9 @@ Exports.InflowProfile = Union{
   },
   Duct = {
     meanVelocity = double,
+  },
+  Incoming = {
+    addedVelocity = Array(3,double),
   },
 }
 local Window = {
