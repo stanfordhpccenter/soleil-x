@@ -352,7 +352,7 @@ __demand(__parallel) -- NO CUDA
 task InitParticlesUniform(Particles : region(ispace(int1d), Particles_columns),
                           Fluid : region(ispace(int3d), Fluid_columns),
                           config : Config,
-                          xBnum : int32, yBnum : int32, zBnum : int32)
+                          Grid_xBnum : int32, Grid_yBnum : int32, Grid_zBnum : int32)
 where
   reads(Fluid.{centerCoordinates, velocity}),
   reads(Particles.cell),
@@ -364,13 +364,13 @@ do
     break
   end
   var lo = Fluid.bounds.lo
-  lo.x = max(lo.x, xBnum)
-  lo.y = max(lo.y, yBnum)
-  lo.z = max(lo.z, zBnum)
+  lo.x = max(lo.x, Grid_xBnum)
+  lo.y = max(lo.y, Grid_yBnum)
+  lo.z = max(lo.z, Grid_zBnum)
   var hi = Fluid.bounds.hi
-  hi.x = min(hi.x, ((config.Grid.xNum+xBnum)-1))
-  hi.y = min(hi.y, ((config.Grid.yNum+yBnum)-1))
-  hi.z = min(hi.z, ((config.Grid.zNum+zBnum)-1))
+  hi.x = min(hi.x, ((config.Grid.xNum+Grid_xBnum)-1))
+  hi.y = min(hi.y, ((config.Grid.yNum+Grid_yBnum)-1))
+  hi.z = min(hi.z, ((config.Grid.zNum+Grid_zBnum)-1))
   var xSize = ((hi.x-lo.x)+1)
   var ySize = ((hi.y-lo.y)+1)
   var particlesPerTask = config.Particles.initNum / (config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2])
@@ -498,52 +498,51 @@ do
   for c in Fluid do
     Fluid[c].rho = 0.0
     Fluid[c].pressure = 0.0
-    Fluid[c].velocity = [double[3]](array(0.0, 0.0, 0.0))
-    Fluid[c].centerCoordinates = [double[3]](array(0.0, 0.0, 0.0))
-    Fluid[c].velocityGradientX = [double[3]](array(0.0, 0.0, 0.0))
-    Fluid[c].velocityGradientY = [double[3]](array(0.0, 0.0, 0.0))
-    Fluid[c].velocityGradientZ = [double[3]](array(0.0, 0.0, 0.0))
+    Fluid[c].velocity = array(0.0, 0.0, 0.0)
+    Fluid[c].centerCoordinates = array(0.0, 0.0, 0.0)
+    Fluid[c].velocityGradientX = array(0.0, 0.0, 0.0)
+    Fluid[c].velocityGradientY = array(0.0, 0.0, 0.0)
+    Fluid[c].velocityGradientZ = array(0.0, 0.0, 0.0)
     Fluid[c].temperature = 0.0
     Fluid[c].rhoEnthalpy = 0.0
     Fluid[c].convectiveSpectralRadius = 0.0
     Fluid[c].viscousSpectralRadius = 0.0
     Fluid[c].heatConductionSpectralRadius = 0.0
-    Fluid[c].rhoVelocity = [double[3]](array(0.0, 0.0, 0.0))
+    Fluid[c].rhoVelocity = array(0.0, 0.0, 0.0)
     Fluid[c].rhoEnergy = 0.0
     Fluid[c].rhoBoundary = 0.0
-    Fluid[c].rhoVelocityBoundary = [double[3]](array(0.0, 0.0, 0.0))
+    Fluid[c].rhoVelocityBoundary = array(0.0, 0.0, 0.0)
     Fluid[c].rhoEnergyBoundary = 0.0
-    Fluid[c].velocityBoundary = [double[3]](array(0.0, 0.0, 0.0))
+    Fluid[c].velocityBoundary = array(0.0, 0.0, 0.0)
     Fluid[c].pressureBoundary = 0.0
     Fluid[c].temperatureBoundary = 0.0
-    Fluid[c].velocityGradientXBoundary = [double[3]](array(0.0, 0.0, 0.0))
-    Fluid[c].velocityGradientYBoundary = [double[3]](array(0.0, 0.0, 0.0))
-    Fluid[c].velocityGradientZBoundary = [double[3]](array(0.0, 0.0, 0.0))
+    Fluid[c].velocityGradientXBoundary = array(0.0, 0.0, 0.0)
+    Fluid[c].velocityGradientYBoundary = array(0.0, 0.0, 0.0)
+    Fluid[c].velocityGradientZBoundary = array(0.0, 0.0, 0.0)
     Fluid[c].rho_old = 0.0
-    Fluid[c].rhoVelocity_old = [double[3]](array(0.0, 0.0, 0.0))
+    Fluid[c].rhoVelocity_old = array(0.0, 0.0, 0.0)
     Fluid[c].rhoEnergy_old = 0.0
     Fluid[c].rho_new = 0.0
-    Fluid[c].rhoVelocity_new = [double[3]](array(0.0, 0.0, 0.0))
+    Fluid[c].rhoVelocity_new = array(0.0, 0.0, 0.0)
     Fluid[c].rhoEnergy_new = 0.0
     Fluid[c].rho_t = 0.0
-    Fluid[c].rhoVelocity_t = [double[3]](array(0.0, 0.0, 0.0))
+    Fluid[c].rhoVelocity_t = array(0.0, 0.0, 0.0)
     Fluid[c].rhoEnergy_t = 0.0
     Fluid[c].rhoFluxX = 0.0
-    Fluid[c].rhoVelocityFluxX = [double[3]](array(0.0, 0.0, 0.0))
+    Fluid[c].rhoVelocityFluxX = array(0.0, 0.0, 0.0)
     Fluid[c].rhoEnergyFluxX = 0.0
     Fluid[c].rhoFluxY = 0.0
-    Fluid[c].rhoVelocityFluxY = [double[3]](array(0.0, 0.0, 0.0))
+    Fluid[c].rhoVelocityFluxY = array(0.0, 0.0, 0.0)
     Fluid[c].rhoEnergyFluxY = 0.0
     Fluid[c].rhoFluxZ = 0.0
-    Fluid[c].rhoVelocityFluxZ = [double[3]](array(0.0, 0.0, 0.0))
+    Fluid[c].rhoVelocityFluxZ = array(0.0, 0.0, 0.0)
     Fluid[c].rhoEnergyFluxZ = 0.0
     Fluid[c].PD = 0.0
     Fluid[c].dissipation = 0.0
     Fluid[c].dissipationFlux = 0.0
-    -- For NSCBC Boundary
     Fluid[c].dudtBoundary = 0.0
     Fluid[c].dTdtBoundary = 0.0
-    Fluid[c].velocity_old_NSCBC = [double[3]](array(0.0, 0.0, 0.0))
+    Fluid[c].velocity_old_NSCBC = array(0.0, 0.0, 0.0)
     Fluid[c].temperature_old_NSCBC = 0.0
   end
 end
@@ -968,9 +967,15 @@ end
 __demand(__parallel, __cuda)
 task Flow_UpdateGhostConservedStep1(Fluid : region(ispace(int3d), Fluid_columns),
                                     config : Config,
-                                    BC_xNegTemperature : double, BC_xNegVelocity : double[3], BC_xPosTemperature : double, BC_xPosVelocity : double[3], BC_xNegSign : double[3], BC_xPosSign : double[3],
-                                    BC_yNegTemperature : double, BC_yNegVelocity : double[3], BC_yPosTemperature : double, BC_yPosVelocity : double[3], BC_yNegSign : double[3], BC_yPosSign : double[3],
-                                    BC_zNegTemperature : double, BC_zNegVelocity : double[3], BC_zPosTemperature : double, BC_zPosVelocity : double[3], BC_zNegSign : double[3], BC_zPosSign : double[3],
+                                    BC_xNegTemperature : double, BC_xNegVelocity : double[3],
+                                    BC_xPosTemperature : double, BC_xPosVelocity : double[3],
+                                    BC_xNegSign : double[3], BC_xPosSign : double[3],
+                                    BC_yNegTemperature : double, BC_yNegVelocity : double[3],
+                                    BC_yPosTemperature : double, BC_yPosVelocity : double[3],
+                                    BC_yNegSign : double[3], BC_yPosSign : double[3],
+                                    BC_zNegTemperature : double, BC_zNegVelocity : double[3],
+                                    BC_zPosTemperature : double, BC_zPosVelocity : double[3],
+                                    BC_zNegSign : double[3], BC_zPosSign : double[3],
                                     Flow_gamma : double,
                                     Flow_gasConstant : double,
                                     Flow_constantVisc : double,
@@ -3481,13 +3486,15 @@ end
 
 __demand(__inline)
 task Fluid_elemColor(idx : int3d,
-                     xBnum : int32, xNum : int32, NX : int32,
-                     yBnum : int32, yNum : int32, NY : int32,
-                     zBnum : int32, zNum : int32, NZ : int32)
-  idx.x = min(max(idx.x, xBnum), ((xNum+xBnum)-1))
-  idx.y = min(max(idx.y, yBnum), ((yNum+yBnum)-1))
-  idx.z = min(max(idx.z, zBnum), ((zNum+zBnum)-1))
-  return int3d({((idx.x-xBnum)/(xNum/NX)), ((idx.y-yBnum)/(yNum/NY)), ((idx.z-zBnum)/(zNum/NZ))})
+                     Grid_xBnum : int32, Grid_xNum : int32, NX : int32,
+                     Grid_yBnum : int32, Grid_yNum : int32, NY : int32,
+                     Grid_zBnum : int32, Grid_zNum : int32, NZ : int32)
+  idx.x = min(max(idx.x, Grid_xBnum), Grid_xNum+Grid_xBnum-1)
+  idx.y = min(max(idx.y, Grid_yBnum), Grid_yNum+Grid_yBnum-1)
+  idx.z = min(max(idx.z, Grid_zBnum), Grid_zNum+Grid_zBnum-1)
+  return int3d{(idx.x-Grid_xBnum)/(Grid_xNum/NX),
+               (idx.y-Grid_yBnum)/(Grid_yNum/NY),
+               (idx.z-Grid_zBnum)/(Grid_zNum/NZ)}
 end
 
 terra Particles_pushElement(dst : &opaque,idx : int32,src : Particles_columns)
@@ -3581,9 +3588,9 @@ local colorOffsets = terralib.newlist({
 task Particles_pushAll(partColor : int3d,
                        Particles : region(ispace(int1d), Particles_columns),
                        [queueRegions],
-                       rngXbnum : int32, rngXNum : int32, NX : int32,
-                       rngYbnum : int32, rngYNum : int32, NY : int32,
-                       rngZbnum : int32, rngZNum : int32, NZ : int32)
+                       Grid_xBnum : int32, Grid_xNum : int32, NX : int32,
+                       Grid_yBnum : int32, Grid_yNum : int32, NY : int32,
+                       Grid_zBnum : int32, Grid_zNum : int32, NZ : int32)
 where
   reads(Particles),
   writes(Particles.__valid),
@@ -3599,9 +3606,9 @@ do
   for rPtr in Particles do
     if rPtr.__valid then
       var elemColor = Fluid_elemColor(rPtr.cell,
-                                      rngXbnum, rngXNum, NX,
-                                      rngYbnum, rngYNum, NY,
-                                      rngZbnum, rngZNum, NZ)
+                                      Grid_xBnum, Grid_xNum, NX,
+                                      Grid_yBnum, Grid_yNum, NY,
+                                      Grid_zBnum, Grid_zNum, NZ)
       if elemColor ~= partColor then
         @ESCAPE for i = 1,26 do @EMIT
           if elemColor == (partColor + [colorOffsets[i]] + {NX,NY,NZ}) % {NX,NY,NZ} then
@@ -4824,7 +4831,7 @@ local function mkInstance() local INSTANCE = {}
         BC.yNegSign = array(-1.0, -1.0, -1.0)
         BC.yNegVelocity = array((2*config.BC.yBCLeftVel[0]), (2*config.BC.yBCLeftVel[1]), (2*config.BC.yBCLeftVel[2]))
         if not (config.BC.yBCLeftHeat.type == SCHEMA.TempProfile_Parabola) then
-          regentlib.assert(false, 'Only parabolia heat model supported')
+          regentlib.assert(false, 'Only parabola heat model supported')
         end
         BC.yBCParticles = SCHEMA.ParticlesBC_Bounce
       else
@@ -4854,7 +4861,7 @@ local function mkInstance() local INSTANCE = {}
         BC.yPosSign = array(-1.0, -1.0, -1.0)
         BC.yPosVelocity = array((2*config.BC.yBCRightVel[0]), (2*config.BC.yBCRightVel[1]), (2*config.BC.yBCRightVel[2]))
         if not (config.BC.yBCRightHeat.type == SCHEMA.TempProfile_Parabola) then
-          regentlib.assert(false, 'Only parabolia heat model supported')
+          regentlib.assert(false, 'Only parabola heat model supported')
         end
         BC.yBCParticles = SCHEMA.ParticlesBC_Bounce
       else
@@ -4895,7 +4902,7 @@ local function mkInstance() local INSTANCE = {}
         BC.zNegSign = array(-1.0, -1.0, -1.0)
         BC.zNegVelocity = array((2*config.BC.zBCLeftVel[0]), (2*config.BC.zBCLeftVel[1]), (2*config.BC.zBCLeftVel[2]))
         if not (config.BC.zBCLeftHeat.type == SCHEMA.TempProfile_Parabola) then
-          regentlib.assert(false, 'Only parabolia heat model supported')
+          regentlib.assert(false, 'Only parabola heat model supported')
         end
         BC.zBCParticles = SCHEMA.ParticlesBC_Bounce
       else
@@ -4925,7 +4932,7 @@ local function mkInstance() local INSTANCE = {}
         BC.zPosSign = array(-1.0, -1.0, -1.0)
         BC.zPosVelocity = array((2*config.BC.zBCRightVel[0]), (2*config.BC.zBCRightVel[1]), (2*config.BC.zBCRightVel[2]))
         if not (config.BC.zBCRightHeat.type == SCHEMA.TempProfile_Parabola) then
-          regentlib.assert(false, 'Only parabolia heat model supported')
+          regentlib.assert(false, 'Only parabola heat model supported')
         end
         BC.zBCParticles = SCHEMA.ParticlesBC_Bounce
       else
@@ -4960,7 +4967,9 @@ local function mkInstance() local INSTANCE = {}
     var [Fluid_copy] = region(is, Fluid_columns)
 
     -- Create Particles Regions
-    var is__11726 = ispace(int1d, int1d((ceil(((config.Particles.maxNum/((config.Mapping.tiles[0]*config.Mapping.tiles[1])*config.Mapping.tiles[2]))*config.Particles.maxSkew))*((config.Mapping.tiles[0]*config.Mapping.tiles[1])*config.Mapping.tiles[2]))))
+    var numTiles = config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2]
+    var maxParticlesPerTile = ceil((config.Particles.maxNum/numTiles)*config.Particles.maxSkew)
+    var is__11726 = ispace(int1d, maxParticlesPerTile * numTiles)
     var [Particles] = region(is__11726, Particles_columns)
     var [Particles_copy] = region(is__11726, Particles_columns)
 
@@ -5011,10 +5020,10 @@ local function mkInstance() local INSTANCE = {}
         for x : int32 = 0, config.Mapping.tiles[0] do
           var rBase : int64
           for rStart in Particles do
-            rBase = int64((rStart+(((((z*config.Mapping.tiles[0])*config.Mapping.tiles[1])+(y*config.Mapping.tiles[0]))+x)*ceil(((config.Particles.maxNum/((config.Mapping.tiles[0]*config.Mapping.tiles[1])*config.Mapping.tiles[2]))*config.Particles.maxSkew)))))
+            rBase = rStart + (z*config.Mapping.tiles[0]*config.Mapping.tiles[1] + y*config.Mapping.tiles[0] + x) * maxParticlesPerTile
             break
           end
-          regentlib.c.legion_domain_point_coloring_color_domain(coloring__11738, regentlib.c.legion_domain_point_t(int3d({x, y, z})), regentlib.c.legion_domain_t(rect1d({rBase, ((rBase+ceil(((config.Particles.maxNum/((config.Mapping.tiles[0]*config.Mapping.tiles[1])*config.Mapping.tiles[2]))*config.Particles.maxSkew)))-1)})))
+          regentlib.c.legion_domain_point_coloring_color_domain(coloring__11738, int3d{x,y,z}, rect1d{rBase,rBase+maxParticlesPerTile-1})
         end
       end
     end
