@@ -1,5 +1,15 @@
 local Exports = {}
 
+-- Helper definitions
+Exports.Volume = {
+  fromCell = Array(3,int),
+  uptoCell = Array(3,int),
+}
+Exports.Window = {
+  fromCell = Array(2,int),
+  uptoCell = Array(2,int),
+}
+
 -- Unions & enumeration constants
 Exports.FlowBC = Enum('Periodic','Symmetry','AdiabaticWall','IsothermalWall','NSCBC_SubsonicInflow','NSCBC_SubsonicOutflow','NonUniformTemperatureWall')
 Exports.ParticlesBC = Enum('Periodic','Bounce','Disappear')
@@ -26,12 +36,8 @@ Exports.InflowProfile = Union{
     meanVelocity = double,
   },
   Incoming = {
-    addedVelocity = Array(3,double),
+    addedVelocity = double,
   },
-}
-local Window = {
-  fromCell = Array(2,int),
-  uptoCell = Array(2,int),
 }
 
 -- Main config struct
@@ -149,12 +155,12 @@ Exports.Config = {
     yLoTemp = double,
     zHiTemp = double,
     zLoTemp = double,
-    xHiWindow = Window,
-    xLoWindow = Window,
-    yHiWindow = Window,
-    yLoWindow = Window,
-    zHiWindow = Window,
-    zLoWindow = Window,
+    xHiWindow = Exports.Window,
+    xLoWindow = Exports.Window,
+    yHiWindow = Exports.Window,
+    yLoWindow = Exports.Window,
+    zHiWindow = Exports.Window,
+    zLoWindow = Exports.Window,
     angles = int,
   },
   IO = {
@@ -168,6 +174,16 @@ Exports.Config = {
       frequency = int,
     }),
   },
+}
+
+-- Dual-section simulation config
+Exports.MultiConfig = {
+  -- Case configurations for the two sections
+  configs = Array(2,Exports.Config),
+  -- Volume to copy from every timestep (in the 1st section)
+  copySrc = Exports.Volume,
+  -- Volume to copy into every timestep (in the 2nd section)
+  copyTgt = Exports.Volume,
 }
 
 return Exports

@@ -104,7 +104,8 @@ public:
     AddressSpace reqd_ranks = 0;
     unsigned num_samples = 0;
     auto process_config = [&](char* config_file) {
-      Config config = parse_Config(config_file);
+      Config config;
+      parse_Config(&config, config_file);
       CHECK(config.Mapping.tiles[0] > 0 &&
             config.Mapping.tiles[1] > 0 &&
             config.Mapping.tiles[2] > 0 &&
@@ -391,5 +392,7 @@ static void create_mappers(Machine machine,
 }
 
 void register_mappers() {
-  Runtime::add_registration_callback(create_mappers);
+  if (false) {
+    Runtime::add_registration_callback(create_mappers);
+  }
 }

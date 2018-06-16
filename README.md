@@ -260,5 +260,6 @@ The `soleil.sh` script forwards all arguments to the `soleil.exec` executable. T
 
 Currently, Soleil reads the following options:
 
-* `-i <sample>.json`: Provide a configuration file, to be run as an additional sample. See [src/config_schema.lua](src/config_schema.lua) for documentation on the available configuration options.
+* `-i <config>.json`: Provide a case configuration file, to be run as an additional sample. See [src/config_schema.lua](src/config_schema.lua) for documentation on the available options (`Config` struct).
+* `-m <multi-config>.json`: Provide a two-case configuration file, to be run as two connected samples. See [src/config_schema.lua](src/config_schema.lua) for documentation on the available options (`MultiConfig` struct).
 * `-o <out_dir>`: Specify an output directory for the executable (default is current directory).

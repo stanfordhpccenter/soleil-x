@@ -149,8 +149,11 @@ end
 
 -------------------------------------------------------------------------------
 
--- SchemaT -> terralib.type
-local function convertSchemaT(typ)
+-- SchemaT, map(SchemaT,terralib.type) -> terralib.type
+local function convertSchemaT(typ, cache)
+  if cache[typ] then
+    return cache[typ]
+  end
   if typ == bool then
     return bool
   elseif typ == int then
@@ -162,17 +165,17 @@ local function convertSchemaT(typ)
   elseif isEnum(typ) then
     return int
   elseif isArray(typ) then
-    return convertSchemaT(typ.elemType)[typ.num]
+    return convertSchemaT(typ.elemType, cache)[typ.num]
   elseif isUpTo(typ) then
     return struct {
       length : uint32;
-      values : convertSchemaT(typ.elemType)[typ.max];
+      values : convertSchemaT(typ.elemType, cache)[typ.max];
     }
   elseif isUnion(typ) then
     local u = terralib.types.newstruct()
     u.entries:insert(terralib.newlist())
     for n,t in pairs(typ) do
-      u.entries[1]:insert({field=n, type=convertSchemaT(t)})
+      u.entries[1]:insert({field=n, type=convertSchemaT(t, cache)})
     end
     local s = terralib.types.newstruct()
     s.entries:insert({field='type', type=int})
@@ -181,7 +184,7 @@ local function convertSchemaT(typ)
   elseif isStruct(typ) then
     local s = terralib.types.newstruct()
     for n,t in pairs(typ) do
-      s.entries:insert({field=n, type=convertSchemaT(t)})
+      s.entries:insert({field=n, type=convertSchemaT(t, cache)})
     end
     return s
   else assert(false) end
@@ -348,40 +351,83 @@ if #arg < 1 or not arg[1]:endswith(ext) then
 end
 local baseName = arg[1]:sub(1, arg[1]:len() - ext:len())
 
-local SCHEMA = dofile(arg[1])
+local SCHEMA = dofile(arg[1]) -- map(string,SchemaT)
 
-local structs = {} -- map(string,terralib.struct)
-local parsers = {} -- map(string,terralib.function)
+local type2name = {} -- map(Struct,string)
 for name,typ in pairs(SCHEMA) do
   if isStruct(typ) then
-    local st = convertSchemaT(typ)
-    st.name = name
-    structs[name] = st
-    parsers['parse_'..name] = terra(fname : &int8) : st
-      var output : st
-      var f = C.fopen(fname, 'r')
-      if f == nil then [errorOut('Cannot open %s', fname)] end
-      var res1 = C.fseek(f, 0, C.SEEK_END)
-      if res1 ~= 0 then [errorOut('Cannot seek to end of %s', fname)] end
-      var len = C.ftell(f)
-      if len < 0 then [errorOut('Cannot ftell %s', fname)] end
-      var res2 = C.fseek(f, 0, C.SEEK_SET)
-      if res2 ~= 0 then [errorOut('Cannot seek to start of %s', fname)] end
-      var buf = [&int8](C.malloc(len))
-      if buf == nil then [errorOut('Malloc error while parsing %s', fname)] end
-      var res3 = C.fread(buf, 1, len, f)
-      if res3 < len then [errorOut('Cannot read from %s', fname)] end
-      C.fclose(f)
-      var errMsg : int8[256]
-      var settings = JSON.json_settings{ 0, 0, nil, nil, nil, 0 }
-      settings.settings = JSON.json_enable_comments
-      var root = JSON.json_parse_ex(&settings, buf, len, errMsg)
-      if root == nil then [errorOut('JSON parsing error: %s', errMsg)] end
-      [emitValueParser(name, output, root, typ)]
-      JSON.json_value_free(root)
-      C.free(buf)
-      return output
+    type2name[typ] = name
+  end
+end
+
+local deps = {} -- map(string,string*)
+for srcN,srcT in pairs(SCHEMA) do
+  if isStruct(srcT) then
+    deps[srcN] = terralib.newlist()
+    local function traverse(tgtT)
+      local tgtN = type2name[tgtT]
+      if tgtN and srcN ~= tgtN then
+        deps[srcN]:insert(tgtN)
+        return
+      end
+      if tgtT == bool then
+        -- Do nothing
+      elseif tgtT == int then
+        -- Do nothing
+      elseif tgtT == double then
+        -- Do nothing
+      elseif isString(tgtT) then
+        -- Do nothing
+      elseif isEnum(tgtT) then
+        -- Do nothing
+      elseif isArray(tgtT) then
+        traverse(tgtT.elemType)
+      elseif isUpTo(tgtT) then
+        traverse(tgtT.elemType)
+      elseif isUnion(tgtT) then
+        for n,t in pairs(tgtT) do
+          traverse(t)
+        end
+      elseif isStruct(tgtT) then
+        for n,t in pairs(tgtT) do
+          traverse(t)
+        end
+      else assert(false) end
     end
+    traverse(srcT)
+  end
+end
+local sortedNames = UTIL.revTopoSort(deps) -- string*
+
+local type2terra = {} -- map(Struct,terralib.struct)
+local parsers = {} -- map(string,terralib.function)
+for _,name in ipairs(sortedNames) do
+  local typ = SCHEMA[name]
+  local st = convertSchemaT(typ, type2terra)
+  st.name = name
+  type2terra[typ] = st
+  parsers['parse_'..name] = terra(output : &st, fname : &int8)
+    var f = C.fopen(fname, 'r')
+    if f == nil then [errorOut('Cannot open %s', fname)] end
+    var res1 = C.fseek(f, 0, C.SEEK_END)
+    if res1 ~= 0 then [errorOut('Cannot seek to end of %s', fname)] end
+    var len = C.ftell(f)
+    if len < 0 then [errorOut('Cannot ftell %s', fname)] end
+    var res2 = C.fseek(f, 0, C.SEEK_SET)
+    if res2 ~= 0 then [errorOut('Cannot seek to start of %s', fname)] end
+    var buf = [&int8](C.malloc(len))
+    if buf == nil then [errorOut('Malloc error while parsing %s', fname)] end
+    var res3 = C.fread(buf, 1, len, f)
+    if res3 < len then [errorOut('Cannot read from %s', fname)] end
+    C.fclose(f)
+    var errMsg : int8[256]
+    var settings = JSON.json_settings{ 0, 0, nil, nil, nil, 0 }
+    settings.settings = JSON.json_enable_comments
+    var root = JSON.json_parse_ex(&settings, buf, len, errMsg)
+    if root == nil then [errorOut('JSON parsing error: %s', errMsg)] end
+    [emitValueParser(name, output, root, typ)]
+    JSON.json_value_free(root)
+    C.free(buf)
   end
 end
 
@@ -407,14 +453,15 @@ for name,typ in pairs(SCHEMA) do
     end
   end
 end
-for name,st in pairs(structs) do
+for _,name in ipairs(sortedNames) do
+  local st = type2terra[SCHEMA[name]]
   hdrFile:write('\n')
   hdrFile:write(UTIL.prettyPrintStruct(st, true)..';\n')
   hdrFile:write('\n')
   hdrFile:write('#ifdef __cplusplus\n')
   hdrFile:write('extern "C" {\n')
   hdrFile:write('#endif\n')
-  hdrFile:write('struct '..name..' parse_'..name..'(char* filename);\n')
+  hdrFile:write('void parse_'..name..'(struct '..name..'*, char*);\n')
   hdrFile:write('#ifdef __cplusplus\n')
   hdrFile:write('}\n')
   hdrFile:write('#endif\n')

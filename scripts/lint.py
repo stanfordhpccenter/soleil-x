@@ -21,7 +21,7 @@ openmp_depth = -1
 def check_task():
     def warn(msg):
         print 'Warning: Line %s: %s' % (task_start, msg)
-    if '__inline' in demands or task_name == 'work' or task_name == 'main':
+    if '__inline' in demands or task_name.startswith('work') or task_name == 'main':
         return
     if '__parallel' not in demands and 'MANUALLY PARALLELIZED' not in annots:
         warn('Task not auto-parallelized')
@@ -32,16 +32,18 @@ def check_task():
 
 # TODO: Warn if launching a non-inlined task
 def check_in_openmp(line, lineno):
+    line = line.split('--')[0]
     def warn(msg):
         print 'Warning: Line %s: %s' % (lineno, msg)
     if 'rand(' in line or 'drand48(' in line or 'drand48_r(' in line:
         warn('Calling random function inside OpenMP loop')
-    if 'C.' in line and '__cuda' in demands:
+    if ('C.' in line or 'regentlib' in line) and '__cuda' in demands:
         warn('Calling external function inside potentially CUDA-ized loop')
     if 'config' in line and '__cuda' in demands:
         warn('Accessing struct inside potentially CUDA-ized loop')
 
 def check_line(line, lineno):
+    line = line.split('--')[0]
     def warn(msg):
         print 'Warning: Line %s: %s' % (lineno, msg)
     if 'rand(' in line or 'drand48(' in line:

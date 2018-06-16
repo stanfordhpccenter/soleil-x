@@ -38,6 +38,7 @@ local NUM_ANGLES = 14
 -------------------------------------------------------------------------------
 
 local Config = SCHEMA.Config
+local MultiConfig = SCHEMA.MultiConfig
 
 local struct Particles_columns {
   cell : int3d;
@@ -124,6 +125,7 @@ local struct Fluid_columns {
   temperature_old_NSCBC : double;
   velocity_inc : double[3];
   temperature_inc : double;
+  isCopied : int1d;
 }
 
 local struct Fluid_primitives {
@@ -899,7 +901,7 @@ task Flow_UpdateAuxiliaryVelocityGhostNSCBC(Fluid : region(ispace(int3d), Fluid_
                                             Grid_yBnum : int32, Grid_yNum : int32,
                                             Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.{rho, rhoVelocity, temperature, centerCoordinates}),
+  reads(Fluid.{rho, rhoVelocity, temperature, centerCoordinates, velocity_inc}),
   writes(Fluid.{velocity})
 do
   var BC_xBCLeft = config.BC.xBCLeft
@@ -1013,7 +1015,7 @@ task Flow_UpdateGhostConservedStep1(Fluid : region(ispace(int3d), Fluid_columns)
                                     Grid_yBnum : int32, Grid_yNum : int32,
                                     Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.{rho, pressure, temperature, rhoVelocity, rhoEnergy, centerCoordinates}),
+  reads(Fluid.{rho, pressure, temperature, rhoVelocity, rhoEnergy, centerCoordinates, velocity_inc, temperature_inc}),
   writes(Fluid.{rhoBoundary, rhoEnergyBoundary, rhoVelocityBoundary})
 do
   var BC_xBCLeft  = config.BC.xBCLeft
@@ -1642,7 +1644,7 @@ task Flow_UpdateAuxiliaryThermodynamicsGhostNSCBC(Fluid : region(ispace(int3d), 
                                                   Grid_yBnum : int32, Grid_yNum : int32,
                                                   Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.{rho, velocity, rhoEnergy}),
+  reads(Fluid.{rho, velocity, rhoEnergy, temperature_inc}),
   writes(Fluid.{pressure, temperature})
 do
   var BC_xBCLeft = config.BC.xBCLeft
@@ -5685,35 +5687,89 @@ return INSTANCE end -- mkInstance
 -- TOP-LEVEL INTERFACE
 -------------------------------------------------------------------------------
 
+local function parallelizeFor(sim, stmts)
+  return rquote
+    __parallelize_with
+      sim.p_Fluid, sim.p_Particles, sim.p_Radiation, sim.tiles,
+      image(sim.Fluid, sim.p_Particles, [sim.Particles].cell) <= sim.p_Fluid
+    do [stmts] end
+  end
+end
+
 local SIM = mkInstance()
 
 __forbid(__optimize) __demand(__inner)
-task work(config : Config)
+task workSingle(config : Config)
   [SIM.DeclSymbols(config)];
-  __parallelize_with
-    SIM.p_Fluid, SIM.p_Particles, SIM.p_Radiation, SIM.tiles,
-    image(SIM.Fluid, SIM.p_Particles, [SIM.Particles].cell) <= SIM.p_Fluid
-  do
+  [parallelizeFor(SIM, rquote
     [SIM.InitRegions(config)];
     while true do
       [SIM.MainLoopBody(config)];
     end
-  end
+  end)];
   [SIM.Cleanup()];
 end
 
-__demand(__inline)
-task launchSample(configFile : &int8, num : int, outDirBase : &int8)
-  var config = SCHEMA.parse_Config(configFile)
-  config.Mapping.sampleId = num
-  var outDir = [&int8](C.malloc(256))
-  C.snprintf(outDir, 256, "%s/sample%d", outDirBase, num)
-  UTIL.createDir(outDir)
-  C.strncpy(config.Mapping.outDir, outDir, 256)
-  C.free(outDir)
-  work(config)
+__demand(__parallel, __cuda)
+task colorIsCopied(Fluid : region(ispace(int3d), Fluid_columns),
+                   volume : SCHEMA.Volume)
+where
+  writes(Fluid.isCopied)
+do
+  var xFrom = volume.fromCell[0]
+  var yFrom = volume.fromCell[1]
+  var zFrom = volume.fromCell[2]
+  var xUpto = volume.uptoCell[0]
+  var yUpto = volume.uptoCell[1]
+  var zUpto = volume.uptoCell[2]
+  __demand(__openmp)
+  for c in Fluid do
+    if  xFrom <= c.x and c.x <= xUpto
+    and yFrom <= c.y and c.y <= yUpto
+    and zFrom <= c.z and c.z <= zUpto then
+      c.isCopied = 1
+    else
+      c.isCopied = 0
+    end
+  end
 end
 
+local SIM0 = mkInstance()
+local SIM1 = mkInstance()
+
+__forbid(__optimize) __demand(__inner)
+task workDual(mc : MultiConfig)
+  [SIM0.DeclSymbols(rexpr mc.configs[0] end)];
+  [SIM1.DeclSymbols(rexpr mc.configs[1] end)];
+  [parallelizeFor(SIM0, rquote
+    colorIsCopied(SIM0.Fluid, mc.copySrc);
+    [SIM0.InitRegions(rexpr mc.configs[0] end)];
+  end)];
+  var p_Fluid0_isCopied = partition([SIM0.Fluid].isCopied, ispace(int1d,2))
+  var Fluid0_src = p_Fluid0_isCopied[1];
+  [parallelizeFor(SIM1, rquote
+    colorIsCopied(SIM1.Fluid, mc.copyTgt);
+    [SIM1.InitRegions(rexpr mc.configs[1] end)];
+  end)];
+  var p_Fluid1_isCopied = partition([SIM1.Fluid].isCopied, ispace(int1d,2))
+  var Fluid1_tgt = p_Fluid1_isCopied[1];
+  while true do
+    [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end))];
+    copy(Fluid0_src.temperature, Fluid1_tgt.temperature_inc)
+    copy(Fluid0_src.velocity, Fluid1_tgt.velocity_inc);
+    [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end))];
+  end
+  [SIM0.Cleanup()];
+  [SIM1.Cleanup()];
+end
+
+terra initSample(config : &Config, num : int, outDirBase : &int8)
+  config.Mapping.sampleId = num
+  C.snprintf(config.Mapping.outDir, 256, "%s/sample%d", outDirBase, num)
+  UTIL.createDir(config.Mapping.outDir)
+end
+
+__demand(__inner)
 task main()
   var args = regentlib.c.legion_runtime_get_input_args()
   var outDirBase = '.'
@@ -5725,8 +5781,47 @@ task main()
   var launched = 0
   for i = 1, args.argc do
     if C.strcmp(args.argv[i], '-i') == 0 and i < args.argc-1 then
-      launchSample(args.argv[i+1], launched, outDirBase)
+      var config : Config[1]
+      SCHEMA.parse_Config([&Config](config), args.argv[i+1])
+      initSample([&Config](config), launched, outDirBase)
       launched += 1
+      workSingle(config[0])
+    elseif C.strcmp(args.argv[i], '-m') == 0 and i < args.argc-1 then
+      var mc : MultiConfig[1]
+      SCHEMA.parse_MultiConfig([&MultiConfig](mc), args.argv[i+1])
+      initSample([&Config](mc[0].configs), launched, outDirBase)
+      initSample([&Config](mc[0].configs) + 1, launched + 1, outDirBase)
+      launched += 2
+      regentlib.assert(
+        -- copySrc is a valid volume
+        0 <= mc[0].copySrc.fromCell[0] and
+        0 <= mc[0].copySrc.fromCell[1] and
+        0 <= mc[0].copySrc.fromCell[2] and
+        mc[0].copySrc.fromCell[0] <= mc[0].copySrc.uptoCell[0] and
+        mc[0].copySrc.fromCell[1] <= mc[0].copySrc.uptoCell[1] and
+        mc[0].copySrc.fromCell[2] <= mc[0].copySrc.uptoCell[2] and
+        mc[0].copySrc.uptoCell[0] <= mc[0].configs[0].Grid.xNum and
+        mc[0].copySrc.uptoCell[1] <= mc[0].configs[0].Grid.yNum and
+        mc[0].copySrc.uptoCell[2] <= mc[0].configs[0].Grid.zNum and
+        -- copyTgt is a valid volume
+        0 <= mc[0].copyTgt.fromCell[0] and
+        0 <= mc[0].copyTgt.fromCell[1] and
+        0 <= mc[0].copyTgt.fromCell[2] and
+        mc[0].copyTgt.fromCell[0] <= mc[0].copyTgt.uptoCell[0] and
+        mc[0].copyTgt.fromCell[1] <= mc[0].copyTgt.uptoCell[1] and
+        mc[0].copyTgt.fromCell[2] <= mc[0].copyTgt.uptoCell[2] and
+        mc[0].copyTgt.uptoCell[0] <= mc[0].configs[1].Grid.xNum and
+        mc[0].copyTgt.uptoCell[1] <= mc[0].configs[1].Grid.yNum and
+        mc[0].copySrc.uptoCell[2] <= mc[0].configs[1].Grid.zNum and
+        -- volumes have the same size
+        mc[0].copySrc.uptoCell[0] - mc[0].copySrc.fromCell[0] ==
+        mc[0].copyTgt.uptoCell[0] - mc[0].copyTgt.fromCell[0] and
+        mc[0].copySrc.uptoCell[1] - mc[0].copySrc.fromCell[1] ==
+        mc[0].copyTgt.uptoCell[1] - mc[0].copyTgt.fromCell[1] and
+        mc[0].copySrc.uptoCell[2] - mc[0].copySrc.fromCell[2] ==
+        mc[0].copyTgt.uptoCell[2] - mc[0].copyTgt.fromCell[2],
+        'Invalid volume copy configuration')
+      workDual(mc[0])
     end
   end
   if launched < 1 then

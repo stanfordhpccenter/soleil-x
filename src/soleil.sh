@@ -11,23 +11,26 @@ function quit {
     exit 1
 }
 
-function get_walltime {
+function read_json {
     python -c "
 import json
-config = json.load(open('$1'))
-print config['Mapping']['wallTime']"
-}
-
-function get_num_ranks {
-    python -c "
-import json
-config = json.load(open('$1'))
-tiles = config['Mapping']['tiles']
-tilesPerRank = config['Mapping']['tilesPerRank']
-xRanks = int(tiles[0]) / int(tilesPerRank[0])
-yRanks = int(tiles[1]) / int(tilesPerRank[1])
-zRanks = int(tiles[2]) / int(tilesPerRank[2])
-print xRanks * yRanks * zRanks"
+def wallTime(sample):
+  return int(sample['Mapping']['wallTime'])
+def numRanks(sample):
+  tiles = sample['Mapping']['tiles']
+  tilesPerRank = sample['Mapping']['tilesPerRank']
+  xRanks = int(tiles[0]) / int(tilesPerRank[0])
+  yRanks = int(tiles[1]) / int(tilesPerRank[1])
+  zRanks = int(tiles[2]) / int(tilesPerRank[2])
+  return xRanks * yRanks * zRanks
+f = json.load(open('$1'))
+if '$2' == 'single':
+  print wallTime(f), numRanks(f)
+elif '$2' == 'dual':
+  print max(wallTime(f['configs'][0]), wallTime(f['configs'][1])), \
+        numRanks(f['configs'][0]) + numRanks(f['configs'][1])
+else:
+  assert(false)"
 }
 
 ###############################################################################
@@ -45,15 +48,16 @@ export ARGS=$@
 MINUTES=0
 NUM_RANKS=0
 function parse_config {
-    _MINUTES="$(get_walltime "$1")"
+    read -r _MINUTES _NUM_RANKS <<<"$(read_json "$@")"
     MINUTES=$(( MINUTES > _MINUTES ? MINUTES : _MINUTES ))
-    _NUM_RANKS="$(get_num_ranks "$1")"
     NUM_RANKS=$(( NUM_RANKS + _NUM_RANKS ))
 }
 for (( i = 1; i <= $#; i++ )); do
+    j=$((i+1))
     if [[ "${!i}" == "-i" ]] && (( $i < $# )); then
-        j=$((i+1))
-        parse_config "${!j}"
+        parse_config "${!j}" "single"
+    elif [[ "${!i}" == "-m" ]] && (( $i < $# )); then
+        parse_config "${!j}" "dual"
     fi
 done
 if (( NUM_RANKS < 1 )); then

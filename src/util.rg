@@ -154,6 +154,30 @@ function Exports.generate(n, generator)
 end
 
 -------------------------------------------------------------------------------
+-- Sets
+-------------------------------------------------------------------------------
+
+-- set(T) -> T*
+function Exports.setToList(set)
+  local list = terralib.newlist()
+  for elem,_ in pairs(set) do
+    list:insert(elem)
+  end
+  return list
+end
+
+-- set(T) -> T
+function Exports.setPop(set)
+  local elem
+  for e,_ in pairs(set) do
+    elem = e
+    break
+  end
+  set[elem] = nil
+  return elem
+end
+
+-------------------------------------------------------------------------------
 -- Strings
 -------------------------------------------------------------------------------
 
@@ -219,7 +243,13 @@ local function typeDecl(typ, cStyle, indent)
     mods = cStyle and '['..tostring(typ.N)..']'..mods or mods
     return decl, mods
   elseif typ:isstruct() then
-    return Exports.prettyPrintStruct(typ, cStyle, indent), ''
+    if typ.name:startswith('anon') then
+      return Exports.prettyPrintStruct(typ, cStyle, indent), ''
+    elseif cStyle then
+      return ('struct '..typ.name), ''
+    else
+      return typ.name, ''
+    end
   elseif typ:isprimitive() then
     return (cStyle and cBaseType[typ] or tostring(typ)), ''
   else assert(false) end
@@ -288,6 +318,53 @@ terra Exports.openFile(name : &int8, mode : &int8) : &C.FILE
     C.exit(1)
   end
   return file
+end
+
+-------------------------------------------------------------------------------
+-- Graphs
+-------------------------------------------------------------------------------
+
+-- Graph(T) = map(T,T*)
+
+-- Graph(T) -> set(T)
+function Exports.getNodes(graph)
+  local nodes = {} -- set(T)
+  for src,tgts in pairs(graph) do
+    nodes[src] = true
+    for _,tgt in ipairs(tgts) do
+      nodes[tgt] = true
+    end
+  end
+  return nodes
+end
+
+-- Graph(T) -> T*
+function Exports.revTopoSort(graph)
+  local unmarked = Exports.getNodes(graph) -- set(T)
+  local tempMarked = {} -- set(T)
+  local permMarked = {} -- set(T)
+  local res = terralib.newlist() -- T*
+  local function visit(src)
+    if permMarked[src] then
+      return true
+    end
+    if tempMarked[src] then
+      return false
+    end
+    tempMarked[src] = true
+    for _,tgt in ipairs(graph[src] or {}) do
+      visit(tgt)
+    end
+    permMarked[src] = true
+    res:insert(src)
+    return true
+  end
+  while not Exports.isEmpty(unmarked) do
+    if not visit(Exports.setPop(unmarked)) then
+      return nil
+    end
+  end
+  return res
 end
 
 -------------------------------------------------------------------------------
