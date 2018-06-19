@@ -121,13 +121,13 @@ function run_sapling {
     done
     GPU_OPTS=
     if [[ "$USE_CUDA" == 1 ]]; then
-        GPU_OPTS="-ll:gpu 1 -ll:fsize 2048"
+        GPU_OPTS="-ll:gpu 1 -ll:fsize 6000"
     fi
     mpiexec -H "$NODES" --bind-to none \
         -x LD_LIBRARY_PATH -x SOLEIL_DIR -x REALM_BACKTRACE \
         "$SOLEIL_DIR"/src/soleil.exec $ARGS $GPU_OPTS \
         -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 \
-        -ll:csize 20000
+        -ll:csize 38000
     # Resources:
     # 40230MB RAM per node
     # 2 NUMA domains per node
