@@ -63,14 +63,37 @@ local struct Particles_columns {
   __valid : bool;
 }
 
-local struct Particles_primitives {
-  position : double[3];
-  velocity : double[3];
-  temperature : double;
-  diameter : double;
-  density : double;
-  __valid : bool;
-}
+local Particles_primitives = terralib.newlist({
+  'position',
+  'velocity',
+  'temperature',
+  'diameter',
+  'density',
+  '__valid',
+})
+
+local Particles_subStepTemp = terralib.newlist({
+  'deltaVelocityOverRelaxationTime',
+  'deltaTemperatureTerm',
+  'position_ghost',
+  'velocity_ghost',
+  'velocity_t_ghost',
+  'position_t',
+  'velocity_t',
+  'temperature_t',
+})
+
+local Particles_subStepConserved =
+  UTIL.listToSet(UTIL.fieldNames(Particles_columns))
+UTIL.setSubList(Particles_subStepConserved, Particles_subStepTemp)
+Particles_subStepConserved =
+  UTIL.setToList(Particles_subStepConserved)
+
+local TradeQueue_columns =
+  UTIL.deriveStruct('TradeQueue_columns',
+                    Particles_columns,
+                    Particles_subStepConserved,
+                    {__target=int1d})
 
 local struct Fluid_columns {
   rho : double;
@@ -124,12 +147,12 @@ local struct Fluid_columns {
   temperature_old_NSCBC : double;
 }
 
-local struct Fluid_primitives {
-  rho : double;
-  pressure : double;
-  velocity : double[3];
-  temperature : double;
-}
+local Fluid_primitives = terralib.newlist({
+  'rho',
+  'pressure',
+  'velocity',
+  'temperature',
+})
 
 struct Radiation_columns {
   I_1 : double[NUM_ANGLES];
@@ -223,13 +246,6 @@ end
 -- I/O ROUTINES
 -------------------------------------------------------------------------------
 
-local function fieldNames(s)
-  return s.entries:map(function(e)
-    local name,typ = UTIL.parseStructEntry(e)
-    return name
-  end)
-end
-
 local __demand(__inline)
 task Fluid_dump(colors : ispace(int3d),
                 dirname : &int8,
@@ -238,8 +254,8 @@ task Fluid_dump(colors : ispace(int3d),
                 p_Fluid : partition(disjoint, Fluid, colors),
                 p_Fluid_copy : partition(disjoint, Fluid_copy, colors))
 where
-  reads(Fluid.[fieldNames(Fluid_primitives)]),
-  reads writes(Fluid_copy.[fieldNames(Fluid_primitives)]),
+  reads(Fluid.[Fluid_primitives]),
+  reads writes(Fluid_copy.[Fluid_primitives]),
   Fluid * Fluid_copy
 do
   regentlib.assert(false, 'Recompile with USE_HDF=1')
@@ -253,8 +269,8 @@ task Fluid_load(colors : ispace(int3d),
                 p_Fluid : partition(disjoint, Fluid, colors),
                 p_Fluid_copy : partition(disjoint, Fluid_copy, colors))
 where
-  reads writes(Fluid.[fieldNames(Fluid_primitives)]),
-  reads writes(Fluid_copy.[fieldNames(Fluid_primitives)]),
+  reads writes(Fluid.[Fluid_primitives]),
+  reads writes(Fluid_copy.[Fluid_primitives]),
   Fluid * Fluid_copy
 do
   regentlib.assert(false, 'Recompile with USE_HDF=1')
@@ -268,8 +284,8 @@ task Particles_dump(colors : ispace(int3d),
                     p_Particles : partition(disjoint, Particles, colors),
                     p_Particles_copy : partition(disjoint, Particles_copy, colors))
 where
-  reads(Particles.[fieldNames(Particles_primitives)]),
-  reads writes(Particles_copy.[fieldNames(Particles_primitives)]),
+  reads(Particles.[Particles_primitives]),
+  reads writes(Particles_copy.[Particles_primitives]),
   Particles * Particles_copy
 do
   regentlib.assert(false, 'Recompile with USE_HDF=1')
@@ -283,8 +299,8 @@ task Particles_load(colors : ispace(int3d),
                     p_Particles : partition(disjoint, Particles, colors),
                     p_Particles_copy : partition(disjoint, Particles_copy, colors))
 where
-  reads writes(Particles.[fieldNames(Particles_primitives)]),
-  reads writes(Particles_copy.[fieldNames(Particles_primitives)]),
+  reads writes(Particles.[Particles_primitives]),
+  reads writes(Particles_copy.[Particles_primitives]),
   Particles * Particles_copy
 do
   regentlib.assert(false, 'Recompile with USE_HDF=1')
@@ -293,9 +309,9 @@ end
 if USE_HDF then
   local HDF = require "hdf_helper"
   Fluid_dump, Fluid_load = HDF.mkHDFTasks(
-    int3d, int3d, Fluid_columns, fieldNames(Fluid_primitives))
+    int3d, int3d, Fluid_columns, Fluid_primitives)
   Particles_dump, Particles_load = HDF.mkHDFTasks(
-    int1d, int3d, Particles_columns, fieldNames(Particles_primitives))
+    int1d, int3d, Particles_columns, Particles_primitives)
 end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
@@ -3497,11 +3513,6 @@ task Fluid_elemColor(idx : int3d,
                (idx.z-Grid_zBnum)/(Grid_zNum/NZ)}
 end
 
-terra Particles_pushElement(dst : &opaque,idx : int32,src : Particles_columns)
-  var ptr = [&int8](dst) + idx * SIZEOF_PARTICLE
-  C.memcpy([&opaque](ptr), [&opaque](&src), [uint64](SIZEOF_PARTICLE))
-end
-
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Particles_CheckPartitioning(color : int3d,
                                  Particles : region(ispace(int1d), Particles_columns),
@@ -3521,39 +3532,6 @@ do
     end
   end
 end
-
-terra Particles_getBasePointer(pr : regentlib.c.legion_physical_region_t,fid : uint32,runtime : regentlib.c.legion_runtime_t)
-  var acc = regentlib.c.legion_physical_region_get_field_accessor_array_1d(pr, fid)
-  var lr = regentlib.c.legion_physical_region_get_logical_region(pr)
-  var domain = regentlib.c.legion_index_space_get_domain(runtime, lr.index_space)
-  var rect = regentlib.c.legion_domain_get_rect_1d(domain)
-  var subrect : regentlib.c.legion_rect_1d_t
-  var offsets : regentlib.c.legion_byte_offset_t[1]
-  var p = regentlib.c.legion_accessor_array_1d_raw_rect_ptr(acc, rect, &subrect, &[&regentlib.c.legion_byte_offset_t](offsets)[0])
-  regentlib.c.legion_accessor_array_1d_destroy(acc)
-  return p
-end
-
-terra Particles_getOffset()
-  var x : Particles_columns
-  return [&int8](&x.__valid) - [&int8](&x)
-end
-
-local queueRegions = UTIL.generate(26, function()
-  return regentlib.newsymbol(region(ispace(int1d), int8[SIZEOF_PARTICLE]))
-end)
-
-local queueReadPrivs = queueRegions:map(function(q)
-  return regentlib.privilege(regentlib.reads, q)
-end)
-
-local queueWritePrivs = queueRegions:map(function(q)
-  return regentlib.privilege(regentlib.writes, q)
-end)
-
-local qBasePtrs = UTIL.generate(26, function()
-  return regentlib.newsymbol()
-end)
 
 local colorOffsets = terralib.newlist({
   rexpr int3d({ 0,  0,  1}) end,
@@ -3584,84 +3562,76 @@ local colorOffsets = terralib.newlist({
   rexpr int3d({-1, -1, -1}) end,
 })
 
--- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+__demand(__cuda) -- MANUALLY PARALLELIZED
 task Particles_pushAll(partColor : int3d,
+                       offset : int3d,
                        Particles : region(ispace(int1d), Particles_columns),
-                       [queueRegions],
+                       TradeQueue : region(ispace(int1d), TradeQueue_columns),
                        Grid_xBnum : int32, Grid_xNum : int32, NX : int32,
                        Grid_yBnum : int32, Grid_yNum : int32, NY : int32,
                        Grid_zBnum : int32, Grid_zNum : int32, NZ : int32)
 where
-  reads(Particles),
-  writes(Particles.__valid),
-  [queueReadPrivs],
-  [queueWritePrivs]
+  reads(Particles.[Particles_subStepConserved]),
+  writes(Particles.__valid, TradeQueue)
 do
-  @ESCAPE for i = 1,26 do @EMIT
-    for qPtr in [queueRegions[i]] do
-      [queueRegions[i]][qPtr][VALID_FIELD_OFFSET] = int8(false)
-    end
-    var [qBasePtrs[i]] = Particles_getBasePointer(__physical([queueRegions[i]])[0], __fields([queueRegions[i]])[0], __runtime())
-  @TIME end @EPACSE
-  for rPtr in Particles do
-    if rPtr.__valid then
-      var elemColor = Fluid_elemColor(rPtr.cell,
+  __demand(__openmp)
+  for qPtr in TradeQueue do
+    qPtr.__valid = false
+  end
+  __demand(__openmp)
+  for i in Particles.bounds do
+    if Particles[i].__valid then
+      var elemColor = Fluid_elemColor(Particles[i].cell,
                                       Grid_xBnum, Grid_xNum, NX,
                                       Grid_yBnum, Grid_yNum, NY,
                                       Grid_zBnum, Grid_zNum, NZ)
-      if elemColor ~= partColor then
-        @ESCAPE for i = 1,26 do @EMIT
-          if elemColor == (partColor + [colorOffsets[i]] + {NX,NY,NZ}) % {NX,NY,NZ} then
-            var idx = 0
-            for qPtr in [queueRegions[i]] do
-              if not bool([queueRegions[i]][qPtr][VALID_FIELD_OFFSET]) then
-                Particles_pushElement([qBasePtrs[i]], idx, Particles[rPtr])
-                rPtr.__valid = false
-                regentlib.assert(bool([queueRegions[i]][qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
-                break
-              end
-              idx += 1
-            end
-            regentlib.assert(not rPtr.__valid, "Transfer queue ran out of space")
-          end
+      if elemColor == (partColor + offset + {NX,NY,NZ}) % {NX,NY,NZ} then
+        @ESCAPE for _,fld in ipairs(Particles_subStepConserved) do @EMIT
+          TradeQueue[i].[fld] = Particles[i].[fld]
         @TIME end @EPACSE
-        regentlib.assert((not rPtr.__valid), "Element moved past predicted stencil")
+        Particles[i].__valid = false
       end
     end
   end
 end
 
-terra Particles_pullElement(src : &int8)
-  var dst : Particles_columns
-  C.memcpy([&opaque](&dst), [&opaque](src), [uint64](SIZEOF_PARTICLE))
-  return dst
+-- MANUALLY_PARALLELIZED, NO CUDA, NO OPENMP
+task Particles_fillTarget(Particles : region(ispace(int1d), Particles_columns),
+                          TradeQueue : region(ispace(int1d), TradeQueue_columns))
+where
+  reads(Particles.__valid, TradeQueue.__valid),
+  writes(TradeQueue.__target)
+do
+  var j = Particles.bounds.lo
+  for i in TradeQueue do
+    if TradeQueue[i].__valid then
+      while j <= Particles.bounds.hi and Particles[j].__valid do
+        j += 1
+      end
+      regentlib.assert(
+        j <= Particles.bounds.hi, 'Ran out of space in particle region')
+      TradeQueue[i].__target = j
+      j += 1
+    end
+  end
 end
 
--- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task Particles_pullAll(color : int3d,
-                       Particles : region(ispace(int1d), Particles_columns),
-                       [queueRegions])
+__demand(__cuda) -- MANUALLY PARALLELIZED
+task Particles_pullAll(Particles : region(ispace(int1d), Particles_columns),
+                       TradeQueue : region(ispace(int1d), TradeQueue_columns))
 where
-  reads writes(Particles),
-  [queueReadPrivs],
-  [queueWritePrivs]
+  reads(TradeQueue),
+  writes(Particles.[Particles_subStepConserved])
 do
-  @ESCAPE for i = 1,26 do @EMIT
-    for qPtr in [queueRegions[i]] do
-      if bool([queueRegions[i]][qPtr][VALID_FIELD_OFFSET]) then
-        var copied = false
-        for rPtr in Particles do
-          if (not rPtr.__valid) then
-            Particles[rPtr] = Particles_pullElement([&int8]([queueRegions[i]][qPtr]))
-            copied = true
-            regentlib.assert(rPtr.__valid, "Pulled particle was not copied correctly")
-            break
-          end
-        end
-        regentlib.assert(copied, "Ran out of space on sub-partition")
-      end
+  __demand(__openmp)
+  for i in TradeQueue.bounds do
+    if TradeQueue[i].__valid then
+      var j = TradeQueue[i].__target;
+      @ESCAPE for _,fld in ipairs(Particles_subStepConserved) do @EMIT
+        Particles[j].[fld] = TradeQueue[i].[fld]
+      @TIME end @EPACSE
     end
-  @TIME end @EPACSE
+  end
 end
 
 __demand(__inline)
@@ -4608,19 +4578,18 @@ local function mkInstance() local INSTANCE = {}
   local Fluid_copy = regentlib.newsymbol()
   local Particles = regentlib.newsymbol()
   local Particles_copy = regentlib.newsymbol()
+  local TradeQueue = regentlib.newsymbol()
   local Radiation = regentlib.newsymbol()
   local tiles = regentlib.newsymbol()
   local p_Fluid = regentlib.newsymbol()
   local p_Fluid_copy = regentlib.newsymbol()
   local p_Particles = regentlib.newsymbol()
   local p_Particles_copy = regentlib.newsymbol()
+  local p_TradeQueue_bySrc = regentlib.newsymbol()
+  local p_TradeQueue_byDst = UTIL.generate(26, function()
+    return regentlib.newsymbol()
+  end)
   local p_Radiation = regentlib.newsymbol()
-  local qSrcParts = UTIL.generate(26, function()
-    return regentlib.newsymbol()
-  end)
-  local qDstParts = UTIL.generate(26, function()
-    return regentlib.newsymbol()
-  end)
 
   -----------------------------------------------------------------------------
   -- Exported symbols
@@ -4972,6 +4941,7 @@ local function mkInstance() local INSTANCE = {}
     var is__11726 = ispace(int1d, maxParticlesPerTile * numTiles)
     var [Particles] = region(is__11726, Particles_columns)
     var [Particles_copy] = region(is__11726, Particles_columns)
+    var [TradeQueue] = region(is__11726, TradeQueue_columns)
 
     -- Create Radiation Regions
     var is__11729 = ispace(int3d, int3d({x = config.Radiation.xNum, y = config.Radiation.yNum, z = config.Radiation.zNum}))
@@ -5013,7 +4983,7 @@ local function mkInstance() local INSTANCE = {}
     regentlib.c.legion_domain_point_coloring_destroy(coloring)
 
     -- Particles Partitioning
-    regentlib.assert(((config.Particles.maxNum%((config.Mapping.tiles[0]*config.Mapping.tiles[1])*config.Mapping.tiles[2]))==0), "Uneven partitioning of particles")
+    regentlib.assert(config.Particles.maxNum % numTiles == 0, "Uneven partitioning of particles")
     var coloring__11738 = regentlib.c.legion_domain_point_coloring_create()
     for z : int32 = 0, config.Mapping.tiles[2] do
       for y : int32 = 0, config.Mapping.tiles[1] do
@@ -5029,35 +4999,20 @@ local function mkInstance() local INSTANCE = {}
     end
     var [p_Particles] = partition(disjoint, Particles, coloring__11738, tiles)
     var [p_Particles_copy] = partition(disjoint, Particles_copy, coloring__11738, tiles)
+    var [p_TradeQueue_bySrc] = partition(disjoint, TradeQueue, coloring__11738, tiles)
     regentlib.c.legion_domain_point_coloring_destroy(coloring__11738);
     @ESCAPE for i = 1,26 do @EMIT
-      var queue = region(ispace(int1d,config.Particles.maxXferNum*config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2]), int8[SIZEOF_PARTICLE])
-      var srcColoring = regentlib.c.legion_domain_point_coloring_create()
-      for z = 0, config.Mapping.tiles[2] do
-        for y = 0, config.Mapping.tiles[1] do
-          for x = 0, config.Mapping.tiles[0] do
-            var qBase : int64
-            for qStart in queue do
-              qBase = qStart + (z*config.Mapping.tiles[0]*config.Mapping.tiles[1]+y*config.Mapping.tiles[0]+x)*config.Particles.maxXferNum
-              break
-            end
-            regentlib.c.legion_domain_point_coloring_color_domain(srcColoring, int3d{x,y,z}, rect1d{qBase,qBase+config.Particles.maxXferNum-1})
-          end
-        end
-      end
-      var [qSrcParts[i]] = partition(disjoint, queue, srcColoring, tiles)
-      regentlib.c.legion_domain_point_coloring_destroy(srcColoring)
       var dstColoring = regentlib.c.legion_domain_point_coloring_create()
       for c in tiles do
-        var srcBase : int64
-        for qptr in [qSrcParts[i]][ (c-[colorOffsets[i]]+{config.Mapping.tiles[0],config.Mapping.tiles[1],config.Mapping.tiles[2]}) % {config.Mapping.tiles[0],config.Mapping.tiles[1],config.Mapping.tiles[2]} ] do
-          srcBase = qptr
+        var base : int64
+        for qPtr in p_TradeQueue_bySrc[ (c-[colorOffsets[i]]+{config.Mapping.tiles[0],config.Mapping.tiles[1],config.Mapping.tiles[2]}) % {config.Mapping.tiles[0],config.Mapping.tiles[1],config.Mapping.tiles[2]} ] do
+          base = qPtr
           break
         end
-        regentlib.c.legion_domain_point_coloring_color_domain(dstColoring, c, rect1d{srcBase,srcBase+config.Particles.maxXferNum-1})
+        regentlib.c.legion_domain_point_coloring_color_domain(dstColoring, c, rect1d{base,base+maxParticlesPerTile-1})
       end
-      var [qDstParts[i]] = partition(aliased, queue, dstColoring, tiles)
-      regentlib.c.legion_domain_point_coloring_destroy(dstColoring)
+      var [p_TradeQueue[i]] = partition(disjoint, TradeQueue, dstColoring, tiles)
+      regentlib.c.legion_domain_point_coloring_destroy(dstColoring);
     @TIME end @EPACSE
 
     -- Radiation Partitioning
@@ -5610,18 +5565,32 @@ local function mkInstance() local INSTANCE = {}
                                 Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
                                 Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
       end
+      @ESCAPE for i = 1,26 do @EMIT
+        for c in tiles do
+          Particles_pushAll(c,
+                            [colorOffsets[i]],
+                            p_Particles[c],
+                            p_TradeQueue_bySrc[c],
+                            Grid.xBnum, config.Grid.xNum, config.Mapping.tiles[0],
+                            Grid.yBnum, config.Grid.yNum, config.Mapping.tiles[1],
+                            Grid.zBnum, config.Grid.zNum, config.Mapping.tiles[2])
+        end
+        for c in tiles do
+          Particles_fillTarget(p_Particles[c],
+                               [p_TradeQueue_byDst[i]][c])
+        end
+        for c in tiles do
+          Particles_pullAll(c,
+                            p_Particles[c],
+                            [p_TradeQueue_byDst[i]][c])
+        end
+      @TIME end @EPACSE
       for c in tiles do
-        Particles_pushAll(c,
-                          p_Particles[c],
-                          [qSrcParts:map(function(p) return rexpr p[c] end end)],
-                          Grid.xBnum, config.Grid.xNum, config.Mapping.tiles[0],
-                          Grid.yBnum, config.Grid.yNum, config.Mapping.tiles[1],
-                          Grid.zBnum, config.Grid.zNum, config.Mapping.tiles[2])
-      end
-      for c in tiles do
-        Particles_pullAll(c,
-                          p_Particles[c],
-                          [qDstParts:map(function(p) return rexpr p[c] end end)])
+        Particles_CheckPartitioning(c,
+                                    p_Particles[c],
+                                    Grid.xBnum, config.Grid.xNum, config.Mapping.tiles[0],
+                                    Grid.yBnum, config.Grid.yNum, config.Mapping.tiles[1],
+                                    Grid.zBnum, config.Grid.zNum, config.Mapping.tiles[2])
       end
 
       Integrator_simTime = (Integrator_time_old+((0.5*(1+(Integrator_stage/3)))*Integrator_deltaTime))
