@@ -3572,14 +3572,14 @@ task Particles_pushAll(partColor : int3d,
                        Grid_zBnum : int32, Grid_zNum : int32, NZ : int32)
 where
   reads(Particles.[Particles_subStepConserved]),
-  writes(Particles.__valid, TradeQueue)
+  writes(Particles.__valid, TradeQueue.[Particles_subStepConserved])
 do
   __demand(__openmp)
   for qPtr in TradeQueue do
     qPtr.__valid = false
   end
   __demand(__openmp)
-  for i in Particles.bounds do
+  for i in Particles do
     if Particles[i].__valid then
       var elemColor = Fluid_elemColor(Particles[i].cell,
                                       Grid_xBnum, Grid_xNum, NX,
@@ -3624,7 +3624,7 @@ where
   writes(Particles.[Particles_subStepConserved])
 do
   __demand(__openmp)
-  for i in TradeQueue.bounds do
+  for i in TradeQueue do
     if TradeQueue[i].__valid then
       var j = TradeQueue[i].__target;
       @ESCAPE for _,fld in ipairs(Particles_subStepConserved) do @EMIT
@@ -5011,7 +5011,7 @@ local function mkInstance() local INSTANCE = {}
         end
         regentlib.c.legion_domain_point_coloring_color_domain(dstColoring, c, rect1d{base,base+maxParticlesPerTile-1})
       end
-      var [p_TradeQueue[i]] = partition(disjoint, TradeQueue, dstColoring, tiles)
+      var [p_TradeQueue_byDst[i]] = partition(disjoint, TradeQueue, dstColoring, tiles)
       regentlib.c.legion_domain_point_coloring_destroy(dstColoring);
     @TIME end @EPACSE
 
@@ -5580,8 +5580,7 @@ local function mkInstance() local INSTANCE = {}
                                [p_TradeQueue_byDst[i]][c])
         end
         for c in tiles do
-          Particles_pullAll(c,
-                            p_Particles[c],
+          Particles_pullAll(p_Particles[c],
                             [p_TradeQueue_byDst[i]][c])
         end
       @TIME end @EPACSE
