@@ -112,6 +112,16 @@ function run_certainty {
         "$SOLEIL_DIR"/src/certainty.slurm
 }
 
+function run_sherlock {
+    RESOURCES=
+    if [[ "$USE_CUDA" == 1 ]]; then
+        RESOURCES="gpu:4"
+    fi
+    sbatch --export=ALL \
+        -N "$NUM_RANKS" -t "$WALLTIME" --gres="$RESOURCES" \
+        "$SOLEIL_DIR"/src/sherlock.slurm
+}
+
 function run_sapling {
     # Allocate up to 4 nodes, from n0000 up to n0003
     if (( NUM_RANKS > 4 )); then quit "Too many nodes requested"; fi
@@ -150,6 +160,8 @@ elif [[ "$(hostname -d)" == *"summit"* ]]; then
     run_summit
 elif [[ "$(uname -n)" == *"certainty"* ]]; then
     run_certainty
+elif [[ "$(uname -n)" == *"sh-ln"* ]]; then
+    run_sherlock
 elif [[ "$(uname -n)" == *"sapling"* ]]; then
     run_sapling
 else

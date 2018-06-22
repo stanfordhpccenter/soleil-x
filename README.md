@@ -12,9 +12,9 @@ See below for instructions targeting specific systems.
 
 The following are automatically installed during Legion installation:
 
-* LLVM 3.8 (for CUDA 8.0+) or 3.5 (for CUDA 7.5)
+* LLVM 3.8 (for CUDA 8.0+) or 3.5 (for CUDA 7.5, and better debug info)
 * GASNET (custom version)
-* Terra (custom version -- we need to use LuaJIT2.1 instead of LuaJIT2.0, because the latter exhibits a spurious out-of-memory error when compiling large Regent programs)
+* Terra (custom version -- we need to use LuaJIT2.1 instead of the default LuaJIT2.0, because the latter exhibits a spurious out-of-memory error when compiling large Regent programs)
 * HDF5 (any recent version)
 
 ### Add to shell startup
@@ -24,7 +24,7 @@ Normally you'd need to edit file `~/.bashrc`. Replace the `???` depending on you
 ```
 # Module loads (if necessary)
 ...
-# Build config (if necessary, for Legion or Soleil)
+# Build config (if necessary, for Legion or Soleil-X)
 ...
 # Path setup (mandatory)
 export LEGION_DIR=???
@@ -54,6 +54,28 @@ USE_CUDA=? USE_OPENMP=? USE_GASNET=? USE_HDF=? scripts/setup_env.py --llvm-versi
 
 See [Elliott's instructions](https://docs.google.com/document/d/1Qkl6r-1ZIb8WyH1f_WZbKgjp3due_Q8UiWKLh_nG1ec/edit) for more help.
 
+### Compile Soleil-X
+
+```
+cd "$SOLEIL_DIR"/src
+[USE_CUDA=0] [USE_HDF=0] make
+```
+
+Running
+=======
+
+```
+cd "$SOLEIL_DIR"/src
+[USE_CUDA=0] [QUEUE=???] ./soleil.sh ...
+```
+
+The `soleil.sh` script forwards all arguments to the `soleil.exec` executable. This includes any options that Soleil-X itself expects, and any additional options to the Legion runtime.
+
+Currently, Soleil-X reads the following options:
+
+* `-i <sample>.json`: Provide a configuration file, to be run as an additional sample. See [src/config_schema.lua](src/config_schema.lua) for documentation on the available configuration options.
+* `-o <out_dir>`: Specify an output directory for the executable (default is current directory).
+
 Setup (local Ubuntu machine w/o GPU)
 ====================================
 
@@ -80,7 +102,14 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=0 USE_OPENMP=1 USE_GASNET=0 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+USE_CUDA=0 USE_OPENMP=1 USE_GASNET=0 USE_HDF=1 scripts/setup_env.py --llvm-version 35 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+```
+
+### Compile Soleil-X
+
+```
+cd "$SOLEIL_DIR"/src
+make
 ```
 
 Setup (Sapling @ Stanford)
@@ -118,6 +147,62 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 cd "$LEGION_DIR"/language
 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+```
+
+### Compile Soleil-X
+
+```
+cd "$SOLEIL_DIR"/src
+make
+```
+
+Setup (Sherlock @ Stanford)
+===========================
+
+### Add to shell startup
+
+```
+# Module loads
+module load gcc/6.3.0
+module load cuda/8.0.61
+module load openmpi/2.0.2
+# Build config
+export CONDUIT=ibv
+export CC=gcc
+export CXX=g++
+# Path setup
+export LEGION_DIR=???
+export HDF_ROOT="$LEGION_DIR"/language/hdf/install
+export SOLEIL_DIR=???
+# CUDA config
+export CUDA_HOME=/share/software/user/open/cuda/8.0.61
+export CUDA="$CUDA_HOME"
+export GPU_ARCH=pascal
+```
+
+### Download software
+
+```
+git clone https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
+```
+
+### Install Legion
+
+We build Legion in a SLURM job, because processes on the login node are restricted to 1 core, and we also require a node with a proper CUDA installation.
+
+```
+cd "$LEGION_DIR"/language
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 LD_FLAGS=-lpmi2 srun -N 1 -c 10 -p aaiken --gres=gpu:4 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+```
+
+### Compile Soleil-X
+
+Soleil-X must similarly be built in a SLURM job:
+
+```
+cd "$SOLEIL_DIR"/src
+srun -N 1 -c 10 -p aaiken --gres=gpu:4 make
 ```
 
 Setup (Certainty @ Stanford)
@@ -164,6 +249,13 @@ cd "$LEGION_DIR"/language
 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
+### Compile Soleil-X
+
+```
+cd "$SOLEIL_DIR"/src
+make
+```
+
 Setup (Titan @ ORNL)
 ====================
 
@@ -171,7 +263,7 @@ Setup (Titan @ ORNL)
 
 Install Legion and Soleil-X on the `/ccs/proj` filesystem, not your home directory (home directories are not mounted on the compute nodes).
 
-We set `MARCH`, the processor architecture that Legion will be built for, to one that is compatible with both the login node and the compute nodes. This is done so that `libregent.so` can be used by both the final executable, when it's executing on a compute node, and the Regent compiler, which needs to link against it while compiling Soleil on the login node.
+We set `MARCH`, the processor architecture that Legion will be built for, to one that is compatible with both the login node and the compute nodes. This is done so that `libregent.so` can be used by both the final executable, when it's executing on a compute node, and the Regent compiler, which needs to link against it while compiling Soleil-X on the login node.
 
 ```
 # Module loads
@@ -206,6 +298,13 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 cd "$LEGION_DIR"/language
 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 35 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+```
+
+### Compile Soleil-X
+
+```
+cd "$SOLEIL_DIR"/src
+make
 ```
 
 Setup (Summit @ ORNL)
@@ -247,18 +346,9 @@ cd "$LEGION_DIR"/language
 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1-ppc64'
 ```
 
-Running
-=======
+### Compile Soleil-X
 
 ```
 cd "$SOLEIL_DIR"/src
-[USE_CUDA=0] [USE_HDF=0] make
-[USE_CUDA=0] [QUEUE=???] ./soleil.sh ...
+make
 ```
-
-The `soleil.sh` script forwards all arguments to the `soleil.exec` executable. This includes any options that Soleil itself expects, and any additional options to the Legion runtime.
-
-Currently, Soleil reads the following options:
-
-* `-i <sample>.json`: Provide a configuration file, to be run as an additional sample. See [src/config_schema.lua](src/config_schema.lua) for documentation on the available configuration options.
-* `-o <out_dir>`: Specify an output directory for the executable (default is current directory).
