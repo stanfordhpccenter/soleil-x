@@ -4571,6 +4571,11 @@ local function mkInstance() local INSTANCE = {}
     yBCParticles = regentlib.newsymbol(SCHEMA.ParticlesBC),
     zBCParticles = regentlib.newsymbol(SCHEMA.ParticlesBC),
   }
+  local NX = regentlib.newsymbol()
+  local NY = regentlib.newsymbol()
+  local NZ = regentlib.newsymbol()
+  local numTiles = regentlib.newsymbol()
+
   local Integrator_simTime = regentlib.newsymbol()
   local Integrator_timeStep = regentlib.newsymbol()
   local Particles_number = regentlib.newsymbol()
@@ -4585,10 +4590,7 @@ local function mkInstance() local INSTANCE = {}
   local p_Fluid_copy = regentlib.newsymbol()
   local p_Particles = regentlib.newsymbol()
   local p_Particles_copy = regentlib.newsymbol()
-  local p_TradeQueue_bySrc = regentlib.newsymbol()
-  local p_TradeQueue_byDst = UTIL.generate(26, function()
-    return regentlib.newsymbol()
-  end)
+  local p_TradeQueue = regentlib.newsymbol()
   local p_Radiation = regentlib.newsymbol()
 
   -----------------------------------------------------------------------------
@@ -4684,6 +4686,11 @@ local function mkInstance() local INSTANCE = {}
     var [Grid.xRealOrigin] = (config.Grid.origin[0]-(Grid.xCellWidth*Grid.xBnum))
     var [Grid.yRealOrigin] = (config.Grid.origin[1]-(Grid.yCellWidth*Grid.yBnum))
     var [Grid.zRealOrigin] = (config.Grid.origin[2]-(Grid.zCellWidth*Grid.zBnum))
+
+    var [NX] = config.Mapping.tiles[0]
+    var [NY] = config.Mapping.tiles[1]
+    var [NZ] = config.Mapping.tiles[2]
+    var [numTiles] = NX * NY * NZ
 
     var [Integrator_simTime] = 0.0
     var [Integrator_timeStep] = 0
@@ -4930,11 +4937,6 @@ local function mkInstance() local INSTANCE = {}
     -- Create Regions and Partitions
     ---------------------------------------------------------------------------
 
-    var NX = config.Mapping.tiles[0]
-    var NY = config.Mapping.tiles[1]
-    var NZ = config.Mapping.tiles[2]
-    var numTiles = NX * NY * NZ
-
     -- Create Fluid Regions
     var is = ispace(int3d, int3d({x = (config.Grid.xNum+(2*Grid.xBnum)), y = (config.Grid.yNum+(2*Grid.yBnum)), z = (config.Grid.zNum+(2*Grid.zBnum))}))
     var [Fluid] = region(is, Fluid_columns)
@@ -5003,21 +5005,8 @@ local function mkInstance() local INSTANCE = {}
     end
     var [p_Particles] = partition(disjoint, Particles, coloring__11738, tiles)
     var [p_Particles_copy] = partition(disjoint, Particles_copy, coloring__11738, tiles)
-    var [p_TradeQueue_bySrc] = partition(disjoint, TradeQueue, coloring__11738, tiles)
+    var [p_TradeQueue] = partition(disjoint, TradeQueue, coloring__11738, tiles)
     regentlib.c.legion_domain_point_coloring_destroy(coloring__11738);
-    @ESCAPE for i = 1,26 do @EMIT
-      var dstColoring = regentlib.c.legion_domain_point_coloring_create()
-      for c in tiles do
-        var base : int64
-        for qPtr in p_TradeQueue_bySrc[ (c-[colorOffsets[i]]+{NX,NY,NZ}) % {NX,NY,NZ} ] do
-          base = qPtr
-          break
-        end
-        regentlib.c.legion_domain_point_coloring_color_domain(dstColoring, c, rect1d{base,base+maxParticlesPerTile-1})
-      end
-      var [p_TradeQueue_byDst[i]] = partition(disjoint, TradeQueue, dstColoring, tiles)
-      regentlib.c.legion_domain_point_coloring_destroy(dstColoring);
-    @TIME end @EPACSE
 
     -- Radiation Partitioning
     regentlib.assert(config.Radiation.xNum % NX == 0, "Uneven partitioning of radiation grid on x")
@@ -5571,18 +5560,18 @@ local function mkInstance() local INSTANCE = {}
           Particles_pushAll(c,
                             [colorOffsets[i]],
                             p_Particles[c],
-                            p_TradeQueue_bySrc[c],
+                            p_TradeQueue[c],
                             Grid.xBnum, config.Grid.xNum, NX,
                             Grid.yBnum, config.Grid.yNum, NY,
                             Grid.zBnum, config.Grid.zNum, NZ)
         end
         for c in tiles do
           Particles_fillTarget(p_Particles[c],
-                               [p_TradeQueue_byDst[i]][c])
+                               p_TradeQueue[ (c-[colorOffsets[i]]+{NX,NY,NZ}) % {NX,NY,NZ} ])
         end
         for c in tiles do
           Particles_pullAll(p_Particles[c],
-                            [p_TradeQueue_byDst[i]][c])
+                            p_TradeQueue[ (c-[colorOffsets[i]]+{NX,NY,NZ}) % {NX,NY,NZ} ])
         end
       @TIME end @EPACSE
       for c in tiles do
