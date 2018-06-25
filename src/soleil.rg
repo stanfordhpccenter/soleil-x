@@ -3620,7 +3620,7 @@ __demand(__cuda) -- MANUALLY PARALLELIZED
 task Particles_pullAll(Particles : region(ispace(int1d), Particles_columns),
                        TradeQueue : region(ispace(int1d), TradeQueue_columns))
 where
-  reads(TradeQueue),
+  reads(TradeQueue.[Particles_subStepConserved], TradeQueue.__target),
   writes(Particles.[Particles_subStepConserved])
 do
   __demand(__openmp)
@@ -4930,13 +4930,17 @@ local function mkInstance() local INSTANCE = {}
     -- Create Regions and Partitions
     ---------------------------------------------------------------------------
 
+    var NX = config.Mapping.tiles[0]
+    var NY = config.Mapping.tiles[1]
+    var NZ = config.Mapping.tiles[2]
+    var numTiles = NX * NY * NZ
+
     -- Create Fluid Regions
     var is = ispace(int3d, int3d({x = (config.Grid.xNum+(2*Grid.xBnum)), y = (config.Grid.yNum+(2*Grid.yBnum)), z = (config.Grid.zNum+(2*Grid.zBnum))}))
     var [Fluid] = region(is, Fluid_columns)
     var [Fluid_copy] = region(is, Fluid_columns)
 
     -- Create Particles Regions
-    var numTiles = config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2]
     var maxParticlesPerTile = ceil((config.Particles.maxNum/numTiles)*config.Particles.maxSkew)
     var is__11726 = ispace(int1d, maxParticlesPerTile * numTiles)
     var [Particles] = region(is__11726, Particles_columns)
@@ -4948,32 +4952,32 @@ local function mkInstance() local INSTANCE = {}
     var [Radiation] = region(is__11729, Radiation_columns)
 
     -- Partitioning domain
-    var [tiles] = ispace(int3d, int3d({config.Mapping.tiles[0], config.Mapping.tiles[1], config.Mapping.tiles[2]}))
+    var [tiles] = ispace(int3d, {NX,NY,NZ})
 
     -- Fluid Partitioning
-    regentlib.assert(((config.Grid.xNum%config.Mapping.tiles[0])==0), "Uneven partitioning of fluid grid on x")
-    regentlib.assert(((config.Grid.yNum%config.Mapping.tiles[1])==0), "Uneven partitioning of fluid grid on y")
-    regentlib.assert(((config.Grid.zNum%config.Mapping.tiles[2])==0), "Uneven partitioning of fluid grid on z")
+    regentlib.assert(config.Grid.xNum % NX == 0, "Uneven partitioning of fluid grid on x")
+    regentlib.assert(config.Grid.yNum % NY == 0, "Uneven partitioning of fluid grid on y")
+    regentlib.assert(config.Grid.zNum % NZ == 0, "Uneven partitioning of fluid grid on z")
     var coloring = regentlib.c.legion_domain_point_coloring_create()
     for c in tiles do
-      var rect = rect3d({lo = int3d({x = (Grid.xBnum+((config.Grid.xNum/config.Mapping.tiles[0])*c.x)), y = (Grid.yBnum+((config.Grid.yNum/config.Mapping.tiles[1])*c.y)), z = (Grid.zBnum+((config.Grid.zNum/config.Mapping.tiles[2])*c.z))}),
-                         hi = int3d({x = ((Grid.xBnum+((config.Grid.xNum/config.Mapping.tiles[0])*(c.x+1)))-1), y = ((Grid.yBnum+((config.Grid.yNum/config.Mapping.tiles[1])*(c.y+1)))-1), z = ((Grid.zBnum+((config.Grid.zNum/config.Mapping.tiles[2])*(c.z+1)))-1)})})
-      if (c.x==0) then
+      var rect = rect3d{lo = int3d{x = Grid.xBnum+(config.Grid.xNum/NX)*c.x,       y = Grid.yBnum+(config.Grid.yNum/NY)*c.y,       z = Grid.zBnum+(config.Grid.zNum/NZ)*c.z      },
+                        hi = int3d{x = Grid.xBnum+(config.Grid.xNum/NX)*(c.x+1)-1, y = Grid.yBnum+(config.Grid.yNum/NY)*(c.y+1)-1, z = Grid.zBnum+(config.Grid.zNum/NZ)*(c.z+1)-1}}
+      if c.x == 0 then
         rect.lo.x -= Grid.xBnum
       end
-      if (c.x==(config.Mapping.tiles[0]-1)) then
+      if c.x == NX-1 then
         rect.hi.x += Grid.xBnum
       end
-      if (c.y==0) then
+      if c.y == 0 then
         rect.lo.y -= Grid.yBnum
       end
-      if (c.y==(config.Mapping.tiles[1]-1)) then
+      if c.y == NY-1 then
         rect.hi.y += Grid.yBnum
       end
-      if (c.z==0) then
+      if c.z == 0 then
         rect.lo.z -= Grid.zBnum
       end
-      if (c.z==(config.Mapping.tiles[2]-1)) then
+      if c.z == NZ-1 then
         rect.hi.z += Grid.zBnum
       end
       regentlib.c.legion_domain_point_coloring_color_domain(coloring, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
@@ -4985,12 +4989,12 @@ local function mkInstance() local INSTANCE = {}
     -- Particles Partitioning
     regentlib.assert(config.Particles.maxNum % numTiles == 0, "Uneven partitioning of particles")
     var coloring__11738 = regentlib.c.legion_domain_point_coloring_create()
-    for z : int32 = 0, config.Mapping.tiles[2] do
-      for y : int32 = 0, config.Mapping.tiles[1] do
-        for x : int32 = 0, config.Mapping.tiles[0] do
+    for z = 0,NZ do
+      for y = 0,NY do
+        for x = 0,NX do
           var rBase : int64
           for rStart in Particles do
-            rBase = rStart + (z*config.Mapping.tiles[0]*config.Mapping.tiles[1] + y*config.Mapping.tiles[0] + x) * maxParticlesPerTile
+            rBase = rStart + (z*NX*NY + y*NX + x) * maxParticlesPerTile
             break
           end
           regentlib.c.legion_domain_point_coloring_color_domain(coloring__11738, int3d{x,y,z}, rect1d{rBase,rBase+maxParticlesPerTile-1})
@@ -5005,7 +5009,7 @@ local function mkInstance() local INSTANCE = {}
       var dstColoring = regentlib.c.legion_domain_point_coloring_create()
       for c in tiles do
         var base : int64
-        for qPtr in p_TradeQueue_bySrc[ (c-[colorOffsets[i]]+{config.Mapping.tiles[0],config.Mapping.tiles[1],config.Mapping.tiles[2]}) % {config.Mapping.tiles[0],config.Mapping.tiles[1],config.Mapping.tiles[2]} ] do
+        for qPtr in p_TradeQueue_bySrc[ (c-[colorOffsets[i]]+{NX,NY,NZ}) % {NX,NY,NZ} ] do
           base = qPtr
           break
         end
@@ -5016,13 +5020,13 @@ local function mkInstance() local INSTANCE = {}
     @TIME end @EPACSE
 
     -- Radiation Partitioning
-    regentlib.assert(((config.Radiation.xNum%config.Mapping.tiles[0])==0), "Uneven partitioning of radiation grid on x")
-    regentlib.assert(((config.Radiation.yNum%config.Mapping.tiles[1])==0), "Uneven partitioning of radiation grid on y")
-    regentlib.assert(((config.Radiation.zNum%config.Mapping.tiles[2])==0), "Uneven partitioning of radiation grid on z")
+    regentlib.assert(config.Radiation.xNum % NX == 0, "Uneven partitioning of radiation grid on x")
+    regentlib.assert(config.Radiation.yNum % NY == 0, "Uneven partitioning of radiation grid on y")
+    regentlib.assert(config.Radiation.zNum % NZ == 0, "Uneven partitioning of radiation grid on z")
     var coloring__12110 = regentlib.c.legion_domain_point_coloring_create()
     for c in tiles do
-      var rect = rect3d{lo = int3d{x = (config.Radiation.xNum/config.Mapping.tiles[0])*c.x,       y = (config.Radiation.yNum/config.Mapping.tiles[1])*c.y,       z = (config.Radiation.zNum/config.Mapping.tiles[2])*c.z      },
-                        hi = int3d{x = (config.Radiation.xNum/config.Mapping.tiles[0])*(c.x+1)-1, y = (config.Radiation.yNum/config.Mapping.tiles[1])*(c.y+1)-1, z = (config.Radiation.zNum/config.Mapping.tiles[2])*(c.z+1)-1}}
+      var rect = rect3d{lo = int3d{x = (config.Radiation.xNum/NX)*c.x,       y = (config.Radiation.yNum/NY)*c.y,       z = (config.Radiation.zNum/NZ)*c.z      },
+                        hi = int3d{x = (config.Radiation.xNum/NX)*(c.x+1)-1, y = (config.Radiation.yNum/NY)*(c.y+1)-1, z = (config.Radiation.zNum/NZ)*(c.z+1)-1}}
       regentlib.c.legion_domain_point_coloring_color_domain(coloring__12110, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
     end
     var [p_Radiation] = partition(disjoint, Radiation, coloring__12110, tiles)
@@ -5192,18 +5196,15 @@ local function mkInstance() local INSTANCE = {}
       for c in tiles do
         Particles_CheckPartitioning(c,
                                     p_Particles[c],
-                                    Grid.xBnum, config.Grid.xNum, config.Mapping.tiles[0],
-                                    Grid.yBnum, config.Grid.yNum, config.Mapping.tiles[1],
-                                    Grid.zBnum, config.Grid.zNum, config.Mapping.tiles[2])
+                                    Grid.xBnum, config.Grid.xNum, NX,
+                                    Grid.yBnum, config.Grid.yNum, NY,
+                                    Grid.zBnum, config.Grid.zNum, NZ)
       end
       Particles_number += Particles_CalculateNumber(Particles)
     end
     if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform) then
       InitParticlesUniform(Particles, Fluid, config, Grid.xBnum, Grid.yBnum, Grid.zBnum)
-      Particles_number =
-        config.Particles.initNum
-        / (config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2])
-        * (config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2])
+      Particles_number = (config.Particles.initNum / numTiles) * numTiles
     end
 
     -- Initialize radiation
@@ -5571,9 +5572,9 @@ local function mkInstance() local INSTANCE = {}
                             [colorOffsets[i]],
                             p_Particles[c],
                             p_TradeQueue_bySrc[c],
-                            Grid.xBnum, config.Grid.xNum, config.Mapping.tiles[0],
-                            Grid.yBnum, config.Grid.yNum, config.Mapping.tiles[1],
-                            Grid.zBnum, config.Grid.zNum, config.Mapping.tiles[2])
+                            Grid.xBnum, config.Grid.xNum, NX,
+                            Grid.yBnum, config.Grid.yNum, NY,
+                            Grid.zBnum, config.Grid.zNum, NZ)
         end
         for c in tiles do
           Particles_fillTarget(p_Particles[c],
@@ -5587,9 +5588,9 @@ local function mkInstance() local INSTANCE = {}
       for c in tiles do
         Particles_CheckPartitioning(c,
                                     p_Particles[c],
-                                    Grid.xBnum, config.Grid.xNum, config.Mapping.tiles[0],
-                                    Grid.yBnum, config.Grid.yNum, config.Mapping.tiles[1],
-                                    Grid.zBnum, config.Grid.zNum, config.Mapping.tiles[2])
+                                    Grid.xBnum, config.Grid.xNum, NX,
+                                    Grid.yBnum, config.Grid.yNum, NY,
+                                    Grid.zBnum, config.Grid.zNum, NZ)
       end
 
       Integrator_simTime = (Integrator_time_old+((0.5*(1+(Integrator_stage/3)))*Integrator_deltaTime))
