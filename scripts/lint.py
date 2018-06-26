@@ -49,7 +49,7 @@ def check_line(line, lineno):
     if 'rand(' in line or 'drand48(' in line:
         warn('Calling non-reentrant random function')
 
-for (line, lineno) in zip(fileinput.input(), count(start=1)) :
+for (line, lineno) in zip(fileinput.input(), count(start=1)):
     line = line[:-1]
     # Record linter annotations
     record_annot('MANUALLY PARALLELIZED')
