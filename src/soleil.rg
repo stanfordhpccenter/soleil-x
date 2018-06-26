@@ -4653,6 +4653,7 @@ local function mkInstance() local INSTANCE = {}
   local Integrator_simTime = regentlib.newsymbol()
   local Integrator_timeStep = regentlib.newsymbol()
   local Particles_number = regentlib.newsymbol()
+
   local Fluid = regentlib.newsymbol()
   local Fluid_copy = regentlib.newsymbol()
   local Particles = regentlib.newsymbol()
@@ -4675,6 +4676,7 @@ local function mkInstance() local INSTANCE = {}
   -- Exported symbols
   -----------------------------------------------------------------------------
 
+  INSTANCE.Grid = Grid
   INSTANCE.Fluid = Fluid
   INSTANCE.Fluid_copy = Fluid_copy
   INSTANCE.Particles = Particles
@@ -5741,6 +5743,35 @@ __forbid(__optimize) __demand(__inner)
 task workDual(mc : MultiConfig)
   [SIM0.DeclSymbols(rexpr mc.configs[0] end)];
   [SIM1.DeclSymbols(rexpr mc.configs[1] end)];
+  regentlib.assert(
+    -- copySrc is a valid volume
+    0 <= mc.copySrc.fromCell[0] and
+    0 <= mc.copySrc.fromCell[1] and
+    0 <= mc.copySrc.fromCell[2] and
+    mc.copySrc.fromCell[0] <= mc.copySrc.uptoCell[0] and
+    mc.copySrc.fromCell[1] <= mc.copySrc.uptoCell[1] and
+    mc.copySrc.fromCell[2] <= mc.copySrc.uptoCell[2] and
+    mc.copySrc.uptoCell[0] < mc.configs[0].Grid.xNum + 2 * SIM0.Grid.xBnum and
+    mc.copySrc.uptoCell[1] < mc.configs[0].Grid.yNum + 2 * SIM0.Grid.yBnum and
+    mc.copySrc.uptoCell[2] < mc.configs[0].Grid.zNum + 2 * SIM0.Grid.zBnum and
+    -- copyTgt is a valid volume
+    0 <= mc.copyTgt.fromCell[0] and
+    0 <= mc.copyTgt.fromCell[1] and
+    0 <= mc.copyTgt.fromCell[2] and
+    mc.copyTgt.fromCell[0] <= mc.copyTgt.uptoCell[0] and
+    mc.copyTgt.fromCell[1] <= mc.copyTgt.uptoCell[1] and
+    mc.copyTgt.fromCell[2] <= mc.copyTgt.uptoCell[2] and
+    mc.copyTgt.uptoCell[0] < mc.configs[1].Grid.xNum + 2 * SIM1.Grid.xBnum and
+    mc.copyTgt.uptoCell[1] < mc.configs[1].Grid.yNum + 2 * SIM1.Grid.yBnum and
+    mc.copySrc.uptoCell[2] < mc.configs[1].Grid.zNum + 2 * SIM1.Grid.zBnum and
+    -- volumes have the same size
+    mc.copySrc.uptoCell[0] - mc.copySrc.fromCell[0] ==
+    mc.copyTgt.uptoCell[0] - mc.copyTgt.fromCell[0] and
+    mc.copySrc.uptoCell[1] - mc.copySrc.fromCell[1] ==
+    mc.copyTgt.uptoCell[1] - mc.copyTgt.fromCell[1] and
+    mc.copySrc.uptoCell[2] - mc.copySrc.fromCell[2] ==
+    mc.copyTgt.uptoCell[2] - mc.copyTgt.fromCell[2],
+    'Invalid volume copy configuration');
   [parallelizeFor(SIM0, rquote
     colorIsCopied(SIM0.Fluid, mc.copySrc);
     [SIM0.InitRegions(rexpr mc.configs[0] end)];
@@ -5792,35 +5823,6 @@ task main()
       initSample([&Config](mc[0].configs), launched, outDirBase)
       initSample([&Config](mc[0].configs) + 1, launched + 1, outDirBase)
       launched += 2
-      regentlib.assert(
-        -- copySrc is a valid volume
-        0 <= mc[0].copySrc.fromCell[0] and
-        0 <= mc[0].copySrc.fromCell[1] and
-        0 <= mc[0].copySrc.fromCell[2] and
-        mc[0].copySrc.fromCell[0] <= mc[0].copySrc.uptoCell[0] and
-        mc[0].copySrc.fromCell[1] <= mc[0].copySrc.uptoCell[1] and
-        mc[0].copySrc.fromCell[2] <= mc[0].copySrc.uptoCell[2] and
-        mc[0].copySrc.uptoCell[0] <= mc[0].configs[0].Grid.xNum and
-        mc[0].copySrc.uptoCell[1] <= mc[0].configs[0].Grid.yNum and
-        mc[0].copySrc.uptoCell[2] <= mc[0].configs[0].Grid.zNum and
-        -- copyTgt is a valid volume
-        0 <= mc[0].copyTgt.fromCell[0] and
-        0 <= mc[0].copyTgt.fromCell[1] and
-        0 <= mc[0].copyTgt.fromCell[2] and
-        mc[0].copyTgt.fromCell[0] <= mc[0].copyTgt.uptoCell[0] and
-        mc[0].copyTgt.fromCell[1] <= mc[0].copyTgt.uptoCell[1] and
-        mc[0].copyTgt.fromCell[2] <= mc[0].copyTgt.uptoCell[2] and
-        mc[0].copyTgt.uptoCell[0] <= mc[0].configs[1].Grid.xNum and
-        mc[0].copyTgt.uptoCell[1] <= mc[0].configs[1].Grid.yNum and
-        mc[0].copySrc.uptoCell[2] <= mc[0].configs[1].Grid.zNum and
-        -- volumes have the same size
-        mc[0].copySrc.uptoCell[0] - mc[0].copySrc.fromCell[0] ==
-        mc[0].copyTgt.uptoCell[0] - mc[0].copyTgt.fromCell[0] and
-        mc[0].copySrc.uptoCell[1] - mc[0].copySrc.fromCell[1] ==
-        mc[0].copyTgt.uptoCell[1] - mc[0].copyTgt.fromCell[1] and
-        mc[0].copySrc.uptoCell[2] - mc[0].copySrc.fromCell[2] ==
-        mc[0].copyTgt.uptoCell[2] - mc[0].copyTgt.fromCell[2],
-        'Invalid volume copy configuration')
       workDual(mc[0])
     end
   end
