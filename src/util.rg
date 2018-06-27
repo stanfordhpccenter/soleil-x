@@ -153,6 +153,28 @@ function Exports.generate(n, generator)
   return res
 end
 
+-- () -> T*
+function TerraList:flatten(res)
+  res = res or terralib.newlist()
+  for _,e in ipairs(self) do
+    if terralib.israwlist(e) then
+      e:flatten(res)
+    else
+      res:insert(e)
+    end
+  end
+  return res
+end
+
+-- int, int -> T*
+function Exports.range(first, last)
+  local res = terralib.newlist()
+  for i = first,last do
+    res:insert(i)
+  end
+  return res
+end
+
 -------------------------------------------------------------------------------
 -- Sets
 -------------------------------------------------------------------------------
@@ -186,11 +208,13 @@ function Exports.setPop(set)
   return elem
 end
 
--- set(T), T* -> ()
+-- set(T), T* -> set(T)
 function Exports.setSubList(set, list)
+  local res = Exports.copyTable(set)
   for _,e in ipairs(list) do
-    set[e] = nil
+    res[e] = nil
   end
+  return res
 end
 
 -------------------------------------------------------------------------------
