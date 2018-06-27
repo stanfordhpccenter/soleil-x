@@ -64,14 +64,37 @@ local struct Particles_columns {
   __valid : bool;
 }
 
-local struct Particles_primitives {
-  position : double[3];
-  velocity : double[3];
-  temperature : double;
-  diameter : double;
-  density : double;
-  __valid : bool;
-}
+local Particles_primitives = terralib.newlist({
+  'position',
+  'velocity',
+  'temperature',
+  'diameter',
+  'density',
+  '__valid',
+})
+
+local Particles_subStepTemp = terralib.newlist({
+  'deltaVelocityOverRelaxationTime',
+  'deltaTemperatureTerm',
+  'position_ghost',
+  'velocity_ghost',
+  'velocity_t_ghost',
+  'position_t',
+  'velocity_t',
+  'temperature_t',
+})
+
+local Particles_subStepConserved =
+  UTIL.setToList(
+    UTIL.setSubList(
+      UTIL.listToSet(UTIL.fieldNames(Particles_columns)),
+      Particles_subStepTemp))
+
+local TradeQueue_columns =
+  UTIL.deriveStruct('TradeQueue_columns',
+                    Particles_columns,
+                    Particles_subStepConserved,
+                    {__source=int1d, __target=int1d})
 
 local struct Fluid_columns {
   rho : double;
@@ -128,12 +151,12 @@ local struct Fluid_columns {
   isCopied : int1d;
 }
 
-local struct Fluid_primitives {
-  rho : double;
-  pressure : double;
-  velocity : double[3];
-  temperature : double;
-}
+local Fluid_primitives = terralib.newlist({
+  'rho',
+  'pressure',
+  'velocity',
+  'temperature',
+})
 
 struct Radiation_columns {
   I_1 : double[NUM_ANGLES];
@@ -227,13 +250,6 @@ end
 -- I/O ROUTINES
 -------------------------------------------------------------------------------
 
-local function fieldNames(s)
-  return s.entries:map(function(e)
-    local name,typ = UTIL.parseStructEntry(e)
-    return name
-  end)
-end
-
 local __demand(__inline)
 task Fluid_dump(colors : ispace(int3d),
                 dirname : &int8,
@@ -242,8 +258,8 @@ task Fluid_dump(colors : ispace(int3d),
                 p_Fluid : partition(disjoint, Fluid, colors),
                 p_Fluid_copy : partition(disjoint, Fluid_copy, colors))
 where
-  reads(Fluid.[fieldNames(Fluid_primitives)]),
-  reads writes(Fluid_copy.[fieldNames(Fluid_primitives)]),
+  reads(Fluid.[Fluid_primitives]),
+  reads writes(Fluid_copy.[Fluid_primitives]),
   Fluid * Fluid_copy
 do
   regentlib.assert(false, 'Recompile with USE_HDF=1')
@@ -257,8 +273,8 @@ task Fluid_load(colors : ispace(int3d),
                 p_Fluid : partition(disjoint, Fluid, colors),
                 p_Fluid_copy : partition(disjoint, Fluid_copy, colors))
 where
-  reads writes(Fluid.[fieldNames(Fluid_primitives)]),
-  reads writes(Fluid_copy.[fieldNames(Fluid_primitives)]),
+  reads writes(Fluid.[Fluid_primitives]),
+  reads writes(Fluid_copy.[Fluid_primitives]),
   Fluid * Fluid_copy
 do
   regentlib.assert(false, 'Recompile with USE_HDF=1')
@@ -272,8 +288,8 @@ task Particles_dump(colors : ispace(int3d),
                     p_Particles : partition(disjoint, Particles, colors),
                     p_Particles_copy : partition(disjoint, Particles_copy, colors))
 where
-  reads(Particles.[fieldNames(Particles_primitives)]),
-  reads writes(Particles_copy.[fieldNames(Particles_primitives)]),
+  reads(Particles.[Particles_primitives]),
+  reads writes(Particles_copy.[Particles_primitives]),
   Particles * Particles_copy
 do
   regentlib.assert(false, 'Recompile with USE_HDF=1')
@@ -287,8 +303,8 @@ task Particles_load(colors : ispace(int3d),
                     p_Particles : partition(disjoint, Particles, colors),
                     p_Particles_copy : partition(disjoint, Particles_copy, colors))
 where
-  reads writes(Particles.[fieldNames(Particles_primitives)]),
-  reads writes(Particles_copy.[fieldNames(Particles_primitives)]),
+  reads writes(Particles.[Particles_primitives]),
+  reads writes(Particles_copy.[Particles_primitives]),
   Particles * Particles_copy
 do
   regentlib.assert(false, 'Recompile with USE_HDF=1')
@@ -297,9 +313,9 @@ end
 if USE_HDF then
   local HDF = require "hdf_helper"
   Fluid_dump, Fluid_load = HDF.mkHDFTasks(
-    int3d, int3d, Fluid_columns, fieldNames(Fluid_primitives))
+    int3d, int3d, Fluid_columns, Fluid_primitives)
   Particles_dump, Particles_load = HDF.mkHDFTasks(
-    int1d, int3d, Particles_columns, fieldNames(Particles_primitives))
+    int1d, int3d, Particles_columns, Particles_primitives)
 end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
@@ -3546,11 +3562,6 @@ task Fluid_elemColor(idx : int3d,
                (idx.z-Grid_zBnum)/(Grid_zNum/NZ)}
 end
 
-terra Particles_pushElement(dst : &opaque,idx : int32,src : Particles_columns)
-  var ptr = [&int8](dst) + idx * SIZEOF_PARTICLE
-  C.memcpy([&opaque](ptr), [&opaque](&src), [uint64](SIZEOF_PARTICLE))
-end
-
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Particles_CheckPartitioning(color : int3d,
                                  Particles : region(ispace(int1d), Particles_columns),
@@ -3570,39 +3581,6 @@ do
     end
   end
 end
-
-terra Particles_getBasePointer(pr : regentlib.c.legion_physical_region_t,fid : uint32,runtime : regentlib.c.legion_runtime_t)
-  var acc = regentlib.c.legion_physical_region_get_field_accessor_array_1d(pr, fid)
-  var lr = regentlib.c.legion_physical_region_get_logical_region(pr)
-  var domain = regentlib.c.legion_index_space_get_domain(runtime, lr.index_space)
-  var rect = regentlib.c.legion_domain_get_rect_1d(domain)
-  var subrect : regentlib.c.legion_rect_1d_t
-  var offsets : regentlib.c.legion_byte_offset_t[1]
-  var p = regentlib.c.legion_accessor_array_1d_raw_rect_ptr(acc, rect, &subrect, &[&regentlib.c.legion_byte_offset_t](offsets)[0])
-  regentlib.c.legion_accessor_array_1d_destroy(acc)
-  return p
-end
-
-terra Particles_getOffset()
-  var x : Particles_columns
-  return [&int8](&x.__valid) - [&int8](&x)
-end
-
-local queueRegions = UTIL.generate(26, function()
-  return regentlib.newsymbol(region(ispace(int1d), int8[SIZEOF_PARTICLE]))
-end)
-
-local queueReadPrivs = queueRegions:map(function(q)
-  return regentlib.privilege(regentlib.reads, q)
-end)
-
-local queueWritePrivs = queueRegions:map(function(q)
-  return regentlib.privilege(regentlib.writes, q)
-end)
-
-local qBasePtrs = UTIL.generate(26, function()
-  return regentlib.newsymbol()
-end)
 
 local colorOffsets = terralib.newlist({
   rexpr int3d({ 0,  0,  1}) end,
@@ -3633,81 +3611,148 @@ local colorOffsets = terralib.newlist({
   rexpr int3d({-1, -1, -1}) end,
 })
 
--- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task Particles_pushAll(partColor : int3d,
-                       Particles : region(ispace(int1d), Particles_columns),
-                       [queueRegions],
-                       Grid_xBnum : int32, Grid_xNum : int32, NX : int32,
-                       Grid_yBnum : int32, Grid_yNum : int32, NY : int32,
-                       Grid_zBnum : int32, Grid_zNum : int32, NZ : int32)
+local tradeQueues = UTIL.generate(26, function()
+  return regentlib.newsymbol(region(ispace(int1d), TradeQueue_columns))
+end)
+local tradeQueuePtrs = UTIL.generate(26, function()
+  return regentlib.newsymbol()
+end)
+
+__demand(__cuda) -- MANUALLY PARALLELIZED
+task Particles_clearSource([tradeQueues])
 where
-  reads(Particles),
-  writes(Particles.__valid),
-  [queueReadPrivs],
-  [queueWritePrivs]
+  [tradeQueues:map(function(q)
+     return regentlib.privilege(regentlib.writes, q, '__source')
+   end)]
 do
-  @ESCAPE for i = 1,26 do @EMIT
-    for qPtr in [queueRegions[i]] do
-      [queueRegions[i]][qPtr][VALID_FIELD_OFFSET] = int8(false)
+  @ESCAPE for k = 1,26 do local q = tradeQueues[k] @EMIT
+    __demand(__openmp)
+    for qPtr in q do
+      qPtr.__source = -1
     end
-    var [qBasePtrs[i]] = Particles_getBasePointer(__physical([queueRegions[i]])[0], __fields([queueRegions[i]])[0], __runtime())
   @TIME end @EPACSE
-  for rPtr in Particles do
-    if rPtr.__valid then
-      var elemColor = Fluid_elemColor(rPtr.cell,
+end
+
+-- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+task Particles_fillSource(partColor : int3d,
+                          Particles : region(ispace(int1d), Particles_columns),
+                          [tradeQueues],
+                          Grid_xBnum : int32, Grid_xNum : int32, NX : int32,
+                          Grid_yBnum : int32, Grid_yNum : int32, NY : int32,
+                          Grid_zBnum : int32, Grid_zNum : int32, NZ : int32)
+where
+  reads(Particles.{cell, __valid}),
+  [tradeQueues:map(function(q)
+     return regentlib.privilege(regentlib.writes, q, '__source')
+   end)]
+do
+  @ESCAPE for k = 1,26 do local q = tradeQueues[k] local j = tradeQueuePtrs[k] @EMIT
+    var [j] = q.bounds.lo
+  @TIME end @EPACSE
+  for i in Particles do
+    if Particles[i].__valid then
+      var elemColor = Fluid_elemColor(Particles[i].cell,
                                       Grid_xBnum, Grid_xNum, NX,
                                       Grid_yBnum, Grid_yNum, NY,
                                       Grid_zBnum, Grid_zNum, NZ)
       if elemColor ~= partColor then
-        @ESCAPE for i = 1,26 do @EMIT
-          if elemColor == (partColor + [colorOffsets[i]] + {NX,NY,NZ}) % {NX,NY,NZ} then
-            var idx = 0
-            for qPtr in [queueRegions[i]] do
-              if not bool([queueRegions[i]][qPtr][VALID_FIELD_OFFSET]) then
-                Particles_pushElement([qBasePtrs[i]], idx, Particles[rPtr])
-                rPtr.__valid = false
-                regentlib.assert(bool([queueRegions[i]][qPtr][VALID_FIELD_OFFSET]), "Element did not get copied properly")
-                break
-              end
-              idx += 1
-            end
-            regentlib.assert(not rPtr.__valid, "Transfer queue ran out of space")
+        var transferred = false;
+        @ESCAPE for k = 1,26 do local q = tradeQueues[k] local j = tradeQueuePtrs[k] @EMIT
+          if elemColor == (partColor + [colorOffsets[k]] + {NX,NY,NZ}) % {NX,NY,NZ} then
+            regentlib.assert(j <= q.bounds.hi,
+                             'Ran out of space in particle transfer queue')
+            q[j].__source = i
+            j += 1
+            transferred = true
           end
         @TIME end @EPACSE
-        regentlib.assert((not rPtr.__valid), "Element moved past predicted stencil")
+        regentlib.assert(transferred, 'Particle moved past expected stencil')
       end
     end
   end
 end
 
-terra Particles_pullElement(src : &int8)
-  var dst : Particles_columns
-  C.memcpy([&opaque](&dst), [&opaque](src), [uint64](SIZEOF_PARTICLE))
-  return dst
+__demand(__cuda) -- MANUALLY PARALLELIZED
+task Particles_pushAll(Particles : region(ispace(int1d), Particles_columns),
+                       [tradeQueues])
+where
+  reads(Particles.[Particles_subStepConserved]),
+  writes(Particles.__valid),
+  [tradeQueues:map(function(q)
+     return Particles_subStepConserved:map(function(f)
+       return regentlib.privilege(regentlib.writes, q, f)
+     end)
+   end):flatten()],
+  [tradeQueues:map(function(q)
+     return regentlib.privilege(regentlib.reads, q, '__source')
+   end)]
+do
+  @ESCAPE for k = 1,26 do local q = tradeQueues[k] @EMIT
+    __demand(__openmp)
+    for j in q do
+      var i = q[j].__source
+      if [int](i) >= 0 then
+        @ESCAPE for _,fld in ipairs(Particles_subStepConserved) do @EMIT
+          q[j].[fld] = Particles[i].[fld]
+        @TIME end @EPACSE
+        Particles[i].__valid = false
+      else
+        q[j].__valid = false
+      end
+    end
+  @TIME end @EPACSE
 end
 
--- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task Particles_pullAll(color : int3d,
-                       Particles : region(ispace(int1d), Particles_columns),
-                       [queueRegions])
+-- MANUALLY_PARALLELIZED, NO CUDA, NO OPENMP
+task Particles_fillTarget(Particles : region(ispace(int1d), Particles_columns),
+                          [tradeQueues])
 where
-  reads writes(Particles),
-  [queueReadPrivs],
-  [queueWritePrivs]
+  reads(Particles.__valid),
+  [tradeQueues:map(function(q)
+     return regentlib.privilege(regentlib.reads, q, '__valid')
+   end)],
+  [tradeQueues:map(function(q)
+     return regentlib.privilege(regentlib.writes, q, '__target')
+   end)]
 do
-  @ESCAPE for i = 1,26 do @EMIT
-    for qPtr in [queueRegions[i]] do
-      if bool([queueRegions[i]][qPtr][VALID_FIELD_OFFSET]) then
-        var copied = false
-        for rPtr in Particles do
-          if (not rPtr.__valid) then
-            Particles[rPtr] = Particles_pullElement([&int8]([queueRegions[i]][qPtr]))
-            copied = true
-            regentlib.assert(rPtr.__valid, "Pulled particle was not copied correctly")
-            break
-          end
+  var i = Particles.bounds.lo;
+  @ESCAPE for k = 1,26 do local q = tradeQueues[k] @EMIT
+    for j in q do
+      if q[j].__valid then
+        while i <= Particles.bounds.hi and Particles[i].__valid do
+          i += 1
         end
-        regentlib.assert(copied, "Ran out of space on sub-partition")
+        regentlib.assert(i <= Particles.bounds.hi,
+                         'Ran out of space in particles region')
+        q[j].__target = i
+        i += 1
+      end
+    end
+  @TIME end @EPACSE
+end
+
+__demand(__cuda) -- MANUALLY PARALLELIZED
+task Particles_pullAll(Particles : region(ispace(int1d), Particles_columns),
+                       [tradeQueues])
+where
+  [tradeQueues:map(function(q)
+     return Particles_subStepConserved:map(function(f)
+       return regentlib.privilege(regentlib.reads, q, f)
+     end)
+   end):flatten()],
+  [tradeQueues:map(function(q)
+     return regentlib.privilege(regentlib.reads, q, '__target')
+   end)],
+  writes(Particles.[Particles_subStepConserved])
+do
+  @ESCAPE for k = 1,26 do local q = tradeQueues[k] @EMIT
+    __demand(__openmp)
+    for j in q do
+      if q[j].__valid then
+        var i = q[j].__target;
+        @ESCAPE for _,fld in ipairs(Particles_subStepConserved) do @EMIT
+          Particles[i].[fld] = q[j].[fld]
+        @TIME end @EPACSE
       end
     end
   @TIME end @EPACSE
@@ -4650,6 +4695,11 @@ local function mkInstance() local INSTANCE = {}
     yBCParticles = regentlib.newsymbol(SCHEMA.ParticlesBC),
     zBCParticles = regentlib.newsymbol(SCHEMA.ParticlesBC),
   }
+  local NX = regentlib.newsymbol()
+  local NY = regentlib.newsymbol()
+  local NZ = regentlib.newsymbol()
+  local numTiles = regentlib.newsymbol()
+
   local Integrator_simTime = regentlib.newsymbol()
   local Integrator_timeStep = regentlib.newsymbol()
   local Particles_number = regentlib.newsymbol()
@@ -4658,19 +4708,19 @@ local function mkInstance() local INSTANCE = {}
   local Fluid_copy = regentlib.newsymbol()
   local Particles = regentlib.newsymbol()
   local Particles_copy = regentlib.newsymbol()
+  local TradeQueue = UTIL.generate(26, function()
+    return regentlib.newsymbol()
+  end)
   local Radiation = regentlib.newsymbol()
   local tiles = regentlib.newsymbol()
   local p_Fluid = regentlib.newsymbol()
   local p_Fluid_copy = regentlib.newsymbol()
   local p_Particles = regentlib.newsymbol()
   local p_Particles_copy = regentlib.newsymbol()
+  local p_TradeQueue = UTIL.generate(26, function()
+    return regentlib.newsymbol()
+  end)
   local p_Radiation = regentlib.newsymbol()
-  local qSrcParts = UTIL.generate(26, function()
-    return regentlib.newsymbol()
-  end)
-  local qDstParts = UTIL.generate(26, function()
-    return regentlib.newsymbol()
-  end)
 
   -----------------------------------------------------------------------------
   -- Exported symbols
@@ -4766,6 +4816,11 @@ local function mkInstance() local INSTANCE = {}
     var [Grid.xRealOrigin] = (config.Grid.origin[0]-(Grid.xCellWidth*Grid.xBnum))
     var [Grid.yRealOrigin] = (config.Grid.origin[1]-(Grid.yCellWidth*Grid.yBnum))
     var [Grid.zRealOrigin] = (config.Grid.origin[2]-(Grid.zCellWidth*Grid.zBnum))
+
+    var [NX] = config.Mapping.tiles[0]
+    var [NY] = config.Mapping.tiles[1]
+    var [NZ] = config.Mapping.tiles[2]
+    var [numTiles] = NX * NY * NZ
 
     var [Integrator_simTime] = 0.0
     var [Integrator_timeStep] = 0
@@ -4988,116 +5043,107 @@ local function mkInstance() local INSTANCE = {}
     ---------------------------------------------------------------------------
 
     -- Create Fluid Regions
-    var is = ispace(int3d, int3d({x = (config.Grid.xNum+(2*Grid.xBnum)), y = (config.Grid.yNum+(2*Grid.yBnum)), z = (config.Grid.zNum+(2*Grid.zBnum))}))
-    var [Fluid] = region(is, Fluid_columns)
-    var [Fluid_copy] = region(is, Fluid_columns)
+    var is_Fluid = ispace(int3d, int3d({x = (config.Grid.xNum+(2*Grid.xBnum)), y = (config.Grid.yNum+(2*Grid.yBnum)), z = (config.Grid.zNum+(2*Grid.zBnum))}))
+    var [Fluid] = region(is_Fluid, Fluid_columns)
+    var [Fluid_copy] = region(is_Fluid, Fluid_columns)
 
     -- Create Particles Regions
-    var numTiles = config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2]
     var maxParticlesPerTile = ceil((config.Particles.maxNum/numTiles)*config.Particles.maxSkew)
-    var is__11726 = ispace(int1d, maxParticlesPerTile * numTiles)
-    var [Particles] = region(is__11726, Particles_columns)
-    var [Particles_copy] = region(is__11726, Particles_columns)
-
-    -- Create Radiation Regions
-    var is__11729 = ispace(int3d, int3d({x = config.Radiation.xNum, y = config.Radiation.yNum, z = config.Radiation.zNum}))
-    var [Radiation] = region(is__11729, Radiation_columns)
-
-    -- Partitioning domain
-    var [tiles] = ispace(int3d, int3d({config.Mapping.tiles[0], config.Mapping.tiles[1], config.Mapping.tiles[2]}))
-
-    -- Fluid Partitioning
-    regentlib.assert(((config.Grid.xNum%config.Mapping.tiles[0])==0), "Uneven partitioning of fluid grid on x")
-    regentlib.assert(((config.Grid.yNum%config.Mapping.tiles[1])==0), "Uneven partitioning of fluid grid on y")
-    regentlib.assert(((config.Grid.zNum%config.Mapping.tiles[2])==0), "Uneven partitioning of fluid grid on z")
-    var coloring = regentlib.c.legion_domain_point_coloring_create()
-    for c in tiles do
-      var rect = rect3d({lo = int3d({x = (Grid.xBnum+((config.Grid.xNum/config.Mapping.tiles[0])*c.x)), y = (Grid.yBnum+((config.Grid.yNum/config.Mapping.tiles[1])*c.y)), z = (Grid.zBnum+((config.Grid.zNum/config.Mapping.tiles[2])*c.z))}),
-                         hi = int3d({x = ((Grid.xBnum+((config.Grid.xNum/config.Mapping.tiles[0])*(c.x+1)))-1), y = ((Grid.yBnum+((config.Grid.yNum/config.Mapping.tiles[1])*(c.y+1)))-1), z = ((Grid.zBnum+((config.Grid.zNum/config.Mapping.tiles[2])*(c.z+1)))-1)})})
-      if (c.x==0) then
-        rect.lo.x -= Grid.xBnum
-      end
-      if (c.x==(config.Mapping.tiles[0]-1)) then
-        rect.hi.x += Grid.xBnum
-      end
-      if (c.y==0) then
-        rect.lo.y -= Grid.yBnum
-      end
-      if (c.y==(config.Mapping.tiles[1]-1)) then
-        rect.hi.y += Grid.yBnum
-      end
-      if (c.z==0) then
-        rect.lo.z -= Grid.zBnum
-      end
-      if (c.z==(config.Mapping.tiles[2]-1)) then
-        rect.hi.z += Grid.zBnum
-      end
-      regentlib.c.legion_domain_point_coloring_color_domain(coloring, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
-    end
-    var [p_Fluid] = partition(disjoint, Fluid, coloring, tiles)
-    var [p_Fluid_copy] = partition(disjoint, Fluid_copy, coloring, tiles)
-    regentlib.c.legion_domain_point_coloring_destroy(coloring)
-
-    -- Particles Partitioning
-    regentlib.assert(((config.Particles.maxNum%((config.Mapping.tiles[0]*config.Mapping.tiles[1])*config.Mapping.tiles[2]))==0), "Uneven partitioning of particles")
-    var coloring__11738 = regentlib.c.legion_domain_point_coloring_create()
-    for z : int32 = 0, config.Mapping.tiles[2] do
-      for y : int32 = 0, config.Mapping.tiles[1] do
-        for x : int32 = 0, config.Mapping.tiles[0] do
-          var rBase : int64
-          for rStart in Particles do
-            rBase = rStart + (z*config.Mapping.tiles[0]*config.Mapping.tiles[1] + y*config.Mapping.tiles[0] + x) * maxParticlesPerTile
-            break
-          end
-          regentlib.c.legion_domain_point_coloring_color_domain(coloring__11738, int3d{x,y,z}, rect1d{rBase,rBase+maxParticlesPerTile-1})
-        end
-      end
-    end
-    var [p_Particles] = partition(disjoint, Particles, coloring__11738, tiles)
-    var [p_Particles_copy] = partition(disjoint, Particles_copy, coloring__11738, tiles)
-    regentlib.c.legion_domain_point_coloring_destroy(coloring__11738);
-    @ESCAPE for i = 1,26 do @EMIT
-      var queue = region(ispace(int1d,config.Particles.maxXferNum*config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2]), int8[SIZEOF_PARTICLE])
-      var srcColoring = regentlib.c.legion_domain_point_coloring_create()
-      for z = 0, config.Mapping.tiles[2] do
-        for y = 0, config.Mapping.tiles[1] do
-          for x = 0, config.Mapping.tiles[0] do
-            var qBase : int64
-            for qStart in queue do
-              qBase = qStart + (z*config.Mapping.tiles[0]*config.Mapping.tiles[1]+y*config.Mapping.tiles[0]+x)*config.Particles.maxXferNum
-              break
-            end
-            regentlib.c.legion_domain_point_coloring_color_domain(srcColoring, int3d{x,y,z}, rect1d{qBase,qBase+config.Particles.maxXferNum-1})
-          end
-        end
-      end
-      var [qSrcParts[i]] = partition(disjoint, queue, srcColoring, tiles)
-      regentlib.c.legion_domain_point_coloring_destroy(srcColoring)
-      var dstColoring = regentlib.c.legion_domain_point_coloring_create()
-      for c in tiles do
-        var srcBase : int64
-        for qptr in [qSrcParts[i]][ (c-[colorOffsets[i]]+{config.Mapping.tiles[0],config.Mapping.tiles[1],config.Mapping.tiles[2]}) % {config.Mapping.tiles[0],config.Mapping.tiles[1],config.Mapping.tiles[2]} ] do
-          srcBase = qptr
-          break
-        end
-        regentlib.c.legion_domain_point_coloring_color_domain(dstColoring, c, rect1d{srcBase,srcBase+config.Particles.maxXferNum-1})
-      end
-      var [qDstParts[i]] = partition(aliased, queue, dstColoring, tiles)
-      regentlib.c.legion_domain_point_coloring_destroy(dstColoring)
+    var is_Particles = ispace(int1d, maxParticlesPerTile * numTiles)
+    var [Particles] = region(is_Particles, Particles_columns)
+    var [Particles_copy] = region(is_Particles, Particles_columns)
+    var is_TradeQueue = ispace(int1d, config.Particles.maxXferNum * numTiles);
+    @ESCAPE for k = 1,26 do @EMIT
+      var [TradeQueue[k]] = region(is_TradeQueue, TradeQueue_columns)
     @TIME end @EPACSE
 
-    -- Radiation Partitioning
-    regentlib.assert(((config.Radiation.xNum%config.Mapping.tiles[0])==0), "Uneven partitioning of radiation grid on x")
-    regentlib.assert(((config.Radiation.yNum%config.Mapping.tiles[1])==0), "Uneven partitioning of radiation grid on y")
-    regentlib.assert(((config.Radiation.zNum%config.Mapping.tiles[2])==0), "Uneven partitioning of radiation grid on z")
-    var coloring__12110 = regentlib.c.legion_domain_point_coloring_create()
+    -- Create Radiation Regions
+    var is_Radiation = ispace(int3d, int3d({x = config.Radiation.xNum, y = config.Radiation.yNum, z = config.Radiation.zNum}))
+    var [Radiation] = region(is_Radiation, Radiation_columns)
+
+    -- Partitioning domain
+    var [tiles] = ispace(int3d, {NX,NY,NZ})
+
+    -- Fluid Partitioning
+    regentlib.assert(config.Grid.xNum % NX == 0, "Uneven partitioning of fluid grid on x")
+    regentlib.assert(config.Grid.yNum % NY == 0, "Uneven partitioning of fluid grid on y")
+    regentlib.assert(config.Grid.zNum % NZ == 0, "Uneven partitioning of fluid grid on z")
+    var coloring_Fluid = regentlib.c.legion_domain_point_coloring_create()
     for c in tiles do
-      var rect = rect3d{lo = int3d{x = (config.Radiation.xNum/config.Mapping.tiles[0])*c.x,       y = (config.Radiation.yNum/config.Mapping.tiles[1])*c.y,       z = (config.Radiation.zNum/config.Mapping.tiles[2])*c.z      },
-                        hi = int3d{x = (config.Radiation.xNum/config.Mapping.tiles[0])*(c.x+1)-1, y = (config.Radiation.yNum/config.Mapping.tiles[1])*(c.y+1)-1, z = (config.Radiation.zNum/config.Mapping.tiles[2])*(c.z+1)-1}}
-      regentlib.c.legion_domain_point_coloring_color_domain(coloring__12110, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
+      var rect = rect3d{lo = int3d{x = Grid.xBnum+(config.Grid.xNum/NX)*c.x,       y = Grid.yBnum+(config.Grid.yNum/NY)*c.y,       z = Grid.zBnum+(config.Grid.zNum/NZ)*c.z      },
+                        hi = int3d{x = Grid.xBnum+(config.Grid.xNum/NX)*(c.x+1)-1, y = Grid.yBnum+(config.Grid.yNum/NY)*(c.y+1)-1, z = Grid.zBnum+(config.Grid.zNum/NZ)*(c.z+1)-1}}
+      if c.x == 0 then
+        rect.lo.x -= Grid.xBnum
+      end
+      if c.x == NX-1 then
+        rect.hi.x += Grid.xBnum
+      end
+      if c.y == 0 then
+        rect.lo.y -= Grid.yBnum
+      end
+      if c.y == NY-1 then
+        rect.hi.y += Grid.yBnum
+      end
+      if c.z == 0 then
+        rect.lo.z -= Grid.zBnum
+      end
+      if c.z == NZ-1 then
+        rect.hi.z += Grid.zBnum
+      end
+      regentlib.c.legion_domain_point_coloring_color_domain(coloring_Fluid, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
     end
-    var [p_Radiation] = partition(disjoint, Radiation, coloring__12110, tiles)
-    regentlib.c.legion_domain_point_coloring_destroy(coloring__12110);
+    var [p_Fluid] = partition(disjoint, Fluid, coloring_Fluid, tiles)
+    var [p_Fluid_copy] = partition(disjoint, Fluid_copy, coloring_Fluid, tiles)
+    regentlib.c.legion_domain_point_coloring_destroy(coloring_Fluid)
+
+    -- Particles Partitioning
+    regentlib.assert(config.Particles.maxNum % numTiles == 0, "Uneven partitioning of particles")
+    var coloring_Particles = regentlib.c.legion_domain_point_coloring_create()
+    for z = 0,NZ do
+      for y = 0,NY do
+        for x = 0,NX do
+          var rBase : int64
+          for rStart in Particles do
+            rBase = rStart + (z*NX*NY + y*NX + x) * maxParticlesPerTile
+            break
+          end
+          regentlib.c.legion_domain_point_coloring_color_domain(coloring_Particles, int3d{x,y,z}, rect1d{rBase,rBase+maxParticlesPerTile-1})
+        end
+      end
+    end
+    var [p_Particles] = partition(disjoint, Particles, coloring_Particles, tiles)
+    var [p_Particles_copy] = partition(disjoint, Particles_copy, coloring_Particles, tiles)
+    regentlib.c.legion_domain_point_coloring_destroy(coloring_Particles)
+    var coloring_TradeQueue = regentlib.c.legion_domain_point_coloring_create()
+    for z = 0,NZ do
+      for y = 0,NY do
+        for x = 0,NX do
+          var rBase : int64
+          for rStart in [TradeQueue[1]] do
+            rBase = rStart + (z*NX*NY + y*NX + x) * config.Particles.maxXferNum
+            break
+          end
+          regentlib.c.legion_domain_point_coloring_color_domain(coloring_TradeQueue, int3d{x,y,z}, rect1d{rBase,rBase+config.Particles.maxXferNum-1})
+        end
+      end
+    end
+    @ESCAPE for k = 1,26 do @EMIT
+      var [p_TradeQueue[k]] = partition(disjoint, [TradeQueue[k]], coloring_TradeQueue, tiles)
+    @TIME end @EPACSE
+    regentlib.c.legion_domain_point_coloring_destroy(coloring_TradeQueue)
+
+    -- Radiation Partitioning
+    regentlib.assert(config.Radiation.xNum % NX == 0, "Uneven partitioning of radiation grid on x")
+    regentlib.assert(config.Radiation.yNum % NY == 0, "Uneven partitioning of radiation grid on y")
+    regentlib.assert(config.Radiation.zNum % NZ == 0, "Uneven partitioning of radiation grid on z")
+    var coloring_Radiation = regentlib.c.legion_domain_point_coloring_create()
+    for c in tiles do
+      var rect = rect3d{lo = int3d{x = (config.Radiation.xNum/NX)*c.x,       y = (config.Radiation.yNum/NY)*c.y,       z = (config.Radiation.zNum/NZ)*c.z      },
+                        hi = int3d{x = (config.Radiation.xNum/NX)*(c.x+1)-1, y = (config.Radiation.yNum/NY)*(c.y+1)-1, z = (config.Radiation.zNum/NZ)*(c.z+1)-1}}
+      regentlib.c.legion_domain_point_coloring_color_domain(coloring_Radiation, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
+    end
+    var [p_Radiation] = partition(disjoint, Radiation, coloring_Radiation, tiles)
+    regentlib.c.legion_domain_point_coloring_destroy(coloring_Radiation);
 
     ---------------------------------------------------------------------------
     -- DOM code declarations
@@ -5261,18 +5307,15 @@ local function mkInstance() local INSTANCE = {}
       for c in tiles do
         Particles_CheckPartitioning(c,
                                     p_Particles[c],
-                                    Grid.xBnum, config.Grid.xNum, config.Mapping.tiles[0],
-                                    Grid.yBnum, config.Grid.yNum, config.Mapping.tiles[1],
-                                    Grid.zBnum, config.Grid.zNum, config.Mapping.tiles[2])
+                                    Grid.xBnum, config.Grid.xNum, NX,
+                                    Grid.yBnum, config.Grid.yNum, NY,
+                                    Grid.zBnum, config.Grid.zNum, NZ)
       end
       Particles_number += Particles_CalculateNumber(Particles)
     end
     if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform) then
       InitParticlesUniform(Particles, Fluid, config, Grid.xBnum, Grid.yBnum, Grid.zBnum)
-      Particles_number =
-        config.Particles.initNum
-        / (config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2])
-        * (config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2])
+      Particles_number = (config.Particles.initNum / numTiles) * numTiles
     end
 
     -- Initialize radiation
@@ -5634,17 +5677,31 @@ local function mkInstance() local INSTANCE = {}
                                 Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
       end
       for c in tiles do
-        Particles_pushAll(c,
-                          p_Particles[c],
-                          [qSrcParts:map(function(p) return rexpr p[c] end end)],
-                          Grid.xBnum, config.Grid.xNum, config.Mapping.tiles[0],
-                          Grid.yBnum, config.Grid.yNum, config.Mapping.tiles[1],
-                          Grid.zBnum, config.Grid.zNum, config.Mapping.tiles[2])
+        Particles_clearSource([UTIL.range(1,26):map(function(k) return rexpr [p_TradeQueue[k]][c] end end)])
       end
       for c in tiles do
-        Particles_pullAll(c,
-                          p_Particles[c],
-                          [qDstParts:map(function(p) return rexpr p[c] end end)])
+        Particles_fillSource(c,
+                             p_Particles[c],
+                             [UTIL.range(1,26):map(function(k) return rexpr [p_TradeQueue[k]][c] end end)],
+                             Grid.xBnum, config.Grid.xNum, NX,
+                             Grid.yBnum, config.Grid.yNum, NY,
+                             Grid.zBnum, config.Grid.zNum, NZ)
+      end
+      for c in tiles do
+        Particles_pushAll(p_Particles[c],
+                          [UTIL.range(1,26):map(function(k) return rexpr [p_TradeQueue[k]][c] end end)])
+      end
+      for c in tiles do
+        Particles_fillTarget(p_Particles[c],
+                             [UTIL.range(1,26):map(function(k) return rexpr
+                                [p_TradeQueue[k]][ (c-[colorOffsets[k]]+{NX,NY,NZ}) % {NX,NY,NZ} ]
+                              end end)])
+      end
+      for c in tiles do
+        Particles_pullAll(p_Particles[c],
+                          [UTIL.range(1,26):map(function(k) return rexpr
+                             [p_TradeQueue[k]][ (c-[colorOffsets[k]]+{NX,NY,NZ}) % {NX,NY,NZ} ]
+                           end end)])
       end
 
       Integrator_simTime = (Integrator_time_old+((0.5*(1+(Integrator_stage/3)))*Integrator_deltaTime))

@@ -116,6 +116,16 @@ function run_certainty {
         "$SOLEIL_DIR"/src/certainty.slurm
 }
 
+function run_sherlock {
+    RESOURCES=
+    if [[ "$USE_CUDA" == 1 ]]; then
+        RESOURCES="gpu:4"
+    fi
+    sbatch --export=ALL \
+        -N "$NUM_RANKS" -t "$WALLTIME" --gres="$RESOURCES" \
+        "$SOLEIL_DIR"/src/sherlock.slurm
+}
+
 function run_sapling {
     # Allocate up to 4 nodes, from n0000 up to n0003
     if (( NUM_RANKS > 4 )); then quit "Too many nodes requested"; fi
@@ -125,13 +135,13 @@ function run_sapling {
     done
     GPU_OPTS=
     if [[ "$USE_CUDA" == 1 ]]; then
-        GPU_OPTS="-ll:gpu 1 -ll:fsize 2048"
+        GPU_OPTS="-ll:gpu 2 -ll:fsize 6000"
     fi
     mpiexec -H "$NODES" --bind-to none \
         -x LD_LIBRARY_PATH -x SOLEIL_DIR -x REALM_BACKTRACE \
         "$SOLEIL_DIR"/src/soleil.exec $ARGS $GPU_OPTS \
         -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 \
-        -ll:csize 20000
+        -ll:csize 38000
     # Resources:
     # 40230MB RAM per node
     # 2 NUMA domains per node
@@ -154,6 +164,8 @@ elif [[ "$(hostname -d)" == *"summit"* ]]; then
     run_summit
 elif [[ "$(uname -n)" == *"certainty"* ]]; then
     run_certainty
+elif [[ "$(uname -n)" == *"sh-ln"* ]]; then
+    run_sherlock
 elif [[ "$(uname -n)" == *"sapling"* ]]; then
     run_sapling
 else

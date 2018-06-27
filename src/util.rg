@@ -153,6 +153,70 @@ function Exports.generate(n, generator)
   return res
 end
 
+-- () -> T*
+function TerraList:flatten(res)
+  res = res or terralib.newlist()
+  for _,e in ipairs(self) do
+    if terralib.israwlist(e) then
+      e:flatten(res)
+    else
+      res:insert(e)
+    end
+  end
+  return res
+end
+
+-- int, int -> T*
+function Exports.range(first, last)
+  local res = terralib.newlist()
+  for i = first,last do
+    res:insert(i)
+  end
+  return res
+end
+
+-------------------------------------------------------------------------------
+-- Sets
+-------------------------------------------------------------------------------
+
+-- set(T) -> T*
+function Exports.setToList(set)
+  local list = terralib.newlist()
+  for e,_ in pairs(set) do
+    list:insert(e)
+  end
+  return list
+end
+
+-- T* -> set(T)
+function Exports.listToSet(list)
+  local set = {}
+  for _,e in ipairs(list) do
+    set[e] = true
+  end
+  return set
+end
+
+-- set(T) -> T
+function Exports.setPop(set)
+  local elem
+  for e,_ in pairs(set) do
+    elem = e
+    break
+  end
+  set[elem] = nil
+  return elem
+end
+
+-- set(T), T* -> set(T)
+function Exports.setSubList(set, list)
+  local res = Exports.copyTable(set)
+  for _,e in ipairs(list) do
+    res[e] = nil
+  end
+  return res
+end
+
 -------------------------------------------------------------------------------
 -- Sets
 -------------------------------------------------------------------------------
@@ -288,6 +352,35 @@ function Exports.prettyPrintStruct(s, cStyle, indent)
     assert(false)
   lines:insert(indent..close)
   return lines:join('\n')
+end
+
+-- terralib.struct -> string*
+function Exports.fieldNames(s)
+  return s.entries:map(function(e)
+    local name,typ = Exports.parseStructEntry(e)
+    return name
+  end)
+end
+
+-- string, terralib.struct, string*, map(string,terralib.type)?
+--   -> terralib.struct
+function Exports.deriveStruct(newName, origStruct, keptFlds, addedFlds)
+  addedFlds = addedFlds or {}
+  local origFlds = {}
+  for _,e in ipairs(origStruct.entries) do
+    local name,typ = Exports.parseStructEntry(e)
+    assert(not addedFlds[name])
+    origFlds[name] = typ
+  end
+  local newStruct = terralib.types.newstruct(newName)
+  for _,name in ipairs(keptFlds) do
+    local typ = assert(origFlds[name])
+    newStruct.entries:insert({name,typ})
+  end
+  for name,typ in pairs(addedFlds) do
+    newStruct.entries:insert({name,typ})
+  end
+  return newStruct
 end
 
 -------------------------------------------------------------------------------
