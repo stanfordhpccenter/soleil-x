@@ -12,7 +12,7 @@ srun -N "$NUM_RANKS" --ntasks-per-node=1 -c 20 \
     --export=ALL \
     "$SOLEIL_DIR"/src/soleil.exec $ARGS $GPU_OPTS \
     -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 19 \
-    -ll:csize 240000
+    -ll:csize 240000 -ll:ostack 8
 
 # Resources:
 # 256GB RAM per node

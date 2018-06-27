@@ -36,7 +36,7 @@ jsrun -n "$NUM_RANKS" -r 2 -a 1 -c 21 -g 3 -b rs \
     "$SOLEIL_DIR"/src/pick_hcas.py \
     "$SOLEIL_DIR"/src/soleil.exec $ARGS $GPU_OPTS \
     -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 20 \
-    -ll:csize 16384 -ll:rsize 1024 -ll:gsize 0
+    -ll:csize 16384 -ll:rsize 1024 -ll:gsize 0 -ll:ostack 8
 
 # Resources:
 # 2 NUMA domains per node

@@ -42,7 +42,7 @@ aprun -n "$NUM_RANKS" -N 1 -cc none \
     /lib64/ld-linux-x86-64.so.2 \
     "$SOLEIL_DIR"/src/soleil.exec $ARGS $GPU_OPTS \
     -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr "$NUM_THREADS" \
-    -ll:csize 20000 -ll:rsize 1024 -ll:gsize 0
+    -ll:csize 20000 -ll:rsize 1024 -ll:gsize 0 -ll:ostack 8
 
 # Resources:
 # 32GB RAM per node
