@@ -25,6 +25,7 @@ Normally you'd need to edit file `~/.bashrc`. Replace the `???` depending on you
 # Module loads (if necessary)
 ...
 # Build config (if necessary, for Legion or Soleil-X)
+export CC_FLAGS=-DREALM_USE_NATIVE_THREADS
 ...
 # Path setup (mandatory)
 export LEGION_DIR=???
@@ -83,6 +84,7 @@ Setup (local Ubuntu machine w/o GPU)
 
 ```
 # Build config
+export CC_FLAGS=-DREALM_USE_NATIVE_THREADS
 export CC=gcc
 export CXX=g++
 # Path setup
@@ -122,6 +124,7 @@ Setup (Sapling @ Stanford)
 module load mpi/openmpi/1.8.2
 module load cuda/8.0
 # Build config
+export CC_FLAGS=-DREALM_USE_NATIVE_THREADS
 export CONDUIT=ibv
 export CC=gcc-4.9
 export CXX=g++-4.9
@@ -167,9 +170,11 @@ module load gcc/6.3.0
 module load cuda/8.0.61
 module load openmpi/2.0.2
 # Build config
+export CC_FLAGS=-DREALM_USE_NATIVE_THREADS
 export CONDUIT=ibv
 export CC=gcc
 export CXX=g++
+export LD_FLAGS=-lpmi2
 # Path setup
 export LEGION_DIR=???
 export HDF_ROOT="$LEGION_DIR"/language/hdf/install
@@ -193,7 +198,7 @@ We build Legion in a SLURM job, because processes on the login node are restrict
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 LD_FLAGS=-lpmi2 srun -N 1 -c 10 -p aaiken --gres=gpu:4 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 srun -N 1 -c 10 -p aaiken --gres=gpu:4 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
 ### Compile Soleil-X
@@ -216,6 +221,7 @@ module load gnu7/7.2.0
 module load cuda/8.0
 module load openmpi3/3.0.0
 # Build config
+export CC_FLAGS=-DREALM_USE_NATIVE_THREADS
 export CONDUIT=ibv
 export CC=gcc
 export CXX=g++
@@ -271,6 +277,7 @@ module load python/2.7.9
 module load cudatoolkit/7.5.18-1.0502.10743.2.1
 module swap PrgEnv-pgi PrgEnv-gnu
 # Build config
+export CC_FLAGS=-DREALM_USE_NATIVE_THREADS
 export MARCH=barcelona
 export CC=cc
 export CXX=CC
@@ -319,6 +326,7 @@ Install Legion and Soleil-X on the `/ccs/proj` filesystem, not your home directo
 module load gcc/6.4.0
 module load cuda/9.0.184
 # Build config
+export CC_FLAGS=-DREALM_USE_NATIVE_THREADS
 export CC=gcc
 export CXX=g++
 export CONDUIT=ibv
