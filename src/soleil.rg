@@ -3569,6 +3569,21 @@ local tradeQueuePtrs = UTIL.generate(26, function()
   return regentlib.newsymbol()
 end)
 
+__demand(__cuda) -- MANUALLY PARALLELIZED
+task Particles_clearSource([tradeQueues])
+where
+  [tradeQueues:map(function(q)
+     return regentlib.privilege(regentlib.writes, q, '__source')
+   end)]
+do
+  @ESCAPE for k = 1,26 do local q = tradeQueues[k] @EMIT
+    __demand(__openmp)
+    for qPtr in q do
+      qPtr.__source = -1
+    end
+  @TIME end @EPACSE
+end
+
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Particles_fillSource(partColor : int3d,
                           Particles : region(ispace(int1d), Particles_columns),
@@ -3584,9 +3599,6 @@ where
 do
   @ESCAPE for k = 1,26 do local q = tradeQueues[k] local j = tradeQueuePtrs[k] @EMIT
     var [j] = q.bounds.lo
-    for qPtr in q do
-      qPtr.__source = -1
-    end
   @TIME end @EPACSE
   for i in Particles do
     if Particles[i].__valid then
@@ -5640,6 +5652,9 @@ local function mkInstance() local INSTANCE = {}
                                 Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
                                 Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
                                 Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+      end
+      for c in tiles do
+        Particles_clearSource([UTIL.range(1,26):map(function(k) return rexpr [p_TradeQueue[k]][c] end end)])
       end
       for c in tiles do
         Particles_fillSource(c,
