@@ -99,6 +99,13 @@ function run_summit {
         "$SOLEIL_DIR"/src/summit.lsf
 }
 
+function run_pizdaint {
+    export QUEUE="${QUEUE:-debug}"
+    sbatch --export=ALL \
+        -N "$NUM_RANKS" -t "$WALLTIME" -p "$QUEUE" \
+        "$SOLEIL_DIR"/src/pizdaint.slurm
+}
+
 function run_certainty {
     export QUEUE="${QUEUE:-gpu}"
     RESOURCES=
@@ -158,6 +165,8 @@ if [[ "$(uname -n)" == *"titan"* ]]; then
     run_titan
 elif [[ "$(hostname -d)" == *"summit"* ]]; then
     run_summit
+elif [[ "$(uname -n)" == *"daint"* ]]; then
+    run_pizdaint
 elif [[ "$(uname -n)" == *"certainty"* ]]; then
     run_certainty
 elif [[ "$(uname -n)" == *"sh-ln"* ]]; then

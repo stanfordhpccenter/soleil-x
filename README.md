@@ -360,3 +360,50 @@ USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-versi
 cd "$SOLEIL_DIR"/src
 make
 ```
+
+Setup (PizDaint @ ETH)
+======================
+
+### Add to shell startup
+
+```
+# Module loads
+module swap PrgEnv-cray PrgEnv-gnu
+module load daint-gpu
+module load cudatoolkit/8.0.61_2.4.3-6.0.4.0_3.1__gb475d12
+# Build config
+export CC_FLAGS=-DREALM_USE_NATIVE_THREADS
+export CC=cc
+export CXX=CC
+export HOST_CC=gcc
+export HOST_CXX=g++
+# Path setup
+export LEGION_DIR=???
+export HDF_ROOT="$LEGION_DIR"/language/hdf/install
+export SOLEIL_DIR=???
+# CUDA config
+export CUDA_HOME=/opt/nvidia/cudatoolkit8.0/8.0.61_2.4.3-6.0.4.0_3.1__gb475d12/
+export CUDA="$CUDA_HOME"
+export GPU_ARCH=pascal
+```
+
+### Download software
+
+```
+git clone https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
+```
+
+### Install Legion
+
+```
+cd "$LEGION_DIR"/language
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+```
+
+### Compile Soleil-X
+
+```
+cd "$SOLEIL_DIR"/src
+make
+```
