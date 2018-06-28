@@ -790,22 +790,28 @@ do
       end
       Fluid[c_bnd].velocity = velocity
 
+      -- Just copy over the density from the interior
+      Fluid[c_bnd].rho = Fluid[c_int].rho
+
       var temperature : double
       if BC_xBCLeftHeat_type == SCHEMA.TempProfile_Constant then
         temperature = BC_xBCLeftHeat_Constant_temperature
+
+        -- Use the specified temperature to find the correct pressure for current density from EOS
+        Fluid[c_bnd].pressure = temperature*Flow_gasConstant*Fluid[c_bnd].rho
+
       -- elseif BC_xBCLeftHeat_type == SCHEMA.TempProfile_Parabola then
       --   regentlib.assert(false, 'Parabola heat model not supported')
       else -- BC_xBCLeftHeat_type == SCHEMA.TempProfile_Incoming
         -- This value will be overwritten by the incoming fluid, so just set
         -- it to something reasonable.
-        temperature = Fluid[c_int].temperature
+        Fluid[c_bnd].pressure = Fluid[c_int].pressure
+        
+        -- Use equation of state to find temperature of cell 
+        temperature = (Fluid[c_bnd].pressure/(Flow_gasConstant*Fluid[c_bnd].rho))
+         
       end
 
-      -- Just copy over the density from the interior
-      Fluid[c_bnd].rho = Fluid[c_int].rho
-
-      -- Use the specified temperature to find the correct pressure for current density from EOS
-      Fluid[c_bnd].pressure = temperature*Flow_gasConstant*Fluid[c_bnd].rho
 
       -- for time stepping RHS of INFLOW
       Fluid[c_bnd].velocity_old_NSCBC = velocity
