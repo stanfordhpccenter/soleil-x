@@ -786,7 +786,7 @@ do
       else -- BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Incoming
         -- This value will be overwritten by the incoming fluid, so just set
         -- it to something reasonable.
-        velocity[0] = BC_xBCLeftInflowProfile_Incoming_addedVelocity
+        velocity = Fluid[c_int].velocity
       end
       Fluid[c_bnd].velocity = velocity
 
