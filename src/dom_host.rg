@@ -95,7 +95,7 @@ where
   reads (points.G)
 do
   var limits = points.bounds
-  var f = C.fopen("dom_intensities/intensity.dat", "w")
+  var f = C.fopen("intensity.dat", "w")
   for i = limits.lo.x, limits.hi.x+1 do
     for j = limits.lo.y, limits.hi.y+1 do
       for k = limits.lo.z, limits.hi.z+1 do
@@ -121,7 +121,7 @@ local task main()
     C.fflush(stderr)
     C.exit(1)
   end
-  var config = SCHEMA.parse_config(args.argv[1])
+  var config = SCHEMA.parse_Config(args.argv[1])
 
   if config.Radiation.angles ~= NUM_ANGLES then
     C.fprintf(stderr, "angles in config file (%d) must match NUM_ANGLES in dom_host.rg (%d)\n",
