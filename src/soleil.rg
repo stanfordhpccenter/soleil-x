@@ -3850,6 +3850,10 @@ do
   end
 end
 
+-- NOTE: It is important that Particles are placed first in the arguments list,
+-- to make sure the mapper will map this task according to the sample the
+-- Particles belong to (the second in a 2-section simulation). The CopyQueue
+-- technically belongs to the first section.
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task CopyQueue_pull(partColor : int3d,
                     Particles : region(ispace(int1d), Particles_columns),
@@ -4786,6 +4790,19 @@ end
 -- MAIN SIMULATION
 -------------------------------------------------------------------------------
 
+-- regentlib.symbol, regentlib.symbol, terralib.struct, regentlib.rexpr
+--   -> regentlib.rquote
+local function mkRegionDecl(r, is, fs, sampleId)
+  return rquote
+    var [r] = region(is, fs)
+    var info : int[1]
+    info[0] = sampleId
+    regentlib.c.legion_logical_region_attach_semantic_information(
+      __runtime(), __raw(r), MAPPER.SAMPLE_ID_TAG,
+      [&int](info), [sizeof(int)], false)
+  end
+end
+
 local function mkInstance() local INSTANCE = {}
 
   local DOM_INST = DOM.mkInstance()
@@ -5178,24 +5195,30 @@ local function mkInstance() local INSTANCE = {}
     -- Create Regions and Partitions
     ---------------------------------------------------------------------------
 
+    var sampleId = config.Mapping.sampleId
+
     -- Create Fluid Regions
-    var is_Fluid = ispace(int3d, int3d({x = (config.Grid.xNum+(2*Grid.xBnum)), y = (config.Grid.yNum+(2*Grid.yBnum)), z = (config.Grid.zNum+(2*Grid.zBnum))}))
-    var [Fluid] = region(is_Fluid, Fluid_columns)
-    var [Fluid_copy] = region(is_Fluid, Fluid_columns)
+    var is_Fluid = ispace(int3d, {x = config.Grid.xNum + 2*Grid.xBnum,
+                                  y = config.Grid.yNum + 2*Grid.yBnum,
+                                  z = config.Grid.zNum + 2*Grid.zBnum});
+    [mkRegionDecl(Fluid, is_Fluid, Fluid_columns, sampleId)];
+    [mkRegionDecl(Fluid_copy, is_Fluid, Fluid_columns, sampleId)];
 
     -- Create Particles Regions
     var maxParticlesPerTile = ceil((config.Particles.maxNum/numTiles)*config.Particles.maxSkew)
-    var is_Particles = ispace(int1d, maxParticlesPerTile * numTiles)
-    var [Particles] = region(is_Particles, Particles_columns)
-    var [Particles_copy] = region(is_Particles, Particles_columns)
+    var is_Particles = ispace(int1d, maxParticlesPerTile * numTiles);
+    [mkRegionDecl(Particles, is_Particles, Particles_columns, sampleId)];
+    [mkRegionDecl(Particles_copy, is_Particles, Particles_columns, sampleId)];
     var is_TradeQueue = ispace(int1d, config.Particles.maxXferNum * numTiles);
     @ESCAPE for k = 1,26 do @EMIT
-      var [TradeQueue[k]] = region(is_TradeQueue, TradeQueue_columns)
+      [mkRegionDecl(TradeQueue[k], is_TradeQueue, TradeQueue_columns, sampleId)];
     @TIME end @EPACSE
 
     -- Create Radiation Regions
-    var is_Radiation = ispace(int3d, int3d({x = config.Radiation.xNum, y = config.Radiation.yNum, z = config.Radiation.zNum}))
-    var [Radiation] = region(is_Radiation, Radiation_columns)
+    var is_Radiation = ispace(int3d, {x = config.Radiation.xNum,
+                                      y = config.Radiation.yNum,
+                                      z = config.Radiation.zNum});
+    [mkRegionDecl(Radiation, is_Radiation, Radiation_columns, sampleId)];
 
     -- Partitioning domain
     var [tiles] = ispace(int3d, {NX,NY,NZ})
@@ -5912,6 +5935,9 @@ return INSTANCE end -- mkInstance
 -- TOP-LEVEL INTERFACE
 -------------------------------------------------------------------------------
 
+local CopyQueue = regentlib.newsymbol()
+local FakeCopyQueue = regentlib.newsymbol()
+
 local function parallelizeFor(sim, stmts)
   return rquote
     __parallelize_with
@@ -5925,12 +5951,13 @@ local SIM = mkInstance()
 
 __forbid(__optimize) __demand(__inner)
 task workSingle(config : Config)
-  [SIM.DeclSymbols(config)]
-  var CopyQueue = region(ispace(int1d,0), CopyQueue_columns);
+  [SIM.DeclSymbols(config)];
+  var is_FakeCopyQueue = ispace(int1d, 0);
+  [mkRegionDecl(FakeCopyQueue, is_FakeCopyQueue, CopyQueue_columns, -1)];
   [parallelizeFor(SIM, rquote
     [SIM.InitRegions(config)];
     while true do
-      [SIM.MainLoopBody(config, CopyQueue)];
+      [SIM.MainLoopBody(config, FakeCopyQueue)];
     end
   end)];
   [SIM.Cleanup()];
@@ -5944,6 +5971,8 @@ task workDual(mc : MultiConfig)
   -- Declare symbols
   [SIM0.DeclSymbols(rexpr mc.configs[0] end)];
   [SIM1.DeclSymbols(rexpr mc.configs[1] end)];
+  var is_FakeCopyQueue = ispace(int1d, 0);
+  [mkRegionDecl(FakeCopyQueue, is_FakeCopyQueue, CopyQueue_columns, -1)];
   var copySrcOrigin = array(
     SIM0.Grid.xRealOrigin + mc.copySrc.fromCell[0] * SIM0.Grid.xCellWidth,
     SIM0.Grid.yRealOrigin + mc.copySrc.fromCell[1] * SIM0.Grid.yCellWidth,
@@ -5964,7 +5993,8 @@ task workDual(mc : MultiConfig)
       coloring_CopyQueue, c, rect1d{CopyQueue_ptr,CopyQueue_ptr+partSize-1})
     CopyQueue_ptr += partSize
   end
-  var CopyQueue = region(ispace(int1d,CopyQueue_ptr), CopyQueue_columns)
+  var is_CopyQueue = ispace(int1d, CopyQueue_ptr);
+  [mkRegionDecl(CopyQueue, is_CopyQueue, CopyQueue_columns, rexpr mc.configs[0].Mapping.sampleId end)];
   var p_CopyQueue = partition(disjoint, CopyQueue, coloring_CopyQueue, SIM0.tiles)
   regentlib.c.legion_domain_point_coloring_destroy(coloring_CopyQueue)
   -- Check 2-section configuration
@@ -6017,7 +6047,7 @@ task workDual(mc : MultiConfig)
   -- Main simulation loop
   while true do
     -- Run 1 iteration of first section
-    [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end, CopyQueue))];
+    [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end, FakeCopyQueue))];
     -- Copy fluid values to second section
     copy(Fluid0_src.temperature, Fluid1_tgt.temperature_inc)
     copy(Fluid0_src.velocity, Fluid1_tgt.velocity_inc)

@@ -29,16 +29,6 @@ static Realm::Logger LOG("soleil_mapper");
 #define STARTS_WITH(str, prefix)                \
   (strncmp((str), (prefix), sizeof(prefix) - 1) == 0)
 
-static const Config* find_config(const Task* task) {
-  for(; task != NULL; task = task->parent_task) {
-    if (strcmp(task->get_task_name(), "work") == 0) {
-      const char* ptr = static_cast<const char*>(task->args);
-      return reinterpret_cast<const Config*>(ptr + sizeof(uint64_t));
-    }
-  }
-  return NULL;
-}
-
 //=============================================================================
 
 // Maps super-tiles to ranks, in row-major order. Within a super-tile, tiles
@@ -102,10 +92,7 @@ public:
     // Assign ranks sequentially to samples, each sample getting one rank for
     // each super-tile.
     AddressSpace reqd_ranks = 0;
-    unsigned num_samples = 0;
-    auto process_config = [&](char* config_file) {
-      Config config;
-      parse_Config(&config, config_file);
+    auto process_config = [&](const Config& config) {
       CHECK(config.Mapping.tiles[0] > 0 &&
             config.Mapping.tiles[1] > 0 &&
             config.Mapping.tiles[2] > 0 &&
@@ -115,20 +102,22 @@ public:
             config.Mapping.tiles[0] % config.Mapping.tilesPerRank[0] == 0 &&
             config.Mapping.tiles[1] % config.Mapping.tilesPerRank[1] == 0 &&
             config.Mapping.tiles[2] % config.Mapping.tilesPerRank[2] == 0,
-            "Invalid tiling for sample %d", num_samples);
+            "Invalid tiling for sample %lu", sample_mappings_.size() + 1);
       sample_mappings_.emplace_back(config, reqd_ranks);
-      unsigned num_ranks = sample_mappings_.back().num_ranks();
-      if (reqd_ranks <= node_id && node_id < reqd_ranks + num_ranks) {
-        local_sample_id_ = num_samples;
-      }
-      reqd_ranks += num_ranks;
-      num_samples++;
+      reqd_ranks += sample_mappings_.back().num_ranks();
     };
     // Locate all config files specified on the command-line arguments.
     InputArgs args = Runtime::get_input_args();
     for (int i = 0; i < args.argc; ++i) {
       if (strcmp(args.argv[i], "-i") == 0 && i < args.argc-1) {
-        process_config(args.argv[i+1]);
+        Config config;
+        parse_Config(&config, args.argv[i+1]);
+        process_config(config);
+      } else if (strcmp(args.argv[i], "-m") == 0 && i < args.argc-1) {
+        MultiConfig mc;
+        parse_MultiConfig(&mc, args.argv[i+1]);
+        process_config(mc.configs[0]);
+        process_config(mc.configs[1]);
       }
     }
     // Verify that we have enough ranks.
@@ -160,13 +149,10 @@ public:
     bool is_bound = STARTS_WITH(task.get_task_name(), "bound_");
     if (is_sweep || is_bound) {
       CHECK(task.parent_task != NULL &&
-            strcmp(task.parent_task->get_task_name(), "work") == 0,
+            STARTS_WITH(task.parent_task->get_task_name(), "work"),
             "DOM tasks should only be launched from the work task directly.");
-      // Retrieve sample information from parent work task.
-      const Config* config = find_config(&task);
-      assert(config != NULL);
-      unsigned sample_id = config->Mapping.sampleId;
-      assert(sample_id < sample_mappings_.size());
+      // Retrieve sample information.
+      unsigned sample_id = find_sample_id(ctx, task);
       const SampleMapping& mapping = sample_mappings_[sample_id];
       // Find the tile this task launch is centered on.
       DomainPoint tile = DomainPoint::nil();
@@ -201,9 +187,9 @@ public:
       }
       // Assign rank according to the precomputed mapping, then round-robin
       // over all the processors of the preffered kind within that rank.
-      CHECK(0 <= tile[0] && tile[0] < config->Mapping.tiles[0] &&
-            0 <= tile[1] && tile[1] < config->Mapping.tiles[1] &&
-            0 <= tile[2] && tile[2] < config->Mapping.tiles[2],
+      CHECK(0 <= tile[0] && tile[0] < mapping.x_tiles() &&
+            0 <= tile[1] && tile[1] < mapping.y_tiles() &&
+            0 <= tile[2] && tile[2] < mapping.z_tiles(),
             "DOM task launches should only use the top-level tiling.");
       AddressSpace target_rank = mapping.get_rank(tile[0], tile[1], tile[2]);
       VariantInfo info =
@@ -222,11 +208,8 @@ public:
     }
     // Send each work task to the first in the set of ranks allocated to the
     // corresponding sample.
-    if (strcmp(task.get_task_name(), "work") == 0) {
-      const Config* config = find_config(&task);
-      assert(config != NULL);
-      unsigned sample_id = config->Mapping.sampleId;
-      assert(sample_id < sample_mappings_.size());
+    if (STARTS_WITH(task.get_task_name(), "work")) {
+      unsigned sample_id = find_sample_id(ctx, task);
       AddressSpace target_rank = sample_mappings_[sample_id].get_rank(0,0,0);
       Processor target_proc = remote_cpus[target_rank];
       LOG.debug() << "Sample " << sample_id << ":"
@@ -248,6 +231,9 @@ public:
     if (!STARTS_WITH(task.get_task_name(), "sweep_")) {
       return DefaultMapper::default_policy_select_task_priority(ctx, task);
     }
+    // Retrieve sample information.
+    unsigned sample_id = find_sample_id(ctx, task);
+    const SampleMapping& mapping = sample_mappings_[sample_id];
     // Compute direction of sweep.
     int sweep_id = atoi(task.get_task_name() + sizeof("sweep_") - 1) - 1;
     CHECK(0 <= sweep_id && sweep_id <= 7,
@@ -269,19 +255,18 @@ public:
     CHECK(!tile.is_null(),
           "Cannot retrieve tile from DOM task launch -- did you change the"
           " names of the field spaces?");
-    const SampleMapping& local_mapping = sample_mappings_[local_sample_id_];
     CHECK(tile.get_dim() == 3 &&
-          0 <= tile[0] && tile[0] < local_mapping.x_tiles() &&
-          0 <= tile[1] && tile[1] < local_mapping.y_tiles() &&
-          0 <= tile[2] && tile[2] < local_mapping.z_tiles(),
+          0 <= tile[0] && tile[0] < mapping.x_tiles() &&
+          0 <= tile[1] && tile[1] < mapping.y_tiles() &&
+          0 <= tile[2] && tile[2] < mapping.z_tiles(),
           "DOM task launches should only use the top-level tiling.");
     // Assign priority according to the number of diagonals between this launch
     // and the end of the domain.
     int priority =
-      (x_rev ? tile[0] : local_mapping.x_tiles() - tile[0] - 1) +
-      (y_rev ? tile[1] : local_mapping.y_tiles() - tile[1] - 1) +
-      (z_rev ? tile[2] : local_mapping.z_tiles() - tile[2] - 1);
-    LOG.debug() << "Sample " << local_sample_id_ << ":"
+      (x_rev ? tile[0] : mapping.x_tiles() - tile[0] - 1) +
+      (y_rev ? tile[1] : mapping.y_tiles() - tile[1] - 1) +
+      (z_rev ? tile[2] : mapping.z_tiles() - tile[2] - 1);
+    LOG.debug() << "Sample " << sample_id << ":"
                 << " Task " << task.get_task_name()
                 << " on tile " << tile
                 << " given priority " << priority;
@@ -320,14 +305,11 @@ public:
                           const SliceTaskInput& input,
                           SliceTaskOutput& output) {
     CHECK(task.parent_task != NULL &&
-          strcmp(task.parent_task->get_task_name(), "work") == 0,
+          STARTS_WITH(task.parent_task->get_task_name(), "work"),
           "Index-space launches only allowed in work task");
     output.verify_correctness = false;
-    // Retrieve sample information from parent task.
-    const Config* config = find_config(&task);
-    assert(config != NULL);
-    unsigned sample_id = config->Mapping.sampleId;
-    assert(sample_id < sample_mappings_.size());
+    // Retrieve sample information.
+    unsigned sample_id = find_sample_id(ctx, task);
     const SampleMapping& mapping = sample_mappings_[sample_id];
     CHECK(input.domain.get_dim() == 3 &&
           input.domain.lo()[0] == 0 &&
@@ -364,6 +346,30 @@ public:
   }
 
 private:
+  unsigned find_sample_id(const MapperContext ctx, const Task& task) const {
+    for (const RegionRequirement& req : task.regions) {
+      assert(req.region.exists());
+      LogicalRegion region = req.region;
+      while (runtime->has_parent_logical_partition(ctx, region)) {
+        region =
+          runtime->get_parent_logical_region(ctx,
+            runtime->get_parent_logical_partition(ctx, region));
+      }
+      const void* info = NULL;
+      size_t info_size = 0;
+      bool success = runtime->retrieve_semantic_information
+        (ctx, region, SAMPLE_ID_TAG, info, info_size,
+         false /*can_fail*/, true /*wait_until_ready*/);
+      CHECK(success, "Missing SAMPLE_ID_TAG semantic information on region");
+      assert(info_size == sizeof(unsigned));
+      unsigned sample_id = *static_cast<const unsigned*>(info);
+      assert(sample_id < sample_mappings_.size());
+      return sample_id;
+    }
+    CHECK(false, "No region argument on task launch");
+    return static_cast<unsigned>(-1);
+  }
+
   std::vector<Processor>& get_procs(AddressSpace rank, Processor::Kind kind) {
     assert(rank < all_procs_.size());
     auto& rank_procs = all_procs_[rank];
@@ -376,7 +382,6 @@ private:
 private:
   std::vector<SampleMapping> sample_mappings_;
   std::vector<std::vector<std::vector<Processor> > > all_procs_;
-  unsigned local_sample_id_;
 };
 
 //=============================================================================
@@ -392,7 +397,5 @@ static void create_mappers(Machine machine,
 }
 
 void register_mappers() {
-  if (false) {
-    Runtime::add_registration_callback(create_mappers);
-  }
+  Runtime::add_registration_callback(create_mappers);
 }
