@@ -96,6 +96,11 @@ local TradeQueue_columns =
                     Particles_subStepConserved,
                     {__source=int1d, __target=int1d})
 
+local CopyQueue_columns =
+  UTIL.deriveStruct('CopyQueue_columns',
+                    Particles_columns,
+                    Particles_primitives)
+
 local struct Fluid_columns {
   rho : double;
   pressure : double;
@@ -148,7 +153,6 @@ local struct Fluid_columns {
   temperature_old_NSCBC : double;
   velocity_inc : double[3];
   temperature_inc : double;
-  isCopied : int1d;
 }
 
 local Fluid_primitives = terralib.newlist({
@@ -244,6 +248,11 @@ end
 __demand(__inline)
 task vv_mul(a : double[3], b : double[3])
   return array(a[0] * b[0], a[1] * b[1], a[2] * b[2])
+end
+
+__demand(__inline)
+task vv_div(a : double[3], b : double[3])
+  return array(a[0] / b[0], a[1] / b[1], a[2] / b[2])
 end
 
 -------------------------------------------------------------------------------
@@ -417,7 +426,7 @@ __demand(__parallel, __cuda)
 task AddRadiation(Particles : region(ispace(int1d), Particles_columns),
                   config : Config)
 where
-  reads(Particles.{density, diameter}),
+  reads(Particles.{density, diameter, __valid}),
   reads writes(Particles.temperature_t)
 do
   var absorptivity = config.Particles.absorptivity
@@ -425,11 +434,13 @@ do
   var heatCapacity = config.Particles.heatCapacity
   __demand(__openmp)
   for p in Particles do
-    var crossSectionArea = (((2*acos(0))*pow(p.diameter, 2))/4)
-    var volume = (((2*acos(0))*pow(p.diameter, 3))/6)
-    var mass = (volume*p.density)
-    var absorbedRadiationIntensity = ((absorptivity*intensity)*crossSectionArea)
-    p.temperature_t += (absorbedRadiationIntensity/(mass*heatCapacity))
+    if p.__valid then
+      var crossSectionArea = (((2*acos(0))*pow(p.diameter, 2))/4)
+      var volume = (((2*acos(0))*pow(p.diameter, 3))/6)
+      var mass = (volume*p.density)
+      var absorbedRadiationIntensity = ((absorptivity*intensity)*crossSectionArea)
+      p.temperature_t += (absorbedRadiationIntensity/(mass*heatCapacity))
+    end
   end
 end
 
@@ -806,10 +817,10 @@ do
         -- This value will be overwritten by the incoming fluid, so just set
         -- it to something reasonable.
         Fluid[c_bnd].pressure = Fluid[c_int].pressure
-        
-        -- Use equation of state to find temperature of cell 
+
+        -- Use equation of state to find temperature of cell
         temperature = (Fluid[c_bnd].pressure/(Flow_gasConstant*Fluid[c_bnd].rho))
-         
+
       end
 
 
@@ -3512,6 +3523,10 @@ do
   end
 end
 
+-------------------------------------------------------------------------------
+-- PARTICLE MOVEMENT
+-------------------------------------------------------------------------------
+
 __demand(__inline)
 task locate(pos : double[3],
             Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
@@ -3625,7 +3640,7 @@ local tradeQueuePtrs = UTIL.generate(26, function()
 end)
 
 __demand(__cuda) -- MANUALLY PARALLELIZED
-task Particles_clearSource([tradeQueues])
+task TradeQueue_clearSource([tradeQueues])
 where
   [tradeQueues:map(function(q)
      return regentlib.privilege(regentlib.writes, q, '__source')
@@ -3640,12 +3655,12 @@ do
 end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task Particles_fillSource(partColor : int3d,
-                          Particles : region(ispace(int1d), Particles_columns),
-                          [tradeQueues],
-                          Grid_xBnum : int32, Grid_xNum : int32, NX : int32,
-                          Grid_yBnum : int32, Grid_yNum : int32, NY : int32,
-                          Grid_zBnum : int32, Grid_zNum : int32, NZ : int32)
+task TradeQueue_fillSource(partColor : int3d,
+                           Particles : region(ispace(int1d), Particles_columns),
+                           [tradeQueues],
+                           Grid_xBnum : int32, Grid_xNum : int32, NX : int32,
+                           Grid_yBnum : int32, Grid_yNum : int32, NY : int32,
+                           Grid_zBnum : int32, Grid_zNum : int32, NZ : int32)
 where
   reads(Particles.{cell, __valid}),
   [tradeQueues:map(function(q)
@@ -3679,8 +3694,8 @@ do
 end
 
 __demand(__cuda) -- MANUALLY PARALLELIZED
-task Particles_pushAll(Particles : region(ispace(int1d), Particles_columns),
-                       [tradeQueues])
+task TradeQueue_push(Particles : region(ispace(int1d), Particles_columns),
+                     [tradeQueues])
 where
   reads(Particles.[Particles_subStepConserved]),
   writes(Particles.__valid),
@@ -3710,8 +3725,8 @@ do
 end
 
 -- MANUALLY_PARALLELIZED, NO CUDA, NO OPENMP
-task Particles_fillTarget(Particles : region(ispace(int1d), Particles_columns),
-                          [tradeQueues])
+task TradeQueue_fillTarget(Particles : region(ispace(int1d), Particles_columns),
+                           [tradeQueues])
 where
   reads(Particles.__valid),
   [tradeQueues:map(function(q)
@@ -3738,8 +3753,8 @@ do
 end
 
 __demand(__cuda) -- MANUALLY PARALLELIZED
-task Particles_pullAll(Particles : region(ispace(int1d), Particles_columns),
-                       [tradeQueues])
+task TradeQueue_pull(Particles : region(ispace(int1d), Particles_columns),
+                     [tradeQueues])
 where
   [tradeQueues:map(function(q)
      return Particles_subStepConserved:map(function(f)
@@ -3763,6 +3778,121 @@ do
     end
   @TIME end @EPACSE
 end
+
+__demand(__inline)
+task intersectionSize(a : rect3d, b : SCHEMA.Volume)
+  var sz = 0
+  if  a.hi.x >= b.fromCell[0] and b.uptoCell[0] >= a.lo.x
+  and a.hi.y >= b.fromCell[1] and b.uptoCell[1] >= a.lo.y
+  and a.hi.z >= b.fromCell[2] and b.uptoCell[2] >= a.lo.z then
+    sz = ( min(a.hi.x,b.uptoCell[0]) - max(a.lo.x,b.fromCell[0]) + 1 )
+       * ( min(a.hi.y,b.uptoCell[1]) - max(a.lo.y,b.fromCell[1]) + 1 )
+       * ( min(a.hi.z,b.uptoCell[2]) - max(a.lo.z,b.fromCell[2]) + 1 )
+  end
+  return sz
+end
+
+__demand(__inline)
+task CopyQueue_partSize(fluidPartBounds : rect3d,
+                        config : Config,
+                        copySrc : SCHEMA.Volume)
+  var totalCells = config.Grid.xNum * config.Grid.yNum * config.Grid.zNum
+  return ceil(
+    intersectionSize(fluidPartBounds, copySrc)
+    / [double](totalCells)
+    * config.Particles.maxNum
+    * config.Particles.maxSkew
+  )
+end
+
+__demand(__cuda) -- MANUALLY PARALLELIZED
+task CopyQueue_clear(CopyQueue : region(ispace(int1d), CopyQueue_columns))
+where
+  writes(CopyQueue.__valid)
+do
+  __demand(__openmp)
+  for p in CopyQueue do
+    p.__valid = false
+  end
+end
+
+-- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+task CopyQueue_push(Particles : region(ispace(int1d), Particles_columns),
+                    CopyQueue : region(ispace(int1d), CopyQueue_columns),
+                    copySrc : SCHEMA.Volume,
+                    copySrcOrigin : double[3], copyTgtOrigin : double[3],
+                    Fluid0_cellWidth : double[3], Fluid1_cellWidth : double[3])
+where
+  reads(Particles.[Particles_primitives], Particles.cell),
+  writes(CopyQueue.[Particles_primitives])
+do
+  var p2 = CopyQueue.bounds.lo
+  for p1 in Particles do
+    if p1.__valid then
+      var cell = p1.cell
+      if  copySrc.fromCell[0] <= cell.x and cell.x <= copySrc.uptoCell[0]
+      and copySrc.fromCell[1] <= cell.y and cell.y <= copySrc.uptoCell[1]
+      and copySrc.fromCell[2] <= cell.z and cell.z <= copySrc.uptoCell[2] then
+        regentlib.assert(
+          p2 <= CopyQueue.bounds.hi,
+          'Ran out of space in cross-section particles copy queue')
+        CopyQueue[p2].position =
+          vv_add(copyTgtOrigin, vv_mul(Fluid1_cellWidth,
+            vv_div(vv_sub(p1.position, copySrcOrigin), Fluid0_cellWidth)))
+        CopyQueue[p2].velocity = p1.velocity
+        CopyQueue[p2].temperature = p1.temperature
+        CopyQueue[p2].diameter = p1.diameter
+        CopyQueue[p2].density = p1.density
+        CopyQueue[p2].__valid = true
+        p2 += 1
+      end
+    end
+  end
+end
+
+-- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+task CopyQueue_pull(partColor : int3d,
+                    Particles : region(ispace(int1d), Particles_columns),
+                    CopyQueue : region(ispace(int1d), CopyQueue_columns),
+                    config : Config,
+                    Grid_xBnum : int32, Grid_yBnum : int32, Grid_zBnum : int32)
+where
+  reads(CopyQueue.[Particles_primitives], Particles.__valid),
+  writes(Particles.[Particles_primitives], Particles.cell)
+do
+  var addedVelocity = config.Particles.feeding.u.Incoming.addedVelocity
+  var p1 = Particles.bounds.lo
+  for p2 in CopyQueue do
+    if p2.__valid then
+      var cell = locate(p2.position,
+                        Grid_xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
+                        Grid_yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
+                        Grid_zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+      var elemColor = Fluid_elemColor(cell,
+                                      Grid_xBnum, config.Grid.xNum, config.Mapping.tiles[0],
+                                      Grid_yBnum, config.Grid.yNum, config.Mapping.tiles[1],
+                                      Grid_zBnum, config.Grid.zNum, config.Mapping.tiles[2])
+      if elemColor == partColor then
+        while p1 <= Particles.bounds.hi and Particles[p1].__valid do
+          p1 += 1
+        end
+        regentlib.assert(
+          p1 <= Particles.bounds.hi,
+          'Ran out of space while copying over particles from other section')
+        Particles[p1].position = p2.position
+        Particles[p1].velocity = vv_add(p2.velocity, addedVelocity)
+        Particles[p1].temperature = p2.temperature
+        Particles[p1].diameter = p2.diameter
+        Particles[p1].density = p2.density
+        Particles[p1].__valid = true
+      end
+    end
+  end
+end
+
+-------------------------------------------------------------------------------
+-- OTHER ROUTINES
+-------------------------------------------------------------------------------
 
 __demand(__inline)
 task TrilinearInterpolateVelocity(xyz : double[3],
@@ -5336,7 +5466,7 @@ local function mkInstance() local INSTANCE = {}
   -- Main time-step loop body
   -----------------------------------------------------------------------------
 
-  function INSTANCE.MainLoopBody(config) return rquote
+  function INSTANCE.MainLoopBody(config, CopyQueue) return rquote
 
     -- Calculate exit condition, but don't exit yet
     var exitCond =
@@ -5355,9 +5485,26 @@ local function mkInstance() local INSTANCE = {}
         1.0/Grid.xCellWidth/Grid.xCellWidth +
         1.0/Grid.yCellWidth/Grid.yCellWidth +
         1.0/Grid.zCellWidth/Grid.zCellWidth
-      Integrator_maxConvectiveSpectralRadius max= CalculateConvectiveSpectralRadius(Fluid, config.Flow.gamma, config.Flow.gasConstant, Grid_dXYZInverseSquare, Grid.xCellWidth, Grid.yCellWidth, Grid.zCellWidth)
-      Integrator_maxViscousSpectralRadius max= CalculateViscousSpectralRadius(Fluid, config.Flow.constantVisc, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid_dXYZInverseSquare)
-      Integrator_maxHeatConductionSpectralRadius max= CalculateHeatConductionSpectralRadius(Fluid, config.Flow.constantVisc, config.Flow.gamma, config.Flow.gasConstant, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.prandtl, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid_dXYZInverseSquare)
+      Integrator_maxConvectiveSpectralRadius max=
+        CalculateConvectiveSpectralRadius(Fluid,
+                                          config.Flow.gamma, config.Flow.gasConstant,
+                                          Grid_dXYZInverseSquare, Grid.xCellWidth, Grid.yCellWidth, Grid.zCellWidth)
+      Integrator_maxViscousSpectralRadius max=
+        CalculateViscousSpectralRadius(Fluid,
+                                       config.Flow.constantVisc,
+                                       config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                       config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                       config.Flow.viscosityModel,
+                                       Grid_dXYZInverseSquare)
+      Integrator_maxHeatConductionSpectralRadius max=
+        CalculateHeatConductionSpectralRadius(Fluid,
+                                              config.Flow.constantVisc,
+                                              config.Flow.gamma, config.Flow.gasConstant,
+                                              config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                              config.Flow.prandtl,
+                                              config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                              config.Flow.viscosityModel,
+                                              Grid_dXYZInverseSquare)
       Integrator_deltaTime = (config.Integrator.cfl/max(Integrator_maxConvectiveSpectralRadius, max(Integrator_maxViscousSpectralRadius, Integrator_maxHeatConductionSpectralRadius)))
     end
 
@@ -5413,12 +5560,26 @@ local function mkInstance() local INSTANCE = {}
       break
     end
 
+    -- Feed particles
+    if config.Particles.feeding.type == SCHEMA.FeedModel_OFF then
+      -- Do nothing
+    elseif config.Particles.feeding.type == SCHEMA.FeedModel_Incoming then
+      for c in tiles do
+        CopyQueue_pull(c,
+                       p_Particles[c],
+                       CopyQueue,
+                       config,
+                       Grid.xBnum, Grid.yBnum, Grid.zBnum)
+      end
+    else regentlib.assert(false, 'Unhandled case in switch') end
+
+    -- Set iteration-specific fields that persist across RK4 sub-steps
     Flow_InitializeTemporaries(Fluid)
     Particles_InitializeTemporaries(Particles)
 
+    -- RK4 sub-time-stepping loop
     var Integrator_time_old = Integrator_simTime
-    var Integrator_stage = 1
-    while (Integrator_stage<5) do
+    for Integrator_stage = 1,5 do
 
       Flow_ComputeVelocityGradientAll(Fluid,
                                       Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
@@ -5683,35 +5844,34 @@ local function mkInstance() local INSTANCE = {}
                                 Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
       end
       for c in tiles do
-        Particles_clearSource([UTIL.range(1,26):map(function(k) return rexpr [p_TradeQueue[k]][c] end end)])
+        TradeQueue_clearSource([UTIL.range(1,26):map(function(k) return rexpr [p_TradeQueue[k]][c] end end)])
       end
       for c in tiles do
-        Particles_fillSource(c,
-                             p_Particles[c],
-                             [UTIL.range(1,26):map(function(k) return rexpr [p_TradeQueue[k]][c] end end)],
-                             Grid.xBnum, config.Grid.xNum, NX,
-                             Grid.yBnum, config.Grid.yNum, NY,
-                             Grid.zBnum, config.Grid.zNum, NZ)
+        TradeQueue_fillSource(c,
+                              p_Particles[c],
+                              [UTIL.range(1,26):map(function(k) return rexpr [p_TradeQueue[k]][c] end end)],
+                              Grid.xBnum, config.Grid.xNum, NX,
+                              Grid.yBnum, config.Grid.yNum, NY,
+                              Grid.zBnum, config.Grid.zNum, NZ)
       end
       for c in tiles do
-        Particles_pushAll(p_Particles[c],
-                          [UTIL.range(1,26):map(function(k) return rexpr [p_TradeQueue[k]][c] end end)])
+        TradeQueue_push(p_Particles[c],
+                        [UTIL.range(1,26):map(function(k) return rexpr [p_TradeQueue[k]][c] end end)])
       end
       for c in tiles do
-        Particles_fillTarget(p_Particles[c],
-                             [UTIL.range(1,26):map(function(k) return rexpr
-                                [p_TradeQueue[k]][ (c-[colorOffsets[k]]+{NX,NY,NZ}) % {NX,NY,NZ} ]
-                              end end)])
+        TradeQueue_fillTarget(p_Particles[c],
+                              [UTIL.range(1,26):map(function(k) return rexpr
+                                 [p_TradeQueue[k]][ (c-[colorOffsets[k]]+{NX,NY,NZ}) % {NX,NY,NZ} ]
+                               end end)])
       end
       for c in tiles do
-        Particles_pullAll(p_Particles[c],
-                          [UTIL.range(1,26):map(function(k) return rexpr
-                             [p_TradeQueue[k]][ (c-[colorOffsets[k]]+{NX,NY,NZ}) % {NX,NY,NZ} ]
-                           end end)])
+        TradeQueue_pull(p_Particles[c],
+                        [UTIL.range(1,26):map(function(k) return rexpr
+                           [p_TradeQueue[k]][ (c-[colorOffsets[k]]+{NX,NY,NZ}) % {NX,NY,NZ} ]
+                         end end)])
       end
 
       Integrator_simTime = (Integrator_time_old+((0.5*(1+(Integrator_stage/3)))*Integrator_deltaTime))
-      Integrator_stage += 1
 
     end -- RK4 sub-time-stepping
 
@@ -5765,38 +5925,15 @@ local SIM = mkInstance()
 
 __forbid(__optimize) __demand(__inner)
 task workSingle(config : Config)
-  [SIM.DeclSymbols(config)];
+  [SIM.DeclSymbols(config)]
+  var CopyQueue = region(ispace(int1d,0), CopyQueue_columns);
   [parallelizeFor(SIM, rquote
     [SIM.InitRegions(config)];
     while true do
-      [SIM.MainLoopBody(config)];
+      [SIM.MainLoopBody(config, CopyQueue)];
     end
   end)];
   [SIM.Cleanup()];
-end
-
-__demand(__parallel, __cuda)
-task colorIsCopied(Fluid : region(ispace(int3d), Fluid_columns),
-                   volume : SCHEMA.Volume)
-where
-  writes(Fluid.isCopied)
-do
-  var xFrom = volume.fromCell[0]
-  var yFrom = volume.fromCell[1]
-  var zFrom = volume.fromCell[2]
-  var xUpto = volume.uptoCell[0]
-  var yUpto = volume.uptoCell[1]
-  var zUpto = volume.uptoCell[2]
-  __demand(__openmp)
-  for c in Fluid do
-    if  xFrom <= c.x and c.x <= xUpto
-    and yFrom <= c.y and c.y <= yUpto
-    and zFrom <= c.z and c.z <= zUpto then
-      c.isCopied = 1
-    else
-      c.isCopied = 0
-    end
-  end
 end
 
 local SIM0 = mkInstance()
@@ -5804,8 +5941,33 @@ local SIM1 = mkInstance()
 
 __forbid(__optimize) __demand(__inner)
 task workDual(mc : MultiConfig)
+  -- Declare symbols
   [SIM0.DeclSymbols(rexpr mc.configs[0] end)];
   [SIM1.DeclSymbols(rexpr mc.configs[1] end)];
+  var copySrcOrigin = array(
+    SIM0.Grid.xRealOrigin + mc.copySrc.fromCell[0] * SIM0.Grid.xCellWidth,
+    SIM0.Grid.yRealOrigin + mc.copySrc.fromCell[1] * SIM0.Grid.yCellWidth,
+    SIM0.Grid.zRealOrigin + mc.copySrc.fromCell[2] * SIM0.Grid.zCellWidth)
+  var copyTgtOrigin = array(
+    SIM1.Grid.xRealOrigin + mc.copyTgt.fromCell[0] * SIM1.Grid.xCellWidth,
+    SIM1.Grid.yRealOrigin + mc.copyTgt.fromCell[1] * SIM1.Grid.yCellWidth,
+    SIM1.Grid.zRealOrigin + mc.copyTgt.fromCell[2] * SIM1.Grid.zCellWidth)
+  var Fluid0_cellWidth = array(SIM0.Grid.xCellWidth, SIM0.Grid.yCellWidth, SIM0.Grid.zCellWidth)
+  var Fluid1_cellWidth = array(SIM1.Grid.xCellWidth, SIM1.Grid.yCellWidth, SIM1.Grid.zCellWidth)
+  var CopyQueue_ptr : int64 = 0
+  var coloring_CopyQueue = regentlib.c.legion_domain_point_coloring_create()
+  for c in SIM0.tiles do
+    var partSize = CopyQueue_partSize(SIM0.p_Fluid[c].bounds,
+                                      mc.configs[0],
+                                      mc.copySrc)
+    regentlib.c.legion_domain_point_coloring_color_domain(
+      coloring_CopyQueue, c, rect1d{CopyQueue_ptr,CopyQueue_ptr+partSize-1})
+    CopyQueue_ptr += partSize
+  end
+  var CopyQueue = region(ispace(int1d,CopyQueue_ptr), CopyQueue_columns)
+  var p_CopyQueue = partition(disjoint, CopyQueue, coloring_CopyQueue, SIM0.tiles)
+  regentlib.c.legion_domain_point_coloring_destroy(coloring_CopyQueue)
+  -- Check 2-section configuration
   regentlib.assert(
     -- copySrc is a valid volume
     0 <= mc.copySrc.fromCell[0] and
@@ -5835,24 +5997,45 @@ task workDual(mc : MultiConfig)
     mc.copySrc.uptoCell[2] - mc.copySrc.fromCell[2] ==
     mc.copyTgt.uptoCell[2] - mc.copyTgt.fromCell[2],
     'Invalid volume copy configuration');
-  [parallelizeFor(SIM0, rquote
-    colorIsCopied(SIM0.Fluid, mc.copySrc);
-    [SIM0.InitRegions(rexpr mc.configs[0] end)];
-  end)];
-  var p_Fluid0_isCopied = partition([SIM0.Fluid].isCopied, ispace(int1d,2))
-  var Fluid0_src = p_Fluid0_isCopied[1];
-  [parallelizeFor(SIM1, rquote
-    colorIsCopied(SIM1.Fluid, mc.copyTgt);
-    [SIM1.InitRegions(rexpr mc.configs[1] end)];
-  end)];
-  var p_Fluid1_isCopied = partition([SIM1.Fluid].isCopied, ispace(int1d,2))
-  var Fluid1_tgt = p_Fluid1_isCopied[1];
+  -- Initialize regions & partitions
+  [parallelizeFor(SIM0, SIM0.InitRegions(rexpr mc.configs[0] end))];
+  [parallelizeFor(SIM1, SIM1.InitRegions(rexpr mc.configs[1] end))];
+  var srcColoring = regentlib.c.legion_domain_point_coloring_create()
+  var srcRect = rect3d{lo = int3d{mc.copySrc.fromCell[0], mc.copySrc.fromCell[1], mc.copySrc.fromCell[2]},
+                       hi = int3d{mc.copySrc.uptoCell[0], mc.copySrc.uptoCell[1], mc.copySrc.uptoCell[2]}}
+  regentlib.c.legion_domain_point_coloring_color_domain(srcColoring, int1d(0), srcRect)
+  var p_Fluid0_isCopied = partition(disjoint, SIM0.Fluid, srcColoring, ispace(int1d,1))
+  regentlib.c.legion_domain_point_coloring_destroy(srcColoring)
+  var Fluid0_src = p_Fluid0_isCopied[0]
+  var tgtColoring = regentlib.c.legion_domain_point_coloring_create()
+  var tgtRect = rect3d{lo = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]},
+                       hi = int3d{mc.copyTgt.uptoCell[0], mc.copyTgt.uptoCell[1], mc.copyTgt.uptoCell[2]}}
+  regentlib.c.legion_domain_point_coloring_color_domain(tgtColoring, int1d(0), tgtRect)
+  var p_Fluid1_isCopied = partition(disjoint, SIM1.Fluid, tgtColoring, ispace(int1d,1))
+  regentlib.c.legion_domain_point_coloring_destroy(tgtColoring)
+  var Fluid1_tgt = p_Fluid1_isCopied[0]
+  -- Main simulation loop
   while true do
-    [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end))];
+    -- Run 1 iteration of first section
+    [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end, CopyQueue))];
+    -- Copy fluid values to second section
     copy(Fluid0_src.temperature, Fluid1_tgt.temperature_inc)
-    copy(Fluid0_src.velocity, Fluid1_tgt.velocity_inc);
-    [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end))];
+    copy(Fluid0_src.velocity, Fluid1_tgt.velocity_inc)
+    -- Copy particles to second section
+    for c in SIM0.tiles do
+      CopyQueue_clear(p_CopyQueue[c])
+    end
+    for c in SIM0.tiles do
+      CopyQueue_push(SIM0.p_Particles[c],
+                     p_CopyQueue[c],
+                     mc.copySrc,
+                     copySrcOrigin, copyTgtOrigin,
+                     Fluid0_cellWidth, Fluid1_cellWidth)
+    end
+    -- Run 1 iteration of second section
+    [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, CopyQueue))];
   end
+  -- Cleanups
   [SIM0.Cleanup()];
   [SIM1.Cleanup()];
 end

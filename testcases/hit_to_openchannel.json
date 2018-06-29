@@ -104,7 +104,8 @@
             "bodyForce" : [0.0, 0.0, 0.0],
             "maxSkew" : 1.2,
             "maxXferNum" : 1000,
-            "collisions" : false
+            "collisions" : false,
+            "feeding" : { "type" : "OFF" }
         },
 
         "Radiation" : {
@@ -245,7 +246,11 @@
             "bodyForce" : [0.0, 0.0, 0.0],
             "maxSkew" : 1.0,
             "maxXferNum" : 1000,
-            "collisions" : false
+            "collisions" : false,
+            "feeding" : {
+                "type" : "Incoming",
+                "addedVelocity" : [2.0650625,0.0,0.0]
+            }
         },
 
         "Radiation" : {
