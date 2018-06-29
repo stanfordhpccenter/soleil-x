@@ -24,11 +24,10 @@ ifdef HDF_ROOT
 endif
 REGENT := $(LEGION_DIR)/language/regent.py -g
 ifeq ($(USE_CUDA), 1)
-  SOLEIL_FLAGS := -fflow 0 -fopenmp 1 -finner 1 -fcuda 1 -fcuda-offline 1
+  REGENT_FLAGS := -fflow 0 -fopenmp 1 -finner 1 -fcuda 1 -fcuda-offline 1
 else
-  SOLEIL_FLAGS := -fflow 0 -fopenmp 1 -finner 1 -fcuda 0
+  REGENT_FLAGS := -fflow 0 -fopenmp 1 -finner 1 -fcuda 0
 endif
-DOM_HOST_FLAGS := -fflow 0 -fopenmp 1 -finner 1 -fcuda 0
 
 # Link flags
 ifdef CRAYPE_VERSION
@@ -65,19 +64,19 @@ soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o
 
 soleil.o: soleil.rg soleil_mapper.h config_schema.h hdf_helper.rg dom.rg util.rg
 	./desugar.py soleil.rg > soleil-desugared.rg
-	$(REGENT) soleil-desugared.rg $(SOLEIL_FLAGS)
+	$(REGENT) soleil-desugared.rg $(REGENT_FLAGS)
 
 dom_host.exec: dom_host.o config_schema.o json.o
 	$(CXX) -o $@ $^ $(LINK_FLAGS)
 
 dom_host.o: dom_host.rg config_schema.h dom.rg util.rg
-	$(REGENT) dom_host.rg $(DOM_HOST_FLAGS)
+	$(REGENT) dom_host.rg $(REGENT_FLAGS)
 
 soleil_mapper.o: soleil_mapper.cc soleil_mapper.h config_schema.h
 	$(CXX) $(CXXFLAGS) -c -o  $@ $<
 
 config_schema.o config_schema.h: process_schema.rg config_schema.lua json.h util.rg
-	$(REGENT) process_schema.rg config_schema.lua
+	$(REGENT) process_schema.rg config_schema.lua $(REGENT_FLAGS)
 
 json.o: json.c json.h
 	$(CC) $(CFLAGS) -c -o $@ $<

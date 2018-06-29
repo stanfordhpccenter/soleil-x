@@ -14,6 +14,9 @@ return function(NUM_ANGLES, pointsFSpace, Config) local MODULE = {}
 
 local C = regentlib.c
 
+local MAPPER = terralib.includec("soleil_mapper.h")
+local UTIL = require 'util'
+
 -- Math imports
 
 local fabs = regentlib.fabs(double)
@@ -2254,6 +2257,8 @@ function MODULE.mkInstance() local INSTANCE = {}
   function INSTANCE.DeclSymbols(config)
 
     local decl_symbols = rquote
+      var sampleId = config.Mapping.sampleId
+
       -- Number of points in each dimension
       var [Nx] = config.Radiation.xNum
       var [Ny] = config.Radiation.yNum
@@ -2271,15 +2276,20 @@ function MODULE.mkInstance() local INSTANCE = {}
 
       -- 1D Region for angle values
       var angle_indices = ispace(int1d, NUM_ANGLES)
-      var [angles] = region(angle_indices, angle)
+      var [angles] = region(angle_indices, angle);
+      [UTIL.mkRegionTagAttach(angles, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     end
 
     for i = 1, 8 do
       decl_symbols = rquote
         [decl_symbols];
-        var [x_faces[i]] = region([grid_x], face)
-        var [y_faces[i]] = region([grid_y], face)
-        var [z_faces[i]] = region([grid_z], face)
+        var sampleId = config.Mapping.sampleId
+        var [x_faces[i]] = region([grid_x], face);
+        [UTIL.mkRegionTagAttach(x_faces[i], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+        var [y_faces[i]] = region([grid_y], face);
+        [UTIL.mkRegionTagAttach(y_faces[i], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+        var [z_faces[i]] = region([grid_z], face);
+        [UTIL.mkRegionTagAttach(z_faces[i], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
       end
     end
 

@@ -29,6 +29,13 @@ static Realm::Logger LOG("soleil_mapper");
 #define STARTS_WITH(str, prefix)                \
   (strncmp((str), (prefix), sizeof(prefix) - 1) == 0)
 
+static const void* first_arg(const Task& task) {
+  const char* ptr = static_cast<const char*>(task.args);
+  // Skip over Regent-added arguments.
+  // XXX: This assumes Regent's calling convention won't change.
+  return static_cast<const void*>(ptr + sizeof(uint64_t));
+}
+
 //=============================================================================
 
 // Maps super-tiles to ranks, in row-major order. Within a super-tile, tiles
@@ -209,7 +216,20 @@ public:
     // Send each work task to the first in the set of ranks allocated to the
     // corresponding sample.
     if (STARTS_WITH(task.get_task_name(), "work")) {
-      unsigned sample_id = find_sample_id(ctx, task);
+      unsigned sample_id = static_cast<unsigned>(-1);
+      if (strcmp(task.get_task_name(), "workSingle") == 0) {
+        const Config* config = static_cast<const Config*>(first_arg(task));
+        sample_id = static_cast<unsigned>(config->Mapping.sampleId);
+        assert(sample_id < sample_mappings_.size());
+      } else if (strcmp(task.get_task_name(), "workDual") == 0) {
+        const MultiConfig* mc =
+          static_cast<const MultiConfig*>(first_arg(task));
+        sample_id = static_cast<unsigned>(mc->configs[0].Mapping.sampleId);
+        assert(sample_id < sample_mappings_.size());
+      } else {
+        CHECK(false, "Unexpected work task name: %s", task.get_task_name());
+      }
+
       AddressSpace target_rank = sample_mappings_[sample_id].get_rank(0,0,0);
       Processor target_proc = remote_cpus[target_rank];
       LOG.debug() << "Sample " << sample_id << ":"
@@ -348,8 +368,8 @@ public:
 private:
   unsigned find_sample_id(const MapperContext ctx, const Task& task) const {
     for (const RegionRequirement& req : task.regions) {
-      assert(req.region.exists());
-      LogicalRegion region = req.region;
+      LogicalRegion region = req.region.exists() ? req.region
+        : runtime->get_parent_logical_region(ctx, req.partition);
       while (runtime->has_parent_logical_partition(ctx, region)) {
         region =
           runtime->get_parent_logical_region(ctx,
