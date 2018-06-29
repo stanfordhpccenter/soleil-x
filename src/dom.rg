@@ -79,11 +79,6 @@ local struct face {
   I : double[NUM_ANGLES],
   is_private : int1d, -- 1 = private, 0 = shared
   tile : int3d,
-  diagonal : int1d,
-}
-
-local struct tile_info {
-  diagonal : int1d,
 }
 
 -------------------------------------------------------------------------------
@@ -206,7 +201,7 @@ local task color_faces(faces : region(ispace(int3d), face),
                        ntx : int, nty : int, ntz : int,
                        dimension : int, sweepDir : bool[3])
 where
-  writes (faces.{is_private, diagonal, tile})
+  writes (faces.{is_private, tile})
 do
   for idx in faces do
     faces[idx].is_private = 1
@@ -230,26 +225,6 @@ do
         if not sweepDir[2] then z_tile -= 1 end
       end
     else regentlib.assert(false, '') end
-    faces[idx].diagonal =
-      ite(sweepDir[0], x_tile, ntx-1-x_tile) +
-      ite(sweepDir[1], y_tile, nty-1-y_tile) +
-      ite(sweepDir[2], z_tile, ntz-1-z_tile)
-  end
-end
-
-local task fill_tile_info(r_tiles : region(ispace(int3d), tile_info),
-                          sweepDir : bool[3])
-where
-  writes (r_tiles.diagonal)
-do
-  var ntx = r_tiles.bounds.hi.x + 1
-  var nty = r_tiles.bounds.hi.y + 1
-  var ntz = r_tiles.bounds.hi.z + 1
-  for t in r_tiles do
-    r_tiles[t].diagonal =
-      ite(sweepDir[0], t.x, ntx-1-t.x) +
-      ite(sweepDir[1], t.y, nty-1-t.y) +
-      ite(sweepDir[2], t.z, ntz-1-t.z)
   end
 end
 
