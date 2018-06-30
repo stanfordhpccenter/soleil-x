@@ -700,7 +700,7 @@ task Flow_InitializeGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
                                Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{rho, velocity, pressure, temperature, centerCoordinates}),
-  reads writes(Fluid.{rho, velocity, pressure}),
+  reads writes(Fluid.{rho, velocity, pressure, velocity_inc, temperature_inc}),
   writes(Fluid.{velocity_old_NSCBC, temperature_old_NSCBC, dudtBoundary, dTdtBoundary})
 do
   var BC_xBCLeft = config.BC.xBCLeft
@@ -786,6 +786,7 @@ do
       else -- BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Incoming
         -- This value will be overwritten by the incoming fluid, so just set
         -- it to something reasonable.
+        Fluid[c_bnd].velocity_inc = Fluid[c_int].velocity
         velocity = Fluid[c_int].velocity
       end
       Fluid[c_bnd].velocity = velocity
@@ -809,6 +810,7 @@ do
         
         -- Use equation of state to find temperature of cell 
         temperature = (Fluid[c_bnd].pressure/(Flow_gasConstant*Fluid[c_bnd].rho))
+        Fluid[c_bnd].temperature_inc = temperature
          
       end
 
