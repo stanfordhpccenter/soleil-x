@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 
+# TODO: Adapt this script to run on output of -fpretty
+
 import fileinput
 import re
 
-REGION = 'Fluid'
-
-fluid_reads = {} # map(task:string,list(field:string))
-fluid_writes = {} # map(task:string,list(field:string))
+privs = {} # map(task:string,privileges:string)
 curr_task = None
 in_privs = False
 in_main = False
@@ -17,42 +16,22 @@ for line in fileinput.input():
         assert(curr_task is None and not in_privs)
         task_name_idx = 1 if line.startswith('task') else 2
         curr_task = line.split()[task_name_idx].split('(')[0]
-        assert(curr_task not in fluid_reads)
-        fluid_reads[curr_task] = []
-        assert(curr_task not in fluid_writes)
-        fluid_writes[curr_task] = []
-    if line.startswith('where'):
+        assert(curr_task not in privs)
+        privs[curr_task] = ''
+    elif line.startswith('where'):
         assert(curr_task is not None and not in_privs)
         in_privs = True
-    if line.startswith('do'):
+    elif line.startswith('do'):
         assert(curr_task is not None and in_privs)
         in_privs = False
-    if line.startswith('end'):
+    elif line.startswith('end'):
         assert(not in_privs)
         curr_task = None
-    if in_privs and REGION in line:
-        flds = []
-        for m in re.finditer(REGION + r'\.{([^}]*)}', line):
-            for f in m.group(1).split(','):
-                flds.append(f.strip())
-        for m in re.finditer(REGION + r'\.(\w+)', line):
-            flds.append(m.group(1))
-        if re.search(REGION + r'[^.\w]', line) is not None:
-            flds.append('ALL')
-        if 'reads' in line:
-            fluid_reads[curr_task].extend(flds)
-        if 'writes' in line:
-            fluid_writes[curr_task].extend(flds)
-    if 'MAIN' in line:
+    elif in_privs:
+        privs[curr_task] += ('\n' + line)
+    elif 'MAIN' in line:
         in_main = True
-    if in_main:
-        for task in fluid_reads:
-            if (task+'(') not in line:
-                continue
-            if len(fluid_reads[task]) == 0 and len(fluid_writes[task]) == 0:
-                continue
-            print task
-            if len(fluid_reads[task]) > 0:
-                print '  R: ' + ', '.join(fluid_reads[task])
-            if len(fluid_writes[task]) > 0:
-                print '  W: ' + ', '.join(fluid_writes[task])
+    elif in_main:
+        for task in privs:
+            if (task+'(') in line and privs[task] != '':
+                print task + privs[task]

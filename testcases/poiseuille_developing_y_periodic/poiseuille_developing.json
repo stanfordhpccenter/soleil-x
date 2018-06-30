@@ -99,7 +99,8 @@
         "bodyForce" : [0.0, 0.0, 0.0],
         "maxSkew" : 1.5,
         "maxXferNum" : 100,
-        "collisions" : false
+        "collisions" : false,
+        "feeding" : { "type" : "OFF" }
     },
 
     "Radiation" : {

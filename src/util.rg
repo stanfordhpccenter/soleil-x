@@ -1,3 +1,5 @@
+import 'regent'
+
 local Exports = {}
 
 local C = terralib.includecstring([[
@@ -458,6 +460,20 @@ function Exports.revTopoSort(graph)
     end
   end
   return res
+end
+
+-------------------------------------------------------------------------------
+-- Regent metaprogramming
+-------------------------------------------------------------------------------
+
+-- regentlib.symbol, int, regentlib.rexpr, terralib.type -> regentlib.rquote
+function Exports.mkRegionTagAttach(r, tag, value, typ)
+  return rquote
+    var info : typ[1]
+    info[0] = value
+    regentlib.c.legion_logical_region_attach_semantic_information(
+      __runtime(), __raw(r), tag, [&typ](info), [sizeof(typ)], false)
+  end
 end
 
 -------------------------------------------------------------------------------

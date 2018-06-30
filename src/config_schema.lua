@@ -39,6 +39,12 @@ Exports.InflowProfile = Union{
     addedVelocity = double,
   },
 }
+Exports.FeedModel = Union{
+  OFF = {},
+  Incoming = {
+    addedVelocity = Array(3,double),
+  },
+}
 
 -- Main config struct
 Exports.Config = {
@@ -133,6 +139,7 @@ Exports.Config = {
     maxSkew = double,
     maxXferNum = int,
     collisions = bool,
+    feeding = Exports.FeedModel,
   },
   Radiation = {
     type = Exports.RadiationType,

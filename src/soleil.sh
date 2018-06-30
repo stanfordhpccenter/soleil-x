@@ -135,7 +135,7 @@ function run_sapling {
     done
     GPU_OPTS=
     if [[ "$USE_CUDA" == 1 ]]; then
-        GPU_OPTS="-ll:gpu 2 -ll:fsize 6000"
+        GPU_OPTS="-ll:gpu 2 -ll:fsize 5500"
     fi
     mpiexec -H "$NODES" --bind-to none \
         -x LD_LIBRARY_PATH -x SOLEIL_DIR -x REALM_BACKTRACE \
