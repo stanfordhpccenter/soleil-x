@@ -30,7 +30,7 @@ XMF_TEMPLATE = """<?xml version="1.0" ?>
 """
 
 parser = argparse.ArgumentParser()
-parser.add_argument('hdf_file')
+parser.add_argument('hdf_file', help='simulation results to visualize')
 args = parser.parse_args()
 
 hdf_in = h5py.File(args.hdf_file, 'r')

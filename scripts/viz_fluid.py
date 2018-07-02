@@ -34,11 +34,17 @@ XMF_TEMPLATE = """<?xml version="1.0" ?>
 """
 
 parser = argparse.ArgumentParser()
-parser.add_argument('hdf_file')
-parser.add_argument('json_file')
+parser.add_argument('hdf_file', help='simulation results to visualize')
+parser.add_argument('json_file', help='simulation config file')
+parser.add_argument('section_num', nargs='?', choices=['1','2'],
+                    help='which section to visualize (if multi-section sim)')
 args = parser.parse_args()
 
 hdf_in = h5py.File(args.hdf_file, 'r')
+# Extract domain size.
+nx = hdf_in['pressure'].shape[0]
+ny = hdf_in['pressure'].shape[1]
+nz = hdf_in['pressure'].shape[2]
 hdf_out = h5py.File('out.hdf', 'w')
 # Copy pressure over.
 hdf_out['pressure'] = hdf_in['pressure'][:]
@@ -51,22 +57,32 @@ hdf_out['velocity'] = hdf_in['velocity'][:][:,:,:,:]
 hdf_out.close()
 hdf_in.close()
 
+# NOTE: We flip the X and Z dimensions, because Legion dumps data in
+# column-major order.
 with open(args.json_file) as json_in:
     config = json.load(json_in)
-    # CAUTION: We flip the X and Z dimensions, because Legion dumps data in
-    # column-major order.
-    nx = config['Grid']['zNum']
-    ny = config['Grid']['yNum']
-    nz = config['Grid']['xNum']
-    lx = config['Grid']['zWidth']
-    ly = config['Grid']['yWidth']
-    lz = config['Grid']['xWidth']
-    ox = config['Grid']['origin'][2]
-    oy = config['Grid']['origin'][1]
-    oz = config['Grid']['origin'][0]
+    if args.section_num is not None:
+        config = config['configs'][int(args.section_num)-1]
+    # Compute number of boundary cells on each dimension.
+    bx = nx - config['Grid']['zNum']
+    by = ny - config['Grid']['yNum']
+    bz = nz - config['Grid']['xNum']
+    assert bx == 0 or bx == 2, 'Expected at most 1-cell boundary'
+    assert by == 0 or by == 2, 'Expected at most 1-cell boundary'
+    assert bz == 0 or bz == 2, 'Expected at most 1-cell boundary'
+    # Compute cell width.
+    dx = config['Grid']['zWidth'] / config['Grid']['zNum']
+    dy = config['Grid']['yWidth'] / config['Grid']['yNum']
+    dz = config['Grid']['xWidth'] / config['Grid']['xNum']
+    # Compute grid origin (taking boundary cells into account).
+    ox = config['Grid']['origin'][2] - dx * (bx / 2)
+    oy = config['Grid']['origin'][1] - dy * (by / 2)
+    oz = config['Grid']['origin'][0] - dz * (bz / 2)
 
+# NOTE: The XMF format expects grid dimensions in points, not cells, so we have
+# to add 1 on each dimension.
 with open('out.xmf', 'w') as xmf_out:
     xmf_out.write(XMF_TEMPLATE
-                  .replace('GRID_DIMS', '%s %s %s' % (nx,ny,nz))
+                  .replace('GRID_DIMS', '%s %s %s' % (nx+1,ny+1,nz+1))
                   .replace('GRID_ORIGIN', '%s %s %s' % (ox,oy,oz))
-                  .replace('GRID_SPACING', '%s %s %s' % (lx/nx,ly/ny,lz/nz)))
+                  .replace('GRID_SPACING', '%s %s %s' % (dx,dy,dz)))
