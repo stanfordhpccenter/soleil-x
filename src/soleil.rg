@@ -711,8 +711,8 @@ task Flow_InitializeGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
                                Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{rho, velocity, pressure, temperature, centerCoordinates}),
-  reads writes(Fluid.{rho, velocity, pressure, velocity_inc, temperature_inc}),
-  writes(Fluid.{velocity_old_NSCBC, temperature_old_NSCBC, dudtBoundary, dTdtBoundary})
+  reads writes(Fluid.{rho, velocity, pressure}),
+  writes(Fluid.{velocity_old_NSCBC, temperature_old_NSCBC, dudtBoundary, dTdtBoundary, velocity_inc, temperature_inc})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
@@ -797,8 +797,13 @@ do
       else -- BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Incoming
         -- This value will be overwritten by the incoming fluid, so just set
         -- it to something reasonable.
-        Fluid[c_bnd].velocity_inc = Fluid[c_int].velocity
         velocity = Fluid[c_int].velocity
+        -- HACK: The inflow boundary code later overrides the velocity field
+        -- based on the incoming values, so we set a fake incoming value, that
+        -- would have produced the fake velocity setting above.
+        var velocity_inc = velocity
+        velocity_inc[0] -= BC_xBCLeftInflowProfile_Incoming_addedVelocity
+        Fluid[c_bnd].velocity_inc = velocity_inc
       end
       Fluid[c_bnd].velocity = velocity
 
@@ -818,12 +823,13 @@ do
         -- This value will be overwritten by the incoming fluid, so just set
         -- it to something reasonable.
         Fluid[c_bnd].pressure = Fluid[c_int].pressure
-
         -- Use equation of state to find temperature of cell
         temperature = (Fluid[c_bnd].pressure/(Flow_gasConstant*Fluid[c_bnd].rho))
+        -- HACK: The inflow boundary code later overrides the temperature field
+        -- based on the incoming values, so we set a fake incoming value, that
+        -- would have produced the fake pressure setting above.
         Fluid[c_bnd].temperature_inc = temperature
       end
-
 
       -- for time stepping RHS of INFLOW
       Fluid[c_bnd].velocity_old_NSCBC = velocity
