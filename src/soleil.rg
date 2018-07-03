@@ -5179,12 +5179,6 @@ local function mkInstance() local INSTANCE = {}
       regentlib.assert(false, "Boundary conditions in z should match for periodicity")
     end
 
-    -- Restarting
-    if (config.Flow.initCase == SCHEMA.FlowInitCase_Restart) then
-      Integrator_timeStep = config.Integrator.restartIter
-      Integrator_simTime = config.Integrator.restartTime
-    end
-
     ---------------------------------------------------------------------------
     -- Create Regions and Partitions
     ---------------------------------------------------------------------------
@@ -5332,23 +5326,30 @@ local function mkInstance() local INSTANCE = {}
                                      Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
                                      Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
 
-    if (config.Flow.initCase == SCHEMA.FlowInitCase_Uniform) then
+    if config.Flow.initCase == SCHEMA.FlowInitCase_Uniform then
       Flow_InitializeUniform(Fluid, config.Flow.initParams)
-    end
-    if (config.Flow.initCase == SCHEMA.FlowInitCase_Random) then
+    elseif config.Flow.initCase == SCHEMA.FlowInitCase_Random then
       Flow_InitializeRandom(Fluid, config.Flow.initParams)
-    end
-    if (config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen2DVortex) then
-      Flow_InitializeTaylorGreen2D(Fluid, config.Flow.initParams, Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth, Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth, Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
-    end
-    if (config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen3DVortex) then
-      Flow_InitializeTaylorGreen3D(Fluid, config.Flow.initParams, Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth, Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth, Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
-    end
-    if (config.Flow.initCase == SCHEMA.FlowInitCase_Perturbed) then
+    elseif config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen2DVortex then
+      Flow_InitializeTaylorGreen2D(Fluid,
+                                   config.Flow.initParams,
+                                   Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
+                                   Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
+                                   Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+    elseif config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen3DVortex then
+      Flow_InitializeTaylorGreen3D(Fluid,
+                                   config.Flow.initParams,
+                                   Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
+                                   Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
+                                   Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+    elseif config.Flow.initCase == SCHEMA.FlowInitCase_Perturbed then
       Flow_InitializePerturbed(Fluid, config.Flow.initParams)
-    end
-    if (config.Flow.initCase == SCHEMA.FlowInitCase_Restart) then
+    elseif config.Flow.initCase == SCHEMA.FlowInitCase_Restart then
       Fluid_load(tiles, config.Flow.restartDir, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
+      Integrator_timeStep = config.Integrator.restartIter
+      Integrator_simTime = config.Integrator.restartTime
+    else regentlib.assert(false, 'Unhandled case in switch') end
+
     end
     -- initialize ghost cells to their specified values in NSCBC case
     if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
@@ -5452,10 +5453,9 @@ local function mkInstance() local INSTANCE = {}
                                    Grid.zBnum, config.Grid.zNum)
 
     -- Initialize particles
-    if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Random) then
+    if config.Particles.initCase == SCHEMA.ParticlesInitCase_Random then
       regentlib.assert(false, "Random particle initialization is disabled")
-    end
-    if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart) then
+    elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart then
       Particles_load(tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
       for c in tiles do
         Particles_LocateInCells(p_Particles[c],
@@ -5471,17 +5471,20 @@ local function mkInstance() local INSTANCE = {}
                                     Grid.zBnum, config.Grid.zNum, NZ)
       end
       Particles_number += Particles_CalculateNumber(Particles)
-    end
-    if (config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform) then
+    elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform then
       InitParticlesUniform(Particles, Fluid, config, Grid.xBnum, Grid.yBnum, Grid.zBnum)
       Particles_number = (config.Particles.initNum / numTiles) * numTiles
-    end
+    else regentlib.assert(false, 'Unhandled case in switch') end
 
     -- Initialize radiation
-    if (config.Radiation.type == SCHEMA.RadiationType_DOM) then
+    if config.Radiation.type == SCHEMA.RadiationType_OFF then
+      -- Do nothing
+    elseif config.Radiation.type == SCHEMA.RadiationType_Algebraic then
+      -- Do nothing
+    elseif config.Radiation.type == SCHEMA.RadiationType_DOM then
       Radiation_InitializeCell(Radiation);
       [DOM_INST.InitRegions()];
-    end
+    else regentlib.assert(false, 'Unhandled case in switch') end
 
   end end -- InitRegions
 
@@ -5731,10 +5734,11 @@ local function mkInstance() local INSTANCE = {}
       Particles_AddBodyForces(Particles, config.Particles.bodyForce)
 
       -- Add radiation
-      if (config.Radiation.type == SCHEMA.RadiationType_Algebraic) then
+      if config.Radiation.type == SCHEMA.RadiationType_OFF then
+        -- Do nothing
+      elseif config.Radiation.type == SCHEMA.RadiationType_Algebraic then
         AddRadiation(Particles, config)
-      end
-      if (config.Radiation.type == SCHEMA.RadiationType_DOM) then
+      elseif config.Radiation.type == SCHEMA.RadiationType_DOM then
         Radiation_ClearAccumulators(Radiation)
         for c in tiles do
           Radiation_AccumulateParticleValues(p_Particles[c], p_Fluid[c], p_Radiation[c])
@@ -5748,7 +5752,7 @@ local function mkInstance() local INSTANCE = {}
         for c in tiles do
           Particles_AbsorbRadiation(p_Particles[c], p_Fluid[c], p_Radiation[c], config.Particles.heatCapacity, config.Radiation.qa)
         end
-      end
+      else regentlib.assert(false, 'Unhandled case in switch') end
 
       -- Add particle forces to fluid
       Flow_AddParticlesCoupling(Particles, Fluid, Grid.cellVolume)
