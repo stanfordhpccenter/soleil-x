@@ -67,6 +67,7 @@ while True:
         return [i for i in indices if len(quadrants[i]) == min_len]
     for m in range(num_angles):
         indices = possible_indices(m)
+        # TODO: Don't have to do this from scratch on every try
         if len(indices) == 1:
             quadrants[indices[0]].append(m)
     for m in range(num_angles):
