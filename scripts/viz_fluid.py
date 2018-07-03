@@ -67,7 +67,7 @@ for (f, i) in zip(args.hdf_file, itertools.count()):
         assert nx == hdf_in['pressure'].shape[0]
         assert ny == hdf_in['pressure'].shape[1]
         assert nz == hdf_in['pressure'].shape[2]
-    hdf_out = h5py.File('out%s.hdf' % i, 'w')
+    hdf_out = h5py.File('out%010d.hdf' % i, 'w')
     # Copy pressure over.
     hdf_out['pressure'] = hdf_in['pressure'][:]
     # Copy rho over.
@@ -111,5 +111,5 @@ with open('out.xmf', 'w') as xmf_out:
                       .replace('@GRID_DIMS', '%s %s %s' % (nx+1,ny+1,nz+1))
                       .replace('@GRID_ORIGIN', '%s %s %s' % (ox,oy,oz))
                       .replace('@GRID_SPACING', '%s %s %s' % (dx,dy,dz))
-                      .replace('@HDF_FILE', 'out%s.hdf' % i))
+                      .replace('@HDF_FILE', 'out%010d.hdf' % i))
     xmf_out.write(XMF_FOOTER)
