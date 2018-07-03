@@ -3871,6 +3871,7 @@ where
   reads(CopyQueue.[Particles_primitives], Particles.__valid),
   writes(Particles.[Particles_primitives], Particles.cell)
 do
+  var acc : int64 = 0
   var addedVelocity = config.Particles.feeding.u.Incoming.addedVelocity
   var p1 = Particles.bounds.lo
   for p2 in CopyQueue do
@@ -3896,6 +3897,7 @@ do
         Particles[p1].diameter = p2.diameter
         Particles[p1].density = p2.density
         Particles[p1].__valid = true
+        acc += 1
       end
     end
   end
@@ -5591,11 +5593,12 @@ local function mkInstance() local INSTANCE = {}
       -- Do nothing
     elseif config.Particles.feeding.type == SCHEMA.FeedModel_Incoming then
       for c in tiles do
-        CopyQueue_pull(c,
-                       p_Particles[c],
-                       CopyQueue,
-                       config,
-                       Grid.xBnum, Grid.yBnum, Grid.zBnum)
+        Particles_number +=
+          CopyQueue_pull(c,
+                         p_Particles[c],
+                         CopyQueue,
+                         config,
+                         Grid.xBnum, Grid.yBnum, Grid.zBnum)
       end
     else regentlib.assert(false, 'Unhandled case in switch') end
 
