@@ -7,14 +7,11 @@ import 'regent'
 return function(NUM_ANGLES, pointsFSpace, Config) local MODULE = {}
 
 -------------------------------------------------------------------------------
--- COMPILE-TIME COMPUTATION
+-- IMPORTS
 -------------------------------------------------------------------------------
 
--- C imports
-
 local C = regentlib.c
-
--- Math imports
+local UTIL = require 'util'
 
 local fabs = regentlib.fabs(double)
 local max = regentlib.fmax
@@ -22,18 +19,18 @@ local min = regentlib.fmin
 local pow = regentlib.pow(double)
 local sqrt = regentlib.sqrt(double)
 
--- Math Constants
+-------------------------------------------------------------------------------
+-- CONSTANTS
+-------------------------------------------------------------------------------
 
-local pi = 3.1415926535898
-
--- Wall temperatures
-
+local PI = 3.1415926535898
 local SB = 5.67e-8
+local TOLERANCE = 1e-6 -- solution tolerance
+local GAMMA = 0.5 -- 1 for step differencing, 0.5 for diamond differencing
 
--- Procedure parameters
-
-local tol   = 1e-6   -- solution tolerance
-local gamma = 0.5    -- 1 for step differencing, 0.5 for diamond differencing
+-------------------------------------------------------------------------------
+-- HELPER FUNCTIONS
+-------------------------------------------------------------------------------
 
 local terra open_quad_file() : &C.FILE
   var fname = [&int8](C.malloc(256))
@@ -244,7 +241,7 @@ do
   for p in points do
     p.S = (1.0-omega) * p.sigma * p.Ib
     for m = 0, NUM_ANGLES do
-      p.S += omega * p.sigma/(4.0*pi) * angles[m].w
+      p.S += omega * p.sigma/(4.0*PI) * angles[m].w
           * (p.Iiter_1[m]
            + p.Iiter_2[m]
            + p.Iiter_3[m]
@@ -301,7 +298,7 @@ do
             else
               face_value = faces_8[{limits.lo.x,j,k}].I[m]
             end
-            value += (1.0-epsw)/pi*angles[m].w*fabs(angles[m].xi)*face_value
+            value += (1.0-epsw)/PI*angles[m].w*fabs(angles[m].xi)*face_value
           end
         end
       end
@@ -312,7 +309,7 @@ do
          k >= config.Radiation.xLoWindow.fromCell[1] and
          j <= config.Radiation.xLoWindow.uptoCell[0] and
          k <= config.Radiation.xLoWindow.uptoCell[1] then
-        value += epsw*SB*pow(Tw,4.0)/pi
+        value += epsw*SB*pow(Tw,4.0)/PI
       end
 
       -- Set Ifx values
@@ -380,7 +377,7 @@ do
             else
               face_value = faces_4[{limits.hi.x,j,k}].I[m]
             end
-            value += (1.0-epsw)/pi*angles[m].w*angles[m].xi*face_value
+            value += (1.0-epsw)/PI*angles[m].w*angles[m].xi*face_value
           end
         end
       end
@@ -391,7 +388,7 @@ do
          k >= config.Radiation.xHiWindow.fromCell[1] and
          j <= config.Radiation.xHiWindow.uptoCell[0] and
          k <= config.Radiation.xHiWindow.uptoCell[1] then
-        value += epsw*SB*pow(Tw,4.0)/pi
+        value += epsw*SB*pow(Tw,4.0)/PI
       end
 
       -- Set Ifx values
@@ -459,7 +456,7 @@ do
             else
               face_value = faces_6[{i,limits.hi.y,k}].I[m]
             end
-            value += (1.0-epsw)/pi*angles[m].w*angles[m].eta*face_value
+            value += (1.0-epsw)/PI*angles[m].w*angles[m].eta*face_value
           end
         end
       end
@@ -470,7 +467,7 @@ do
          k >= config.Radiation.yHiWindow.fromCell[1] and
          i <= config.Radiation.yHiWindow.uptoCell[0] and
          k <= config.Radiation.yHiWindow.uptoCell[1] then
-        value += epsw*SB*pow(Tw,4.0)/pi
+        value += epsw*SB*pow(Tw,4.0)/PI
       end
 
       -- Set Ify values
@@ -538,7 +535,7 @@ do
             else
               face_value = faces_8[{i,limits.lo.y,k}].I[m]
             end
-            value += (1.0-epsw)/pi*angles[m].w*fabs(angles[m].eta)*face_value
+            value += (1.0-epsw)/PI*angles[m].w*fabs(angles[m].eta)*face_value
           end
         end
       end
@@ -549,7 +546,7 @@ do
          k >= config.Radiation.yLoWindow.fromCell[1] and
          i <= config.Radiation.yLoWindow.uptoCell[0] and
          k <= config.Radiation.yLoWindow.uptoCell[1] then
-        value += epsw*SB*pow(Tw,4.0)/pi
+        value += epsw*SB*pow(Tw,4.0)/PI
       end
 
       -- Set Ify values
@@ -617,7 +614,7 @@ do
             else
               face_value = faces_8[{i,j,limits.lo.z}].I[m]
             end
-            value += (1.0-epsw)/pi*angles[m].w*fabs(angles[m].mu)*face_value
+            value += (1.0-epsw)/PI*angles[m].w*fabs(angles[m].mu)*face_value
           end
         end
       end
@@ -628,7 +625,7 @@ do
          j >= config.Radiation.zLoWindow.fromCell[1] and
          i <= config.Radiation.zLoWindow.uptoCell[0] and
          j <= config.Radiation.zLoWindow.uptoCell[1] then
-        value += epsw*SB*pow(Tw,4.0)/pi
+        value += epsw*SB*pow(Tw,4.0)/PI
       end
 
       -- Set Ifz values
@@ -696,7 +693,7 @@ do
             else
               face_value = faces_7[{i,j,limits.hi.z}].I[m]
             end
-            value += (1.0-epsw)/pi*angles[m].w*angles[m].mu*face_value
+            value += (1.0-epsw)/PI*angles[m].w*angles[m].mu*face_value
           end
         end
       end
@@ -707,7 +704,7 @@ do
          j >= config.Radiation.zHiWindow.fromCell[1] and
          i <= config.Radiation.zHiWindow.uptoCell[0] and
          j <= config.Radiation.zHiWindow.uptoCell[1] then
-        value += epsw*SB*pow(Tw,4.0)/pi
+        value += epsw*SB*pow(Tw,4.0)/PI
       end
 
       -- Set Ifz values
@@ -828,29 +825,29 @@ local function mkSweep(num)
               end
               -- Integrate to compute cell-centered value of I
               points[{i,j,k}].[fld][m] = (points[{i,j,k}].S * dV
-                                            + fabs(angles[m].xi) * dAx * upwind_x_value/gamma
-                                            + fabs(angles[m].eta) * dAy * upwind_y_value/gamma
-                                            + fabs(angles[m].mu) * dAz * upwind_z_value/gamma)
+                                            + fabs(angles[m].xi) * dAx * upwind_x_value/GAMMA
+                                            + fabs(angles[m].eta) * dAy * upwind_y_value/GAMMA
+                                            + fabs(angles[m].mu) * dAz * upwind_z_value/GAMMA)
                                        / (points[{i,j,k}].sigma * dV
-                                          + fabs(angles[m].xi) * dAx/gamma
-                                          + fabs(angles[m].eta) * dAy/gamma
-                                          + fabs(angles[m].mu) * dAz/gamma)
+                                          + fabs(angles[m].xi) * dAx/GAMMA
+                                          + fabs(angles[m].eta) * dAy/GAMMA
+                                          + fabs(angles[m].mu) * dAz/GAMMA)
               -- Compute intensities on downwind faces
-              var x_face_val = (points[{i,j,k}].[fld][m] - (1-gamma)*upwind_x_value)/gamma
+              var x_face_val = (points[{i,j,k}].[fld][m] - (1-GAMMA)*upwind_x_value)/GAMMA
               if (x_face_val < 0) then x_face_val = 0 end
               if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
                 shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
               else
                 x_faces[{indx+dindx, j, k}].I[m] = x_face_val
               end
-              var y_face_val = (points[{i,j,k}].[fld][m] - (1-gamma)*upwind_y_value)/gamma
+              var y_face_val = (points[{i,j,k}].[fld][m] - (1-GAMMA)*upwind_y_value)/GAMMA
               if (y_face_val < 0) then y_face_val = 0 end
               if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
                 shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
               else
                 y_faces[{i, indy+dindy, k}].I[m] = y_face_val
               end
-              var z_face_val = (points[{i,j,k}].[fld][m] - (1-gamma)*upwind_z_value)/gamma
+              var z_face_val = (points[{i,j,k}].[fld][m] - (1-GAMMA)*upwind_z_value)/GAMMA
               if (z_face_val < 0) then z_face_val = 0 end
               if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
                 shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
@@ -1077,38 +1074,9 @@ function MODULE.mkInstance() local INSTANCE = {}
   local grid_y = regentlib.newsymbol('grid_y')
   local grid_z = regentlib.newsymbol('grid_z')
 
-  local x_faces = {
-    regentlib.newsymbol('x_faces_1'),
-    regentlib.newsymbol('x_faces_2'),
-    regentlib.newsymbol('x_faces_3'),
-    regentlib.newsymbol('x_faces_4'),
-    regentlib.newsymbol('x_faces_5'),
-    regentlib.newsymbol('x_faces_6'),
-    regentlib.newsymbol('x_faces_7'),
-    regentlib.newsymbol('x_faces_8'),
-  }
-
-  local y_faces = {
-    regentlib.newsymbol('y_faces_1'),
-    regentlib.newsymbol('y_faces_2'),
-    regentlib.newsymbol('y_faces_3'),
-    regentlib.newsymbol('y_faces_4'),
-    regentlib.newsymbol('y_faces_5'),
-    regentlib.newsymbol('y_faces_6'),
-    regentlib.newsymbol('y_faces_7'),
-    regentlib.newsymbol('y_faces_8'),
-  }
-
-  local z_faces = {
-    regentlib.newsymbol('z_faces_1'),
-    regentlib.newsymbol('z_faces_2'),
-    regentlib.newsymbol('z_faces_3'),
-    regentlib.newsymbol('z_faces_4'),
-    regentlib.newsymbol('z_faces_5'),
-    regentlib.newsymbol('z_faces_6'),
-    regentlib.newsymbol('z_faces_7'),
-    regentlib.newsymbol('z_faces_8'),
-  }
+  local x_faces = UTIL.generate(8, regentlib.newsymbol)
+  local y_faces = UTIL.generate(8, regentlib.newsymbol)
+  local z_faces = UTIL.generate(8, regentlib.newsymbol)
 
   local angles = regentlib.newsymbol('angles')
   local tiles_private = regentlib.newsymbol('tiles_private')
@@ -1116,98 +1084,13 @@ function MODULE.mkInstance() local INSTANCE = {}
   local y_tiles_shared = regentlib.newsymbol('y_tiles_shared')
   local z_tiles_shared = regentlib.newsymbol('z_tiles_shared')
 
-  local s_x_faces = {
-    regentlib.newsymbol('s_x_faces_1'),
-    regentlib.newsymbol('s_x_faces_2'),
-    regentlib.newsymbol('s_x_faces_3'),
-    regentlib.newsymbol('s_x_faces_4'),
-    regentlib.newsymbol('s_x_faces_5'),
-    regentlib.newsymbol('s_x_faces_6'),
-    regentlib.newsymbol('s_x_faces_7'),
-    regentlib.newsymbol('s_x_faces_8'),
-  }
-  local s_y_faces = {
-    regentlib.newsymbol('s_y_faces_1'),
-    regentlib.newsymbol('s_y_faces_2'),
-    regentlib.newsymbol('s_y_faces_3'),
-    regentlib.newsymbol('s_y_faces_4'),
-    regentlib.newsymbol('s_y_faces_5'),
-    regentlib.newsymbol('s_y_faces_6'),
-    regentlib.newsymbol('s_y_faces_7'),
-    regentlib.newsymbol('s_y_faces_8'),
-  }
-  local s_z_faces = {
-    regentlib.newsymbol('s_z_faces_1'),
-    regentlib.newsymbol('s_z_faces_2'),
-    regentlib.newsymbol('s_z_faces_3'),
-    regentlib.newsymbol('s_z_faces_4'),
-    regentlib.newsymbol('s_z_faces_5'),
-    regentlib.newsymbol('s_z_faces_6'),
-    regentlib.newsymbol('s_z_faces_7'),
-    regentlib.newsymbol('s_z_faces_8'),
-  }
+  local s_x_faces = UTIL.generate(8, regentlib.newsymbol)
+  local s_y_faces = UTIL.generate(8, regentlib.newsymbol)
+  local s_z_faces = UTIL.generate(8, regentlib.newsymbol)
 
-  local p_x_faces_equal = {
-    regentlib.newsymbol('p_x_faces_equal_1'),
-    regentlib.newsymbol('p_x_faces_equal_2'),
-    regentlib.newsymbol('p_x_faces_equal_3'),
-    regentlib.newsymbol('p_x_faces_equal_4'),
-    regentlib.newsymbol('p_x_faces_equal_5'),
-    regentlib.newsymbol('p_x_faces_equal_6'),
-    regentlib.newsymbol('p_x_faces_equal_7'),
-    regentlib.newsymbol('p_x_faces_equal_8'),
-  }
-  local p_y_faces_equal = {
-    regentlib.newsymbol('p_y_faces_equal_1'),
-    regentlib.newsymbol('p_y_faces_equal_2'),
-    regentlib.newsymbol('p_y_faces_equal_3'),
-    regentlib.newsymbol('p_y_faces_equal_4'),
-    regentlib.newsymbol('p_y_faces_equal_5'),
-    regentlib.newsymbol('p_y_faces_equal_6'),
-    regentlib.newsymbol('p_y_faces_equal_7'),
-    regentlib.newsymbol('p_y_faces_equal_8'),
-  }
-  local p_z_faces_equal = {
-    regentlib.newsymbol('p_z_faces_equal_1'),
-    regentlib.newsymbol('p_z_faces_equal_2'),
-    regentlib.newsymbol('p_z_faces_equal_3'),
-    regentlib.newsymbol('p_z_faces_equal_4'),
-    regentlib.newsymbol('p_z_faces_equal_5'),
-    regentlib.newsymbol('p_z_faces_equal_6'),
-    regentlib.newsymbol('p_z_faces_equal_7'),
-    regentlib.newsymbol('p_z_faces_equal_8'),
-  }
-
-  local p_x_faces = {
-    regentlib.newsymbol('p_x_faces_1'),
-    regentlib.newsymbol('p_x_faces_2'),
-    regentlib.newsymbol('p_x_faces_3'),
-    regentlib.newsymbol('p_x_faces_4'),
-    regentlib.newsymbol('p_x_faces_5'),
-    regentlib.newsymbol('p_x_faces_6'),
-    regentlib.newsymbol('p_x_faces_7'),
-    regentlib.newsymbol('p_x_faces_8'),
-  }
-  local p_y_faces = {
-    regentlib.newsymbol('p_y_faces_1'),
-    regentlib.newsymbol('p_y_faces_2'),
-    regentlib.newsymbol('p_y_faces_3'),
-    regentlib.newsymbol('p_y_faces_4'),
-    regentlib.newsymbol('p_y_faces_5'),
-    regentlib.newsymbol('p_y_faces_6'),
-    regentlib.newsymbol('p_y_faces_7'),
-    regentlib.newsymbol('p_y_faces_8'),
-  }
-  local p_z_faces = {
-    regentlib.newsymbol('p_z_faces_1'),
-    regentlib.newsymbol('p_z_faces_2'),
-    regentlib.newsymbol('p_z_faces_3'),
-    regentlib.newsymbol('p_z_faces_4'),
-    regentlib.newsymbol('p_z_faces_5'),
-    regentlib.newsymbol('p_z_faces_6'),
-    regentlib.newsymbol('p_z_faces_7'),
-    regentlib.newsymbol('p_z_faces_8'),
-  }
+  local p_x_faces = UTIL.generate(8, regentlib.newsymbol)
+  local p_y_faces = UTIL.generate(8, regentlib.newsymbol)
+  local p_z_faces = UTIL.generate(8, regentlib.newsymbol)
 
   function INSTANCE.DeclSymbols(config)
 
@@ -1257,51 +1140,38 @@ function MODULE.mkInstance() local INSTANCE = {}
     end)
 
     for i = 1, 8 do
-
-      local x_by_privacy = regentlib.newsymbol('x_by_privacy_' .. tostring(i))
-      local p_x = regentlib.newsymbol('p_x_' .. tostring(i))
-      local s_x = regentlib.newsymbol('s_x_' .. tostring(i))
-
-      local y_by_privacy = regentlib.newsymbol('y_by_privacy_' .. tostring(i))
-      local p_y = regentlib.newsymbol('p_y_' .. tostring(i))
-      local s_y = regentlib.newsymbol('s_y_' .. tostring(i))
-
-      local z_by_privacy = regentlib.newsymbol('z_by_privacy_' .. tostring(i))
-      local p_z = regentlib.newsymbol('p_z_' .. tostring(i))
-      local s_z = regentlib.newsymbol('s_z_' .. tostring(i))
-
       decl_symbols = rquote
         [decl_symbols];
         -- x
-        var [p_x_faces_equal[i]] = partition(equal, [x_faces[i]], [tiles_private])
+        var p_x_faces_equal = partition(equal, [x_faces[i]], [tiles_private])
         for c in [tiles_private] do
-          color_faces([p_x_faces_equal[i]][c], Nx, Ny, Nz, ntx, nty, ntz, 0, [dirArrays[i]])
+          color_faces(p_x_faces_equal[c], Nx, Ny, Nz, ntx, nty, ntz, 0, [dirArrays[i]])
         end
-        var [x_by_privacy] = partition([x_faces[i]].is_private, ispace(int1d,2))
-        var [p_x] = [x_by_privacy][1]
-        var [p_x_faces[i]] = partition([p_x].tile, [tiles_private])
-        var [s_x] = [x_by_privacy][0]
-        var [s_x_faces[i]] = partition([s_x].tile, [x_tiles_shared])
+        var x_by_privacy = partition([x_faces[i]].is_private, ispace(int1d,2))
+        var p_x = x_by_privacy[1]
+        var [p_x_faces[i]] = partition(p_x.tile, [tiles_private])
+        var s_x = x_by_privacy[0]
+        var [s_x_faces[i]] = partition(s_x.tile, [x_tiles_shared])
         -- y
-        var [p_y_faces_equal[i]] = partition(equal, [y_faces[i]], [tiles_private])
+        var p_y_faces_equal = partition(equal, [y_faces[i]], [tiles_private])
         for c in [tiles_private] do
-          color_faces([p_y_faces_equal[i]][c], Nx, Ny, Nz, ntx, nty, ntz, 1, [dirArrays[i]])
+          color_faces(p_y_faces_equal[c], Nx, Ny, Nz, ntx, nty, ntz, 1, [dirArrays[i]])
         end
-        var [y_by_privacy] = partition([y_faces[i]].is_private, ispace(int1d,2))
-        var [p_y] = [y_by_privacy][1]
-        var [p_y_faces[i]] = partition([p_y].tile, [tiles_private])
-        var [s_y] = [y_by_privacy][0]
-        var [s_y_faces[i]] = partition([s_y].tile, [y_tiles_shared])
+        var y_by_privacy = partition([y_faces[i]].is_private, ispace(int1d,2))
+        var p_y = y_by_privacy[1]
+        var [p_y_faces[i]] = partition(p_y.tile, [tiles_private])
+        var s_y = y_by_privacy[0]
+        var [s_y_faces[i]] = partition(s_y.tile, [y_tiles_shared])
         -- z
-        var [p_z_faces_equal[i]] = partition(equal, [z_faces[i]], [tiles_private])
+        var p_z_faces_equal = partition(equal, [z_faces[i]], [tiles_private])
         for c in [tiles_private] do
-          color_faces([p_z_faces_equal[i]][c], Nx, Ny, Nz, ntx, nty, ntz, 2, [dirArrays[i]])
+          color_faces(p_z_faces_equal[c], Nx, Ny, Nz, ntx, nty, ntz, 2, [dirArrays[i]])
         end
-        var [z_by_privacy] = partition([z_faces[i]].is_private, ispace(int1d,2))
-        var [p_z] = [z_by_privacy][1]
-        var [p_z_faces[i]] = partition([p_z].tile, [tiles_private])
-        var [s_z] = [z_by_privacy][0]
-        var [s_z_faces[i]] = partition([s_z].tile, [z_tiles_shared])
+        var z_by_privacy = partition([z_faces[i]].is_private, ispace(int1d,2))
+        var p_z = z_by_privacy[1]
+        var [p_z_faces[i]] = partition(p_z.tile, [tiles_private])
+        var s_z = z_by_privacy[0]
+        var [s_z_faces[i]] = partition(s_z.tile, [z_tiles_shared])
       end
     end
 
@@ -1326,7 +1196,7 @@ function MODULE.mkInstance() local INSTANCE = {}
 
     -- Compute until convergence
     var res : double = 1.0
-    while (res > tol) do
+    while (res > TOLERANCE) do
 
       -- Update the source term (in this problem, isotropic)
       for t in tiles do

@@ -3565,9 +3565,7 @@ local colorOffsets = terralib.newlist({
 local tradeQueues = UTIL.generate(26, function()
   return regentlib.newsymbol(region(ispace(int1d), TradeQueue_columns))
 end)
-local tradeQueuePtrs = UTIL.generate(26, function()
-  return regentlib.newsymbol()
-end)
+local tradeQueuePtrs = UTIL.generate(26, regentlib.newsymbol)
 
 __demand(__cuda) -- MANUALLY PARALLELIZED
 task Particles_clearSource([tradeQueues])
@@ -4658,18 +4656,14 @@ local function mkInstance() local INSTANCE = {}
   local Fluid_copy = regentlib.newsymbol()
   local Particles = regentlib.newsymbol()
   local Particles_copy = regentlib.newsymbol()
-  local TradeQueue = UTIL.generate(26, function()
-    return regentlib.newsymbol()
-  end)
+  local TradeQueue = UTIL.generate(26, regentlib.newsymbol)
   local Radiation = regentlib.newsymbol()
   local tiles = regentlib.newsymbol()
   local p_Fluid = regentlib.newsymbol()
   local p_Fluid_copy = regentlib.newsymbol()
   local p_Particles = regentlib.newsymbol()
   local p_Particles_copy = regentlib.newsymbol()
-  local p_TradeQueue = UTIL.generate(26, function()
-    return regentlib.newsymbol()
-  end)
+  local p_TradeQueue = UTIL.generate(26, regentlib.newsymbol)
   local p_Radiation = regentlib.newsymbol()
 
   -----------------------------------------------------------------------------
