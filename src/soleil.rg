@@ -3901,6 +3901,7 @@ do
       end
     end
   end
+  return acc
 end
 
 -------------------------------------------------------------------------------
@@ -5352,7 +5353,6 @@ local function mkInstance() local INSTANCE = {}
       Integrator_simTime = config.Integrator.restartTime
     else regentlib.assert(false, 'Unhandled case in switch') end
 
-    end
     -- initialize ghost cells to their specified values in NSCBC case
     if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
         Flow_InitializeGhostNSCBC(Fluid,
