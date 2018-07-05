@@ -1070,10 +1070,6 @@ function MODULE.mkInstance() local INSTANCE = {}
   local nty = regentlib.newsymbol('nty')
   local ntz = regentlib.newsymbol('ntz')
 
-  local grid_x = regentlib.newsymbol('grid_x')
-  local grid_y = regentlib.newsymbol('grid_y')
-  local grid_z = regentlib.newsymbol('grid_z')
-
   local x_faces = UTIL.generate(8, regentlib.newsymbol)
   local y_faces = UTIL.generate(8, regentlib.newsymbol)
   local z_faces = UTIL.generate(8, regentlib.newsymbol)
@@ -1092,92 +1088,71 @@ function MODULE.mkInstance() local INSTANCE = {}
   local p_y_faces = UTIL.generate(8, regentlib.newsymbol)
   local p_z_faces = UTIL.generate(8, regentlib.newsymbol)
 
-  function INSTANCE.DeclSymbols(config)
+  function INSTANCE.DeclSymbols(config) return rquote
 
-    local decl_symbols = rquote
-      -- Number of points in each dimension
-      var [Nx] = config.Radiation.xNum
-      var [Ny] = config.Radiation.yNum
-      var [Nz] = config.Radiation.zNum
+    -- Number of points in each dimension
+    var [Nx] = config.Radiation.xNum
+    var [Ny] = config.Radiation.yNum
+    var [Nz] = config.Radiation.zNum
+    -- Number of tiles in each dimension
+    var [ntx] = config.Mapping.tiles[0]
+    var [nty] = config.Mapping.tiles[1]
+    var [ntz] = config.Mapping.tiles[2]
 
-      -- Number of tiles in each dimension
-      var [ntx] = config.Mapping.tiles[0]
-      var [nty] = config.Mapping.tiles[1]
-      var [ntz] = config.Mapping.tiles[2]
+    -- Regions for faces (+1 in one direction since one more face than points)
+    var grid_x = ispace(int3d, {Nx+1, Ny,   Nz  })
+    var grid_y = ispace(int3d, {Nx,   Ny+1, Nz  })
+    var grid_z = ispace(int3d, {Nx,   Ny,   Nz+1});
+    @ESCAPE for i = 1, 8 do @EMIT
+      var [x_faces[i]] = region(grid_x, face)
+      var [y_faces[i]] = region(grid_y, face)
+      var [z_faces[i]] = region(grid_z, face)
+    @TIME end @EPACSE
 
-      -- Regions for faces (+1 in one direction since one more face than points)
-      var [grid_x] = ispace(int3d, {x = Nx+1, y = Ny,   z = Nz  })
-      var [grid_y] = ispace(int3d, {x = Nx,   y = Ny+1, z = Nz  })
-      var [grid_z] = ispace(int3d, {x = Nx,   y = Ny,   z = Nz+1})
-
-      -- 1D Region for angle values
-      var angle_indices = ispace(int1d, NUM_ANGLES)
-      var [angles] = region(angle_indices, angle)
-    end
-
-    for i = 1, 8 do
-      decl_symbols = rquote
-        [decl_symbols];
-        var [x_faces[i]] = region([grid_x], face)
-        var [y_faces[i]] = region([grid_y], face)
-        var [z_faces[i]] = region([grid_z], face)
-      end
-    end
-
-    decl_symbols = rquote
-      [decl_symbols];
-      -- extra tile required for shared edge
-      var [tiles_private]  = ispace(int3d, {x = ntx,   y = nty,   z = ntz  })
-      var [x_tiles_shared] = ispace(int3d, {x = ntx+1, y = nty,   z = ntz  })
-      var [y_tiles_shared] = ispace(int3d, {x = ntx,   y = nty+1, z = ntz  })
-      var [z_tiles_shared] = ispace(int3d, {x = ntx,   y = nty,   z = ntz+1})
-    end
+    -- 1D Region for angle values
+    var angle_indices = ispace(int1d, NUM_ANGLES)
+    var [angles] = region(angle_indices, angle)
 
     -- Partition faces
-
-    local dirArrays = directions:map(function(bools)
-      return rexpr array(bools) end
-    end)
-
-    for i = 1, 8 do
-      decl_symbols = rquote
-        [decl_symbols];
-        -- x
-        var p_x_faces_equal = partition(equal, [x_faces[i]], [tiles_private])
-        for c in [tiles_private] do
-          color_faces(p_x_faces_equal[c], Nx, Ny, Nz, ntx, nty, ntz, 0, [dirArrays[i]])
-        end
-        var x_by_privacy = partition([x_faces[i]].is_private, ispace(int1d,2))
-        var p_x = x_by_privacy[1]
-        var [p_x_faces[i]] = partition(p_x.tile, [tiles_private])
-        var s_x = x_by_privacy[0]
-        var [s_x_faces[i]] = partition(s_x.tile, [x_tiles_shared])
-        -- y
-        var p_y_faces_equal = partition(equal, [y_faces[i]], [tiles_private])
-        for c in [tiles_private] do
-          color_faces(p_y_faces_equal[c], Nx, Ny, Nz, ntx, nty, ntz, 1, [dirArrays[i]])
-        end
-        var y_by_privacy = partition([y_faces[i]].is_private, ispace(int1d,2))
-        var p_y = y_by_privacy[1]
-        var [p_y_faces[i]] = partition(p_y.tile, [tiles_private])
-        var s_y = y_by_privacy[0]
-        var [s_y_faces[i]] = partition(s_y.tile, [y_tiles_shared])
-        -- z
-        var p_z_faces_equal = partition(equal, [z_faces[i]], [tiles_private])
-        for c in [tiles_private] do
-          color_faces(p_z_faces_equal[c], Nx, Ny, Nz, ntx, nty, ntz, 2, [dirArrays[i]])
-        end
-        var z_by_privacy = partition([z_faces[i]].is_private, ispace(int1d,2))
-        var p_z = z_by_privacy[1]
-        var [p_z_faces[i]] = partition(p_z.tile, [tiles_private])
-        var s_z = z_by_privacy[0]
-        var [s_z_faces[i]] = partition(s_z.tile, [z_tiles_shared])
+    var [tiles_private]  = ispace(int3d, {ntx,   nty,   ntz  })
+    -- extra tile required for shared edge
+    var [x_tiles_shared] = ispace(int3d, {ntx+1, nty,   ntz  })
+    var [y_tiles_shared] = ispace(int3d, {ntx,   nty+1, ntz  })
+    var [z_tiles_shared] = ispace(int3d, {ntx,   nty,   ntz+1});
+    @ESCAPE for i = 1, 8 do @EMIT
+      -- x
+      var p_x_faces_equal = partition(equal, [x_faces[i]], [tiles_private])
+      for c in [tiles_private] do
+        color_faces(p_x_faces_equal[c], Nx, Ny, Nz, ntx, nty, ntz, 0, array([directions[i]]))
       end
-    end
+      var x_by_privacy = partition([x_faces[i]].is_private, ispace(int1d,2))
+      var p_x = x_by_privacy[1]
+      var [p_x_faces[i]] = partition(p_x.tile, [tiles_private])
+      var s_x = x_by_privacy[0]
+      var [s_x_faces[i]] = partition(s_x.tile, [x_tiles_shared])
+      -- y
+      var p_y_faces_equal = partition(equal, [y_faces[i]], [tiles_private])
+      for c in [tiles_private] do
+        color_faces(p_y_faces_equal[c], Nx, Ny, Nz, ntx, nty, ntz, 1, array([directions[i]]))
+      end
+      var y_by_privacy = partition([y_faces[i]].is_private, ispace(int1d,2))
+      var p_y = y_by_privacy[1]
+      var [p_y_faces[i]] = partition(p_y.tile, [tiles_private])
+      var s_y = y_by_privacy[0]
+      var [s_y_faces[i]] = partition(s_y.tile, [y_tiles_shared])
+      -- z
+      var p_z_faces_equal = partition(equal, [z_faces[i]], [tiles_private])
+      for c in [tiles_private] do
+        color_faces(p_z_faces_equal[c], Nx, Ny, Nz, ntx, nty, ntz, 2, array([directions[i]]))
+      end
+      var z_by_privacy = partition([z_faces[i]].is_private, ispace(int1d,2))
+      var p_z = z_by_privacy[1]
+      var [p_z_faces[i]] = partition(p_z.tile, [tiles_private])
+      var s_z = z_by_privacy[0]
+      var [s_z_faces[i]] = partition(s_z.tile, [z_tiles_shared])
+    @TIME end @EPACSE
 
-    return decl_symbols
-
-  end -- DeclSymbols
+  end end -- DeclSymbols
 
   function INSTANCE.InitRegions() return rquote
 
