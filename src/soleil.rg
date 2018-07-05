@@ -183,7 +183,7 @@ struct Radiation_columns {
 -- EXTERNAL MODULE IMPORTS
 -------------------------------------------------------------------------------
 
-local DOM = (require 'dom')(NUM_ANGLES, Radiation_columns, Config)
+local DOM = (require 'dom-desugared')(NUM_ANGLES, Radiation_columns, Config)
 
 -------------------------------------------------------------------------------
 -- CONSTANTS
@@ -4711,9 +4711,9 @@ local function mkInstance() local INSTANCE = {}
                         'Particle T\n'])
     C.fflush(console)
 
-    -----------------------------------------------------------------------------
+    ---------------------------------------------------------------------------
     -- Declare & initialize state variables
-    -----------------------------------------------------------------------------
+    ---------------------------------------------------------------------------
 
     -- Cell step size (TODO: Change when we go to non-uniform meshes)
     var [Grid.xCellWidth] = config.Grid.xWidth / config.Grid.xNum

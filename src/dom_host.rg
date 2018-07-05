@@ -48,7 +48,7 @@ struct Point {
 -- Import DOM module
 -------------------------------------------------------------------------------
 
-local DOM = (require 'dom')(NUM_ANGLES, Point, SCHEMA.Config)
+local DOM = (require 'dom-desugared')(NUM_ANGLES, Point, SCHEMA.Config)
 local DOM_INST = DOM.mkInstance()
 
 -------------------------------------------------------------------------------
@@ -56,7 +56,7 @@ local DOM_INST = DOM.mkInstance()
 -------------------------------------------------------------------------------
 
 local SB = 5.67e-8
-local pi = 3.1415926535898
+local PI = 3.1415926535898
 local pow = regentlib.pow(double)
 
 local task InitPoints(points : region(ispace(int3d),Point))
@@ -85,7 +85,7 @@ where reads writes(points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8,
     end
     p.G = 0.0
     p.S = 0.0
-    p.Ib = (SB/pi) * pow(1000.0, 4.0)
+    p.Ib = (SB/PI) * pow(1000.0, 4.0)
     p.sigma = 5.0
   end
 end

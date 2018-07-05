@@ -15,4 +15,4 @@
 *.hdf
 
 src/config_schema.h
-src/soleil-desugared.rg
+src/*-desugared.rg
