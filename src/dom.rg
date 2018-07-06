@@ -114,13 +114,6 @@ do
 
 end
 
-local __demand(__inline)
-task ite(b : bool, x : int, y : int)
-  var res = y
-  if b then res = x end
-  return res
-end
-
 -- Coloring example: 6x6 square, 2x2 tiling, +1-1 direction
 --
 -- points: 6x6 square
@@ -254,517 +247,167 @@ do
   end
 end
 
-local task bound_x_lo(faces_1 : region(ispace(int3d), face),
-                      faces_2 : region(ispace(int3d), face),
-                      faces_3 : region(ispace(int3d), face),
-                      faces_4 : region(ispace(int3d), face),
-                      faces_5 : region(ispace(int3d), face),
-                      faces_6 : region(ispace(int3d), face),
-                      faces_7 : region(ispace(int3d), face),
-                      faces_8 : region(ispace(int3d), face),
-                      angles : region(ispace(int1d), angle),
-                      config : Config)
-where
-  reads (angles.{w, xi, eta, mu}),
-  reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
-                faces_5.I, faces_6.I, faces_7.I, faces_8.I)
-do
+local directions = terralib.newlist{
+  terralib.newlist{ true,  true,  true},
+  terralib.newlist{ true,  true, false},
+  terralib.newlist{ true, false,  true},
+  terralib.newlist{ true, false, false},
+  terralib.newlist{false,  true,  true},
+  terralib.newlist{false,  true, false},
+  terralib.newlist{false, false,  true},
+  terralib.newlist{false, false, false},
+}
 
-  -- Get array bounds
+-- 1..8, regentlib.symbol, regentlib.symbol -> regentlib.rexpr
+local function angleInQuadrant(q, angles, m)
+  return rexpr
+    [directions[q][1] and rexpr angles[m].xi  > 0 end or rexpr angles[m].xi  <= 0 end] and
+    [directions[q][2] and rexpr angles[m].eta > 0 end or rexpr angles[m].eta <= 0 end] and
+    [directions[q][3] and rexpr angles[m].mu  > 0 end or rexpr angles[m].mu  <= 0 end]
+  end
+end
 
-  var limits = faces_1.bounds
+-- 1..6 -> regentlib.task
+local function mkBound(wall)
 
-  -- Temporary variables
+  local emissField = terralib.newlist{
+    'xLoEmiss', 'xHiEmiss', 'yLoEmiss', 'yHiEmiss', 'zLoEmiss', 'zHiEmiss'
+  }[wall]
+  local tempField = terralib.newlist{
+    'xLoTemp', 'xHiTemp', 'yLoTemp', 'yHiTemp', 'zLoTemp', 'zHiTemp'
+  }[wall]
+  local windowField = terralib.newlist{
+    'xLoWindow', 'xHiWindow', 'yLoWindow', 'yHiWindow', 'zLoWindow', 'zHiWindow'
+  }[wall]
+  local faces = UTIL.generate(8, function()
+    return regentlib.newsymbol(region(ispace(int3d), face))
+  end)
 
-  var epsw = config.Radiation.xLoEmiss
-  var Tw = config.Radiation.xLoTemp
-
-  for k = limits.lo.z, limits.hi.z + 1 do
-    for j = limits.lo.y, limits.hi.y + 1 do
-      var value = 0.0
-
-      -- Calculate reflect
-
-      if epsw < 1 then
-        for m = 0, NUM_ANGLES do
-          if angles[m].xi < 0 then
-            var face_value = 0.0
-            if angles[m].eta > 0 and angles[m].mu > 0 then
-              face_value = faces_5[{limits.lo.x,j,k}].I[m]
-            elseif angles[m].eta > 0 and angles[m].mu <= 0 then
-              face_value = faces_6[{limits.lo.x,j,k}].I[m]
-            elseif angles[m].eta <= 0 and angles[m].mu > 0 then
-              face_value = faces_7[{limits.lo.x,j,k}].I[m]
-            else
-              face_value = faces_8[{limits.lo.x,j,k}].I[m]
-            end
-            value += (1.0-epsw)/PI*angles[m].w*fabs(angles[m].xi)*face_value
-          end
-        end
-      end
-
-      -- Add blackbody radiation
-
-      if j >= config.Radiation.xLoWindow.fromCell[0] and
-         k >= config.Radiation.xLoWindow.fromCell[1] and
-         j <= config.Radiation.xLoWindow.uptoCell[0] and
-         k <= config.Radiation.xLoWindow.uptoCell[1] then
-        value += epsw*SB*pow(Tw,4.0)/PI
-      end
-
-      -- Set Ifx values
-
-      for m = 0, NUM_ANGLES do
-        if angles[m].xi > 0 then
-          if angles[m].eta > 0 and angles[m].mu > 0 then
-            faces_1[{limits.lo.x,j,k}].I[m] = value
-          elseif angles[m].eta > 0 and angles[m].mu <= 0 then
-            faces_2[{limits.lo.x,j,k}].I[m] = value
-          elseif angles[m].eta <= 0 and angles[m].mu > 0 then
-            faces_3[{limits.lo.x,j,k}].I[m] = value
-          else
-            faces_4[{limits.lo.x,j,k}].I[m] = value
-          end
-        end
-      end
-
+  local function inCells(dim0, dim1, fromCell, uptoCell)
+    return rexpr
+      fromCell[0] <= dim0 and dim0 <= uptoCell[0] and
+      fromCell[1] <= dim1 and dim1 <= uptoCell[1]
     end
   end
 
-end
-
-local task bound_x_hi(faces_1 : region(ispace(int3d), face),
-                      faces_2 : region(ispace(int3d), face),
-                      faces_3 : region(ispace(int3d), face),
-                      faces_4 : region(ispace(int3d), face),
-                      faces_5 : region(ispace(int3d), face),
-                      faces_6 : region(ispace(int3d), face),
-                      faces_7 : region(ispace(int3d), face),
-                      faces_8 : region(ispace(int3d), face),
-                      angles : region(ispace(int1d), angle),
-                      config : Config)
-where
-  reads (angles.{w, xi, eta, mu}),
-  reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
-                faces_5.I, faces_6.I, faces_7.I, faces_8.I)
-do
-
-  -- Get array bounds
-
-  var limits = faces_1.bounds
-
-  -- Temporary variables
-
-  var epsw = config.Radiation.xHiEmiss
-  var Tw = config.Radiation.xHiTemp
-
-  for k = limits.lo.z, limits.hi.z + 1 do
-    for j = limits.lo.y, limits.hi.y + 1 do
-      var value = 0.0
-
-      -- Calculate reflect
-
-      if epsw < 1 then
-        for m = 0, NUM_ANGLES do
-          if angles[m].xi > 0 then
-            var face_value = 0.0
-            if angles[m].eta > 0 and angles[m].mu > 0 then
-              face_value = faces_1[{limits.hi.x,j,k}].I[m]
-            elseif angles[m].eta > 0 and angles[m].mu <= 0 then
-              face_value = faces_2[{limits.hi.x,j,k}].I[m]
-            elseif angles[m].eta <= 0 and angles[m].mu > 0 then
-              face_value = faces_3[{limits.hi.x,j,k}].I[m]
-            else
-              face_value = faces_4[{limits.hi.x,j,k}].I[m]
+  local __demand(__cuda) -- MANUALLY PARALLELIZED
+  task bound([faces],
+             angles : region(ispace(int1d), angle),
+             config : Config)
+  where
+    reads(angles.{w, xi, eta, mu}),
+    [faces:map(function(f)
+       return regentlib.privilege(regentlib.reads, f, 'I')
+     end)],
+    [faces:map(function(f)
+       return regentlib.privilege(regentlib.writes, f, 'I')
+     end)]
+  do
+    var Nx = config.Radiation.xNum
+    var Ny = config.Radiation.yNum
+    var Nz = config.Radiation.zNum
+    var epsw = config.Radiation.[emissField]
+    var Tw = config.Radiation.[tempField]
+    var fromCell = config.Radiation.[windowField].fromCell
+    var uptoCell = config.Radiation.[windowField].uptoCell
+    __demand(__openmp)
+    for idx in [faces[1]] do
+      if [terralib.newlist{
+            rexpr idx.x == 0 end, rexpr idx.x == Nx end,
+            rexpr idx.y == 0 end, rexpr idx.y == Ny end,
+            rexpr idx.z == 0 end, rexpr idx.z == Nz end
+          }[wall]] then
+        var value = 0.0
+        -- Calculate reflected intensity
+        if epsw < 1.0 then
+          for m = 0, NUM_ANGLES do
+            if [terralib.newlist{
+                  rexpr angles[m].xi  < 0 end, rexpr angles[m].xi  > 0 end,
+                  rexpr angles[m].eta < 0 end, rexpr angles[m].eta > 0 end,
+                  rexpr angles[m].mu  < 0 end, rexpr angles[m].mu  > 0 end
+                }[wall]] then
+              var face_value = 0.0
+              @ESCAPE for q = 1, 8 do @EMIT
+                if [angleInQuadrant(q, angles, m)] then
+                  face_value = [faces[q]][idx].I[m]
+                end
+              @TIME end @EPACSE
+              value +=
+                (1.0-epsw)/PI * angles[m].w * face_value
+                * fabs([terralib.newlist{
+                          rexpr angles[m].xi  end, rexpr angles[m].xi  end,
+                          rexpr angles[m].eta end, rexpr angles[m].eta end,
+                          rexpr angles[m].mu  end, rexpr angles[m].mu  end
+                        }[wall]])
             end
-            value += (1.0-epsw)/PI*angles[m].w*angles[m].xi*face_value
+          end
+        end
+        -- Add blackbody radiation
+        if [terralib.newlist{
+              inCells(rexpr idx.y end, rexpr idx.z end, fromCell, uptoCell),
+              inCells(rexpr idx.y end, rexpr idx.z end, fromCell, uptoCell),
+              inCells(rexpr idx.x end, rexpr idx.z end, fromCell, uptoCell),
+              inCells(rexpr idx.x end, rexpr idx.z end, fromCell, uptoCell),
+              inCells(rexpr idx.x end, rexpr idx.y end, fromCell, uptoCell),
+              inCells(rexpr idx.x end, rexpr idx.y end, fromCell, uptoCell)
+            }[wall]] then
+          value += epsw*SB*pow(Tw,4.0)/PI
+        end
+        -- Set outgoing intensity values
+        for m = 0, NUM_ANGLES do
+          if [terralib.newlist{
+                rexpr angles[m].xi  > 0 end, rexpr angles[m].xi  < 0 end,
+                rexpr angles[m].eta > 0 end, rexpr angles[m].eta < 0 end,
+                rexpr angles[m].mu  > 0 end, rexpr angles[m].mu  < 0 end
+              }[wall]] then
+            @ESCAPE for q = 1, 8 do @EMIT
+              if [angleInQuadrant(q, angles, m)] then
+                [faces[q]][idx].I[m] = value
+              end
+            @TIME end @EPACSE
           end
         end
       end
-
-      -- Add blackbody radiation
-
-      if j >= config.Radiation.xHiWindow.fromCell[0] and
-         k >= config.Radiation.xHiWindow.fromCell[1] and
-         j <= config.Radiation.xHiWindow.uptoCell[0] and
-         k <= config.Radiation.xHiWindow.uptoCell[1] then
-        value += epsw*SB*pow(Tw,4.0)/PI
-      end
-
-      -- Set Ifx values
-
-      for m = 0, NUM_ANGLES do
-        if angles[m].xi < 0 then
-          if angles[m].eta > 0 and angles[m].mu > 0 then
-            faces_5[{limits.hi.x,j,k}].I[m] = value
-          elseif angles[m].eta > 0 and angles[m].mu <= 0 then
-            faces_6[{limits.hi.x,j,k}].I[m] = value
-          elseif angles[m].eta <= 0 and angles[m].mu > 0 then
-            faces_7[{limits.hi.x,j,k}].I[m] = value
-          else
-            faces_8[{limits.hi.x,j,k}].I[m] = value
-          end
-        end
-      end
-
     end
   end
 
-end
+  local name = terralib.newlist{
+    'bound_x_lo', 'bound_x_hi',
+    'bound_y_lo', 'bound_y_hi',
+    'bound_z_lo', 'bound_z_hi'
+  }[wall]
+  bound:set_name(name)
+  bound:get_primary_variant():get_ast().name[1] = name -- XXX: Dangerous
+  return bound
 
-local task bound_y_hi(faces_1 : region(ispace(int3d), face),
-                      faces_2 : region(ispace(int3d), face),
-                      faces_3 : region(ispace(int3d), face),
-                      faces_4 : region(ispace(int3d), face),
-                      faces_5 : region(ispace(int3d), face),
-                      faces_6 : region(ispace(int3d), face),
-                      faces_7 : region(ispace(int3d), face),
-                      faces_8 : region(ispace(int3d), face),
-                      angles : region(ispace(int1d), angle),
-                      config : Config)
-where
-  reads (angles.{w, xi, eta, mu}),
-  reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
-                faces_5.I, faces_6.I, faces_7.I, faces_8.I)
-do
+end -- mkBound
 
-  -- Get array bounds
+local bound_x_lo = mkBound(1)
+local bound_x_hi = mkBound(2)
+local bound_y_lo = mkBound(3)
+local bound_y_hi = mkBound(4)
+local bound_z_lo = mkBound(5)
+local bound_z_hi = mkBound(6)
 
-  var limits = faces_1.bounds
+-- 1..8 -> regentlib.task
+local function mkSweep(q)
 
-  -- Temporary variables
-
-  var epsw = config.Radiation.yHiEmiss
-  var Tw = config.Radiation.yHiTemp
-
-  for k = limits.lo.z, limits.hi.z + 1 do
-    for i = limits.lo.x, limits.hi.x + 1 do
-      var value = 0.0
-
-      -- Calculate reflect
-
-      if epsw < 1 then
-        for m = 0, NUM_ANGLES do
-          if angles[m].eta > 0 then
-            var face_value = 0.0
-            if angles[m].xi > 0 and angles[m].mu > 0 then
-              face_value = faces_1[{i,limits.hi.y,k}].I[m]
-            elseif angles[m].xi > 0 and angles[m].mu <= 0 then
-              face_value = faces_2[{i,limits.hi.y,k}].I[m]
-            elseif angles[m].xi <= 0 and angles[m].mu > 0 then
-              face_value = faces_5[{i,limits.hi.y,k}].I[m]
-            else
-              face_value = faces_6[{i,limits.hi.y,k}].I[m]
-            end
-            value += (1.0-epsw)/PI*angles[m].w*angles[m].eta*face_value
-          end
-        end
-      end
-
-      -- Add blackbody radiation
-
-      if i >= config.Radiation.yHiWindow.fromCell[0] and
-         k >= config.Radiation.yHiWindow.fromCell[1] and
-         i <= config.Radiation.yHiWindow.uptoCell[0] and
-         k <= config.Radiation.yHiWindow.uptoCell[1] then
-        value += epsw*SB*pow(Tw,4.0)/PI
-      end
-
-      -- Set Ify values
-
-      for m = 0, NUM_ANGLES do
-        if angles[m].eta < 0 then
-          if angles[m].xi > 0 and angles[m].mu > 0 then
-            faces_3[{i,limits.hi.y,k}].I[m] = value
-          elseif angles[m].xi > 0 and angles[m].mu <= 0 then
-            faces_4[{i,limits.hi.y,k}].I[m] = value
-          elseif angles[m].xi <= 0 and angles[m].mu > 0 then
-            faces_7[{i,limits.hi.y,k}].I[m] = value
-          else
-            faces_8[{i,limits.hi.y,k}].I[m] = value
-          end
-        end
-      end
-
-    end
-  end
-
-end
-
-local task bound_y_lo(faces_1 : region(ispace(int3d), face),
-                      faces_2 : region(ispace(int3d), face),
-                      faces_3 : region(ispace(int3d), face),
-                      faces_4 : region(ispace(int3d), face),
-                      faces_5 : region(ispace(int3d), face),
-                      faces_6 : region(ispace(int3d), face),
-                      faces_7 : region(ispace(int3d), face),
-                      faces_8 : region(ispace(int3d), face),
-                      angles : region(ispace(int1d), angle),
-                      config : Config)
-where
-  reads (angles.{w, xi, eta, mu}),
-  reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
-                faces_5.I, faces_6.I, faces_7.I, faces_8.I)
-do
-
-  -- Get array bounds
-
-  var limits = faces_1.bounds
-
-  -- Temporary variables
-
-  var epsw = config.Radiation.yLoEmiss
-  var Tw = config.Radiation.yLoTemp
-
-  for k = limits.lo.z, limits.hi.z + 1 do
-    for i = limits.lo.x, limits.hi.x + 1 do
-      var value = 0.0
-
-      -- Calculate reflect
-
-      if epsw < 1 then
-        for m = 0, NUM_ANGLES do
-          if angles[m].eta < 0 then
-            var face_value = 0.0
-            if angles[m].xi > 0 and angles[m].mu > 0 then
-              face_value = faces_3[{i,limits.lo.y,k}].I[m]
-            elseif angles[m].xi > 0 and angles[m].mu <= 0 then
-              face_value = faces_4[{i,limits.lo.y,k}].I[m]
-            elseif angles[m].xi <= 0 and angles[m].mu > 0 then
-              face_value = faces_7[{i,limits.lo.y,k}].I[m]
-            else
-              face_value = faces_8[{i,limits.lo.y,k}].I[m]
-            end
-            value += (1.0-epsw)/PI*angles[m].w*fabs(angles[m].eta)*face_value
-          end
-        end
-      end
-
-      -- Add blackbody radiation
-
-      if i >= config.Radiation.yLoWindow.fromCell[0] and
-         k >= config.Radiation.yLoWindow.fromCell[1] and
-         i <= config.Radiation.yLoWindow.uptoCell[0] and
-         k <= config.Radiation.yLoWindow.uptoCell[1] then
-        value += epsw*SB*pow(Tw,4.0)/PI
-      end
-
-      -- Set Ify values
-
-      for m = 0, NUM_ANGLES do
-        if angles[m].eta > 0 then
-          if angles[m].xi > 0 and angles[m].mu > 0 then
-            faces_1[{i,limits.lo.y,k}].I[m] = value
-          elseif angles[m].xi > 0 and angles[m].mu <= 0 then
-            faces_2[{i,limits.lo.y,k}].I[m] = value
-          elseif angles[m].xi <= 0 and angles[m].mu > 0 then
-            faces_5[{i,limits.lo.y,k}].I[m] = value
-          else
-            faces_6[{i,limits.lo.y,k}].I[m] = value
-          end
-        end
-      end
-
-    end
-  end
-
-end
-
-local task bound_z_lo(faces_1 : region(ispace(int3d), face),
-                      faces_2 : region(ispace(int3d), face),
-                      faces_3 : region(ispace(int3d), face),
-                      faces_4 : region(ispace(int3d), face),
-                      faces_5 : region(ispace(int3d), face),
-                      faces_6 : region(ispace(int3d), face),
-                      faces_7 : region(ispace(int3d), face),
-                      faces_8 : region(ispace(int3d), face),
-                      angles : region(ispace(int1d), angle),
-                      config : Config)
-where
-  reads (angles.{w, xi, eta, mu}),
-  reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
-                faces_5.I, faces_6.I, faces_7.I, faces_8.I)
-do
-
-  -- Get array bounds
-
-  var limits = faces_1.bounds
-
-  -- Temporary variables
-
-  var epsw = config.Radiation.zLoEmiss
-  var Tw = config.Radiation.zLoTemp
-
-  for j = limits.lo.y, limits.hi.y + 1 do
-    for i = limits.lo.x, limits.hi.x + 1 do
-      var value = 0.0
-
-      -- Calculate reflect
-
-      if epsw < 1 then
-        for m = 0, NUM_ANGLES do
-          if angles[m].mu < 0 then
-            var face_value = 0.0
-            if angles[m].xi > 0 and angles[m].eta > 0 then
-              face_value = faces_2[{i,j,limits.lo.z}].I[m]
-            elseif angles[m].xi > 0 and angles[m].eta <= 0 then
-              face_value = faces_4[{i,j,limits.lo.z}].I[m]
-            elseif angles[m].xi <= 0 and angles[m].eta > 0 then
-              face_value = faces_6[{i,j,limits.lo.z}].I[m]
-            else
-              face_value = faces_8[{i,j,limits.lo.z}].I[m]
-            end
-            value += (1.0-epsw)/PI*angles[m].w*fabs(angles[m].mu)*face_value
-          end
-        end
-      end
-
-      -- Add blackbody radiation
-
-      if i >= config.Radiation.zLoWindow.fromCell[0] and
-         j >= config.Radiation.zLoWindow.fromCell[1] and
-         i <= config.Radiation.zLoWindow.uptoCell[0] and
-         j <= config.Radiation.zLoWindow.uptoCell[1] then
-        value += epsw*SB*pow(Tw,4.0)/PI
-      end
-
-      -- Set Ifz values
-
-      for m = 0, NUM_ANGLES do
-        if angles[m].mu > 0 then
-          if angles[m].xi > 0 and angles[m].eta > 0 then
-            faces_1[{i,j,limits.lo.z}].I[m] = value
-          elseif angles[m].xi > 0 and angles[m].eta <= 0 then
-            faces_3[{i,j,limits.lo.z}].I[m] = value
-          elseif angles[m].xi <= 0 and angles[m].eta > 0 then
-            faces_5[{i,j,limits.lo.z}].I[m] = value
-          else
-            faces_7[{i,j,limits.lo.z}].I[m] = value
-          end
-        end
-      end
-
-    end
-  end
-
-end
-
-local task bound_z_hi(faces_1 : region(ispace(int3d), face),
-                      faces_2 : region(ispace(int3d), face),
-                      faces_3 : region(ispace(int3d), face),
-                      faces_4 : region(ispace(int3d), face),
-                      faces_5 : region(ispace(int3d), face),
-                      faces_6 : region(ispace(int3d), face),
-                      faces_7 : region(ispace(int3d), face),
-                      faces_8 : region(ispace(int3d), face),
-                      angles : region(ispace(int1d), angle),
-                      config : Config)
-where
-  reads (angles.{w, xi, eta, mu}),
-  reads writes (faces_1.I, faces_2.I, faces_3.I, faces_4.I,
-                faces_5.I, faces_6.I, faces_7.I, faces_8.I)
-do
-
-  -- Get array bounds
-
-  var limits = faces_1.bounds
-
-  -- Temporary variables
-
-  var epsw = config.Radiation.zHiEmiss
-  var Tw = config.Radiation.zHiTemp
-
-  for j = limits.lo.y, limits.hi.y + 1 do
-    for i = limits.lo.x, limits.hi.x + 1 do
-      var value = 0.0
-
-      -- Calculate reflect
-
-      if epsw < 1 then
-        for m = 0, NUM_ANGLES do
-          if angles[m].mu > 0 then
-            var face_value = 0.0
-            if angles[m].xi > 0 and angles[m].eta > 0 then
-              face_value = faces_1[{i,j,limits.hi.z}].I[m]
-            elseif angles[m].xi > 0 and angles[m].eta <= 0 then
-              face_value = faces_3[{i,j,limits.hi.z}].I[m]
-            elseif angles[m].xi <= 0 and angles[m].eta > 0 then
-              face_value = faces_5[{i,j,limits.hi.z}].I[m]
-            else
-              face_value = faces_7[{i,j,limits.hi.z}].I[m]
-            end
-            value += (1.0-epsw)/PI*angles[m].w*angles[m].mu*face_value
-          end
-        end
-      end
-
-      -- Add blackbody radiation
-
-      if i >= config.Radiation.zHiWindow.fromCell[0] and
-         j >= config.Radiation.zHiWindow.fromCell[1] and
-         i <= config.Radiation.zHiWindow.uptoCell[0] and
-         j <= config.Radiation.zHiWindow.uptoCell[1] then
-        value += epsw*SB*pow(Tw,4.0)/PI
-      end
-
-      -- Set Ifz values
-
-      for m = 0, NUM_ANGLES do
-        if angles[m].mu < 0 then
-          if angles[m].xi > 0 and angles[m].eta > 0 then
-            faces_2[{i,j,limits.hi.z}].I[m] = value
-          elseif angles[m].xi > 0 and angles[m].eta <= 0 then
-            faces_4[{i,j,limits.hi.z}].I[m] = value
-          elseif angles[m].xi <= 0 and angles[m].eta > 0 then
-            faces_6[{i,j,limits.hi.z}].I[m] = value
-          else
-            faces_8[{i,j,limits.hi.z}].I[m] = value
-          end
-        end
-      end
-
-    end
-  end
-
-end
-
-local intensityFields = terralib.newlist({
-  'I_1', 'I_2', 'I_3', 'I_4', 'I_5', 'I_6', 'I_7', 'I_8'
-})
-
-local directions = terralib.newlist({
-  terralib.newlist({ true,  true,  true}),
-  terralib.newlist({ true,  true, false}),
-  terralib.newlist({ true, false,  true}),
-  terralib.newlist({ true, false, false}),
-  terralib.newlist({false,  true,  true}),
-  terralib.newlist({false,  true, false}),
-  terralib.newlist({false, false,  true}),
-  terralib.newlist({false, false, false}),
-})
-
-local function mkSweep(num)
-
-  local fld = intensityFields[num]
+  local fld = terralib.newlist{
+    'I_1', 'I_2', 'I_3', 'I_4', 'I_5', 'I_6', 'I_7', 'I_8'
+  }[q]
   local bnd = regentlib.newsymbol()
-  local xi = regentlib.newsymbol()
-  local eta = regentlib.newsymbol()
-  local mu = regentlib.newsymbol()
 
-  local startx = directions[num][1] and rexpr     bnd.lo.x end or rexpr     bnd.hi.x end
-  local dindx  = directions[num][1] and rexpr            1 end or rexpr           -1 end
-  local endx   = directions[num][1] and rexpr bnd.hi.x + 1 end or rexpr bnd.lo.x - 1 end
-  local condx  = directions[num][1] and rexpr       xi > 0 end or rexpr      xi <= 0 end
+  local startx = directions[q][1] and rexpr     bnd.lo.x end or rexpr     bnd.hi.x end
+  local dindx  = directions[q][1] and rexpr            1 end or rexpr           -1 end
+  local endx   = directions[q][1] and rexpr bnd.hi.x + 1 end or rexpr bnd.lo.x - 1 end
 
-  local starty = directions[num][2] and rexpr     bnd.lo.y end or rexpr     bnd.hi.y end
-  local dindy  = directions[num][2] and rexpr            1 end or rexpr           -1 end
-  local endy   = directions[num][2] and rexpr bnd.hi.y + 1 end or rexpr bnd.lo.y - 1 end
-  local condy  = directions[num][2] and rexpr      eta > 0 end or rexpr     eta <= 0 end
+  local starty = directions[q][2] and rexpr     bnd.lo.y end or rexpr     bnd.hi.y end
+  local dindy  = directions[q][2] and rexpr            1 end or rexpr           -1 end
+  local endy   = directions[q][2] and rexpr bnd.hi.y + 1 end or rexpr bnd.lo.y - 1 end
 
-  local startz = directions[num][3] and rexpr     bnd.lo.z end or rexpr     bnd.hi.z end
-  local dindz  = directions[num][3] and rexpr            1 end or rexpr           -1 end
-  local endz   = directions[num][3] and rexpr bnd.hi.z + 1 end or rexpr bnd.lo.z - 1 end
-  local condz  = directions[num][3] and rexpr       mu > 0 end or rexpr      mu <= 0 end
+  local startz = directions[q][3] and rexpr     bnd.lo.z end or rexpr     bnd.hi.z end
+  local dindz  = directions[q][3] and rexpr            1 end or rexpr           -1 end
+  local endz   = directions[q][3] and rexpr bnd.hi.z + 1 end or rexpr bnd.lo.z - 1 end
 
   local -- MANUALLY PARALLELIZED, NO OPENMP, NO CUDA
   task sweep(points : region(ispace(int3d), pointsFSpace),
@@ -796,10 +439,7 @@ local function mkSweep(num)
         for i = startx,endx,dindx do
           -- Loop over this quadrant's angles.
           for m = 0, NUM_ANGLES do
-            var [xi] = angles[m].xi
-            var [eta] = angles[m].eta
-            var [mu] = angles[m].mu
-            if condx and condy and condz then
+            if [angleInQuadrant(q, angles, m)] then
               -- Derive upwind indices
               var indx : int64 = i - min(dindx,0)
               var indy : int64 = j - min(dindy,0)
@@ -861,14 +501,14 @@ local function mkSweep(num)
     end
   end
 
-  local name = 'sweep_'..tostring(num)
+  local name = 'sweep_'..tostring(q)
   sweep:set_name(name)
   sweep:get_primary_variant():get_ast().name[1] = name -- XXX: Dangerous
   return sweep
 
 end -- mkSweep
 
-local sweeps = terralib.newlist({
+local sweeps = terralib.newlist{
   mkSweep(1),
   mkSweep(2),
   mkSweep(3),
@@ -877,7 +517,7 @@ local sweeps = terralib.newlist({
   mkSweep(6),
   mkSweep(7),
   mkSweep(8),
-})
+}
 
 -- Compute the residual after each iteration and return the value.
 local task residual(points : region(ispace(int3d), pointsFSpace),
@@ -1103,10 +743,10 @@ function MODULE.mkInstance() local INSTANCE = {}
     var grid_x = ispace(int3d, {Nx+1, Ny,   Nz  })
     var grid_y = ispace(int3d, {Nx,   Ny+1, Nz  })
     var grid_z = ispace(int3d, {Nx,   Ny,   Nz+1});
-    @ESCAPE for i = 1, 8 do @EMIT
-      var [x_faces[i]] = region(grid_x, face)
-      var [y_faces[i]] = region(grid_y, face)
-      var [z_faces[i]] = region(grid_z, face)
+    @ESCAPE for q = 1, 8 do @EMIT
+      var [x_faces[q]] = region(grid_x, face)
+      var [y_faces[q]] = region(grid_y, face)
+      var [z_faces[q]] = region(grid_z, face)
     @TIME end @EPACSE
 
     -- 1D Region for angle values
@@ -1119,37 +759,37 @@ function MODULE.mkInstance() local INSTANCE = {}
     var [x_tiles_shared] = ispace(int3d, {ntx+1, nty,   ntz  })
     var [y_tiles_shared] = ispace(int3d, {ntx,   nty+1, ntz  })
     var [z_tiles_shared] = ispace(int3d, {ntx,   nty,   ntz+1});
-    @ESCAPE for i = 1, 8 do @EMIT
+    @ESCAPE for q = 1, 8 do @EMIT
       -- x
-      var p_x_faces_equal = partition(equal, [x_faces[i]], [tiles_private])
+      var p_x_faces_equal = partition(equal, [x_faces[q]], [tiles_private])
       for c in [tiles_private] do
-        color_faces(p_x_faces_equal[c], Nx, Ny, Nz, ntx, nty, ntz, 0, array([directions[i]]))
+        color_faces(p_x_faces_equal[c], Nx, Ny, Nz, ntx, nty, ntz, 0, array([directions[q]]))
       end
-      var x_by_privacy = partition([x_faces[i]].is_private, ispace(int1d,2))
+      var x_by_privacy = partition([x_faces[q]].is_private, ispace(int1d,2))
       var p_x = x_by_privacy[1]
-      var [p_x_faces[i]] = partition(p_x.tile, [tiles_private])
+      var [p_x_faces[q]] = partition(p_x.tile, [tiles_private])
       var s_x = x_by_privacy[0]
-      var [s_x_faces[i]] = partition(s_x.tile, [x_tiles_shared])
+      var [s_x_faces[q]] = partition(s_x.tile, [x_tiles_shared])
       -- y
-      var p_y_faces_equal = partition(equal, [y_faces[i]], [tiles_private])
+      var p_y_faces_equal = partition(equal, [y_faces[q]], [tiles_private])
       for c in [tiles_private] do
-        color_faces(p_y_faces_equal[c], Nx, Ny, Nz, ntx, nty, ntz, 1, array([directions[i]]))
+        color_faces(p_y_faces_equal[c], Nx, Ny, Nz, ntx, nty, ntz, 1, array([directions[q]]))
       end
-      var y_by_privacy = partition([y_faces[i]].is_private, ispace(int1d,2))
+      var y_by_privacy = partition([y_faces[q]].is_private, ispace(int1d,2))
       var p_y = y_by_privacy[1]
-      var [p_y_faces[i]] = partition(p_y.tile, [tiles_private])
+      var [p_y_faces[q]] = partition(p_y.tile, [tiles_private])
       var s_y = y_by_privacy[0]
-      var [s_y_faces[i]] = partition(s_y.tile, [y_tiles_shared])
+      var [s_y_faces[q]] = partition(s_y.tile, [y_tiles_shared])
       -- z
-      var p_z_faces_equal = partition(equal, [z_faces[i]], [tiles_private])
+      var p_z_faces_equal = partition(equal, [z_faces[q]], [tiles_private])
       for c in [tiles_private] do
-        color_faces(p_z_faces_equal[c], Nx, Ny, Nz, ntx, nty, ntz, 2, array([directions[i]]))
+        color_faces(p_z_faces_equal[c], Nx, Ny, Nz, ntx, nty, ntz, 2, array([directions[q]]))
       end
-      var z_by_privacy = partition([z_faces[i]].is_private, ispace(int1d,2))
+      var z_by_privacy = partition([z_faces[q]].is_private, ispace(int1d,2))
       var p_z = z_by_privacy[1]
-      var [p_z_faces[i]] = partition(p_z.tile, [tiles_private])
+      var [p_z_faces[q]] = partition(p_z.tile, [tiles_private])
       var s_z = z_by_privacy[0]
-      var [s_z_faces[i]] = partition(s_z.tile, [z_tiles_shared])
+      var [s_z_faces[q]] = partition(s_z.tile, [z_tiles_shared])
     @TIME end @EPACSE
 
   end end -- DeclSymbols
