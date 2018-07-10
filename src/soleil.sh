@@ -130,10 +130,10 @@ function run_sherlock {
 }
 
 function run_sapling {
-    # Allocate up to 4 nodes, from n0000 up to n0003
-    if (( NUM_RANKS > 4 )); then quit "Too many nodes requested"; fi
-    NODES=n0000
-    for (( i = 1; i < NUM_RANKS; i++ )); do
+    # Allocate up to 3 nodes, from n0001 up to n0003
+    if (( NUM_RANKS > 3 )); then quit "Too many nodes requested"; fi
+    NODES=n0001
+    for (( i = 2; i <= NUM_RANKS; i++ )); do
         NODES="$NODES,n000$i"
     done
     GPU_OPTS=
@@ -144,7 +144,7 @@ function run_sapling {
         -x LD_LIBRARY_PATH -x SOLEIL_DIR -x REALM_BACKTRACE \
         "$SOLEIL_DIR"/src/soleil.exec $ARGS $GPU_OPTS \
         -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 \
-        -ll:csize 38000 -ll:ostack 8
+        -ll:csize 36000 -ll:ostack 8
     # Resources:
     # 40230MB RAM per node
     # 2 NUMA domains per node
