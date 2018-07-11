@@ -10,34 +10,35 @@ import 'regent'
 
 local C = regentlib.c
 local SCHEMA = terralib.includec("config_schema.h")
+local UTIL = require 'util'
 
 -------------------------------------------------------------------------------
 -- Compile-time configuration options
 -------------------------------------------------------------------------------
 
-local NUM_ANGLES = 14
+local MAX_ANGLES_PER_QUAD = 14
 
 -------------------------------------------------------------------------------
 -- Proxy radiation grid
 -------------------------------------------------------------------------------
 
 struct Point {
-    I_1 : double[NUM_ANGLES];
-    I_2 : double[NUM_ANGLES];
-    I_3 : double[NUM_ANGLES];
-    I_4 : double[NUM_ANGLES];
-    I_5 : double[NUM_ANGLES];
-    I_6 : double[NUM_ANGLES];
-    I_7 : double[NUM_ANGLES];
-    I_8 : double[NUM_ANGLES];
-    Iiter_1 : double[NUM_ANGLES];
-    Iiter_2 : double[NUM_ANGLES];
-    Iiter_3 : double[NUM_ANGLES];
-    Iiter_4 : double[NUM_ANGLES];
-    Iiter_5 : double[NUM_ANGLES];
-    Iiter_6 : double[NUM_ANGLES];
-    Iiter_7 : double[NUM_ANGLES];
-    Iiter_8 : double[NUM_ANGLES];
+    I_1 : double[MAX_ANGLES_PER_QUAD];
+    I_2 : double[MAX_ANGLES_PER_QUAD];
+    I_3 : double[MAX_ANGLES_PER_QUAD];
+    I_4 : double[MAX_ANGLES_PER_QUAD];
+    I_5 : double[MAX_ANGLES_PER_QUAD];
+    I_6 : double[MAX_ANGLES_PER_QUAD];
+    I_7 : double[MAX_ANGLES_PER_QUAD];
+    I_8 : double[MAX_ANGLES_PER_QUAD];
+    Iiter_1 : double[MAX_ANGLES_PER_QUAD];
+    Iiter_2 : double[MAX_ANGLES_PER_QUAD];
+    Iiter_3 : double[MAX_ANGLES_PER_QUAD];
+    Iiter_4 : double[MAX_ANGLES_PER_QUAD];
+    Iiter_5 : double[MAX_ANGLES_PER_QUAD];
+    Iiter_6 : double[MAX_ANGLES_PER_QUAD];
+    Iiter_7 : double[MAX_ANGLES_PER_QUAD];
+    Iiter_8 : double[MAX_ANGLES_PER_QUAD];
     G : double;
     S : double;
     Ib : double;
@@ -48,7 +49,7 @@ struct Point {
 -- Import DOM module
 -------------------------------------------------------------------------------
 
-local DOM = (require 'dom-desugared')(NUM_ANGLES, Point, SCHEMA.Config)
+local DOM = (require 'dom-desugared')(MAX_ANGLES_PER_QUAD, Point, SCHEMA.Config)
 local DOM_INST = DOM.mkInstance()
 
 -------------------------------------------------------------------------------
@@ -65,15 +66,15 @@ where reads writes(points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8,
                            Iiter_5, Iiter_6, Iiter_7, Iiter_8,
                            G, S, Ib, sigma}) do
   for p in points do
-    for m = 0,NUM_ANGLES do
-      p.I_1[m]     = 0.0
-      p.I_2[m]     = 0.0
-      p.I_3[m]     = 0.0
-      p.I_4[m]     = 0.0
-      p.I_5[m]     = 0.0
-      p.I_6[m]     = 0.0
-      p.I_7[m]     = 0.0
-      p.I_8[m]     = 0.0
+    for m = 0, MAX_ANGLES_PER_QUAD do
+      p.I_1[m] = 0.0
+      p.I_2[m] = 0.0
+      p.I_3[m] = 0.0
+      p.I_4[m] = 0.0
+      p.I_5[m] = 0.0
+      p.I_6[m] = 0.0
+      p.I_7[m] = 0.0
+      p.I_8[m] = 0.0
       p.Iiter_1[m] = 0.0
       p.Iiter_2[m] = 0.0
       p.Iiter_3[m] = 0.0
@@ -95,7 +96,7 @@ where
   reads (points.G)
 do
   var limits = points.bounds
-  var f = C.fopen("intensity.dat", "w")
+  var f = UTIL.openFile("intensity.dat", "w")
   for i = limits.lo.x, limits.hi.x+1 do
     for j = limits.lo.y, limits.hi.y+1 do
       for k = limits.lo.z, limits.hi.z+1 do
@@ -122,13 +123,6 @@ local task main()
     C.exit(1)
   end
   var config = SCHEMA.parse_Config(args.argv[1])
-
-  if config.Radiation.angles ~= NUM_ANGLES then
-    C.fprintf(stderr, "angles in config file (%d) must match NUM_ANGLES in dom_host.rg (%d)\n",
-      config.Radiation.angles, NUM_ANGLES)
-    C.fflush(stderr)
-    C.exit(1)
-  end
   -- Initialize symbols
   var is = ispace(int3d, {config.Radiation.xNum, config.Radiation.yNum, config.Radiation.zNum})
   var points = region(is, Point)
@@ -136,7 +130,7 @@ local task main()
   var p_points = partition(equal, points, colors);
   -- Inline quotes from external module
   [DOM_INST.DeclSymbols(config)];
-  [DOM_INST.InitRegions()];
+  [DOM_INST.InitRegions(config)];
   for color in colors do
     InitPoints(p_points[color])
   end
