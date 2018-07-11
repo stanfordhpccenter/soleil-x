@@ -25,6 +25,7 @@ Normally you'd need to edit file `~/.bashrc`. Replace the `???` depending on you
 # Module loads (if necessary)
 ...
 # Build config (if necessary, for Legion or Soleil-X)
+export CC_FLAGS=-DREALM_USE_NATIVE_THREADS
 ...
 # Path setup (mandatory)
 export LEGION_DIR=???
@@ -84,6 +85,7 @@ Setup (local Ubuntu machine w/o GPU)
 
 ```
 # Build config
+export CC_FLAGS=-DREALM_USE_NATIVE_THREADS
 export CC=gcc
 export CXX=g++
 # Path setup
@@ -123,6 +125,7 @@ Setup (Sapling @ Stanford)
 module load mpi/openmpi/1.8.2
 module load cuda/8.0
 # Build config
+export CC_FLAGS=-DREALM_USE_NATIVE_THREADS
 export CONDUIT=ibv
 export CC=gcc-4.9
 export CXX=g++-4.9
@@ -168,6 +171,7 @@ module load gcc/6.3.0
 module load cuda/8.0.61
 module load openmpi/2.0.2
 # Build config
+export CC_FLAGS=-DREALM_USE_NATIVE_THREADS
 export CONDUIT=ibv
 export CC=gcc
 export CXX=g++
@@ -218,6 +222,7 @@ module load gnu7/7.2.0
 module load cuda/8.0
 module load openmpi3/3.0.0
 # Build config
+export CC_FLAGS=-DREALM_USE_NATIVE_THREADS
 export CONDUIT=ibv
 export CC=gcc
 export CXX=g++
@@ -273,6 +278,7 @@ module load python/2.7.9
 module load cudatoolkit/7.5.18-1.0502.10743.2.1
 module swap PrgEnv-pgi PrgEnv-gnu
 # Build config
+export CC_FLAGS=-DREALM_USE_NATIVE_THREADS
 export MARCH=barcelona
 export CC=cc
 export CXX=CC
@@ -321,6 +327,7 @@ Install Legion and Soleil-X on the `/ccs/proj` filesystem, not your home directo
 module load gcc/6.4.0
 module load cuda/9.0.184
 # Build config
+export CC_FLAGS=-DREALM_USE_NATIVE_THREADS
 export CC=gcc
 export CXX=g++
 export CONDUIT=ibv
@@ -346,6 +353,53 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 cd "$LEGION_DIR"/language
 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1-ppc64'
+```
+
+### Compile Soleil-X
+
+```
+cd "$SOLEIL_DIR"/src
+make
+```
+
+Setup (PizDaint @ ETH)
+======================
+
+### Add to shell startup
+
+```
+# Module loads
+module swap PrgEnv-cray PrgEnv-gnu
+module load daint-gpu
+module load cudatoolkit/8.0.61_2.4.3-6.0.4.0_3.1__gb475d12
+# Build config
+export CC_FLAGS=-DREALM_USE_NATIVE_THREADS
+export CC=cc
+export CXX=CC
+export HOST_CC=gcc
+export HOST_CXX=g++
+# Path setup
+export LEGION_DIR=???
+export HDF_ROOT="$LEGION_DIR"/language/hdf/install
+export SOLEIL_DIR=???
+# CUDA config
+export CUDA_HOME=/opt/nvidia/cudatoolkit8.0/8.0.61_2.4.3-6.0.4.0_3.1__gb475d12/
+export CUDA="$CUDA_HOME"
+export GPU_ARCH=pascal
+```
+
+### Download software
+
+```
+git clone https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
+```
+
+### Install Legion
+
+```
+cd "$LEGION_DIR"/language
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
 ### Compile Soleil-X

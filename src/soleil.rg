@@ -31,7 +31,7 @@ local log = regentlib.log(double)
 
 local USE_HDF = assert(os.getenv('USE_HDF')) ~= '0'
 
-local NUM_ANGLES = 14
+local MAX_ANGLES_PER_QUAD = 16
 
 -------------------------------------------------------------------------------
 -- DATA STRUCTURES
@@ -163,22 +163,22 @@ local Fluid_primitives = terralib.newlist({
 })
 
 struct Radiation_columns {
-  I_1 : double[NUM_ANGLES];
-  I_2 : double[NUM_ANGLES];
-  I_3 : double[NUM_ANGLES];
-  I_4 : double[NUM_ANGLES];
-  I_5 : double[NUM_ANGLES];
-  I_6 : double[NUM_ANGLES];
-  I_7 : double[NUM_ANGLES];
-  I_8 : double[NUM_ANGLES];
-  Iiter_1 : double[NUM_ANGLES];
-  Iiter_2 : double[NUM_ANGLES];
-  Iiter_3 : double[NUM_ANGLES];
-  Iiter_4 : double[NUM_ANGLES];
-  Iiter_5 : double[NUM_ANGLES];
-  Iiter_6 : double[NUM_ANGLES];
-  Iiter_7 : double[NUM_ANGLES];
-  Iiter_8 : double[NUM_ANGLES];
+  I_1 : double[MAX_ANGLES_PER_QUAD];
+  I_2 : double[MAX_ANGLES_PER_QUAD];
+  I_3 : double[MAX_ANGLES_PER_QUAD];
+  I_4 : double[MAX_ANGLES_PER_QUAD];
+  I_5 : double[MAX_ANGLES_PER_QUAD];
+  I_6 : double[MAX_ANGLES_PER_QUAD];
+  I_7 : double[MAX_ANGLES_PER_QUAD];
+  I_8 : double[MAX_ANGLES_PER_QUAD];
+  Iiter_1 : double[MAX_ANGLES_PER_QUAD];
+  Iiter_2 : double[MAX_ANGLES_PER_QUAD];
+  Iiter_3 : double[MAX_ANGLES_PER_QUAD];
+  Iiter_4 : double[MAX_ANGLES_PER_QUAD];
+  Iiter_5 : double[MAX_ANGLES_PER_QUAD];
+  Iiter_6 : double[MAX_ANGLES_PER_QUAD];
+  Iiter_7 : double[MAX_ANGLES_PER_QUAD];
+  Iiter_8 : double[MAX_ANGLES_PER_QUAD];
   G : double;
   S : double;
   Ib : double;
@@ -191,7 +191,7 @@ struct Radiation_columns {
 -- EXTERNAL MODULE IMPORTS
 -------------------------------------------------------------------------------
 
-local DOM = (require 'dom')(NUM_ANGLES, Radiation_columns, Config)
+local DOM = (require 'dom-desugared')(MAX_ANGLES_PER_QUAD, Radiation_columns, Config)
 
 -------------------------------------------------------------------------------
 -- CONSTANTS
@@ -2103,7 +2103,7 @@ where
 do
   __demand(__openmp)
   for c in Radiation do
-    for m = 0, NUM_ANGLES do
+    for m = 0, MAX_ANGLES_PER_QUAD do
       Radiation[c].I_1[m] = 0.0
       Radiation[c].I_2[m] = 0.0
       Radiation[c].I_3[m] = 0.0
@@ -3642,9 +3642,7 @@ local colorOffsets = terralib.newlist({
 local tradeQueues = UTIL.generate(26, function()
   return regentlib.newsymbol(region(ispace(int1d), TradeQueue_columns))
 end)
-local tradeQueuePtrs = UTIL.generate(26, function()
-  return regentlib.newsymbol()
-end)
+local tradeQueuePtrs = UTIL.generate(26, regentlib.newsymbol)
 
 __demand(__cuda) -- MANUALLY PARALLELIZED
 task TradeQueue_clearSource([tradeQueues])
@@ -4858,18 +4856,14 @@ local function mkInstance() local INSTANCE = {}
   local Fluid_copy = regentlib.newsymbol()
   local Particles = regentlib.newsymbol()
   local Particles_copy = regentlib.newsymbol()
-  local TradeQueue = UTIL.generate(26, function()
-    return regentlib.newsymbol()
-  end)
+  local TradeQueue = UTIL.generate(26, regentlib.newsymbol)
   local Radiation = regentlib.newsymbol()
   local tiles = regentlib.newsymbol()
   local p_Fluid = regentlib.newsymbol()
   local p_Fluid_copy = regentlib.newsymbol()
   local p_Particles = regentlib.newsymbol()
   local p_Particles_copy = regentlib.newsymbol()
-  local p_TradeQueue = UTIL.generate(26, function()
-    return regentlib.newsymbol()
-  end)
+  local p_TradeQueue = UTIL.generate(26, regentlib.newsymbol)
   local p_Radiation = regentlib.newsymbol()
 
   -----------------------------------------------------------------------------
@@ -4918,9 +4912,9 @@ local function mkInstance() local INSTANCE = {}
                         'Particle T\n'])
     C.fflush(console)
 
-    -----------------------------------------------------------------------------
+    ---------------------------------------------------------------------------
     -- Declare & initialize state variables
-    -----------------------------------------------------------------------------
+    ---------------------------------------------------------------------------
 
     -- Cell step size (TODO: Change when we go to non-uniform meshes)
     var [Grid.xCellWidth] = config.Grid.xWidth / config.Grid.xNum
@@ -5485,7 +5479,7 @@ local function mkInstance() local INSTANCE = {}
       -- Do nothing
     elseif config.Radiation.type == SCHEMA.RadiationType_DOM then
       Radiation_InitializeCell(Radiation);
-      [DOM_INST.InitRegions()];
+      [DOM_INST.InitRegions(config)];
     else regentlib.assert(false, 'Unhandled case in switch') end
 
   end end -- InitRegions
