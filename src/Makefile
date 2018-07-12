@@ -56,21 +56,22 @@ default: soleil.exec
 all: soleil.exec dom_host.exec
 
 clean:
-	$(RM) *.exec *.o dom.rg soleil.rg config_schema.h
+	$(RM) soleil.exec soleil.o dom_host.exec dom_host.o \
+		soleil_mapper.o config_schema.o config_schema.h json.o
 
-%.rg: %.rgm
+%-desugared.rg: %.rg
 	./desugar.py $< > $@
 
 soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o
 	$(CXX) -o $@ $^ $(LINK_FLAGS)
 
-soleil.o: soleil.rg soleil_mapper.h config_schema.h hdf_helper.rg dom.rg util.rg
-	$(REGENT) soleil.rg $(REGENT_FLAGS)
+soleil.o: soleil-desugared.rg soleil_mapper.h config_schema.h hdf_helper.rg dom-desugared.rg util.rg
+	$(REGENT) soleil-desugared.rg $(REGENT_FLAGS)
 
 dom_host.exec: dom_host.o config_schema.o json.o
 	$(CXX) -o $@ $^ $(LINK_FLAGS)
 
-dom_host.o: dom_host.rg config_schema.h dom.rg util.rg
+dom_host.o: dom_host.rg config_schema.h dom-desugared.rg util.rg
 	$(REGENT) dom_host.rg $(REGENT_FLAGS)
 
 soleil_mapper.o: soleil_mapper.cc soleil_mapper.h config_schema.h

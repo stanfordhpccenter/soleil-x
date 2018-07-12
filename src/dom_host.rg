@@ -49,7 +49,7 @@ struct Point {
 -- Import DOM module
 -------------------------------------------------------------------------------
 
-local DOM = (require 'dom')(MAX_ANGLES_PER_QUAD, Point, SCHEMA.Config)
+local DOM = (require 'dom-desugared')(MAX_ANGLES_PER_QUAD, Point, SCHEMA.Config)
 local DOM_INST = DOM.mkInstance()
 
 -------------------------------------------------------------------------------
