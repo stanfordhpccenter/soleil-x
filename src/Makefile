@@ -56,8 +56,7 @@ default: soleil.exec
 all: soleil.exec dom_host.exec
 
 clean:
-	$(RM) soleil.exec soleil.o dom_host.exec dom_host.o \
-		soleil_mapper.o config_schema.o config_schema.h json.o
+	$(RM) *.exec *.o *-desugared.rg config_schema.h
 
 %-desugared.rg: %.rg
 	./desugar.py $< > $@
