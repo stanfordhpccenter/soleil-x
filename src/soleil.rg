@@ -4848,8 +4848,10 @@ local function mkInstance() local INSTANCE = {}
   local NZ = regentlib.newsymbol()
   local numTiles = regentlib.newsymbol()
 
+  local Integrator_deltaTime = regentlib.newsymbol()
   local Integrator_simTime = regentlib.newsymbol()
   local Integrator_timeStep = regentlib.newsymbol()
+  local Integrator_exitCond = regentlib.newsymbol()
   local Particles_number = regentlib.newsymbol()
 
   local Fluid = regentlib.newsymbol()
@@ -4871,6 +4873,8 @@ local function mkInstance() local INSTANCE = {}
   -----------------------------------------------------------------------------
 
   INSTANCE.Grid = Grid
+  INSTANCE.Integrator_deltaTime = Integrator_deltaTime
+  INSTANCE.Integrator_exitCond = Integrator_exitCond
   INSTANCE.Fluid = Fluid
   INSTANCE.Fluid_copy = Fluid_copy
   INSTANCE.Particles = Particles
@@ -4966,8 +4970,10 @@ local function mkInstance() local INSTANCE = {}
     var [NZ] = config.Mapping.tiles[2]
     var [numTiles] = NX * NY * NZ
 
+    var [Integrator_exitCond] = true
     var [Integrator_simTime] = 0.0
     var [Integrator_timeStep] = 0
+    var [Integrator_deltaTime] = 0.0
 
     var [Particles_number] = int64(0)
 
@@ -5485,19 +5491,18 @@ local function mkInstance() local INSTANCE = {}
   end end -- InitRegions
 
   -----------------------------------------------------------------------------
-  -- Main time-step loop body
+  -- Main time-step loop header
   -----------------------------------------------------------------------------
 
-  function INSTANCE.MainLoopBody(config, CopyQueue) return rquote
+  function INSTANCE.MainLoopHeader(config) return rquote
 
-    -- Calculate exit condition, but don't exit yet
-    var exitCond =
+    -- Calculate exit condition
+    Integrator_exitCond =
       Integrator_simTime >= config.Integrator.finalTime or
       Integrator_timeStep >= config.Integrator.maxIter
 
     -- Determine time step size
-    var Integrator_deltaTime : double
-    if (config.Integrator.cfl<0) then
+    if config.Integrator.cfl < 0.0 then
       Integrator_deltaTime = config.Integrator.fixedDeltaTime
     else
       var Integrator_maxConvectiveSpectralRadius = 0.0
@@ -5529,6 +5534,14 @@ local function mkInstance() local INSTANCE = {}
                                               Grid_dXYZInverseSquare)
       Integrator_deltaTime = (config.Integrator.cfl/max(Integrator_maxConvectiveSpectralRadius, max(Integrator_maxViscousSpectralRadius, Integrator_maxHeatConductionSpectralRadius)))
     end
+
+  end end -- MainLoopHeader
+
+  -----------------------------------------------------------------------------
+  -- Per-time-step I/O
+  -----------------------------------------------------------------------------
+
+  function INSTANCE.PerformIO(config) return rquote
 
     -- Perform IO
     var currTime = regentlib.c.legion_get_current_time_in_micros() / 1000
@@ -5564,7 +5577,7 @@ local function mkInstance() local INSTANCE = {}
               Particles_averageTemperature)
     C.fflush(console)
     if config.IO.wrtRestart then
-      if exitCond or Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 then
+      if Integrator_exitCond or Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 then
         var dirname = [&int8](C.malloc(256))
         C.snprintf(dirname, 256, '%s/fluid_iter%010d', config.Mapping.outDir, Integrator_timeStep)
         Fluid_dump(tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
@@ -5574,13 +5587,16 @@ local function mkInstance() local INSTANCE = {}
       end
     end
     for c in tiles do
-      Probes_write(p_Fluid[c], exitCond, Integrator_timeStep, config)
+      Probes_write(p_Fluid[c], Integrator_exitCond, Integrator_timeStep, config)
     end
 
-    -- Check exit condition after I/O
-    if exitCond then
-      break
-    end
+  end end -- PerformIO
+
+  -----------------------------------------------------------------------------
+  -- Main time-step loop body
+  -----------------------------------------------------------------------------
+
+  function INSTANCE.MainLoopBody(config, CopyQueue) return rquote
 
     -- Feed particles
     if config.Particles.feeding.type == SCHEMA.FeedModel_OFF then
@@ -5959,6 +5975,11 @@ task workSingle(config : Config)
   [parallelizeFor(SIM, rquote
     [SIM.InitRegions(config)];
     while true do
+      [SIM.MainLoopHeader(config)];
+      [SIM.PerformIO(config)];
+      if SIM.Integrator_exitCond then
+        break
+      end
       [SIM.MainLoopBody(config, FakeCopyQueue)];
     end
   end)];
@@ -6050,6 +6071,17 @@ task workDual(mc : MultiConfig)
   var Fluid1_tgt = p_Fluid1_isCopied[0]
   -- Main simulation loop
   while true do
+    -- Perform preliminary actions before each timestep
+    [parallelizeFor(SIM0, SIM0.MainLoopHeader(rexpr mc.configs[0] end))];
+    [parallelizeFor(SIM1, SIM1.MainLoopHeader(rexpr mc.configs[1] end))];
+    -- Make sure both simulations are using the same timestep
+    SIM0.Integrator_deltaTime = min(SIM0.Integrator_deltaTime, SIM1.Integrator_deltaTime)
+    SIM1.Integrator_deltaTime = min(SIM0.Integrator_deltaTime, SIM1.Integrator_deltaTime);
+    [parallelizeFor(SIM0, SIM0.PerformIO(rexpr mc.configs[0] end))];
+    [parallelizeFor(SIM1, SIM1.PerformIO(rexpr mc.configs[1] end))];
+    if SIM0.Integrator_exitCond or SIM1.Integrator_exitCond then
+      break
+    end
     -- Run 1 iteration of first section
     [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end, FakeCopyQueue))];
     -- Copy fluid values to second section
