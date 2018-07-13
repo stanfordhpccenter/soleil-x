@@ -6088,15 +6088,17 @@ task workDual(mc : MultiConfig)
     copy(Fluid0_src.temperature, Fluid1_tgt.temperature_inc)
     copy(Fluid0_src.velocity, Fluid1_tgt.velocity_inc)
     -- Copy particles to second section
-    for c in SIM0.tiles do
-      CopyQueue_clear(p_CopyQueue[c])
-    end
-    for c in SIM0.tiles do
-      CopyQueue_push(SIM0.p_Particles[c],
-                     p_CopyQueue[c],
-                     mc.copySrc,
-                     copySrcOrigin, copyTgtOrigin,
-                     Fluid0_cellWidth, Fluid1_cellWidth)
+    if mc.configs[1].Particles.feeding.type == SCHEMA.FeedModel_Incoming then
+      for c in SIM0.tiles do
+        CopyQueue_clear(p_CopyQueue[c])
+      end
+      for c in SIM0.tiles do
+        CopyQueue_push(SIM0.p_Particles[c],
+                       p_CopyQueue[c],
+                       mc.copySrc,
+                       copySrcOrigin, copyTgtOrigin,
+                       Fluid0_cellWidth, Fluid1_cellWidth)
+      end
     end
     -- Run 1 iteration of second section
     [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, CopyQueue))];
