@@ -33,7 +33,7 @@ NUM_THREADS=8
 GPU_OPTS=
 if [[ "$USE_CUDA" == 1 ]]; then
     NUM_THREADS=7
-    GPU_OPTS="-ll:gpu 1"
+    GPU_OPTS="-ll:gpu 1 -ll:fsize 5120"
 fi
 
 # NOTE: LLVM installs a bad ELF interpreter on the executable, so we run it
@@ -42,7 +42,7 @@ aprun -n "$NUM_RANKS" -N 1 -cc none \
     /lib64/ld-linux-x86-64.so.2 \
     "$SOLEIL_DIR"/src/soleil.exec $ARGS $GPU_OPTS \
     -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr "$NUM_THREADS" \
-    -ll:csize 20000 -ll:rsize 1024 -ll:gsize 0 -ll:ostack 8
+    -ll:csize 25000 -ll:rsize 1024 -ll:gsize 0 -ll:ostack 8
 
 # Resources:
 # 32GB RAM per node
