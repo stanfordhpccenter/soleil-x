@@ -3698,6 +3698,8 @@ do
   end
 end
 
+local accs = UTIL.generate(26, regentlib.newsymbol)
+
 __demand(__cuda) -- MANUALLY PARALLELIZED
 task TradeQueue_push(Particles : region(ispace(int1d), Particles_columns),
                      [tradeQueues])
@@ -3714,6 +3716,7 @@ where
    end)]
 do
   @ESCAPE for k = 1,26 do local q = tradeQueues[k] @EMIT
+    var [accs[k]] = int64(0)
     __demand(__openmp)
     for j in q do
       var i = q[j].__source
@@ -3722,11 +3725,17 @@ do
           q[j].[fld] = Particles[i].[fld]
         @TIME end @EPACSE
         Particles[i].__valid = false
+        [accs[k]] += 1
       else
         q[j].__valid = false
       end
     end
   @TIME end @EPACSE
+  var acc : int64 = 0;
+  @ESCAPE for k = 1,26 do @EMIT
+    acc += [accs[k]]
+  @TIME end @EPACSE
+  return acc
 end
 
 -- MANUALLY_PARALLELIZED, NO CUDA, NO OPENMP
@@ -3771,6 +3780,7 @@ where
    end)],
   writes(Particles.[Particles_subStepConserved])
 do
+  var acc : int64 = 0
   @ESCAPE for k = 1,26 do local q = tradeQueues[k] @EMIT
     __demand(__openmp)
     for j in q do
@@ -3779,9 +3789,26 @@ do
         @ESCAPE for _,fld in ipairs(Particles_subStepConserved) do @EMIT
           Particles[i].[fld] = q[j].[fld]
         @TIME end @EPACSE
+        acc += 1
       end
     end
   @TIME end @EPACSE
+  return acc
+end
+
+__demand(__parallel, __cuda)
+task TradeQueue_size(TradeQueue : region(ispace(int1d), TradeQueue_columns))
+where
+  reads(TradeQueue.__valid)
+do
+  var acc : int64 = 0
+  __demand(__openmp)
+  for p in TradeQueue do
+    if p.__valid then
+      acc += 1
+    end
+  end
+  return acc
 end
 
 __demand(__inline)
@@ -4847,7 +4874,6 @@ local function mkInstance() local INSTANCE = {}
   local NY = regentlib.newsymbol()
   local NZ = regentlib.newsymbol()
   local numTiles = regentlib.newsymbol()
-
   local Integrator_deltaTime = regentlib.newsymbol()
   local Integrator_simTime = regentlib.newsymbol()
   local Integrator_timeStep = regentlib.newsymbol()
@@ -4875,16 +4901,19 @@ local function mkInstance() local INSTANCE = {}
   INSTANCE.Grid = Grid
   INSTANCE.Integrator_deltaTime = Integrator_deltaTime
   INSTANCE.Integrator_exitCond = Integrator_exitCond
+
   INSTANCE.Fluid = Fluid
   INSTANCE.Fluid_copy = Fluid_copy
   INSTANCE.Particles = Particles
   INSTANCE.Particles_copy = Particles_copy
+  INSTANCE.TradeQueue = TradeQueue
   INSTANCE.Radiation = Radiation
   INSTANCE.tiles = tiles
   INSTANCE.p_Fluid = p_Fluid
   INSTANCE.p_Fluid_copy = p_Fluid_copy
   INSTANCE.p_Particles = p_Particles
   INSTANCE.p_Particles_copy = p_Particles_copy
+  INSTANCE.p_TradeQueue = p_TradeQueue
   INSTANCE.p_Radiation = p_Radiation
 
   -----------------------------------------------------------------------------
@@ -5894,9 +5923,24 @@ local function mkInstance() local INSTANCE = {}
                               Grid.yBnum, config.Grid.yNum, NY,
                               Grid.zBnum, config.Grid.zNum, NZ)
       end
+      var pushed : int64 = 0
       for c in tiles do
+        pushed +=
         TradeQueue_push(p_Particles[c],
                         [UTIL.range(1,26):map(function(k) return rexpr [p_TradeQueue[k]][c] end end)])
+      end
+      C.printf('pushed: %ld', pushed)
+      do
+        var psz : int64 =  0
+        psz += Particles_CalculateNumber(Particles)
+        C.printf(', particles: %ld', psz)
+        C.printf(', tradequeues:');
+        @ESCAPE for k = 1,26 do @EMIT
+          var tsz : int64 = 0
+          tsz += TradeQueue_size([TradeQueue[k]])
+          C.printf(' %ld', tsz)
+        @TIME end @EPACSE
+        C.printf('\n')
       end
       for c in tiles do
         TradeQueue_fillTarget(p_Particles[c],
@@ -5904,11 +5948,26 @@ local function mkInstance() local INSTANCE = {}
                                  [p_TradeQueue[k]][ (c-[colorOffsets[k]]+{NX,NY,NZ}) % {NX,NY,NZ} ]
                                end end)])
       end
+      var pulled : int64 = 0
       for c in tiles do
+        pulled +=
         TradeQueue_pull(p_Particles[c],
                         [UTIL.range(1,26):map(function(k) return rexpr
                            [p_TradeQueue[k]][ (c-[colorOffsets[k]]+{NX,NY,NZ}) % {NX,NY,NZ} ]
                          end end)])
+      end
+      C.printf('pulled: %ld', pulled)
+      do
+        var psz : int64 =  0
+        psz += Particles_CalculateNumber(Particles)
+        C.printf(', particles: %ld', psz)
+        C.printf(', tradequeues:');
+        @ESCAPE for k = 1,26 do @EMIT
+          var tsz : int64 = 0
+          tsz += TradeQueue_size([TradeQueue[k]])
+          C.printf(' %ld', tsz)
+        @TIME end @EPACSE
+        C.printf('\n')
       end
 
       Integrator_simTime = (Integrator_time_old+((0.5*(1+(Integrator_stage/3)))*Integrator_deltaTime))
@@ -5958,7 +6017,7 @@ local FakeCopyQueue = regentlib.newsymbol()
 local function parallelizeFor(sim, stmts)
   return rquote
     __parallelize_with
-      sim.p_Fluid, sim.p_Particles, sim.p_Radiation, sim.tiles,
+      sim.p_Fluid, sim.p_Particles, [sim.p_TradeQueue], sim.p_Radiation, sim.tiles,
       image(sim.Fluid, sim.p_Particles, [sim.Particles].cell) <= sim.p_Fluid
     do [stmts] end
   end

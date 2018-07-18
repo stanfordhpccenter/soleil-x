@@ -91,8 +91,8 @@
     "Particles" : {
         "initCase" : "Uniform",
         "restartDir" : "",
-        "initNum" : 1000,
-        "maxNum" : 1000,
+        "initNum" : 300000,
+        "maxNum" : 300000,
         "restitutionCoeff" : 1.0,
         "convectiveCoeff" : 0.7,
         "absorptivity" : 1.0,
@@ -102,7 +102,7 @@
         "diameterMean" : 5e-3,
         "bodyForce" : [0.0, 0.0, 0.0],
         "maxSkew" : 1.5,
-        "maxXferNum" : 100,
+        "maxXferNum" : 10000,
         "collisions" : false,
         "feeding" : { "type" : "OFF" }
     },
