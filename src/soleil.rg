@@ -402,6 +402,7 @@ do
   hi.z = min(hi.z, ((config.Grid.zNum+Grid_zBnum)-1))
   var xSize = ((hi.x-lo.x)+1)
   var ySize = ((hi.y-lo.y)+1)
+  var zSize = ((hi.z-lo.z)+1)
   var particlesPerTask = config.Particles.initNum / (config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2])
   var Particles_density = config.Particles.density
   var Particles_initTemperature = config.Particles.initTemperature
@@ -411,7 +412,7 @@ do
     if ((int32(p)-pBase)<particlesPerTask) then
       p.__valid = true
       var relIdx = (int32(p)-pBase)
-      var c = int3d({(lo.x+(relIdx%xSize)), (lo.y+((relIdx/xSize)%ySize)), (lo.z+((relIdx/xSize)/ySize))})
+      var c = int3d({(lo.x+(relIdx%xSize)), (lo.y+((relIdx/xSize)%ySize)), (lo.z+((relIdx/xSize)/ySize%zSize))})
       p.cell = c
       p.position = Fluid[p.cell].centerCoordinates
       p.velocity = Fluid[p.cell].velocity
