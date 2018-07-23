@@ -3685,7 +3685,8 @@ do
       if elemColor ~= partColor then
         var transferred = false;
         @ESCAPE for k = 1,26 do local q = tradeQueues[k] local j = tradeQueuePtrs[k] @EMIT
-          if elemColor == (partColor + [colorOffsets[k]] + {NX,NY,NZ}) % {NX,NY,NZ} then
+          if not transferred and
+             elemColor == (partColor + [colorOffsets[k]] + {NX,NY,NZ}) % {NX,NY,NZ} then
             regentlib.assert(j <= q.bounds.hi,
                              'Ran out of space in particle transfer queue')
             q[j].__source = i
