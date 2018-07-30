@@ -92,8 +92,8 @@
         "Particles" : {
             "initCase" : "Uniform",
             "restartDir" : "",
-            "initNum" : 0,
-            "maxNum" : 0,
+            "initNum" : 4096,
+            "maxNum" : 4096,
             "restitutionCoeff" : 1.0,
             "convectiveCoeff" : 2.0,
             "absorptivity" : 1.0,

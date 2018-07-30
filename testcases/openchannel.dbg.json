@@ -4,21 +4,21 @@
         "tilesPerRank" : [1,1,1],
         "sampleId" : -1,
         "outDir" : "",
-        "wallTime" : 18000
+        "wallTime" : 60
     },
 
     "Grid" : {
-        "xNum" : 1024,
+        "xNum" : 128,
         "yNum" : 128,
         "zNum" : 128,
         "origin" : [0.0, 0.0, 0.0],
-        "xWidth" : 0.30,
+        "xWidth" : 0.16,
         "yWidth" : 0.04,
         "zWidth" : 0.04
     },
 
     "BC" : {
-        "xBCLeft"  : "NSCBC_SubsonicInflow",
+        "xBCLeft" : "NSCBC_SubsonicInflow",
         "xBCLeftVel" : [-1.0, -1.0, -1.0],
         "xBCLeftHeat" : {
             "type" : "Constant",
@@ -26,7 +26,7 @@
         },
         "xBCLeftInflowProfile" : {
             "type" : "Constant",
-            "velocity" : 1.0
+            "velocity" : 2.0650625
         },
         "xBCRight" : "NSCBC_SubsonicOutflow",
         "xBCRightVel" : [-1.0, -1.0, -1.0],
@@ -35,7 +35,7 @@
             "temperature" : -1.0
         },
         "xBCRightP_inf" : 104040.0,
-        "yBCLeft"  : "Periodic",
+        "yBCLeft" : "Periodic",
         "yBCLeftVel" : [-1.0, -1.0, -1.0],
         "yBCLeftHeat" : {
             "type" : "Constant",
@@ -47,7 +47,7 @@
             "type" : "Constant",
             "temperature" : -1.0
         },
-        "zBCLeft"  : "Periodic",
+        "zBCLeft" : "Periodic",
         "zBCLeftVel" : [-1.0, -1.0, -1.0],
         "zBCLeftHeat" : {
             "type" : "Constant",
@@ -62,10 +62,10 @@
     },
 
     "Integrator" : {
-        "finalTime" : 10.00001,
+        "finalTime" : 100.00001,
         "restartIter" : -1,
         "restartTime" : -1.0,
-        "maxIter" : 1000000000,
+        "maxIter" : 10,
         "cfl" : 0.95,
         "fixedDeltaTime" : -1.0
     },
@@ -83,7 +83,7 @@
         "sutherlandSRef" : -1.0,
         "initCase" : "Uniform",
         "restartDir" : "",
-        "initParams" : [1.2, 104040.0, 8.0, 0.0, 0.0],
+        "initParams" : [1.2, 104040.0, 2.0650625, 0.0, 0.0],
         "bodyForce" : [0.0, 0.0, 0.0],
         "turbForcing" : false
     },
@@ -91,15 +91,15 @@
     "Particles" : {
         "initCase" : "Uniform",
         "restartDir" : "",
-        "initNum" : 10000000,
-        "maxNum" : 20000000,
+        "initNum" : 0,
+        "maxNum" : 2112000,
         "restitutionCoeff" : 1.0,
         "convectiveCoeff" : 2.0,
         "absorptivity" : 1.0,
         "heatCapacity" : 4.5e+2,
         "initTemperature" : 300.0,
         "density" : 8900.0,
-        "diameterMean" : 10.0e-6,
+        "diameterMean" : 1.012082669346191e-05,
         "bodyForce" : [0.0, 0.0, 0.0],
         "maxSkew" : 1.0,
         "maxXferNum" : 0,
@@ -109,13 +109,13 @@
 
     "Radiation" : {
         "type" : "Algebraic",
-        "intensity" : 1000000.0,
+        "intensity" : 0.0,
         "qa" : 1.0,
         "qs" : 0.0,
-        "xNum" : 128,
-        "yNum" :  64,
-        "zNum" :  64,
-        "angles" : 350,
+        "xNum" : 4,
+        "yNum" : 4,
+        "zNum" : 4,
+        "angles" : 14,
         "xHiEmiss" : 1.0,
         "xLoEmiss" : 1.0,
         "yHiEmiss" : 1.0,
@@ -124,21 +124,21 @@
         "zLoEmiss" : 1.0,
         "xHiTemp" : 0.0,
         "xLoTemp" : 0.0,
-        "yHiTemp" : 0.0,
-        "yLoTemp" : 1288.404,
+        "yHiTemp" : 100.0,
+        "yLoTemp" : 100.0,
         "zHiTemp" : 0.0,
         "zLoTemp" : 0.0,
         "xHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
         "xLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
-        "yHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
-        "yLoWindow" : { "fromCell" : [15,0], "uptoCell" : [176,40] },
+        "yHiWindow" : { "fromCell" : [0,0], "uptoCell" : [9999,9999] },
+        "yLoWindow" : { "fromCell" : [0,0], "uptoCell" : [9999,9999] },
         "zHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
         "zLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] }
     },
 
     "IO" : {
-        "wrtRestart" : true,
-        "restartEveryTimeSteps" : 10,
+        "wrtRestart" : false,
+        "restartEveryTimeSteps" : 1,
         "probes" : []
     }
 }

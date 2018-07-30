@@ -138,13 +138,13 @@
         },
 
         "IO" : {
-            "wrtRestart" : true,
+            "wrtRestart" : false,
             "restartEveryTimeSteps" : 1,
             "probes" : []
         }
     }, {
         "Mapping" : {
-            "tiles" : [2,1,1],
+            "tiles" : [1,1,1],
             "tilesPerRank" : [1,1,1],
             "sampleId" : -1,
             "outDir" : "",
@@ -152,7 +152,7 @@
         },
 
         "Grid" : {
-            "xNum" : 512,
+            "xNum" : 128,
             "yNum" : 128,
             "zNum" : 128,
             "origin" : [0.0, 0.0, 0.0],
@@ -235,7 +235,7 @@
             "initCase" : "Uniform",
             "restartDir" : "",
             "initNum" : 0,
-            "maxNum" : 10000000,
+            "maxNum" : 2112000,
             "restitutionCoeff" : 1.0,
             "convectiveCoeff" : 2.0,
             "absorptivity" : 1.0,
@@ -283,7 +283,7 @@
         },
 
         "IO" : {
-            "wrtRestart" : true,
+            "wrtRestart" : false,
             "restartEveryTimeSteps" : 1,
             "probes" : []
         }
