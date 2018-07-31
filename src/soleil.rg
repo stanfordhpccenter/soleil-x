@@ -3787,16 +3787,21 @@ do
 end
 
 __demand(__inline)
-task intersectionSize(a : rect3d, b : SCHEMA.Volume)
-  var sz = 0
+task intersection(a : rect3d, b : SCHEMA.Volume)
+  var res = rect3d{ lo = int3d{0,0,0}, hi = int3d{-1,-1,-1} }
   if  a.hi.x >= b.fromCell[0] and b.uptoCell[0] >= a.lo.x
   and a.hi.y >= b.fromCell[1] and b.uptoCell[1] >= a.lo.y
   and a.hi.z >= b.fromCell[2] and b.uptoCell[2] >= a.lo.z then
-    sz = ( min(a.hi.x,b.uptoCell[0]) - max(a.lo.x,b.fromCell[0]) + 1 )
-       * ( min(a.hi.y,b.uptoCell[1]) - max(a.lo.y,b.fromCell[1]) + 1 )
-       * ( min(a.hi.z,b.uptoCell[2]) - max(a.lo.z,b.fromCell[2]) + 1 )
+    res = rect3d{
+      lo = int3d{max(a.lo.x,b.fromCell[0]), max(a.lo.y,b.fromCell[1]), max(a.lo.z,b.fromCell[2])},
+      hi = int3d{min(a.hi.x,b.uptoCell[0]), min(a.hi.y,b.uptoCell[1]), min(a.hi.z,b.uptoCell[2])}}
   end
-  return sz
+  return res
+end
+
+__demand(__inline)
+task rectSize(a : rect3d)
+  return (a.hi.x - a.lo.x + 1) * (a.hi.y - a.lo.y + 1) * (a.hi.z - a.lo.z + 1)
 end
 
 __demand(__inline)
@@ -3804,8 +3809,9 @@ task CopyQueue_partSize(fluidPartBounds : rect3d,
                         config : Config,
                         copySrc : SCHEMA.Volume)
   var totalCells = config.Grid.xNum * config.Grid.yNum * config.Grid.zNum
+  var copiedCells = rectSize(intersection(fluidPartBounds, copySrc))
   return ceil(
-    intersectionSize(fluidPartBounds, copySrc)
+    copiedCells
     / [double](totalCells)
     * config.Particles.maxNum
     * config.Particles.maxSkew
@@ -6057,20 +6063,23 @@ task workDual(mc : MultiConfig)
   -- Initialize regions & partitions
   [parallelizeFor(SIM0, SIM0.InitRegions(rexpr mc.configs[0] end))];
   [parallelizeFor(SIM1, SIM1.InitRegions(rexpr mc.configs[1] end))];
+  var srcOrigin = int3d{mc.copySrc.fromCell[0], mc.copySrc.fromCell[1], mc.copySrc.fromCell[2]}
+  var tgtOrigin = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]}
   var srcColoring = regentlib.c.legion_domain_point_coloring_create()
-  var srcRect = rect3d{lo = int3d{mc.copySrc.fromCell[0], mc.copySrc.fromCell[1], mc.copySrc.fromCell[2]},
-                       hi = int3d{mc.copySrc.uptoCell[0], mc.copySrc.uptoCell[1], mc.copySrc.uptoCell[2]}}
-  regentlib.c.legion_domain_point_coloring_color_domain(srcColoring, int1d(0), srcRect)
-  var p_Fluid0_isCopied = partition(disjoint, SIM0.Fluid, srcColoring, ispace(int1d,1))
-  regentlib.c.legion_domain_point_coloring_destroy(srcColoring)
-  var Fluid0_src = p_Fluid0_isCopied[0]
   var tgtColoring = regentlib.c.legion_domain_point_coloring_create()
-  var tgtRect = rect3d{lo = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]},
-                       hi = int3d{mc.copyTgt.uptoCell[0], mc.copyTgt.uptoCell[1], mc.copyTgt.uptoCell[2]}}
-  regentlib.c.legion_domain_point_coloring_color_domain(tgtColoring, int1d(0), tgtRect)
-  var p_Fluid1_isCopied = partition(disjoint, SIM1.Fluid, tgtColoring, ispace(int1d,1))
+  for c in SIM1.tiles do
+    var tgtRect = intersection(SIM1.p_Fluid[c].bounds, mc.copyTgt)
+    if rectSize(tgtRect) > 0 then
+      var srcRect = rect3d{lo = tgtRect.lo - tgtOrigin + srcOrigin,
+                           hi = tgtRect.hi - tgtOrigin + srcOrigin}
+      regentlib.c.legion_domain_point_coloring_color_domain(srcColoring, c, srcRect)
+      regentlib.c.legion_domain_point_coloring_color_domain(tgtColoring, c, tgtRect)
+    end
+  end
+  var p_Fluid0_src = partition(disjoint, SIM0.Fluid, srcColoring, SIM1.tiles)
+  var p_Fluid1_tgt = partition(disjoint, SIM1.Fluid, tgtColoring, SIM1.tiles)
+  regentlib.c.legion_domain_point_coloring_destroy(srcColoring)
   regentlib.c.legion_domain_point_coloring_destroy(tgtColoring)
-  var Fluid1_tgt = p_Fluid1_isCopied[0]
   -- Main simulation loop
   while true do
     -- Perform preliminary actions before each timestep
@@ -6087,8 +6096,12 @@ task workDual(mc : MultiConfig)
     -- Run 1 iteration of first section
     [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end, FakeCopyQueue))];
     -- Copy fluid values to second section
-    copy(Fluid0_src.temperature, Fluid1_tgt.temperature_inc)
-    copy(Fluid0_src.velocity, Fluid1_tgt.velocity_inc)
+    for t in SIM1.tiles do
+      var src = p_Fluid0_src[t]
+      var tgt = p_Fluid1_tgt[t]
+      copy(src.temperature, tgt.temperature_inc)
+      copy(src.velocity, tgt.velocity_inc)
+    end
     -- Copy particles to second section
     if mc.configs[1].Particles.feeding.type == SCHEMA.FeedModel_Incoming then
       for c in SIM0.tiles do

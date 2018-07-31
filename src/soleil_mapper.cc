@@ -365,16 +365,188 @@ public:
     }
   }
 
+  void print_instance_info(const MapperContext ctx,
+                           LogicalRegion region,
+                           const PhysicalInstance& inst) {
+    std::cout << "    instance:";
+    std::cout << " exists " << inst.exists();
+    std::cout << " normal " << inst.is_normal_instance();
+    std::cout << " virtual " << inst.is_virtual_instance();
+    std::cout << " reduction " << inst.is_reduction_instance();
+    std::cout << " external " << inst.is_external_instance();
+    if (inst.is_normal_instance()) {
+      std::cout << " memory " << inst.get_location();
+      std::cout << " domain " << runtime->get_index_space_domain(ctx, region.get_index_space());
+    }
+    std::set<FieldID> fields;
+    inst.get_fields(fields);
+    std::cout << " fields ";
+    for (FieldID fid : fields) {
+      const char* field_name = NULL;
+      runtime->retrieve_name(ctx, region.get_field_space(), fid, field_name);
+      std::cout << " " << field_name;
+    }
+    std::cout << std::endl;
+  }
+
+  void print_region_req_info(const MapperContext ctx,
+                             const RegionRequirement& req) {
+    assert(req.region.exists());
+    std::cout << "  region req:";
+    const char* fs_name = NULL;
+    runtime->retrieve_name(ctx, req.region.get_field_space(), fs_name);
+    std::cout << " fieldspace " << fs_name;
+    std::cout << " tile " << runtime->get_logical_region_color_point(ctx, req.region);
+    std::cout << " domain " << runtime->get_index_space_domain(ctx, req.region.get_index_space());
+    std::cout << " fields";
+      for (FieldID fid : req.privilege_fields) {
+        const char* field_name = NULL;
+        runtime->retrieve_name(ctx, req.region.get_field_space(), fid, field_name);
+        std::cout << " " << field_name;
+      }
+    std::cout << std::endl;
+  }
+
+  void print_op_info(const MapperContext ctx,
+                     const std::vector<RegionRequirement>& requirements,
+                     const std::vector<std::vector<PhysicalInstance> >& instances) {
+    for (size_t idx = 0; idx < requirements.size(); ++idx) {
+      const RegionRequirement& req = requirements[idx];
+      assert(req.region.exists());
+      print_region_req_info(ctx, req);
+      std::cout << "  usable instances:" << std::endl;
+      for (const PhysicalInstance& inst : instances[idx]) {
+        print_instance_info(ctx, req.region, inst);
+      }
+      std::cout << "  all instances:" << std::endl;
+      for (Memory mem : Machine::MemoryQuery(machine)) {
+        LayoutConstraintSet constraints;
+        constraints.add_constraint
+          (FieldConstraint(req.privilege_fields,
+                           false/*contiguous*/,
+                           false/*inorder*/));
+        std::vector<LogicalRegion> regions = {req.region};
+        PhysicalInstance inst;
+        if (runtime->find_physical_instance(ctx, mem, constraints, regions, inst,
+                                            false /*acquire*/,
+                                            false /*tight_region_bounds*/)) {
+          print_instance_info(ctx, req.region, inst);
+        }
+      }
+    }
+  }
+
+  virtual void map_copy(const MapperContext ctx,
+                        const Copy& copy,
+                        const MapCopyInput& input,
+                        MapCopyOutput& output) {
+    // // Sanity checks
+    // // TODO: Check that this is on the fluid grid.
+    // CHECK(STARTS_WITH(copy.parent_task->get_task_name(), "work"),
+    //       "Explicit copies only allowed in work task");
+    // CHECK(copy.src_indirect_requirements.empty() &&
+    // 	  copy.dst_indirect_requirements.empty() &&
+    // 	  !copy.is_index_space &&
+    // 	  copy.src_requirements.size() == 1 &&
+    // 	  copy.dst_requirements.size() == 1 &&
+    // 	  copy.src_requirements[0].privilege == READ_PRIV &&
+    // 	  copy.dst_requirements[0].privilege == WRITE_PRIV &&
+    // 	  copy.src_requirements[0].region.exists() &&
+    // 	  copy.dst_requirements[0].region.exists() &&
+    // 	  !copy.dst_requirements[0].is_restricted() &&
+    // 	  copy.src_requirements[0].privilege_fields.size() == 1 &&
+    // 	  copy.dst_requirements[0].privilege_fields.size() == 1 &&
+    // 	  input.src_instances[0].empty() &&
+    // 	  input.dst_instances[0].size() <= 1,
+    //       "Unexpected arguments on explicit copy");
+    // // Retrieve copy details
+    // const RegionRequirement& dst_req = copy.dst_requirements[0];
+    // FieldID dst_fld = *(dst_req.privilege_fields.begin());
+    // DomainPoint dst_tile =
+    //   runtime->get_logical_region_color_point(ctx, dst_req.region);
+    // // Always use a virtual instance for the source.
+    // output.src_instances[0].clear();
+    // output.src_instances[0].push_back
+    //   (PhysicalInstance::get_virtual_instance());
+    // // Place the destination instance directly on the best memory for the task
+    // // that will be using this data, on the remote node.
+    // output.dst_instances[0].clear();
+
+    // AddressSpace target_rank =
+    //   mapping.get_rank(dst_tile[0], dst_tile[1], dst_tile[2]);
+    // unsigned target_proc_id =
+    //   mapping.get_proc_id(dst_tile[0], dst_tile[1], dst_tile[2]);
+    // // We assume that, if we have GPUs, then the GPU variant will be selected.
+    // Processor::Kind proc_kind =
+    //   (local_gpus.size() > 0) ? Processor::TOC_PROC :
+    //   (local_omps.size() > 0) ? Processor::OMP_PROC :
+    //   Processor::LOC_PROC);
+
+    // const std::vector<Processor>& procs = get_procs(target_rank, proc_kind);
+    // Processor target_proc = procs[target_proc_id % procs.size()];
+    // Memory target_memory =
+    //   default_policy_select_target_memory(ctx, target_proc, dst_req);
+    // // If we have mapped this copy in the past, we should be able to reuse the
+    // // previously created instance.
+    // if (!input.dst_instances[0].empty()) {
+    //   bool acquired = runtime->acquire_instances(ctx, input.dst_instances[0]);
+    //   assert(acquired);
+    //   const PhysicalInstance& inst = *(input.dst_instances[0].begin());
+    //   assert(inst.get_location() == target_memory &&
+    // 	     inst.has_field(dst_fld) &&
+    // 	     inst.is_normal_instance());
+    //   output.dst_instances[0].push_back(inst);
+    //   return;
+    // }
+    // // This is the first time we're mapping this task; create a new instance to
+    // // house the data on the destination node.
+    // LayoutConstraintSet constraints;
+    // default_policy_select_constraints
+    //   (ctx, constraints, target_memory, dst_req);
+    // constraints.add_constraint
+    //   (FieldConstraint(std::vector<FieldID>{dst_fld},
+    // 		       false/*contiguous*/, false/*inorder*/));
+    // output.dst_instances[0].emplace_back();
+    // CHECK(default_make_instance(ctx, target_memory, constraints,
+    //                             output.dst_instances[0].back(), COPY_MAPPING,
+    //                             false/*force_new*/, true/*meets*/, dst_req),
+    // 	  "Failed to create remote instance for copy");
+
+    std::cout << "COPY IN TASK " << copy.parent_task->get_task_name() << std::endl;
+    std::cout << "INPUT SOURCES:" << std::endl;
+    print_op_info(ctx, copy.src_requirements, input.src_instances);
+    std::cout << "INPUT DESTINATIONS:" << std::endl;
+    print_op_info(ctx, copy.dst_requirements, input.dst_instances);
+    DefaultMapper::map_copy(ctx, copy, input, output);
+    std::cout << "OUTPUT SOURCES:" << std::endl;
+    print_op_info(ctx, copy.src_requirements, output.src_instances);
+    std::cout << "OUTPUT DESTINATIONS:" << std::endl;
+    print_op_info(ctx, copy.dst_requirements, output.dst_instances);
+  }
+
+  virtual void map_task(const MapperContext ctx,
+                        const Task& task,
+                        const MapTaskInput& input,
+                        MapTaskOutput& output) {
+    if (STARTS_WITH(task.get_task_name(), "Flow_InitializeCell")) {
+      std::cout << "MAPPING " << task.get_task_name() << std::endl;
+      std::cout << "INPUT:" << std::endl;
+      print_op_info(ctx, task.regions, input.valid_instances);
+    }
+    DefaultMapper::map_task(ctx, task, input, output);
+    if (STARTS_WITH(task.get_task_name(), "Flow_InitializeCell")) {
+      std::cout << "OUTPUT:" << std::endl;
+      print_op_info(ctx, task.regions, output.chosen_instances);
+      std::cout << "CHOSEN PROC: " << output.target_procs[0] << std::endl;
+    }
+  }
+
 private:
   unsigned find_sample_id(const MapperContext ctx, const Task& task) const {
     for (const RegionRequirement& req : task.regions) {
       LogicalRegion region = req.region.exists() ? req.region
         : runtime->get_parent_logical_region(ctx, req.partition);
-      while (runtime->has_parent_logical_partition(ctx, region)) {
-        region =
-          runtime->get_parent_logical_region(ctx,
-            runtime->get_parent_logical_partition(ctx, region));
-      }
+      region = get_root(ctx, region);
       const void* info = NULL;
       size_t info_size = 0;
       bool success = runtime->retrieve_semantic_information
@@ -397,6 +569,15 @@ private:
       rank_procs.resize(kind + 1);
     }
     return rank_procs[kind];
+  }
+
+  LogicalRegion get_root(const MapperContext ctx, LogicalRegion region) const {
+    while (runtime->has_parent_logical_partition(ctx, region)) {
+      region =
+        runtime->get_parent_logical_region(ctx,
+          runtime->get_parent_logical_partition(ctx, region));
+    }
+    return region;
   }
 
 private:
