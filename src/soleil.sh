@@ -146,8 +146,9 @@ function run_sapling {
     fi
     mpiexec -H "$NODES" --bind-to none \
         -x LD_LIBRARY_PATH -x SOLEIL_DIR -x REALM_BACKTRACE \
-        "$SOLEIL_DIR"/src/soleil.exec $ARGS $GPU_OPTS \
+        "$SOLEIL_DIR"/src/soleil.exec $ARGS \
         -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 \
+        $GPU_OPTS -ll:dma 2 -ll:ahandlers 2 \
         -ll:csize 36000 -ll:ostack 8
     # Resources:
     # 40230MB RAM per node
