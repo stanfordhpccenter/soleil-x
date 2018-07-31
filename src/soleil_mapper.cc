@@ -395,6 +395,7 @@ public:
     assert(req.region.exists());
     std::cout << "[" << node_id << "] ";
     std::cout << "  region req:";
+    std::cout << " region " << req.region;
     const char* fs_name = NULL;
     runtime->retrieve_name(ctx, req.region.get_field_space(), fs_name);
     std::cout << " fieldspace " << fs_name;
