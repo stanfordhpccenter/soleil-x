@@ -447,19 +447,19 @@ public:
     // CHECK(STARTS_WITH(copy.parent_task->get_task_name(), "work"),
     //       "Explicit copies only allowed in work task");
     // CHECK(copy.src_indirect_requirements.empty() &&
-    // 	  copy.dst_indirect_requirements.empty() &&
-    // 	  !copy.is_index_space &&
-    // 	  copy.src_requirements.size() == 1 &&
-    // 	  copy.dst_requirements.size() == 1 &&
-    // 	  copy.src_requirements[0].privilege == READ_PRIV &&
-    // 	  copy.dst_requirements[0].privilege == WRITE_PRIV &&
-    // 	  copy.src_requirements[0].region.exists() &&
-    // 	  copy.dst_requirements[0].region.exists() &&
-    // 	  !copy.dst_requirements[0].is_restricted() &&
-    // 	  copy.src_requirements[0].privilege_fields.size() == 1 &&
-    // 	  copy.dst_requirements[0].privilege_fields.size() == 1 &&
-    // 	  input.src_instances[0].empty() &&
-    // 	  input.dst_instances[0].size() <= 1,
+    //       copy.dst_indirect_requirements.empty() &&
+    //       !copy.is_index_space &&
+    //       copy.src_requirements.size() == 1 &&
+    //       copy.dst_requirements.size() == 1 &&
+    //       copy.src_requirements[0].privilege == READ_PRIV &&
+    //       copy.dst_requirements[0].privilege == WRITE_PRIV &&
+    //       copy.src_requirements[0].region.exists() &&
+    //       copy.dst_requirements[0].region.exists() &&
+    //       !copy.dst_requirements[0].is_restricted() &&
+    //       copy.src_requirements[0].privilege_fields.size() == 1 &&
+    //       copy.dst_requirements[0].privilege_fields.size() == 1 &&
+    //       input.src_instances[0].empty() &&
+    //       input.dst_instances[0].size() <= 1,
     //       "Unexpected arguments on explicit copy");
     // // Retrieve copy details
     // const RegionRequirement& dst_req = copy.dst_requirements[0];
@@ -495,8 +495,8 @@ public:
     //   assert(acquired);
     //   const PhysicalInstance& inst = *(input.dst_instances[0].begin());
     //   assert(inst.get_location() == target_memory &&
-    // 	     inst.has_field(dst_fld) &&
-    // 	     inst.is_normal_instance());
+    //          inst.has_field(dst_fld) &&
+    //          inst.is_normal_instance());
     //   output.dst_instances[0].push_back(inst);
     //   return;
     // }
@@ -507,12 +507,12 @@ public:
     //   (ctx, constraints, target_memory, dst_req);
     // constraints.add_constraint
     //   (FieldConstraint(std::vector<FieldID>{dst_fld},
-    // 		       false/*contiguous*/, false/*inorder*/));
+    //                    false/*contiguous*/, false/*inorder*/));
     // output.dst_instances[0].emplace_back();
     // CHECK(default_make_instance(ctx, target_memory, constraints,
     //                             output.dst_instances[0].back(), COPY_MAPPING,
     //                             false/*force_new*/, true/*meets*/, dst_req),
-    // 	  "Failed to create remote instance for copy");
+    //       "Failed to create remote instance for copy");
 
     std::cout << "[" << node_id << "] " << "COPY IN TASK " << copy.parent_task->get_task_name() << std::endl;
     std::cout << "[" << node_id << "] " << "INPUT SOURCES:" << std::endl;
