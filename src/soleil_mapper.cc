@@ -421,20 +421,31 @@ public:
       for (const PhysicalInstance& inst : instances[idx]) {
         print_instance_info(ctx, req.region, inst);
       }
-      std::cout << "[" << node_id << "] " << "  all instances:" << std::endl;
-      for (Memory mem : Machine::MemoryQuery(machine)) {
-        LayoutConstraintSet constraints;
-        constraints.add_constraint
-          (FieldConstraint(req.privilege_fields,
-                           false/*contiguous*/,
-                           false/*inorder*/));
-        std::vector<LogicalRegion> regions = {req.region};
-        PhysicalInstance inst;
-        if (runtime->find_physical_instance(ctx, mem, constraints, regions, inst,
-                                            false /*acquire*/,
-                                            false /*tight_region_bounds*/)) {
-          print_instance_info(ctx, req.region, inst);
+      unsigned num_hops = 0;
+      LogicalRegion region = req.region;
+      while (true) {
+        std::cout << "[" << node_id << "] " << "  all instances (" << num_hops << " hops up):" << std::endl;
+        for (Memory mem : Machine::MemoryQuery(machine)) {
+          LayoutConstraintSet constraints;
+          constraints.add_constraint
+            (FieldConstraint(req.privilege_fields,
+                             false/*contiguous*/,
+                             false/*inorder*/));
+          std::vector<LogicalRegion> regions = {region};
+          PhysicalInstance inst;
+          if (runtime->find_physical_instance(ctx, mem, constraints, regions, inst,
+                                              false /*acquire*/,
+                                              false /*tight_region_bounds*/)) {
+            print_instance_info(ctx, region, inst);
+          }
         }
+        if (!runtime->has_parent_logical_partition(ctx, region)) {
+          break;
+        }
+        num_hops++;
+        region =
+          runtime->get_parent_logical_region(ctx,
+            runtime->get_parent_logical_partition(ctx, region));
       }
     }
   }
@@ -443,6 +454,10 @@ public:
                         const Copy& copy,
                         const MapCopyInput& input,
                         MapCopyOutput& output) {
+
+    // There may be valid instances that are not trivially available
+    // call into the runtime to get the complete set
+
     // // Sanity checks
     // // TODO: Check that this is on the fluid grid.
     // CHECK(STARTS_WITH(copy.parent_task->get_task_name(), "work"),
