@@ -368,6 +368,7 @@ public:
   void print_instance_info(const MapperContext ctx,
                            LogicalRegion region,
                            const PhysicalInstance& inst) {
+    std::cout << "[" << node_id << "] ";
     std::cout << "    instance:";
     std::cout << " exists " << inst.exists();
     std::cout << " normal " << inst.is_normal_instance();
@@ -392,6 +393,7 @@ public:
   void print_region_req_info(const MapperContext ctx,
                              const RegionRequirement& req) {
     assert(req.region.exists());
+    std::cout << "[" << node_id << "] ";
     std::cout << "  region req:";
     const char* fs_name = NULL;
     runtime->retrieve_name(ctx, req.region.get_field_space(), fs_name);
@@ -414,11 +416,11 @@ public:
       const RegionRequirement& req = requirements[idx];
       assert(req.region.exists());
       print_region_req_info(ctx, req);
-      std::cout << "  usable instances:" << std::endl;
+      std::cout << "[" << node_id << "] " << "  usable instances:" << std::endl;
       for (const PhysicalInstance& inst : instances[idx]) {
         print_instance_info(ctx, req.region, inst);
       }
-      std::cout << "  all instances:" << std::endl;
+      std::cout << "[" << node_id << "] " << "  all instances:" << std::endl;
       for (Memory mem : Machine::MemoryQuery(machine)) {
         LayoutConstraintSet constraints;
         constraints.add_constraint
@@ -512,15 +514,15 @@ public:
     //                             false/*force_new*/, true/*meets*/, dst_req),
     // 	  "Failed to create remote instance for copy");
 
-    std::cout << "COPY IN TASK " << copy.parent_task->get_task_name() << std::endl;
-    std::cout << "INPUT SOURCES:" << std::endl;
+    std::cout << "[" << node_id << "] " << "COPY IN TASK " << copy.parent_task->get_task_name() << std::endl;
+    std::cout << "[" << node_id << "] " << "INPUT SOURCES:" << std::endl;
     print_op_info(ctx, copy.src_requirements, input.src_instances);
-    std::cout << "INPUT DESTINATIONS:" << std::endl;
+    std::cout << "[" << node_id << "] " << "INPUT DESTINATIONS:" << std::endl;
     print_op_info(ctx, copy.dst_requirements, input.dst_instances);
     DefaultMapper::map_copy(ctx, copy, input, output);
-    std::cout << "OUTPUT SOURCES:" << std::endl;
+    std::cout << "[" << node_id << "] " << "OUTPUT SOURCES:" << std::endl;
     print_op_info(ctx, copy.src_requirements, output.src_instances);
-    std::cout << "OUTPUT DESTINATIONS:" << std::endl;
+    std::cout << "[" << node_id << "] " << "OUTPUT DESTINATIONS:" << std::endl;
     print_op_info(ctx, copy.dst_requirements, output.dst_instances);
   }
 
@@ -529,15 +531,15 @@ public:
                         const MapTaskInput& input,
                         MapTaskOutput& output) {
     if (STARTS_WITH(task.get_task_name(), "Flow_InitializeCell")) {
-      std::cout << "MAPPING " << task.get_task_name() << std::endl;
-      std::cout << "INPUT:" << std::endl;
+      std::cout << "[" << node_id << "] " << "MAPPING " << task.get_task_name() << std::endl;
+      std::cout << "[" << node_id << "] " << "INPUT:" << std::endl;
       print_op_info(ctx, task.regions, input.valid_instances);
     }
     DefaultMapper::map_task(ctx, task, input, output);
     if (STARTS_WITH(task.get_task_name(), "Flow_InitializeCell")) {
-      std::cout << "OUTPUT:" << std::endl;
+      std::cout << "[" << node_id << "] " << "OUTPUT:" << std::endl;
       print_op_info(ctx, task.regions, output.chosen_instances);
-      std::cout << "CHOSEN PROC: " << output.target_procs[0] << std::endl;
+      std::cout << "[" << node_id << "] " << "CHOSEN PROC: " << output.target_procs[0] << std::endl;
     }
   }
 
