@@ -6066,20 +6066,23 @@ task workDual(mc : MultiConfig)
   var srcOrigin = int3d{mc.copySrc.fromCell[0], mc.copySrc.fromCell[1], mc.copySrc.fromCell[2]}
   var tgtOrigin = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]}
   var srcColoring = regentlib.c.legion_domain_point_coloring_create()
-  var tgtColoring = regentlib.c.legion_domain_point_coloring_create()
   for c in SIM1.tiles do
     var tgtRect = intersection(SIM1.p_Fluid[c].bounds, mc.copyTgt)
     if rectSize(tgtRect) > 0 then
       var srcRect = rect3d{lo = tgtRect.lo - tgtOrigin + srcOrigin,
                            hi = tgtRect.hi - tgtOrigin + srcOrigin}
       regentlib.c.legion_domain_point_coloring_color_domain(srcColoring, c, srcRect)
-      regentlib.c.legion_domain_point_coloring_color_domain(tgtColoring, c, tgtRect)
     end
   end
   var p_Fluid0_src = partition(disjoint, SIM0.Fluid, srcColoring, SIM1.tiles)
-  var p_Fluid1_tgt = partition(disjoint, SIM1.Fluid, tgtColoring, SIM1.tiles)
   regentlib.c.legion_domain_point_coloring_destroy(srcColoring)
+  var tgtColoring = regentlib.c.legion_domain_point_coloring_create()
+  regentlib.c.legion_domain_point_coloring_color_domain(tgtColoring, int1d(0),
+    rect3d{lo = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]},
+           hi = int3d{mc.copyTgt.uptoCell[0], mc.copyTgt.uptoCell[1], mc.copyTgt.uptoCell[2]}})
+  var p_Fluid1_isCopied = partition(disjoint, SIM1.Fluid, tgtColoring, ispace(int1d,1))
   regentlib.c.legion_domain_point_coloring_destroy(tgtColoring)
+  var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
   -- Main simulation loop
   while true do
     -- Perform preliminary actions before each timestep
@@ -6096,9 +6099,9 @@ task workDual(mc : MultiConfig)
     -- Run 1 iteration of first section
     [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end, FakeCopyQueue))];
     -- Copy fluid values to second section
-    for t in SIM1.tiles do
-      var src = p_Fluid0_src[t]
-      var tgt = p_Fluid1_tgt[t]
+    for c in SIM1.tiles do
+      var src = p_Fluid0_src[c]
+      var tgt = p_Fluid1_tgt[c][0]
       copy(src.temperature, tgt.temperature_inc)
       copy(src.velocity, tgt.velocity_inc)
     end
