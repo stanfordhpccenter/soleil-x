@@ -464,7 +464,91 @@ public:
     print_op_info(ctx, unique_id, copy.src_requirements, input.src_instances);
     std::cout << "[" << unique_id << "] " << "INPUT DESTINATIONS:" << std::endl;
     print_op_info(ctx, unique_id, copy.dst_requirements, input.dst_instances);
-    DefaultMapper::map_copy(ctx, copy, input, output);
+
+    // Sanity checks
+    // TODO: Check that this is on the fluid grid.
+    CHECK(STARTS_WITH(copy.parent_task->get_task_name(), "work"),
+          "Explicit copies only allowed in work task");
+    CHECK(copy.src_indirect_requirements.empty() &&
+          copy.dst_indirect_requirements.empty() &&
+          !copy.is_index_space &&
+          copy.src_requirements.size() == 1 &&
+          copy.dst_requirements.size() == 1 &&
+          copy.src_requirements[0].region.exists() &&
+          copy.dst_requirements[0].region.exists() &&
+          !copy.dst_requirements[0].is_restricted() &&
+          copy.src_requirements[0].privilege_fields.size() == 1 &&
+          copy.dst_requirements[0].privilege_fields.size() == 1 &&
+          input.src_instances[0].empty() &&
+          // NOTE: The runtime should be passing the existing fluid instances
+          // on the destination nodes as usable destinations, but doesn't, so
+          // we have to perform an explicit runtime call. If this behavior ever
+          // changes, this check will make sure we find out.
+          input.dst_instances[0].empty(),
+          "Unexpected arguments on explicit copy");
+    // Retrieve copy details.
+    // We map according to the destination of the copy. We expand the
+    // destination domain to the full tile, to make sure we reuse the existing
+    // instances.
+    const RegionRequirement& src_req = copy.src_requirements[0];
+    const RegionRequirement& dst_req = copy.dst_requirements[0];
+    unsigned sample_id = find_sample_id(ctx, dst_req);
+    const SampleMapping& mapping = sample_mappings_[sample_id];
+    LogicalRegion src_region = src_req.region;
+    LogicalRegion dst_region = dst_req.region;
+    CHECK(runtime->get_index_space_depth
+            (ctx, src_region.get_index_space()) == 2 &&
+          runtime->get_index_space_depth
+            (ctx, dst_region.get_index_space()) == 4,
+          "Unexpected bounds on explicit copy");
+    dst_region =
+      runtime->get_parent_logical_region(ctx,
+        runtime->get_parent_logical_partition(ctx, dst_region));
+    DomainPoint src_tile =
+      runtime->get_logical_region_color_point(ctx, src_region);
+    DomainPoint dst_tile =
+      runtime->get_logical_region_color_point(ctx, dst_region);
+    CHECK(src_tile.get_dim() == 3 &&
+          dst_tile.get_dim() == 3 &&
+          src_tile[0] == dst_tile[0] &&
+          src_tile[1] == dst_tile[1] &&
+          src_tile[2] == dst_tile[2] &&
+          0 <= dst_tile[0] && dst_tile[0] < mapping.x_tiles() &&
+          0 <= dst_tile[1] && dst_tile[1] < mapping.y_tiles() &&
+          0 <= dst_tile[2] && dst_tile[2] < mapping.z_tiles(),
+          "Unexpected bounds on explicit copy");
+    // Always use a virtual instance for the source.
+    output.src_instances[0].clear();
+    output.src_instances[0].push_back
+      (PhysicalInstance::get_virtual_instance());
+    // Write the data directly on the best memory for the task that will be
+    // using it (we assume that, if we have GPUs, then the GPU variants will
+    // be used).
+    output.dst_instances[0].clear();
+    output.dst_instances[0].emplace_back();
+    AddressSpace target_rank =
+      mapping.get_rank(dst_tile[0], dst_tile[1], dst_tile[2]);
+    unsigned target_proc_id =
+      mapping.get_proc_id(dst_tile[0], dst_tile[1], dst_tile[2]);
+    Processor::Kind proc_kind =
+      (local_gpus.size() > 0) ? Processor::TOC_PROC :
+      (local_omps.size() > 0) ? Processor::OMP_PROC :
+      Processor::LOC_PROC;
+    const std::vector<Processor>& procs = get_procs(target_rank, proc_kind);
+    Processor target_proc = procs[target_proc_id % procs.size()];
+    Memory target_memory =
+      default_policy_select_target_memory(ctx, target_proc, dst_req);
+    LayoutConstraintSet dst_constraints;
+    dst_constraints.add_constraint
+      (FieldConstraint(dst_req.privilege_fields,
+                       false/*contiguous*/, false/*inorder*/));
+    CHECK(runtime->find_physical_instance
+            (ctx, target_memory, dst_constraints,
+             std::vector<LogicalRegion>{dst_region},
+	     output.dst_instances[0][0],
+             true/*acquire*/, false/*tight_region_bounds*/),
+          "Could not locate destination instance for explicit copy");
+
     std::cout << "[" << unique_id << "] " << "OUTPUT SOURCES:" << std::endl;
     print_op_info(ctx, unique_id, copy.src_requirements, output.src_instances);
     std::cout << "[" << unique_id << "] " << "OUTPUT DESTINATIONS:" << std::endl;
@@ -490,24 +574,27 @@ public:
   }
 
 private:
-  unsigned find_sample_id(const MapperContext ctx, const Task& task) const {
-    for (const RegionRequirement& req : task.regions) {
-      LogicalRegion region = req.region.exists() ? req.region
-        : runtime->get_parent_logical_region(ctx, req.partition);
-      region = get_root(ctx, region);
-      const void* info = NULL;
-      size_t info_size = 0;
-      bool success = runtime->retrieve_semantic_information
-        (ctx, region, SAMPLE_ID_TAG, info, info_size,
-         false /*can_fail*/, true /*wait_until_ready*/);
-      CHECK(success, "Missing SAMPLE_ID_TAG semantic information on region");
-      assert(info_size == sizeof(unsigned));
-      unsigned sample_id = *static_cast<const unsigned*>(info);
-      assert(sample_id < sample_mappings_.size());
-      return sample_id;
-    }
-    CHECK(false, "No region argument on task launch");
-    return static_cast<unsigned>(-1);
+  unsigned find_sample_id(const MapperContext ctx,
+                          const RegionRequirement& req) const {
+    LogicalRegion region = req.region.exists() ? req.region
+      : runtime->get_parent_logical_region(ctx, req.partition);
+    region = get_root(ctx, region);
+    const void* info = NULL;
+    size_t info_size = 0;
+    bool success = runtime->retrieve_semantic_information
+      (ctx, region, SAMPLE_ID_TAG, info, info_size,
+       false/*can_fail*/, true/*wait_until_ready*/);
+    CHECK(success, "Missing SAMPLE_ID_TAG semantic information on region");
+    assert(info_size == sizeof(unsigned));
+    unsigned sample_id = *static_cast<const unsigned*>(info);
+    assert(sample_id < sample_mappings_.size());
+    return sample_id;
+  }
+
+  unsigned find_sample_id(const MapperContext ctx,
+                          const Task& task) const {
+    CHECK(!task.regions.empty(), "No region argument on task launch");
+    return find_sample_id(ctx, task.regions[0]);
   }
 
   std::vector<Processor>& get_procs(AddressSpace rank, Processor::Kind kind) {
