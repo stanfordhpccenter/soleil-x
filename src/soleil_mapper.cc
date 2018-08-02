@@ -229,7 +229,6 @@ public:
       } else {
         CHECK(false, "Unexpected work task name: %s", task.get_task_name());
       }
-
       AddressSpace target_rank = sample_mappings_[sample_id].get_rank(0,0,0);
       Processor target_proc = remote_cpus[target_rank];
       LOG.debug() << "Sample " << sample_id << ":"
@@ -324,9 +323,6 @@ public:
                           const Task& task,
                           const SliceTaskInput& input,
                           SliceTaskOutput& output) {
-    CHECK(task.parent_task != NULL &&
-          STARTS_WITH(task.parent_task->get_task_name(), "work"),
-          "Index-space launches only allowed in work task");
     output.verify_correctness = false;
     // Retrieve sample information.
     unsigned sample_id = find_sample_id(ctx, task);
@@ -365,110 +361,12 @@ public:
     }
   }
 
-  void print_instance_info(const MapperContext ctx,
-                           UniqueID unique_id,
-                           LogicalRegion region,
-                           const PhysicalInstance& inst) {
-    std::cout << "[" << unique_id << "] ";
-    std::cout << "    instance:";
-    std::cout << " exists " << inst.exists();
-    std::cout << " normal " << inst.is_normal_instance();
-    std::cout << " virtual " << inst.is_virtual_instance();
-    std::cout << " reduction " << inst.is_reduction_instance();
-    std::cout << " external " << inst.is_external_instance();
-    if (inst.is_normal_instance()) {
-      std::cout << " memory " << inst.get_location();
-      std::cout << " domain " << runtime->get_index_space_domain(ctx, region.get_index_space());
-    }
-    std::set<FieldID> fields;
-    inst.get_fields(fields);
-    std::cout << " fields ";
-    for (FieldID fid : fields) {
-      const char* field_name = NULL;
-      runtime->retrieve_name(ctx, region.get_field_space(), fid, field_name);
-      std::cout << " " << field_name;
-    }
-    std::cout << std::endl;
-  }
-
-  void print_region_req_info(const MapperContext ctx,
-                             UniqueID unique_id,
-                             const RegionRequirement& req) {
-    assert(req.region.exists());
-    std::cout << "[" << unique_id << "] ";
-    std::cout << "  region req:";
-    std::cout << " region " << req.region;
-    const char* fs_name = NULL;
-    runtime->retrieve_name(ctx, req.region.get_field_space(), fs_name);
-    std::cout << " fieldspace " << fs_name;
-    std::cout << " depth " << runtime->get_index_space_depth(ctx, req.region.get_index_space());
-    std::cout << " tile " << runtime->get_logical_region_color_point(ctx, req.region);
-    std::cout << " domain " << runtime->get_index_space_domain(ctx, req.region.get_index_space());
-    std::cout << " fields";
-      for (FieldID fid : req.privilege_fields) {
-        const char* field_name = NULL;
-        runtime->retrieve_name(ctx, req.region.get_field_space(), fid, field_name);
-        std::cout << " " << field_name;
-      }
-    std::cout << std::endl;
-  }
-
-  void print_op_info(const MapperContext ctx,
-                     UniqueID unique_id,
-                     const std::vector<RegionRequirement>& requirements,
-                     const std::vector<std::vector<PhysicalInstance> >& instances) {
-    for (size_t idx = 0; idx < requirements.size(); ++idx) {
-      const RegionRequirement& req = requirements[idx];
-      assert(req.region.exists());
-      print_region_req_info(ctx, unique_id, req);
-      std::cout << "[" << unique_id << "] " << "  usable instances:" << std::endl;
-      for (const PhysicalInstance& inst : instances[idx]) {
-        print_instance_info(ctx, unique_id, req.region, inst);
-      }
-      unsigned num_hops = 0;
-      LogicalRegion region = req.region;
-      while (true) {
-        std::cout << "[" << unique_id << "] " << "  all instances (" << num_hops << " hops up):" << std::endl;
-        for (Memory mem : Machine::MemoryQuery(machine)) {
-          LayoutConstraintSet constraints;
-          constraints.add_constraint
-            (FieldConstraint(req.privilege_fields,
-                             false/*contiguous*/,
-                             false/*inorder*/));
-          std::vector<LogicalRegion> regions = {region};
-          PhysicalInstance inst;
-          if (runtime->find_physical_instance(ctx, mem, constraints, regions, inst,
-                                              false/*acquire*/,
-                                              false/*tight_region_bounds*/)) {
-            print_instance_info(ctx, unique_id, region, inst);
-          }
-        }
-        if (!runtime->has_parent_logical_partition(ctx, region)) {
-          break;
-        }
-        num_hops++;
-        region =
-          runtime->get_parent_logical_region(ctx,
-            runtime->get_parent_logical_partition(ctx, region));
-      }
-    }
-  }
-
   virtual void map_copy(const MapperContext ctx,
                         const Copy& copy,
                         const MapCopyInput& input,
                         MapCopyOutput& output) {
-    UniqueID unique_id = copy.get_unique_id();
-    std::cout << "[" << unique_id << "] " << "COPY IN TASK " << copy.parent_task->get_task_name() << std::endl;
-    std::cout << "[" << unique_id << "] " << "INPUT SOURCES:" << std::endl;
-    print_op_info(ctx, unique_id, copy.src_requirements, input.src_instances);
-    std::cout << "[" << unique_id << "] " << "INPUT DESTINATIONS:" << std::endl;
-    print_op_info(ctx, unique_id, copy.dst_requirements, input.dst_instances);
-
     // Sanity checks
     // TODO: Check that this is on the fluid grid.
-    CHECK(STARTS_WITH(copy.parent_task->get_task_name(), "work"),
-          "Explicit copies only allowed in work task");
     CHECK(copy.src_indirect_requirements.empty() &&
           copy.dst_indirect_requirements.empty() &&
           !copy.is_index_space &&
@@ -545,32 +443,9 @@ public:
     CHECK(runtime->find_physical_instance
             (ctx, target_memory, dst_constraints,
              std::vector<LogicalRegion>{dst_region},
-	     output.dst_instances[0][0],
+             output.dst_instances[0][0],
              true/*acquire*/, false/*tight_region_bounds*/),
           "Could not locate destination instance for explicit copy");
-
-    std::cout << "[" << unique_id << "] " << "OUTPUT SOURCES:" << std::endl;
-    print_op_info(ctx, unique_id, copy.src_requirements, output.src_instances);
-    std::cout << "[" << unique_id << "] " << "OUTPUT DESTINATIONS:" << std::endl;
-    print_op_info(ctx, unique_id, copy.dst_requirements, output.dst_instances);
-  }
-
-  virtual void map_task(const MapperContext ctx,
-                        const Task& task,
-                        const MapTaskInput& input,
-                        MapTaskOutput& output) {
-    UniqueID unique_id = task.get_unique_id();
-    if (STARTS_WITH(task.get_task_name(), "Flow_InitializeCell")) {
-      std::cout << "[" << unique_id << "] " << "MAPPING " << task.get_task_name() << std::endl;
-      std::cout << "[" << unique_id << "] " << "INPUT:" << std::endl;
-      print_op_info(ctx, unique_id, task.regions, input.valid_instances);
-    }
-    DefaultMapper::map_task(ctx, task, input, output);
-    if (STARTS_WITH(task.get_task_name(), "Flow_InitializeCell")) {
-      std::cout << "[" << unique_id << "] " << "OUTPUT:" << std::endl;
-      print_op_info(ctx, unique_id, task.regions, output.chosen_instances);
-      std::cout << "[" << unique_id << "] " << "CHOSEN PROC: " << output.target_procs[0] << std::endl;
-    }
   }
 
 private:
@@ -593,7 +468,8 @@ private:
 
   unsigned find_sample_id(const MapperContext ctx,
                           const Task& task) const {
-    CHECK(!task.regions.empty(), "No region argument on task launch");
+    CHECK(!task.regions.empty(),
+          "No region argument on launch of task %s", task.get_task_name());
     return find_sample_id(ctx, task.regions[0]);
   }
 
