@@ -149,55 +149,42 @@ public:
   virtual Processor default_policy_select_initial_processor(
                               MapperContext ctx,
                               const Task& task) {
-    // DOM sweep & boundary tasks are individually launched; find the tile on
-    // which they're centered and send them to the rank responsible for that.
+    // For tasks that are individually launched, find the tile on which they're
+    // centered and send them to the rank responsible for that.
     // TODO: Cache the decision.
-    bool is_sweep = STARTS_WITH(task.get_task_name(), "sweep_");
-    bool is_bound = STARTS_WITH(task.get_task_name(), "bound_");
-    if (is_sweep || is_bound) {
-      CHECK(task.parent_task != NULL &&
-            STARTS_WITH(task.parent_task->get_task_name(), "work"),
-            "DOM tasks should only be launched from the work task directly.");
+    if (STARTS_WITH(task.get_task_name(), "sweep_") ||
+        STARTS_WITH(task.get_task_name(), "bound_") ||
+        STARTS_WITH(task.get_task_name(), "TradeQueue_fillTarget") ||
+        STARTS_WITH(task.get_task_name(), "TradeQueue_pull")) {
       // Retrieve sample information.
       unsigned sample_id = find_sample_id(ctx, task);
       const SampleMapping& mapping = sample_mappings_[sample_id];
-      // Find the tile this task launch is centered on.
-      DomainPoint tile = DomainPoint::nil();
-      for (const RegionRequirement& req : task.regions) {
-        assert(req.region.exists());
-        const char* name = NULL;
-        runtime->retrieve_name(ctx, req.region.get_field_space(), name);
-        if ((is_sweep && strcmp(name, "Radiation_columns") == 0) ||
-            (is_bound && strcmp(name, "face") == 0)) {
-          tile = runtime->get_logical_region_color_point(ctx, req.region);
-          break;
-        }
-      }
-      CHECK(!tile.is_null(),
-            "Cannot retrieve tile from DOM task launch -- did you change the"
-            " names of the field spaces?");
-      CHECK(tile.get_dim() == 3,
-            "DOM task launches should only use the top-level tiling.");
-      // A task that updates the far boundary on some direction is called with
-      // a face tile one-over on that direction, so we have to subtract 1 to
-      // find the actual tile the launch is centered on.
-      if (is_bound) {
+      // DOM tasks that update the far boundary on some direction are called
+      // with a face tile one-over on that direction.
+      unsigned x_extra = 0;
+      unsigned y_extra = 0;
+      unsigned z_extra = 0;
+      if (STARTS_WITH(task.get_task_name(), "bound_")) {
         std::regex regex("bound_([xyz])_(lo|hi)");
         std::cmatch match;
         CHECK(std::regex_match(task.get_task_name(), match, regex),
-              "Cannot parse name of DOM boundary task -- did you change it?");
+              "Unexpected DOM boundary task name: %s", task.get_task_name());
         if (match[2].str().compare("hi") == 0) {
-          if (match[1].str().compare("x") == 0) { tile[0]--; }
-          if (match[1].str().compare("y") == 0) { tile[1]--; }
-          if (match[1].str().compare("z") == 0) { tile[2]--; }
+          if (match[1].str().compare("x") == 0) { x_extra = 1; }
+          if (match[1].str().compare("y") == 0) { y_extra = 1; }
+          if (match[1].str().compare("z") == 0) { z_extra = 1; }
         }
       }
+      // Find the tile this task launch is centered on.
+      DomainPoint tile = find_tile(ctx, task,
+                                   mapping.x_tiles() + x_extra,
+                                   mapping.y_tiles() + y_extra,
+                                   mapping.z_tiles() + z_extra);
+      tile[0] -= x_extra;
+      tile[1] -= y_extra;
+      tile[2] -= z_extra;
       // Assign rank according to the precomputed mapping, then round-robin
       // over all the processors of the preffered kind within that rank.
-      CHECK(0 <= tile[0] && tile[0] < mapping.x_tiles() &&
-            0 <= tile[1] && tile[1] < mapping.y_tiles() &&
-            0 <= tile[2] && tile[2] < mapping.z_tiles(),
-            "DOM task launches should only use the top-level tiling.");
       AddressSpace target_rank = mapping.get_rank(tile[0], tile[1], tile[2]);
       VariantInfo info =
         default_find_preferred_variant(task, ctx, false/*needs tight*/);
@@ -215,7 +202,7 @@ public:
     }
     // Send each work task to the first in the set of ranks allocated to the
     // corresponding sample.
-    if (STARTS_WITH(task.get_task_name(), "work")) {
+    else if (STARTS_WITH(task.get_task_name(), "work")) {
       unsigned sample_id = static_cast<unsigned>(-1);
       if (strcmp(task.get_task_name(), "workSingle") == 0) {
         const Config* config = static_cast<const Config*>(first_arg(task));
@@ -238,8 +225,21 @@ public:
                   << " processor " << target_proc;
       return target_proc;
     }
-    // For other tasks, defer to the default mapping policy.
-    return DefaultMapper::default_policy_select_initial_processor(ctx, task);
+    // For index space tasks, defer to the default mapping policy, and
+    // slice_task will decide the final mapping.
+    else if (task.is_index_space) {
+      return DefaultMapper::default_policy_select_initial_processor(ctx, task);
+    }
+    // For certain whitelisted tasks, defer to the default mapping policy.
+    else if (strcmp(task.get_task_name(), "main") == 0 ||
+             STARTS_WITH(task.get_task_name(), "__binary_")) {
+      return DefaultMapper::default_policy_select_initial_processor(ctx, task);
+    }
+    // For other tasks, fail & notify the user.
+    else {
+      CHECK(false, "Unhandled non-index space task %s", task.get_task_name());
+      return Processor::NO_PROC;
+    }
   }
 
   // Assign priorities to sweep tasks such that we prioritize the tile that has
@@ -261,24 +261,10 @@ public:
     bool y_rev = (sweep_id >> 1) & 1;
     bool z_rev = (sweep_id >> 2) & 1;
     // Find the tile this task launch is centered on.
-    DomainPoint tile = DomainPoint::nil();
-    for (const RegionRequirement& req : task.regions) {
-      assert(req.region.exists());
-      const char* name = NULL;
-      runtime->retrieve_name(ctx, req.region.get_field_space(), name);
-      if (strcmp(name, "Radiation_columns") == 0) {
-        tile = runtime->get_logical_region_color_point(ctx, req.region);
-        break;
-      }
-    }
-    CHECK(!tile.is_null(),
-          "Cannot retrieve tile from DOM task launch -- did you change the"
-          " names of the field spaces?");
-    CHECK(tile.get_dim() == 3 &&
-          0 <= tile[0] && tile[0] < mapping.x_tiles() &&
-          0 <= tile[1] && tile[1] < mapping.y_tiles() &&
-          0 <= tile[2] && tile[2] < mapping.z_tiles(),
-          "DOM task launches should only use the top-level tiling.");
+    DomainPoint tile = find_tile(ctx, task,
+                                 mapping.x_tiles(),
+                                 mapping.y_tiles(),
+                                 mapping.z_tiles());
     // Assign priority according to the number of diagonals between this launch
     // and the end of the domain.
     int priority =
@@ -471,6 +457,26 @@ private:
     CHECK(!task.regions.empty(),
           "No region argument on launch of task %s", task.get_task_name());
     return find_sample_id(ctx, task.regions[0]);
+  }
+
+  // XXX: Always using the first region argument to figure out the tile.
+  DomainPoint find_tile(const MapperContext ctx,
+                        const Task& task,
+                        unsigned x_tiles,
+                        unsigned y_tiles,
+                        unsigned z_tiles) const {
+    CHECK(!task.regions.empty(),
+          "No region argument on launch of task %s", task.get_task_name());
+    const RegionRequirement& req = task.regions[0];
+    assert(req.region.exists());
+    DomainPoint tile =
+      runtime->get_logical_region_color_point(ctx, req.region);
+    CHECK(tile.get_dim() == 3 &&
+          0 <= tile[0] && tile[0] < x_tiles &&
+          0 <= tile[1] && tile[1] < y_tiles &&
+          0 <= tile[2] && tile[2] < z_tiles,
+          "Launch of task %s using incorrect tiling", task.get_task_name());
+    return tile;
   }
 
   std::vector<Processor>& get_procs(AddressSpace rank, Processor::Kind kind) {
