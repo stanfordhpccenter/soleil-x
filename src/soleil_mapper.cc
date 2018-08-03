@@ -232,6 +232,7 @@ public:
     }
     // For certain whitelisted tasks, defer to the default mapping policy.
     else if (strcmp(task.get_task_name(), "main") == 0 ||
+             strcmp(task.get_task_name(), "initialize_angles") == 0 ||
              STARTS_WITH(task.get_task_name(), "__binary_")) {
       return DefaultMapper::default_policy_select_initial_processor(ctx, task);
     }
