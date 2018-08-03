@@ -171,14 +171,6 @@ struct Radiation_columns {
   I_6 : double[MAX_ANGLES_PER_QUAD];
   I_7 : double[MAX_ANGLES_PER_QUAD];
   I_8 : double[MAX_ANGLES_PER_QUAD];
-  Iiter_1 : double[MAX_ANGLES_PER_QUAD];
-  Iiter_2 : double[MAX_ANGLES_PER_QUAD];
-  Iiter_3 : double[MAX_ANGLES_PER_QUAD];
-  Iiter_4 : double[MAX_ANGLES_PER_QUAD];
-  Iiter_5 : double[MAX_ANGLES_PER_QUAD];
-  Iiter_6 : double[MAX_ANGLES_PER_QUAD];
-  Iiter_7 : double[MAX_ANGLES_PER_QUAD];
-  Iiter_8 : double[MAX_ANGLES_PER_QUAD];
   G : double;
   S : double;
   Ib : double;
@@ -2099,7 +2091,6 @@ __demand(__parallel, __cuda)
 task Radiation_InitializeCell(Radiation : region(ispace(int3d), Radiation_columns))
 where
   reads writes(Radiation.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8}),
-  reads writes(Radiation.{Iiter_1, Iiter_2, Iiter_3, Iiter_4, Iiter_5, Iiter_6, Iiter_7, Iiter_8}),
   writes(Radiation.{G, S})
 do
   __demand(__openmp)
@@ -2113,14 +2104,6 @@ do
       Radiation[c].I_6[m] = 0.0
       Radiation[c].I_7[m] = 0.0
       Radiation[c].I_8[m] = 0.0
-      Radiation[c].Iiter_1[m] = 0.0
-      Radiation[c].Iiter_2[m] = 0.0
-      Radiation[c].Iiter_3[m] = 0.0
-      Radiation[c].Iiter_4[m] = 0.0
-      Radiation[c].Iiter_5[m] = 0.0
-      Radiation[c].Iiter_6[m] = 0.0
-      Radiation[c].Iiter_7[m] = 0.0
-      Radiation[c].Iiter_8[m] = 0.0
     end
     Radiation[c].G = 0.0
     Radiation[c].S = 0.0
