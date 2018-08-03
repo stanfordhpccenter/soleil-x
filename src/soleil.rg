@@ -5583,8 +5583,10 @@ local function mkInstance() local INSTANCE = {}
         C.free(dirname)
       end
     end
-    for c in tiles do
-      Probes_write(p_Fluid[c], Integrator_exitCond, Integrator_timeStep, config)
+    if config.IO.probes.length > 0 then
+      for c in tiles do
+        Probes_write(p_Fluid[c], Integrator_exitCond, Integrator_timeStep, config)
+      end
     end
 
   end end -- PerformIO
@@ -5880,32 +5882,34 @@ local function mkInstance() local INSTANCE = {}
                                 Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
                                 Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
       end
-      for c in tiles do
-        TradeQueue_clearSource([UTIL.range(1,26):map(function(k) return rexpr [p_TradeQueue[k]][c] end end)])
-      end
-      for c in tiles do
-        TradeQueue_fillSource(c,
-                              p_Particles[c],
-                              [UTIL.range(1,26):map(function(k) return rexpr [p_TradeQueue[k]][c] end end)],
-                              Grid.xBnum, config.Grid.xNum, NX,
-                              Grid.yBnum, config.Grid.yNum, NY,
-                              Grid.zBnum, config.Grid.zNum, NZ)
-      end
-      for c in tiles do
-        TradeQueue_push(p_Particles[c],
-                        [UTIL.range(1,26):map(function(k) return rexpr [p_TradeQueue[k]][c] end end)])
-      end
-      for c in tiles do
-        TradeQueue_fillTarget(p_Particles[c],
-                              [UTIL.range(1,26):map(function(k) return rexpr
-                                 [p_TradeQueue[k]][ (c-[colorOffsets[k]]+{NX,NY,NZ}) % {NX,NY,NZ} ]
-                               end end)])
-      end
-      for c in tiles do
-        TradeQueue_pull(p_Particles[c],
-                        [UTIL.range(1,26):map(function(k) return rexpr
-                           [p_TradeQueue[k]][ (c-[colorOffsets[k]]+{NX,NY,NZ}) % {NX,NY,NZ} ]
-                         end end)])
+      if numTiles > 1 then
+        for c in tiles do
+          TradeQueue_clearSource([UTIL.range(1,26):map(function(k) return rexpr [p_TradeQueue[k]][c] end end)])
+        end
+        for c in tiles do
+          TradeQueue_fillSource(c,
+                                p_Particles[c],
+                                [UTIL.range(1,26):map(function(k) return rexpr [p_TradeQueue[k]][c] end end)],
+                                Grid.xBnum, config.Grid.xNum, NX,
+                                Grid.yBnum, config.Grid.yNum, NY,
+                                Grid.zBnum, config.Grid.zNum, NZ)
+        end
+        for c in tiles do
+          TradeQueue_push(p_Particles[c],
+                          [UTIL.range(1,26):map(function(k) return rexpr [p_TradeQueue[k]][c] end end)])
+        end
+        for c in tiles do
+          TradeQueue_fillTarget(p_Particles[c],
+                                [UTIL.range(1,26):map(function(k) return rexpr
+                                   [p_TradeQueue[k]][ (c-[colorOffsets[k]]+{NX,NY,NZ}) % {NX,NY,NZ} ]
+                                 end end)])
+        end
+        for c in tiles do
+          TradeQueue_pull(p_Particles[c],
+                          [UTIL.range(1,26):map(function(k) return rexpr
+                             [p_TradeQueue[k]][ (c-[colorOffsets[k]]+{NX,NY,NZ}) % {NX,NY,NZ} ]
+                           end end)])
+        end
       end
 
       Integrator_simTime = (Integrator_time_old+((0.5*(1+(Integrator_stage/3)))*Integrator_deltaTime))
