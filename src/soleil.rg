@@ -3818,17 +3818,6 @@ task CopyQueue_partSize(fluidPartBounds : rect3d,
   )
 end
 
-__demand(__cuda) -- MANUALLY PARALLELIZED
-task CopyQueue_clear(CopyQueue : region(ispace(int1d), CopyQueue_columns))
-where
-  writes(CopyQueue.__valid)
-do
-  __demand(__openmp)
-  for p in CopyQueue do
-    p.__valid = false
-  end
-end
-
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task CopyQueue_push(Particles : region(ispace(int1d), Particles_columns),
                     CopyQueue : region(ispace(int1d), CopyQueue_columns),
@@ -6107,9 +6096,12 @@ task workDual(mc : MultiConfig)
     end
     -- Copy particles to second section
     if mc.configs[1].Particles.feeding.type == SCHEMA.FeedModel_Incoming then
-      for c in SIM0.tiles do
-        CopyQueue_clear(p_CopyQueue[c])
-      end
+      fill(CopyQueue.position, array(-1.0, -1.0, -1.0))
+      fill(CopyQueue.velocity, array(-1.0, -1.0, -1.0))
+      fill(CopyQueue.temperature, -1.0)
+      fill(CopyQueue.diameter, -1.0)
+      fill(CopyQueue.density, -1.0)
+      fill(CopyQueue.__valid, false)
       for c in SIM0.tiles do
         CopyQueue_push(SIM0.p_Particles[c],
                        p_CopyQueue[c],
