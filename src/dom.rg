@@ -79,7 +79,7 @@ import 'regent'
 -- MODULE PARAMETERS
 -------------------------------------------------------------------------------
 
-return function(MAX_ANGLES_PER_QUAD, pointsFSpace, Config) local MODULE = {}
+return function(MAX_ANGLES_PER_QUAD, Point, Config) local MODULE = {}
 
 -------------------------------------------------------------------------------
 -- IMPORTS
@@ -132,14 +132,14 @@ end
 -- MODULE-LOCAL FIELD SPACES
 -------------------------------------------------------------------------------
 
-local struct angle {
+local struct Angle {
   xi  : double,
   eta : double,
   mu  : double,
   w   : double,
 }
 
-local struct face {
+local struct Face {
   I : double[MAX_ANGLES_PER_QUAD],
   is_private : int1d, -- 1 = private, 0 = shared
   tile : int3d,
@@ -183,7 +183,7 @@ end
 -------------------------------------------------------------------------------
 
 local angles = UTIL.generate(8, function()
-  return regentlib.newsymbol(region(ispace(int1d), angle))
+  return regentlib.newsymbol(region(ispace(int1d), Angle))
 end)
 
 local -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
@@ -247,7 +247,7 @@ do
 end
 
 local -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task color_faces(faces : region(ispace(int3d), face),
+task color_faces(faces : region(ispace(int3d), Face),
                  Nx : int, Ny : int, Nz : int,
                  ntx : int, nty : int, ntz : int,
                  dimension : int, sweepDir : bool[3])
@@ -280,7 +280,7 @@ do
 end
 
 local -- MANUALLY PARALLELIZED, NO CUDA
-task source_term(points : region(ispace(int3d), pointsFSpace),
+task source_term(points : region(ispace(int3d), Point),
                  [angles],
                  config : Config,
                  omega : double)
@@ -337,7 +337,7 @@ local function mkBound(wall)
   }[wall]
 
   local faces = UTIL.generate(8, function()
-    return regentlib.newsymbol(region(ispace(int3d), face))
+    return regentlib.newsymbol(region(ispace(int3d), Face))
   end)
 
   local function inCells(dim0, dim1, fromCell, uptoCell)
@@ -467,19 +467,18 @@ local function mkSweep(q)
   local endz   = directions[q][3] and rexpr bnd.hi.z + 1 end or rexpr bnd.lo.z - 1 end
 
   local -- MANUALLY PARALLELIZED, NO OPENMP, NO CUDA
-  task sweep(points : region(ispace(int3d), pointsFSpace),
-             x_faces : region(ispace(int3d), face),
-             y_faces : region(ispace(int3d), face),
-             z_faces : region(ispace(int3d), face),
-             shared_x_faces_upwind : region(ispace(int3d), face),
-             shared_x_faces_downwind : region(ispace(int3d), face),
-             shared_y_faces_upwind : region(ispace(int3d), face),
-             shared_y_faces_downwind : region(ispace(int3d), face),
-             shared_z_faces_upwind : region(ispace(int3d), face),
-             shared_z_faces_downwind : region(ispace(int3d), face),
-             angles : region(ispace(int1d), angle),
-             config : Config,
-             dx : double, dy : double, dz : double)
+  task sweep(points : region(ispace(int3d), Point),
+             x_faces : region(ispace(int3d), Face),
+             y_faces : region(ispace(int3d), Face),
+             z_faces : region(ispace(int3d), Face),
+             shared_x_faces_upwind : region(ispace(int3d), Face),
+             shared_x_faces_downwind : region(ispace(int3d), Face),
+             shared_y_faces_upwind : region(ispace(int3d), Face),
+             shared_y_faces_downwind : region(ispace(int3d), Face),
+             shared_z_faces_upwind : region(ispace(int3d), Face),
+             shared_z_faces_downwind : region(ispace(int3d), Face),
+             angles : region(ispace(int1d), Angle),
+             config : Config)
   where
     reads(angles.{xi, eta, mu}, points.{S, sigma},
           shared_x_faces_upwind.I, shared_y_faces_upwind.I, shared_z_faces_upwind.I),
@@ -487,6 +486,9 @@ local function mkSweep(q)
                  shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
   do
     var num_angles = config.Radiation.angles
+    var dx = config.Grid.xWidth / config.Radiation.xNum
+    var dy = config.Grid.yWidth / config.Radiation.yNum
+    var dz = config.Grid.zWidth / config.Radiation.zNum
     var dAx = dy*dz
     var dAy = dx*dz
     var dAz = dx*dy
@@ -584,7 +586,7 @@ local sweeps = terralib.newlist{
 }
 
 local -- MANUALLY PARALLELIZED, NO CUDA
-task reduce_intensity(points : region(ispace(int3d), pointsFSpace),
+task reduce_intensity(points : region(ispace(int3d), Point),
                       [angles],
                       config : Config)
 where
@@ -657,18 +659,18 @@ function MODULE.mkInstance() local INSTANCE = {}
     var grid_y = ispace(int3d, {Nx,   Ny+1, Nz  })
     var grid_z = ispace(int3d, {Nx,   Ny,   Nz+1});
     @ESCAPE for q = 1, 8 do @EMIT
-      var [x_faces[q]] = region(grid_x, face);
+      var [x_faces[q]] = region(grid_x, Face);
       [UTIL.mkRegionTagAttach(x_faces[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
-      var [y_faces[q]] = region(grid_y, face);
+      var [y_faces[q]] = region(grid_y, Face);
       [UTIL.mkRegionTagAttach(y_faces[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
-      var [z_faces[q]] = region(grid_z, face);
+      var [z_faces[q]] = region(grid_z, Face);
       [UTIL.mkRegionTagAttach(z_faces[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     @TIME end @EPACSE
 
     -- Regions for angle values
     var angle_indices = ispace(int1d, MAX_ANGLES_PER_QUAD);
     @ESCAPE for q = 1, 8 do @EMIT
-      var [angles[q]] = region(angle_indices, angle);
+      var [angles[q]] = region(angle_indices, Angle);
       [UTIL.mkRegionTagAttach(angles[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     @TIME end @EPACSE
 
@@ -721,10 +723,6 @@ function MODULE.mkInstance() local INSTANCE = {}
   end end -- InitRegions
 
   function INSTANCE.ComputeRadiationField(config, tiles, p_points) return rquote
-
-    var dx = config.Grid.xWidth / config.Radiation.xNum
-    var dy = config.Grid.yWidth / config.Radiation.yNum
-    var dz = config.Grid.zWidth / config.Radiation.zNum
 
     var omega = config.Radiation.qs/(config.Radiation.qa+config.Radiation.qs)
 
@@ -844,7 +842,7 @@ function MODULE.mkInstance() local INSTANCE = {}
                           [s_x_faces[1]][{i,j,k}], [s_x_faces[1]][{i+1,j,k}],
                           [s_y_faces[1]][{i,j,k}], [s_y_faces[1]][{i,j+1,k}],
                           [s_z_faces[1]][{i,j,k}], [s_z_faces[1]][{i,j,k+1}],
-                          [angles[1]], config, dx, dy, dz)
+                          [angles[1]], config)
           end
         end
       end
@@ -859,7 +857,7 @@ function MODULE.mkInstance() local INSTANCE = {}
                           [s_x_faces[2]][{i,j,k}], [s_x_faces[2]][{i+1,j,k}],
                           [s_y_faces[2]][{i,j,k}], [s_y_faces[2]][{i,j+1,k}],
                           [s_z_faces[2]][{i,j,k+1}], [s_z_faces[2]][{i,j,k}],
-                          [angles[2]], config, dx, dy, dz)
+                          [angles[2]], config)
           end
         end
       end
@@ -874,7 +872,7 @@ function MODULE.mkInstance() local INSTANCE = {}
                           [s_x_faces[3]][{i,j,k}], [s_x_faces[3]][{i+1,j,k}],
                           [s_y_faces[3]][{i,j+1,k}], [s_y_faces[3]][{i,j,k}],
                           [s_z_faces[3]][{i,j,k}], [s_z_faces[3]][{i,j,k+1}],
-                          [angles[3]], config, dx, dy, dz)
+                          [angles[3]], config)
           end
         end
       end
@@ -889,7 +887,7 @@ function MODULE.mkInstance() local INSTANCE = {}
                           [s_x_faces[4]][{i,j,k}], [s_x_faces[4]][{i+1,j,k}],
                           [s_y_faces[4]][{i,j+1,k}], [s_y_faces[4]][{i,j,k}],
                           [s_z_faces[4]][{i,j,k+1}], [s_z_faces[4]][{i,j,k}],
-                          [angles[4]], config, dx, dy, dz)
+                          [angles[4]], config)
           end
         end
       end
@@ -904,7 +902,7 @@ function MODULE.mkInstance() local INSTANCE = {}
                           [s_x_faces[5]][{i+1,j,k}], [s_x_faces[5]][{i,j,k}],
                           [s_y_faces[5]][{i,j,k}], [s_y_faces[5]][{i,j+1,k}],
                           [s_z_faces[5]][{i,j,k}], [s_z_faces[5]][{i,j,k+1}],
-                          [angles[5]], config, dx, dy, dz)
+                          [angles[5]], config)
           end
         end
       end
@@ -919,7 +917,7 @@ function MODULE.mkInstance() local INSTANCE = {}
                           [s_x_faces[6]][{i+1,j,k}], [s_x_faces[6]][{i,j,k}],
                           [s_y_faces[6]][{i,j,k}], [s_y_faces[6]][{i,j+1,k}],
                           [s_z_faces[6]][{i,j,k+1}], [s_z_faces[6]][{i,j,k}],
-                          [angles[6]], config, dx, dy, dz)
+                          [angles[6]], config)
           end
         end
       end
@@ -934,7 +932,7 @@ function MODULE.mkInstance() local INSTANCE = {}
                           [s_x_faces[7]][{i+1,j,k}], [s_x_faces[7]][{i,j,k}],
                           [s_y_faces[7]][{i,j+1,k}], [s_y_faces[7]][{i,j,k}],
                           [s_z_faces[7]][{i,j,k}], [s_z_faces[7]][{i,j,k+1}],
-                          [angles[7]], config, dx, dy, dz)
+                          [angles[7]], config)
           end
         end
       end
@@ -949,7 +947,7 @@ function MODULE.mkInstance() local INSTANCE = {}
                           [s_x_faces[8]][{i+1,j,k}], [s_x_faces[8]][{i,j,k}],
                           [s_y_faces[8]][{i,j+1,k}], [s_y_faces[8]][{i,j,k}],
                           [s_z_faces[8]][{i,j,k+1}], [s_z_faces[8]][{i,j,k}],
-                          [angles[8]], config, dx, dy, dz)
+                          [angles[8]], config)
           end
         end
       end
