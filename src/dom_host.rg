@@ -122,19 +122,20 @@ local task main()
     C.fflush(stderr)
     C.exit(1)
   end
-  var config = SCHEMA.parse_Config(args.argv[1])
+  var config : SCHEMA.Config[1]
+  SCHEMA.parse_Config([&SCHEMA.Config](config), args.argv[1])
   -- Initialize symbols
-  var is = ispace(int3d, {config.Radiation.xNum, config.Radiation.yNum, config.Radiation.zNum})
+  var is = ispace(int3d, {config[0].Radiation.xNum, config[0].Radiation.yNum, config[0].Radiation.zNum})
   var points = region(is, Point)
-  var colors = ispace(int3d, {config.Mapping.tiles[0], config.Mapping.tiles[1], config.Mapping.tiles[2]})
+  var colors = ispace(int3d, {config[0].Mapping.tiles[0], config[0].Mapping.tiles[1], config[0].Mapping.tiles[2]})
   var p_points = partition(equal, points, colors);
   -- Inline quotes from external module
-  [DOM_INST.DeclSymbols(config)];
-  [DOM_INST.InitRegions(config)];
+  [DOM_INST.DeclSymbols(rexpr config[0] end)];
+  [DOM_INST.InitRegions(rexpr config[0] end)];
   for color in colors do
     InitPoints(p_points[color])
   end
-  [DOM_INST.ComputeRadiationField(config, colors, p_points)];
+  [DOM_INST.ComputeRadiationField(rexpr config[0] end, colors, p_points)];
   writeIntensity(points)
 end
 
