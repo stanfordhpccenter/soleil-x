@@ -136,7 +136,7 @@
     },
 
     "IO" : {
-        "wrtRestart" : false,
+        "wrtRestart" : true,
         "restartEveryTimeSteps" : 1,
         "probes" : []
     }
