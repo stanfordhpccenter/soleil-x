@@ -31,14 +31,6 @@ struct Point {
     I_6 : double[MAX_ANGLES_PER_QUAD];
     I_7 : double[MAX_ANGLES_PER_QUAD];
     I_8 : double[MAX_ANGLES_PER_QUAD];
-    Iiter_1 : double[MAX_ANGLES_PER_QUAD];
-    Iiter_2 : double[MAX_ANGLES_PER_QUAD];
-    Iiter_3 : double[MAX_ANGLES_PER_QUAD];
-    Iiter_4 : double[MAX_ANGLES_PER_QUAD];
-    Iiter_5 : double[MAX_ANGLES_PER_QUAD];
-    Iiter_6 : double[MAX_ANGLES_PER_QUAD];
-    Iiter_7 : double[MAX_ANGLES_PER_QUAD];
-    Iiter_8 : double[MAX_ANGLES_PER_QUAD];
     G : double;
     S : double;
     Ib : double;
@@ -61,10 +53,10 @@ local PI = 3.1415926535898
 local pow = regentlib.pow(double)
 
 local task InitPoints(points : region(ispace(int3d),Point))
-where reads writes(points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8,
-                           Iiter_1, Iiter_2, Iiter_3, Iiter_4,
-                           Iiter_5, Iiter_6, Iiter_7, Iiter_8,
-                           G, S, Ib, sigma}) do
+where
+  writes(points.{G, S, Ib, sigma}),
+  reads writes(points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8})
+do
   for p in points do
     for m = 0, MAX_ANGLES_PER_QUAD do
       p.I_1[m] = 0.0
@@ -75,14 +67,6 @@ where reads writes(points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8,
       p.I_6[m] = 0.0
       p.I_7[m] = 0.0
       p.I_8[m] = 0.0
-      p.Iiter_1[m] = 0.0
-      p.Iiter_2[m] = 0.0
-      p.Iiter_3[m] = 0.0
-      p.Iiter_4[m] = 0.0
-      p.Iiter_5[m] = 0.0
-      p.Iiter_6[m] = 0.0
-      p.Iiter_7[m] = 0.0
-      p.Iiter_8[m] = 0.0
     end
     p.G = 0.0
     p.S = 0.0
@@ -93,7 +77,7 @@ end
 
 local task writeIntensity(points : region(ispace(int3d), Point))
 where
-  reads (points.G)
+  reads(points.G)
 do
   var limits = points.bounds
   var f = UTIL.openFile("intensity.dat", "w")
@@ -113,7 +97,8 @@ end
 -- Proxy main
 -------------------------------------------------------------------------------
 
-local task main()
+local __forbid(__optimize)
+task main()
   -- Read configuration
   var args = C.legion_runtime_get_input_args()
   var stderr = C.fdopen(2, 'w')
@@ -124,18 +109,33 @@ local task main()
   end
   var config : SCHEMA.Config[1]
   SCHEMA.parse_Config([&SCHEMA.Config](config), args.argv[1])
-  -- Initialize symbols
-  var is = ispace(int3d, {config[0].Radiation.xNum, config[0].Radiation.yNum, config[0].Radiation.zNum})
+  var Nx = config[0].Radiation.xNum
+  var Ny = config[0].Radiation.yNum
+  var Nz = config[0].Radiation.zNum
+  var ntx = config[0].Mapping.tiles[0]
+  var nty = config[0].Mapping.tiles[1]
+  var ntz = config[0].Mapping.tiles[2]
+  regentlib.assert(Nx % ntx == 0, "Uneven partitioning of radiation grid on x")
+  regentlib.assert(Ny % nty == 0, "Uneven partitioning of radiation grid on y")
+  regentlib.assert(Nz % ntz == 0, "Uneven partitioning of radiation grid on z")
+  var is = ispace(int3d, {Nx,Ny,Nz})
   var points = region(is, Point)
-  var colors = ispace(int3d, {config[0].Mapping.tiles[0], config[0].Mapping.tiles[1], config[0].Mapping.tiles[2]})
-  var p_points = partition(equal, points, colors);
+  var tiles = ispace(int3d, {ntx,nty,ntz})
+  var coloring = regentlib.c.legion_domain_point_coloring_create()
+  for c in tiles do
+    var rect = rect3d{lo = int3d{(Nx/ntx)*c.x,       (Ny/nty)*c.y,       (Nz/ntz)*c.z      },
+                      hi = int3d{(Nx/ntx)*(c.x+1)-1, (Ny/nty)*(c.y+1)-1, (Nz/ntz)*(c.z+1)-1}}
+    regentlib.c.legion_domain_point_coloring_color_domain(coloring, c, rect)
+  end
+  var p_points = partition(disjoint, points, coloring, tiles)
+  regentlib.c.legion_domain_point_coloring_destroy(coloring);
   -- Inline quotes from external module
   [DOM_INST.DeclSymbols(rexpr config[0] end)];
   [DOM_INST.InitRegions(rexpr config[0] end)];
-  for color in colors do
-    InitPoints(p_points[color])
+  for c in tiles do
+    InitPoints(p_points[c])
   end
-  [DOM_INST.ComputeRadiationField(rexpr config[0] end, colors, p_points)];
+  [DOM_INST.ComputeRadiationField(rexpr config[0] end, tiles, p_points)];
   writeIntensity(points)
 end
 

@@ -1,80 +1,5 @@
 import 'regent'
 
--- Coloring example: 6x6 square, 2x2 tiling, +1-1 direction
---
--- Internal cell values are essentially private,
--- face values are what need to be passed to downstream neighbor.
---
--- points: 6x6 square
---
--- tile:
---   (0,1)(0,1)(0,1)(1,1)(1,1)(1,1)
---   (0,1)(0,1)(0,1)(1,1)(1,1)(1,1)
--- ^ (0,1)(0,1)(0,1)(1,1)(1,1)(1,1)
--- | (0,0)(0,0)(0,0)(1,0)(1,0)(1,0)
--- y (0,0)(0,0)(0,0)(1,0)(1,0)(1,0)
--- | (0,0)(0,0)(0,0)(1,0)(1,0)(1,0)
---   --x-->
---
--- x-faces: 7x6 square
---
--- is_private:
--- 0110110
--- 0110110
--- 0110110
--- 0110110
--- 0110110
--- 0110110
---
--- private x-faces:
--- diagonal: tile:
--- _00_11_   _____(0,1)(0,1)_____(1,1)(1,1)_____
--- _00_11_   _____(0,1)(0,1)_____(1,1)(1,1)_____
--- _00_11_   _____(0,1)(0,1)_____(1,1)(1,1)_____
--- _11_22_   _____(0,0)(0,0)_____(1,0)(1,0)_____
--- _11_22_   _____(0,0)(0,0)_____(1,0)(1,0)_____
--- _11_22_   _____(0,0)(0,0)_____(1,0)(1,0)_____
---
--- shared x-faces:
--- diagonal: tile:
--- 0__1__2   (0,1)__________(1,1)__________(2,1)
--- 0__1__2   (0,1)__________(1,1)__________(2,1)
--- 0__1__2   (0,1)__________(1,1)__________(2,1)
--- 1__2__3   (0,0)__________(1,0)__________(2,0)
--- 1__2__3   (0,0)__________(1,0)__________(2,0)
--- 1__2__3   (0,0)__________(1,0)__________(2,0)
---
--- y-faces: 6x7 square
---
--- is_private:
--- 111111
--- 000000
--- 000000
--- 111111
--- 000000
--- 000000
--- 111111
---
--- private y-faces:
--- diagonal: tile:
--- ______    ______________________________
--- 000111    (0,1)(0,1)(0,1)(1,1)(1,1)(1,1)
--- 000111    (0,1)(0,1)(0,1)(1,1)(1,1)(1,1)
--- ______    ______________________________
--- 111222    (0,0)(0,0)(0,0)(1,0)(1,0)(1,0)
--- 111222    (0,0)(0,0)(0,0)(1,0)(1,0)(1,0)
--- ______    ______________________________
---
--- shared y-faces:
--- diagonal: tile:
--- 000111    (0,2)(0,2)(0,2)(1,2)(1,2)(1,2)
--- ______    ______________________________
--- ______    ______________________________
--- 111222    (0,1)(0,1)(0,1)(1,1)(1,1)(1,1)
--- ______    ______________________________
--- ______    ______________________________
--- 222333    (0,0)(0,0)(0,0)(1,0)(1,0)(1,0)
-
 -------------------------------------------------------------------------------
 -- MODULE PARAMETERS
 -------------------------------------------------------------------------------
@@ -141,8 +66,7 @@ local struct Angle {
 
 local struct Face {
   I : double[MAX_ANGLES_PER_QUAD],
-  is_private : int1d, -- 1 = private, 0 = shared
-  tile : int3d,
+  I_prev : double[MAX_ANGLES_PER_QUAD],
 }
 
 -------------------------------------------------------------------------------
@@ -246,36 +170,20 @@ do
   C.fclose(f)
 end
 
-local -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task color_faces(faces : region(ispace(int3d), Face),
-                 Nx : int, Ny : int, Nz : int,
-                 ntx : int, nty : int, ntz : int,
-                 dimension : int, sweepDir : bool[3])
+local -- MANUALLY PARALLELIZED, NO CUDA
+task initialize_faces(faces : region(ispace(int2d), Face),
+                      config : Config)
 where
-  writes(faces.{is_private, tile})
+  reads writes(faces.I)
 do
-  for idx in faces do
-    faces[idx].is_private = 1
-    var x_tile = idx.x / (Nx/ntx)
-    var y_tile = idx.y / (Ny/nty)
-    var z_tile = idx.z / (Nz/ntz)
-    faces[idx].tile = int3d{x_tile, y_tile, z_tile}
-    if dimension == 0 then
-      if idx.x % (Nx/ntx) == 0 then
-        faces[idx].is_private = 0
-        if not sweepDir[0] then x_tile -= 1 end
+  var num_angles = config.Radiation.angles
+  __demand(__openmp)
+  for f in faces do
+    @ESCAPE for q = 1, 8 do @EMIT
+      for m = 0, quadrantSize(q, num_angles) do
+        f.I[m] = 0.0
       end
-    elseif dimension == 1 then
-      if idx.y % (Ny/nty) == 0 then
-        faces[idx].is_private = 0
-        if not sweepDir[1] then y_tile -= 1 end
-      end
-    elseif dimension == 2 then
-      if idx.z % (Nz/ntz) == 0 then
-        faces[idx].is_private = 0
-        if not sweepDir[2] then z_tile -= 1 end
-      end
-    else regentlib.assert(false, '') end
+    @TIME end @EPACSE
   end
 end
 
@@ -304,6 +212,24 @@ do
       end
     @TIME end @EPACSE
     p.S = S
+  end
+end
+
+local -- MANUALLY PARALLELIZED, NO CUDA
+task cache_intensity(faces : region(ispace(int2d), Face),
+                     config : Config)
+where
+  reads(faces.I),
+  reads writes(faces.I_prev)
+do
+  var num_angles = config.Radiation.angles
+  __demand(__openmp)
+  for f in faces do
+    @ESCAPE for q = 1, 8 do @EMIT
+      for m = 0, quadrantSize(q, num_angles) do
+        f.I_prev[m] = f.I[m]
+      end
+    @TIME end @EPACSE
   end
 end
 
@@ -337,24 +263,20 @@ local function mkBound(wall)
   }[wall]
 
   local faces = UTIL.generate(8, function()
-    return regentlib.newsymbol(region(ispace(int3d), Face))
+    return regentlib.newsymbol(region(ispace(int2d), Face))
   end)
-
-  local function inCells(dim0, dim1, fromCell, uptoCell)
-    return rexpr
-      fromCell[0] <= dim0 and dim0 <= uptoCell[0] and
-      fromCell[1] <= dim1 and dim1 <= uptoCell[1]
-    end
-  end
 
   local -- MANUALLY PARALLELIZED, NO CUDA
   task bound([faces],
              [angles],
              config : Config)
   where
-    [faces:map(function(f) return terralib.newlist{
-       regentlib.privilege(regentlib.reads, f, 'I'),
-       regentlib.privilege(regentlib.writes, f, 'I'),
+    [incomingQuadrants:map(function(q)
+       return regentlib.privilege(regentlib.reads, faces[q], 'I_prev')
+     end)],
+    [outgoingQuadrants:map(function(q) return terralib.newlist{
+       regentlib.privilege(regentlib.reads, faces[q], 'I'),
+       regentlib.privilege(regentlib.writes, faces[q], 'I')
      } end):flatten()],
     [angles:map(function(a) return terralib.newlist{
        regentlib.privilege(regentlib.reads, a, 'xi'),
@@ -373,60 +295,46 @@ local function mkBound(wall)
     var num_angles = config.Radiation.angles
     __demand(__openmp)
     for idx in [faces[1]] do
-      -- Only update cells on the boundary
-      if [terralib.newlist{
-            rexpr idx.x == 0  end,
-            rexpr idx.x == Nx end,
-            rexpr idx.y == 0  end,
-            rexpr idx.y == Ny end,
-            rexpr idx.z == 0  end,
-            rexpr idx.z == Nz end,
-          }[wall]] then
-        var value = 0.0
-        -- Calculate reflected intensity
-        if epsw < 1.0 then
-          @ESCAPE for _,q in ipairs(incomingQuadrants) do @EMIT
-            for m = 0, quadrantSize(q, num_angles) do
-              value +=
-                (1.0-epsw)/PI * [angles[q]][m].w * [faces[q]][idx].I[m]
-                * fabs([terralib.newlist{
-                          rexpr [angles[q]][m].xi  end,
-                          rexpr [angles[q]][m].xi  end,
-                          rexpr [angles[q]][m].eta end,
-                          rexpr [angles[q]][m].eta end,
-                          rexpr [angles[q]][m].mu  end,
-                          rexpr [angles[q]][m].mu  end,
-                        }[wall]])
-            end
-          @TIME end @EPACSE
-        end
-        -- Add blackbody radiation
-        if [terralib.newlist{
-              inCells(rexpr idx.y end, rexpr idx.z end, fromCell, uptoCell),
-              inCells(rexpr idx.y end, rexpr idx.z end, fromCell, uptoCell),
-              inCells(rexpr idx.x end, rexpr idx.z end, fromCell, uptoCell),
-              inCells(rexpr idx.x end, rexpr idx.z end, fromCell, uptoCell),
-              inCells(rexpr idx.x end, rexpr idx.y end, fromCell, uptoCell),
-              inCells(rexpr idx.x end, rexpr idx.y end, fromCell, uptoCell),
-            }[wall]] then
-          value += epsw*SB*pow(Tw,4.0)/PI
-        end
-        -- Set outgoing intensity values
-        @ESCAPE for _,q in ipairs(outgoingQuadrants) do @EMIT
+      var a = idx.x
+      var b = idx.y
+      var value = 0.0
+      -- Calculate reflected intensity
+      if epsw < 1.0 then
+        @ESCAPE for _,q in ipairs(incomingQuadrants) do @EMIT
           for m = 0, quadrantSize(q, num_angles) do
-            if [terralib.newlist{
-                  rexpr [angles[q]][m].xi  > 0 end,
-                  rexpr [angles[q]][m].xi  < 0 end,
-                  rexpr [angles[q]][m].eta > 0 end,
-                  rexpr [angles[q]][m].eta < 0 end,
-                  rexpr [angles[q]][m].mu  > 0 end,
-                  rexpr [angles[q]][m].mu  < 0 end,
-                }[wall]] then
-              [faces[q]][idx].I[m] = value
-            end
+            value +=
+              (1.0-epsw)/PI * [angles[q]][m].w * [faces[q]][idx].I_prev[m]
+              * fabs([terralib.newlist{
+                        rexpr [angles[q]][m].xi  end,
+                        rexpr [angles[q]][m].xi  end,
+                        rexpr [angles[q]][m].eta end,
+                        rexpr [angles[q]][m].eta end,
+                        rexpr [angles[q]][m].mu  end,
+                        rexpr [angles[q]][m].mu  end,
+                      }[wall]])
           end
         @TIME end @EPACSE
       end
+      -- Add blackbody radiation
+      if fromCell[0] <= a and a <= uptoCell[0] and
+         fromCell[1] <= b and b <= uptoCell[1] then
+        value += epsw*SB*pow(Tw,4.0)/PI
+      end
+      -- Set outgoing intensity values
+      @ESCAPE for _,q in ipairs(outgoingQuadrants) do @EMIT
+        for m = 0, quadrantSize(q, num_angles) do
+          if [terralib.newlist{
+                rexpr [angles[q]][m].xi  > 0 end,
+                rexpr [angles[q]][m].xi  < 0 end,
+                rexpr [angles[q]][m].eta > 0 end,
+                rexpr [angles[q]][m].eta < 0 end,
+                rexpr [angles[q]][m].mu  > 0 end,
+                rexpr [angles[q]][m].mu  < 0 end,
+              }[wall]] then
+            [faces[q]][idx].I[m] = value
+          end
+        end
+      @TIME end @EPACSE
     end
   end
 
@@ -468,22 +376,14 @@ local function mkSweep(q)
 
   local -- MANUALLY PARALLELIZED, NO OPENMP, NO CUDA
   task sweep(points : region(ispace(int3d), Point),
-             x_faces : region(ispace(int3d), Face),
-             y_faces : region(ispace(int3d), Face),
-             z_faces : region(ispace(int3d), Face),
-             shared_x_faces_upwind : region(ispace(int3d), Face),
-             shared_x_faces_downwind : region(ispace(int3d), Face),
-             shared_y_faces_upwind : region(ispace(int3d), Face),
-             shared_y_faces_downwind : region(ispace(int3d), Face),
-             shared_z_faces_upwind : region(ispace(int3d), Face),
-             shared_z_faces_downwind : region(ispace(int3d), Face),
+             x_faces : region(ispace(int2d), Face),
+             y_faces : region(ispace(int2d), Face),
+             z_faces : region(ispace(int2d), Face),
              angles : region(ispace(int1d), Angle),
              config : Config)
   where
-    reads(angles.{xi, eta, mu}, points.{S, sigma},
-          shared_x_faces_upwind.I, shared_y_faces_upwind.I, shared_z_faces_upwind.I),
-    reads writes(points.[fld], x_faces.I, y_faces.I, z_faces.I,
-                 shared_x_faces_downwind.I, shared_y_faces_downwind.I, shared_z_faces_downwind.I)
+    reads(angles.{xi, eta, mu}, points.{S, sigma}),
+    reads writes(points.[fld], x_faces.I, y_faces.I, z_faces.I)
   do
     var num_angles = config.Radiation.angles
     var dx = config.Grid.xWidth / config.Radiation.xNum
@@ -501,65 +401,28 @@ local function mkSweep(q)
         for i = startx,endx,dindx do
           -- Loop over this quadrant's angles.
           for m = 0, quadrantSize(q, num_angles) do
-            -- Derive upwind indices
-            var indx : int64 = i - min(dindx,0)
-            var indy : int64 = j - min(dindy,0)
-            var indz : int64 = k - min(dindz,0)
-            -- Determine if necessary to use ghost partition
-            var upwind_x_value : double = 0.0
-            if indx < x_faces.bounds.lo.x or indx > x_faces.bounds.hi.x then
-              upwind_x_value = shared_x_faces_upwind[{indx,j,k}].I[m]
-            else
-              upwind_x_value = x_faces[{indx,j,k}].I[m]
-            end
-            var upwind_y_value : double = 0.0
-            if indy < y_faces.bounds.lo.y or indy > y_faces.bounds.hi.y then
-              upwind_y_value = shared_y_faces_upwind[{i,indy,k}].I[m]
-            else
-              upwind_y_value = y_faces[{i,indy,k}].I[m]
-            end
-            var upwind_z_value : double = 0.0
-            if indz < z_faces.bounds.lo.z or indz > z_faces.bounds.hi.z then
-              upwind_z_value = shared_z_faces_upwind[{i,j,indz}].I[m]
-            else
-              upwind_z_value = z_faces[{i,j,indz}].I[m]
-            end
+            -- Read upwind face values
+            var x_value = x_faces[{  j,k}].I[m]
+            var y_value = y_faces[{i,  k}].I[m]
+            var z_value = z_faces[{i,j  }].I[m]
             -- Integrate to compute cell-centered value of I
             var oldI = points[{i,j,k}].[fld][m]
             var newI = (points[{i,j,k}].S * dV
-                        + fabs(angles[m].xi) * dAx * upwind_x_value/GAMMA
-                        + fabs(angles[m].eta) * dAy * upwind_y_value/GAMMA
-                        + fabs(angles[m].mu) * dAz * upwind_z_value/GAMMA)
+                        + fabs(angles[m].xi)  * dAx * x_value/GAMMA
+                        + fabs(angles[m].eta) * dAy * y_value/GAMMA
+                        + fabs(angles[m].mu)  * dAz * z_value/GAMMA)
                      / (points[{i,j,k}].sigma * dV
-                        + fabs(angles[m].xi) * dAx/GAMMA
+                        + fabs(angles[m].xi)  * dAx/GAMMA
                         + fabs(angles[m].eta) * dAy/GAMMA
-                        + fabs(angles[m].mu) * dAz/GAMMA)
+                        + fabs(angles[m].mu)  * dAz/GAMMA)
             if newI > 0.0 then
               res += pow(newI-oldI,2) / pow(newI,2)
             end
             points[{i,j,k}].[fld][m] = newI
             -- Compute intensities on downwind faces
-            var x_face_val = (newI - (1-GAMMA)*upwind_x_value)/GAMMA
-            if (x_face_val < 0) then x_face_val = 0 end
-            if (indx + dindx) > x_faces.bounds.hi.x or (indx + dindx) < x_faces.bounds.lo.x then
-              shared_x_faces_downwind[{indx + dindx, j, k}].I[m] = x_face_val
-            else
-              x_faces[{indx+dindx, j, k}].I[m] = x_face_val
-            end
-            var y_face_val = (newI - (1-GAMMA)*upwind_y_value)/GAMMA
-            if (y_face_val < 0) then y_face_val = 0 end
-            if (indy + dindy) > y_faces.bounds.hi.y or (indy + dindy) < y_faces.bounds.lo.y then
-              shared_y_faces_downwind[{i, indy + dindy, k}].I[m] = y_face_val
-            else
-              y_faces[{i, indy+dindy, k}].I[m] = y_face_val
-            end
-            var z_face_val = (newI - (1-GAMMA)*upwind_z_value)/GAMMA
-            if (z_face_val < 0) then z_face_val = 0 end
-            if (indz + dindz) > z_faces.bounds.hi.z or (indz + dindz) < z_faces.bounds.lo.z then
-              shared_z_faces_downwind[{i, j, indz + dindz}].I[m] = z_face_val
-            else
-              z_faces[{i, j, indz+dindz}].I[m] = z_face_val
-            end
+            x_faces[{  j,k}].I[m] = max(0.0, (newI-(1-GAMMA)*x_value)/GAMMA)
+            y_faces[{i,  k}].I[m] = max(0.0, (newI-(1-GAMMA)*y_value)/GAMMA)
+            z_faces[{i,j  }].I[m] = max(0.0, (newI-(1-GAMMA)*z_value)/GAMMA)
           end
         end
       end
@@ -591,8 +454,8 @@ task reduce_intensity(points : region(ispace(int3d), Point),
                       config : Config)
 where
   reads(points.[intensityFields]),
-  [angles:map(function(a) return
-     regentlib.privilege(regentlib.reads, a, 'w')
+  [angles:map(function(a)
+     return regentlib.privilege(regentlib.reads, a, 'w')
    end)],
   reads writes(points.G)
 do
@@ -628,14 +491,9 @@ function MODULE.mkInstance() local INSTANCE = {}
   local z_faces = UTIL.generate(8, regentlib.newsymbol)
   local angles = UTIL.generate(8, regentlib.newsymbol)
 
-  local tiles_private = regentlib.newsymbol('tiles_private')
-  local x_tiles_shared = regentlib.newsymbol('x_tiles_shared')
-  local y_tiles_shared = regentlib.newsymbol('y_tiles_shared')
-  local z_tiles_shared = regentlib.newsymbol('z_tiles_shared')
-
-  local s_x_faces = UTIL.generate(8, regentlib.newsymbol)
-  local s_y_faces = UTIL.generate(8, regentlib.newsymbol)
-  local s_z_faces = UTIL.generate(8, regentlib.newsymbol)
+  local x_tiles = regentlib.newsymbol('x_tiles')
+  local y_tiles = regentlib.newsymbol('y_tiles')
+  local z_tiles = regentlib.newsymbol('z_tiles')
 
   local p_x_faces = UTIL.generate(8, regentlib.newsymbol)
   local p_y_faces = UTIL.generate(8, regentlib.newsymbol)
@@ -653,11 +511,16 @@ function MODULE.mkInstance() local INSTANCE = {}
     var [ntx] = config.Mapping.tiles[0]
     var [nty] = config.Mapping.tiles[1]
     var [ntz] = config.Mapping.tiles[2]
+    C.printf("%d %d %d\n", ntx, nty, ntz)
+    -- Sanity-check partitioning
+    regentlib.assert(Nx % ntx == 0, "Uneven partitioning of radiation grid on x")
+    regentlib.assert(Ny % nty == 0, "Uneven partitioning of radiation grid on y")
+    regentlib.assert(Nz % ntz == 0, "Uneven partitioning of radiation grid on z")
 
-    -- Regions for faces (+1 in one direction since one more face than points)
-    var grid_x = ispace(int3d, {Nx+1, Ny,   Nz  })
-    var grid_y = ispace(int3d, {Nx,   Ny+1, Nz  })
-    var grid_z = ispace(int3d, {Nx,   Ny,   Nz+1});
+    -- Regions for faces
+    var grid_x = ispace(int2d, {   Ny,Nz})
+    var grid_y = ispace(int2d, {Nx,   Nz})
+    var grid_z = ispace(int2d, {Nx,Ny   });
     @ESCAPE for q = 1, 8 do @EMIT
       var [x_faces[q]] = region(grid_x, Face);
       [UTIL.mkRegionTagAttach(x_faces[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
@@ -675,50 +538,61 @@ function MODULE.mkInstance() local INSTANCE = {}
     @TIME end @EPACSE
 
     -- Partition faces
-    var [tiles_private]  = ispace(int3d, {ntx,   nty,   ntz  })
-    -- extra tile required for shared edge
-    var [x_tiles_shared] = ispace(int3d, {ntx+1, nty,   ntz  })
-    var [y_tiles_shared] = ispace(int3d, {ntx,   nty+1, ntz  })
-    var [z_tiles_shared] = ispace(int3d, {ntx,   nty,   ntz+1});
+    var [x_tiles] = ispace(int2d, {    nty,ntz})
+    var [y_tiles] = ispace(int2d, {ntx,    ntz})
+    var [z_tiles] = ispace(int2d, {ntx,nty    });
     @ESCAPE for q = 1, 8 do @EMIT
       -- x
-      var p_x_faces_equal = partition(equal, [x_faces[q]], [tiles_private])
-      for c in [tiles_private] do
-        color_faces(p_x_faces_equal[c], Nx, Ny, Nz, ntx, nty, ntz, 0, array([directions[q]]))
+      var x_coloring = regentlib.c.legion_domain_point_coloring_create()
+      for c in x_tiles do
+        var a = c.x
+        var b = c.y
+        var rect = rect2d{lo = int2d{(Ny/nty)*a,       (Nz/ntz)*b      },
+                          hi = int2d{(Ny/nty)*(a+1)-1, (Nz/ntz)*(b+1)-1}}
+        regentlib.c.legion_domain_point_coloring_color_domain(x_coloring, c, rect)
       end
-      var x_by_privacy = partition([x_faces[q]].is_private, ispace(int1d,2))
-      var p_x = x_by_privacy[1]
-      var [p_x_faces[q]] = partition(p_x.tile, [tiles_private])
-      var s_x = x_by_privacy[0]
-      var [s_x_faces[q]] = partition(s_x.tile, [x_tiles_shared])
+      var [p_x_faces[q]] = partition(disjoint, [x_faces[q]], x_coloring, x_tiles)
+      regentlib.c.legion_domain_point_coloring_destroy(x_coloring);
       -- y
-      var p_y_faces_equal = partition(equal, [y_faces[q]], [tiles_private])
-      for c in [tiles_private] do
-        color_faces(p_y_faces_equal[c], Nx, Ny, Nz, ntx, nty, ntz, 1, array([directions[q]]))
+      var y_coloring = regentlib.c.legion_domain_point_coloring_create()
+      for c in y_tiles do
+        var a = c.x
+        var b = c.y
+        var rect = rect2d{lo = int2d{(Nx/ntx)*a,       (Nz/ntz)*b      },
+                          hi = int2d{(Nx/ntx)*(a+1)-1, (Nz/ntz)*(b+1)-1}}
+        regentlib.c.legion_domain_point_coloring_color_domain(y_coloring, c, rect)
       end
-      var y_by_privacy = partition([y_faces[q]].is_private, ispace(int1d,2))
-      var p_y = y_by_privacy[1]
-      var [p_y_faces[q]] = partition(p_y.tile, [tiles_private])
-      var s_y = y_by_privacy[0]
-      var [s_y_faces[q]] = partition(s_y.tile, [y_tiles_shared])
+      var [p_y_faces[q]] = partition(disjoint, [y_faces[q]], y_coloring, y_tiles)
+      regentlib.c.legion_domain_point_coloring_destroy(y_coloring);
       -- z
-      var p_z_faces_equal = partition(equal, [z_faces[q]], [tiles_private])
-      for c in [tiles_private] do
-        color_faces(p_z_faces_equal[c], Nx, Ny, Nz, ntx, nty, ntz, 2, array([directions[q]]))
+      var z_coloring = regentlib.c.legion_domain_point_coloring_create()
+      for c in z_tiles do
+        var a = c.x
+        var b = c.y
+        var rect = rect2d{lo = int2d{(Nx/ntx)*a,       (Ny/nty)*b      },
+                          hi = int2d{(Nx/ntx)*(a+1)-1, (Ny/nty)*(b+1)-1}}
+        regentlib.c.legion_domain_point_coloring_color_domain(z_coloring, c, rect)
       end
-      var z_by_privacy = partition([z_faces[q]].is_private, ispace(int1d,2))
-      var p_z = z_by_privacy[1]
-      var [p_z_faces[q]] = partition(p_z.tile, [tiles_private])
-      var s_z = z_by_privacy[0]
-      var [s_z_faces[q]] = partition(s_z.tile, [z_tiles_shared])
+      var [p_z_faces[q]] = partition(disjoint, [z_faces[q]], z_coloring, z_tiles)
+      regentlib.c.legion_domain_point_coloring_destroy(z_coloring);
     @TIME end @EPACSE
 
   end end -- DeclSymbols
 
   function INSTANCE.InitRegions(config) return rquote
 
-    -- Initialize angle values
-    initialize_angles([angles], config)
+    initialize_angles([angles], config);
+    @ESCAPE for q = 1, 8 do @EMIT
+      for c in x_tiles do
+        initialize_faces([p_x_faces[q]][c], config)
+      end
+      for c in y_tiles do
+        initialize_faces([p_y_faces[q]][c], config)
+      end
+      for c in z_tiles do
+        initialize_faces([p_z_faces[q]][c], config)
+      end
+    @TIME end @EPACSE
 
   end end -- InitRegions
 
@@ -728,105 +602,58 @@ function MODULE.mkInstance() local INSTANCE = {}
 
     -- Compute until convergence
     var res : double = 1.0
-    while (res > TOLERANCE) do
+    while res > TOLERANCE do
 
       -- Update the source term (in this problem, isotropic)
-      for t in tiles do
-        source_term(p_points[t], [angles], config, omega)
+      for c in tiles do
+        source_term(p_points[c], [angles], config, omega)
       end
 
-      -- Update the grid boundary intensities
-      -- TODO: Should launch these on just the boundaries
-      for j = 0, nty do
-        for k = 0, ntz do
-          bound_x_lo([s_x_faces[1]][{0,j,k}],
-                     [s_x_faces[2]][{0,j,k}],
-                     [s_x_faces[3]][{0,j,k}],
-                     [s_x_faces[4]][{0,j,k}],
-                     [s_x_faces[5]][{0,j,k}],
-                     [s_x_faces[6]][{0,j,k}],
-                     [s_x_faces[7]][{0,j,k}],
-                     [s_x_faces[8]][{0,j,k}],
-                     [angles],
-                     config)
+      -- Cache the face intensity values from the previous iteration (those
+      -- values represent the final downwind values).
+      @ESCAPE for q = 1, 8 do @EMIT
+        for c in x_tiles do
+          cache_intensity([p_x_faces[q]][c], config)
         end
-      end
+        for c in y_tiles do
+          cache_intensity([p_y_faces[q]][c], config)
+        end
+        for c in z_tiles do
+          cache_intensity([p_z_faces[q]][c], config)
+        end
+      @TIME end @EPACSE
 
-      for j = 0, nty do
-        for k = 0, ntz do
-          bound_x_hi([s_x_faces[1]][{ntx,j,k}],
-                     [s_x_faces[2]][{ntx,j,k}],
-                     [s_x_faces[3]][{ntx,j,k}],
-                     [s_x_faces[4]][{ntx,j,k}],
-                     [s_x_faces[5]][{ntx,j,k}],
-                     [s_x_faces[6]][{ntx,j,k}],
-                     [s_x_faces[7]][{ntx,j,k}],
-                     [s_x_faces[8]][{ntx,j,k}],
-                     [angles],
-                     config)
-        end
+      -- Update face intensity values, to represent initial upwind values for
+      -- this iteration.
+      for c in x_tiles do
+        bound_x_lo([p_x_faces:map(function(f) return rexpr f[c] end end)],
+                   [angles],
+                   config)
       end
-
-      -- Update y faces
-      for i = 0, ntx do
-        for k = 0, ntz do
-          bound_y_lo([s_y_faces[1]][{i,0,k}],
-                     [s_y_faces[2]][{i,0,k}],
-                     [s_y_faces[3]][{i,0,k}],
-                     [s_y_faces[4]][{i,0,k}],
-                     [s_y_faces[5]][{i,0,k}],
-                     [s_y_faces[6]][{i,0,k}],
-                     [s_y_faces[7]][{i,0,k}],
-                     [s_y_faces[8]][{i,0,k}],
-                     [angles],
-                     config)
-        end
+      for c in x_tiles do
+        bound_x_hi([p_x_faces:map(function(f) return rexpr f[c] end end)],
+                   [angles],
+                   config)
       end
-
-      for i = 0, ntx do
-        for k = 0, ntz do
-          bound_y_hi([s_y_faces[1]][{i,nty,k}],
-                     [s_y_faces[2]][{i,nty,k}],
-                     [s_y_faces[3]][{i,nty,k}],
-                     [s_y_faces[4]][{i,nty,k}],
-                     [s_y_faces[5]][{i,nty,k}],
-                     [s_y_faces[6]][{i,nty,k}],
-                     [s_y_faces[7]][{i,nty,k}],
-                     [s_y_faces[8]][{i,nty,k}],
-                     [angles],
-                     config)
-        end
+      for c in y_tiles do
+        bound_y_lo([p_y_faces:map(function(f) return rexpr f[c] end end)],
+                   [angles],
+                   config)
       end
-
-      -- Update z faces
-      for i = 0, ntx do
-        for j = 0, nty do
-          bound_z_lo([s_z_faces[1]][{i,j,0}],
-                     [s_z_faces[2]][{i,j,0}],
-                     [s_z_faces[3]][{i,j,0}],
-                     [s_z_faces[4]][{i,j,0}],
-                     [s_z_faces[5]][{i,j,0}],
-                     [s_z_faces[6]][{i,j,0}],
-                     [s_z_faces[7]][{i,j,0}],
-                     [s_z_faces[8]][{i,j,0}],
-                     [angles],
-                     config)
-        end
+      for c in y_tiles do
+        bound_y_hi([p_y_faces:map(function(f) return rexpr f[c] end end)],
+                   [angles],
+                   config)
       end
-
-      for i = 0, ntx do
-        for j = 0, nty do
-          bound_z_hi([s_z_faces[1]][{i,j,ntz}],
-                     [s_z_faces[2]][{i,j,ntz}],
-                     [s_z_faces[3]][{i,j,ntz}],
-                     [s_z_faces[4]][{i,j,ntz}],
-                     [s_z_faces[5]][{i,j,ntz}],
-                     [s_z_faces[6]][{i,j,ntz}],
-                     [s_z_faces[7]][{i,j,ntz}],
-                     [s_z_faces[8]][{i,j,ntz}],
-                     [angles],
-                     config)
-        end
+      for c in z_tiles do
+        bound_z_lo([p_z_faces:map(function(f) return rexpr f[c] end end)],
+                   [angles],
+                   config)
+      end
+      for c in z_tiles do
+        bound_z_hi([p_z_faces:map(function(f) return rexpr f[c] end end)],
+                   [angles],
+                   config)
       end
 
       --Perform the sweep for computing new intensities
@@ -838,11 +665,11 @@ function MODULE.mkInstance() local INSTANCE = {}
           for k = 0, ntz do
             res +=
               [sweeps[1]](p_points[{i,j,k}],
-                          [p_x_faces[1]][{i,j,k}], [p_y_faces[1]][{i,j,k}], [p_z_faces[1]][{i,j,k}],
-                          [s_x_faces[1]][{i,j,k}], [s_x_faces[1]][{i+1,j,k}],
-                          [s_y_faces[1]][{i,j,k}], [s_y_faces[1]][{i,j+1,k}],
-                          [s_z_faces[1]][{i,j,k}], [s_z_faces[1]][{i,j,k+1}],
-                          [angles[1]], config)
+                          [p_x_faces[1]][{  j,k}],
+                          [p_y_faces[1]][{i,  k}],
+                          [p_z_faces[1]][{i,j  }],
+                          [angles[1]],
+                          config)
           end
         end
       end
@@ -853,11 +680,11 @@ function MODULE.mkInstance() local INSTANCE = {}
           for k = ntz-1, -1, -1 do
             res +=
               [sweeps[2]](p_points[{i,j,k}],
-                          [p_x_faces[2]][{i,j,k}], [p_y_faces[2]][{i,j,k}], [p_z_faces[2]][{i,j,k}],
-                          [s_x_faces[2]][{i,j,k}], [s_x_faces[2]][{i+1,j,k}],
-                          [s_y_faces[2]][{i,j,k}], [s_y_faces[2]][{i,j+1,k}],
-                          [s_z_faces[2]][{i,j,k+1}], [s_z_faces[2]][{i,j,k}],
-                          [angles[2]], config)
+                          [p_x_faces[2]][{  j,k}],
+                          [p_y_faces[2]][{i,  k}],
+                          [p_z_faces[2]][{i,j  }],
+                          [angles[2]],
+                          config)
           end
         end
       end
@@ -868,11 +695,11 @@ function MODULE.mkInstance() local INSTANCE = {}
           for k = 0, ntz do
             res +=
               [sweeps[3]](p_points[{i,j,k}],
-                          [p_x_faces[3]][{i,j,k}], [p_y_faces[3]][{i,j,k}], [p_z_faces[3]][{i,j,k}],
-                          [s_x_faces[3]][{i,j,k}], [s_x_faces[3]][{i+1,j,k}],
-                          [s_y_faces[3]][{i,j+1,k}], [s_y_faces[3]][{i,j,k}],
-                          [s_z_faces[3]][{i,j,k}], [s_z_faces[3]][{i,j,k+1}],
-                          [angles[3]], config)
+                          [p_x_faces[3]][{  j,k}],
+                          [p_y_faces[3]][{i,  k}],
+                          [p_z_faces[3]][{i,j  }],
+                          [angles[3]],
+                          config)
           end
         end
       end
@@ -883,11 +710,11 @@ function MODULE.mkInstance() local INSTANCE = {}
           for k = ntz-1, -1, -1 do
             res +=
               [sweeps[4]](p_points[{i,j,k}],
-                          [p_x_faces[4]][{i,j,k}], [p_y_faces[4]][{i,j,k}], [p_z_faces[4]][{i,j,k}],
-                          [s_x_faces[4]][{i,j,k}], [s_x_faces[4]][{i+1,j,k}],
-                          [s_y_faces[4]][{i,j+1,k}], [s_y_faces[4]][{i,j,k}],
-                          [s_z_faces[4]][{i,j,k+1}], [s_z_faces[4]][{i,j,k}],
-                          [angles[4]], config)
+                          [p_x_faces[4]][{  j,k}],
+                          [p_y_faces[4]][{i,  k}],
+                          [p_z_faces[4]][{i,j  }],
+                          [angles[4]],
+                          config)
           end
         end
       end
@@ -898,11 +725,11 @@ function MODULE.mkInstance() local INSTANCE = {}
           for k = 0, ntz do
             res +=
               [sweeps[5]](p_points[{i,j,k}],
-                          [p_x_faces[5]][{i,j,k}], [p_y_faces[5]][{i,j,k}], [p_z_faces[5]][{i,j,k}],
-                          [s_x_faces[5]][{i+1,j,k}], [s_x_faces[5]][{i,j,k}],
-                          [s_y_faces[5]][{i,j,k}], [s_y_faces[5]][{i,j+1,k}],
-                          [s_z_faces[5]][{i,j,k}], [s_z_faces[5]][{i,j,k+1}],
-                          [angles[5]], config)
+                          [p_x_faces[5]][{  j,k}],
+                          [p_y_faces[5]][{i,  k}],
+                          [p_z_faces[5]][{i,j  }],
+                          [angles[5]],
+                          config)
           end
         end
       end
@@ -913,11 +740,11 @@ function MODULE.mkInstance() local INSTANCE = {}
           for k = ntz-1, -1, -1 do
             res +=
               [sweeps[6]](p_points[{i,j,k}],
-                          [p_x_faces[6]][{i,j,k}], [p_y_faces[6]][{i,j,k}], [p_z_faces[6]][{i,j,k}],
-                          [s_x_faces[6]][{i+1,j,k}], [s_x_faces[6]][{i,j,k}],
-                          [s_y_faces[6]][{i,j,k}], [s_y_faces[6]][{i,j+1,k}],
-                          [s_z_faces[6]][{i,j,k+1}], [s_z_faces[6]][{i,j,k}],
-                          [angles[6]], config)
+                          [p_x_faces[6]][{  j,k}],
+                          [p_y_faces[6]][{i,  k}],
+                          [p_z_faces[6]][{i,j  }],
+                          [angles[6]],
+                          config)
           end
         end
       end
@@ -928,11 +755,11 @@ function MODULE.mkInstance() local INSTANCE = {}
           for k = 0, ntz do
             res +=
               [sweeps[7]](p_points[{i,j,k}],
-                          [p_x_faces[7]][{i,j,k}], [p_y_faces[7]][{i,j,k}], [p_z_faces[7]][{i,j,k}],
-                          [s_x_faces[7]][{i+1,j,k}], [s_x_faces[7]][{i,j,k}],
-                          [s_y_faces[7]][{i,j+1,k}], [s_y_faces[7]][{i,j,k}],
-                          [s_z_faces[7]][{i,j,k}], [s_z_faces[7]][{i,j,k+1}],
-                          [angles[7]], config)
+                          [p_x_faces[7]][{  j,k}],
+                          [p_y_faces[7]][{i,  k}],
+                          [p_z_faces[7]][{i,j  }],
+                          [angles[7]],
+                          config)
           end
         end
       end
@@ -943,11 +770,11 @@ function MODULE.mkInstance() local INSTANCE = {}
           for k = ntz-1, -1, -1 do
             res +=
               [sweeps[8]](p_points[{i,j,k}],
-                          [p_x_faces[8]][{i,j,k}], [p_y_faces[8]][{i,j,k}], [p_z_faces[8]][{i,j,k}],
-                          [s_x_faces[8]][{i+1,j,k}], [s_x_faces[8]][{i,j,k}],
-                          [s_y_faces[8]][{i,j+1,k}], [s_y_faces[8]][{i,j,k}],
-                          [s_z_faces[8]][{i,j,k+1}], [s_z_faces[8]][{i,j,k}],
-                          [angles[8]], config)
+                          [p_x_faces[8]][{  j,k}],
+                          [p_y_faces[8]][{i,  k}],
+                          [p_z_faces[8]][{i,j  }],
+                          [angles[8]],
+                          config)
           end
         end
       end
@@ -955,11 +782,11 @@ function MODULE.mkInstance() local INSTANCE = {}
       -- Compute the residual
       res = sqrt(res/(Nx*Ny*Nz*config.Radiation.angles))
 
-    end
+    end -- while res > TOLERANCE
 
     -- Reduce intensity
-    for t in tiles do
-      reduce_intensity(p_points[t], [angles], config)
+    for c in tiles do
+      reduce_intensity(p_points[c], [angles], config)
     end
 
   end end -- ComputeRadiationField

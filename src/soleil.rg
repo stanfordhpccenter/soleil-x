@@ -5226,7 +5226,7 @@ local function mkInstance() local INSTANCE = {}
       if c.z == NZ-1 then
         rect.hi.z += Grid.zBnum
       end
-      regentlib.c.legion_domain_point_coloring_color_domain(coloring_Fluid, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
+      regentlib.c.legion_domain_point_coloring_color_domain(coloring_Fluid, c, rect)
     end
     var [p_Fluid] = partition(disjoint, Fluid, coloring_Fluid, tiles)
     var [p_Fluid_copy] = partition(disjoint, Fluid_copy, coloring_Fluid, tiles)
@@ -5276,7 +5276,7 @@ local function mkInstance() local INSTANCE = {}
     for c in tiles do
       var rect = rect3d{lo = int3d{x = (config.Radiation.xNum/NX)*c.x,       y = (config.Radiation.yNum/NY)*c.y,       z = (config.Radiation.zNum/NZ)*c.z      },
                         hi = int3d{x = (config.Radiation.xNum/NX)*(c.x+1)-1, y = (config.Radiation.yNum/NY)*(c.y+1)-1, z = (config.Radiation.zNum/NZ)*(c.z+1)-1}}
-      regentlib.c.legion_domain_point_coloring_color_domain(coloring_Radiation, regentlib.c.legion_domain_point_t(c), regentlib.c.legion_domain_t(rect))
+      regentlib.c.legion_domain_point_coloring_color_domain(coloring_Radiation, c, rect)
     end
     var [p_Radiation] = partition(disjoint, Radiation, coloring_Radiation, tiles)
     regentlib.c.legion_domain_point_coloring_destroy(coloring_Radiation);
