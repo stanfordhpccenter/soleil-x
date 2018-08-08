@@ -5478,7 +5478,6 @@ local function mkInstance() local INSTANCE = {}
 
     -- Calculate exit condition
     Integrator_exitCond =
-      Integrator_simTime >= config.Integrator.finalTime or
       Integrator_timeStep >= config.Integrator.maxIter
 
     -- Determine time step size

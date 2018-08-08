@@ -63,7 +63,6 @@
         },
 
         "Integrator" : {
-            "finalTime" : 100.00001,
             "restartIter" : -1,
             "restartTime" : -1.0,
             "maxIter" : 1000,
@@ -205,7 +204,6 @@
         },
 
         "Integrator" : {
-            "finalTime" : 100.00001,
             "restartIter" : -1,
             "restartTime" : -1.0,
             "maxIter" : 1000,
