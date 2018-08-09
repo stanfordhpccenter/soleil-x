@@ -450,7 +450,7 @@ private:
   }
 
   std::array<bool,3> parse_direction(const Task& task) const {
-    std::array<bool,3> dir = {true, true, true};
+    std::array<bool,3> dir = {{true, true, true}};
     std::regex regex("\\w*_([1-8]|lo|hi)");
     std::cmatch match;
     CHECK(std::regex_match(task.get_task_name(), match, regex),
