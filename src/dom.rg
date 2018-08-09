@@ -170,22 +170,36 @@ do
   C.fclose(f)
 end
 
-local -- MANUALLY PARALLELIZED, NO CUDA
-task initialize_faces(faces : region(ispace(int2d), Face),
-                      config : Config)
-where
-  reads writes(faces.I)
-do
-  var num_angles = config.Radiation.angles
-  __demand(__openmp)
-  for f in faces do
-    @ESCAPE for q = 1, 8 do @EMIT
+-- 'x'|'y'|'z', 1..8 -> regentlib.task
+local function mkInitializeFaces(dim, q)
+
+  local -- MANUALLY PARALLELIZED, NO CUDA
+  task initialize_faces(faces : region(ispace(int2d), Face),
+                        config : Config)
+  where
+    reads writes(faces.I)
+  do
+    var num_angles = config.Radiation.angles
+    __demand(__openmp)
+    for f in faces do
       for m = 0, quadrantSize(q, num_angles) do
         f.I[m] = 0.0
       end
-    @TIME end @EPACSE
+    end
   end
-end
+
+  local name = 'initialize_faces_'..dim..'_'..tostring(q)
+  initialize_faces:set_name(name)
+  initialize_faces:get_primary_variant():get_ast().name[1] = name
+  return initialize_faces
+
+end -- mkInitializeFaces
+
+local initialize_faces = {
+  x = UTIL.range(1,8):map(function(q) return mkInitializeFaces('x', q) end),
+  y = UTIL.range(1,8):map(function(q) return mkInitializeFaces('y', q) end),
+  z = UTIL.range(1,8):map(function(q) return mkInitializeFaces('z', q) end),
+}
 
 local -- MANUALLY PARALLELIZED, NO CUDA
 task source_term(points : region(ispace(int3d), Point),
@@ -215,23 +229,37 @@ do
   end
 end
 
-local -- MANUALLY PARALLELIZED, NO CUDA
-task cache_intensity(faces : region(ispace(int2d), Face),
-                     config : Config)
-where
-  reads(faces.I),
-  reads writes(faces.I_prev)
-do
-  var num_angles = config.Radiation.angles
-  __demand(__openmp)
-  for f in faces do
-    @ESCAPE for q = 1, 8 do @EMIT
+-- 'x'|'y'|'z', 1..8 -> regentlib.task
+local function mkCacheIntensity(dim, q)
+
+  local -- MANUALLY PARALLELIZED, NO CUDA
+  task cache_intensity(faces : region(ispace(int2d), Face),
+                       config : Config)
+  where
+    reads(faces.I),
+    reads writes(faces.I_prev)
+  do
+    var num_angles = config.Radiation.angles
+    __demand(__openmp)
+    for f in faces do
       for m = 0, quadrantSize(q, num_angles) do
         f.I_prev[m] = f.I[m]
       end
-    @TIME end @EPACSE
+    end
   end
-end
+
+  local name = 'cache_intensity_'..dim..'_'..tostring(q)
+  cache_intensity:set_name(name)
+  cache_intensity:get_primary_variant():get_ast().name[1] = name
+  return cache_intensity
+
+end -- mkCacheIntensity
+
+local cache_intensity = {
+  x = UTIL.range(1,8):map(function(q) return mkCacheIntensity('x', q) end),
+  y = UTIL.range(1,8):map(function(q) return mkCacheIntensity('y', q) end),
+  z = UTIL.range(1,8):map(function(q) return mkCacheIntensity('z', q) end),
+}
 
 -- 1..6 -> regentlib.task
 local function mkBound(wall)
@@ -437,16 +465,7 @@ local function mkSweep(q)
 
 end -- mkSweep
 
-local sweeps = terralib.newlist{
-  mkSweep(1),
-  mkSweep(2),
-  mkSweep(3),
-  mkSweep(4),
-  mkSweep(5),
-  mkSweep(6),
-  mkSweep(7),
-  mkSweep(8),
-}
+local sweep = UTIL.range(1,8):map(function(q) return mkSweep(q) end)
 
 local -- MANUALLY PARALLELIZED, NO CUDA
 task reduce_intensity(points : region(ispace(int3d), Point),
@@ -511,7 +530,6 @@ function MODULE.mkInstance() local INSTANCE = {}
     var [ntx] = config.Mapping.tiles[0]
     var [nty] = config.Mapping.tiles[1]
     var [ntz] = config.Mapping.tiles[2]
-    C.printf("%d %d %d\n", ntx, nty, ntz)
     -- Sanity-check partitioning
     regentlib.assert(Nx % ntx == 0, "Uneven partitioning of radiation grid on x")
     regentlib.assert(Ny % nty == 0, "Uneven partitioning of radiation grid on y")
@@ -584,13 +602,13 @@ function MODULE.mkInstance() local INSTANCE = {}
     initialize_angles([angles], config);
     @ESCAPE for q = 1, 8 do @EMIT
       for c in x_tiles do
-        initialize_faces([p_x_faces[q]][c], config)
+        [initialize_faces['x'][q]]([p_x_faces[q]][c], config)
       end
       for c in y_tiles do
-        initialize_faces([p_y_faces[q]][c], config)
+        [initialize_faces['y'][q]]([p_y_faces[q]][c], config)
       end
       for c in z_tiles do
-        initialize_faces([p_z_faces[q]][c], config)
+        [initialize_faces['z'][q]]([p_z_faces[q]][c], config)
       end
     @TIME end @EPACSE
 
@@ -613,13 +631,13 @@ function MODULE.mkInstance() local INSTANCE = {}
       -- values represent the final downwind values).
       @ESCAPE for q = 1, 8 do @EMIT
         for c in x_tiles do
-          cache_intensity([p_x_faces[q]][c], config)
+          [cache_intensity['x'][q]]([p_x_faces[q]][c], config)
         end
         for c in y_tiles do
-          cache_intensity([p_y_faces[q]][c], config)
+          [cache_intensity['y'][q]]([p_y_faces[q]][c], config)
         end
         for c in z_tiles do
-          cache_intensity([p_z_faces[q]][c], config)
+          [cache_intensity['z'][q]]([p_z_faces[q]][c], config)
         end
       @TIME end @EPACSE
 
@@ -664,12 +682,12 @@ function MODULE.mkInstance() local INSTANCE = {}
         for j = 0, nty do
           for k = 0, ntz do
             res +=
-              [sweeps[1]](p_points[{i,j,k}],
-                          [p_x_faces[1]][{  j,k}],
-                          [p_y_faces[1]][{i,  k}],
-                          [p_z_faces[1]][{i,j  }],
-                          [angles[1]],
-                          config)
+              [sweep[1]](p_points[{i,j,k}],
+                         [p_x_faces[1]][{  j,k}],
+                         [p_y_faces[1]][{i,  k}],
+                         [p_z_faces[1]][{i,j  }],
+                         [angles[1]],
+                         config)
           end
         end
       end
@@ -679,12 +697,12 @@ function MODULE.mkInstance() local INSTANCE = {}
         for j = 0, nty do
           for k = ntz-1, -1, -1 do
             res +=
-              [sweeps[2]](p_points[{i,j,k}],
-                          [p_x_faces[2]][{  j,k}],
-                          [p_y_faces[2]][{i,  k}],
-                          [p_z_faces[2]][{i,j  }],
-                          [angles[2]],
-                          config)
+              [sweep[2]](p_points[{i,j,k}],
+                         [p_x_faces[2]][{  j,k}],
+                         [p_y_faces[2]][{i,  k}],
+                         [p_z_faces[2]][{i,j  }],
+                         [angles[2]],
+                         config)
           end
         end
       end
@@ -694,12 +712,12 @@ function MODULE.mkInstance() local INSTANCE = {}
         for j = nty-1, -1, -1 do
           for k = 0, ntz do
             res +=
-              [sweeps[3]](p_points[{i,j,k}],
-                          [p_x_faces[3]][{  j,k}],
-                          [p_y_faces[3]][{i,  k}],
-                          [p_z_faces[3]][{i,j  }],
-                          [angles[3]],
-                          config)
+              [sweep[3]](p_points[{i,j,k}],
+                         [p_x_faces[3]][{  j,k}],
+                         [p_y_faces[3]][{i,  k}],
+                         [p_z_faces[3]][{i,j  }],
+                         [angles[3]],
+                         config)
           end
         end
       end
@@ -709,12 +727,12 @@ function MODULE.mkInstance() local INSTANCE = {}
         for j = nty-1, -1, -1 do
           for k = ntz-1, -1, -1 do
             res +=
-              [sweeps[4]](p_points[{i,j,k}],
-                          [p_x_faces[4]][{  j,k}],
-                          [p_y_faces[4]][{i,  k}],
-                          [p_z_faces[4]][{i,j  }],
-                          [angles[4]],
-                          config)
+              [sweep[4]](p_points[{i,j,k}],
+                         [p_x_faces[4]][{  j,k}],
+                         [p_y_faces[4]][{i,  k}],
+                         [p_z_faces[4]][{i,j  }],
+                         [angles[4]],
+                         config)
           end
         end
       end
@@ -724,12 +742,12 @@ function MODULE.mkInstance() local INSTANCE = {}
         for j = 0, nty do
           for k = 0, ntz do
             res +=
-              [sweeps[5]](p_points[{i,j,k}],
-                          [p_x_faces[5]][{  j,k}],
-                          [p_y_faces[5]][{i,  k}],
-                          [p_z_faces[5]][{i,j  }],
-                          [angles[5]],
-                          config)
+              [sweep[5]](p_points[{i,j,k}],
+                         [p_x_faces[5]][{  j,k}],
+                         [p_y_faces[5]][{i,  k}],
+                         [p_z_faces[5]][{i,j  }],
+                         [angles[5]],
+                         config)
           end
         end
       end
@@ -739,12 +757,12 @@ function MODULE.mkInstance() local INSTANCE = {}
         for j = 0, nty do
           for k = ntz-1, -1, -1 do
             res +=
-              [sweeps[6]](p_points[{i,j,k}],
-                          [p_x_faces[6]][{  j,k}],
-                          [p_y_faces[6]][{i,  k}],
-                          [p_z_faces[6]][{i,j  }],
-                          [angles[6]],
-                          config)
+              [sweep[6]](p_points[{i,j,k}],
+                         [p_x_faces[6]][{  j,k}],
+                         [p_y_faces[6]][{i,  k}],
+                         [p_z_faces[6]][{i,j  }],
+                         [angles[6]],
+                         config)
           end
         end
       end
@@ -754,12 +772,12 @@ function MODULE.mkInstance() local INSTANCE = {}
         for j = nty-1, -1, -1 do
           for k = 0, ntz do
             res +=
-              [sweeps[7]](p_points[{i,j,k}],
-                          [p_x_faces[7]][{  j,k}],
-                          [p_y_faces[7]][{i,  k}],
-                          [p_z_faces[7]][{i,j  }],
-                          [angles[7]],
-                          config)
+              [sweep[7]](p_points[{i,j,k}],
+                         [p_x_faces[7]][{  j,k}],
+                         [p_y_faces[7]][{i,  k}],
+                         [p_z_faces[7]][{i,j  }],
+                         [angles[7]],
+                         config)
           end
         end
       end
@@ -769,12 +787,12 @@ function MODULE.mkInstance() local INSTANCE = {}
         for j = nty-1, -1, -1 do
           for k = ntz-1, -1, -1 do
             res +=
-              [sweeps[8]](p_points[{i,j,k}],
-                          [p_x_faces[8]][{  j,k}],
-                          [p_y_faces[8]][{i,  k}],
-                          [p_z_faces[8]][{i,j  }],
-                          [angles[8]],
-                          config)
+              [sweep[8]](p_points[{i,j,k}],
+                         [p_x_faces[8]][{  j,k}],
+                         [p_y_faces[8]][{i,  k}],
+                         [p_z_faces[8]][{i,j  }],
+                         [angles[8]],
+                         config)
           end
         end
       end

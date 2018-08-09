@@ -1,3 +1,4 @@
+#include <array>
 #include <iostream>
 #include <fstream>
 #include <regex>
@@ -153,36 +154,13 @@ public:
     // centered and send them to the rank responsible for that.
     // TODO: Cache the decision.
     if (STARTS_WITH(task.get_task_name(), "sweep_") ||
-        STARTS_WITH(task.get_task_name(), "bound_") ||
         STARTS_WITH(task.get_task_name(), "TradeQueue_fillTarget") ||
         STARTS_WITH(task.get_task_name(), "TradeQueue_pull")) {
       // Retrieve sample information.
       unsigned sample_id = find_sample_id(ctx, task);
       const SampleMapping& mapping = sample_mappings_[sample_id];
-      // DOM tasks that update the far boundary on some direction are called
-      // with a face tile one-over on that direction.
-      unsigned x_extra = 0;
-      unsigned y_extra = 0;
-      unsigned z_extra = 0;
-      if (STARTS_WITH(task.get_task_name(), "bound_")) {
-        std::regex regex("bound_([xyz])_(lo|hi)");
-        std::cmatch match;
-        CHECK(std::regex_match(task.get_task_name(), match, regex),
-              "Unexpected DOM boundary task name: %s", task.get_task_name());
-        if (match[2].str().compare("hi") == 0) {
-          if (match[1].str().compare("x") == 0) { x_extra = 1; }
-          if (match[1].str().compare("y") == 0) { y_extra = 1; }
-          if (match[1].str().compare("z") == 0) { z_extra = 1; }
-        }
-      }
       // Find the tile this task launch is centered on.
-      DomainPoint tile = find_tile(ctx, task,
-                                   mapping.x_tiles() + x_extra,
-                                   mapping.y_tiles() + y_extra,
-                                   mapping.z_tiles() + z_extra);
-      tile[0] -= x_extra;
-      tile[1] -= y_extra;
-      tile[2] -= z_extra;
+      DomainPoint tile = find_tile(ctx, task, mapping);
       // Assign rank according to the precomputed mapping, then round-robin
       // over all the processors of the preffered kind within that rank.
       AddressSpace target_rank = mapping.get_rank(tile[0], tile[1], tile[2]);
@@ -255,23 +233,15 @@ public:
     unsigned sample_id = find_sample_id(ctx, task);
     const SampleMapping& mapping = sample_mappings_[sample_id];
     // Compute direction of sweep.
-    int sweep_id = atoi(task.get_task_name() + sizeof("sweep_") - 1) - 1;
-    CHECK(0 <= sweep_id && sweep_id <= 7,
-          "Task %s: invalid sweep id", task.get_task_name());
-    bool x_rev = (sweep_id >> 0) & 1;
-    bool y_rev = (sweep_id >> 1) & 1;
-    bool z_rev = (sweep_id >> 2) & 1;
+    std::array<bool,3> dir = parse_direction(task);
     // Find the tile this task launch is centered on.
-    DomainPoint tile = find_tile(ctx, task,
-                                 mapping.x_tiles(),
-                                 mapping.y_tiles(),
-                                 mapping.z_tiles());
+    DomainPoint tile = find_tile(ctx, task, mapping);
     // Assign priority according to the number of diagonals between this launch
     // and the end of the domain.
     int priority =
-      (x_rev ? tile[0] : mapping.x_tiles() - tile[0] - 1) +
-      (y_rev ? tile[1] : mapping.y_tiles() - tile[1] - 1) +
-      (z_rev ? tile[2] : mapping.z_tiles() - tile[2] - 1);
+      (dir[0] ? mapping.x_tiles() - tile[0] - 1 : tile[0]) +
+      (dir[1] ? mapping.y_tiles() - tile[1] - 1 : tile[1]) +
+      (dir[2] ? mapping.z_tiles() - tile[2] - 1 : tile[2]) ;
     LOG.debug() << "Sample " << sample_id << ":"
                 << " Task " << task.get_task_name()
                 << " on tile " << tile
@@ -314,20 +284,47 @@ public:
     // Retrieve sample information.
     unsigned sample_id = find_sample_id(ctx, task);
     const SampleMapping& mapping = sample_mappings_[sample_id];
-    CHECK(input.domain.get_dim() == 3 &&
-          input.domain.lo()[0] == 0 &&
-          input.domain.lo()[1] == 0 &&
-          input.domain.lo()[2] == 0 &&
-          input.domain.hi()[0] == mapping.x_tiles() - 1 &&
-          input.domain.hi()[1] == mapping.y_tiles() - 1 &&
-          input.domain.hi()[2] == mapping.z_tiles() - 1,
-          "Index-space launches in the work task should only use the"
-          " top-level tiling.");
+    // Find the tiles covered by this index-space launch.
+    Domain domain = input.domain;
+    if (domain.get_dim() == 2) {
+      // Certain tasks are launched on a 2D tile; extend these tiles
+      // appropriately, by filling in the missing dimension.
+      unsigned dim = parse_dimension(task);
+      bool dir = parse_direction(task)[dim];
+      if (STARTS_WITH(task.get_task_name(), "initialize_faces_") ||
+          STARTS_WITH(task.get_task_name(), "bound_")) {
+        // Do nothing
+      } else if (STARTS_WITH(task.get_task_name(), "cache_intensity_")) {
+        // We want to run these tasks on the opposite end of the domain implied
+        // by their name.
+        dir = !dir;
+      } else {
+        CHECK(false, "Unexpected 2D tile on task %s", task.get_task_name());
+      }
+      unsigned coord =
+        (dim == 0) ? (dir ? 0 : mapping.x_tiles()-1) :
+        (dim == 1) ? (dir ? 0 : mapping.y_tiles()-1) :
+       /*dim == 2*/  (dir ? 0 : mapping.z_tiles()-1) ;
+      Point<3> lo =
+        (dim == 0) ? Point<3>(coord, domain.lo()[0], domain.lo()[1]) :
+        (dim == 1) ? Point<3>(domain.lo()[0], coord, domain.lo()[1]) :
+       /*dim == 2*/  Point<3>(domain.lo()[0], domain.lo()[1], coord) ;
+      Point<3> hi =
+        (dim == 0) ? Point<3>(coord, domain.hi()[0], domain.hi()[1]) :
+        (dim == 1) ? Point<3>(domain.hi()[0], coord, domain.hi()[1]) :
+       /*dim == 2*/  Point<3>(domain.hi()[0], domain.hi()[1], coord) ;
+      domain = Rect<3>(lo, hi);
+    }
+    CHECK(domain.get_dim() == 3 &&
+          0 <= domain.lo()[0] && domain.hi()[0] < mapping.x_tiles() &&
+          0 <= domain.lo()[1] && domain.hi()[1] < mapping.y_tiles() &&
+          0 <= domain.lo()[2] && domain.hi()[2] < mapping.z_tiles(),
+          "Unexpected domain on index-space launch");
     // Allocate tasks among all the processors of the same kind as the original
     // target, on each rank allocated to this sample.
-    for (unsigned x = 0; x < mapping.x_tiles(); ++x) {
-      for (unsigned y = 0; y < mapping.y_tiles(); ++y) {
-        for (unsigned z = 0; z < mapping.z_tiles(); ++z) {
+    for (unsigned x = domain.lo()[0]; x <= domain.hi()[0]; ++x) {
+      for (unsigned y = domain.lo()[1]; y <= domain.hi()[1]; ++y) {
+        for (unsigned z = domain.lo()[2]; z <= domain.hi()[2]; ++z) {
           AddressSpace target_rank = mapping.get_rank(x, y, z);
           const std::vector<Processor>& procs =
             get_procs(target_rank, task.target_proc.kind());
@@ -335,8 +332,8 @@ public:
           Processor target_proc = procs[target_proc_id % procs.size()];
           output.slices.emplace_back(Rect<3>(Point<3>(x,y,z), Point<3>(x,y,z)),
                                      target_proc,
-                                     false /*recurse*/,
-                                     false /*stealable*/);
+                                     false/*recurse*/,
+                                     false/*stealable*/);
           LOG.debug() << "Sample " << sample_id << ":"
                       << " Index-space launch:"
                       << " Task " << task.get_task_name()
@@ -418,7 +415,7 @@ public:
     Processor::Kind proc_kind =
       (local_gpus.size() > 0) ? Processor::TOC_PROC :
       (local_omps.size() > 0) ? Processor::OMP_PROC :
-      Processor::LOC_PROC;
+                                Processor::LOC_PROC ;
     const std::vector<Processor>& procs = get_procs(target_rank, proc_kind);
     Processor target_proc = procs[target_proc_id % procs.size()];
     Memory target_memory =
@@ -463,9 +460,7 @@ private:
   // XXX: Always using the first region argument to figure out the tile.
   DomainPoint find_tile(const MapperContext ctx,
                         const Task& task,
-                        unsigned x_tiles,
-                        unsigned y_tiles,
-                        unsigned z_tiles) const {
+                        const SampleMapping& mapping) const {
     CHECK(!task.regions.empty(),
           "No region argument on launch of task %s", task.get_task_name());
     const RegionRequirement& req = task.regions[0];
@@ -473,11 +468,43 @@ private:
     DomainPoint tile =
       runtime->get_logical_region_color_point(ctx, req.region);
     CHECK(tile.get_dim() == 3 &&
-          0 <= tile[0] && tile[0] < x_tiles &&
-          0 <= tile[1] && tile[1] < y_tiles &&
-          0 <= tile[2] && tile[2] < z_tiles,
+          0 <= tile[0] && tile[0] < mapping.x_tiles() &&
+          0 <= tile[1] && tile[1] < mapping.y_tiles() &&
+          0 <= tile[2] && tile[2] < mapping.z_tiles(),
           "Launch of task %s using incorrect tiling", task.get_task_name());
     return tile;
+  }
+
+  std::array<bool,3> parse_direction(const Task& task) const {
+    std::array<bool,3> dir = {true, true, true};
+    std::regex regex("\\w*_([1-8]|lo|hi)");
+    std::cmatch match;
+    CHECK(std::regex_match(task.get_task_name(), match, regex),
+          "Cannot parse quadrant info from task name: %s",
+          task.get_task_name());
+    if (match[1].str().compare("lo") == 0) {
+      // Do nothing
+    } else if (match[1].str().compare("hi") == 0) {
+      dir[parse_dimension(task)] = false;
+    } else {
+      unsigned quadrant = std::stoul(match[1].str()) - 1;
+      dir[0] = 1 - ((quadrant >> 0) & 1);
+      dir[1] = 1 - ((quadrant >> 1) & 1);
+      dir[2] = 1 - ((quadrant >> 2) & 1);
+    }
+    return dir;
+  }
+
+  unsigned parse_dimension(const Task& task) const {
+    std::regex regex("\\w*_([xyz])_([1-8]|lo|hi)");
+    std::cmatch match;
+    CHECK(std::regex_match(task.get_task_name(), match, regex),
+          "Cannot parse dimension from task name: %s",
+          task.get_task_name());
+    return
+      (match[1].str().compare("x") == 0) ? 0 :
+      (match[1].str().compare("y") == 0) ? 1 :
+     /*match[1].str().compare("z") == 0)*/ 2 ;
   }
 
   std::vector<Processor>& get_procs(AddressSpace rank, Processor::Kind kind) {
