@@ -156,26 +156,17 @@ public:
     if (STARTS_WITH(task.get_task_name(), "sweep_") ||
         STARTS_WITH(task.get_task_name(), "TradeQueue_fillTarget") ||
         STARTS_WITH(task.get_task_name(), "TradeQueue_pull")) {
-      // Retrieve sample information.
       unsigned sample_id = find_sample_id(ctx, task);
       const SampleMapping& mapping = sample_mappings_[sample_id];
-      // Find the tile this task launch is centered on.
       DomainPoint tile = find_tile(ctx, task, mapping);
-      // Assign rank according to the precomputed mapping, then round-robin
-      // over all the processors of the preffered kind within that rank.
-      AddressSpace target_rank = mapping.get_rank(tile[0], tile[1], tile[2]);
       VariantInfo info =
         default_find_preferred_variant(task, ctx, false/*needs tight*/);
-      const std::vector<Processor>& procs =
-        get_procs(target_rank, info.proc_kind);
-      unsigned target_proc_id = mapping.get_proc_id(tile[0], tile[1], tile[2]);
-      Processor target_proc = procs[target_proc_id % procs.size()];
+      Processor target_proc = select_proc(tile, info.proc_kind, mapping);
       LOG.debug() << "Sample " << sample_id << ":"
                   << " Sequential launch:"
                   << " Task " << task.get_task_name()
                   << " on tile " << tile
-                  << " mapped to rank " << target_rank
-                  << " processor " << target_proc;
+                  << " mapped to processor " << target_proc;
       return target_proc;
     }
     // Send each work task to the first in the set of ranks allocated to the
@@ -194,13 +185,13 @@ public:
       } else {
         CHECK(false, "Unexpected work task name: %s", task.get_task_name());
       }
-      AddressSpace target_rank = sample_mappings_[sample_id].get_rank(0,0,0);
-      Processor target_proc = remote_cpus[target_rank];
+      const SampleMapping& mapping = sample_mappings_[sample_id];
+      Processor target_proc =
+        select_proc(Point<3>(0,0,0), Processor::LOC_PROC, mapping);
       LOG.debug() << "Sample " << sample_id << ":"
                   << " Sequential launch:"
-                  << " Task work"
-                  << " mapped to rank " << target_rank
-                  << " processor " << target_proc;
+                  << " Task " << task.get_task_name()
+                  << " mapped to processor " << target_proc;
       return target_proc;
     }
     // For index space tasks, defer to the default mapping policy, and
@@ -222,22 +213,18 @@ public:
   }
 
   // Assign priorities to sweep tasks such that we prioritize the tile that has
-  // more dependencies downstream.
+  // more dependencies downstream (count the number of diagonals between the
+  // launch tile and the end of the domain).
   virtual TaskPriority default_policy_select_task_priority(
                               MapperContext ctx,
                               const Task& task) {
     if (!STARTS_WITH(task.get_task_name(), "sweep_")) {
       return DefaultMapper::default_policy_select_task_priority(ctx, task);
     }
-    // Retrieve sample information.
     unsigned sample_id = find_sample_id(ctx, task);
     const SampleMapping& mapping = sample_mappings_[sample_id];
-    // Compute direction of sweep.
     std::array<bool,3> dir = parse_direction(task);
-    // Find the tile this task launch is centered on.
     DomainPoint tile = find_tile(ctx, task, mapping);
-    // Assign priority according to the number of diagonals between this launch
-    // and the end of the domain.
     int priority =
       (dir[0] ? mapping.x_tiles() - tile[0] - 1 : tile[0]) +
       (dir[1] ? mapping.y_tiles() - tile[1] - 1 : tile[1]) +
@@ -273,7 +260,7 @@ public:
     return req.region;
   }
 
-  // Farm index-space launches made by work tasks across all the ranks
+  // Farm index space launches made by work tasks across all the ranks
   // allocated to the corresponding sample.
   // TODO: Cache the decision.
   virtual void slice_task(const MapperContext ctx,
@@ -281,16 +268,16 @@ public:
                           const SliceTaskInput& input,
                           SliceTaskOutput& output) {
     output.verify_correctness = false;
-    // Retrieve sample information.
     unsigned sample_id = find_sample_id(ctx, task);
     const SampleMapping& mapping = sample_mappings_[sample_id];
-    // Find the tiles covered by this index-space launch.
     Domain domain = input.domain;
+    // Certain tasks are launched on a 2D domain. Extend each domain point to a
+    // 3D tile, by filling in the missing dimension, to decide how to map them.
+    unsigned dim = unsigned(-1);
+    bool dir = false;
     if (domain.get_dim() == 2) {
-      // Certain tasks are launched on a 2D tile; extend these tiles
-      // appropriately, by filling in the missing dimension.
-      unsigned dim = parse_dimension(task);
-      bool dir = parse_direction(task)[dim];
+      dim = parse_dimension(task);
+      dir = parse_direction(task)[dim];
       if (STARTS_WITH(task.get_task_name(), "initialize_faces_") ||
           STARTS_WITH(task.get_task_name(), "bound_")) {
         // Do nothing
@@ -299,49 +286,41 @@ public:
         // by their name.
         dir = !dir;
       } else {
-        CHECK(false, "Unexpected 2D tile on task %s", task.get_task_name());
+        CHECK(false, "Unexpected 2D domain on index space launch of task %s",
+              task.get_task_name());
       }
-      unsigned coord =
-        (dim == 0) ? (dir ? 0 : mapping.x_tiles()-1) :
-        (dim == 1) ? (dir ? 0 : mapping.y_tiles()-1) :
-       /*dim == 2*/  (dir ? 0 : mapping.z_tiles()-1) ;
-      Point<3> lo =
-        (dim == 0) ? Point<3>(coord, domain.lo()[0], domain.lo()[1]) :
-        (dim == 1) ? Point<3>(domain.lo()[0], coord, domain.lo()[1]) :
-       /*dim == 2*/  Point<3>(domain.lo()[0], domain.lo()[1], coord) ;
-      Point<3> hi =
-        (dim == 0) ? Point<3>(coord, domain.hi()[0], domain.hi()[1]) :
-        (dim == 1) ? Point<3>(domain.hi()[0], coord, domain.hi()[1]) :
-       /*dim == 2*/  Point<3>(domain.hi()[0], domain.hi()[1], coord) ;
-      domain = Rect<3>(lo, hi);
+    } else {
+      CHECK(domain.get_dim() == 3 &&
+            0 <= domain.lo()[0] && domain.hi()[0] < mapping.x_tiles() &&
+            0 <= domain.lo()[1] && domain.hi()[1] < mapping.y_tiles() &&
+            0 <= domain.lo()[2] && domain.hi()[2] < mapping.z_tiles(),
+            "Unexpected 3D domain on index space launch of task %s",
+            task.get_task_name());
     }
-    CHECK(domain.get_dim() == 3 &&
-          0 <= domain.lo()[0] && domain.hi()[0] < mapping.x_tiles() &&
-          0 <= domain.lo()[1] && domain.hi()[1] < mapping.y_tiles() &&
-          0 <= domain.lo()[2] && domain.hi()[2] < mapping.z_tiles(),
-          "Unexpected domain on index-space launch");
     // Allocate tasks among all the processors of the same kind as the original
     // target, on each rank allocated to this sample.
-    for (unsigned x = domain.lo()[0]; x <= domain.hi()[0]; ++x) {
-      for (unsigned y = domain.lo()[1]; y <= domain.hi()[1]; ++y) {
-        for (unsigned z = domain.lo()[2]; z <= domain.hi()[2]; ++z) {
-          AddressSpace target_rank = mapping.get_rank(x, y, z);
-          const std::vector<Processor>& procs =
-            get_procs(target_rank, task.target_proc.kind());
-          unsigned target_proc_id = mapping.get_proc_id(x, y, z);
-          Processor target_proc = procs[target_proc_id % procs.size()];
-          output.slices.emplace_back(Rect<3>(Point<3>(x,y,z), Point<3>(x,y,z)),
-                                     target_proc,
-                                     false/*recurse*/,
-                                     false/*stealable*/);
-          LOG.debug() << "Sample " << sample_id << ":"
-                      << " Index-space launch:"
-                      << " Task " << task.get_task_name()
-                      << " on tile (" << x << "," << y << "," << z << ")"
-                      << " mapped to rank " << target_rank
-                      << " processor " << target_proc;
-        }
+    for (Domain::DomainPointIterator it(domain); it; it++) {
+      DomainPoint tile = it.p;
+      if (domain.get_dim() == 2) {
+        unsigned coord =
+          (dim == 0) ? (dir ? 0 : mapping.x_tiles()-1) :
+          (dim == 1) ? (dir ? 0 : mapping.y_tiles()-1) :
+         /*dim == 2*/  (dir ? 0 : mapping.z_tiles()-1) ;
+        tile =
+          (dim == 0) ? Point<3>(coord, it.p[0], it.p[1]) :
+          (dim == 1) ? Point<3>(it.p[0], coord, it.p[1]) :
+         /*dim == 2*/  Point<3>(it.p[0], it.p[1], coord) ;
       }
+      Processor target_proc =
+        select_proc(tile, task.target_proc.kind(), mapping);
+      output.slices.emplace_back(Domain(it.p, it.p), target_proc,
+                                 false/*recurse*/, false/*stealable*/);
+      LOG.debug() << "Sample " << sample_id << ":"
+                  << " Index space launch:"
+                  << " Task " << task.get_task_name()
+                  << " on domain point " << it.p
+                  << " tile " << tile
+                  << " mapped to processor " << target_proc;
     }
   }
 
@@ -404,20 +383,15 @@ public:
     output.src_instances[0].push_back
       (PhysicalInstance::get_virtual_instance());
     // Write the data directly on the best memory for the task that will be
-    // using it (we assume that, if we have GPUs, then the GPU variants will
-    // be used).
+    // using it.
+    // XXX: We assume that if we have GPUs, then the GPU variants will be used.
     output.dst_instances[0].clear();
     output.dst_instances[0].emplace_back();
-    AddressSpace target_rank =
-      mapping.get_rank(dst_tile[0], dst_tile[1], dst_tile[2]);
-    unsigned target_proc_id =
-      mapping.get_proc_id(dst_tile[0], dst_tile[1], dst_tile[2]);
     Processor::Kind proc_kind =
       (local_gpus.size() > 0) ? Processor::TOC_PROC :
       (local_omps.size() > 0) ? Processor::OMP_PROC :
                                 Processor::LOC_PROC ;
-    const std::vector<Processor>& procs = get_procs(target_rank, proc_kind);
-    Processor target_proc = procs[target_proc_id % procs.size()];
+    Processor target_proc = select_proc(dst_tile, proc_kind, mapping);
     Memory target_memory =
       default_policy_select_target_memory(ctx, target_proc, dst_req);
     LayoutConstraintSet dst_constraints;
@@ -505,6 +479,18 @@ private:
       (match[1].str().compare("x") == 0) ? 0 :
       (match[1].str().compare("y") == 0) ? 1 :
      /*match[1].str().compare("z") == 0)*/ 2 ;
+  }
+
+  // Assign rank according to the precomputed mapping, then round-robin over
+  // all the processors of the desired kind within that rank.
+  // NOTE: This function doesn't sanity check its input.
+  Processor select_proc(const DomainPoint& tile,
+                        Processor::Kind kind,
+                        const SampleMapping& mapping) {
+    AddressSpace rank = mapping.get_rank(tile[0], tile[1], tile[2]);
+    const std::vector<Processor>& procs = get_procs(rank, kind);
+    unsigned proc_id = mapping.get_proc_id(tile[0], tile[1], tile[2]);
+    return procs[proc_id % procs.size()];
   }
 
   std::vector<Processor>& get_procs(AddressSpace rank, Processor::Kind kind) {
