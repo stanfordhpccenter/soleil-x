@@ -65,9 +65,9 @@
         "Integrator" : {
             "restartIter" : -1,
             "restartTime" : -1.0,
-            "maxIter" : 10,
-            "cfl" : 0.95,
-            "fixedDeltaTime" : -1.0
+            "maxIter" : 2,
+            "cfl" : -1.0,
+            "fixedDeltaTime" : 4.5e-7
         },
 
         "Flow" : {
@@ -206,9 +206,9 @@
         "Integrator" : {
             "restartIter" : -1,
             "restartTime" : -1.0,
-            "maxIter" : 10,
-            "cfl" : 0.95,
-            "fixedDeltaTime" : -1.0
+            "maxIter" : 2,
+            "cfl" : -1.0,
+            "fixedDeltaTime" : 4.5e-7
         },
 
         "Flow" : {
