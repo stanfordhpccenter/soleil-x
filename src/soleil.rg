@@ -368,7 +368,7 @@ task Console_write(config : Config,
                    Flow_averagePressure : double,
                    Flow_averageTemperature : double,
                    Flow_averageKineticEnergy : double,
-                   Particles_number : int,
+                   Particles_number : int64,
                    Particles_averageTemperature : double)
   var currTime = regentlib.c.legion_get_current_time_in_micros() / 1000;
   [mkConsoleWrite(config, '%d\t'..
@@ -378,7 +378,7 @@ task Console_write(config : Config,
                           '%e\t'..
                           '%e\t'..
                           '%e\t'..
-                          '%d\t'..
+                          '%lld\t'..
                           '%e\n',
                   Integrator_timeStep,
                   Integrator_simTime,

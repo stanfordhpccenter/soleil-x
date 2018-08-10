@@ -65,7 +65,7 @@
         "Integrator" : {
             "restartIter" : -1,
             "restartTime" : -1.0,
-            "maxIter" : 2,
+            "maxIter" : 10,
             "cfl" : -1.0,
             "fixedDeltaTime" : 4.5e-7
         },
@@ -206,7 +206,7 @@
         "Integrator" : {
             "restartIter" : -1,
             "restartTime" : -1.0,
-            "maxIter" : 2,
+            "maxIter" : 10,
             "cfl" : -1.0,
             "fixedDeltaTime" : 4.5e-7
         },
