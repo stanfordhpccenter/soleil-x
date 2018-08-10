@@ -346,6 +346,52 @@ do
   end
 end
 
+-- regentlib.rexpr, regentlib.rexpr, regentlib.rexpr* -> regentlib.rquote
+local function mkConsoleWrite(config, format, ...)
+  local args = terralib.newlist{...}
+  return rquote
+    var consoleFile = [&int8](C.malloc(256))
+    C.snprintf(consoleFile, 256, '%s/console.txt', config.Mapping.outDir)
+    var console = UTIL.openFile(consoleFile, 'a')
+    C.free(consoleFile)
+    C.fprintf(console, format, [args])
+    C.fflush(console)
+    C.fclose(console)
+  end
+end
+
+task Console_write(config : Config,
+                   Integrator_timeStep : int,
+                   Integrator_simTime : double,
+                   startTime : uint64,
+                   Integrator_deltaTime : double,
+                   Flow_averagePressure : double,
+                   Flow_averageTemperature : double,
+                   Flow_averageKineticEnergy : double,
+                   Particles_number : int,
+                   Particles_averageTemperature : double)
+  var currTime = regentlib.c.legion_get_current_time_in_micros() / 1000;
+  [mkConsoleWrite(config, '%d\t'..
+                          '%e\t'..
+                          '%llu.%03llu\t'..
+                          '%e\t'..
+                          '%e\t'..
+                          '%e\t'..
+                          '%e\t'..
+                          '%d\t'..
+                          '%e\n',
+                  Integrator_timeStep,
+                  Integrator_simTime,
+                  rexpr (currTime - startTime) / 1000 end,
+		  rexpr (currTime - startTime) % 1000 end,
+                  Integrator_deltaTime,
+                  Flow_averagePressure,
+                  Flow_averageTemperature,
+                  Flow_averageKineticEnergy,
+                  Particles_number,
+                  Particles_averageTemperature)];
+end
+
 -------------------------------------------------------------------------------
 -- OTHER ROUTINES
 -------------------------------------------------------------------------------
@@ -4787,7 +4833,6 @@ local function mkInstance() local INSTANCE = {}
   -----------------------------------------------------------------------------
 
   local startTime = regentlib.newsymbol()
-  local console = regentlib.newsymbol()
   local Grid = {
     xCellWidth = regentlib.newsymbol(),
     yCellWidth = regentlib.newsymbol(),
@@ -4878,23 +4923,18 @@ local function mkInstance() local INSTANCE = {}
     ---------------------------------------------------------------------------
 
     -- Start timer
-    var [startTime] = regentlib.c.legion_get_current_time_in_micros() / 1000
+    var [startTime] = regentlib.c.legion_get_current_time_in_micros() / 1000;
 
-    -- Open long-running files
-    var consoleFile = [&int8](C.malloc(256))
-    C.snprintf(consoleFile, 256, '%s/console.txt', config.Mapping.outDir)
-    var [console] = UTIL.openFile(consoleFile, 'w')
-    C.free(consoleFile)
-    C.fprintf(console, ['Iter\t'..
-                        'Sim Time\t'..
-                        'Wall t\t'..
-                        'Delta Time\t'..
-                        'Avg Press\t'..
-                        'Avg Temp\t'..
-                        'Average KE\t'..
-                        '#Part\t'..
-                        'Particle T\n'])
-    C.fflush(console)
+    -- Write console header
+    [mkConsoleWrite(config, 'Iter\t'..
+                            'Sim Time\t'..
+                            'Wall t\t'..
+                            'Delta Time\t'..
+                            'Avg Press\t'..
+                            'Avg Temp\t'..
+                            'Average KE\t'..
+                            '#Part\t'..
+                            'Particle T\n')];
 
     ---------------------------------------------------------------------------
     -- Declare & initialize state variables
@@ -5522,8 +5562,7 @@ local function mkInstance() local INSTANCE = {}
 
   function INSTANCE.PerformIO(config) return rquote
 
-    -- Perform IO
-    var currTime = regentlib.c.legion_get_current_time_in_micros() / 1000
+    -- Write to console
     var Flow_averagePressure = 0.0
     var Flow_averageTemperature = 0.0
     var Flow_averageKineticEnergy = 0.0
@@ -5536,25 +5575,18 @@ local function mkInstance() local INSTANCE = {}
     Flow_averageTemperature = (Flow_averageTemperature/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
     Flow_averageKineticEnergy = (Flow_averageKineticEnergy/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
     Particles_averageTemperature = (Particles_averageTemperature/Particles_number)
-    C.fprintf(console, ['%d\t'..
-                        '%e\t'..
-                        '%lld.%03lld\t'..
-                        '%e\t'..
-                        '%e\t'..
-                        '%e\t'..
-                        '%e\t'..
-                        '%d\t'..
-                        '%e\n'],
-              Integrator_timeStep,
-              Integrator_simTime,
-              (currTime - startTime) / 1000, (currTime - startTime) % 1000,
-              Integrator_deltaTime,
-              Flow_averagePressure,
-              Flow_averageTemperature,
-              Flow_averageKineticEnergy,
-              Particles_number,
-              Particles_averageTemperature)
-    C.fflush(console)
+    Console_write(config,
+                  Integrator_timeStep,
+                  Integrator_simTime,
+                  startTime,
+                  Integrator_deltaTime,
+                  Flow_averagePressure,
+                  Flow_averageTemperature,
+                  Flow_averageKineticEnergy,
+                  Particles_number,
+                  Particles_averageTemperature)
+
+    -- Dump restart files
     if config.IO.wrtRestart then
       if Integrator_exitCond or Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 then
         var dirname = [&int8](C.malloc(256))
@@ -5565,6 +5597,8 @@ local function mkInstance() local INSTANCE = {}
         C.free(dirname)
       end
     end
+
+    -- Write probe files
     if config.IO.probes.length > 0 then
       for c in tiles do
         Probes_write(p_Fluid[c], Integrator_exitCond, Integrator_timeStep, config)
@@ -5916,16 +5950,17 @@ local function mkInstance() local INSTANCE = {}
   -- Cleanup code
   -----------------------------------------------------------------------------
 
-  function INSTANCE.Cleanup() return rquote
+  function INSTANCE.Cleanup(config) return rquote
 
-    -- Stop timer
-    var endTime = regentlib.c.legion_get_current_time_in_micros() / 1000
-    C.fprintf(console, 'Total time: %lld.%03lld seconds\n',
-              (endTime - startTime) / 1000, (endTime - startTime) % 1000)
-    C.fflush(console)
+    -- Wait for everything above to finish
+    __fence(__execution, __block)
 
-    -- Close long-running files
-    C.fclose(console)
+    -- Report final time
+    var endTime = regentlib.c.legion_get_current_time_in_micros() / 1000;
+    [mkConsoleWrite(config,
+                    'Total time: %llu.%03llu seconds\n',
+                    rexpr (endTime - startTime) / 1000 end,
+                    rexpr (endTime - startTime) % 1000 end)];
 
   end end -- Cleanup
 
@@ -5966,7 +6001,7 @@ task workSingle(config : Config)
       [SIM.MainLoopBody(config, FakeCopyQueue)];
     end
   end)];
-  [SIM.Cleanup()];
+  [SIM.Cleanup(config)];
 end
 
 local SIM0 = mkInstance()
@@ -6100,8 +6135,8 @@ task workDual(mc : MultiConfig)
     [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, CopyQueue))];
   end
   -- Cleanups
-  [SIM0.Cleanup()];
-  [SIM1.Cleanup()];
+  [SIM0.Cleanup(rexpr mc.configs[0] end)];
+  [SIM1.Cleanup(rexpr mc.configs[1] end)];
 end
 
 terra initSample(config : &Config, num : int, outDirBase : &int8)
