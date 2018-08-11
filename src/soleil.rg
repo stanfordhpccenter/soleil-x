@@ -31,7 +31,7 @@ local log = regentlib.log(double)
 
 local USE_HDF = assert(os.getenv('USE_HDF')) ~= '0'
 
-local MAX_ANGLES_PER_QUAD = 16
+local MAX_ANGLES_PER_QUAD = 44
 
 -------------------------------------------------------------------------------
 -- DATA STRUCTURES

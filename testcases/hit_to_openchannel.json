@@ -5,7 +5,7 @@
             "tilesPerRank" : [1,1,1],
             "sampleId" : -1,
             "outDir" : "",
-            "wallTime" : 18000
+            "wallTime" : 20160
         },
 
         "Grid" : {
@@ -65,9 +65,9 @@
         "Integrator" : {
             "restartIter" : 71000,
             "restartTime" : 3.481444e-02,
-            "maxIter" : 1000000000,
-            "cfl" : 0.95,
-            "fixedDeltaTime" : -1.0
+            "maxIter" : 1000000,
+            "cfl" : -1.0,
+            "fixedDeltaTime" : 4.5e-7
         },
 
         "Flow" : {
@@ -138,7 +138,7 @@
 
         "IO" : {
             "wrtRestart" : true,
-            "restartEveryTimeSteps" : 100,
+            "restartEveryTimeSteps" : 1000,
             "probes" : []
         }
     }, {
@@ -147,7 +147,7 @@
             "tilesPerRank" : [1,1,1],
             "sampleId" : -1,
             "outDir" : "",
-            "wallTime" : 18000
+            "wallTime" : 20160
         },
 
         "Grid" : {
@@ -206,9 +206,9 @@
         "Integrator" : {
             "restartIter" : -1,
             "restartTime" : -1.0,
-            "maxIter" : 1000000000,
-            "cfl" : 0.95,
-            "fixedDeltaTime" : -1.0
+            "maxIter" : 1000000,
+            "cfl" : -1.0,
+            "fixedDeltaTime" : 4.5e-7
         },
 
         "Flow" : {
@@ -252,14 +252,14 @@
         },
 
         "Radiation" : {
-            "type" : "Algebraic",
-            "intensity" : 0.0,
+            "type" : "DOM",
+            "intensity" : -1.0,
             "qa" : 1.0,
             "qs" : 0.0,
-            "xNum" : 4,
-            "yNum" : 4,
-            "zNum" : 4,
-            "angles" : 14,
+            "xNum" : 256,
+            "yNum" : 64,
+            "zNum" : 64,
+            "angles" : 350,
             "xHiEmiss" : 1.0,
             "xLoEmiss" : 1.0,
             "yHiEmiss" : 1.0,
@@ -282,7 +282,7 @@
 
         "IO" : {
             "wrtRestart" : true,
-            "restartEveryTimeSteps" : 100,
+            "restartEveryTimeSteps" : 1000,
             "probes" : []
         }
     }],
