@@ -57,14 +57,14 @@ end
 -- MODULE-LOCAL FIELD SPACES
 -------------------------------------------------------------------------------
 
-local struct Angle {
+local struct Angle_columns {
   xi  : double,
   eta : double,
   mu  : double,
   w   : double,
 }
 
-local struct Face {
+local struct Face_columns {
   I : double[MAX_ANGLES_PER_QUAD],
   I_prev : double[MAX_ANGLES_PER_QUAD],
 }
@@ -107,7 +107,7 @@ end
 -------------------------------------------------------------------------------
 
 local angles = UTIL.generate(8, function()
-  return regentlib.newsymbol(region(ispace(int1d), Angle))
+  return regentlib.newsymbol(region(ispace(int1d), Angle_columns))
 end)
 
 local -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
@@ -174,7 +174,7 @@ end
 local function mkInitializeFaces(dim, q)
 
   local -- MANUALLY PARALLELIZED, NO CUDA
-  task initialize_faces(faces : region(ispace(int2d), Face),
+  task initialize_faces(faces : region(ispace(int2d), Face_columns),
                         config : Config)
   where
     reads writes(faces.I)
@@ -233,7 +233,7 @@ end
 local function mkCacheIntensity(dim, q)
 
   local -- MANUALLY PARALLELIZED, NO CUDA
-  task cache_intensity(faces : region(ispace(int2d), Face),
+  task cache_intensity(faces : region(ispace(int2d), Face_columns),
                        config : Config)
   where
     reads(faces.I),
@@ -291,7 +291,7 @@ local function mkBound(wall)
   }[wall]
 
   local faces = UTIL.generate(8, function()
-    return regentlib.newsymbol(region(ispace(int2d), Face))
+    return regentlib.newsymbol(region(ispace(int2d), Face_columns))
   end)
 
   local -- MANUALLY PARALLELIZED, NO CUDA
@@ -404,10 +404,10 @@ local function mkSweep(q)
 
   local -- MANUALLY PARALLELIZED, NO OPENMP, NO CUDA
   task sweep(points : region(ispace(int3d), Point),
-             x_faces : region(ispace(int2d), Face),
-             y_faces : region(ispace(int2d), Face),
-             z_faces : region(ispace(int2d), Face),
-             angles : region(ispace(int1d), Angle),
+             x_faces : region(ispace(int2d), Face_columns),
+             y_faces : region(ispace(int2d), Face_columns),
+             z_faces : region(ispace(int2d), Face_columns),
+             angles : region(ispace(int1d), Angle_columns),
              config : Config)
   where
     reads(angles.{xi, eta, mu}, points.{S, sigma}),
@@ -540,18 +540,18 @@ function MODULE.mkInstance() local INSTANCE = {}
     var grid_y = ispace(int2d, {Nx,   Nz})
     var grid_z = ispace(int2d, {Nx,Ny   });
     @ESCAPE for q = 1, 8 do @EMIT
-      var [x_faces[q]] = region(grid_x, Face);
+      var [x_faces[q]] = region(grid_x, Face_columns);
       [UTIL.mkRegionTagAttach(x_faces[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
-      var [y_faces[q]] = region(grid_y, Face);
+      var [y_faces[q]] = region(grid_y, Face_columns);
       [UTIL.mkRegionTagAttach(y_faces[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
-      var [z_faces[q]] = region(grid_z, Face);
+      var [z_faces[q]] = region(grid_z, Face_columns);
       [UTIL.mkRegionTagAttach(z_faces[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     @TIME end @EPACSE
 
     -- Regions for angle values
     var angle_indices = ispace(int1d, MAX_ANGLES_PER_QUAD);
     @ESCAPE for q = 1, 8 do @EMIT
-      var [angles[q]] = region(angle_indices, Angle);
+      var [angles[q]] = region(angle_indices, Angle_columns);
       [UTIL.mkRegionTagAttach(angles[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     @TIME end @EPACSE
 
