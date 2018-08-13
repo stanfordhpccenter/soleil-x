@@ -115,7 +115,7 @@
             "xNum" : 4,
             "yNum" : 4,
             "zNum" : 4,
-            "angles" : -1,
+            "angles" : 0,
             "xHiEmiss" : -1.0,
             "xLoEmiss" : -1.0,
             "yHiEmiss" : -1.0,
@@ -295,4 +295,3 @@
         "uptoCell" : [0,127,127]
     }
 }
-

@@ -413,7 +413,6 @@ local function mkSweep(q)
     reads(angles.{xi, eta, mu}, points.{S, sigma}),
     reads writes(points.[fld], x_faces.I, y_faces.I, z_faces.I)
   do
-    var num_angles = config.Radiation.angles
     var dx = config.Grid.xWidth / config.Radiation.xNum
     var dy = config.Grid.yWidth / config.Radiation.yNum
     var dz = config.Grid.zWidth / config.Radiation.zNum
@@ -428,29 +427,29 @@ local function mkSweep(q)
       for j = starty,endy,dindy do
         for i = startx,endx,dindx do
           -- Loop over this quadrant's angles.
-          for m = 0, quadrantSize(q, num_angles) do
+          for m in angles do
             -- Read upwind face values
-            var x_value = x_faces[{  j,k}].I[m]
-            var y_value = y_faces[{i,  k}].I[m]
-            var z_value = z_faces[{i,j  }].I[m]
+            var x_value = x_faces[{  j,k}].I[int(m)]
+            var y_value = y_faces[{i,  k}].I[int(m)]
+            var z_value = z_faces[{i,j  }].I[int(m)]
             -- Integrate to compute cell-centered value of I
-            var oldI = points[{i,j,k}].[fld][m]
+            var oldI = points[{i,j,k}].[fld][int(m)]
             var newI = (points[{i,j,k}].S * dV
-                        + fabs(angles[m].xi)  * dAx * x_value/GAMMA
-                        + fabs(angles[m].eta) * dAy * y_value/GAMMA
-                        + fabs(angles[m].mu)  * dAz * z_value/GAMMA)
+                        + fabs(m.xi)  * dAx * x_value/GAMMA
+                        + fabs(m.eta) * dAy * y_value/GAMMA
+                        + fabs(m.mu)  * dAz * z_value/GAMMA)
                      / (points[{i,j,k}].sigma * dV
-                        + fabs(angles[m].xi)  * dAx/GAMMA
-                        + fabs(angles[m].eta) * dAy/GAMMA
-                        + fabs(angles[m].mu)  * dAz/GAMMA)
+                        + fabs(m.xi)  * dAx/GAMMA
+                        + fabs(m.eta) * dAy/GAMMA
+                        + fabs(m.mu)  * dAz/GAMMA)
             if newI > 0.0 then
               res += pow(newI-oldI,2) / pow(newI,2)
             end
-            points[{i,j,k}].[fld][m] = newI
+            points[{i,j,k}].[fld][int(m)] = newI
             -- Compute intensities on downwind faces
-            x_faces[{  j,k}].I[m] = max(0.0, (newI-(1-GAMMA)*x_value)/GAMMA)
-            y_faces[{i,  k}].I[m] = max(0.0, (newI-(1-GAMMA)*y_value)/GAMMA)
-            z_faces[{i,j  }].I[m] = max(0.0, (newI-(1-GAMMA)*z_value)/GAMMA)
+            x_faces[{  j,k}].I[int(m)] = max(0.0, (newI-(1-GAMMA)*x_value)/GAMMA)
+            y_faces[{i,  k}].I[int(m)] = max(0.0, (newI-(1-GAMMA)*y_value)/GAMMA)
+            z_faces[{i,j  }].I[int(m)] = max(0.0, (newI-(1-GAMMA)*z_value)/GAMMA)
           end
         end
       end
@@ -505,10 +504,11 @@ function MODULE.mkInstance() local INSTANCE = {}
   local nty = regentlib.newsymbol('nty')
   local ntz = regentlib.newsymbol('ntz')
 
+  local angles = UTIL.generate(8, regentlib.newsymbol)
+
   local x_faces = UTIL.generate(8, regentlib.newsymbol)
   local y_faces = UTIL.generate(8, regentlib.newsymbol)
   local z_faces = UTIL.generate(8, regentlib.newsymbol)
-  local angles = UTIL.generate(8, regentlib.newsymbol)
 
   local x_tiles = regentlib.newsymbol('x_tiles')
   local y_tiles = regentlib.newsymbol('y_tiles')
@@ -549,9 +549,9 @@ function MODULE.mkInstance() local INSTANCE = {}
     @TIME end @EPACSE
 
     -- Regions for angle values
-    var angle_indices = ispace(int1d, MAX_ANGLES_PER_QUAD);
     @ESCAPE for q = 1, 8 do @EMIT
-      var [angles[q]] = region(angle_indices, Angle_columns);
+      var is = ispace(int1d, quadrantSize(q, config.Radiation.angles))
+      var [angles[q]] = region(is, Angle_columns);
       [UTIL.mkRegionTagAttach(angles[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     @TIME end @EPACSE
 

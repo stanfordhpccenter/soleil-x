@@ -110,7 +110,7 @@
         "xNum" : 1,
         "yNum" : 1,
         "zNum" : 1,
-        "angles" : -1,
+        "angles" : 0,
         "xHiEmiss" : -1.0,
         "xLoEmiss" : -1.0,
         "yHiEmiss" : -1.0,
