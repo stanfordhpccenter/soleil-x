@@ -402,7 +402,7 @@ local function mkSweep(q)
   local dindz  = directions[q][3] and rexpr            1 end or rexpr           -1 end
   local endz   = directions[q][3] and rexpr bnd.hi.z + 1 end or rexpr bnd.lo.z - 1 end
 
-  local -- MANUALLY PARALLELIZED, NO OPENMP, NO CUDA
+  local -- MANUALLY PARALLELIZED, NO CUDA
   task sweep(points : region(ispace(int3d), Point),
              x_faces : region(ispace(int2d), Face_columns),
              y_faces : region(ispace(int2d), Face_columns),
@@ -422,12 +422,13 @@ local function mkSweep(q)
     var dV = dx*dy*dz
     var [bnd] = points.bounds
     var res = 0.0
-    -- Use our direction and increments for the sweep
-    for k = startz,endz,dindz do
-      for j = starty,endy,dindy do
-        for i = startx,endx,dindx do
-          -- Loop over this quadrant's angles.
-          for m in angles do
+    -- Loop over this quadrant's angles
+    __demand(__openmp)
+    for m in angles do
+      -- Use our direction and increments for the sweep
+      for k = startz,endz,dindz do
+        for j = starty,endy,dindy do
+          for i = startx,endx,dindx do
             -- Read upwind face values
             var x_value = x_faces[{  j,k}].I[int(m)]
             var y_value = y_faces[{i,  k}].I[int(m)]
@@ -676,8 +677,7 @@ function MODULE.mkInstance() local INSTANCE = {}
 
       --Perform the sweep for computing new intensities
       res = 0.0
-
-      --Quadrant 1 - +x, +y, +z
+      -- Quadrant 1 - +x, +y, +z
       for i = 0, ntx do
         for j = 0, nty do
           for k = 0, ntz do
@@ -691,7 +691,6 @@ function MODULE.mkInstance() local INSTANCE = {}
           end
         end
       end
-
       -- Quadrant 2 - +x, +y, -z
       for i = 0, ntx do
         for j = 0, nty do
@@ -706,7 +705,6 @@ function MODULE.mkInstance() local INSTANCE = {}
           end
         end
       end
-
       -- Quadrant 3 - +x, -y, +z
       for i = 0, ntx do
         for j = nty-1, -1, -1 do
@@ -721,7 +719,6 @@ function MODULE.mkInstance() local INSTANCE = {}
           end
         end
       end
-
       -- Quadrant 4 - +x, -y, -z
       for i = 0, ntx do
         for j = nty-1, -1, -1 do
@@ -736,7 +733,6 @@ function MODULE.mkInstance() local INSTANCE = {}
           end
         end
       end
-
       -- Quadrant 5 - -x, +y, +z
       for i = ntx-1, -1, -1 do
         for j = 0, nty do
@@ -751,7 +747,6 @@ function MODULE.mkInstance() local INSTANCE = {}
           end
         end
       end
-
       -- Quadrant 6 - -x, +y, -z
       for i = ntx-1, -1, -1 do
         for j = 0, nty do
@@ -766,7 +761,6 @@ function MODULE.mkInstance() local INSTANCE = {}
           end
         end
       end
-
       -- Quadrant 7 - -x, -y, +z
       for i = ntx-1, -1, -1 do
         for j = nty-1, -1, -1 do
@@ -781,7 +775,6 @@ function MODULE.mkInstance() local INSTANCE = {}
           end
         end
       end
-
       -- Quadrant 8 - -x, -y, -z
       for i = ntx-1, -1, -1 do
         for j = nty-1, -1, -1 do
