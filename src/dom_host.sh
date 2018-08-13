@@ -12,4 +12,6 @@ else
     fi
 fi
 
-"$SOLEIL_DIR"/src/dom_host.exec "$@" -ll:csize 9000
+"$SOLEIL_DIR"/src/dom_host.exec "$@" \
+        -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 3 \
+        -ll:csize 9000 -ll:ostack 8
