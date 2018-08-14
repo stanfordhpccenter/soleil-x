@@ -163,14 +163,14 @@ local Fluid_primitives = terralib.newlist({
 })
 
 struct Radiation_columns {
-  I_1 : double[MAX_ANGLES_PER_QUAD];
-  I_2 : double[MAX_ANGLES_PER_QUAD];
-  I_3 : double[MAX_ANGLES_PER_QUAD];
-  I_4 : double[MAX_ANGLES_PER_QUAD];
-  I_5 : double[MAX_ANGLES_PER_QUAD];
-  I_6 : double[MAX_ANGLES_PER_QUAD];
-  I_7 : double[MAX_ANGLES_PER_QUAD];
-  I_8 : double[MAX_ANGLES_PER_QUAD];
+  I_1 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
+  I_2 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
+  I_3 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
+  I_4 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
+  I_5 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
+  I_6 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
+  I_7 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
+  I_8 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
   G : double;
   S : double;
   Ib : double;

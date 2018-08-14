@@ -39,7 +39,7 @@ export GPU_ARCH=???
 ### Download software
 
 ```
-git clone https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone -b regent_layout https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
 git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 
@@ -95,7 +95,7 @@ export SOLEIL_DIR=???
 ### Download software
 
 ```
-git clone https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone -b regent_layout https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
 git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 
@@ -139,7 +139,7 @@ export GPU_ARCH=fermi
 ### Download software
 
 ```
-git clone https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone -b regent_layout https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
 git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 
@@ -185,7 +185,7 @@ export GPU_ARCH=pascal
 ### Download software
 
 ```
-git clone https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone -b regent_layout https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
 git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 
@@ -234,7 +234,7 @@ export GPU_ARCH=fermi
 ### Download software
 
 ```
-git clone https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone -b regent_layout https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
 git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 
@@ -291,7 +291,7 @@ export GPU_ARCH=kepler
 ### Download software
 
 ```
-git clone https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone -b regent_layout https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
 git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 
@@ -337,7 +337,7 @@ export GPU_ARCH=volta
 ### Download software
 
 ```
-git clone https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone -b regent_layout https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
 git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 
@@ -383,7 +383,7 @@ export GPU_ARCH=pascal
 ### Download software
 
 ```
-git clone https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone -b regent_layout https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
 git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 

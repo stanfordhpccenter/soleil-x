@@ -58,15 +58,15 @@ end
 -------------------------------------------------------------------------------
 
 local struct Angle_columns {
-  xi  : double,
-  eta : double,
-  mu  : double,
-  w   : double,
+  xi  : double;
+  eta : double;
+  mu  : double;
+  w   : double;
 }
 
 local struct Face_columns {
-  I : double[MAX_ANGLES_PER_QUAD],
-  I_prev : double[MAX_ANGLES_PER_QUAD],
+  I      : regentlib.array(double, MAX_ANGLES_PER_QUAD);
+  I_prev : regentlib.array(double, MAX_ANGLES_PER_QUAD);
 }
 
 -------------------------------------------------------------------------------
