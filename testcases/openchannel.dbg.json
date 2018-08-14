@@ -4,15 +4,15 @@
         "tilesPerRank" : [1,1,1],
         "sampleId" : -1,
         "outDir" : "",
-        "wallTime" : 60
+        "wallTime" : 10
     },
 
     "Grid" : {
-        "xNum" : 128,
+        "xNum" : 256,
         "yNum" : 128,
         "zNum" : 128,
         "origin" : [0.0, 0.0, 0.0],
-        "xWidth" : 0.16,
+        "xWidth" : 0.08,
         "yWidth" : 0.04,
         "zWidth" : 0.04
     },
@@ -65,8 +65,8 @@
         "restartIter" : -1,
         "restartTime" : -1.0,
         "maxIter" : 10,
-        "cfl" : 0.95,
-        "fixedDeltaTime" : -1.0
+        "cfl" : -1.0,
+        "fixedDeltaTime" : 4.5e-7
     },
 
     "Flow" : {
@@ -107,14 +107,14 @@
     },
 
     "Radiation" : {
-        "type" : "Algebraic",
-        "intensity" : 0.0,
+        "type" : "DOM",
+        "intensity" : -1.0,
         "qa" : 1.0,
         "qs" : 0.0,
-        "xNum" : 4,
-        "yNum" : 4,
-        "zNum" : 4,
-        "angles" : 14,
+        "xNum" : 128,
+        "yNum" : 64,
+        "zNum" : 64,
+        "angles" : 350,
         "xHiEmiss" : 1.0,
         "xLoEmiss" : 1.0,
         "yHiEmiss" : 1.0,
@@ -137,7 +137,7 @@
 
     "IO" : {
         "wrtRestart" : false,
-        "restartEveryTimeSteps" : 1,
+        "restartEveryTimeSteps" : -1,
         "probes" : []
     }
 }

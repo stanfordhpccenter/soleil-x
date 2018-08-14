@@ -64,9 +64,9 @@
     "Integrator" : {
         "restartIter" : -1,
         "restartTime" : -1.0,
-        "maxIter" : 1000000000,
-        "cfl" : 0.95,
-        "fixedDeltaTime" : -1.0
+        "maxIter" : 1000000,
+        "cfl" : -1.0,
+        "fixedDeltaTime" : 4.5e-7
     },
 
     "Flow" : {
@@ -101,7 +101,7 @@
         "diameterMean" : 1.012082669346191e-05,
         "bodyForce" : [0.0, 0.0, 0.0],
         "maxSkew" : 1.0,
-        "maxXferNum" : 1000,
+        "maxXferNum" : 0,
         "collisions" : false,
         "feeding" : { "type" : "OFF" }
     },

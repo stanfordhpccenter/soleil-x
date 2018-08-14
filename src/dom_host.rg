@@ -16,7 +16,7 @@ local UTIL = require 'util'
 -- Compile-time configuration options
 -------------------------------------------------------------------------------
 
-local MAX_ANGLES_PER_QUAD = 14
+local MAX_ANGLES_PER_QUAD = 44
 
 -------------------------------------------------------------------------------
 -- Proxy radiation grid
