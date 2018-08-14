@@ -28,7 +28,7 @@ fi
 
 srun -N "$NUM_RANKS" -n "$NUM_RANKS" \
     --export=ALL \
-    "$SOLEIL_DIR"/src/soleil.exec $ARGS \
+    "$EXECUTABLE" $ARGS \
     -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 11 \
     $GPU_OPTS -ll:dma 2 -ll:ahandlers 2 \
     -ll:csize 58000 -ll:ostack 8

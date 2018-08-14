@@ -30,7 +30,7 @@ fi
 
 srun -N "$NUM_RANKS" --ntasks-per-node=1 --cpus-per-task=20 \
     --export=ALL \
-    "$SOLEIL_DIR"/src/soleil.exec $ARGS \
+    "$EXECUTABLE" $ARGS \
     -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 19 \
     $GPU_OPTS -ll:dma 2 -ll:ahandlers 2 \
     -ll:csize 240000 -ll:ostack 8

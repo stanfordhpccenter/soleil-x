@@ -66,10 +66,10 @@ Running
 
 ```
 cd "$SOLEIL_DIR"/src
-[USE_CUDA=0] [QUEUE=???] ./soleil.sh ...
+./soleil.sh ...
 ```
 
-The `soleil.sh` script forwards all arguments to the `soleil.exec` executable. This includes any options that Soleil-X itself expects, and any additional options to the Legion runtime.
+The [src/soleil.sh](src/soleil.sh) script accepts some options through the environment (see the top of that file for details), and forwards all command-line arguments to the Soleil-X executable and the Legion runtime (each will ignore options it doesn't recognize).
 
 Currently, Soleil-X reads the following options:
 
