@@ -99,8 +99,8 @@ function run_sapling {
         -x LD_LIBRARY_PATH -x SOLEIL_DIR -x REALM_BACKTRACE \
         "$EXECUTABLE" $ARGS \
         -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 \
-        $GPU_OPTS -ll:dma 2 -ll:ahandlers 2 \
-        -ll:csize 36000 -ll:ostack 8
+        $GPU_OPTS -ll:util 2 -ll:dma 2 -ll:ahandlers 2 \
+        -ll:csize 36000 -ll:ostack 8 -lg:sched -1
     # Resources:
     # 40230MB RAM per node
     # 2 NUMA domains per node
@@ -112,7 +112,7 @@ function run_sapling {
 function run_local {
     "$EXECUTABLE" $ARGS \
         -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 3 \
-        -ll:csize 9000 -ll:ostack 8
+        -ll:csize 9000 -ll:ostack 8 -lg:sched -1
 }
 
 ###############################################################################
