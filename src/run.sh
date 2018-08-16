@@ -85,6 +85,7 @@ function run_sherlock {
 }
 
 function run_sapling {
+    source "$SOLEIL_DIR"/src/jobscript_shared.sh
     # Allocate up to 3 nodes, from n0001 up to n0003
     if (( NUM_RANKS > 3 )); then quit "Too many nodes requested"; fi
     NODES=n0001
@@ -110,6 +111,7 @@ function run_sapling {
 }
 
 function run_local {
+    source "$SOLEIL_DIR"/src/jobscript_shared.sh
     "$EXECUTABLE" $ARGS \
         -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 3 \
         -ll:csize 9000 -ll:ostack 8 -lg:sched -1

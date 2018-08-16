@@ -3,24 +3,7 @@
 #SBATCH --job-name=soleil
 #SBATCH --partition=aaiken
 
-# Create a directory on the scratch filesystem, for output (if the user hasn't
-# specified an output directory explicitly).
-OUT_DIR=
-OUT_DIR_FOLLOWS=false
-for ARG in $ARGS; do
-    if [[ "$OUT_DIR_FOLLOWS" == true ]]; then
-        OUT_DIR="$ARG"
-        break
-    elif [[ "$ARG" == "-o" ]]; then
-        OUT_DIR_FOLLOWS=true
-    fi
-done
-if [[ -z "$OUT_DIR" ]]; then
-    OUT_DIR="$SCRATCH"/"$SLURM_JOBID"
-    mkdir "$OUT_DIR"
-    ARGS="$ARGS -o $OUT_DIR"
-    echo "Redirecting output to $OUT_DIR"
-fi
+source "$SOLEIL_DIR"/src/jobscript_shared.sh
 
 # Process CUDA configuration
 GPU_OPTS=

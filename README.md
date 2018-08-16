@@ -30,6 +30,7 @@ Normally you'd need to edit file `~/.bashrc`. Replace the `???` depending on you
 export LEGION_DIR=???
 export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
+[export SCRATCH=???]
 # CUDA config (if using CUDA code generation)
 export CUDA_HOME=???
 export CUDA="$CUDA_HOME"
@@ -130,6 +131,7 @@ export CXX=g++-4.9
 export LEGION_DIR=???
 export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
+export SCRATCH=/scratch/oldhome/`whoami`
 # CUDA config
 export CUDA_HOME=/usr/local/cuda-8.0
 export CUDA="$CUDA_HOME"
@@ -282,6 +284,7 @@ export HOST_CXX=g++
 export LEGION_DIR=???
 export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
+export SCRATCH="$PROJWORK"/csc188/stanford
 # CUDA config
 export CUDA_HOME=/opt/nvidia/cudatoolkit7.5/7.5.18-1.0502.10743.2.1
 export CUDA="$CUDA_HOME"
@@ -328,6 +331,7 @@ export CONDUIT=ibv
 export LEGION_DIR=???
 export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
+export SCRATCH=/gpfs/alpinetds/proj-shared/csc275/stanford
 # CUDA config
 export CUDA_HOME=/sw/summit/cuda/9.0.184
 export CUDA="$CUDA_HOME"

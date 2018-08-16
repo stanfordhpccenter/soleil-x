@@ -1,6 +1,8 @@
 #!/bin/bash -eu
 #SBATCH -J soleil
 
+source "$SOLEIL_DIR"/src/jobscript_shared.sh
+
 GPU_OPTS=
 if [[ "$QUEUE" == "all" ]]; then
     NUM_THREADS=11
