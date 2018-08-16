@@ -476,16 +476,18 @@ where
   [angles:map(function(a)
      return regentlib.privilege(regentlib.reads, a, 'w')
    end)],
-  reads writes(points.G)
+  writes(points.G)
 do
   var num_angles = config.Radiation.angles
   __demand(__openmp)
   for p in points do
+    var G = 0.0;
     @ESCAPE for q = 1, 8 do @EMIT
       for m = 0, quadrantSize(q, num_angles) do
-        p.G += [angles[q]][m].w * p.[intensityFields[q]][m]
+        G += [angles[q]][m].w * p.[intensityFields[q]][m]
       end
     @TIME end @EPACSE
+    p.G = G
   end
 end
 
