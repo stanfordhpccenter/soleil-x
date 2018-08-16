@@ -203,29 +203,15 @@ local initialize_faces = {
 
 local -- MANUALLY PARALLELIZED, NO CUDA
 task source_term(points : region(ispace(int3d), Point),
-                 [angles],
-                 config : Config,
-                 omega : double)
+                 config : Config)
 where
-  reads(points.[intensityFields], points.{Ib, sigma}),
-  [angles:map(function(a)
-     return regentlib.privilege(regentlib.reads, a, 'w')
-   end)],
+  reads(points.[intensityFields], points.{Ib, sigma, G}),
   writes(points.S)
 do
-  var num_angles = config.Radiation.angles
+  var omega = config.Radiation.qs/(config.Radiation.qa+config.Radiation.qs)
   __demand(__openmp)
   for p in points do
-    var S = (1.0-omega) * p.sigma * p.Ib;
-    @ESCAPE for q = 1, 8 do @EMIT
-      for m = 0, quadrantSize(q, num_angles) do
-        S += omega
-           * p.sigma/(4.0*PI)
-           * [angles[q]][m].w
-           * p.[intensityFields[q]][m]
-      end
-    @TIME end @EPACSE
-    p.S = S
+    p.S = (1.0-omega) * p.sigma * p.Ib + omega * p.sigma/(4.0*PI) * p.G
   end
 end
 
@@ -619,15 +605,18 @@ function MODULE.mkInstance() local INSTANCE = {}
 
   function INSTANCE.ComputeRadiationField(config, tiles, p_points) return rquote
 
-    var omega = config.Radiation.qs/(config.Radiation.qa+config.Radiation.qs)
+    -- Initialize intensity.
+    for c in tiles do
+      reduce_intensity(p_points[c], [angles], config)
+    end
 
-    -- Compute until convergence
+    -- Compute until convergence.
     var res : double = 1.0
     while res > TOLERANCE do
 
-      -- Update the source term (in this problem, isotropic)
+      -- Update the source term.
       for c in tiles do
-        source_term(p_points[c], [angles], config, omega)
+        source_term(p_points[c], config)
       end
 
       -- Cache the face intensity values from the previous iteration (those
@@ -677,7 +666,7 @@ function MODULE.mkInstance() local INSTANCE = {}
                    config)
       end
 
-      --Perform the sweep for computing new intensities
+      -- Perform the sweep for computing new intensities.
       res = 0.0
       -- Quadrant 1 - +x, +y, +z
       for i = 0, ntx do
@@ -792,15 +781,15 @@ function MODULE.mkInstance() local INSTANCE = {}
         end
       end
 
-      -- Compute the residual
+      -- Compute the residual.
       res = sqrt(res/(Nx*Ny*Nz*config.Radiation.angles))
 
-    end -- while res > TOLERANCE
+      -- Update intensity.
+      for c in tiles do
+        reduce_intensity(p_points[c], [angles], config)
+      end
 
-    -- Reduce intensity
-    for c in tiles do
-      reduce_intensity(p_points[c], [angles], config)
-    end
+    end -- while res > TOLERANCE
 
   end end -- ComputeRadiationField
 
