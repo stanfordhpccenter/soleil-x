@@ -98,7 +98,7 @@ function run_sapling {
     mpiexec -H "$NODES" --bind-to none \
         -x LD_LIBRARY_PATH -x SOLEIL_DIR -x REALM_BACKTRACE \
         "$EXECUTABLE" $ARGS \
-        -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 11 \
+        -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 \
         $GPU_OPTS -ll:dma 2 -ll:ahandlers 2 \
         -ll:csize 36000 -ll:ostack 8
     # Resources:
