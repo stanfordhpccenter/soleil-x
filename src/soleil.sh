@@ -10,6 +10,9 @@ export QUEUE="${QUEUE:-}"
 # Whether to use GPUs (if available)
 export USE_CUDA="${USE_CUDA:-1}"
 
+# Whether to emit Legion profiler logs
+export PROFILE="${PROFILE:-0}"
+
 # Whether to print a backtrace on crash (interferes with signal handling)
 export REALM_BACKTRACE="${REALM_BACKTRACE:-1}"
 

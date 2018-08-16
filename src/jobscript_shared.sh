@@ -22,9 +22,18 @@ for ARG in $ARGS; do
         OUT_DIR_FOLLOWS=true
     fi
 done
-if [[ ! -z "${SCRATCH:-}" && -z "$OUT_DIR" ]]; then
-    OUT_DIR="$SCRATCH"/"$JOBID"
-    mkdir "$OUT_DIR"
-    ARGS="$ARGS -o $OUT_DIR"
-    echo "Redirecting output to $OUT_DIR"
+if [[ -z "$OUT_DIR" ]]; then
+    if [[ ! -z "${SCRATCH:-}" ]]; then
+        OUT_DIR="$SCRATCH"/"$JOBID"
+        mkdir "$OUT_DIR"
+        ARGS="$ARGS -o $OUT_DIR"
+        echo "Redirecting output to $OUT_DIR"
+    else
+        OUT_DIR=.
+    fi
+fi
+
+# Add profiling flags
+if [[ "$PROFILE" == 1 ]]; then
+    ARGS="$ARGS -lg:prof $NUM_RANKS -lg:prof_logfile $OUT_DIR/prof_%.log"
 fi
