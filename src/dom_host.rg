@@ -12,9 +12,14 @@ local C = regentlib.c
 local SCHEMA = terralib.includec("config_schema.h")
 local UTIL = require 'util'
 
+local pow = regentlib.pow(double)
+
 -------------------------------------------------------------------------------
--- Compile-time configuration options
+-- Compile-time constants
 -------------------------------------------------------------------------------
+
+local PI = 3.1415926535898
+local SB = 5.67e-8
 
 local MAX_ANGLES_PER_QUAD = 44
 
@@ -47,33 +52,6 @@ local DOM_INST = DOM.mkInstance()
 -------------------------------------------------------------------------------
 -- Proxy tasks
 -------------------------------------------------------------------------------
-
-local SB = 5.67e-8
-local PI = 3.1415926535898
-local pow = regentlib.pow(double)
-
-local task InitPoints(points : region(ispace(int3d),Point))
-where
-  writes(points.{G, S, Ib, sigma}),
-  reads writes(points.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8})
-do
-  for p in points do
-    for m = 0, MAX_ANGLES_PER_QUAD do
-      p.I_1[m] = 0.0
-      p.I_2[m] = 0.0
-      p.I_3[m] = 0.0
-      p.I_4[m] = 0.0
-      p.I_5[m] = 0.0
-      p.I_6[m] = 0.0
-      p.I_7[m] = 0.0
-      p.I_8[m] = 0.0
-    end
-    p.G = 0.0
-    p.S = 0.0
-    p.Ib = (SB/PI) * pow(1000.0, 4.0)
-    p.sigma = 5.0
-  end
-end
 
 local task writeIntensity(points : region(ispace(int3d), Point))
 where
@@ -131,10 +109,9 @@ task main()
   regentlib.c.legion_domain_point_coloring_destroy(coloring);
   -- Inline quotes from external module
   [DOM_INST.DeclSymbols(rexpr config[0] end)];
-  [DOM_INST.InitRegions(rexpr config[0] end)];
-  for c in tiles do
-    InitPoints(p_points[c])
-  end
+  [DOM_INST.InitRegions(rexpr config[0] end, tiles, p_points)];
+  fill(points.Ib, (SB/PI) * pow(1000.0,4.0))
+  fill(points.sigma, 5.0);
   [DOM_INST.ComputeRadiationField(rexpr config[0] end, tiles, p_points)];
   writeIntensity(points)
 end

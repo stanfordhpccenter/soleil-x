@@ -170,6 +170,32 @@ do
   C.fclose(f)
 end
 
+local -- MANUALLY PARALLELIZED, NO CUDA
+task initialize_points(points : region(ispace(int3d), Point),
+                       [angles])
+where
+  writes(points.{G, S}),
+  reads writes(points.[intensityFields])
+do
+  @ESCAPE for q = 1, 8 do @EMIT
+    __demand(__openmp)
+    for m in [angles[q]] do
+      for k = points.bounds.lo.z, points.bounds.hi.z+1 do
+        for j = points.bounds.lo.y, points.bounds.hi.y+1 do
+          for i = points.bounds.lo.x, points.bounds.hi.x+1 do
+            points[{i,j,k}].[intensityFields[q]][int(m)] = 0.0
+          end
+        end
+      end
+    end
+  @TIME end @EPACSE
+  __demand(__openmp)
+  for p in points do
+    p.G = 0.0
+    p.S = 0.0
+  end
+end
+
 -- 'x'|'y'|'z', 1..8 -> regentlib.task
 local function mkInitializeFaces(dim, q)
 
@@ -590,9 +616,12 @@ function MODULE.mkInstance() local INSTANCE = {}
 
   end end -- DeclSymbols
 
-  function INSTANCE.InitRegions(config) return rquote
+  function INSTANCE.InitRegions(config, tiles, p_points) return rquote
 
     initialize_angles([angles], config);
+    for c in tiles do
+      initialize_points(p_points[c], [angles])
+    end
     @ESCAPE for q = 1, 8 do @EMIT
       for c in x_tiles do
         [initialize_faces['x'][q]]([p_x_faces[q]][c], config)

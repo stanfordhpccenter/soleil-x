@@ -190,6 +190,7 @@ local DOM = (require 'dom-desugared')(MAX_ANGLES_PER_QUAD, Radiation_columns, Co
 -------------------------------------------------------------------------------
 
 local PI = 3.1415926535898
+local SB = 5.67e-08
 
 local SIZEOF_PARTICLE = sizeof(Particles_columns)
 
@@ -2131,29 +2132,6 @@ do
     end
   end
   return acc
-end
-
-__demand(__parallel, __cuda)
-task Radiation_InitializeCell(Radiation : region(ispace(int3d), Radiation_columns))
-where
-  reads writes(Radiation.{I_1, I_2, I_3, I_4, I_5, I_6, I_7, I_8}),
-  writes(Radiation.{G, S})
-do
-  __demand(__openmp)
-  for c in Radiation do
-    for m = 0, MAX_ANGLES_PER_QUAD do
-      Radiation[c].I_1[m] = 0.0
-      Radiation[c].I_2[m] = 0.0
-      Radiation[c].I_3[m] = 0.0
-      Radiation[c].I_4[m] = 0.0
-      Radiation[c].I_5[m] = 0.0
-      Radiation[c].I_6[m] = 0.0
-      Radiation[c].I_7[m] = 0.0
-      Radiation[c].I_8[m] = 0.0
-    end
-    Radiation[c].G = 0.0
-    Radiation[c].S = 0.0
-  end
 end
 
 __demand(__inline)
@@ -4321,18 +4299,6 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
-task Radiation_ClearAccumulators(Radiation : region(ispace(int3d), Radiation_columns))
-where
-  writes(Radiation.{acc_d2, acc_d2t4})
-do
-  __demand(__openmp)
-  for c in Radiation do
-    Radiation[c].acc_d2 = 0.0
-    Radiation[c].acc_d2t4 = 0.0
-  end
-end
-
 __demand(__cuda) -- MANUALLY PARALLELIZED
 task Radiation_AccumulateParticleValues(Particles : region(ispace(int1d), Particles_columns),
                                         Fluid : region(ispace(int3d), Fluid_columns),
@@ -4351,22 +4317,22 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__parallel) -- NO CUDA
 task Radiation_UpdateFieldValues(Radiation : region(ispace(int3d), Radiation_columns),
                                  Radiation_cellVolume : double,
                                  Radiation_qa : double,
                                  Radiation_qs : double)
 where
-  writes(Radiation.{Ib, sigma}),
-  reads(Radiation.{acc_d2, acc_d2t4})
+  reads(Radiation.{acc_d2, acc_d2t4}),
+  writes(Radiation.{Ib, sigma})
 do
   __demand(__openmp)
   for c in Radiation do
-    Radiation[c].sigma = (((Radiation[c].acc_d2*PI)*(Radiation_qa+Radiation_qs))/(4.0*Radiation_cellVolume))
-    if (Radiation[c].acc_d2==0.0) then
-      Radiation[c].Ib = 0.0
+    c.sigma = c.acc_d2*PI*(Radiation_qa+Radiation_qs)/(4.0*Radiation_cellVolume)
+    if c.acc_d2 == 0.0 then
+      c.Ib = 0.0
     else
-      Radiation[c].Ib = ((double(5.67e-08)*Radiation[c].acc_d2t4)/(PI*Radiation[c].acc_d2))
+      c.Ib = (SB*c.acc_d2t4)/(PI*c.acc_d2)
     end
   end
 end
@@ -4387,7 +4353,7 @@ do
   for p in Particles do
     if Particles[p].__valid then
       var t4 = pow(Particles[p].temperature, 4.0)
-      var alpha = ((((PI*Radiation_qa)*pow(Particles[p].diameter, 2.0))*(Radiation[Fluid[Particles[p].cell].to_Radiation].G-((4.0*double(5.67e-08))*t4)))/4.0)
+      var alpha = ((((PI*Radiation_qa)*pow(Particles[p].diameter, 2.0))*(Radiation[Fluid[Particles[p].cell].to_Radiation].G-((4.0*SB)*t4)))/4.0)
       Particles[p].temperature_t += (alpha/((((PI*pow(Particles[p].diameter, 3.0))/6.0)*Particles[p].density)*Particles_heatCapacity))
     end
   end
@@ -5504,8 +5470,7 @@ local function mkInstance() local INSTANCE = {}
     elseif config.Radiation.type == SCHEMA.RadiationType_Algebraic then
       -- Do nothing
     elseif config.Radiation.type == SCHEMA.RadiationType_DOM then
-      Radiation_InitializeCell(Radiation);
-      [DOM_INST.InitRegions(config)];
+      [DOM_INST.InitRegions(config, tiles, p_Radiation)];
     else regentlib.assert(false, 'Unhandled case in switch') end
 
   end end -- InitRegions
@@ -5767,7 +5732,8 @@ local function mkInstance() local INSTANCE = {}
       elseif config.Radiation.type == SCHEMA.RadiationType_Algebraic then
         AddRadiation(Particles, config)
       elseif config.Radiation.type == SCHEMA.RadiationType_DOM then
-        Radiation_ClearAccumulators(Radiation)
+        fill(Radiation.acc_d2, 0.0)
+        fill(Radiation.acc_d2t4, 0.0)
         for c in tiles do
           Radiation_AccumulateParticleValues(p_Particles[c], p_Fluid[c], p_Radiation[c])
         end
