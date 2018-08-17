@@ -107,8 +107,8 @@
     },
 
     "Radiation" : {
-        "type" : "Algebraic",
-        "intensity" : 0.0,
+        "type" : "OFF",
+        "intensity" : -1.0,
         "qa" : -1.0,
         "qs" : -1.0,
         "xNum" : 4,
