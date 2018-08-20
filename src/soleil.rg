@@ -5460,6 +5460,8 @@ local function mkInstance() local INSTANCE = {}
       end
       Particles_number += Particles_CalculateNumber(Particles)
     elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform then
+      regentlib.assert(config.Particles.initNum <= config.Particles.maxNum,
+                       "Not enough space for initial number of particles")
       InitParticlesUniform(Particles, Fluid, config, Grid.xBnum, Grid.yBnum, Grid.zBnum)
       Particles_number = (config.Particles.initNum / numTiles) * numTiles
     else regentlib.assert(false, 'Unhandled case in switch') end
