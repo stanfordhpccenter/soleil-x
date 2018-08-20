@@ -491,17 +491,15 @@ where
   reads writes(points.G)
 do
   var num_angles = config.Radiation.angles
+  __demand(__openmp)
   for p in points do
     p.G = 0.0
   end
   @ESCAPE for q = 1, 8 do @EMIT
-    for m in [angles[q]] do
-      for k = points.bounds.lo.z, points.bounds.hi.z+1 do
-        for j = points.bounds.lo.y, points.bounds.hi.y+1 do
-          for i = points.bounds.lo.x, points.bounds.hi.x+1 do
-            points[{i,j,k}].G += m.w * points[{i,j,k}].[intensityFields[q]][int(m)]
-          end
-        end
+    for m = 0, quadrantSize(q, num_angles) do
+      __demand(__openmp)
+      for p in points do
+        p.G += [angles[q]][m].w * p.[intensityFields[q]][m]
       end
     end
   @TIME end @EPACSE
