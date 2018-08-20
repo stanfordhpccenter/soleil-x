@@ -170,19 +170,22 @@ do
   C.fclose(f)
 end
 
-local -- MANUALLY PARALLELIZED, NO CUDA
+local __demand(__cuda) -- MANUALLY PARALLELIZED
 task initialize_points(points : region(ispace(int3d), Point),
                        [angles])
 where
   writes(points.{G, S}),
   reads writes(points.[intensityFields])
 do
+  var zLo = points.bounds.lo.z; var zHi = points.bounds.hi.z
+  var yLo = points.bounds.lo.y; var yHi = points.bounds.hi.y
+  var xLo = points.bounds.lo.x; var xHi = points.bounds.hi.x;
   @ESCAPE for q = 1, 8 do @EMIT
     __demand(__openmp)
     for m in [angles[q]] do
-      for k = points.bounds.lo.z, points.bounds.hi.z+1 do
-        for j = points.bounds.lo.y, points.bounds.hi.y+1 do
-          for i = points.bounds.lo.x, points.bounds.hi.x+1 do
+      for k = zLo, zHi+1 do
+        for j = yLo, yHi+1 do
+          for i = xLo, xHi+1 do
             points[{i,j,k}].[intensityFields[q]][int(m)] = 0.0
           end
         end
@@ -199,16 +202,16 @@ end
 -- 'x'|'y'|'z', 1..8 -> regentlib.task
 local function mkInitializeFaces(dim, q)
 
-  local -- MANUALLY PARALLELIZED, NO CUDA
+  local __demand(__cuda) -- MANUALLY PARALLELIZED
   task initialize_faces(faces : region(ispace(int2d), Face_columns),
                         config : Config)
   where
     reads writes(faces.I)
   do
     var num_angles = config.Radiation.angles
-    __demand(__openmp)
-    for f in faces do
-      for m = 0, quadrantSize(q, num_angles) do
+    for m = 0, quadrantSize(q, num_angles) do
+      __demand(__openmp)
+      for f in faces do
         f.I[m] = 0.0
       end
     end
@@ -227,7 +230,7 @@ local initialize_faces = {
   z = UTIL.range(1,8):map(function(q) return mkInitializeFaces('z', q) end),
 }
 
-local -- MANUALLY PARALLELIZED, NO CUDA
+local __demand(__cuda) -- MANUALLY PARALLELIZED
 task source_term(points : region(ispace(int3d), Point),
                  config : Config)
 where
@@ -244,7 +247,7 @@ end
 -- 'x'|'y'|'z', 1..8 -> regentlib.task
 local function mkCacheIntensity(dim, q)
 
-  local -- MANUALLY PARALLELIZED, NO CUDA
+  local __demand(__cuda) -- MANUALLY PARALLELIZED
   task cache_intensity(faces : region(ispace(int2d), Face_columns),
                        config : Config)
   where
@@ -252,9 +255,9 @@ local function mkCacheIntensity(dim, q)
     reads writes(faces.I_prev)
   do
     var num_angles = config.Radiation.angles
-    __demand(__openmp)
-    for f in faces do
-      for m = 0, quadrantSize(q, num_angles) do
+    for m = 0, quadrantSize(q, num_angles) do
+      __demand(__openmp)
+      for f in faces do
         f.I_prev[m] = f.I[m]
       end
     end
@@ -306,7 +309,7 @@ local function mkBound(wall)
     return regentlib.newsymbol(region(ispace(int2d), Face_columns))
   end)
 
-  local -- MANUALLY PARALLELIZED, NO CUDA
+  local __demand(__cuda) -- MANUALLY PARALLELIZED
   task bound([faces],
              [angles],
              config : Config)
@@ -414,7 +417,7 @@ local function mkSweep(q)
   local dindz  = directions[q][3] and rexpr            1 end or rexpr           -1 end
   local endz   = directions[q][3] and rexpr bnd.hi.z + 1 end or rexpr bnd.lo.z - 1 end
 
-  local -- MANUALLY PARALLELIZED, NO CUDA
+  local __demand(__cuda) -- MANUALLY PARALLELIZED
   task sweep(points : region(ispace(int3d), Point),
              x_faces : region(ispace(int2d), Face_columns),
              y_faces : region(ispace(int2d), Face_columns),
@@ -479,7 +482,7 @@ end -- mkSweep
 
 local sweep = UTIL.range(1,8):map(function(q) return mkSweep(q) end)
 
-local -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+local __demand(__cuda) -- MANUALLY PARALLELIZED
 task reduce_intensity(points : region(ispace(int3d), Point),
                       [angles],
                       config : Config)
