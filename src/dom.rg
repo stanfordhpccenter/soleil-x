@@ -4,7 +4,7 @@ import 'regent'
 -- MODULE PARAMETERS
 -------------------------------------------------------------------------------
 
-return function(MAX_ANGLES_PER_QUAD, Point, Config) local MODULE = {}
+return function(MAX_ANGLES_PER_QUAD, Point_columns, Config) local MODULE = {}
 
 -------------------------------------------------------------------------------
 -- IMPORTS
@@ -171,7 +171,7 @@ do
 end
 
 local __demand(__cuda) -- MANUALLY PARALLELIZED
-task initialize_points(points : region(ispace(int3d), Point),
+task initialize_points(points : region(ispace(int3d), Point_columns),
                        [angles])
 where
   writes(points.{G, S}),
@@ -231,10 +231,10 @@ local initialize_faces = {
 }
 
 local __demand(__cuda) -- MANUALLY PARALLELIZED
-task source_term(points : region(ispace(int3d), Point),
+task source_term(points : region(ispace(int3d), Point_columns),
                  config : Config)
 where
-  reads(points.[intensityFields], points.{Ib, sigma, G}),
+  reads(points.{Ib, sigma, G}),
   writes(points.S)
 do
   var omega = config.Radiation.qs/(config.Radiation.qa+config.Radiation.qs)
@@ -418,7 +418,7 @@ local function mkSweep(q)
   local endz   = directions[q][3] and rexpr bnd.hi.z + 1 end or rexpr bnd.lo.z - 1 end
 
   local __demand(__cuda) -- MANUALLY PARALLELIZED
-  task sweep(points : region(ispace(int3d), Point),
+  task sweep(points : region(ispace(int3d), Point_columns),
              x_faces : region(ispace(int2d), Face_columns),
              y_faces : region(ispace(int2d), Face_columns),
              z_faces : region(ispace(int2d), Face_columns),
@@ -483,7 +483,7 @@ end -- mkSweep
 local sweep = UTIL.range(1,8):map(function(q) return mkSweep(q) end)
 
 local __demand(__cuda) -- MANUALLY PARALLELIZED
-task reduce_intensity(points : region(ispace(int3d), Point),
+task reduce_intensity(points : region(ispace(int3d), Point_columns),
                       [angles],
                       config : Config)
 where

@@ -27,7 +27,7 @@ local MAX_ANGLES_PER_QUAD = 44
 -- Proxy radiation grid
 -------------------------------------------------------------------------------
 
-struct Point {
+struct Point_columns {
     I_1 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
     I_2 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
     I_3 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
@@ -46,14 +46,14 @@ struct Point {
 -- Import DOM module
 -------------------------------------------------------------------------------
 
-local DOM = (require 'dom-desugared')(MAX_ANGLES_PER_QUAD, Point, SCHEMA.Config)
+local DOM = (require 'dom-desugared')(MAX_ANGLES_PER_QUAD, Point_columns, SCHEMA.Config)
 local DOM_INST = DOM.mkInstance()
 
 -------------------------------------------------------------------------------
 -- Proxy tasks
 -------------------------------------------------------------------------------
 
-local task writeIntensity(points : region(ispace(int3d), Point))
+local task writeIntensity(points : region(ispace(int3d), Point_columns))
 where
   reads(points.G)
 do
@@ -97,7 +97,7 @@ task main()
   regentlib.assert(Ny % nty == 0, "Uneven partitioning of radiation grid on y")
   regentlib.assert(Nz % ntz == 0, "Uneven partitioning of radiation grid on z")
   var is = ispace(int3d, {Nx,Ny,Nz})
-  var points = region(is, Point)
+  var points = region(is, Point_columns)
   var tiles = ispace(int3d, {ntx,nty,ntz})
   var coloring = regentlib.c.legion_domain_point_coloring_create()
   for c in tiles do
