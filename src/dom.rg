@@ -69,6 +69,10 @@ local struct Face_columns {
   I_prev : regentlib.array(double, MAX_ANGLES_PER_QUAD);
 }
 
+local struct SubPoint_columns {
+  I : double;
+}
+
 -------------------------------------------------------------------------------
 -- QUADRANT MACROS
 -------------------------------------------------------------------------------
@@ -82,10 +86,6 @@ local directions = terralib.newlist{
   terralib.newlist{false,  true, false},
   terralib.newlist{false, false,  true},
   terralib.newlist{false, false, false},
-}
-
-local intensityFields = terralib.newlist{
-  'I_1', 'I_2', 'I_3', 'I_4', 'I_5', 'I_6', 'I_7', 'I_8'
 }
 
 -- 1..8, regentlib.rexpr -> regentlib.rexpr
@@ -171,31 +171,25 @@ do
 end
 
 local __demand(__cuda) -- MANUALLY PARALLELIZED
-task initialize_points(points : region(ispace(int3d), Point_columns),
-                       [angles])
+task initialize_points(points : region(ispace(int3d), Point_columns))
 where
-  writes(points.{G, S}),
-  reads writes(points.[intensityFields])
+  writes(points.{G, S})
 do
-  var zLo = points.bounds.lo.z; var zHi = points.bounds.hi.z
-  var yLo = points.bounds.lo.y; var yHi = points.bounds.hi.y
-  var xLo = points.bounds.lo.x; var xHi = points.bounds.hi.x;
-  @ESCAPE for q = 1, 8 do @EMIT
-    __demand(__openmp)
-    for m in [angles[q]] do
-      for k = zLo, zHi+1 do
-        for j = yLo, yHi+1 do
-          for i = xLo, xHi+1 do
-            points[{i,j,k}].[intensityFields[q]][int(m)] = 0.0
-          end
-        end
-      end
-    end
-  @TIME end @EPACSE
   __demand(__openmp)
   for p in points do
     p.G = 0.0
     p.S = 0.0
+  end
+end
+
+local __demand(__cuda) -- MANUALLY PARALLELIZED
+task initialize_sub_points(sub_points : region(ispace(int3d), SubPoint_columns))
+where
+  writes(sub_points.I)
+do
+  __demand(__openmp)
+  for s in sub_points do
+    s.I = 0.0
   end
 end
 
@@ -402,7 +396,6 @@ local bound_z_hi = mkBound(6)
 -- 1..8 -> regentlib.task
 local function mkSweep(q)
 
-  local fld = intensityFields[q]
   local bnd = regentlib.newsymbol()
 
   local startx = directions[q][1] and rexpr     bnd.lo.x end or rexpr     bnd.hi.x end
@@ -419,6 +412,7 @@ local function mkSweep(q)
 
   local __demand(__cuda) -- MANUALLY PARALLELIZED
   task sweep(points : region(ispace(int3d), Point_columns),
+             sub_points : region(ispace(int3d), SubPoint_columns),
              x_faces : region(ispace(int2d), Face_columns),
              y_faces : region(ispace(int2d), Face_columns),
              z_faces : region(ispace(int2d), Face_columns),
@@ -426,7 +420,7 @@ local function mkSweep(q)
              config : Config)
   where
     reads(angles.{xi, eta, mu}, points.{S, sigma}),
-    reads writes(points.[fld], x_faces.I, y_faces.I, z_faces.I)
+    reads writes(sub_points.I, x_faces.I, y_faces.I, z_faces.I)
   do
     var dx = config.Grid.xWidth / config.Radiation.xNum
     var dy = config.Grid.yWidth / config.Radiation.yNum
@@ -449,7 +443,7 @@ local function mkSweep(q)
             var y_value = y_faces[{i,  k}].I[int(m)]
             var z_value = z_faces[{i,j  }].I[int(m)]
             -- Integrate to compute cell-centered value of I
-            var oldI = points[{i,j,k}].[fld][int(m)]
+            var oldI = sub_points[{i*MAX_ANGLES_PER_QUAD+int(m),j,k}].I
             var newI = (points[{i,j,k}].S * dV
                         + fabs(m.xi)  * dAx * x_value/GAMMA
                         + fabs(m.eta) * dAy * y_value/GAMMA
@@ -461,7 +455,7 @@ local function mkSweep(q)
             if newI > 0.0 then
               res += pow(newI-oldI,2) / pow(newI,2)
             end
-            points[{i,j,k}].[fld][int(m)] = newI
+            sub_points[{i*MAX_ANGLES_PER_QUAD+int(m),j,k}].I = newI
             -- Compute intensities on downwind faces
             x_faces[{  j,k}].I[int(m)] = max(0.0, (newI-(1-GAMMA)*x_value)/GAMMA)
             y_faces[{i,  k}].I[int(m)] = max(0.0, (newI-(1-GAMMA)*y_value)/GAMMA)
@@ -482,12 +476,19 @@ end -- mkSweep
 
 local sweep = UTIL.range(1,8):map(function(q) return mkSweep(q) end)
 
+local sub_points = UTIL.generate(8, function()
+  return regentlib.newsymbol(region(ispace(int3d), SubPoint_columns))
+end)
+
 local __demand(__cuda) -- MANUALLY PARALLELIZED
 task reduce_intensity(points : region(ispace(int3d), Point_columns),
+                      [sub_points],
                       [angles],
                       config : Config)
 where
-  reads(points.[intensityFields]),
+  [sub_points:map(function(s)
+     return regentlib.privilege(regentlib.reads, s, 'I')
+   end)],
   [angles:map(function(a)
      return regentlib.privilege(regentlib.reads, a, 'w')
    end)],
@@ -499,10 +500,11 @@ do
     p.G = 0.0
   end
   @ESCAPE for q = 1, 8 do @EMIT
-    for m = 0, quadrantSize(q, num_angles) do
-      __demand(__openmp)
-      for p in points do
-        p.G += [angles[q]][m].w * p.[intensityFields[q]][m]
+    __demand(__openmp)
+    for s in [sub_points[q]] do
+      var m = s.x % MAX_ANGLES_PER_QUAD
+      if m < quadrantSize(q, num_angles) then
+        points[{s.x/MAX_ANGLES_PER_QUAD,s.y,s.z}].G += [angles[q]][m].w * s.I
       end
     end
   @TIME end @EPACSE
@@ -519,26 +521,26 @@ function MODULE.mkInstance() local INSTANCE = {}
   local Nx = regentlib.newsymbol('Nx')
   local Ny = regentlib.newsymbol('Ny')
   local Nz = regentlib.newsymbol('Nz')
-
   local ntx = regentlib.newsymbol('ntx')
   local nty = regentlib.newsymbol('nty')
   local ntz = regentlib.newsymbol('ntz')
 
-  local angles = UTIL.generate(8, regentlib.newsymbol)
-
+  local sub_points = UTIL.generate(8, regentlib.newsymbol)
   local x_faces = UTIL.generate(8, regentlib.newsymbol)
   local y_faces = UTIL.generate(8, regentlib.newsymbol)
   local z_faces = UTIL.generate(8, regentlib.newsymbol)
+  local angles = UTIL.generate(8, regentlib.newsymbol)
 
   local x_tiles = regentlib.newsymbol('x_tiles')
   local y_tiles = regentlib.newsymbol('y_tiles')
   local z_tiles = regentlib.newsymbol('z_tiles')
 
+  local p_sub_points = UTIL.generate(8, regentlib.newsymbol)
   local p_x_faces = UTIL.generate(8, regentlib.newsymbol)
   local p_y_faces = UTIL.generate(8, regentlib.newsymbol)
   local p_z_faces = UTIL.generate(8, regentlib.newsymbol)
 
-  function INSTANCE.DeclSymbols(config) return rquote
+  function INSTANCE.DeclSymbols(config, tiles) return rquote
 
     var sampleId = config.Mapping.sampleId
 
@@ -555,6 +557,18 @@ function MODULE.mkInstance() local INSTANCE = {}
     regentlib.assert(Ny % nty == 0, "Uneven partitioning of radiation grid on y")
     regentlib.assert(Nz % ntz == 0, "Uneven partitioning of radiation grid on z")
 
+    -- Region for points
+    -- (managed by the host code)
+
+    -- Regions for sub-points
+    -- Emulate int4d by rolling the angles into the fastest-changing dimension.
+    -- The effective storage order will be Z > Y > X > M.
+    var is_sub_points = ispace(int3d, {Nx*MAX_ANGLES_PER_QUAD,Ny,Nz});
+    @ESCAPE for q = 1, 8 do @EMIT
+      var [sub_points[q]] = region(is_sub_points, SubPoint_columns);
+      [UTIL.mkRegionTagAttach(sub_points[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+    @TIME end @EPACSE
+
     -- Regions for faces
     var grid_x = ispace(int2d, {   Ny,Nz})
     var grid_y = ispace(int2d, {Nx,   Nz})
@@ -568,11 +582,20 @@ function MODULE.mkInstance() local INSTANCE = {}
       [UTIL.mkRegionTagAttach(z_faces[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     @TIME end @EPACSE
 
-    -- Regions for angle values
+    -- Regions for angles
     @ESCAPE for q = 1, 8 do @EMIT
       var is = ispace(int1d, quadrantSize(q, config.Radiation.angles))
       var [angles[q]] = region(is, Angle_columns);
       [UTIL.mkRegionTagAttach(angles[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+    @TIME end @EPACSE
+
+    -- Partition points
+    -- (done by the host code)
+
+    -- Partition sub-points
+    @ESCAPE for q = 1, 8 do @EMIT
+      var [p_sub_points[q]] =
+        [UTIL.mkEqualPartitioner(SubPoint_columns)]([sub_points[q]], tiles)
     @TIME end @EPACSE
 
     -- Partition faces
@@ -619,10 +642,19 @@ function MODULE.mkInstance() local INSTANCE = {}
 
   function INSTANCE.InitRegions(config, tiles, p_points) return rquote
 
-    initialize_angles([angles], config);
+    -- Initialize points
     for c in tiles do
-      initialize_points(p_points[c], [angles])
+      initialize_points(p_points[c])
     end
+
+    -- Initialize sub-points
+    @ESCAPE for q = 1, 8 do @EMIT
+      for c in tiles do
+        initialize_sub_points([p_sub_points[q]][c])
+      end
+    @TIME end @EPACSE
+
+    -- Initialize faces
     @ESCAPE for q = 1, 8 do @EMIT
       for c in x_tiles do
         [initialize_faces['x'][q]]([p_x_faces[q]][c], config)
@@ -635,13 +667,21 @@ function MODULE.mkInstance() local INSTANCE = {}
       end
     @TIME end @EPACSE
 
+    -- Initialize angles
+    initialize_angles([angles], config)
+
   end end -- InitRegions
 
   function INSTANCE.ComputeRadiationField(config, tiles, p_points) return rquote
 
     -- Initialize intensity.
     for c in tiles do
-      reduce_intensity(p_points[c], [angles], config)
+      reduce_intensity(p_points[c],
+                       [p_sub_points:map(function(s)
+                          return rexpr s[c] end
+                        end)],
+                       [angles],
+                       config)
     end
 
     -- Compute until convergence.
@@ -708,6 +748,7 @@ function MODULE.mkInstance() local INSTANCE = {}
           for k = 0, ntz do
             res +=
               [sweep[1]](p_points[{i,j,k}],
+                         [p_sub_points[1]][{i,j,k}],
                          [p_x_faces[1]][{  j,k}],
                          [p_y_faces[1]][{i,  k}],
                          [p_z_faces[1]][{i,j  }],
@@ -722,6 +763,7 @@ function MODULE.mkInstance() local INSTANCE = {}
           for k = ntz-1, -1, -1 do
             res +=
               [sweep[2]](p_points[{i,j,k}],
+                         [p_sub_points[2]][{i,j,k}],
                          [p_x_faces[2]][{  j,k}],
                          [p_y_faces[2]][{i,  k}],
                          [p_z_faces[2]][{i,j  }],
@@ -736,6 +778,7 @@ function MODULE.mkInstance() local INSTANCE = {}
           for k = 0, ntz do
             res +=
               [sweep[3]](p_points[{i,j,k}],
+                         [p_sub_points[3]][{i,j,k}],
                          [p_x_faces[3]][{  j,k}],
                          [p_y_faces[3]][{i,  k}],
                          [p_z_faces[3]][{i,j  }],
@@ -750,6 +793,7 @@ function MODULE.mkInstance() local INSTANCE = {}
           for k = ntz-1, -1, -1 do
             res +=
               [sweep[4]](p_points[{i,j,k}],
+                         [p_sub_points[4]][{i,j,k}],
                          [p_x_faces[4]][{  j,k}],
                          [p_y_faces[4]][{i,  k}],
                          [p_z_faces[4]][{i,j  }],
@@ -764,6 +808,7 @@ function MODULE.mkInstance() local INSTANCE = {}
           for k = 0, ntz do
             res +=
               [sweep[5]](p_points[{i,j,k}],
+                         [p_sub_points[5]][{i,j,k}],
                          [p_x_faces[5]][{  j,k}],
                          [p_y_faces[5]][{i,  k}],
                          [p_z_faces[5]][{i,j  }],
@@ -778,6 +823,7 @@ function MODULE.mkInstance() local INSTANCE = {}
           for k = ntz-1, -1, -1 do
             res +=
               [sweep[6]](p_points[{i,j,k}],
+                         [p_sub_points[6]][{i,j,k}],
                          [p_x_faces[6]][{  j,k}],
                          [p_y_faces[6]][{i,  k}],
                          [p_z_faces[6]][{i,j  }],
@@ -792,6 +838,7 @@ function MODULE.mkInstance() local INSTANCE = {}
           for k = 0, ntz do
             res +=
               [sweep[7]](p_points[{i,j,k}],
+                         [p_sub_points[7]][{i,j,k}],
                          [p_x_faces[7]][{  j,k}],
                          [p_y_faces[7]][{i,  k}],
                          [p_z_faces[7]][{i,j  }],
@@ -806,6 +853,7 @@ function MODULE.mkInstance() local INSTANCE = {}
           for k = ntz-1, -1, -1 do
             res +=
               [sweep[8]](p_points[{i,j,k}],
+                         [p_sub_points[8]][{i,j,k}],
                          [p_x_faces[8]][{  j,k}],
                          [p_y_faces[8]][{i,  k}],
                          [p_z_faces[8]][{i,j  }],
@@ -820,7 +868,12 @@ function MODULE.mkInstance() local INSTANCE = {}
 
       -- Update intensity.
       for c in tiles do
-        reduce_intensity(p_points[c], [angles], config)
+        reduce_intensity(p_points[c],
+                         [p_sub_points:map(function(s)
+                            return rexpr s[c] end
+                          end)],
+                         [angles],
+                         config)
       end
 
     end -- while res > TOLERANCE

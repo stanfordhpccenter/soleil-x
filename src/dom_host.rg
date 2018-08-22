@@ -28,18 +28,10 @@ local MAX_ANGLES_PER_QUAD = 44
 -------------------------------------------------------------------------------
 
 struct Point_columns {
-    I_1 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
-    I_2 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
-    I_3 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
-    I_4 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
-    I_5 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
-    I_6 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
-    I_7 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
-    I_8 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
-    G : double;
-    S : double;
-    Ib : double;
-    sigma : double;
+  G : double;
+  S : double;
+  Ib : double;
+  sigma : double;
 }
 
 -------------------------------------------------------------------------------
@@ -87,32 +79,24 @@ task main()
   end
   var config : SCHEMA.Config[1]
   SCHEMA.parse_Config([&SCHEMA.Config](config), args.argv[1])
-  var Nx = config[0].Radiation.xNum
-  var Ny = config[0].Radiation.yNum
-  var Nz = config[0].Radiation.zNum
-  var ntx = config[0].Mapping.tiles[0]
-  var nty = config[0].Mapping.tiles[1]
-  var ntz = config[0].Mapping.tiles[2]
-  regentlib.assert(Nx % ntx == 0, "Uneven partitioning of radiation grid on x")
-  regentlib.assert(Ny % nty == 0, "Uneven partitioning of radiation grid on y")
-  regentlib.assert(Nz % ntz == 0, "Uneven partitioning of radiation grid on z")
-  var is = ispace(int3d, {Nx,Ny,Nz})
-  var points = region(is, Point_columns)
-  var tiles = ispace(int3d, {ntx,nty,ntz})
-  var coloring = regentlib.c.legion_domain_point_coloring_create()
-  for c in tiles do
-    var rect = rect3d{lo = int3d{(Nx/ntx)*c.x,       (Ny/nty)*c.y,       (Nz/ntz)*c.z      },
-                      hi = int3d{(Nx/ntx)*(c.x+1)-1, (Ny/nty)*(c.y+1)-1, (Nz/ntz)*(c.z+1)-1}}
-    regentlib.c.legion_domain_point_coloring_color_domain(coloring, c, rect)
-  end
-  var p_points = partition(disjoint, points, coloring, tiles)
-  regentlib.c.legion_domain_point_coloring_destroy(coloring);
-  -- Inline quotes from external module
-  [DOM_INST.DeclSymbols(rexpr config[0] end)];
+  -- Declare externally-managed regions
+  var is_points = ispace(int3d, {config[0].Radiation.xNum,
+                                 config[0].Radiation.yNum,
+                                 config[0].Radiation.zNum})
+  var points = region(is_points, Point_columns)
+  var tiles = ispace(int3d, {config[0].Mapping.tiles[0],
+                             config[0].Mapping.tiles[1],
+                             config[0].Mapping.tiles[2]})
+  var p_points = [UTIL.mkEqualPartitioner(Point_columns)](points, tiles);
+  -- Declare DOM-managed regions
+  [DOM_INST.DeclSymbols(rexpr config[0] end, tiles)];
   [DOM_INST.InitRegions(rexpr config[0] end, tiles, p_points)];
+  -- Prepare fake inputs
   fill(points.Ib, (SB/PI) * pow(1000.0,4.0))
   fill(points.sigma, 5.0);
+  -- Invoke DOM solver
   [DOM_INST.ComputeRadiationField(rexpr config[0] end, tiles, p_points)];
+  -- Output results
   writeIntensity(points)
 end
 

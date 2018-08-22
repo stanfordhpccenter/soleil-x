@@ -476,6 +476,31 @@ function Exports.mkRegionTagAttach(r, tag, value, typ)
   end
 end
 
+-- terralib.struct -> regentlib.task
+function Exports.mkEqualPartitioner(fs)
+  local __demand(__inline)
+  task partitionEqually(r : region(ispace(int3d), fs),
+                        cs : ispace(int3d))
+    var Nx = r.bounds.hi.x + 1; var ntx = cs.bounds.hi.x + 1
+    var Ny = r.bounds.hi.y + 1; var nty = cs.bounds.hi.y + 1
+    var Nz = r.bounds.hi.z + 1; var ntz = cs.bounds.hi.z + 1
+    regentlib.assert(Nx % ntx == 0, "Uneven partitioning on x")
+    regentlib.assert(Ny % nty == 0, "Uneven partitioning on y")
+    regentlib.assert(Nz % ntz == 0, "Uneven partitioning on z")
+    var coloring = regentlib.c.legion_domain_point_coloring_create()
+    for c in cs do
+      var rect = rect3d{
+        lo = int3d{(Nx/ntx)*c.x,       (Ny/nty)*c.y,       (Nz/ntz)*c.z      },
+        hi = int3d{(Nx/ntx)*(c.x+1)-1, (Ny/nty)*(c.y+1)-1, (Nz/ntz)*(c.z+1)-1}}
+      regentlib.c.legion_domain_point_coloring_color_domain(coloring, c, rect)
+    end
+    var p = partition(disjoint, r, coloring, cs)
+    regentlib.c.legion_domain_point_coloring_destroy(coloring)
+    return p
+  end
+  return partitionEqually
+end
+
 -------------------------------------------------------------------------------
 
 return Exports

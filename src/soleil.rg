@@ -163,14 +163,6 @@ local Fluid_primitives = terralib.newlist({
 })
 
 struct Radiation_columns {
-  I_1 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
-  I_2 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
-  I_3 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
-  I_4 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
-  I_5 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
-  I_6 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
-  I_7 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
-  I_8 : regentlib.array(double, MAX_ANGLES_PER_QUAD);
   G : double;
   S : double;
   Ib : double;
@@ -5275,23 +5267,13 @@ local function mkInstance() local INSTANCE = {}
     regentlib.c.legion_domain_point_coloring_destroy(coloring_TradeQueue)
 
     -- Radiation Partitioning
-    regentlib.assert(config.Radiation.xNum % NX == 0, "Uneven partitioning of radiation grid on x")
-    regentlib.assert(config.Radiation.yNum % NY == 0, "Uneven partitioning of radiation grid on y")
-    regentlib.assert(config.Radiation.zNum % NZ == 0, "Uneven partitioning of radiation grid on z")
-    var coloring_Radiation = regentlib.c.legion_domain_point_coloring_create()
-    for c in tiles do
-      var rect = rect3d{lo = int3d{x = (config.Radiation.xNum/NX)*c.x,       y = (config.Radiation.yNum/NY)*c.y,       z = (config.Radiation.zNum/NZ)*c.z      },
-                        hi = int3d{x = (config.Radiation.xNum/NX)*(c.x+1)-1, y = (config.Radiation.yNum/NY)*(c.y+1)-1, z = (config.Radiation.zNum/NZ)*(c.z+1)-1}}
-      regentlib.c.legion_domain_point_coloring_color_domain(coloring_Radiation, c, rect)
-    end
-    var [p_Radiation] = partition(disjoint, Radiation, coloring_Radiation, tiles)
-    regentlib.c.legion_domain_point_coloring_destroy(coloring_Radiation);
+    var [p_Radiation] = [UTIL.mkEqualPartitioner(Radiation_columns)](Radiation, tiles)
 
     ---------------------------------------------------------------------------
     -- DOM code declarations
     ---------------------------------------------------------------------------
 
-    [DOM_INST.DeclSymbols(config)];
+    [DOM_INST.DeclSymbols(config, tiles)];
 
   end end -- DeclSymbols
 
