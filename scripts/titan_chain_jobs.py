@@ -32,6 +32,7 @@ for i in range(1, args.num_runs):
     json.dump(config, open(str(i) + '.json', 'w'), indent=4)
     mkdirp('%s/%s' % (args.out_dir, i-1))
 
-print 'QUEUE=batch $SOLEIL_DIR/src/soleil.sh -i 0.json -o %s/0' % args.out_dir
+print 'Testcases created in current directory; when ready, run:'
+print 'JOBID=`QUEUE=batch $SOLEIL_DIR/src/soleil.sh -i 0.json -o %s/0`; echo $JOBID' % args.out_dir
 for i in range(1, args.num_runs):
-    print 'AFTER=<prev-job> QUEUE=batch $SOLEIL_DIR/src/soleil.sh -i %s.json -o %s/%s' % (i, args.out_dir, i)
+    print 'JOBID=`AFTER=$JOBID QUEUE=batch $SOLEIL_DIR/src/soleil.sh -i %s.json -o %s/%s`; echo $JOBID' % (i, args.out_dir, i)
