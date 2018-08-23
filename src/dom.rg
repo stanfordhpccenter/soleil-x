@@ -322,9 +322,6 @@ local function mkBound(wall)
        regentlib.privilege(regentlib.reads, a, 'w'),
      } end):flatten()]
   do
-    var Nx = config.Radiation.xNum
-    var Ny = config.Radiation.yNum
-    var Nz = config.Radiation.zNum
     var epsw = config.Radiation.[emissField]
     var Tw = config.Radiation.[tempField]
     var fromCell = config.Radiation.[windowField].fromCell
@@ -566,7 +563,7 @@ function MODULE.mkInstance() local INSTANCE = {}
     var is_sub_points = ispace(int3d, {Nx*MAX_ANGLES_PER_QUAD,Ny,Nz});
     @ESCAPE for q = 1, 8 do @EMIT
       var [sub_points[q]] = region(is_sub_points, SubPoint_columns);
-      [UTIL.mkRegionTagAttach(sub_points[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+      [UTIL.emitRegionTagAttach(sub_points[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     @TIME end @EPACSE
 
     -- Regions for faces
@@ -575,18 +572,18 @@ function MODULE.mkInstance() local INSTANCE = {}
     var grid_z = ispace(int2d, {Nx,Ny   });
     @ESCAPE for q = 1, 8 do @EMIT
       var [x_faces[q]] = region(grid_x, Face_columns);
-      [UTIL.mkRegionTagAttach(x_faces[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+      [UTIL.emitRegionTagAttach(x_faces[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
       var [y_faces[q]] = region(grid_y, Face_columns);
-      [UTIL.mkRegionTagAttach(y_faces[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+      [UTIL.emitRegionTagAttach(y_faces[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
       var [z_faces[q]] = region(grid_z, Face_columns);
-      [UTIL.mkRegionTagAttach(z_faces[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+      [UTIL.emitRegionTagAttach(z_faces[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     @TIME end @EPACSE
 
     -- Regions for angles
     @ESCAPE for q = 1, 8 do @EMIT
       var is = ispace(int1d, quadrantSize(q, config.Radiation.angles))
       var [angles[q]] = region(is, Angle_columns);
-      [UTIL.mkRegionTagAttach(angles[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+      [UTIL.emitRegionTagAttach(angles[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     @TIME end @EPACSE
 
     -- Partition points
@@ -595,7 +592,8 @@ function MODULE.mkInstance() local INSTANCE = {}
     -- Partition sub-points
     @ESCAPE for q = 1, 8 do @EMIT
       var [p_sub_points[q]] =
-        [UTIL.mkEqualPartitioner(SubPoint_columns)]([sub_points[q]], tiles)
+        [UTIL.mkPartitionEqually(int3d, int3d, SubPoint_columns)]
+        ([sub_points[q]], tiles)
     @TIME end @EPACSE
 
     -- Partition faces

@@ -340,7 +340,7 @@ do
 end
 
 -- regentlib.rexpr, regentlib.rexpr, regentlib.rexpr* -> regentlib.rquote
-local function mkConsoleWrite(config, format, ...)
+local function emitConsoleWrite(config, format, ...)
   local args = terralib.newlist{...}
   return rquote
     var consoleFile = [&int8](C.malloc(256))
@@ -364,25 +364,25 @@ task Console_write(config : Config,
                    Particles_number : int64,
                    Particles_averageTemperature : double)
   var currTime = regentlib.c.legion_get_current_time_in_micros() / 1000;
-  [mkConsoleWrite(config, '%d\t'..
-                          '%e\t'..
-                          '%llu.%03llu\t'..
-                          '%e\t'..
-                          '%e\t'..
-                          '%e\t'..
-                          '%e\t'..
-                          '%lld\t'..
-                          '%e\n',
-                  Integrator_timeStep,
-                  Integrator_simTime,
-                  rexpr (currTime - startTime) / 1000 end,
-		  rexpr (currTime - startTime) % 1000 end,
-                  Integrator_deltaTime,
-                  Flow_averagePressure,
-                  Flow_averageTemperature,
-                  Flow_averageKineticEnergy,
-                  Particles_number,
-                  Particles_averageTemperature)];
+  [emitConsoleWrite(config, '%d\t'..
+                            '%e\t'..
+                            '%llu.%03llu\t'..
+                            '%e\t'..
+                            '%e\t'..
+                            '%e\t'..
+                            '%e\t'..
+                            '%lld\t'..
+                            '%e\n',
+                    Integrator_timeStep,
+                    Integrator_simTime,
+                    rexpr (currTime - startTime) / 1000 end,
+                    rexpr (currTime - startTime) % 1000 end,
+                    Integrator_deltaTime,
+                    Flow_averagePressure,
+                    Flow_averageTemperature,
+                    Flow_averageKineticEnergy,
+                    Particles_number,
+                    Particles_averageTemperature)];
 end
 
 -------------------------------------------------------------------------------
@@ -4884,15 +4884,15 @@ local function mkInstance() local INSTANCE = {}
     var [startTime] = regentlib.c.legion_get_current_time_in_micros() / 1000;
 
     -- Write console header
-    [mkConsoleWrite(config, 'Iter\t'..
-                            'Sim Time\t'..
-                            'Wall t\t'..
-                            'Delta Time\t'..
-                            'Avg Press\t'..
-                            'Avg Temp\t'..
-                            'Average KE\t'..
-                            '#Part\t'..
-                            'Particle T\n')];
+    [emitConsoleWrite(config, 'Iter\t'..
+                              'Sim Time\t'..
+                              'Wall t\t'..
+                              'Delta Time\t'..
+                              'Avg Press\t'..
+                              'Avg Temp\t'..
+                              'Average KE\t'..
+                              '#Part\t'..
+                              'Particle T\n')];
 
     ---------------------------------------------------------------------------
     -- Declare & initialize state variables
@@ -5171,21 +5171,21 @@ local function mkInstance() local INSTANCE = {}
                                   y = config.Grid.yNum + 2*Grid.yBnum,
                                   z = config.Grid.zNum + 2*Grid.zBnum})
     var [Fluid] = region(is_Fluid, Fluid_columns);
-    [UTIL.mkRegionTagAttach(Fluid, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+    [UTIL.emitRegionTagAttach(Fluid, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     var [Fluid_copy] = region(is_Fluid, Fluid_columns);
-    [UTIL.mkRegionTagAttach(Fluid_copy, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+    [UTIL.emitRegionTagAttach(Fluid_copy, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
 
     -- Create Particles Regions
     var maxParticlesPerTile = ceil((config.Particles.maxNum/numTiles)*config.Particles.maxSkew)
     var is_Particles = ispace(int1d, maxParticlesPerTile * numTiles)
     var [Particles] = region(is_Particles, Particles_columns);
-    [UTIL.mkRegionTagAttach(Particles, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+    [UTIL.emitRegionTagAttach(Particles, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     var [Particles_copy] = region(is_Particles, Particles_columns);
-    [UTIL.mkRegionTagAttach(Particles_copy, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+    [UTIL.emitRegionTagAttach(Particles_copy, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     var is_TradeQueue = ispace(int1d, config.Particles.maxXferNum * numTiles);
     @ESCAPE for k = 1,26 do @EMIT
       var [TradeQueue[k]] = region(is_TradeQueue, TradeQueue_columns);
-      [UTIL.mkRegionTagAttach(TradeQueue[k], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+      [UTIL.emitRegionTagAttach(TradeQueue[k], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     @TIME end @EPACSE
 
     -- Create Radiation Regions
@@ -5193,7 +5193,7 @@ local function mkInstance() local INSTANCE = {}
                                       y = config.Radiation.yNum,
                                       z = config.Radiation.zNum})
     var [Radiation] = region(is_Radiation, Radiation_columns);
-    [UTIL.mkRegionTagAttach(Radiation, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+    [UTIL.emitRegionTagAttach(Radiation, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
 
     -- Partitioning domain
     var [tiles] = ispace(int3d, {NX,NY,NZ})
@@ -5267,7 +5267,9 @@ local function mkInstance() local INSTANCE = {}
     regentlib.c.legion_domain_point_coloring_destroy(coloring_TradeQueue)
 
     -- Radiation Partitioning
-    var [p_Radiation] = [UTIL.mkEqualPartitioner(Radiation_columns)](Radiation, tiles)
+    var [p_Radiation] =
+      [UTIL.mkPartitionEqually(int3d, int3d, Radiation_columns)]
+      (Radiation, tiles)
 
     ---------------------------------------------------------------------------
     -- DOM code declarations
@@ -5907,10 +5909,10 @@ local function mkInstance() local INSTANCE = {}
 
     -- Report final time
     var endTime = regentlib.c.legion_get_current_time_in_micros() / 1000;
-    [mkConsoleWrite(config,
-                    'Total time: %llu.%03llu seconds\n',
-                    rexpr (endTime - startTime) / 1000 end,
-                    rexpr (endTime - startTime) % 1000 end)];
+    [emitConsoleWrite(config,
+                      'Total time: %llu.%03llu seconds\n',
+                      rexpr (endTime - startTime) / 1000 end,
+                      rexpr (endTime - startTime) % 1000 end)];
 
   end end -- Cleanup
 
@@ -5939,7 +5941,7 @@ task workSingle(config : Config)
   [SIM.DeclSymbols(config)];
   var is_FakeCopyQueue = ispace(int1d, 0)
   var [FakeCopyQueue] = region(is_FakeCopyQueue, CopyQueue_columns);
-  [UTIL.mkRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
+  [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
   [parallelizeFor(SIM, rquote
     [SIM.InitRegions(config)];
     while true do
@@ -5964,7 +5966,7 @@ task workDual(mc : MultiConfig)
   [SIM1.DeclSymbols(rexpr mc.configs[1] end)];
   var is_FakeCopyQueue = ispace(int1d, 0)
   var [FakeCopyQueue] = region(is_FakeCopyQueue, CopyQueue_columns);
-  [UTIL.mkRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
+  [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
   var copySrcOrigin = array(
     SIM0.Grid.xRealOrigin + mc.copySrc.fromCell[0] * SIM0.Grid.xCellWidth,
     SIM0.Grid.yRealOrigin + mc.copySrc.fromCell[1] * SIM0.Grid.yCellWidth,
@@ -5987,7 +5989,7 @@ task workDual(mc : MultiConfig)
   end
   var is_CopyQueue = ispace(int1d, CopyQueue_ptr)
   var [CopyQueue] = region(is_CopyQueue, CopyQueue_columns);
-  [UTIL.mkRegionTagAttach(CopyQueue, MAPPER.SAMPLE_ID_TAG, rexpr mc.configs[0].Mapping.sampleId end, int)];
+  [UTIL.emitRegionTagAttach(CopyQueue, MAPPER.SAMPLE_ID_TAG, rexpr mc.configs[0].Mapping.sampleId end, int)];
   var p_CopyQueue = partition(disjoint, CopyQueue, coloring_CopyQueue, SIM0.tiles)
   regentlib.c.legion_domain_point_coloring_destroy(coloring_CopyQueue)
   -- Check 2-section configuration

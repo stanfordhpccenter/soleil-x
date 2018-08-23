@@ -87,7 +87,8 @@ task main()
   var tiles = ispace(int3d, {config[0].Mapping.tiles[0],
                              config[0].Mapping.tiles[1],
                              config[0].Mapping.tiles[2]})
-  var p_points = [UTIL.mkEqualPartitioner(Point_columns)](points, tiles);
+  var p_points =
+    [UTIL.mkPartitionEqually(int3d, int3d, Point_columns)](points, tiles);
   -- Declare DOM-managed regions
   [DOM_INST.DeclSymbols(rexpr config[0] end, tiles)];
   [DOM_INST.InitRegions(rexpr config[0] end, tiles, p_points)];
