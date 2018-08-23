@@ -69,6 +69,7 @@ local struct Face_columns {
   I_prev : regentlib.array(double, MAX_ANGLES_PER_QUAD);
 }
 
+-- A sub-point holds information specific to a cell center and angle.
 local struct SubPoint_columns {
   I : double;
 }
@@ -182,14 +183,90 @@ do
   end
 end
 
+-- Sub-points within a tile are laid out in the order that the sweep code will
+-- process them: (x,y,z) point coordinates are grouped by diagonal, and angle
+-- values are contiguous per point. E.g. on a 2x2 grid with 2 angles, subpoints
+-- would be laid out as follows (order of elements is mxy):
+-- 000 100 200 010 110 210 001 101 201 011 111 211
+-- |<diag. 0>| |<    diagonal 1     >| |<diag. 2>|
+-- This task fills in the mappings that allow us to move from one ordering to
+-- the other. Given a 1d subpoint index s, we would proceed as follows to find
+-- the 3d point p it corresponds to:
+-- * Split the 1d index point s into its 4 coordinates m,x,y,z.
+-- * Follow the s3d_to_p_Q field for the appropriate quadrant Q on (x,y,z).
+
+local p_to_s3d = terralib.newlist{
+  'p_to_s3d_1', 'p_to_s3d_2', 'p_to_s3d_3', 'p_to_s3d_4',
+  'p_to_s3d_5', 'p_to_s3d_6', 'p_to_s3d_7', 'p_to_s3d_8'
+}
+local s3d_to_p = terralib.newlist{
+  's3d_to_p_1', 's3d_to_p_2', 's3d_to_p_3', 's3d_to_p_4',
+  's3d_to_p_5', 's3d_to_p_6', 's3d_to_p_7', 's3d_to_p_8'
+}
+
+local -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+task cache_grid_translation(points : region(ispace(int3d), Point_columns))
+where
+  writes(points.[p_to_s3d], points.[s3d_to_p])
+do
+  var Nx = points.bounds.hi.x - points.bounds.lo.x + 1
+  var Ny = points.bounds.hi.y - points.bounds.lo.y + 1
+  var Nz = points.bounds.hi.z - points.bounds.lo.z + 1;
+  @ESCAPE for q = 1, 8 do @EMIT
+    -- Start one-before the first grid-order index
+    var grid = int3d{-1,0,0}
+    for d = 0, (Nx-1)+(Ny-1)+(Nz-1)+1 do
+      -- Set diagonal-order index to the smallest for this diagonal
+      var diag : int3d
+      diag.x = min(d, Nx-1)
+      diag.y = min(d-diag.x, Ny-1)
+      diag.z = d-diag.x-diag.y
+      while true do
+        -- Advance grid-order index
+        if grid.x < Nx-1 then
+          grid.x += 1
+        elseif grid.y < Ny-1 then
+          grid.x = 0
+          grid.y += 1
+        elseif grid.z < Nz-1 then
+          grid.x = 0
+          grid.y = 0
+          grid.z += 1
+        else regentlib.assert(false, 'Internal error') end
+        -- Store mapping for this pair of indices
+        var real = int3d{
+          [directions[q][1] and rexpr diag.x end or rexpr Nx-diag.x-1 end],
+          [directions[q][2] and rexpr diag.y end or rexpr Ny-diag.y-1 end],
+          [directions[q][3] and rexpr diag.z end or rexpr Nz-diag.z-1 end]}
+        points[real + points.bounds.lo].[p_to_s3d[q]] = grid + points.bounds.lo
+        points[grid + points.bounds.lo].[s3d_to_p[q]] = real + points.bounds.lo
+        -- Advance diagonal-order index
+        if diag.x > 0 and diag.y < Ny-1 then
+          diag.x -= 1
+          diag.y += 1
+        elseif diag.z < min(d, Nz-1) then
+          diag.z += 1
+          diag.x = min(d-diag.z, Nx-1)
+          diag.y = d-diag.z-diag.x
+        else
+          -- We've run out of indices on this diagonal, continue to next one
+          break
+        end
+      end
+    end
+    regentlib.assert(grid.x == Nx-1 and grid.y == Ny-1 and grid.z == Nz-1,
+                     'Internal error')
+  @TIME end @EPACSE
+end
+
 local __demand(__cuda) -- MANUALLY PARALLELIZED
-task initialize_sub_points(sub_points : region(ispace(int3d), SubPoint_columns))
+task initialize_sub_points(sub_points : region(ispace(int1d), SubPoint_columns))
 where
   writes(sub_points.I)
 do
   __demand(__openmp)
-  for s in sub_points do
-    s.I = 0.0
+  for s1d in sub_points do
+    s1d.I = 0.0
   end
 end
 
@@ -409,16 +486,19 @@ local function mkSweep(q)
 
   local __demand(__cuda) -- MANUALLY PARALLELIZED
   task sweep(points : region(ispace(int3d), Point_columns),
-             sub_points : region(ispace(int3d), SubPoint_columns),
+             sub_points : region(ispace(int1d), SubPoint_columns),
              x_faces : region(ispace(int2d), Face_columns),
              y_faces : region(ispace(int2d), Face_columns),
              z_faces : region(ispace(int2d), Face_columns),
              angles : region(ispace(int1d), Angle_columns),
              config : Config)
   where
-    reads(angles.{xi, eta, mu}, points.{S, sigma}),
+    reads(angles.{xi, eta, mu}, points.{S, sigma, [p_to_s3d[q]]}),
     reads writes(sub_points.I, x_faces.I, y_faces.I, z_faces.I)
   do
+    var Nx = points.bounds.hi.x - points.bounds.lo.x + 1
+    var Ny = points.bounds.hi.y - points.bounds.lo.y + 1
+    var Nz = points.bounds.hi.z - points.bounds.lo.z + 1
     var dx = config.Grid.xWidth / config.Radiation.xNum
     var dy = config.Grid.yWidth / config.Radiation.yNum
     var dz = config.Grid.zWidth / config.Radiation.zNum
@@ -426,37 +506,39 @@ local function mkSweep(q)
     var dAy = dx*dz
     var dAz = dx*dy
     var dV = dx*dy*dz
+    var num_angles = config.Radiation.angles
     var [bnd] = points.bounds
     var res = 0.0
-    -- Loop over this quadrant's angles
-    __demand(__openmp)
-    for m in angles do
-      -- Use our direction and increments for the sweep
-      for k = startz,endz,dindz do
-        for j = starty,endy,dindy do
-          for i = startx,endx,dindx do
+    for z = startz,endz,dindz do
+      for y = starty,endy,dindy do
+        for x = startx,endx,dindx do
+          var s3d = points[{x,y,z}].[p_to_s3d[q]]
+          var s1d = MAX_ANGLES_PER_QUAD * s3d.x
+                  + MAX_ANGLES_PER_QUAD * Nx    * s3d.y
+                  + MAX_ANGLES_PER_QUAD * Nx    * Ny    * s3d.z
+          for m = 0, quadrantSize(q, num_angles) do
             -- Read upwind face values
-            var x_value = x_faces[{  j,k}].I[int(m)]
-            var y_value = y_faces[{i,  k}].I[int(m)]
-            var z_value = z_faces[{i,j  }].I[int(m)]
+            var x_value = x_faces[{  y,z}].I[m]
+            var y_value = y_faces[{x,  z}].I[m]
+            var z_value = z_faces[{x,y  }].I[m]
             -- Integrate to compute cell-centered value of I
-            var oldI = sub_points[{i*MAX_ANGLES_PER_QUAD+int(m),j,k}].I
-            var newI = (points[{i,j,k}].S * dV
-                        + fabs(m.xi)  * dAx * x_value/GAMMA
-                        + fabs(m.eta) * dAy * y_value/GAMMA
-                        + fabs(m.mu)  * dAz * z_value/GAMMA)
-                     / (points[{i,j,k}].sigma * dV
-                        + fabs(m.xi)  * dAx/GAMMA
-                        + fabs(m.eta) * dAy/GAMMA
-                        + fabs(m.mu)  * dAz/GAMMA)
+            var oldI = sub_points[s1d + m].I
+            var newI = (points[{x,y,z}].S * dV
+                        + fabs(angles[m].xi)  * dAx * x_value/GAMMA
+                        + fabs(angles[m].eta) * dAy * y_value/GAMMA
+                        + fabs(angles[m].mu)  * dAz * z_value/GAMMA)
+                     / (points[{x,y,z}].sigma * dV
+                        + fabs(angles[m].xi)  * dAx/GAMMA
+                        + fabs(angles[m].eta) * dAy/GAMMA
+                        + fabs(angles[m].mu)  * dAz/GAMMA)
             if newI > 0.0 then
               res += pow(newI-oldI,2) / pow(newI,2)
             end
-            sub_points[{i*MAX_ANGLES_PER_QUAD+int(m),j,k}].I = newI
+            sub_points[s1d + m].I = newI
             -- Compute intensities on downwind faces
-            x_faces[{  j,k}].I[int(m)] = max(0.0, (newI-(1-GAMMA)*x_value)/GAMMA)
-            y_faces[{i,  k}].I[int(m)] = max(0.0, (newI-(1-GAMMA)*y_value)/GAMMA)
-            z_faces[{i,j  }].I[int(m)] = max(0.0, (newI-(1-GAMMA)*z_value)/GAMMA)
+            x_faces[{  y,z}].I[m] = max(0.0, (newI-(1-GAMMA)*x_value)/GAMMA)
+            y_faces[{x,  z}].I[m] = max(0.0, (newI-(1-GAMMA)*y_value)/GAMMA)
+            z_faces[{x,y  }].I[m] = max(0.0, (newI-(1-GAMMA)*z_value)/GAMMA)
           end
         end
       end
@@ -474,7 +556,7 @@ end -- mkSweep
 local sweep = UTIL.range(1,8):map(function(q) return mkSweep(q) end)
 
 local sub_points = UTIL.generate(8, function()
-  return regentlib.newsymbol(region(ispace(int3d), SubPoint_columns))
+  return regentlib.newsymbol(region(ispace(int1d), SubPoint_columns))
 end)
 
 local __demand(__cuda) -- MANUALLY PARALLELIZED
@@ -483,6 +565,7 @@ task reduce_intensity(points : region(ispace(int3d), Point_columns),
                       [angles],
                       config : Config)
 where
+  reads(points.[p_to_s3d]),
   [sub_points:map(function(s)
      return regentlib.privilege(regentlib.reads, s, 'I')
    end)],
@@ -491,6 +574,9 @@ where
    end)],
   reads writes(points.G)
 do
+  var Nx = points.bounds.hi.x - points.bounds.lo.x + 1
+  var Ny = points.bounds.hi.y - points.bounds.lo.y + 1
+  var Nz = points.bounds.hi.z - points.bounds.lo.z + 1
   var num_angles = config.Radiation.angles
   __demand(__openmp)
   for p in points do
@@ -498,11 +584,16 @@ do
   end
   @ESCAPE for q = 1, 8 do @EMIT
     __demand(__openmp)
-    for s in [sub_points[q]] do
-      var m = s.x % MAX_ANGLES_PER_QUAD
-      if m < quadrantSize(q, num_angles) then
-        points[{s.x/MAX_ANGLES_PER_QUAD,s.y,s.z}].G += [angles[q]][m].w * s.I
+    for p in points do
+      var G = 0.0
+      var s3d = p.[p_to_s3d[q]]
+      var s1d = MAX_ANGLES_PER_QUAD * s3d.x
+              + MAX_ANGLES_PER_QUAD * Nx    * s3d.y
+              + MAX_ANGLES_PER_QUAD * Nx    * Ny    * s3d.z
+      for m = 0, quadrantSize(q, num_angles) do
+        G += [angles[q]][m].w * [sub_points[q]][s1d + m].I
       end
+      p.G += G
     end
   @TIME end @EPACSE
 end
@@ -558,9 +649,9 @@ function MODULE.mkInstance() local INSTANCE = {}
     -- (managed by the host code)
 
     -- Regions for sub-points
-    -- Emulate int4d by rolling the angles into the fastest-changing dimension.
-    -- The effective storage order will be Z > Y > X > M.
-    var is_sub_points = ispace(int3d, {Nx*MAX_ANGLES_PER_QUAD,Ny,Nz});
+    -- Conceptually int4d, but rolled into 1 dimension to make CUDA code
+    -- generation easier. The effective storage order is Z > Y > X > M.
+    var is_sub_points = ispace(int1d, {MAX_ANGLES_PER_QUAD*Nx*Ny*Nz});
     @ESCAPE for q = 1, 8 do @EMIT
       var [sub_points[q]] = region(is_sub_points, SubPoint_columns);
       [UTIL.emitRegionTagAttach(sub_points[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
@@ -592,7 +683,7 @@ function MODULE.mkInstance() local INSTANCE = {}
     -- Partition sub-points
     @ESCAPE for q = 1, 8 do @EMIT
       var [p_sub_points[q]] =
-        [UTIL.mkPartitionEqually(int3d, int3d, SubPoint_columns)]
+        [UTIL.mkPartitionEqually(int1d, int3d, SubPoint_columns)]
         ([sub_points[q]], tiles)
     @TIME end @EPACSE
 
@@ -644,6 +735,9 @@ function MODULE.mkInstance() local INSTANCE = {}
     for c in tiles do
       initialize_points(p_points[c])
     end
+    for c in tiles do
+      cache_grid_translation(p_points[c])
+    end
 
     -- Initialize sub-points
     @ESCAPE for q = 1, 8 do @EMIT
@@ -675,9 +769,7 @@ function MODULE.mkInstance() local INSTANCE = {}
     -- Initialize intensity.
     for c in tiles do
       reduce_intensity(p_points[c],
-                       [p_sub_points:map(function(s)
-                          return rexpr s[c] end
-                        end)],
+                       [p_sub_points:map(function(s) return rexpr s[c] end end)],
                        [angles],
                        config)
     end
@@ -867,9 +959,7 @@ function MODULE.mkInstance() local INSTANCE = {}
       -- Update intensity.
       for c in tiles do
         reduce_intensity(p_points[c],
-                         [p_sub_points:map(function(s)
-                            return rexpr s[c] end
-                          end)],
+                         [p_sub_points:map(function(s) return rexpr s[c] end end)],
                          [angles],
                          config)
       end

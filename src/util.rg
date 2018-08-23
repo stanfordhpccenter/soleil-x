@@ -502,7 +502,7 @@ function Exports.mkPartitionEqually(r_istype, cs_istype, fs)
   elseif r_istype == int1d and cs_istype == int3d then
     __demand(__inline)
     task partitionEqually(r : region(ispace(int1d), fs), cs : ispace(int3d))
-      var N = r.bounds.hi + 1
+      var N = [int](r.bounds.hi + 1)
       var ntx = cs.bounds.hi.x + 1
       var nty = cs.bounds.hi.y + 1
       var ntz = cs.bounds.hi.z + 1
