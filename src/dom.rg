@@ -259,80 +259,65 @@ do
   @TIME end @EPACSE
 end
 
--- 1..8 -> regentlib.task
-local function mkPartitionSubPointOffsets(q)
-
-  local -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-  task partition_sub_point_offsets(points : region(ispace(int3d), Point_columns),
-                                   sub_point_offsets : region(ispace(int1d), bool),
-                                   diagonals : ispace(int1d))
-  where
-    reads(points.[s3d_to_p[q]])
-  do
-    var Tx = points.bounds.hi.x - points.bounds.lo.x + 1
-    var Ty = points.bounds.hi.y - points.bounds.lo.y + 1
-    var Tz = points.bounds.hi.z - points.bounds.lo.z + 1
-    regentlib.assert(
-      points.bounds.lo.x == 0 and
-      points.bounds.lo.y == 0 and
-      points.bounds.lo.z == 0 and
-      int(sub_point_offsets.bounds.lo) == 0 and
-      int(sub_point_offsets.bounds.hi) == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz-1 and
-      int(diagonals.bounds.lo) == 0 and
-      int(diagonals.bounds.hi) == (Tx-1)+(Ty-1)+(Tz-1),
-      'Internal error')
-    var coloring = regentlib.c.legion_domain_point_coloring_create()
-    var start = 0
-    var d = 0
-    var prev_sum : int
-    -- Iterate over the points in diagonal order, detect where we change
-    -- diagonal, and color those with increasing diagonal numbers. The points
-    -- should already be laid out in the order that the sweep code will access
-    -- them (regardless of quadrant), and there should only be one contiguous
-    -- span for each diagonal.
-    for z = 0, Tz do
-      for y = 0, Ty do
-        for x = 0, Tx do
-          var s3d = int3d{x,y,z}
-          var p = points[s3d].[s3d_to_p[q]]
-          var curr_sum = p.x + p.y + p.z
-          if x == 0 and y == 0 and z == 0 then
-            prev_sum = curr_sum
-          elseif curr_sum ~= prev_sum then
-            -- Entered a new diagonal
-            var s1d = MAX_ANGLES_PER_QUAD * s3d.x
-                    + MAX_ANGLES_PER_QUAD * Tx    * s3d.y
-                    + MAX_ANGLES_PER_QUAD * Tx    * Ty    * s3d.z
-            var rect = rect1d{ lo = start, hi = s1d-1 }
-            regentlib.c.legion_domain_point_coloring_color_domain(
-              coloring, int1d(d), rect)
-            start = s1d
-            d += 1
-            prev_sum = curr_sum
-          end
+local -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+task partition_sub_point_offsets(points : region(ispace(int3d), Point_columns),
+                                 sub_point_offsets : region(ispace(int1d), bool),
+                                 diagonals : ispace(int1d))
+where
+  reads(points.s3d_to_p_1)
+do
+  var Tx = points.bounds.hi.x - points.bounds.lo.x + 1
+  var Ty = points.bounds.hi.y - points.bounds.lo.y + 1
+  var Tz = points.bounds.hi.z - points.bounds.lo.z + 1
+  regentlib.assert(
+    points.bounds.lo.x == 0 and
+    points.bounds.lo.y == 0 and
+    points.bounds.lo.z == 0 and
+    int(sub_point_offsets.bounds.lo) == 0 and
+    int(sub_point_offsets.bounds.hi) == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz-1 and
+    int(diagonals.bounds.lo) == 0 and
+    int(diagonals.bounds.hi) == (Tx-1)+(Ty-1)+(Tz-1),
+    'Internal error')
+  var coloring = regentlib.c.legion_domain_point_coloring_create()
+  var start = 0
+  var d = 0
+  -- Iterate over the points in diagonal order, detect where we change
+  -- diagonal, and color those with increasing diagonal numbers. The points
+  -- should already be laid out in the order that the sweep code will access
+  -- them (regardless of quadrant), and there should only be one contiguous
+  -- span for each diagonal.
+  for z = 0, Tz do
+    for y = 0, Ty do
+      for x = 0, Tx do
+        var s3d = int3d{x,y,z}
+        var p = points[s3d].s3d_to_p_1
+        var sum = p.x + p.y + p.z
+        if sum == d+1 then
+          -- Entered a new diagonal
+          var s1d = MAX_ANGLES_PER_QUAD * s3d.x
+                  + MAX_ANGLES_PER_QUAD * Tx    * s3d.y
+                  + MAX_ANGLES_PER_QUAD * Tx    * Ty    * s3d.z
+          var rect = rect1d{ lo = start, hi = s1d-1 }
+          regentlib.c.legion_domain_point_coloring_color_domain(
+            coloring, int1d(d), rect)
+          start = s1d
+          d += 1
+        else
+          regentlib.assert(sum == d, 'Internal error')
         end
       end
     end
-    -- Add last diagonal
-    regentlib.assert(d == int(diagonals.bounds.hi), 'Internal error')
-    var rect = rect1d{ lo = start, hi = sub_point_offsets.bounds.hi }
-    regentlib.c.legion_domain_point_coloring_color_domain(
-      coloring, int1d(d), rect)
-    -- Construct & return partition
-    var p = partition(disjoint, sub_point_offsets, coloring, diagonals)
-    regentlib.c.legion_domain_point_coloring_destroy(coloring)
-    return p
   end
-
-  local name = 'partition_sub_point_offsets_'..tostring(q)
-  partition_sub_point_offsets:set_name(name)
-  partition_sub_point_offsets:get_primary_variant():get_ast().name[1] = name
-  return partition_sub_point_offsets
-
-end -- mkPartitionSubPointOffsets
-
-local partition_sub_point_offsets =
-  UTIL.range(1,8):map(function(q) return mkPartitionSubPointOffsets(q) end)
+  -- Add last diagonal
+  regentlib.assert(d == int(diagonals.bounds.hi), 'Internal error')
+  var rect = rect1d{ lo = start, hi = sub_point_offsets.bounds.hi }
+  regentlib.c.legion_domain_point_coloring_color_domain(
+    coloring, int1d(d), rect)
+  -- Construct & return partition
+  var p = partition(disjoint, sub_point_offsets, coloring, diagonals)
+  regentlib.c.legion_domain_point_coloring_destroy(coloring)
+  return p
+end
 
 local __demand(__cuda) -- MANUALLY PARALLELIZED
 task initialize_sub_points(sub_points : region(ispace(int1d), SubPoint_columns))
@@ -710,7 +695,7 @@ function MODULE.mkInstance() local INSTANCE = {}
   local z_tiles = regentlib.newsymbol('z_tiles')
 
   local p_sub_points = UTIL.generate(8, regentlib.newsymbol)
-  local p_sub_point_offsets = UTIL.generate(8, regentlib.newsymbol)
+  local p_sub_point_offsets = regentlib.newsymbol('p_sub_point_offsets')
   local p_x_faces = UTIL.generate(8, regentlib.newsymbol)
   local p_y_faces = UTIL.generate(8, regentlib.newsymbol)
   local p_z_faces = UTIL.generate(8, regentlib.newsymbol)
@@ -862,12 +847,8 @@ function MODULE.mkInstance() local INSTANCE = {}
     -- Partition sub-point offsets
     -- This had to wait until we have computed the translation mapping between
     -- points and subpoints.
-    @ESCAPE for q = 1, 8 do @EMIT
-      var [p_sub_point_offsets[q]] =
-        [partition_sub_point_offsets[q]](p_points[{0,0,0}],
-                                         sub_point_offsets,
-                                         diagonals)
-    @TIME end @EPACSE
+    var [p_sub_point_offsets] =
+      partition_sub_point_offsets(p_points[{0,0,0}], sub_point_offsets, diagonals)
 
   end end -- InitRegions
 
@@ -948,7 +929,7 @@ function MODULE.mkInstance() local INSTANCE = {}
                          [p_sub_points[1]][{i,j,k}],
                          sub_point_offsets,
                          diagonals,
-                         [p_sub_point_offsets[1]],
+                         p_sub_point_offsets,
                          [p_x_faces[1]][{  j,k}],
                          [p_y_faces[1]][{i,  k}],
                          [p_z_faces[1]][{i,j  }],
@@ -966,7 +947,7 @@ function MODULE.mkInstance() local INSTANCE = {}
                          [p_sub_points[2]][{i,j,k}],
                          sub_point_offsets,
                          diagonals,
-                         [p_sub_point_offsets[2]],
+                         p_sub_point_offsets,
                          [p_x_faces[2]][{  j,k}],
                          [p_y_faces[2]][{i,  k}],
                          [p_z_faces[2]][{i,j  }],
@@ -984,7 +965,7 @@ function MODULE.mkInstance() local INSTANCE = {}
                          [p_sub_points[3]][{i,j,k}],
                          sub_point_offsets,
                          diagonals,
-                         [p_sub_point_offsets[3]],
+                         p_sub_point_offsets,
                          [p_x_faces[3]][{  j,k}],
                          [p_y_faces[3]][{i,  k}],
                          [p_z_faces[3]][{i,j  }],
@@ -1002,7 +983,7 @@ function MODULE.mkInstance() local INSTANCE = {}
                          [p_sub_points[4]][{i,j,k}],
                          sub_point_offsets,
                          diagonals,
-                         [p_sub_point_offsets[4]],
+                         p_sub_point_offsets,
                          [p_x_faces[4]][{  j,k}],
                          [p_y_faces[4]][{i,  k}],
                          [p_z_faces[4]][{i,j  }],
@@ -1020,7 +1001,7 @@ function MODULE.mkInstance() local INSTANCE = {}
                          [p_sub_points[5]][{i,j,k}],
                          sub_point_offsets,
                          diagonals,
-                         [p_sub_point_offsets[5]],
+                         p_sub_point_offsets,
                          [p_x_faces[5]][{  j,k}],
                          [p_y_faces[5]][{i,  k}],
                          [p_z_faces[5]][{i,j  }],
@@ -1038,7 +1019,7 @@ function MODULE.mkInstance() local INSTANCE = {}
                          [p_sub_points[6]][{i,j,k}],
                          sub_point_offsets,
                          diagonals,
-                         [p_sub_point_offsets[6]],
+                         p_sub_point_offsets,
                          [p_x_faces[6]][{  j,k}],
                          [p_y_faces[6]][{i,  k}],
                          [p_z_faces[6]][{i,j  }],
@@ -1056,7 +1037,7 @@ function MODULE.mkInstance() local INSTANCE = {}
                          [p_sub_points[7]][{i,j,k}],
                          sub_point_offsets,
                          diagonals,
-                         [p_sub_point_offsets[7]],
+                         p_sub_point_offsets,
                          [p_x_faces[7]][{  j,k}],
                          [p_y_faces[7]][{i,  k}],
                          [p_z_faces[7]][{i,j  }],
@@ -1074,7 +1055,7 @@ function MODULE.mkInstance() local INSTANCE = {}
                          [p_sub_points[8]][{i,j,k}],
                          sub_point_offsets,
                          diagonals,
-                         [p_sub_point_offsets[8]],
+                         p_sub_point_offsets,
                          [p_x_faces[8]][{  j,k}],
                          [p_y_faces[8]][{i,  k}],
                          [p_z_faces[8]][{i,j  }],
