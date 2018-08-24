@@ -499,6 +499,24 @@ function Exports.mkPartitionEqually(r_istype, cs_istype, fs)
       regentlib.c.legion_domain_point_coloring_destroy(coloring)
       return p
     end
+  elseif r_istype == int2d and cs_istype == int2d then
+    __demand(__inline)
+    task partitionEqually(r : region(ispace(int2d), fs), cs : ispace(int2d))
+      var Nx = r.bounds.hi.x + 1; var ntx = cs.bounds.hi.x + 1
+      var Ny = r.bounds.hi.y + 1; var nty = cs.bounds.hi.y + 1
+      regentlib.assert(Nx % ntx == 0, "Uneven partitioning on x")
+      regentlib.assert(Ny % nty == 0, "Uneven partitioning on y")
+      var coloring = regentlib.c.legion_domain_point_coloring_create()
+      for c in cs do
+        var rect = rect2d{
+          lo = int2d{(Nx/ntx)*(c.x),     (Ny/nty)*(c.y),   },
+          hi = int2d{(Nx/ntx)*(c.x+1)-1, (Ny/nty)*(c.y+1)-1}}
+        regentlib.c.legion_domain_point_coloring_color_domain(coloring, c, rect)
+      end
+      var p = partition(disjoint, r, coloring, cs)
+      regentlib.c.legion_domain_point_coloring_destroy(coloring)
+      return p
+    end
   elseif r_istype == int1d and cs_istype == int3d then
     __demand(__inline)
     task partitionEqually(r : region(ispace(int1d), fs), cs : ispace(int3d))

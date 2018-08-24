@@ -65,8 +65,8 @@ local struct Angle_columns {
 }
 
 local struct Face_columns {
-  I      : regentlib.array(double, MAX_ANGLES_PER_QUAD);
-  I_prev : regentlib.array(double, MAX_ANGLES_PER_QUAD);
+  I      : double[MAX_ANGLES_PER_QUAD];
+  I_prev : double[MAX_ANGLES_PER_QUAD];
 }
 
 -- A sub-point holds information specific to a cell center and angle.
@@ -340,9 +340,9 @@ local function mkInitializeFaces(dim, q)
     reads writes(faces.I)
   do
     var num_angles = config.Radiation.angles
-    for m = 0, quadrantSize(q, num_angles) do
-      __demand(__openmp)
-      for f in faces do
+    __demand(__openmp)
+    for f in faces do
+      for m = 0, quadrantSize(q, num_angles) do
         f.I[m] = 0.0
       end
     end
@@ -386,9 +386,9 @@ local function mkCacheIntensity(dim, q)
     reads writes(faces.I_prev)
   do
     var num_angles = config.Radiation.angles
-    for m = 0, quadrantSize(q, num_angles) do
-      __demand(__openmp)
-      for f in faces do
+    __demand(__openmp)
+    for f in faces do
+      for m = 0, quadrantSize(q, num_angles) do
         f.I_prev[m] = f.I[m]
       end
     end
@@ -774,39 +774,15 @@ function MODULE.mkInstance() local INSTANCE = {}
     var [y_tiles] = ispace(int2d, {ntx,    ntz})
     var [z_tiles] = ispace(int2d, {ntx,nty    });
     @ESCAPE for q = 1, 8 do @EMIT
-      -- x
-      var x_coloring = regentlib.c.legion_domain_point_coloring_create()
-      for c in x_tiles do
-        var a = c.x
-        var b = c.y
-        var rect = rect2d{lo = int2d{Ty*a,       Tz*b      },
-                          hi = int2d{Ty*(a+1)-1, Tz*(b+1)-1}}
-        regentlib.c.legion_domain_point_coloring_color_domain(x_coloring, c, rect)
-      end
-      var [p_x_faces[q]] = partition(disjoint, [x_faces[q]], x_coloring, x_tiles)
-      regentlib.c.legion_domain_point_coloring_destroy(x_coloring);
-      -- y
-      var y_coloring = regentlib.c.legion_domain_point_coloring_create()
-      for c in y_tiles do
-        var a = c.x
-        var b = c.y
-        var rect = rect2d{lo = int2d{Tx*a,       Tz*b      },
-                          hi = int2d{Tx*(a+1)-1, Tz*(b+1)-1}}
-        regentlib.c.legion_domain_point_coloring_color_domain(y_coloring, c, rect)
-      end
-      var [p_y_faces[q]] = partition(disjoint, [y_faces[q]], y_coloring, y_tiles)
-      regentlib.c.legion_domain_point_coloring_destroy(y_coloring);
-      -- z
-      var z_coloring = regentlib.c.legion_domain_point_coloring_create()
-      for c in z_tiles do
-        var a = c.x
-        var b = c.y
-        var rect = rect2d{lo = int2d{Tx*a,       Ty*b      },
-                          hi = int2d{Tx*(a+1)-1, Ty*(b+1)-1}}
-        regentlib.c.legion_domain_point_coloring_color_domain(z_coloring, c, rect)
-      end
-      var [p_z_faces[q]] = partition(disjoint, [z_faces[q]], z_coloring, z_tiles)
-      regentlib.c.legion_domain_point_coloring_destroy(z_coloring);
+      var [p_x_faces[q]] =
+        [UTIL.mkPartitionEqually(int2d, int2d, Face_columns)]
+        ([x_faces[q]], x_tiles)
+      var [p_y_faces[q]] =
+        [UTIL.mkPartitionEqually(int2d, int2d, Face_columns)]
+        ([y_faces[q]], y_tiles)
+      var [p_z_faces[q]] =
+        [UTIL.mkPartitionEqually(int2d, int2d, Face_columns)]
+        ([z_faces[q]], z_tiles)
     @TIME end @EPACSE
 
   end end -- DeclSymbols
