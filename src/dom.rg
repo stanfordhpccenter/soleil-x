@@ -209,44 +209,44 @@ task cache_grid_translation(points : region(ispace(int3d), Point_columns))
 where
   writes(points.[p_to_s3d], points.[s3d_to_p])
 do
-  var Nx = points.bounds.hi.x - points.bounds.lo.x + 1
-  var Ny = points.bounds.hi.y - points.bounds.lo.y + 1
-  var Nz = points.bounds.hi.z - points.bounds.lo.z + 1;
+  var Tx = points.bounds.hi.x - points.bounds.lo.x + 1
+  var Ty = points.bounds.hi.y - points.bounds.lo.y + 1
+  var Tz = points.bounds.hi.z - points.bounds.lo.z + 1;
   @ESCAPE for q = 1, 8 do @EMIT
     -- Start one-before the first grid-order index
     var grid = int3d{-1,0,0}
-    for d = 0, (Nx-1)+(Ny-1)+(Nz-1)+1 do
+    for d = 0, (Tx-1)+(Ty-1)+(Tz-1)+1 do
       -- Set diagonal-order index to the smallest for this diagonal
       var diag : int3d
-      diag.x = min(d, Nx-1)
-      diag.y = min(d-diag.x, Ny-1)
+      diag.x = min(d, Tx-1)
+      diag.y = min(d-diag.x, Ty-1)
       diag.z = d-diag.x-diag.y
       while true do
         -- Advance grid-order index
-        if grid.x < Nx-1 then
+        if grid.x < Tx-1 then
           grid.x += 1
-        elseif grid.y < Ny-1 then
+        elseif grid.y < Ty-1 then
           grid.x = 0
           grid.y += 1
-        elseif grid.z < Nz-1 then
+        elseif grid.z < Tz-1 then
           grid.x = 0
           grid.y = 0
           grid.z += 1
         else regentlib.assert(false, 'Internal error') end
         -- Store mapping for this pair of indices
         var real = int3d{
-          [directions[q][1] and rexpr diag.x end or rexpr Nx-diag.x-1 end],
-          [directions[q][2] and rexpr diag.y end or rexpr Ny-diag.y-1 end],
-          [directions[q][3] and rexpr diag.z end or rexpr Nz-diag.z-1 end]}
+          [directions[q][1] and rexpr diag.x end or rexpr Tx-diag.x-1 end],
+          [directions[q][2] and rexpr diag.y end or rexpr Ty-diag.y-1 end],
+          [directions[q][3] and rexpr diag.z end or rexpr Tz-diag.z-1 end]}
         points[real + points.bounds.lo].[p_to_s3d[q]] = grid + points.bounds.lo
         points[grid + points.bounds.lo].[s3d_to_p[q]] = real + points.bounds.lo
         -- Advance diagonal-order index
-        if diag.x > 0 and diag.y < Ny-1 then
+        if diag.x > 0 and diag.y < Ty-1 then
           diag.x -= 1
           diag.y += 1
-        elseif diag.z < min(d, Nz-1) then
+        elseif diag.z < min(d, Tz-1) then
           diag.z += 1
-          diag.x = min(d-diag.z, Nx-1)
+          diag.x = min(d-diag.z, Tx-1)
           diag.y = d-diag.z-diag.x
         else
           -- We've run out of indices on this diagonal, continue to next one
@@ -254,7 +254,7 @@ do
         end
       end
     end
-    regentlib.assert(grid.x == Nx-1 and grid.y == Ny-1 and grid.z == Nz-1,
+    regentlib.assert(grid.x == Tx-1 and grid.y == Ty-1 and grid.z == Tz-1,
                      'Internal error')
   @TIME end @EPACSE
 end
@@ -496,9 +496,9 @@ local function mkSweep(q)
     reads(angles.{xi, eta, mu}, points.{S, sigma, [p_to_s3d[q]]}),
     reads writes(sub_points.I, x_faces.I, y_faces.I, z_faces.I)
   do
-    var Nx = points.bounds.hi.x - points.bounds.lo.x + 1
-    var Ny = points.bounds.hi.y - points.bounds.lo.y + 1
-    var Nz = points.bounds.hi.z - points.bounds.lo.z + 1
+    var Tx = points.bounds.hi.x - points.bounds.lo.x + 1
+    var Ty = points.bounds.hi.y - points.bounds.lo.y + 1
+    var Tz = points.bounds.hi.z - points.bounds.lo.z + 1
     var dx = config.Grid.xWidth / config.Radiation.xNum
     var dy = config.Grid.yWidth / config.Radiation.yNum
     var dz = config.Grid.zWidth / config.Radiation.zNum
@@ -514,8 +514,8 @@ local function mkSweep(q)
         for x = startx,endx,dindx do
           var s3d = points[{x,y,z}].[p_to_s3d[q]]
           var s1d = MAX_ANGLES_PER_QUAD * s3d.x
-                  + MAX_ANGLES_PER_QUAD * Nx    * s3d.y
-                  + MAX_ANGLES_PER_QUAD * Nx    * Ny    * s3d.z
+                  + MAX_ANGLES_PER_QUAD * Tx    * s3d.y
+                  + MAX_ANGLES_PER_QUAD * Tx    * Ty    * s3d.z
           for m = 0, quadrantSize(q, num_angles) do
             -- Read upwind face values
             var x_value = x_faces[{  y,z}].I[m]
@@ -574,9 +574,9 @@ where
    end)],
   reads writes(points.G)
 do
-  var Nx = points.bounds.hi.x - points.bounds.lo.x + 1
-  var Ny = points.bounds.hi.y - points.bounds.lo.y + 1
-  var Nz = points.bounds.hi.z - points.bounds.lo.z + 1
+  var Tx = points.bounds.hi.x - points.bounds.lo.x + 1
+  var Ty = points.bounds.hi.y - points.bounds.lo.y + 1
+  var Tz = points.bounds.hi.z - points.bounds.lo.z + 1
   var num_angles = config.Radiation.angles
   __demand(__openmp)
   for p in points do
@@ -588,8 +588,8 @@ do
       var G = 0.0
       var s3d = p.[p_to_s3d[q]]
       var s1d = MAX_ANGLES_PER_QUAD * s3d.x
-              + MAX_ANGLES_PER_QUAD * Nx    * s3d.y
-              + MAX_ANGLES_PER_QUAD * Nx    * Ny    * s3d.z
+              + MAX_ANGLES_PER_QUAD * Tx    * s3d.y
+              + MAX_ANGLES_PER_QUAD * Tx    * Ty    * s3d.z
       for m = 0, quadrantSize(q, num_angles) do
         G += [angles[q]][m].w * [sub_points[q]][s1d + m].I
       end
@@ -612,6 +612,9 @@ function MODULE.mkInstance() local INSTANCE = {}
   local ntx = regentlib.newsymbol('ntx')
   local nty = regentlib.newsymbol('nty')
   local ntz = regentlib.newsymbol('ntz')
+  local Tx = regentlib.newsymbol('Tx')
+  local Ty = regentlib.newsymbol('Ty')
+  local Tz = regentlib.newsymbol('Tz')
 
   local sub_points = UTIL.generate(8, regentlib.newsymbol)
   local x_faces = UTIL.generate(8, regentlib.newsymbol)
@@ -644,6 +647,10 @@ function MODULE.mkInstance() local INSTANCE = {}
     regentlib.assert(Nx % ntx == 0, "Uneven partitioning of radiation grid on x")
     regentlib.assert(Ny % nty == 0, "Uneven partitioning of radiation grid on y")
     regentlib.assert(Nz % ntz == 0, "Uneven partitioning of radiation grid on z")
+    -- Number of points in each tile
+    var [Tx] = Nx / ntx
+    var [Ty] = Ny / nty
+    var [Tz] = Nz / ntz
 
     -- Region for points
     -- (managed by the host code)
@@ -651,7 +658,7 @@ function MODULE.mkInstance() local INSTANCE = {}
     -- Regions for sub-points
     -- Conceptually int4d, but rolled into 1 dimension to make CUDA code
     -- generation easier. The effective storage order is Z > Y > X > M.
-    var is_sub_points = ispace(int1d, {MAX_ANGLES_PER_QUAD*Nx*Ny*Nz});
+    var is_sub_points = ispace(int1d, MAX_ANGLES_PER_QUAD*Nx*Ny*Nz);
     @ESCAPE for q = 1, 8 do @EMIT
       var [sub_points[q]] = region(is_sub_points, SubPoint_columns);
       [UTIL.emitRegionTagAttach(sub_points[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
@@ -697,8 +704,8 @@ function MODULE.mkInstance() local INSTANCE = {}
       for c in x_tiles do
         var a = c.x
         var b = c.y
-        var rect = rect2d{lo = int2d{(Ny/nty)*a,       (Nz/ntz)*b      },
-                          hi = int2d{(Ny/nty)*(a+1)-1, (Nz/ntz)*(b+1)-1}}
+        var rect = rect2d{lo = int2d{Ty*a,       Tz*b      },
+                          hi = int2d{Ty*(a+1)-1, Tz*(b+1)-1}}
         regentlib.c.legion_domain_point_coloring_color_domain(x_coloring, c, rect)
       end
       var [p_x_faces[q]] = partition(disjoint, [x_faces[q]], x_coloring, x_tiles)
@@ -708,8 +715,8 @@ function MODULE.mkInstance() local INSTANCE = {}
       for c in y_tiles do
         var a = c.x
         var b = c.y
-        var rect = rect2d{lo = int2d{(Nx/ntx)*a,       (Nz/ntz)*b      },
-                          hi = int2d{(Nx/ntx)*(a+1)-1, (Nz/ntz)*(b+1)-1}}
+        var rect = rect2d{lo = int2d{Tx*a,       Tz*b      },
+                          hi = int2d{Tx*(a+1)-1, Tz*(b+1)-1}}
         regentlib.c.legion_domain_point_coloring_color_domain(y_coloring, c, rect)
       end
       var [p_y_faces[q]] = partition(disjoint, [y_faces[q]], y_coloring, y_tiles)
@@ -719,8 +726,8 @@ function MODULE.mkInstance() local INSTANCE = {}
       for c in z_tiles do
         var a = c.x
         var b = c.y
-        var rect = rect2d{lo = int2d{(Nx/ntx)*a,       (Ny/nty)*b      },
-                          hi = int2d{(Nx/ntx)*(a+1)-1, (Ny/nty)*(b+1)-1}}
+        var rect = rect2d{lo = int2d{Tx*a,       Ty*b      },
+                          hi = int2d{Tx*(a+1)-1, Ty*(b+1)-1}}
         regentlib.c.legion_domain_point_coloring_color_domain(z_coloring, c, rect)
       end
       var [p_z_faces[q]] = partition(disjoint, [z_faces[q]], z_coloring, z_tiles)
