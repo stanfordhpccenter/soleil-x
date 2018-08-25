@@ -274,7 +274,7 @@ do
     points.bounds.lo.y == 0 and
     points.bounds.lo.z == 0 and
     int(sub_point_offsets.bounds.lo) == 0 and
-    int(sub_point_offsets.bounds.hi) == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz-1 and
+    int(sub_point_offsets.bounds.hi + 1) == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz and
     int(diagonals.bounds.lo) == 0 and
     int(diagonals.bounds.hi) == (Tx-1)+(Ty-1)+(Tz-1),
     'Internal error')
@@ -562,6 +562,22 @@ local function mkSweep(q)
     var Tx = points.bounds.hi.x - points.bounds.lo.x + 1
     var Ty = points.bounds.hi.y - points.bounds.lo.y + 1
     var Tz = points.bounds.hi.z - points.bounds.lo.z + 1
+    regentlib.assert(
+      int(sub_points.bounds.lo) ==
+        MAX_ANGLES_PER_QUAD * points.bounds.lo.x +
+        MAX_ANGLES_PER_QUAD * Tx * points.bounds.lo.y +
+        MAX_ANGLES_PER_QUAD * Tx * Ty * points.bounds.lo.z and
+      int(sub_points.bounds.hi - sub_points.bounds.lo + 1)
+      == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz and
+      int(sub_point_offsets.bounds.lo) == 0 and
+      int(sub_point_offsets.bounds.hi + 1) == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz and
+      x_faces.bounds.hi.x - x_faces.bounds.lo.x + 1 == Ty and
+      x_faces.bounds.hi.y - x_faces.bounds.lo.y + 1 == Tz and
+      y_faces.bounds.hi.x - y_faces.bounds.lo.x + 1 == Tx and
+      y_faces.bounds.hi.y - y_faces.bounds.lo.y + 1 == Tz and
+      z_faces.bounds.hi.x - z_faces.bounds.lo.x + 1 == Tx and
+      z_faces.bounds.hi.y - z_faces.bounds.lo.y + 1 == Ty,
+      'Internal error')
     var dx = config.Grid.xWidth / config.Radiation.xNum
     var dy = config.Grid.yWidth / config.Radiation.yNum
     var dz = config.Grid.zWidth / config.Radiation.zNum
@@ -642,7 +658,13 @@ where
 do
   var Tx = points.bounds.hi.x - points.bounds.lo.x + 1
   var Ty = points.bounds.hi.y - points.bounds.lo.y + 1
-  var Tz = points.bounds.hi.z - points.bounds.lo.z + 1
+  var Tz = points.bounds.hi.z - points.bounds.lo.z + 1;
+  @ESCAPE for q = 1, 8 do @EMIT
+    regentlib.assert(
+      int([sub_points[q]].bounds.hi - [sub_points[q]].bounds.lo + 1)
+      == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz,
+      'Internal error')
+  @TIME end @EPACSE
   var num_angles = config.Radiation.angles
   __demand(__openmp)
   for p in points do
@@ -762,7 +784,6 @@ function MODULE.mkInstance() local INSTANCE = {}
     -- (done by the host code)
 
     -- Partition sub-points
-    var [diagonals] = ispace(int1d, (Tx-1)+(Ty-1)+(Tz-1)+1);
     @ESCAPE for q = 1, 8 do @EMIT
       var [p_sub_points[q]] =
         [UTIL.mkPartitionEqually(int1d, int3d, SubPoint_columns)]
@@ -823,6 +844,7 @@ function MODULE.mkInstance() local INSTANCE = {}
     -- Partition sub-point offsets
     -- This had to wait until we have computed the translation mapping between
     -- points and subpoints.
+    var [diagonals] = ispace(int1d, (Tx-1)+(Ty-1)+(Tz-1)+1)
     var [p_sub_point_offsets] =
       partition_sub_point_offsets(p_points[{0,0,0}], sub_point_offsets, diagonals)
 
