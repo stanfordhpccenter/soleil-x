@@ -530,20 +530,6 @@ local bound_z_hi = mkBound(6)
 -- 1..8 -> regentlib.task
 local function mkSweep(q)
 
-  local bnd = regentlib.newsymbol()
-
-  local startx = directions[q][1] and rexpr     bnd.lo.x end or rexpr     bnd.hi.x end
-  local dindx  = directions[q][1] and rexpr            1 end or rexpr           -1 end
-  local endx   = directions[q][1] and rexpr bnd.hi.x + 1 end or rexpr bnd.lo.x - 1 end
-
-  local starty = directions[q][2] and rexpr     bnd.lo.y end or rexpr     bnd.hi.y end
-  local dindy  = directions[q][2] and rexpr            1 end or rexpr           -1 end
-  local endy   = directions[q][2] and rexpr bnd.hi.y + 1 end or rexpr bnd.lo.y - 1 end
-
-  local startz = directions[q][3] and rexpr     bnd.lo.z end or rexpr     bnd.hi.z end
-  local dindz  = directions[q][3] and rexpr            1 end or rexpr           -1 end
-  local endz   = directions[q][3] and rexpr bnd.hi.z + 1 end or rexpr bnd.lo.z - 1 end
-
   local __demand(__cuda) -- MANUALLY PARALLELIZED
   task sweep(points : region(ispace(int3d), Point_columns),
              sub_points : region(ispace(int1d), SubPoint_columns),
@@ -586,7 +572,6 @@ local function mkSweep(q)
     var dAz = dx*dy
     var dV = dx*dy*dz
     var num_angles = config.Radiation.angles
-    var [bnd] = points.bounds
     var res = 0.0
     -- Launch in order of intra-tile diagonals
     for d = int(diagonals.bounds.lo), int(diagonals.bounds.hi+1) do
@@ -917,151 +902,32 @@ function MODULE.mkInstance() local INSTANCE = {}
       end
 
       -- Perform the sweep for computing new intensities.
-      res = 0.0
-      -- Quadrant 1 - +x, +y, +z
-      for i = 0, ntx do
-        for j = 0, nty do
-          for k = 0, ntz do
-            res +=
-              [sweep[1]](p_points[{i,j,k}],
-                         [p_sub_points[1]][{i,j,k}],
-                         sub_point_offsets,
-                         diagonals,
-                         p_sub_point_offsets,
-                         [p_x_faces[1]][{  j,k}],
-                         [p_y_faces[1]][{i,  k}],
-                         [p_z_faces[1]][{i,j  }],
-                         [angles[1]],
-                         config)
+      res = 0.0;
+      @ESCAPE for q = 1, 8 do @EMIT
+        for i = [directions[q] and rexpr   0 end or rexpr ntx-1 end],
+                [directions[q] and rexpr ntx end or rexpr    -1 end],
+                [directions[q] and rexpr   1 end or rexpr    -1 end] do
+          for j = [directions[q] and rexpr   0 end or rexpr nty-1 end],
+                  [directions[q] and rexpr nty end or rexpr    -1 end],
+                  [directions[q] and rexpr   1 end or rexpr    -1 end] do
+            for k = [directions[q] and rexpr   0 end or rexpr ntz-1 end],
+                    [directions[q] and rexpr ntz end or rexpr    -1 end],
+                    [directions[q] and rexpr   1 end or rexpr    -1 end] do
+              res +=
+                [sweep[q]](p_points[{i,j,k}],
+                           [p_sub_points[q]][{i,j,k}],
+                           sub_point_offsets,
+                           diagonals,
+                           p_sub_point_offsets,
+                           [p_x_faces[q]][{  j,k}],
+                           [p_y_faces[q]][{i,  k}],
+                           [p_z_faces[q]][{i,j  }],
+                           [angles[q]],
+                           config)
+            end
           end
         end
-      end
-      -- Quadrant 2 - +x, +y, -z
-      for i = 0, ntx do
-        for j = 0, nty do
-          for k = ntz-1, -1, -1 do
-            res +=
-              [sweep[2]](p_points[{i,j,k}],
-                         [p_sub_points[2]][{i,j,k}],
-                         sub_point_offsets,
-                         diagonals,
-                         p_sub_point_offsets,
-                         [p_x_faces[2]][{  j,k}],
-                         [p_y_faces[2]][{i,  k}],
-                         [p_z_faces[2]][{i,j  }],
-                         [angles[2]],
-                         config)
-          end
-        end
-      end
-      -- Quadrant 3 - +x, -y, +z
-      for i = 0, ntx do
-        for j = nty-1, -1, -1 do
-          for k = 0, ntz do
-            res +=
-              [sweep[3]](p_points[{i,j,k}],
-                         [p_sub_points[3]][{i,j,k}],
-                         sub_point_offsets,
-                         diagonals,
-                         p_sub_point_offsets,
-                         [p_x_faces[3]][{  j,k}],
-                         [p_y_faces[3]][{i,  k}],
-                         [p_z_faces[3]][{i,j  }],
-                         [angles[3]],
-                         config)
-          end
-        end
-      end
-      -- Quadrant 4 - +x, -y, -z
-      for i = 0, ntx do
-        for j = nty-1, -1, -1 do
-          for k = ntz-1, -1, -1 do
-            res +=
-              [sweep[4]](p_points[{i,j,k}],
-                         [p_sub_points[4]][{i,j,k}],
-                         sub_point_offsets,
-                         diagonals,
-                         p_sub_point_offsets,
-                         [p_x_faces[4]][{  j,k}],
-                         [p_y_faces[4]][{i,  k}],
-                         [p_z_faces[4]][{i,j  }],
-                         [angles[4]],
-                         config)
-          end
-        end
-      end
-      -- Quadrant 5 - -x, +y, +z
-      for i = ntx-1, -1, -1 do
-        for j = 0, nty do
-          for k = 0, ntz do
-            res +=
-              [sweep[5]](p_points[{i,j,k}],
-                         [p_sub_points[5]][{i,j,k}],
-                         sub_point_offsets,
-                         diagonals,
-                         p_sub_point_offsets,
-                         [p_x_faces[5]][{  j,k}],
-                         [p_y_faces[5]][{i,  k}],
-                         [p_z_faces[5]][{i,j  }],
-                         [angles[5]],
-                         config)
-          end
-        end
-      end
-      -- Quadrant 6 - -x, +y, -z
-      for i = ntx-1, -1, -1 do
-        for j = 0, nty do
-          for k = ntz-1, -1, -1 do
-            res +=
-              [sweep[6]](p_points[{i,j,k}],
-                         [p_sub_points[6]][{i,j,k}],
-                         sub_point_offsets,
-                         diagonals,
-                         p_sub_point_offsets,
-                         [p_x_faces[6]][{  j,k}],
-                         [p_y_faces[6]][{i,  k}],
-                         [p_z_faces[6]][{i,j  }],
-                         [angles[6]],
-                         config)
-          end
-        end
-      end
-      -- Quadrant 7 - -x, -y, +z
-      for i = ntx-1, -1, -1 do
-        for j = nty-1, -1, -1 do
-          for k = 0, ntz do
-            res +=
-              [sweep[7]](p_points[{i,j,k}],
-                         [p_sub_points[7]][{i,j,k}],
-                         sub_point_offsets,
-                         diagonals,
-                         p_sub_point_offsets,
-                         [p_x_faces[7]][{  j,k}],
-                         [p_y_faces[7]][{i,  k}],
-                         [p_z_faces[7]][{i,j  }],
-                         [angles[7]],
-                         config)
-          end
-        end
-      end
-      -- Quadrant 8 - -x, -y, -z
-      for i = ntx-1, -1, -1 do
-        for j = nty-1, -1, -1 do
-          for k = ntz-1, -1, -1 do
-            res +=
-              [sweep[8]](p_points[{i,j,k}],
-                         [p_sub_points[8]][{i,j,k}],
-                         sub_point_offsets,
-                         diagonals,
-                         p_sub_point_offsets,
-                         [p_x_faces[8]][{  j,k}],
-                         [p_y_faces[8]][{i,  k}],
-                         [p_z_faces[8]][{i,j  }],
-                         [angles[8]],
-                         config)
-          end
-        end
-      end
+      @TIME end @EPACSE
 
       -- Compute the residual.
       res = sqrt(res/(Nx*Ny*Nz*config.Radiation.angles))
