@@ -4325,7 +4325,7 @@ do
   end
 end
 
-__demand(__parallel) -- NO CUDA
+__demand(__parallel, __cuda)
 task Radiation_UpdateFieldValues(Radiation : region(ispace(int3d), Radiation_columns),
                                  Radiation_cellVolume : double,
                                  Radiation_qa : double,
