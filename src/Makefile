@@ -4,6 +4,9 @@ endif
 ifndef SOLEIL_DIR
 $(error SOLEIL_DIR is not set)
 endif
+ifndef DAKOTA_DIR
+$(error DAKOTA_DIR is not set)
+endif
 
 # CUDA options
 USE_CUDA ?= 1
@@ -14,8 +17,9 @@ export HDF_HEADER ?= hdf5.h
 HDF_LIBNAME ?= hdf5
 
 # C compiler options
-CFLAGS += -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime
-CXXFLAGS += -std=c++11 -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime
+INCLUDE_DIRS=-I$(LEGION_DIR)/runtime -I$(DAKOTA_DIR)/include
+CFLAGS += -g -O2 -Wall -Werror -fno-strict-aliasing $(INCLUDE_DIRS)
+CXXFLAGS += -std=c++11 -g -O2 -Wall -Werror -fno-strict-aliasing $(INCLUDE_DIRS)
 
 # Regent options
 export INCLUDE_PATH := .
@@ -56,16 +60,19 @@ default: soleil.exec
 all: soleil.exec dom_host.exec
 
 clean:
-	$(RM) *.exec *.o *-desugared.rg config_schema.h
+	$(RM) *.exec *.o *-desugared.rg soleil.h config_schema.h
 
 %-desugared.rg: %.rg
 	./desugar.py $< > $@
 
-soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o
+soleil.exec: main.o soleil.o soleil_mapper.o config_schema.o json.o
 	$(CXX) -o $@ $^ $(LINK_FLAGS)
 
-soleil.o: soleil-desugared.rg soleil_mapper.h config_schema.h hdf_helper.rg dom-desugared.rg util.rg
+soleil.o soleil.h: soleil-desugared.rg soleil_mapper.h config_schema.h hdf_helper.rg dom-desugared.rg util.rg
 	$(REGENT) soleil-desugared.rg $(REGENT_FLAGS)
+
+main.o: main.cc soleil.h
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 dom_host.exec: dom_host.o config_schema.o json.o
 	$(CXX) -o $@ $^ $(LINK_FLAGS)

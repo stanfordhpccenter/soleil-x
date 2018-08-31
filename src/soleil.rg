@@ -6139,48 +6139,8 @@ task workDual(mc : MultiConfig)
   [SIM1.Cleanup(rexpr mc.configs[1] end)];
 end
 
-terra initSample(config : &Config, num : int, outDirBase : &int8)
-  config.Mapping.sampleId = num
-  C.snprintf(config.Mapping.outDir, 256, "%s/sample%d", outDirBase, num)
-  UTIL.createDir(config.Mapping.outDir)
-end
-
-__demand(__inner)
-task main()
-  var args = regentlib.c.legion_runtime_get_input_args()
-  var outDirBase = '.'
-  for i = 1, args.argc do
-    if C.strcmp(args.argv[i], '-o') == 0 and i < args.argc-1 then
-      outDirBase = args.argv[i+1]
-    end
-  end
-  var launched = 0
-  for i = 1, args.argc do
-    if C.strcmp(args.argv[i], '-i') == 0 and i < args.argc-1 then
-      var config : Config[1]
-      SCHEMA.parse_Config([&Config](config), args.argv[i+1])
-      initSample([&Config](config), launched, outDirBase)
-      launched += 1
-      workSingle(config[0])
-    elseif C.strcmp(args.argv[i], '-m') == 0 and i < args.argc-1 then
-      var mc : MultiConfig[1]
-      SCHEMA.parse_MultiConfig([&MultiConfig](mc), args.argv[i+1])
-      initSample([&Config](mc[0].configs), launched, outDirBase)
-      initSample([&Config](mc[0].configs) + 1, launched + 1, outDirBase)
-      launched += 2
-      workDual(mc[0])
-    end
-  end
-  if launched < 1 then
-    var stderr = C.fdopen(2, 'w')
-    C.fprintf(stderr, "No testcases supplied.\n")
-    C.fflush(stderr)
-    C.exit(1)
-  end
-end
-
 -------------------------------------------------------------------------------
 -- COMPILATION CALL
 -------------------------------------------------------------------------------
 
-regentlib.saveobj(main, "soleil.o", "object", MAPPER.register_mappers)
+regentlib.save_tasks("soleil.h", "soleil.o", "object")
