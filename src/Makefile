@@ -15,19 +15,9 @@ endif
 
 # CUDA options
 USE_CUDA ?= 1
-ifeq ($(USE_CUDA), 1)
-  ifndef CUDA_HOME
-    $(error CUDA_HOME is not set)
-  endif
-endif
 
 # HDF options
 export USE_HDF ?= 1
-ifeq ($(USE_HDF), 1)
-  ifndef HDF_ROOT
-    $(error HDF_ROOT is not set)
-  endif
-endif
 export HDF_HEADER ?= hdf5.h
 HDF_LIBNAME ?= hdf5
 
