@@ -1,6 +1,7 @@
 #!/bin/bash -eu
 
 export QUEUE="${QUEUE:-}"
+export AFTER="${AFTER:-}"
 export USE_CUDA="${USE_CUDA:-1}"
 export PROFILE="${PROFILE:-0}"
 export REALM_BACKTRACE="${REALM_BACKTRACE:-1}"

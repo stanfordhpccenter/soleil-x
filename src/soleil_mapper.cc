@@ -330,6 +330,12 @@ public:
                         const Copy& copy,
                         const MapCopyInput& input,
                         MapCopyOutput& output) {
+    // For HDF copies, defer to the default mapping policy.
+    if (strcmp(copy.parent_task->get_task_name(), "dumpTile") == 0 ||
+        strcmp(copy.parent_task->get_task_name(), "loadTile") == 0) {
+      DefaultMapper::map_copy(ctx, copy, input, output);
+      return;
+    }
     // Sanity checks
     // TODO: Check that this is on the fluid grid.
     CHECK(copy.src_indirect_requirements.empty() &&

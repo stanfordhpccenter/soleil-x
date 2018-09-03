@@ -4,8 +4,11 @@
 # Inputs
 ###############################################################################
 
-# Which queue/partition to use, on clusters equipped with a scheduler
+# Which queue/partition to use (if a scheduler is available)
 export QUEUE="${QUEUE:-}"
+
+# Which job to wait for before starting (if a scheduler is available)
+export AFTER="${AFTER:-}"
 
 # Whether to use GPUs (if available)
 export USE_CUDA="${USE_CUDA:-1}"

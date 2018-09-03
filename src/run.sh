@@ -35,8 +35,12 @@ fi
 
 function run_titan {
     export QUEUE="${QUEUE:-debug}"
+    DEPS=
+    if [[ ! -z "$AFTER" ]]; then
+        DEPS="-W depend=afterok:$AFTER"
+    fi
     qsub -V \
-        -l nodes="$NUM_RANKS" -l walltime="$WALLTIME" -q "$QUEUE" \
+        -l nodes="$NUM_RANKS" -l walltime="$WALLTIME" -q "$QUEUE" $DEPS \
         "$SOLEIL_DIR"/src/titan.pbs
 }
 
@@ -49,15 +53,23 @@ function run_summit {
     NUM_CORES="$(( NUM_NODES * 42 ))"
     RESOURCES="1*{select[LN]span[hosts=1]} +
                $NUM_CORES*{select[CN$EXCLUDED]span[ptile=42]}"
+    DEPS=
+    if [[ ! -z "$AFTER" ]]; then
+        DEPS="-w 'done($AFTER)'"
+    fi
     bsub -csm y -J soleil -P CSC275IACCARINO -alloc_flags smt4 \
-        -R "$RESOURCES" -W "$MINUTES" -q "$QUEUE" \
+        -R "$RESOURCES" -W "$MINUTES" -q "$QUEUE" $DEPS \
         "$SOLEIL_DIR"/src/summit.lsf
 }
 
 function run_pizdaint {
     export QUEUE="${QUEUE:-debug}"
+    DEPS=
+    if [[ ! -z "$AFTER" ]]; then
+        DEPS="-d afterok:$AFTER"
+    fi
     sbatch --export=ALL \
-        -N "$NUM_RANKS" -t "$WALLTIME" -p "$QUEUE" \
+        -N "$NUM_RANKS" -t "$WALLTIME" -p "$QUEUE" $DEPS \
         "$SOLEIL_DIR"/src/pizdaint.slurm
 }
 
@@ -68,8 +80,12 @@ function run_certainty {
 	RESOURCES="gpu:4"
     fi
     EXCLUDED="$(paste -sd ',' "$SOLEIL_DIR"/src/blacklist/certainty.txt)"
+    DEPS=
+    if [[ ! -z "$AFTER" ]]; then
+        DEPS="-d afterok:$AFTER"
+    fi
     sbatch --export=ALL \
-        -N "$NUM_RANKS" -t "$WALLTIME" -p "$QUEUE" --gres="$RESOURCES" \
+        -N "$NUM_RANKS" -t "$WALLTIME" -p "$QUEUE" --gres="$RESOURCES" $DEPS \
 	--exclude="$EXCLUDED" \
         "$SOLEIL_DIR"/src/certainty.slurm
 }
@@ -79,8 +95,12 @@ function run_sherlock {
     if [[ "$USE_CUDA" == 1 ]]; then
         RESOURCES="gpu:4"
     fi
+    DEPS=
+    if [[ ! -z "$AFTER" ]]; then
+        DEPS="-d afterok:$AFTER"
+    fi
     sbatch --export=ALL \
-        -N "$NUM_RANKS" -t "$WALLTIME" --gres="$RESOURCES" \
+        -N "$NUM_RANKS" -t "$WALLTIME" --gres="$RESOURCES" $DEPS \
         "$SOLEIL_DIR"/src/sherlock.slurm
 }
 
