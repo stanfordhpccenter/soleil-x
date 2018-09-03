@@ -1,8 +1,16 @@
+# Required paths
 ifndef LEGION_DIR
-$(error LEGION_DIR is not set)
+  $(error LEGION_DIR is not set)
 endif
 ifndef SOLEIL_DIR
-$(error SOLEIL_DIR is not set)
+  $(error SOLEIL_DIR is not set)
+endif
+
+# OS-specific options
+ifeq ($(shell uname),Darwin)
+  DYNLINK_PATH := DYLD_LIBRARY_PATH
+else
+  DYNLINK_PATH := LD_LIBRARY_PATH
 endif
 
 # CUDA options
@@ -21,6 +29,7 @@ CXXFLAGS += -std=c++11 -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)
 export INCLUDE_PATH := .
 ifdef HDF_ROOT
   export INCLUDE_PATH := $(INCLUDE_PATH);$(HDF_ROOT)/include
+  export $(DYNLINK_PATH) := $($(DYNLINK_PATH)):$(HDF_ROOT)/lib
 endif
 REGENT := $(LEGION_DIR)/language/regent.py -g
 ifeq ($(USE_CUDA), 1)
@@ -38,11 +47,6 @@ endif
 LINK_FLAGS += -L$(LEGION_DIR)/bindings/regent -lregent
 ifdef HDF_ROOT
   LINK_FLAGS += -L$(HDF_ROOT)/lib
-  ifeq ($(shell uname),Darwin)
-    export DYLD_LIBRARY_PATH := $(DYLD_LIBRARY_PATH):$(HDF_ROOT)/lib
-  else
-    export LD_LIBRARY_PATH := $(LD_LIBRARY_PATH):$(HDF_ROOT)/lib
-  endif
 endif
 ifeq ($(USE_HDF), 1)
   LINK_FLAGS += -l$(HDF_LIBNAME)
