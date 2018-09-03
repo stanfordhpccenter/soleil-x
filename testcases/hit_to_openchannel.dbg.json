@@ -233,7 +233,7 @@
             "initCase" : "Uniform",
             "restartDir" : "",
             "initNum" : 0,
-            "maxNum" : 2112000,
+            "maxNum" : 5000000,
             "restitutionCoeff" : 1.0,
             "convectiveCoeff" : 2.0,
             "absorptivity" : 1.0,
