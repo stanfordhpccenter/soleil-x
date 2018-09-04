@@ -106,12 +106,14 @@ function run_sherlock {
 
 function run_sapling {
     source "$SOLEIL_DIR"/src/jobscript_shared.sh
-    # Allocate up to 3 nodes, from n0001 up to n0003
-    if (( NUM_RANKS > 3 )); then quit "Too many nodes requested"; fi
-    NODES=n0001
-    for (( i = 2; i <= NUM_RANKS; i++ )); do
-        NODES="$NODES,n000$i"
-    done
+    # Allocate up to 2 nodes, from n0002 up to n0003
+    if (( NUM_RANKS == 1 )); then
+        NODES="n0002"
+    elif (( NUM_RANKS == 2 )); then
+        NODES="n0002,n0003"
+    else
+        quit "Too many nodes requested"
+    fi
     GPU_OPTS=
     if [[ "$USE_CUDA" == 1 ]]; then
         GPU_OPTS="-ll:gpu 1 -ll:fsize 5500"
