@@ -5285,7 +5285,7 @@ local function mkInstance() local INSTANCE = {}
     -- Radiation Partitioning
     var [p_Radiation] =
       [UTIL.mkPartitionEqually(int3d, int3d, Radiation_columns)]
-      (Radiation, tiles)
+      (Radiation, tiles);
 
     ---------------------------------------------------------------------------
     -- DOM code declarations

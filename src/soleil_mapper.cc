@@ -27,6 +27,8 @@ static Realm::Logger LOG("soleil_mapper");
     }                                           \
   } while(0)
 
+#define EQUALS(s1, s2) (strcmp((s1), (s2)) == 0)
+
 #define STARTS_WITH(str, prefix)                \
   (strncmp((str), (prefix), sizeof(prefix) - 1) == 0)
 
@@ -117,11 +119,11 @@ public:
     // Locate all config files specified on the command-line arguments.
     InputArgs args = Runtime::get_input_args();
     for (int i = 0; i < args.argc; ++i) {
-      if (strcmp(args.argv[i], "-i") == 0 && i < args.argc-1) {
+      if (EQUALS(args.argv[i], "-i") && i < args.argc-1) {
         Config config;
         parse_Config(&config, args.argv[i+1]);
         process_config(config);
-      } else if (strcmp(args.argv[i], "-m") == 0 && i < args.argc-1) {
+      } else if (EQUALS(args.argv[i], "-m") && i < args.argc-1) {
         MultiConfig mc;
         parse_MultiConfig(&mc, args.argv[i+1]);
         process_config(mc.configs[0]);
@@ -173,11 +175,11 @@ public:
     // corresponding sample.
     else if (STARTS_WITH(task.get_task_name(), "work")) {
       unsigned sample_id = static_cast<unsigned>(-1);
-      if (strcmp(task.get_task_name(), "workSingle") == 0) {
+      if (EQUALS(task.get_task_name(), "workSingle")) {
         const Config* config = static_cast<const Config*>(first_arg(task));
         sample_id = static_cast<unsigned>(config->Mapping.sampleId);
         assert(sample_id < sample_mappings_.size());
-      } else if (strcmp(task.get_task_name(), "workDual") == 0) {
+      } else if (EQUALS(task.get_task_name(), "workDual")) {
         const MultiConfig* mc =
           static_cast<const MultiConfig*>(first_arg(task));
         sample_id = static_cast<unsigned>(mc->configs[0].Mapping.sampleId);
@@ -200,10 +202,11 @@ public:
       return DefaultMapper::default_policy_select_initial_processor(ctx, task);
     }
     // For certain whitelisted tasks, defer to the default mapping policy.
-    else if (strcmp(task.get_task_name(), "main") == 0 ||
-             strcmp(task.get_task_name(), "Console_write") == 0 ||
-             strcmp(task.get_task_name(), "initialize_angles") == 0 ||
-             strcmp(task.get_task_name(), "__dummy") == 0 ||
+    else if (EQUALS(task.get_task_name(), "main") ||
+             EQUALS(task.get_task_name(), "Console_write") ||
+             EQUALS(task.get_task_name(), "partition_sub_point_offsets") ||
+             EQUALS(task.get_task_name(), "initialize_angles") ||
+             EQUALS(task.get_task_name(), "__dummy") ||
              STARTS_WITH(task.get_task_name(), "__binary_")) {
       return DefaultMapper::default_policy_select_initial_processor(ctx, task);
     }
@@ -331,8 +334,8 @@ public:
                         const MapCopyInput& input,
                         MapCopyOutput& output) {
     // For HDF copies, defer to the default mapping policy.
-    if (strcmp(copy.parent_task->get_task_name(), "dumpTile") == 0 ||
-        strcmp(copy.parent_task->get_task_name(), "loadTile") == 0) {
+    if (EQUALS(copy.parent_task->get_task_name(), "dumpTile") ||
+        EQUALS(copy.parent_task->get_task_name(), "loadTile")) {
       DefaultMapper::map_copy(ctx, copy, input, output);
       return;
     }

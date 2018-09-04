@@ -195,24 +195,11 @@ end
 -- * Split the 1d index point s into its 4 coordinates m,x,y,z.
 -- * Follow the s3d_to_p_Q field for the appropriate quadrant Q on (x,y,z).
 
-local p_to_s3d = terralib.newlist{
-  'p_to_s3d_1', 'p_to_s3d_2', 'p_to_s3d_3', 'p_to_s3d_4',
-  'p_to_s3d_5', 'p_to_s3d_6', 'p_to_s3d_7', 'p_to_s3d_8'
-}
-local s3d_to_p = terralib.newlist{
-  's3d_to_p_1', 's3d_to_p_2', 's3d_to_p_3', 's3d_to_p_4',
-  's3d_to_p_5', 's3d_to_p_6', 's3d_to_p_7', 's3d_to_p_8'
-}
-
-local -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task cache_grid_translation(points : region(ispace(int3d), Point_columns))
-where
-  writes(points.[p_to_s3d], points.[s3d_to_p])
-do
-  var Tx = points.bounds.hi.x - points.bounds.lo.x + 1
-  var Ty = points.bounds.hi.y - points.bounds.lo.y + 1
-  var Tz = points.bounds.hi.z - points.bounds.lo.z + 1;
-  @ESCAPE for q = 1, 8 do @EMIT
+-- regentlib.rexpr, regentlib.rexpr, regentlib.rexpr,
+-- (regentlib.rexpr, regentlib.rexpr -> regentlib.rquote)
+--   -> regentlib.rquote
+local function emitDiagonalOrderTraversal(Tx, Ty, Tz, callback)
+  return rquote
     -- Start one-before the first grid-order index
     var grid = int3d{-1,0,0}
     for d = 0, (Tx-1)+(Ty-1)+(Tz-1)+1 do
@@ -233,13 +220,8 @@ do
           grid.y = 0
           grid.z += 1
         else regentlib.assert(false, 'Internal error') end
-        -- Store mapping for this pair of indices
-        var real = int3d{
-          [directions[q][1] and rexpr diag.x end or rexpr Tx-diag.x-1 end],
-          [directions[q][2] and rexpr diag.y end or rexpr Ty-diag.y-1 end],
-          [directions[q][3] and rexpr diag.z end or rexpr Tz-diag.z-1 end]}
-        points[real + points.bounds.lo].[p_to_s3d[q]] = grid + points.bounds.lo
-        points[grid + points.bounds.lo].[s3d_to_p[q]] = real + points.bounds.lo
+	-- Process pair of corresponding indices
+	[callback(grid, diag)];
         -- Advance diagonal-order index
         if diag.x > 0 and diag.y < Ty-1 then
           diag.x -= 1
@@ -256,23 +238,46 @@ do
     end
     regentlib.assert(grid.x == Tx-1 and grid.y == Ty-1 and grid.z == Tz-1,
                      'Internal error')
+  end
+end
+
+local p_to_s3d = terralib.newlist{
+  'p_to_s3d_1', 'p_to_s3d_2', 'p_to_s3d_3', 'p_to_s3d_4',
+  'p_to_s3d_5', 'p_to_s3d_6', 'p_to_s3d_7', 'p_to_s3d_8'
+}
+local s3d_to_p = terralib.newlist{
+  's3d_to_p_1', 's3d_to_p_2', 's3d_to_p_3', 's3d_to_p_4',
+  's3d_to_p_5', 's3d_to_p_6', 's3d_to_p_7', 's3d_to_p_8'
+}
+
+local -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+task cache_grid_translation(points : region(ispace(int3d), Point_columns))
+where
+  writes(points.[p_to_s3d], points.[s3d_to_p])
+do
+  var Tx = points.bounds.hi.x - points.bounds.lo.x + 1
+  var Ty = points.bounds.hi.y - points.bounds.lo.y + 1
+  var Tz = points.bounds.hi.z - points.bounds.lo.z + 1;
+  @ESCAPE for q = 1, 8 do @EMIT
+    [emitDiagonalOrderTraversal(
+       Tx, Ty, Tz,
+       function(grid, diag) return rquote
+         -- Store mapping for this pair of indices
+         var real = int3d{
+           [directions[q][1] and rexpr diag.x end or rexpr Tx-diag.x-1 end],
+           [directions[q][2] and rexpr diag.y end or rexpr Ty-diag.y-1 end],
+           [directions[q][3] and rexpr diag.z end or rexpr Tz-diag.z-1 end]}
+         points[real + points.bounds.lo].[p_to_s3d[q]] = grid + points.bounds.lo
+         points[grid + points.bounds.lo].[s3d_to_p[q]] = real + points.bounds.lo
+       end end)];
   @TIME end @EPACSE
 end
 
 local -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task partition_sub_point_offsets(points : region(ispace(int3d), Point_columns),
-                                 sub_point_offsets : region(ispace(int1d), bool),
-                                 diagonals : ispace(int1d))
-where
-  reads(points.s3d_to_p_1)
-do
-  var Tx = points.bounds.hi.x - points.bounds.lo.x + 1
-  var Ty = points.bounds.hi.y - points.bounds.lo.y + 1
-  var Tz = points.bounds.hi.z - points.bounds.lo.z + 1
+task partition_sub_point_offsets(sub_point_offsets : region(ispace(int1d), bool),
+                                 diagonals : ispace(int1d),
+                                 Tx : int, Ty : int, Tz : int)
   regentlib.assert(
-    points.bounds.lo.x == 0 and
-    points.bounds.lo.y == 0 and
-    points.bounds.lo.z == 0 and
     int(sub_point_offsets.bounds.lo) == 0 and
     int(sub_point_offsets.bounds.hi + 1) == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz and
     int(diagonals.bounds.lo) == 0 and
@@ -280,34 +285,27 @@ do
     'Internal error')
   var coloring = regentlib.c.legion_domain_point_coloring_create()
   var start = 0
-  var d = 0
+  var d = 0;
   -- Iterate over the points in diagonal order, detect where we change
-  -- diagonal, and color those with increasing diagonal numbers. The points
-  -- should already be laid out in the order that the sweep code will access
-  -- them (regardless of quadrant), and there should only be one contiguous
-  -- span for each diagonal.
-  for z = 0, Tz do
-    for y = 0, Ty do
-      for x = 0, Tx do
-        var s3d = int3d{x,y,z}
-        var p = points[s3d].s3d_to_p_1
-        var sum = p.x + p.y + p.z
-        if sum == d+1 then
-          -- Entered a new diagonal
-          var s1d = MAX_ANGLES_PER_QUAD * s3d.x
-                  + MAX_ANGLES_PER_QUAD * Tx    * s3d.y
-                  + MAX_ANGLES_PER_QUAD * Tx    * Ty    * s3d.z
-          var rect = rect1d{ lo = start, hi = s1d-1 }
-          regentlib.c.legion_domain_point_coloring_color_domain(
-            coloring, int1d(d), rect)
-          start = s1d
-          d += 1
-        else
-          regentlib.assert(sum == d, 'Internal error')
-        end
-      end
-    end
-  end
+  -- diagonal, and color those with increasing diagonal numbers.
+  [emitDiagonalOrderTraversal(
+     Tx, Ty, Tz,
+     function(grid, diag) return rquote
+       var sum = diag.x + diag.y + diag.z
+       if sum == d+1 then
+         -- Entered a new diagonal
+         var s1d = MAX_ANGLES_PER_QUAD * grid.x
+                 + MAX_ANGLES_PER_QUAD * Tx     * grid.y
+                 + MAX_ANGLES_PER_QUAD * Tx     * Ty     * grid.z
+         var rect = rect1d{ lo = start, hi = s1d-1 }
+         regentlib.c.legion_domain_point_coloring_color_domain(
+           coloring, int1d(d), rect)
+         start = s1d
+         d += 1
+       else
+         regentlib.assert(sum == d, 'Internal error')
+       end
+     end end)];
   -- Add last diagonal
   regentlib.assert(d == int(diagonals.bounds.hi), 'Internal error')
   var rect = rect1d{ lo = start, hi = sub_point_offsets.bounds.hi }
@@ -728,7 +726,7 @@ function MODULE.mkInstance() local INSTANCE = {}
     var [Ty] = Ny / nty
     var [Tz] = Nz / ntz
 
-    -- Region for points
+    -- Regions for points
     -- (managed by the host code)
 
     -- Regions for sub-points
@@ -774,6 +772,11 @@ function MODULE.mkInstance() local INSTANCE = {}
         [UTIL.mkPartitionEqually(int1d, int3d, SubPoint_columns)]
         ([sub_points[q]], tiles)
     @TIME end @EPACSE
+
+    -- Partition sub-point offsets
+    var [diagonals] = ispace(int1d, (Tx-1)+(Ty-1)+(Tz-1)+1)
+    var [p_sub_point_offsets] =
+      partition_sub_point_offsets(sub_point_offsets, diagonals, Tx, Ty, Tz)
 
     -- Partition faces
     var [x_tiles] = ispace(int2d, {    nty,ntz})
@@ -825,13 +828,6 @@ function MODULE.mkInstance() local INSTANCE = {}
 
     -- Initialize angles
     initialize_angles([angles], config);
-
-    -- Partition sub-point offsets
-    -- This had to wait until we have computed the translation mapping between
-    -- points and subpoints.
-    var [diagonals] = ispace(int1d, (Tx-1)+(Ty-1)+(Tz-1)+1)
-    var [p_sub_point_offsets] =
-      partition_sub_point_offsets(p_points[{0,0,0}], sub_point_offsets, diagonals)
 
   end end -- InitRegions
 
