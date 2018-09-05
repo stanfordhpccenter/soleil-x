@@ -69,6 +69,11 @@ local struct Face_columns {
   I_prev : double[MAX_ANGLES_PER_QUAD];
 }
 
+local struct GridMap_columns {
+  p_to_s3d : int3d;
+  s3d_to_p : int3d;
+}
+
 -- A sub-point holds information specific to a cell center and angle.
 local struct SubPoint_columns {
   I : double;
@@ -193,125 +198,80 @@ end
 -- the other. Given a 1d subpoint index s, we would proceed as follows to find
 -- the 3d point p it corresponds to:
 -- * Split the 1d index point s into its 4 coordinates m,x,y,z.
--- * Follow the s3d_to_p_Q field for the appropriate quadrant Q on (x,y,z).
-
--- regentlib.rexpr, regentlib.rexpr, regentlib.rexpr,
--- (regentlib.rexpr, regentlib.rexpr -> regentlib.rquote)
---   -> regentlib.rquote
-local function emitDiagonalOrderTraversal(Tx, Ty, Tz, callback)
-  return rquote
-    -- Start one-before the first grid-order index
-    var grid = int3d{-1,0,0}
-    for d = 0, (Tx-1)+(Ty-1)+(Tz-1)+1 do
-      -- Set diagonal-order index to the smallest for this diagonal
-      var diag : int3d
-      diag.x = min(d, Tx-1)
-      diag.y = min(d-diag.x, Ty-1)
-      diag.z = d-diag.x-diag.y
-      while true do
-        -- Advance grid-order index
-        if grid.x < Tx-1 then
-          grid.x += 1
-        elseif grid.y < Ty-1 then
-          grid.x = 0
-          grid.y += 1
-        elseif grid.z < Tz-1 then
-          grid.x = 0
-          grid.y = 0
-          grid.z += 1
-        else regentlib.assert(false, 'Internal error') end
-	-- Process pair of corresponding indices
-	[callback(grid, diag)];
-        -- Advance diagonal-order index
-        if diag.x > 0 and diag.y < Ty-1 then
-          diag.x -= 1
-          diag.y += 1
-        elseif diag.z < min(d, Tz-1) then
-          diag.z += 1
-          diag.x = min(d-diag.z, Tx-1)
-          diag.y = d-diag.z-diag.x
-        else
-          -- We've run out of indices on this diagonal, continue to next one
-          break
-        end
-      end
-    end
-    regentlib.assert(grid.x == Tx-1 and grid.y == Ty-1 and grid.z == Tz-1,
-                     'Internal error')
-  end
-end
-
-local p_to_s3d = terralib.newlist{
-  'p_to_s3d_1', 'p_to_s3d_2', 'p_to_s3d_3', 'p_to_s3d_4',
-  'p_to_s3d_5', 'p_to_s3d_6', 'p_to_s3d_7', 'p_to_s3d_8'
-}
-local s3d_to_p = terralib.newlist{
-  's3d_to_p_1', 's3d_to_p_2', 's3d_to_p_3', 's3d_to_p_4',
-  's3d_to_p_5', 's3d_to_p_6', 's3d_to_p_7', 's3d_to_p_8'
-}
+-- * Follow the s3d_to_p field.
 
 local -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task cache_grid_translation(points : region(ispace(int3d), Point_columns))
+task cache_grid_translation(grid_map : region(ispace(int3d), GridMap_columns),
+                            sub_point_offsets : region(ispace(int1d), bool),
+                            diagonals : ispace(int1d))
 where
-  writes(points.[p_to_s3d], points.[s3d_to_p])
+  writes(grid_map.{p_to_s3d, s3d_to_p})
 do
-  var Tx = points.bounds.hi.x - points.bounds.lo.x + 1
-  var Ty = points.bounds.hi.y - points.bounds.lo.y + 1
-  var Tz = points.bounds.hi.z - points.bounds.lo.z + 1;
-  @ESCAPE for q = 1, 8 do @EMIT
-    [emitDiagonalOrderTraversal(
-       Tx, Ty, Tz,
-       function(grid, diag) return rquote
-         -- Store mapping for this pair of indices
-         var real = int3d{
-           [directions[q][1] and rexpr diag.x end or rexpr Tx-diag.x-1 end],
-           [directions[q][2] and rexpr diag.y end or rexpr Ty-diag.y-1 end],
-           [directions[q][3] and rexpr diag.z end or rexpr Tz-diag.z-1 end]}
-         points[real + points.bounds.lo].[p_to_s3d[q]] = grid + points.bounds.lo
-         points[grid + points.bounds.lo].[s3d_to_p[q]] = real + points.bounds.lo
-       end end)];
-  @TIME end @EPACSE
-end
-
-local -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task partition_sub_point_offsets(sub_point_offsets : region(ispace(int1d), bool),
-                                 diagonals : ispace(int1d),
-                                 Tx : int, Ty : int, Tz : int)
+  var Tx = grid_map.bounds.hi.x + 1
+  var Ty = grid_map.bounds.hi.y + 1
+  var Tz = grid_map.bounds.hi.z + 1
   regentlib.assert(
+    grid_map.bounds.lo.x == 0 and
+    grid_map.bounds.lo.y == 0 and
+    grid_map.bounds.lo.z == 0 and
     int(sub_point_offsets.bounds.lo) == 0 and
     int(sub_point_offsets.bounds.hi + 1) == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz and
     int(diagonals.bounds.lo) == 0 and
     int(diagonals.bounds.hi) == (Tx-1)+(Ty-1)+(Tz-1),
     'Internal error')
   var coloring = regentlib.c.legion_domain_point_coloring_create()
-  var start = 0
-  var d = 0;
-  -- Iterate over the points in diagonal order, detect where we change
-  -- diagonal, and color those with increasing diagonal numbers.
-  [emitDiagonalOrderTraversal(
-     Tx, Ty, Tz,
-     function(grid, diag) return rquote
-       var sum = diag.x + diag.y + diag.z
-       if sum == d+1 then
-         -- Entered a new diagonal
-         var s1d = MAX_ANGLES_PER_QUAD * grid.x
-                 + MAX_ANGLES_PER_QUAD * Tx     * grid.y
-                 + MAX_ANGLES_PER_QUAD * Tx     * Ty     * grid.z
-         var rect = rect1d{ lo = start, hi = s1d-1 }
-         regentlib.c.legion_domain_point_coloring_color_domain(
-           coloring, int1d(d), rect)
-         start = s1d
-         d += 1
-       else
-         regentlib.assert(sum == d, 'Internal error')
-       end
-     end end)];
-  -- Add last diagonal
-  regentlib.assert(d == int(diagonals.bounds.hi), 'Internal error')
-  var rect = rect1d{ lo = start, hi = sub_point_offsets.bounds.hi }
-  regentlib.c.legion_domain_point_coloring_color_domain(
-    coloring, int1d(d), rect)
-  -- Construct & return partition
+  var rect_start = 0
+  -- Start one-before the first grid-order index
+  var grid = int3d{-1,0,0}
+  for d = 0, (Tx-1)+(Ty-1)+(Tz-1)+1 do
+    -- Set diagonal-order index to the smallest for this diagonal
+    var diag : int3d
+    diag.x = min(d, Tx-1)
+    diag.y = min(d-diag.x, Ty-1)
+    diag.z = d-diag.x-diag.y
+    while true do
+      -- Advance grid-order index
+      if grid.x < Tx-1 then
+        grid.x += 1
+      elseif grid.y < Ty-1 then
+        grid.x = 0
+        grid.y += 1
+      elseif grid.z < Tz-1 then
+        grid.x = 0
+        grid.y = 0
+        grid.z += 1
+      else regentlib.assert(false, 'Internal error') end
+      -- Store mapping for this pair of indices
+      grid_map[diag].p_to_s3d = grid
+      grid_map[grid].s3d_to_p = diag
+      -- Advance diagonal-order index
+      if diag.x > 0 and diag.y < Ty-1 then
+        diag.x -= 1
+        diag.y += 1
+      elseif diag.z < min(d, Tz-1) then
+        diag.z += 1
+        diag.x = min(d-diag.z, Tx-1)
+        diag.y = d-diag.z-diag.x
+      else
+        -- We've run out of indices on this diagonal, color it on the sub-point
+        -- offsets and continue to the next one
+        var rect_end = MAX_ANGLES_PER_QUAD
+                     + MAX_ANGLES_PER_QUAD * grid.x
+                     + MAX_ANGLES_PER_QUAD * Tx     * grid.y
+                     + MAX_ANGLES_PER_QUAD * Tx     * Ty     * grid.z
+        regentlib.c.legion_domain_point_coloring_color_domain(
+          coloring, int1d(d), rect1d{ lo = rect_start, hi = rect_end - 1 })
+        rect_start = rect_end
+        break
+      end
+    end
+  end
+  regentlib.assert(grid.x == Tx-1 and
+                   grid.y == Ty-1 and
+                   grid.z == Tz-1 and
+                   rect_start == int(sub_point_offsets.bounds.hi + 1),
+                   'Internal error')
+  -- Construct & return partition of sub-point offsets
   var p = partition(disjoint, sub_point_offsets, coloring, diagonals)
   regentlib.c.legion_domain_point_coloring_destroy(coloring)
   return p
@@ -531,6 +491,7 @@ local function mkSweep(q)
   local __demand(__cuda) -- MANUALLY PARALLELIZED
   task sweep(points : region(ispace(int3d), Point_columns),
              sub_points : region(ispace(int1d), SubPoint_columns),
+             grid_map : region(ispace(int3d), GridMap_columns),
              sub_point_offsets : region(ispace(int1d), bool),
              diagonals : ispace(int1d),
              p_sub_point_offsets : partition(disjoint, sub_point_offsets, diagonals),
@@ -540,19 +501,18 @@ local function mkSweep(q)
              angles : region(ispace(int1d), Angle_columns),
              config : Config)
   where
-    reads(angles.{xi, eta, mu}, points.{S, sigma, [s3d_to_p[q]]}),
+    reads(angles.{xi, eta, mu}, points.{S, sigma}, grid_map.s3d_to_p),
     reads writes(sub_points.I, x_faces.I, y_faces.I, z_faces.I)
   do
     var Tx = points.bounds.hi.x - points.bounds.lo.x + 1
     var Ty = points.bounds.hi.y - points.bounds.lo.y + 1
     var Tz = points.bounds.hi.z - points.bounds.lo.z + 1
     regentlib.assert(
-      int(sub_points.bounds.lo) ==
-        MAX_ANGLES_PER_QUAD * points.bounds.lo.x +
-        MAX_ANGLES_PER_QUAD * Tx * points.bounds.lo.y +
-        MAX_ANGLES_PER_QUAD * Tx * Ty * points.bounds.lo.z and
       int(sub_points.bounds.hi - sub_points.bounds.lo + 1)
       == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz and
+      grid_map.bounds.lo.x == 0 and grid_map.bounds.hi.x + 1 == Tx and
+      grid_map.bounds.lo.y == 0 and grid_map.bounds.hi.y + 1 == Ty and
+      grid_map.bounds.lo.z == 0 and grid_map.bounds.hi.z + 1 == Tz and
       int(sub_point_offsets.bounds.lo) == 0 and
       int(sub_point_offsets.bounds.hi + 1) == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz and
       x_faces.bounds.hi.x - x_faces.bounds.lo.x + 1 == Ty and
@@ -574,15 +534,20 @@ local function mkSweep(q)
     -- Launch in order of intra-tile diagonals
     for d = int(diagonals.bounds.lo), int(diagonals.bounds.hi+1) do
       __demand(__openmp)
-      for offset in p_sub_point_offsets[d] do
+      for s1d_off in p_sub_point_offsets[d] do
         -- Compute sub-point index, translate to point index
-        var s1d = sub_points.bounds.lo + offset
-        var m = int(s1d) % MAX_ANGLES_PER_QUAD
+        var m = int(s1d_off) % MAX_ANGLES_PER_QUAD
         if m < quadrantSize(q, num_angles) then
-          var s3d = {s1d / MAX_ANGLES_PER_QUAD % Tx,
-                     s1d / MAX_ANGLES_PER_QUAD / Tx % Ty,
-                     s1d / MAX_ANGLES_PER_QUAD / Tx / Ty}
-          var p = points[s3d].[s3d_to_p[q]]
+          var s3d_off = int3d{s1d_off / MAX_ANGLES_PER_QUAD % Tx,
+                              s1d_off / MAX_ANGLES_PER_QUAD / Tx % Ty,
+                              s1d_off / MAX_ANGLES_PER_QUAD / Tx / Ty}
+          var p_off = grid_map[s3d_off].s3d_to_p
+          p_off = int3d{
+            [directions[q][1] and rexpr p_off.x end or rexpr Tx-p_off.x-1 end],
+            [directions[q][2] and rexpr p_off.y end or rexpr Ty-p_off.y-1 end],
+            [directions[q][3] and rexpr p_off.z end or rexpr Tz-p_off.z-1 end]}
+          var s1d = sub_points.bounds.lo + s1d_off
+          var p = points.bounds.lo + p_off
           -- Read upwind face values
           var x_value = x_faces[{    p.y,p.z}].I[m]
           var y_value = y_faces[{p.x,    p.z}].I[m]
@@ -627,10 +592,11 @@ end)
 local __demand(__cuda) -- MANUALLY PARALLELIZED
 task reduce_intensity(points : region(ispace(int3d), Point_columns),
                       [sub_points],
+                      grid_map : region(ispace(int3d), GridMap_columns),
                       [angles],
                       config : Config)
 where
-  reads(points.[p_to_s3d]),
+  reads(grid_map.p_to_s3d),
   [sub_points:map(function(s)
      return regentlib.privilege(regentlib.reads, s, 'I')
    end)],
@@ -641,7 +607,12 @@ where
 do
   var Tx = points.bounds.hi.x - points.bounds.lo.x + 1
   var Ty = points.bounds.hi.y - points.bounds.lo.y + 1
-  var Tz = points.bounds.hi.z - points.bounds.lo.z + 1;
+  var Tz = points.bounds.hi.z - points.bounds.lo.z + 1
+  regentlib.assert(
+    grid_map.bounds.lo.x == 0 and grid_map.bounds.hi.x + 1 == Tx and
+    grid_map.bounds.lo.y == 0 and grid_map.bounds.hi.y + 1 == Ty and
+    grid_map.bounds.lo.z == 0 and grid_map.bounds.hi.z + 1 == Tz,
+    'Internal error');
   @ESCAPE for q = 1, 8 do @EMIT
     regentlib.assert(
       int([sub_points[q]].bounds.hi - [sub_points[q]].bounds.lo + 1)
@@ -657,10 +628,16 @@ do
     __demand(__openmp)
     for p in points do
       var G = 0.0
-      var s3d = p.[p_to_s3d[q]]
-      var s1d = MAX_ANGLES_PER_QUAD * s3d.x
-              + MAX_ANGLES_PER_QUAD * Tx    * s3d.y
-              + MAX_ANGLES_PER_QUAD * Tx    * Ty    * s3d.z
+      var p_off = p - points.bounds.lo
+      p_off = int3d{
+        [directions[q][1] and rexpr p_off.x end or rexpr Tx-p_off.x-1 end],
+        [directions[q][2] and rexpr p_off.y end or rexpr Ty-p_off.y-1 end],
+        [directions[q][3] and rexpr p_off.z end or rexpr Tz-p_off.z-1 end]}
+      var s3d_off = grid_map[p_off].p_to_s3d
+      var s1d_off = MAX_ANGLES_PER_QUAD * s3d_off.x
+                  + MAX_ANGLES_PER_QUAD * Tx        * s3d_off.y
+                  + MAX_ANGLES_PER_QUAD * Tx        * Ty        * s3d_off.z
+      var s1d = [sub_points[q]].bounds.lo + s1d_off
       for m = 0, quadrantSize(q, num_angles) do
         G += [angles[q]][m].w * [sub_points[q]][s1d + m].I
       end
@@ -688,22 +665,24 @@ function MODULE.mkInstance() local INSTANCE = {}
   local Tz = regentlib.newsymbol('Tz')
 
   local sub_points = UTIL.generate(8, regentlib.newsymbol)
-  local sub_point_offsets = regentlib.newsymbol('sub_point_offsets')
+  local p_sub_points = UTIL.generate(8, regentlib.newsymbol)
+
   local x_faces = UTIL.generate(8, regentlib.newsymbol)
   local y_faces = UTIL.generate(8, regentlib.newsymbol)
   local z_faces = UTIL.generate(8, regentlib.newsymbol)
-  local angles = UTIL.generate(8, regentlib.newsymbol)
-
-  local diagonals = regentlib.newsymbol('diagonals')
   local x_tiles = regentlib.newsymbol('x_tiles')
   local y_tiles = regentlib.newsymbol('y_tiles')
   local z_tiles = regentlib.newsymbol('z_tiles')
-
-  local p_sub_points = UTIL.generate(8, regentlib.newsymbol)
-  local p_sub_point_offsets = regentlib.newsymbol('p_sub_point_offsets')
   local p_x_faces = UTIL.generate(8, regentlib.newsymbol)
   local p_y_faces = UTIL.generate(8, regentlib.newsymbol)
   local p_z_faces = UTIL.generate(8, regentlib.newsymbol)
+
+  local angles = UTIL.generate(8, regentlib.newsymbol)
+
+  local grid_map = regentlib.newsymbol('grid_map')
+  local sub_point_offsets = regentlib.newsymbol('sub_point_offsets')
+  local diagonals = regentlib.newsymbol('diagonals')
+  local p_sub_point_offsets = regentlib.newsymbol('p_sub_point_offsets')
 
   function INSTANCE.DeclSymbols(config, tiles) return rquote
 
@@ -738,11 +717,6 @@ function MODULE.mkInstance() local INSTANCE = {}
       [UTIL.emitRegionTagAttach(sub_points[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     @TIME end @EPACSE
 
-    -- Regions for sub-point intra-tile offsets
-    var is_sub_point_offsets = ispace(int1d, MAX_ANGLES_PER_QUAD*Tx*Ty*Tz)
-    var [sub_point_offsets] = region(is_sub_point_offsets, bool);
-    [UTIL.emitRegionTagAttach(sub_point_offsets, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
-
     -- Regions for faces
     var grid_x = ispace(int2d, {   Ny,Nz})
     var grid_y = ispace(int2d, {Nx,   Nz})
@@ -758,10 +732,18 @@ function MODULE.mkInstance() local INSTANCE = {}
 
     -- Regions for angles
     @ESCAPE for q = 1, 8 do @EMIT
-      var is = ispace(int1d, quadrantSize(q, config.Radiation.angles))
-      var [angles[q]] = region(is, Angle_columns);
+      var is_angles = ispace(int1d, quadrantSize(q, config.Radiation.angles))
+      var [angles[q]] = region(is_angles, Angle_columns);
       [UTIL.emitRegionTagAttach(angles[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     @TIME end @EPACSE
+
+    -- Regions for intra-tile information
+    var is_sub_point_offsets = ispace(int1d, MAX_ANGLES_PER_QUAD*Tx*Ty*Tz)
+    var [sub_point_offsets] = region(is_sub_point_offsets, bool);
+    [UTIL.emitRegionTagAttach(sub_point_offsets, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+    var is_grid_map = ispace(int3d, {Tx,Ty,Tz})
+    var [grid_map] = region(is_grid_map, GridMap_columns);
+    [UTIL.emitRegionTagAttach(grid_map, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
 
     -- Partition points
     -- (done by the host code)
@@ -772,11 +754,6 @@ function MODULE.mkInstance() local INSTANCE = {}
         [UTIL.mkPartitionEqually(int1d, int3d, SubPoint_columns)]
         ([sub_points[q]], tiles)
     @TIME end @EPACSE
-
-    -- Partition sub-point offsets
-    var [diagonals] = ispace(int1d, (Tx-1)+(Ty-1)+(Tz-1)+1)
-    var [p_sub_point_offsets] =
-      partition_sub_point_offsets(sub_point_offsets, diagonals, Tx, Ty, Tz)
 
     -- Partition faces
     var [x_tiles] = ispace(int2d, {    nty,ntz})
@@ -794,6 +771,11 @@ function MODULE.mkInstance() local INSTANCE = {}
         ([z_faces[q]], z_tiles)
     @TIME end @EPACSE
 
+    -- Cache intra-tile information
+    var [diagonals] = ispace(int1d, (Tx-1)+(Ty-1)+(Tz-1)+1)
+    var [p_sub_point_offsets] =
+      cache_grid_translation(grid_map, sub_point_offsets, diagonals)
+
   end end -- DeclSymbols
 
   function INSTANCE.InitRegions(config, tiles, p_points) return rquote
@@ -801,9 +783,6 @@ function MODULE.mkInstance() local INSTANCE = {}
     -- Initialize points
     for c in tiles do
       initialize_points(p_points[c])
-    end
-    for c in tiles do
-      cache_grid_translation(p_points[c])
     end
 
     -- Initialize sub-points
@@ -837,6 +816,7 @@ function MODULE.mkInstance() local INSTANCE = {}
     for c in tiles do
       reduce_intensity(p_points[c],
                        [p_sub_points:map(function(s) return rexpr s[c] end end)],
+                       grid_map,
                        [angles],
                        config)
     end
@@ -912,6 +892,7 @@ function MODULE.mkInstance() local INSTANCE = {}
               res +=
                 [sweep[q]](p_points[{i,j,k}],
                            [p_sub_points[q]][{i,j,k}],
+                           grid_map,
                            sub_point_offsets,
                            diagonals,
                            p_sub_point_offsets,
@@ -932,6 +913,7 @@ function MODULE.mkInstance() local INSTANCE = {}
       for c in tiles do
         reduce_intensity(p_points[c],
                          [p_sub_points:map(function(s) return rexpr s[c] end end)],
+                         grid_map,
                          [angles],
                          config)
       end

@@ -204,7 +204,7 @@ public:
     // For certain whitelisted tasks, defer to the default mapping policy.
     else if (EQUALS(task.get_task_name(), "main") ||
              EQUALS(task.get_task_name(), "Console_write") ||
-             EQUALS(task.get_task_name(), "partition_sub_point_offsets") ||
+             EQUALS(task.get_task_name(), "cache_grid_translation") ||
              EQUALS(task.get_task_name(), "initialize_angles") ||
              EQUALS(task.get_task_name(), "__dummy") ||
              STARTS_WITH(task.get_task_name(), "__binary_")) {

@@ -32,22 +32,6 @@ struct Point_columns {
   S : double;
   Ib : double;
   sigma : double;
-  p_to_s3d_1 : int3d;
-  p_to_s3d_2 : int3d;
-  p_to_s3d_3 : int3d;
-  p_to_s3d_4 : int3d;
-  p_to_s3d_5 : int3d;
-  p_to_s3d_6 : int3d;
-  p_to_s3d_7 : int3d;
-  p_to_s3d_8 : int3d;
-  s3d_to_p_1 : int3d;
-  s3d_to_p_2 : int3d;
-  s3d_to_p_3 : int3d;
-  s3d_to_p_4 : int3d;
-  s3d_to_p_5 : int3d;
-  s3d_to_p_6 : int3d;
-  s3d_to_p_7 : int3d;
-  s3d_to_p_8 : int3d;
 }
 
 -------------------------------------------------------------------------------
