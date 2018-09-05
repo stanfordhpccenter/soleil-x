@@ -880,15 +880,15 @@ function MODULE.mkInstance() local INSTANCE = {}
       -- Perform the sweep for computing new intensities.
       res = 0.0;
       @ESCAPE for q = 1, 8 do @EMIT
-        for i = [directions[q] and rexpr   0 end or rexpr ntx-1 end],
-                [directions[q] and rexpr ntx end or rexpr    -1 end],
-                [directions[q] and rexpr   1 end or rexpr    -1 end] do
-          for j = [directions[q] and rexpr   0 end or rexpr nty-1 end],
-                  [directions[q] and rexpr nty end or rexpr    -1 end],
-                  [directions[q] and rexpr   1 end or rexpr    -1 end] do
-            for k = [directions[q] and rexpr   0 end or rexpr ntz-1 end],
-                    [directions[q] and rexpr ntz end or rexpr    -1 end],
-                    [directions[q] and rexpr   1 end or rexpr    -1 end] do
+        for i = [directions[q][1] and rexpr   0 end or rexpr ntx-1 end],
+                [directions[q][1] and rexpr ntx end or rexpr    -1 end],
+                [directions[q][1] and rexpr   1 end or rexpr    -1 end] do
+          for j = [directions[q][2] and rexpr   0 end or rexpr nty-1 end],
+                  [directions[q][2] and rexpr nty end or rexpr    -1 end],
+                  [directions[q][2] and rexpr   1 end or rexpr    -1 end] do
+            for k = [directions[q][3] and rexpr   0 end or rexpr ntz-1 end],
+                    [directions[q][3] and rexpr ntz end or rexpr    -1 end],
+                    [directions[q][3] and rexpr   1 end or rexpr    -1 end] do
               res +=
                 [sweep[q]](p_points[{i,j,k}],
                            [p_sub_points[q]][{i,j,k}],
