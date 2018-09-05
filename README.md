@@ -122,7 +122,7 @@ Setup (Sapling @ Stanford)
 ```
 # Module loads
 module load mpi/openmpi/1.8.2
-module load cuda/8.0
+module load cuda/7.0
 # Build config
 export CONDUIT=ibv
 export CC=gcc-4.9
@@ -133,7 +133,7 @@ export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
 export SCRATCH=/scratch/oldhome/`whoami`
 # CUDA config
-export CUDA_HOME=/usr/local/cuda-8.0
+export CUDA_HOME=/usr/local/cuda-7.0
 export CUDA="$CUDA_HOME"
 export GPU_ARCH=fermi
 ```
@@ -149,7 +149,7 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 35 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
 ### Compile Soleil-X
@@ -167,7 +167,7 @@ Setup (Sherlock @ Stanford)
 ```
 # Module loads
 module load gcc/6.3.0
-module load cuda/8.0.61
+module load cuda/9.2.148
 module load openmpi/2.0.2
 # Build config
 export CONDUIT=ibv
@@ -179,7 +179,7 @@ export LEGION_DIR=???
 export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
 # CUDA config
-export CUDA_HOME=/share/software/user/open/cuda/8.0.61
+export CUDA_HOME=/share/software/user/open/cuda/9.2.148
 export CUDA="$CUDA_HOME"
 export GPU_ARCH=pascal
 ```
@@ -272,7 +272,7 @@ We set `MARCH`, the processor architecture that Legion will be built for, to one
 ```
 # Module loads
 module load python/2.7.9
-module load cudatoolkit/7.5.18-1.0502.10743.2.1
+module load cudatoolkit/9.1.85_3.10-1.0502.df1cc54.3.1
 module swap PrgEnv-pgi PrgEnv-gnu
 # Build config
 export MARCH=barcelona
@@ -286,7 +286,7 @@ export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
 export SCRATCH="$PROJWORK"/csc188/stanford
 # CUDA config
-export CUDA_HOME=/opt/nvidia/cudatoolkit7.5/7.5.18-1.0502.10743.2.1
+export CUDA_HOME=/opt/nvidia/cudatoolkit9.1/9.1.85_3.10-1.0502.df1cc54.3.1
 export CUDA="$CUDA_HOME"
 export GPU_ARCH=kepler
 ```
@@ -302,7 +302,7 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 35 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
 ```
 
 ### Compile Soleil-X
