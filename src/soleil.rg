@@ -62,6 +62,8 @@ local struct Particles_columns {
   velocity_t : double[3];
   temperature_t : double;
   __valid : bool;
+  __xfer_dir : int8;
+  __xfer_slot : int;
 }
 
 local Particles_primitives = terralib.newlist({
@@ -93,8 +95,7 @@ local Particles_subStepConserved =
 local TradeQueue_columns =
   UTIL.deriveStruct('TradeQueue_columns',
                     Particles_columns,
-                    Particles_subStepConserved,
-                    {__source=int1d, __target=int1d})
+                    Particles_subStepConserved)
 
 local CopyQueue_columns =
   UTIL.deriveStruct('CopyQueue_columns',
@@ -3642,40 +3643,27 @@ local colorOffsets = terralib.newlist({
 local tradeQueues = UTIL.generate(26, function()
   return regentlib.newsymbol(region(ispace(int1d), TradeQueue_columns))
 end)
-local tradeQueuePtrs = UTIL.generate(26, regentlib.newsymbol)
 
 __demand(__cuda) -- MANUALLY PARALLELIZED
-task TradeQueue_clearSource([tradeQueues])
+task TradeQueue_push(partColor : int3d,
+                     Particles : region(ispace(int1d), Particles_columns),
+                     [tradeQueues],
+                     Grid_xBnum : int32, Grid_xNum : int32, NX : int32,
+                     Grid_yBnum : int32, Grid_yNum : int32, NY : int32,
+                     Grid_zBnum : int32, Grid_zNum : int32, NZ : int32)
 where
-  [tradeQueues:map(function(q)
-     return regentlib.privilege(regentlib.writes, q, '__source')
-   end)]
+  reads(Particles.[Particles_subStepConserved]),
+  reads writes(Particles.{__valid, __xfer_dir, __xfer_slot}),
+  [tradeQueues:map(function(queue)
+     return Particles_subStepConserved:map(function(fld)
+       return regentlib.privilege(regentlib.writes, queue, fld)
+     end)
+   end):flatten()]
 do
-  @ESCAPE for k = 1,26 do local q = tradeQueues[k] @EMIT
-    __demand(__openmp)
-    for qPtr in q do
-      qPtr.__source = -1
-    end
-  @TIME end @EPACSE
-end
-
--- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task TradeQueue_fillSource(partColor : int3d,
-                           Particles : region(ispace(int1d), Particles_columns),
-                           [tradeQueues],
-                           Grid_xBnum : int32, Grid_xNum : int32, NX : int32,
-                           Grid_yBnum : int32, Grid_yNum : int32, NY : int32,
-                           Grid_zBnum : int32, Grid_zNum : int32, NZ : int32)
-where
-  reads(Particles.{cell, __valid}),
-  [tradeQueues:map(function(q)
-     return regentlib.privilege(regentlib.writes, q, '__source')
-   end)]
-do
-  @ESCAPE for k = 1,26 do local q = tradeQueues[k] local j = tradeQueuePtrs[k] @EMIT
-    var [j] = q.bounds.lo
-  @TIME end @EPACSE
+  -- Fill in movement direction
+  __demand(__openmp)
   for i in Particles do
+    Particles[i].__xfer_dir = 0
     if Particles[i].__valid then
       var elemColor = Fluid_elemColor(Particles[i].cell,
                                       Grid_xBnum, Grid_xNum, NX,
@@ -3683,13 +3671,10 @@ do
                                       Grid_zBnum, Grid_zNum, NZ)
       if elemColor ~= partColor then
         var transferred = false;
-        @ESCAPE for k = 1,26 do local q = tradeQueues[k] local j = tradeQueuePtrs[k] @EMIT
+        @ESCAPE for k = 1,26 do @EMIT
           if not transferred and
              elemColor == (partColor + [colorOffsets[k]] + {NX,NY,NZ}) % {NX,NY,NZ} then
-            regentlib.assert(j <= q.bounds.hi,
-                             'Ran out of space in particle transfer queue')
-            q[j].__source = i
-            j += 1
+            Particles[i].__xfer_dir = k
             transferred = true
           end
         @TIME end @EPACSE
@@ -3697,62 +3682,36 @@ do
       end
     end
   end
-end
-
-__demand(__cuda) -- MANUALLY PARALLELIZED
-task TradeQueue_push(Particles : region(ispace(int1d), Particles_columns),
-                     [tradeQueues])
-where
-  reads(Particles.[Particles_subStepConserved]),
-  writes(Particles.__valid),
-  [tradeQueues:map(function(q)
-     return Particles_subStepConserved:map(function(f)
-       return regentlib.privilege(regentlib.writes, q, f)
-     end)
-   end):flatten()],
-  [tradeQueues:map(function(q)
-     return regentlib.privilege(regentlib.reads, q, '__source')
-   end)]
-do
-  @ESCAPE for k = 1,26 do local q = tradeQueues[k] @EMIT
+  -- For each movement direction...
+  @ESCAPE for k = 1,26 do local queue = tradeQueues[k] @EMIT
+    -- Clear the transfer queue
     __demand(__openmp)
-    for j in q do
-      var i = q[j].__source
-      if [int](i) >= 0 then
-        @ESCAPE for _,fld in ipairs(Particles_subStepConserved) do @EMIT
-          q[j].[fld] = Particles[i].[fld]
-        @TIME end @EPACSE
-        Particles[i].__valid = false
+    for j in queue do
+      queue[j].__valid = false
+    end
+    -- Assign slots on the transfer queue for moving particles
+    __demand(__openmp)
+    for i in Particles do
+      if Particles[i].__xfer_dir == k then
+        Particles[i].__xfer_slot = 1
       else
-        q[j].__valid = false
+        Particles[i].__xfer_slot = 0
       end
     end
-  @TIME end @EPACSE
-end
-
--- MANUALLY_PARALLELIZED, NO CUDA, NO OPENMP
-task TradeQueue_fillTarget(Particles : region(ispace(int1d), Particles_columns),
-                           [tradeQueues])
-where
-  reads(Particles.__valid),
-  [tradeQueues:map(function(q)
-     return regentlib.privilege(regentlib.reads, q, '__valid')
-   end)],
-  [tradeQueues:map(function(q)
-     return regentlib.privilege(regentlib.writes, q, '__target')
-   end)]
-do
-  var i = Particles.bounds.lo;
-  @ESCAPE for k = 1,26 do local q = tradeQueues[k] @EMIT
-    for j in q do
-      if q[j].__valid then
-        while i <= Particles.bounds.hi and Particles[i].__valid do
-          i += 1
-        end
-        regentlib.assert(i <= Particles.bounds.hi,
-                         'Ran out of space in particles region')
-        q[j].__target = i
-        i += 1
+    __parallel_prefix(Particles.__xfer_slot, Particles.__xfer_slot, +, 1)
+    -- Check that there's enough space in the transfer queue
+    regentlib.assert(
+      Particles[Particles.bounds.hi].__xfer_slot - 1 <= int(queue.bounds.hi),
+      'Ran out of space in transfer queue')
+    -- Copy moving particles to the transfer queue
+    __demand(__openmp)
+    for i in Particles do
+      if Particles[i].__xfer_dir == k then
+        var j = Particles[i].__xfer_slot - 1
+        @ESCAPE for _,fld in ipairs(Particles_subStepConserved) do @EMIT
+          queue[j].[fld] = Particles[i].[fld]
+        @TIME end @EPACSE
+        Particles[i].__valid = false
       end
     end
   @TIME end @EPACSE
@@ -3762,27 +3721,56 @@ __demand(__cuda) -- MANUALLY PARALLELIZED
 task TradeQueue_pull(Particles : region(ispace(int1d), Particles_columns),
                      [tradeQueues])
 where
-  [tradeQueues:map(function(q)
-     return Particles_subStepConserved:map(function(f)
-       return regentlib.privilege(regentlib.reads, q, f)
+  reads(Particles.__valid),
+  writes(Particles.[Particles_subStepConserved]),
+  reads writes(Particles.__xfer_slot),
+  [tradeQueues:map(function(queue)
+     return Particles_subStepConserved:map(function(fld)
+       return regentlib.privilege(regentlib.reads, queue, fld)
      end)
-   end):flatten()],
-  [tradeQueues:map(function(q)
-     return regentlib.privilege(regentlib.reads, q, '__target')
-   end)],
-  writes(Particles.[Particles_subStepConserved])
+   end):flatten()]
 do
-  @ESCAPE for k = 1,26 do local q = tradeQueues[k] @EMIT
+  -- Count number of particles coming in from each transfer queue
+  var xfer_bounds : int[27]
+  xfer_bounds[0] = 0
+  var total_xfers = 0;
+  @ESCAPE for k = 1,26 do local queue = tradeQueues[k] @EMIT
     __demand(__openmp)
-    for j in q do
-      if q[j].__valid then
-        var i = q[j].__target;
-        @ESCAPE for _,fld in ipairs(Particles_subStepConserved) do @EMIT
-          Particles[i].[fld] = q[j].[fld]
-        @TIME end @EPACSE
+    for j in queue do
+      if queue[j].__valid then
+        total_xfers += 1
       end
     end
+    xfer_bounds[k] = total_xfers
   @TIME end @EPACSE
+  -- Number all empty slots on particles sub-region
+  __demand(__openmp)
+  for i in Particles do
+    if Particles[i].__valid then
+      Particles[i].__xfer_slot = 0
+    else
+      Particles[i].__xfer_slot = 1
+    end
+  end
+  __parallel_prefix(Particles.__xfer_slot, Particles.__xfer_slot, +, 1)
+  -- Check that there's enough space in the particles sub-region
+  regentlib.assert(total_xfers <= Particles[Particles.bounds.hi].__xfer_slot,
+                   'Not enough space in sub-region for incoming particles')
+  -- Copy moving particles from the transfer queues
+  __demand(__openmp)
+  for i in Particles do
+    if not Particles[i].__valid then
+      var j = Particles[i].__xfer_slot - 1
+      @ESCAPE for k = 1,26 do local queue = tradeQueues[k] @EMIT
+        if j >= xfer_bounds[k-1] and j < xfer_bounds[k] then
+          @ESCAPE for _,fld in ipairs(Particles_subStepConserved) do @EMIT
+            -- NOTE: This assumes that transfer queues are filled contiguously
+            Particles[i].[fld] = queue[j - xfer_bounds[k-1]].[fld]
+          @TIME end @EPACSE
+        end
+      @TIME end @EPACSE
+    end
+  end
 end
 
 __demand(__inline)
@@ -5852,25 +5840,14 @@ local function mkInstance() local INSTANCE = {}
       end
       if numTiles > 1 then
         for c in tiles do
-          TradeQueue_clearSource([UTIL.range(1,26):map(function(k) return rexpr [p_TradeQueue[k]][c] end end)])
-        end
-        for c in tiles do
-          TradeQueue_fillSource(c,
-                                p_Particles[c],
-                                [UTIL.range(1,26):map(function(k) return rexpr [p_TradeQueue[k]][c] end end)],
-                                Grid.xBnum, config.Grid.xNum, NX,
-                                Grid.yBnum, config.Grid.yNum, NY,
-                                Grid.zBnum, config.Grid.zNum, NZ)
-        end
-        for c in tiles do
-          TradeQueue_push(p_Particles[c],
-                          [UTIL.range(1,26):map(function(k) return rexpr [p_TradeQueue[k]][c] end end)])
-        end
-        for c in tiles do
-          TradeQueue_fillTarget(p_Particles[c],
-                                [UTIL.range(1,26):map(function(k) return rexpr
-                                   [p_TradeQueue[k]][ (c-[colorOffsets[k]]+{NX,NY,NZ}) % {NX,NY,NZ} ]
-                                 end end)])
+          TradeQueue_push(c,
+                          p_Particles[c],
+                          [UTIL.range(1,26):map(function(k) return rexpr
+                             [p_TradeQueue[k]][c]
+                           end end)],
+                          Grid.xBnum, config.Grid.xNum, NX,
+                          Grid.yBnum, config.Grid.yNum, NY,
+                          Grid.zBnum, config.Grid.zNum, NZ)
         end
         for c in tiles do
           TradeQueue_pull(p_Particles[c],
