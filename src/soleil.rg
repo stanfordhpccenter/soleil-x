@@ -3661,6 +3661,8 @@ where
    end):flatten()]
 do
   -- Fill in movement direction
+  var toTransfer = 0
+  var transferred = 0
   __demand(__openmp)
   for i in Particles do
     Particles[i].__xfer_dir = 0
@@ -3670,18 +3672,19 @@ do
                                       Grid_yBnum, Grid_yNum, NY,
                                       Grid_zBnum, Grid_zNum, NZ)
       if elemColor ~= partColor then
-        var transferred = false;
+        toTransfer += 1;
         @ESCAPE for k = 1,26 do @EMIT
-          if not transferred and
+          if Particles[i].__xfer_dir == 0 and
              elemColor == (partColor + [colorOffsets[k]] + {NX,NY,NZ}) % {NX,NY,NZ} then
             Particles[i].__xfer_dir = k
-            transferred = true
+            transferred += 1
           end
         @TIME end @EPACSE
-        regentlib.assert(transferred, 'Particle moved past expected stencil')
       end
     end
   end
+  regentlib.assert(toTransfer == transferred,
+                   'Particle(s) moved past expected stencil');
   -- For each movement direction...
   @ESCAPE for k = 1,26 do local queue = tradeQueues[k] @EMIT
     -- Clear the transfer queue
