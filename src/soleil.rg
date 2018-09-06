@@ -3702,13 +3702,14 @@ do
     __parallel_prefix(Particles.__xfer_slot, Particles.__xfer_slot, +, 1)
     -- Check that there's enough space in the transfer queue
     regentlib.assert(
-      Particles[Particles.bounds.hi].__xfer_slot - 1 <= int(queue.bounds.hi),
+      Particles[Particles.bounds.hi].__xfer_slot
+        <= int(queue.bounds.hi - queue.bounds.lo + 1),
       'Ran out of space in transfer queue')
     -- Copy moving particles to the transfer queue
     __demand(__openmp)
     for i in Particles do
       if Particles[i].__xfer_dir == k then
-        var j = Particles[i].__xfer_slot - 1
+        var j = Particles[i].__xfer_slot - 1 + queue.bounds.lo;
         @ESCAPE for _,fld in ipairs(Particles_subStepConserved) do @EMIT
           queue[j].[fld] = Particles[i].[fld]
         @TIME end @EPACSE
@@ -3758,15 +3759,16 @@ do
   regentlib.assert(total_xfers <= Particles[Particles.bounds.hi].__xfer_slot,
                    'Not enough space in sub-region for incoming particles')
   -- Copy moving particles from the transfer queues
+  -- NOTE: This part assumes that transfer queues are filled contiguously.
   __demand(__openmp)
   for i in Particles do
     if not Particles[i].__valid then
-      var j = Particles[i].__xfer_slot - 1
+      var j_off = Particles[i].__xfer_slot - 1
       @ESCAPE for k = 1,26 do local queue = tradeQueues[k] @EMIT
-        if j >= xfer_bounds[k-1] and j < xfer_bounds[k] then
+        if j_off >= xfer_bounds[k-1] and j_off < xfer_bounds[k] then
+          var j = j_off - xfer_bounds[k-1] + queue.bounds.lo;
           @ESCAPE for _,fld in ipairs(Particles_subStepConserved) do @EMIT
-            -- NOTE: This assumes that transfer queues are filled contiguously
-            Particles[i].[fld] = queue[j - xfer_bounds[k-1]].[fld]
+            Particles[i].[fld] = queue[j].[fld]
           @TIME end @EPACSE
         end
       @TIME end @EPACSE
