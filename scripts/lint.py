@@ -6,9 +6,11 @@ import re
 
 task_name = None
 task_start = -1
+task_depth = -1
 num_tasks = 0
 demands = []
 annots = []
+region_args = 0
 
 def record_annot(a):
     if a in line:
@@ -23,6 +25,8 @@ def check_task():
         print 'Warning: Line %s: %s' % (task_start, msg)
     if '__inline' in demands or task_name.startswith('work') or task_name == 'main':
         return
+    if '__parallel' in demands and region_args != 1:
+        warn('Auto-parallelized tasks should have exactly 1 region argument')
     if '__parallel' not in demands and 'MANUALLY PARALLELIZED' not in annots:
         warn('Task not auto-parallelized')
     if '__cuda' not in demands and 'NO CUDA' not in annots:
@@ -55,6 +59,9 @@ for (line, lineno) in zip(fileinput.input(), count(start=1)):
     record_annot('MANUALLY PARALLELIZED')
     record_annot('NO CUDA')
     record_annot('NO OPENMP')
+    # Record region arguments
+    for m in re.finditer(r':\s*region', line):
+        region_args += 1
     # Record __demand annotations
     for m in re.findall(r'__demand\(([^)]*)\)', line):
         demands.extend([a.strip() for a in m.split(',')])
@@ -72,20 +79,30 @@ for (line, lineno) in zip(fileinput.input(), count(start=1)):
         openmp_start = -1
         openmp_depth = -1
     # Process start of task
-    elif line.startswith('task') or line.startswith('local task'):
+    elif (line.strip().startswith('task') or
+          line.strip().startswith('local task')):
         assert(task_name is None and not in_openmp)
-        task_name_idx = 1 if line.startswith('task') else 2
-        task_name = line.split()[task_name_idx].split('(')[0]
+        if line.strip().startswith('task'):
+            task_name_idx = 1
+            task_depth = line.find('t')
+        else:
+            task_name_idx = 2
+            task_depth = line.find('l')
+        task_name = line.strip().split()[task_name_idx].split('(')[0]
         task_start = lineno
     # Process end of task
-    elif line.startswith('end') and task_name is not None:
+    elif (line.strip().startswith('end')
+          and task_name is not None
+          and line.find('e') == task_depth):
         assert(not in_openmp)
         check_task()
         task_name = None
         task_start = -1
+        task_depth = -1
         num_tasks += 1
         demands = []
         annots = []
+        region_args = 0
     # Check statements inside OpenMP loops
     elif in_openmp:
         check_in_openmp(line, lineno)
