@@ -16,23 +16,23 @@ XMF_BODY = """
       <Grid Name="Fluid" GridType="Uniform">
         <Time Value="@TIMESTEP"/>
         <!-- Topology: orthonormal 3D grid -->
-        <Topology TopologyType="3DCoRectMesh" Dimensions="@GRID_DIMS"></Topology>
+        <Topology TopologyType="3DCoRectMesh" Dimensions="@POINTS"></Topology>
         <!-- Geometry: Node positions derived implicitly, based on grid origin and cell size -->
         <Geometry GeometryType="Origin_DxDyDz">
           <DataItem Name="Origin" Dimensions="3" NumberType="Float" Precision="8" Format="XML">@GRID_ORIGIN</DataItem>
           <DataItem Name="Spacing" Dimensions="3" NumberType="Float" Precision="8" Format="XML">@GRID_SPACING</DataItem>
         </Geometry>
         <Attribute Name="pressure" AttributeType="Scalar" Center="Cell">
-          <DataItem Dimensions="@GRID_DIMS" NumberType="Float" Precision="8" Format="HDF">@HDF_FILE:/pressure</DataItem>
+          <DataItem Dimensions="@CELLS" NumberType="Float" Precision="8" Format="HDF">@HDF_FILE:/pressure</DataItem>
         </Attribute>
         <Attribute Name="rho" AttributeTypen="Scalar" Center="Cell">
-          <DataItem Dimensions="@GRID_DIMS" NumberType="Float" Precision="8" Format="HDF">@HDF_FILE:/rho</DataItem>
+          <DataItem Dimensions="@CELLS" NumberType="Float" Precision="8" Format="HDF">@HDF_FILE:/rho</DataItem>
         </Attribute>
         <Attribute Name="temperature" AttributeType="Scalar" Center="Cell">
-          <DataItem Dimensions="@GRID_DIMS" NumberType="Float" Precision="8" Format="HDF">@HDF_FILE:/temperature</DataItem>
+          <DataItem Dimensions="@CELLS" NumberType="Float" Precision="8" Format="HDF">@HDF_FILE:/temperature</DataItem>
         </Attribute>
         <Attribute Name="velocity" AttributeType="Vector" Center="Cell">
-          <DataItem Dimensions="@GRID_DIMS 3" NumberType="Float" Precision="8" Format="HDF">@HDF_FILE:/velocity</DataItem>
+          <DataItem Dimensions="@CELLS 3" NumberType="Float" Precision="8" Format="HDF">@HDF_FILE:/velocity</DataItem>
         </Attribute>
       </Grid>
 """
@@ -108,7 +108,8 @@ with open('out.xmf', 'w') as xmf_out:
     for i in range(len(args.hdf_file)):
         xmf_out.write(XMF_BODY
                       .replace('@TIMESTEP', str(i))
-                      .replace('@GRID_DIMS', '%s %s %s' % (nx+1,ny+1,nz+1))
+                      .replace('@POINTS', '%s %s %s' % (nx+1,ny+1,nz+1))
+                      .replace('@CELLS', '%s %s %s' % (nx,ny,nz))
                       .replace('@GRID_ORIGIN', '%s %s %s' % (ox,oy,oz))
                       .replace('@GRID_SPACING', '%s %s %s' % (dx,dy,dz))
                       .replace('@HDF_FILE', 'out%010d.hdf' % i))
