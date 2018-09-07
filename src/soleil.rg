@@ -4919,77 +4919,30 @@ local function mkInstance() local INSTANCE = {}
     var [tiles] = ispace(int3d, {NX,NY,NZ})
 
     -- Fluid Partitioning
-    regentlib.assert(config.Grid.xNum % NX == 0, "Uneven partitioning of fluid grid on x")
-    regentlib.assert(config.Grid.yNum % NY == 0, "Uneven partitioning of fluid grid on y")
-    regentlib.assert(config.Grid.zNum % NZ == 0, "Uneven partitioning of fluid grid on z")
-    var coloring_Fluid = regentlib.c.legion_domain_point_coloring_create()
-    for c in tiles do
-      var rect = rect3d{lo = int3d{x = Grid.xBnum+(config.Grid.xNum/NX)*c.x,       y = Grid.yBnum+(config.Grid.yNum/NY)*c.y,       z = Grid.zBnum+(config.Grid.zNum/NZ)*c.z      },
-                        hi = int3d{x = Grid.xBnum+(config.Grid.xNum/NX)*(c.x+1)-1, y = Grid.yBnum+(config.Grid.yNum/NY)*(c.y+1)-1, z = Grid.zBnum+(config.Grid.zNum/NZ)*(c.z+1)-1}}
-      if c.x == 0 then
-        rect.lo.x -= Grid.xBnum
-      end
-      if c.x == NX-1 then
-        rect.hi.x += Grid.xBnum
-      end
-      if c.y == 0 then
-        rect.lo.y -= Grid.yBnum
-      end
-      if c.y == NY-1 then
-        rect.hi.y += Grid.yBnum
-      end
-      if c.z == 0 then
-        rect.lo.z -= Grid.zBnum
-      end
-      if c.z == NZ-1 then
-        rect.hi.z += Grid.zBnum
-      end
-      regentlib.c.legion_domain_point_coloring_color_domain(coloring_Fluid, c, rect)
-    end
-    var [p_Fluid] = partition(disjoint, Fluid, coloring_Fluid, tiles)
-    var [p_Fluid_copy] = partition(disjoint, Fluid_copy, coloring_Fluid, tiles)
-    regentlib.c.legion_domain_point_coloring_destroy(coloring_Fluid)
+    var [p_Fluid] =
+      [UTIL.mkPartitionEqually(int3d, int3d, Fluid_columns)]
+      (Fluid, tiles, Grid.xBnum, Grid.yBnum, Grid.zBnum)
+    var [p_Fluid_copy] =
+      [UTIL.mkPartitionEqually(int3d, int3d, Fluid_columns)]
+      (Fluid_copy, tiles, Grid.xBnum, Grid.yBnum, Grid.zBnum)
 
     -- Particles Partitioning
-    regentlib.assert(config.Particles.maxNum % numTiles == 0, "Uneven partitioning of particles")
-    var coloring_Particles = regentlib.c.legion_domain_point_coloring_create()
-    for z = 0,NZ do
-      for y = 0,NY do
-        for x = 0,NX do
-          var rBase : int64
-          for rStart in Particles do
-            rBase = rStart + (z*NX*NY + y*NX + x) * maxParticlesPerTile
-            break
-          end
-          regentlib.c.legion_domain_point_coloring_color_domain(coloring_Particles, int3d{x,y,z}, rect1d{rBase,rBase+maxParticlesPerTile-1})
-        end
-      end
-    end
-    var [p_Particles] = partition(disjoint, Particles, coloring_Particles, tiles)
-    var [p_Particles_copy] = partition(disjoint, Particles_copy, coloring_Particles, tiles)
-    regentlib.c.legion_domain_point_coloring_destroy(coloring_Particles)
-    var coloring_TradeQueue = regentlib.c.legion_domain_point_coloring_create()
-    for z = 0,NZ do
-      for y = 0,NY do
-        for x = 0,NX do
-          var rBase : int64
-          for rStart in [TradeQueue[1]] do
-            rBase = rStart + (z*NX*NY + y*NX + x) * config.Particles.maxXferNum
-            break
-          end
-          regentlib.c.legion_domain_point_coloring_color_domain(coloring_TradeQueue, int3d{x,y,z}, rect1d{rBase,rBase+config.Particles.maxXferNum-1})
-        end
-      end
-    end
+    var [p_Particles] =
+      [UTIL.mkPartitionEqually(int1d, int3d, Particles_columns)]
+      (Particles, tiles, 0)
+    var [p_Particles_copy] =
+      [UTIL.mkPartitionEqually(int1d, int3d, Particles_columns)]
+      (Particles_copy, tiles, 0)
     @ESCAPE for k = 1,26 do @EMIT
-      var [p_TradeQueue[k]] = partition(disjoint, [TradeQueue[k]], coloring_TradeQueue, tiles)
+      var [p_TradeQueue[k]] =
+        [UTIL.mkPartitionEqually(int1d, int3d, TradeQueue_columns)]
+        ([TradeQueue[k]], tiles, 0)
     @TIME end @EPACSE
-    regentlib.c.legion_domain_point_coloring_destroy(coloring_TradeQueue)
 
     -- Radiation Partitioning
     var [p_Radiation] =
       [UTIL.mkPartitionEqually(int3d, int3d, Radiation_columns)]
-      (Radiation, tiles);
+      (Radiation, tiles, 0, 0, 0);
 
     ---------------------------------------------------------------------------
     -- DOM code declarations
