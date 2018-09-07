@@ -3691,10 +3691,12 @@ do
       queue[j].__valid = false
     end
     -- Assign slots on the transfer queue for moving particles
+    var transferred = 0
     __demand(__openmp)
     for i in Particles do
       if Particles[i].__xfer_dir == k then
         Particles[i].__xfer_slot = 1
+        transferred += 1
       else
         Particles[i].__xfer_slot = 0
       end
@@ -3702,8 +3704,7 @@ do
     __parallel_prefix(Particles.__xfer_slot, Particles.__xfer_slot, +, 1)
     -- Check that there's enough space in the transfer queue
     regentlib.assert(
-      Particles[Particles.bounds.hi].__xfer_slot
-        <= int(queue.bounds.hi - queue.bounds.lo + 1),
+      transferred <= int(queue.bounds.hi - queue.bounds.lo + 1),
       'Ran out of space in transfer queue')
     -- Copy moving particles to the transfer queue
     __demand(__openmp)
@@ -3746,17 +3747,19 @@ do
     xfer_bounds[k] = total_xfers
   @TIME end @EPACSE
   -- Number all empty slots on particles sub-region
+  var avail_slots = 0
   __demand(__openmp)
   for i in Particles do
     if Particles[i].__valid then
       Particles[i].__xfer_slot = 0
     else
       Particles[i].__xfer_slot = 1
+      avail_slots += 1
     end
   end
   __parallel_prefix(Particles.__xfer_slot, Particles.__xfer_slot, +, 1)
   -- Check that there's enough space in the particles sub-region
-  regentlib.assert(total_xfers <= Particles[Particles.bounds.hi].__xfer_slot,
+  regentlib.assert(total_xfers <= avail_slots,
                    'Not enough space in sub-region for incoming particles')
   -- Copy moving particles from the transfer queues
   -- NOTE: This part assumes that transfer queues are filled contiguously.
