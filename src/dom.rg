@@ -752,7 +752,7 @@ function MODULE.mkInstance() local INSTANCE = {}
     @ESCAPE for q = 1, 8 do @EMIT
       var [p_sub_points[q]] =
         [UTIL.mkPartitionEqually(int1d, int3d, SubPoint_columns)]
-        ([sub_points[q]], tiles)
+        ([sub_points[q]], tiles, 0)
     @TIME end @EPACSE
 
     -- Partition faces
@@ -762,13 +762,13 @@ function MODULE.mkInstance() local INSTANCE = {}
     @ESCAPE for q = 1, 8 do @EMIT
       var [p_x_faces[q]] =
         [UTIL.mkPartitionEqually(int2d, int2d, Face_columns)]
-        ([x_faces[q]], x_tiles)
+        ([x_faces[q]], x_tiles, 0, 0)
       var [p_y_faces[q]] =
         [UTIL.mkPartitionEqually(int2d, int2d, Face_columns)]
-        ([y_faces[q]], y_tiles)
+        ([y_faces[q]], y_tiles, 0, 0)
       var [p_z_faces[q]] =
         [UTIL.mkPartitionEqually(int2d, int2d, Face_columns)]
-        ([z_faces[q]], z_tiles)
+        ([z_faces[q]], z_tiles, 0, 0)
     @TIME end @EPACSE
 
     -- Cache intra-tile information

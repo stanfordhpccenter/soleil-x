@@ -481,18 +481,30 @@ function Exports.mkPartitionEqually(r_istype, cs_istype, fs)
   local partitionEqually
   if r_istype == int3d and cs_istype == int3d then
     __demand(__inline)
-    task partitionEqually(r : region(ispace(int3d), fs), cs : ispace(int3d))
-      var Nx = r.bounds.hi.x + 1; var ntx = cs.bounds.hi.x + 1
-      var Ny = r.bounds.hi.y + 1; var nty = cs.bounds.hi.y + 1
-      var Nz = r.bounds.hi.z + 1; var ntz = cs.bounds.hi.z + 1
+    task partitionEqually(r : region(ispace(int3d), fs),
+                          cs : ispace(int3d),
+                          xBnum : int, yBnum : int, zBnum : int)
+      var Nx = r.bounds.hi.x - 2*xBnum + 1; var ntx = cs.bounds.hi.x + 1
+      var Ny = r.bounds.hi.y - 2*yBnum + 1; var nty = cs.bounds.hi.y + 1
+      var Nz = r.bounds.hi.z - 2*zBnum + 1; var ntz = cs.bounds.hi.z + 1
       regentlib.assert(Nx % ntx == 0, "Uneven partitioning on x")
       regentlib.assert(Ny % nty == 0, "Uneven partitioning on y")
       regentlib.assert(Nz % ntz == 0, "Uneven partitioning on z")
       var coloring = regentlib.c.legion_domain_point_coloring_create()
       for c in cs do
         var rect = rect3d{
-          lo = int3d{(Nx/ntx)*(c.x),     (Ny/nty)*(c.y),     (Nz/ntz)*(c.z)    },
-          hi = int3d{(Nx/ntx)*(c.x+1)-1, (Ny/nty)*(c.y+1)-1, (Nz/ntz)*(c.z+1)-1}}
+          lo = int3d{xBnum + (Nx/ntx)*(c.x),
+                     yBnum + (Ny/nty)*(c.y),
+                     zBnum + (Nz/ntz)*(c.z)},
+          hi = int3d{xBnum + (Nx/ntx)*(c.x+1) - 1,
+                     yBnum + (Ny/nty)*(c.y+1) - 1,
+                     zBnum + (Nz/ntz)*(c.z+1) - 1}}
+        if c.x == 0 then rect.lo.x -= xBnum end
+        if c.y == 0 then rect.lo.y -= yBnum end
+        if c.z == 0 then rect.lo.z -= zBnum end
+        if c.x == ntx-1 then rect.hi.x += xBnum end
+        if c.y == nty-1 then rect.hi.y += yBnum end
+        if c.z == ntz-1 then rect.hi.z += zBnum end
         regentlib.c.legion_domain_point_coloring_color_domain(coloring, c, rect)
       end
       var p = partition(disjoint, r, coloring, cs)
@@ -501,16 +513,24 @@ function Exports.mkPartitionEqually(r_istype, cs_istype, fs)
     end
   elseif r_istype == int2d and cs_istype == int2d then
     __demand(__inline)
-    task partitionEqually(r : region(ispace(int2d), fs), cs : ispace(int2d))
-      var Nx = r.bounds.hi.x + 1; var ntx = cs.bounds.hi.x + 1
-      var Ny = r.bounds.hi.y + 1; var nty = cs.bounds.hi.y + 1
+    task partitionEqually(r : region(ispace(int2d), fs),
+                          cs : ispace(int2d),
+                          xBnum : int, yBnum : int)
+      var Nx = r.bounds.hi.x - 2*xBnum + 1; var ntx = cs.bounds.hi.x + 1
+      var Ny = r.bounds.hi.y - 2*yBnum + 1; var nty = cs.bounds.hi.y + 1
       regentlib.assert(Nx % ntx == 0, "Uneven partitioning on x")
       regentlib.assert(Ny % nty == 0, "Uneven partitioning on y")
       var coloring = regentlib.c.legion_domain_point_coloring_create()
       for c in cs do
         var rect = rect2d{
-          lo = int2d{(Nx/ntx)*(c.x),     (Ny/nty)*(c.y),   },
-          hi = int2d{(Nx/ntx)*(c.x+1)-1, (Ny/nty)*(c.y+1)-1}}
+          lo = int2d{xBnum + (Nx/ntx)*(c.x),
+                     yBnum + (Ny/nty)*(c.y)},
+          hi = int2d{xBnum + (Nx/ntx)*(c.x+1) - 1,
+                     yBnum + (Ny/nty)*(c.y+1) - 1}}
+        if c.x == 0 then rect.lo.x -= xBnum end
+        if c.y == 0 then rect.lo.y -= yBnum end
+        if c.x == ntx-1 then rect.hi.x += xBnum end
+        if c.y == nty-1 then rect.hi.y += yBnum end
         regentlib.c.legion_domain_point_coloring_color_domain(coloring, c, rect)
       end
       var p = partition(disjoint, r, coloring, cs)
@@ -519,8 +539,10 @@ function Exports.mkPartitionEqually(r_istype, cs_istype, fs)
     end
   elseif r_istype == int1d and cs_istype == int3d then
     __demand(__inline)
-    task partitionEqually(r : region(ispace(int1d), fs), cs : ispace(int3d))
-      var N = [int](r.bounds.hi + 1)
+    task partitionEqually(r : region(ispace(int1d), fs),
+                          cs : ispace(int3d),
+                          bnum : int)
+      var N = [int](r.bounds.hi - 2*bnum + 1)
       var ntx = cs.bounds.hi.x + 1
       var nty = cs.bounds.hi.y + 1
       var ntz = cs.bounds.hi.z + 1
@@ -528,8 +550,14 @@ function Exports.mkPartitionEqually(r_istype, cs_istype, fs)
       var coloring = regentlib.c.legion_domain_point_coloring_create()
       for c in cs do
         var rect = rect1d{
-          lo = (N/ntx/nty/ntz) * (c.x*nty*ntz+c.y*ntz+c.z),
-          hi = (N/ntx/nty/ntz) * (c.x*nty*ntz+c.y*ntz+c.z+1) - 1}
+          lo = bnum + (N/ntx/nty/ntz)*(c.x*nty*ntz+c.y*ntz+c.z),
+          hi = bnum + (N/ntx/nty/ntz)*(c.x*nty*ntz+c.y*ntz+c.z+1) - 1}
+        if c.x == 0 and
+           c.y == 0 and
+           c.z == 0 then rect.lo -= bnum end
+        if c.x == ntx-1 and
+           c.y == nty-1 and
+           c.z == ntz-1 then rect.hi += bnum end
         regentlib.c.legion_domain_point_coloring_color_domain(coloring, c, rect)
       end
       var p = partition(disjoint, r, coloring, cs)
