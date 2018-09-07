@@ -363,6 +363,7 @@ local function emitConsoleWrite(config, format, ...)
   end
 end
 
+-- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Console_write(config : Config,
                    Integrator_timeStep : int,
                    Integrator_simTime : double,
@@ -418,44 +419,40 @@ task GetDynamicViscosity(temperature : double,
   return viscosity
 end
 
-__demand(__parallel) -- NO CUDA
-task InitParticlesUniform(Particles : region(ispace(int1d), Particles_columns),
-                          Fluid : region(ispace(int3d), Fluid_columns),
-                          config : Config,
-                          Grid_xBnum : int32, Grid_yBnum : int32, Grid_zBnum : int32)
+__demand(__cuda) -- MANUALLY PARALLELIZED
+task Particles_InitializeUniform(Particles : region(ispace(int1d), Particles_columns),
+                                 Fluid : region(ispace(int3d), Fluid_columns),
+                                 config : Config,
+                                 Grid_xBnum : int32, Grid_yBnum : int32, Grid_zBnum : int32)
 where
   reads(Fluid.{centerCoordinates, velocity}),
   writes(Particles.{__valid, cell, position, velocity, density, temperature, diameter})
 do
-  var pBase = 0
-  for p in Particles do -- this loop trips up the CUDA codegen
-    pBase = int32(p)
-    break
-  end
+  var pBase = Particles.bounds.lo
   var lo = Fluid.bounds.lo
   lo.x = max(lo.x, Grid_xBnum)
   lo.y = max(lo.y, Grid_yBnum)
   lo.z = max(lo.z, Grid_zBnum)
   var hi = Fluid.bounds.hi
-  hi.x = min(hi.x, ((config.Grid.xNum+Grid_xBnum)-1))
-  hi.y = min(hi.y, ((config.Grid.yNum+Grid_yBnum)-1))
-  hi.z = min(hi.z, ((config.Grid.zNum+Grid_zBnum)-1))
-  var xSize = ((hi.x-lo.x)+1)
-  var ySize = ((hi.y-lo.y)+1)
-  var zSize = ((hi.z-lo.z)+1)
+  hi.x = min(hi.x, config.Grid.xNum+Grid_xBnum-1)
+  hi.y = min(hi.y, config.Grid.yNum+Grid_yBnum-1)
+  hi.z = min(hi.z, config.Grid.zNum+Grid_zBnum-1)
+  var xSize = hi.x-lo.x+1
+  var ySize = hi.y-lo.y+1
+  var zSize = hi.z-lo.z+1
   var particlesPerTask = config.Particles.initNum / (config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2])
   var Particles_density = config.Particles.density
   var Particles_initTemperature = config.Particles.initTemperature
   var Particles_diameterMean = config.Particles.diameterMean
   __demand(__openmp)
   for p in Particles do
-    if ((int32(p)-pBase)<particlesPerTask) then
+    var relIdx = int(p - pBase)
+    if relIdx < particlesPerTask then
       p.__valid = true
-      var relIdx = (int32(p)-pBase)
-      var c = int3d({(lo.x+(relIdx%xSize)), (lo.y+((relIdx/xSize)%ySize)), (lo.z+((relIdx/xSize)/ySize%zSize))})
+      var c = lo + int3d{relIdx%xSize, relIdx/xSize%ySize, relIdx/xSize/ySize%zSize}
       p.cell = c
-      p.position = Fluid[p.cell].centerCoordinates
-      p.velocity = Fluid[p.cell].velocity
+      p.position = Fluid[c].centerCoordinates
+      p.velocity = Fluid[c].velocity
       p.density = Particles_density
       p.temperature = Particles_initTemperature
       p.diameter = Particles_diameterMean
@@ -3330,7 +3327,7 @@ task Fluid_elemColor(idx : int3d,
                (idx.z-Grid_zBnum)/(Grid_zNum/NZ)}
 end
 
--- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+__demand(__cuda) -- MANUALLY PARALLELIZED
 task Particles_CheckPartitioning(color : int3d,
                                  Particles : region(ispace(int1d), Particles_columns),
                                  Grid_xBnum : int32, Grid_xNum : int32, NX : int32,
@@ -3339,15 +3336,17 @@ task Particles_CheckPartitioning(color : int3d,
 where
   reads(Particles.{cell, __valid})
 do
+  var num_invalid = 0
+  __demand(__openmp)
   for p in Particles do
-    if p.__valid then
-      regentlib.assert(color == Fluid_elemColor(p.cell,
-                                                Grid_xBnum, Grid_xNum, NX,
-                                                Grid_yBnum, Grid_yNum, NY,
-                                                Grid_zBnum, Grid_zNum, NZ),
-                       'Invalid particle partitioning')
+    if p.__valid and color ~= Fluid_elemColor(p.cell,
+                                              Grid_xBnum, Grid_xNum, NX,
+                                              Grid_yBnum, Grid_yNum, NY,
+                                              Grid_zBnum, Grid_zNum, NZ) then
+      num_invalid += 1
     end
   end
+  regentlib.assert(num_invalid == 0, 'Invalid particle partitioning')
 end
 
 local colorOffsets = terralib.newlist({
@@ -5097,7 +5096,12 @@ local function mkInstance() local INSTANCE = {}
     elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform then
       regentlib.assert(config.Particles.initNum <= config.Particles.maxNum,
                        "Not enough space for initial number of particles")
-      InitParticlesUniform(Particles, Fluid, config, Grid.xBnum, Grid.yBnum, Grid.zBnum)
+      for c in tiles do
+        Particles_InitializeUniform(p_Particles[c],
+                                    p_Fluid[c],
+                                    config,
+                                    Grid.xBnum, Grid.yBnum, Grid.zBnum)
+      end
       Particles_number = (config.Particles.initNum / numTiles) * numTiles
     else regentlib.assert(false, 'Unhandled case in switch') end
 
