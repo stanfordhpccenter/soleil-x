@@ -185,14 +185,6 @@ local DOM = (require 'dom-desugared')(MAX_ANGLES_PER_QUAD, Radiation_columns, Co
 local PI = 3.1415926535898
 local SB = 5.67e-08
 
-local SIZEOF_PARTICLE = sizeof(Particles_columns)
-
-local terra validFieldOffset()
-  var x : Particles_columns
-  return [int64]([&int8](&(x.__valid)) - [&int8](&x))
-end
-local VALID_FIELD_OFFSET = validFieldOffset()
-
 -------------------------------------------------------------------------------
 -- MACROS
 -------------------------------------------------------------------------------
@@ -417,7 +409,6 @@ task Particles_InitializeUniform(Particles : region(ispace(int1d), Particles_col
                                  Grid_xBnum : int32, Grid_yBnum : int32, Grid_zBnum : int32)
 where
   reads(Fluid.{centerCoordinates, velocity}),
-  reads(Particles.cell),
   writes(Particles.{__valid, cell, position, velocity, density, temperature, diameter})
 do
   var pBase = Particles.bounds.lo
@@ -5205,7 +5196,7 @@ local function mkInstance() local INSTANCE = {}
       (Particles, tiles, 0)
     var [p_Particles_copy] =
       [UTIL.mkPartitionEqually(int1d, int3d, Particles_columns)]
-      (Particles_copy, tiles, 0)
+      (Particles_copy, tiles, 0);
     @ESCAPE for k = 1,26 do @EMIT
       var [p_TradeQueue[k]] =
         [UTIL.mkPartitionEqually(int1d, int3d, TradeQueue_columns)]
