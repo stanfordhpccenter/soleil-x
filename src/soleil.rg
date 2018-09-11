@@ -3753,20 +3753,20 @@ do
                    'Not enough space in sub-region for incoming particles')
   -- Copy moving particles from the transfer queues
   -- NOTE: This part assumes that transfer queues are filled contiguously.
-  __demand(__openmp)
-  for i in Particles do
-    if not Particles[i].__valid then
-      var j_off = Particles[i].__xfer_slot - 1
-      @ESCAPE for k = 1,26 do local queue = tradeQueues[k] @EMIT
+  @ESCAPE for k = 1,26 do local queue = tradeQueues[k] @EMIT
+    __demand(__openmp)
+    for i in Particles do
+      if not Particles[i].__valid then
+        var j_off = Particles[i].__xfer_slot - 1
         if j_off >= xfer_bounds[k-1] and j_off < xfer_bounds[k] then
           var j = j_off - xfer_bounds[k-1] + queue.bounds.lo;
           @ESCAPE for _,fld in ipairs(Particles_subStepConserved) do @EMIT
             Particles[i].[fld] = queue[j].[fld]
           @TIME end @EPACSE
         end
-      @TIME end @EPACSE
+      end
     end
-  end
+  @TIME end @EPACSE
 end
 
 __demand(__inline)
