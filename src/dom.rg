@@ -4,7 +4,7 @@ import 'regent'
 -- MODULE PARAMETERS
 -------------------------------------------------------------------------------
 
-return function(MAX_ANGLES_PER_QUAD, Point_columns, Config) local MODULE = {}
+return function(MAX_ANGLES_PER_QUAD, Point_columns, SCHEMA) local MODULE = {}
 
 -------------------------------------------------------------------------------
 -- IMPORTS
@@ -118,7 +118,7 @@ end)
 
 local -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task initialize_angles([angles],
-                       config : Config)
+                       config : SCHEMA.Config)
 where
   [angles:map(function(a) return terralib.newlist{
      regentlib.privilege(regentlib.reads, a, 'xi'),
@@ -132,7 +132,7 @@ where
    } end):flatten()]
 do
   -- Open angles file
-  var num_angles = config.Radiation.angles
+  var num_angles = config.Radiation.u.DOM.angles
   regentlib.assert(
     MAX_ANGLES_PER_QUAD * 8 >= num_angles,
     'Too many angles; recompile with larger MAX_ANGLES_PER_QUAD')
@@ -293,11 +293,11 @@ local function mkInitializeFaces(dim, q)
 
   local __demand(__cuda) -- MANUALLY PARALLELIZED
   task initialize_faces(faces : region(ispace(int2d), Face_columns),
-                        config : Config)
+                        config : SCHEMA.Config)
   where
     reads writes(faces.I)
   do
-    var num_angles = config.Radiation.angles
+    var num_angles = config.Radiation.u.DOM.angles
     __demand(__openmp)
     for f in faces do
       for m = 0, quadrantSize(q, num_angles) do
@@ -321,12 +321,14 @@ local initialize_faces = {
 
 local __demand(__cuda) -- MANUALLY PARALLELIZED
 task source_term(points : region(ispace(int3d), Point_columns),
-                 config : Config)
+                 config : SCHEMA.Config)
 where
   reads(points.{Ib, sigma, G}),
   writes(points.S)
 do
-  var omega = config.Radiation.qs/(config.Radiation.qa+config.Radiation.qs)
+  var omega =
+    config.Radiation.u.DOM.qs /
+    (config.Radiation.u.DOM.qa + config.Radiation.u.DOM.qs)
   __demand(__openmp)
   for p in points do
     p.S = (1.0-omega) * p.sigma * p.Ib + omega * p.sigma/(4.0*PI) * p.G
@@ -338,12 +340,12 @@ local function mkCacheIntensity(dim, q)
 
   local __demand(__cuda) -- MANUALLY PARALLELIZED
   task cache_intensity(faces : region(ispace(int2d), Face_columns),
-                       config : Config)
+                       config : SCHEMA.Config)
   where
     reads(faces.I),
     reads writes(faces.I_prev)
   do
-    var num_angles = config.Radiation.angles
+    var num_angles = config.Radiation.u.DOM.angles
     __demand(__openmp)
     for f in faces do
       for m = 0, quadrantSize(q, num_angles) do
@@ -401,7 +403,7 @@ local function mkBound(wall)
   local __demand(__cuda) -- MANUALLY PARALLELIZED
   task bound([faces],
              [angles],
-             config : Config)
+             config : SCHEMA.Config)
   where
     [incomingQuadrants:map(function(q)
        return regentlib.privilege(regentlib.reads, faces[q], 'I_prev')
@@ -417,11 +419,11 @@ local function mkBound(wall)
        regentlib.privilege(regentlib.reads, a, 'w'),
      } end):flatten()]
   do
-    var epsw = config.Radiation.[emissField]
-    var Tw = config.Radiation.[tempField]
-    var fromCell = config.Radiation.[windowField].fromCell
-    var uptoCell = config.Radiation.[windowField].uptoCell
-    var num_angles = config.Radiation.angles
+    var epsw = config.Radiation.u.DOM.[emissField]
+    var Tw = config.Radiation.u.DOM.[tempField]
+    var fromCell = config.Radiation.u.DOM.[windowField].fromCell
+    var uptoCell = config.Radiation.u.DOM.[windowField].uptoCell
+    var num_angles = config.Radiation.u.DOM.angles
     __demand(__openmp)
     for idx in [faces[1]] do
       var a = idx.x
@@ -499,7 +501,7 @@ local function mkSweep(q)
              y_faces : region(ispace(int2d), Face_columns),
              z_faces : region(ispace(int2d), Face_columns),
              angles : region(ispace(int1d), Angle_columns),
-             config : Config)
+             config : SCHEMA.Config)
   where
     reads(angles.{xi, eta, mu}, points.{S, sigma}, grid_map.s3d_to_p),
     reads writes(sub_points.I, x_faces.I, y_faces.I, z_faces.I)
@@ -522,14 +524,14 @@ local function mkSweep(q)
       z_faces.bounds.hi.x - z_faces.bounds.lo.x + 1 == Tx and
       z_faces.bounds.hi.y - z_faces.bounds.lo.y + 1 == Ty,
       'Internal error')
-    var dx = config.Grid.xWidth / config.Radiation.xNum
-    var dy = config.Grid.yWidth / config.Radiation.yNum
-    var dz = config.Grid.zWidth / config.Radiation.zNum
+    var dx = config.Grid.xWidth / config.Radiation.u.DOM.xNum
+    var dy = config.Grid.yWidth / config.Radiation.u.DOM.yNum
+    var dz = config.Grid.zWidth / config.Radiation.u.DOM.zNum
     var dAx = dy*dz
     var dAy = dx*dz
     var dAz = dx*dy
     var dV = dx*dy*dz
-    var num_angles = config.Radiation.angles
+    var num_angles = config.Radiation.u.DOM.angles
     var res = 0.0
     -- Launch in order of intra-tile diagonals
     for d = int(diagonals.bounds.lo), int(diagonals.bounds.hi+1) do
@@ -594,7 +596,7 @@ task reduce_intensity(points : region(ispace(int3d), Point_columns),
                       [sub_points],
                       grid_map : region(ispace(int3d), GridMap_columns),
                       [angles],
-                      config : Config)
+                      config : SCHEMA.Config)
 where
   reads(grid_map.p_to_s3d),
   [sub_points:map(function(s)
@@ -619,7 +621,7 @@ do
       == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz,
       'Internal error')
   @TIME end @EPACSE
-  var num_angles = config.Radiation.angles
+  var num_angles = config.Radiation.u.DOM.angles
   __demand(__openmp)
   for p in points do
     p.G = 0.0
@@ -684,18 +686,25 @@ function MODULE.mkInstance() local INSTANCE = {}
   local diagonals = regentlib.newsymbol('diagonals')
   local p_sub_point_offsets = regentlib.newsymbol('p_sub_point_offsets')
 
+  -- NOTE: This quote is included into the main simulation whether or not
+  -- we're using DOM, so the values will be garbage if type ~= DOM.
   function INSTANCE.DeclSymbols(config, tiles) return rquote
 
     var sampleId = config.Mapping.sampleId
 
-    -- Number of points in each dimension
-    var [Nx] = config.Radiation.xNum
-    var [Ny] = config.Radiation.yNum
-    var [Nz] = config.Radiation.zNum
     -- Number of tiles in each dimension
     var [ntx] = config.Mapping.tiles[0]
     var [nty] = config.Mapping.tiles[1]
     var [ntz] = config.Mapping.tiles[2]
+    -- Number of points in each dimension
+    var [Nx] = ntx
+    var [Ny] = nty
+    var [Nz] = ntz
+    if config.Radiation.type == SCHEMA.RadiationModel_DOM then
+      Nx = config.Radiation.u.DOM.xNum
+      Ny = config.Radiation.u.DOM.yNum
+      Nz = config.Radiation.u.DOM.zNum
+    end
     -- Sanity-check partitioning
     regentlib.assert(Nx % ntx == 0, "Uneven partitioning of radiation grid on x")
     regentlib.assert(Ny % nty == 0, "Uneven partitioning of radiation grid on y")
@@ -731,8 +740,12 @@ function MODULE.mkInstance() local INSTANCE = {}
     @TIME end @EPACSE
 
     -- Regions for angles
+    var num_angles = 8
+    if config.Radiation.type == SCHEMA.RadiationModel_DOM then
+      num_angles = config.Radiation.u.DOM.angles
+    end
     @ESCAPE for q = 1, 8 do @EMIT
-      var is_angles = ispace(int1d, quadrantSize(q, config.Radiation.angles))
+      var is_angles = ispace(int1d, quadrantSize(q, num_angles))
       var [angles[q]] = region(is_angles, Angle_columns);
       [UTIL.emitRegionTagAttach(angles[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     @TIME end @EPACSE
@@ -907,7 +920,7 @@ function MODULE.mkInstance() local INSTANCE = {}
       @TIME end @EPACSE
 
       -- Compute the residual.
-      res = sqrt(res/(Nx*Ny*Nz*config.Radiation.angles))
+      res = sqrt(res/(Nx*Ny*Nz*config.Radiation.u.DOM.angles))
 
       -- Update intensity.
       for c in tiles do

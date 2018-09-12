@@ -175,7 +175,7 @@ struct Radiation_columns {
 -- EXTERNAL MODULE IMPORTS
 -------------------------------------------------------------------------------
 
-local DOM = (require 'dom-desugared')(MAX_ANGLES_PER_QUAD, Radiation_columns, Config)
+local DOM = (require 'dom-desugared')(MAX_ANGLES_PER_QUAD, Radiation_columns, SCHEMA)
 
 -------------------------------------------------------------------------------
 -- CONSTANTS
@@ -462,7 +462,7 @@ where
   reads writes(Particles.temperature_t)
 do
   var absorptivity = config.Particles.absorptivity
-  var intensity = config.Radiation.intensity
+  var intensity = config.Radiation.u.Algebraic.intensity
   var heatCapacity = config.Particles.heatCapacity
   __demand(__openmp)
   for p in Particles do
@@ -4955,8 +4955,15 @@ local function mkInstance() local INSTANCE = {}
 
     var [Particles_number] = int64(0)
 
-    if ((not ((config.Grid.xNum%config.Radiation.xNum)==0)) or ((not ((config.Grid.yNum%config.Radiation.yNum)==0)) or (not ((config.Grid.zNum%config.Radiation.zNum)==0)))) then
-      regentlib.assert(false, "Inexact coarsening factor")
+    if config.Radiation.type == SCHEMA.RadiationModel_DOM then
+      regentlib.assert(config.Grid.xNum >= config.Radiation.u.DOM.xNum and
+                       config.Grid.yNum >= config.Radiation.u.DOM.yNum and
+                       config.Grid.zNum >= config.Radiation.u.DOM.zNum,
+                       'Radiation grid cannnot be finer than fluid grid')
+      regentlib.assert(config.Grid.xNum % config.Radiation.u.DOM.xNum == 0 and
+                       config.Grid.yNum % config.Radiation.u.DOM.yNum == 0 and
+                       config.Grid.zNum % config.Radiation.u.DOM.zNum == 0,
+                       'Inexact radiation grid coarsening factor')
     end
 
     -- Set up flow BC's in x direction
@@ -5189,9 +5196,15 @@ local function mkInstance() local INSTANCE = {}
     @TIME end @EPACSE
 
     -- Create Radiation Regions
-    var is_Radiation = ispace(int3d, {x = config.Radiation.xNum,
-                                      y = config.Radiation.yNum,
-                                      z = config.Radiation.zNum})
+    var rad_x = NX
+    var rad_y = NY
+    var rad_z = NZ
+    if config.Radiation.type == SCHEMA.RadiationModel_DOM then
+      rad_x = config.Radiation.u.DOM.xNum
+      rad_y = config.Radiation.u.DOM.yNum
+      rad_z = config.Radiation.u.DOM.zNum
+    end
+    var is_Radiation = ispace(int3d, {x = rad_x, y = rad_y, z = rad_z})
     var [Radiation] = region(is_Radiation, Radiation_columns);
     [UTIL.emitRegionTagAttach(Radiation, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
 
@@ -5286,13 +5299,15 @@ local function mkInstance() local INSTANCE = {}
   function INSTANCE.InitRegions(config) return rquote
 
     Particles_initValidField(Particles)
-    SetCoarseningField(Fluid,
-                       Grid.xBnum, config.Grid.xNum,
-                       Grid.yBnum, config.Grid.yNum,
-                       Grid.zBnum, config.Grid.zNum,
-                       config.Radiation.xNum,
-                       config.Radiation.yNum,
-                       config.Radiation.zNum)
+    if config.Radiation.type == SCHEMA.RadiationModel_DOM then
+      SetCoarseningField(Fluid,
+                         Grid.xBnum, config.Grid.xNum,
+                         Grid.yBnum, config.Grid.yNum,
+                         Grid.zBnum, config.Grid.zNum,
+                         config.Radiation.u.DOM.xNum,
+                         config.Radiation.u.DOM.yNum,
+                         config.Radiation.u.DOM.zNum)
+    end
     Flow_InitializeCell(Fluid)
     Flow_InitializeCenterCoordinates(Fluid,
                                      Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
@@ -5451,11 +5466,11 @@ local function mkInstance() local INSTANCE = {}
     else regentlib.assert(false, 'Unhandled case in switch') end
 
     -- Initialize radiation
-    if config.Radiation.type == SCHEMA.RadiationType_OFF then
+    if config.Radiation.type == SCHEMA.RadiationModel_OFF then
       -- Do nothing
-    elseif config.Radiation.type == SCHEMA.RadiationType_Algebraic then
+    elseif config.Radiation.type == SCHEMA.RadiationModel_Algebraic then
       -- Do nothing
-    elseif config.Radiation.type == SCHEMA.RadiationType_DOM then
+    elseif config.Radiation.type == SCHEMA.RadiationModel_DOM then
       [DOM_INST.InitRegions(config, tiles, p_Radiation)];
     else regentlib.assert(false, 'Unhandled case in switch') end
 
@@ -5713,24 +5728,31 @@ local function mkInstance() local INSTANCE = {}
       Particles_AddBodyForces(Particles, config.Particles.bodyForce)
 
       -- Add radiation
-      if config.Radiation.type == SCHEMA.RadiationType_OFF then
+      if config.Radiation.type == SCHEMA.RadiationModel_OFF then
         -- Do nothing
-      elseif config.Radiation.type == SCHEMA.RadiationType_Algebraic then
+      elseif config.Radiation.type == SCHEMA.RadiationModel_Algebraic then
         AddRadiation(Particles, config)
-      elseif config.Radiation.type == SCHEMA.RadiationType_DOM then
+      elseif config.Radiation.type == SCHEMA.RadiationModel_DOM then
         fill(Radiation.acc_d2, 0.0)
         fill(Radiation.acc_d2t4, 0.0)
         for c in tiles do
           Radiation_AccumulateParticleValues(p_Particles[c], p_Fluid[c], p_Radiation[c])
         end
-        var Radiation_xCellWidth = (config.Grid.xWidth/config.Radiation.xNum)
-        var Radiation_yCellWidth = (config.Grid.yWidth/config.Radiation.yNum)
-        var Radiation_zCellWidth = (config.Grid.zWidth/config.Radiation.zNum)
+        var Radiation_xCellWidth = (config.Grid.xWidth/config.Radiation.u.DOM.xNum)
+        var Radiation_yCellWidth = (config.Grid.yWidth/config.Radiation.u.DOM.yNum)
+        var Radiation_zCellWidth = (config.Grid.zWidth/config.Radiation.u.DOM.zNum)
         var Radiation_cellVolume = Radiation_xCellWidth * Radiation_yCellWidth * Radiation_zCellWidth
-        Radiation_UpdateFieldValues(Radiation, Radiation_cellVolume, config.Radiation.qa, config.Radiation.qs);
+        Radiation_UpdateFieldValues(Radiation,
+                                    Radiation_cellVolume,
+                                    config.Radiation.u.DOM.qa,
+                                    config.Radiation.u.DOM.qs);
         [DOM_INST.ComputeRadiationField(config, tiles, p_Radiation)];
         for c in tiles do
-          Particles_AbsorbRadiation(p_Particles[c], p_Fluid[c], p_Radiation[c], config.Particles.heatCapacity, config.Radiation.qa)
+          Particles_AbsorbRadiation(p_Particles[c],
+                                    p_Fluid[c],
+                                    p_Radiation[c],
+                                    config.Particles.heatCapacity,
+                                    config.Radiation.u.DOM.qa)
         end
       else regentlib.assert(false, 'Unhandled case in switch') end
 

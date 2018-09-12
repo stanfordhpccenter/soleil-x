@@ -16,7 +16,6 @@ Exports.ParticlesBC = Enum('Periodic','Bounce','Disappear')
 Exports.ViscosityModel = Enum('Constant','PowerLaw','Sutherland')
 Exports.FlowInitCase = Enum('Uniform','Random','Restart','Perturbed','TaylorGreen2DVortex','TaylorGreen3DVortex')
 Exports.ParticlesInitCase = Enum('Random','Restart','Uniform')
-Exports.RadiationType = Enum('OFF','Algebraic','DOM')
 Exports.TempProfile = Union{
   Constant = {
     temperature = double,
@@ -43,6 +42,39 @@ Exports.FeedModel = Union{
   OFF = {},
   Incoming = {
     addedVelocity = Array(3,double),
+  },
+}
+Exports.RadiationModel = Union{
+  OFF = {},
+  Algebraic = {
+    intensity = double,
+  },
+  DOM = {
+    qa = double,
+    qs = double,
+    -- number of cells in the radiation grid, on the x,y,z dimensions
+    xNum = int,
+    yNum = int,
+    zNum = int,
+    xHiEmiss = double,
+    xLoEmiss = double,
+    yHiEmiss = double,
+    yLoEmiss = double,
+    zHiEmiss = double,
+    zLoEmiss = double,
+    xHiTemp = double,
+    xLoTemp = double,
+    yHiTemp = double,
+    yLoTemp = double,
+    zHiTemp = double,
+    zLoTemp = double,
+    xHiWindow = Exports.Window,
+    xLoWindow = Exports.Window,
+    yHiWindow = Exports.Window,
+    yLoWindow = Exports.Window,
+    zHiWindow = Exports.Window,
+    zLoWindow = Exports.Window,
+    angles = int,
   },
 }
 
@@ -140,35 +172,7 @@ Exports.Config = {
     collisions = bool,
     feeding = Exports.FeedModel,
   },
-  Radiation = {
-    type = Exports.RadiationType,
-    intensity = double,
-    qa = double,
-    qs = double,
-    -- number of cells in the radiation grid, on the x,y,z dimensions
-    xNum = int,
-    yNum = int,
-    zNum = int,
-    xHiEmiss = double,
-    xLoEmiss = double,
-    yHiEmiss = double,
-    yLoEmiss = double,
-    zHiEmiss = double,
-    zLoEmiss = double,
-    xHiTemp = double,
-    xLoTemp = double,
-    yHiTemp = double,
-    yLoTemp = double,
-    zHiTemp = double,
-    zLoTemp = double,
-    xHiWindow = Exports.Window,
-    xLoWindow = Exports.Window,
-    yHiWindow = Exports.Window,
-    yLoWindow = Exports.Window,
-    zHiWindow = Exports.Window,
-    zLoWindow = Exports.Window,
-    angles = int,
-  },
+  Radiation = Exports.RadiationModel,
   IO = {
     -- whether to write restart files (requires compiling with HDF support)
     wrtRestart = bool,

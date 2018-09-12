@@ -110,7 +110,6 @@
 
     "Radiation" : {
         "type" : "DOM",
-        "intensity" : 92592.5925925,
         "qa" : 1.0,
         "qs" : 0.0,
         "xNum" : 136,

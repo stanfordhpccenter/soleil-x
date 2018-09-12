@@ -38,7 +38,7 @@ struct Point_columns {
 -- Import DOM module
 -------------------------------------------------------------------------------
 
-local DOM = (require 'dom-desugared')(MAX_ANGLES_PER_QUAD, Point_columns, SCHEMA.Config)
+local DOM = (require 'dom-desugared')(MAX_ANGLES_PER_QUAD, Point_columns, SCHEMA)
 local DOM_INST = DOM.mkInstance()
 
 -------------------------------------------------------------------------------
@@ -79,10 +79,12 @@ task main()
   end
   var config : SCHEMA.Config[1]
   SCHEMA.parse_Config([&SCHEMA.Config](config), args.argv[1])
+  regentlib.assert(config[0].Radiation.type == SCHEMA.RadiationModel_DOM,
+                   'Configuration file must use DOM radiation model')
   -- Declare externally-managed regions
-  var is_points = ispace(int3d, {config[0].Radiation.xNum,
-                                 config[0].Radiation.yNum,
-                                 config[0].Radiation.zNum})
+  var is_points = ispace(int3d, {config[0].Radiation.u.DOM.xNum,
+                                 config[0].Radiation.u.DOM.yNum,
+                                 config[0].Radiation.u.DOM.zNum})
   var points = region(is_points, Point_columns)
   var tiles = ispace(int3d, {config[0].Mapping.tiles[0],
                              config[0].Mapping.tiles[1],
