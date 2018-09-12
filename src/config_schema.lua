@@ -48,6 +48,7 @@ Exports.RadiationModel = Union{
   OFF = {},
   Algebraic = {
     intensity = double,
+    absorptivity = double,
   },
   DOM = {
     qa = double,
@@ -161,7 +162,6 @@ Exports.Config = {
     maxNum = int,
     restitutionCoeff = double,
     convectiveCoeff = double,
-    absorptivity = double,
     heatCapacity = double,
     initTemperature = double,
     density = double,

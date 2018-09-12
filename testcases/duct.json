@@ -96,7 +96,6 @@
         "maxNum" : 100000000,
         "restitutionCoeff" : 1.0,
         "convectiveCoeff" : 2.0,
-        "absorptivity" : 1.0,
         "heatCapacity" : 4.5e+2,
         "initTemperature" : 300.0,
         "density" : 8900.0,

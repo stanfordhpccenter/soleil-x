@@ -461,17 +461,17 @@ where
   reads(Particles.{density, diameter, __valid}),
   reads writes(Particles.temperature_t)
 do
-  var absorptivity = config.Particles.absorptivity
+  var absorptivity = config.Radiation.u.Algebraic.absorptivity
   var intensity = config.Radiation.u.Algebraic.intensity
   var heatCapacity = config.Particles.heatCapacity
   __demand(__openmp)
   for p in Particles do
     if p.__valid then
-      var crossSectionArea = (((2*acos(0))*pow(p.diameter, 2))/4)
-      var volume = (((2*acos(0))*pow(p.diameter, 3))/6)
-      var mass = (volume*p.density)
-      var absorbedRadiationIntensity = ((absorptivity*intensity)*crossSectionArea)
-      p.temperature_t += (absorbedRadiationIntensity/(mass*heatCapacity))
+      var crossSectionArea = PI*pow(p.diameter,2.0)/4.0
+      var volume = PI*pow(p.diameter,3.0)/6.0
+      var mass = volume*p.density
+      var absorbedRadiationIntensity = absorptivity*intensity*crossSectionArea
+      p.temperature_t += absorbedRadiationIntensity/(mass*heatCapacity)
     end
   end
 end
