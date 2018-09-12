@@ -3478,7 +3478,8 @@ task Flow_AddTurbulentSource(Fluid : region(ispace(int3d), Fluid_columns),
                              Grid_cellVolume : double,
                              Grid_xBnum : int32, Grid_xNum : int32,
                              Grid_yBnum : int32, Grid_yNum : int32,
-                             Grid_zBnum : int32, Grid_zNum : int32)
+                             Grid_zBnum : int32, Grid_zNum : int32,
+                             config : Config)
 where
   reads(Fluid.{rho, velocity}),
   reads writes(Fluid.{rhoVelocity_t, rhoEnergy_t})
@@ -3487,26 +3488,15 @@ do
   __demand(__openmp)
   for c in Fluid do
     if (not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) then
-      var W = 0.0
-      var A = 0.0
-      var G = 0.0
-      var t_o = 0.0
-      var K_o = 0.0
-      var force = array(0.0, 0.0, 0.0)
-      W = (Flow_averagePD+Flow_averageDissipation)
-      G = 67.0
-      t_o = double(0.029594998)
-      K_o = double(0.098919475)
-      A = (((-W)-((G*(Flow_averageK-K_o))/t_o))/(2.0*Flow_averageK))
-      force = vs_mul(Fluid[c].velocity, (Fluid[c].rho*A))
-      var tmp = force
-      var v = Fluid[c].rhoVelocity_t
-      v[0] += tmp[0]
-      v[1] += tmp[1]
-      v[2] += tmp[2]
-      Fluid[c].rhoVelocity_t = v
+      var W = Flow_averagePD + Flow_averageDissipation
+      var G = config.Flow.turbForcing.u.HIT.G
+      var t_o = config.Flow.turbForcing.u.HIT.t_o
+      var K_o = config.Flow.turbForcing.u.HIT.K_o
+      var A = (-W-G*(Flow_averageK-K_o)/t_o) / (2.0*Flow_averageK)
+      var force = vs_mul(Fluid[c].velocity, Fluid[c].rho*A)
+      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, force)
       Fluid[c].rhoEnergy_t += dot(force, Fluid[c].velocity)
-      acc += (dot(force, Fluid[c].velocity)*Grid_cellVolume)
+      acc += dot(force, Fluid[c].velocity) * Grid_cellVolume
     end
   end
   return acc
@@ -5699,7 +5689,7 @@ local function mkInstance() local INSTANCE = {}
       end
 
       -- Add turbulent forcing
-      if config.Flow.turbForcing then
+      if config.Flow.turbForcing.type == SCHEMA.TurbForcingModel_HIT then
         var Flow_averagePD = 0.0
         var Flow_averageDissipation = 0.0
         var Flow_averageFe = 0.0
@@ -5718,7 +5708,7 @@ local function mkInstance() local INSTANCE = {}
         Flow_averageDissipation = (Flow_averageDissipation/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
         Flow_averageK += CalculateAverageK(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
         Flow_averageK = (Flow_averageK/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
-        Flow_averageFe += Flow_AddTurbulentSource(Fluid, Flow_averageDissipation, Flow_averageK, Flow_averagePD, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+        Flow_averageFe += Flow_AddTurbulentSource(Fluid, Flow_averageDissipation, Flow_averageK, Flow_averagePD, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum, config)
         Flow_averageFe = (Flow_averageFe/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
         Flow_AdjustTurbulentSource(Fluid, Flow_averageFe, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
       end

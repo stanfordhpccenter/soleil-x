@@ -83,8 +83,8 @@
         "initCase" : "Uniform",
         "restartDir" : "",
         "initParams" : [1.0, 104040.0, 1.0, 0.0, 0.0],
-            "bodyForce" : [0.0, 0.0, 0.0],
-        "turbForcing" : false
+        "bodyForce" : [0.0, 0.0, 0.0],
+        "turbForcing" : { "type" : "OFF" }
     },
 
     "Particles" : {

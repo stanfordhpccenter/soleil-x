@@ -84,7 +84,7 @@
         "restartDir" : "/home/manolis/tgv_restart/fluid_iter2",
         "initParams" : [1.0, 100.0, 2.0, 0.0, 0.0],
         "bodyForce" : [0.0, 0.0, 0.0],
-        "turbForcing" : false
+        "turbForcing" : { "type" : "OFF" }
     },
 
     "Particles" : {

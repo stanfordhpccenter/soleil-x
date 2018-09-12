@@ -84,7 +84,7 @@
         "restartDir" : "",
         "initParams" : [1.2, 104040.0, 2.0650625, 0.0, 0.0],
         "bodyForce" : [0.0, 0.0, 0.0],
-        "turbForcing" : false
+        "turbForcing" : { "type" : "OFF" }
     },
 
     "Particles" : {

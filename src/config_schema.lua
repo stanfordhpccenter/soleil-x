@@ -38,6 +38,14 @@ Exports.InflowProfile = Union{
     addedVelocity = double,
   },
 }
+Exports.TurbForcingModel = Union{
+  OFF = {},
+  HIT = {
+    G = double,
+    t_o = double,
+    K_o = double,
+  },
+}
 Exports.FeedModel = Union{
   OFF = {},
   Incoming = {
@@ -153,7 +161,7 @@ Exports.Config = {
     restartDir = String(256),
     initParams = Array(5,double),
     bodyForce = Array(3,double),
-    turbForcing = bool,
+    turbForcing = Exports.TurbForcingModel,
   },
   Particles = {
     initCase = Exports.ParticlesInitCase,

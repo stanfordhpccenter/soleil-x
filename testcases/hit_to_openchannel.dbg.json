@@ -85,7 +85,12 @@
             "restartDir" : "",
             "initParams" : [1.2, 104040.0, 0.001, 0.0, 0.0],
             "bodyForce" : [0.0, 0.0, 0.0],
-            "turbForcing" : true
+            "turbForcing" : {
+                "type" : "HIT",
+                "G" : 67.0,
+                "t_o" : 0.029594998,
+                "K_o" : 0.098919475
+            }
         },
 
         "Particles" : {
@@ -200,7 +205,7 @@
             "restartDir" : "",
             "initParams" : [1.2, 104040.0, 2.0650625, 0.0, 0.0],
             "bodyForce" : [0.0, 0.0, 0.0],
-            "turbForcing" : false
+            "turbForcing" : { "type" : "OFF" }
         },
 
         "Particles" : {
