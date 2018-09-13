@@ -3484,15 +3484,15 @@ where
   reads(Fluid.{rho, velocity}),
   reads writes(Fluid.{rhoVelocity_t, rhoEnergy_t})
 do
+  var W = Flow_averagePD + Flow_averageDissipation
+  var G = config.Flow.turbForcing.u.HIT.G
+  var t_o = config.Flow.turbForcing.u.HIT.t_o
+  var K_o = config.Flow.turbForcing.u.HIT.K_o
+  var A = (-W-G*(Flow_averageK-K_o)/t_o) / (2.0*Flow_averageK)
   var acc = 0.0
   __demand(__openmp)
   for c in Fluid do
     if (not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) then
-      var W = Flow_averagePD + Flow_averageDissipation
-      var G = config.Flow.turbForcing.u.HIT.G
-      var t_o = config.Flow.turbForcing.u.HIT.t_o
-      var K_o = config.Flow.turbForcing.u.HIT.K_o
-      var A = (-W-G*(Flow_averageK-K_o)/t_o) / (2.0*Flow_averageK)
       var force = vs_mul(Fluid[c].velocity, Fluid[c].rho*A)
       Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, force)
       Fluid[c].rhoEnergy_t += dot(force, Fluid[c].velocity)
