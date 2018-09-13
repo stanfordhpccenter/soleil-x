@@ -92,7 +92,7 @@
         "restartDir" : "/home/manolis/tgv_restart/particles_iter2",
         "initNum" : 1000,
         "maxNum" : 1000,
-        "restitutionCoeff" : 1.0,
+        "restitutionCoeff" : -1.0,
         "convectiveCoeff" : 0.7,
         "heatCapacity" : 0.7,
         "initTemperature" : 250.0,

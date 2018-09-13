@@ -92,7 +92,7 @@
         "restartDir" : "",
         "initNum" : 2112000,
         "maxNum" : 2112000,
-        "restitutionCoeff" : 1.0,
+        "restitutionCoeff" : -1.0,
         "convectiveCoeff" : 11956.52173913,
         "heatCapacity" : 4.5e+2,
         "initTemperature" : 300.0,
