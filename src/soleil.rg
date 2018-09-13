@@ -111,9 +111,6 @@ local struct Fluid_columns {
   velocityGradientZ : double[3];
   temperature : double;
   rhoEnthalpy : double;
-  convectiveSpectralRadius : double;
-  viscousSpectralRadius : double;
-  heatConductionSpectralRadius : double;
   rhoVelocity : double[3];
   rhoEnergy : double;
   rhoBoundary : double;
@@ -143,7 +140,6 @@ local struct Fluid_columns {
   rhoFluxZ : double;
   rhoVelocityFluxZ : double[3];
   rhoEnergyFluxZ : double;
-  PD : double;
   dissipation : double;
   dissipationFlux : double;
   to_Radiation : int3d;
@@ -516,12 +512,9 @@ end
 __demand(__parallel, __cuda)
 task Flow_InitializeCell(Fluid : region(ispace(int3d), Fluid_columns))
 where
-  writes(Fluid.PD),
   writes(Fluid.centerCoordinates),
-  writes(Fluid.convectiveSpectralRadius),
   writes(Fluid.dissipation),
   writes(Fluid.dissipationFlux),
-  writes(Fluid.heatConductionSpectralRadius),
   writes(Fluid.pressure),
   writes(Fluid.pressureBoundary),
   writes(Fluid.rho),
@@ -551,7 +544,6 @@ where
   writes(Fluid.velocityBoundary),
   writes(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ}),
   writes(Fluid.{velocityGradientXBoundary, velocityGradientYBoundary, velocityGradientZBoundary}),
-  writes(Fluid.viscousSpectralRadius),
   writes(Fluid.dudtBoundary),
   writes(Fluid.dTdtBoundary),
   writes(Fluid.velocity_old_NSCBC),
@@ -570,9 +562,6 @@ do
     Fluid[c].velocityGradientZ = array(0.0, 0.0, 0.0)
     Fluid[c].temperature = 0.0
     Fluid[c].rhoEnthalpy = 0.0
-    Fluid[c].convectiveSpectralRadius = 0.0
-    Fluid[c].viscousSpectralRadius = 0.0
-    Fluid[c].heatConductionSpectralRadius = 0.0
     Fluid[c].rhoVelocity = array(0.0, 0.0, 0.0)
     Fluid[c].rhoEnergy = 0.0
     Fluid[c].rhoBoundary = 0.0
@@ -602,7 +591,6 @@ do
     Fluid[c].rhoFluxZ = 0.0
     Fluid[c].rhoVelocityFluxZ = array(0.0, 0.0, 0.0)
     Fluid[c].rhoEnergyFluxZ = 0.0
-    Fluid[c].PD = 0.0
     Fluid[c].dissipation = 0.0
     Fluid[c].dissipationFlux = 0.0
     Fluid[c].dudtBoundary = 0.0
@@ -2175,19 +2163,15 @@ task CalculateConvectiveSpectralRadius(Fluid : region(ispace(int3d), Fluid_colum
                                        Grid_dXYZInverseSquare : double,
                                        Grid_xCellWidth : double, Grid_yCellWidth : double, Grid_zCellWidth : double)
 where
-  reads(Fluid.{velocity, temperature}),
-  writes(Fluid.convectiveSpectralRadius)
+  reads(Fluid.{velocity, temperature})
 do
   var acc = -math.huge
   __demand(__openmp)
   for c in Fluid do
-    var tmp =  ((((fabs(Fluid[c].velocity[0])/Grid_xCellWidth)+(fabs(Fluid[c].velocity[1])/Grid_yCellWidth))+(fabs(Fluid[c].velocity[2])/Grid_zCellWidth))+(GetSoundSpeed(Fluid[c].temperature, Flow_gamma, Flow_gasConstant)*sqrt(Grid_dXYZInverseSquare)))
-    Fluid[c].convectiveSpectralRadius = tmp
-    acc max= tmp
+    acc max= ((((fabs(Fluid[c].velocity[0])/Grid_xCellWidth)+(fabs(Fluid[c].velocity[1])/Grid_yCellWidth))+(fabs(Fluid[c].velocity[2])/Grid_zCellWidth))+(GetSoundSpeed(Fluid[c].temperature, Flow_gamma, Flow_gasConstant)*sqrt(Grid_dXYZInverseSquare)))
   end
   return acc
 end
-
 
 __demand(__parallel, __cuda)
 task CalculateViscousSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
@@ -2197,16 +2181,13 @@ task CalculateViscousSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns)
                                     Flow_viscosityModel : SCHEMA.ViscosityModel,
                                     Grid_dXYZInverseSquare : double)
 where
-  reads(Fluid.{rho, temperature}),
-  writes(Fluid.viscousSpectralRadius)
+  reads(Fluid.{rho, temperature})
 do
   var acc = -math.huge
   __demand(__openmp)
   for c in Fluid do
     var dynamicViscosity = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
-    var tmp = ((((2.0*dynamicViscosity)/Fluid[c].rho)*Grid_dXYZInverseSquare)*4.0)
-    Fluid[c].viscousSpectralRadius = tmp
-    acc max= tmp
+    acc max= ((((2.0*dynamicViscosity)/Fluid[c].rho)*Grid_dXYZInverseSquare)*4.0)
   end
   return acc
 end
@@ -2222,8 +2203,7 @@ task CalculateHeatConductionSpectralRadius(Fluid : region(ispace(int3d), Fluid_c
                                            Flow_viscosityModel : SCHEMA.ViscosityModel,
                                            Grid_dXYZInverseSquare : double)
 where
-  reads(Fluid.{rho, temperature}),
-  writes(Fluid.heatConductionSpectralRadius)
+  reads(Fluid.{rho, temperature})
 do
   var acc = -math.huge
   __demand(__openmp)
@@ -2232,9 +2212,7 @@ do
     var cv = (Flow_gasConstant/(Flow_gamma-1.0))
     var cp = (Flow_gamma*cv)
     var kappa = ((cp/Flow_prandtl)*dynamicViscosity)
-    var tmp = (((kappa/(cv*Fluid[c].rho))*Grid_dXYZInverseSquare)*4.0)
-    Fluid[c].heatConductionSpectralRadius = tmp
-    acc max= tmp
+    acc max= (((kappa/(cv*Fluid[c].rho))*Grid_dXYZInverseSquare)*4.0)
   end
   return acc
 end
@@ -3188,22 +3166,22 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_UpdatePD(Fluid : region(ispace(int3d), Fluid_columns),
-                   Grid_xBnum : int32, Grid_xNum : int32,
-                   Grid_yBnum : int32, Grid_yNum : int32,
-                   Grid_zBnum : int32, Grid_zNum : int32)
+task CalculateAveragePD(Fluid : region(ispace(int3d), Fluid_columns),
+                        Grid_xBnum : int32, Grid_xNum : int32,
+                        Grid_yBnum : int32, Grid_yNum : int32,
+                        Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.{pressure, velocityGradientX, velocityGradientY, velocityGradientZ}),
-  writes(Fluid.PD)
+  reads(Fluid.{pressure, velocityGradientX, velocityGradientY, velocityGradientZ})
 do
+  var acc = 0.0
   __demand(__openmp)
   for c in Fluid do
     if (not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) then
-      var divU = 0.0
-      divU = ((Fluid[c].velocityGradientX[0]+Fluid[c].velocityGradientY[1])+Fluid[c].velocityGradientZ[2])
-      Fluid[c].PD = (divU*Fluid[c].pressure)
+      var divU = Fluid[c].velocityGradientX[0] + Fluid[c].velocityGradientY[1] + Fluid[c].velocityGradientZ[2]
+      acc += divU * Fluid[c].pressure
     end
   end
+  return acc
 end
 
 __demand(__parallel, __cuda)
@@ -3411,25 +3389,6 @@ do
       Fluid[c].dissipation += ((Fluid[c].dissipationFlux-Fluid[((c+{0, 0, -1})%Fluid.bounds)].dissipationFlux)/Grid_zCellWidth)
     end
   end
-end
-
-__demand(__parallel, __cuda)
-task CalculateAveragePD(Fluid : region(ispace(int3d), Fluid_columns),
-                        Grid_cellVolume : double,
-                        Grid_xBnum : int32, Grid_xNum : int32,
-                        Grid_yBnum : int32, Grid_yNum : int32,
-                        Grid_zBnum : int32, Grid_zNum : int32)
-where
-  reads(Fluid.PD)
-do
-  var acc = 0.0
-  __demand(__openmp)
-  for c in Fluid do
-    if (not ((((((max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)>0) or (max(int32((int3d(c).x-uint64(((Grid_xNum+Grid_xBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)>0)) or (max(int32((int3d(c).y-uint64(((Grid_yNum+Grid_yBnum)-1)))), 0)>0)) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)>0)) or (max(int32((int3d(c).z-uint64(((Grid_zNum+Grid_zBnum)-1)))), 0)>0))) then
-      acc += (Fluid[c].PD*Grid_cellVolume)
-    end
-  end
-  return acc
 end
 
 __demand(__parallel, __cuda)
@@ -5690,11 +5649,15 @@ local function mkInstance() local INSTANCE = {}
 
       -- Add turbulent forcing
       if config.Flow.turbForcing.type == SCHEMA.TurbForcingModel_HIT then
-        var Flow_averagePD = 0.0
         var Flow_averageDissipation = 0.0
         var Flow_averageFe = 0.0
         var Flow_averageK = 0.0
-        Flow_UpdatePD(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+        var Flow_averagePD = 0.0
+        Flow_averagePD += CalculateAveragePD(Fluid,
+                                             Grid.xBnum, config.Grid.xNum,
+                                             Grid.yBnum, config.Grid.yNum,
+                                             Grid.zBnum, config.Grid.zNum)
+        Flow_averagePD /= config.Grid.xNum * config.Grid.yNum * config.Grid.zNum
         Flow_ResetDissipation(Fluid)
         Flow_ComputeDissipationX(Fluid, config.Flow.constantVisc, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid.xBnum, config.Grid.xNum, Grid.xCellWidth, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
         Flow_UpdateDissipationX(Fluid, Grid.xBnum, config.Grid.xNum, Grid.xCellWidth, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
@@ -5702,8 +5665,6 @@ local function mkInstance() local INSTANCE = {}
         Flow_UpdateDissipationY(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.yCellWidth, Grid.zBnum, config.Grid.zNum)
         Flow_ComputeDissipationZ(Fluid, config.Flow.constantVisc, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum, Grid.zCellWidth)
         Flow_UpdateDissipationZ(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum, Grid.zCellWidth)
-        Flow_averagePD += CalculateAveragePD(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-        Flow_averagePD = (Flow_averagePD/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
         Flow_averageDissipation += CalculateAverageDissipation(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
         Flow_averageDissipation = (Flow_averageDissipation/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
         Flow_averageK += CalculateAverageK(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
