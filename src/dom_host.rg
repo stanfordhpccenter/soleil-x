@@ -67,7 +67,7 @@ end
 -- Proxy main
 -------------------------------------------------------------------------------
 
-local __forbid(__optimize)
+local __forbid(__optimize) __demand(__inner)
 task main()
   -- Read configuration
   var args = C.legion_runtime_get_input_args()
