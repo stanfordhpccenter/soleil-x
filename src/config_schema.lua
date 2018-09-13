@@ -61,44 +61,50 @@ Exports.RadiationModel = Union{
   DOM = {
     qa = double,
     qs = double,
-    -- number of cells in the radiation grid, on the x,y,z dimensions
+    -- number of cells in the radiation grid
     xNum = int,
     yNum = int,
     zNum = int,
+    -- number of quadrature points
+    angles = int,
+    -- wall emissivity [0.0-1.0]
     xHiEmiss = double,
     xLoEmiss = double,
     yHiEmiss = double,
     yLoEmiss = double,
     zHiEmiss = double,
     zLoEmiss = double,
+    -- wall blackbody temperature [K]
     xHiTemp = double,
     xLoTemp = double,
     yHiTemp = double,
     yLoTemp = double,
     zHiTemp = double,
     zLoTemp = double,
+    -- intensity coming in perpendicular on each wall [W/m^2]
+    -- assumed monochromatic and collimated
     xHiIntensity = double,
     xLoIntensity = double,
     yHiIntensity = double,
     yLoIntensity = double,
     zHiIntensity = double,
     zLoIntensity = double,
+    -- illuminated window on each wall
     xHiWindow = Exports.Window,
     xLoWindow = Exports.Window,
     yHiWindow = Exports.Window,
     yLoWindow = Exports.Window,
     zHiWindow = Exports.Window,
     zLoWindow = Exports.Window,
-    angles = int,
   },
 }
 
 -- Main config struct
 Exports.Config = {
   Mapping = {
-    -- number of tiles in which to split the domain, on the x,y,z dimensions
+    -- number of tiles in which to split the domain
     tiles = Array(3,int),
-    -- number of tiles to allocate to each rank, on the x,y,z dimensions
+    -- number of tiles to allocate to each rank
     tilesPerRank = Array(3,int),
     -- unique id assigned to each sample, according to its order in the command
     -- line (first sample is 0, second is 1 etc.); the initial value of this
@@ -107,17 +113,17 @@ Exports.Config = {
     -- output directory for each sample; the initial value of this option is
     -- irrelevant, it will be overriden by the code
     outDir = String(256),
-    -- expected wall-clock execution time, in minutes
+    -- expected wall-clock execution time [minutes]
     wallTime = int,
   },
   Grid = {
-    -- number of cells in the fluid grid, on the x,y,z dimensions
+    -- number of cells in the fluid grid
     xNum = int,
     yNum = int,
     zNum = int,
-    -- coordinates of the fluid grid's origin, in meters
+    -- coordinates of the fluid grid's origin [m]
     origin = Array(3,double),
-    -- width of the fluid grid, on the x,y,z dimensions, in meters
+    -- width of the fluid grid [m]
     xWidth = double,
     yWidth = double,
     zWidth = double,
@@ -192,7 +198,7 @@ Exports.Config = {
     wrtRestart = bool,
     -- how often to write restart files
     restartEveryTimeSteps = int,
-    -- Temperature probes
+    -- temperature probes
     probes = UpTo(5,{
       coords = Array(3,int),
       frequency = int,
@@ -202,11 +208,11 @@ Exports.Config = {
 
 -- Dual-section simulation config
 Exports.MultiConfig = {
-  -- Case configurations for the two sections
+  -- case configurations for the two sections
   configs = Array(2,Exports.Config),
-  -- Volume to copy from every timestep (in the 1st section)
+  -- volume to copy from every timestep (in the 1st section)
   copySrc = Exports.Volume,
-  -- Volume to copy into every timestep (in the 2nd section)
+  -- volume to copy into every timestep (in the 2nd section)
   copyTgt = Exports.Volume,
 }
 
