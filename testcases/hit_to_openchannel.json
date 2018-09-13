@@ -83,7 +83,7 @@
             "sutherlandSRef" : -1.0,
             "initCase" : "Restart",
             "restartDir" : "/home/manolis/sw/HIT/part3/fluid_iter71000",
-            "initParams" : [1.2, 104040.0, 0.001, 0.0, 0.0],
+            "initParams" : [-1.0, -1.0, -1.0, -1.0, -1.0],
             "bodyForce" : [0.0, 0.0, 0.0],
             "turbForcing" : {
                 "type" : "HIT",
