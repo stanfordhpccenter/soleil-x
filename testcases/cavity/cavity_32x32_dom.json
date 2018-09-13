@@ -125,12 +125,18 @@
         "yLoTemp" : 300.0,
         "zHiTemp" : 300.0,
         "zLoTemp" : 300.0,
-        "xHiWindow" : { "fromCell" : [0,0], "uptoCell" : [9999,9999] },
-        "xLoWindow" : { "fromCell" : [0,0], "uptoCell" : [9999,9999] },
-        "yHiWindow" : { "fromCell" : [0,0], "uptoCell" : [9999,9999] },
-        "yLoWindow" : { "fromCell" : [0,0], "uptoCell" : [9999,9999] },
-        "zHiWindow" : { "fromCell" : [0,0], "uptoCell" : [9999,9999] },
-        "zLoWindow" : { "fromCell" : [0,0], "uptoCell" : [9999,9999] }
+        "xHiIntensity" : 0.0,
+        "xLoIntensity" : 0.0,
+        "yHiIntensity" : 0.0,
+        "yLoIntensity" : 0.0,
+        "zHiIntensity" : 0.0,
+        "zLoIntensity" : 0.0,
+        "xHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "xLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "yHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "yLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "zHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "zLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] }
     },
 
     "IO" : {

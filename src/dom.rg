@@ -108,6 +108,18 @@ task quadrantSize(q : int, num_angles : int)
   return num_angles/8 + max(0, min(1, num_angles%8 - q + 1))
 end
 
+-- 1..6, regentlib.rexpr -> regentlib.rexpr
+local function isWallNormal(wall, angle)
+  return terralib.newlist{
+    rexpr angle.xi ==  1.0 and angle.eta ==  0.0 and angle.mu ==  0.0 end,
+    rexpr angle.xi == -1.0 and angle.eta ==  0.0 and angle.mu ==  0.0 end,
+    rexpr angle.xi ==  0.0 and angle.eta ==  1.0 and angle.mu ==  0.0 end,
+    rexpr angle.xi ==  0.0 and angle.eta == -1.0 and angle.mu ==  0.0 end,
+    rexpr angle.xi ==  0.0 and angle.eta ==  0.0 and angle.mu ==  1.0 end,
+    rexpr angle.xi ==  0.0 and angle.eta ==  0.0 and angle.mu == -1.0 end,
+  }[wall]
+end
+
 -------------------------------------------------------------------------------
 -- MODULE-LOCAL TASKS
 -------------------------------------------------------------------------------
@@ -164,16 +176,32 @@ do
       [angles[q]][m].w = read_double(f)
     @TIME end @EPACSE
   end
+  -- Close angles file.
+  C.fclose(f);
   -- Check that angles are partitioned correctly into quadrants.
-  for m = 0, MAX_ANGLES_PER_QUAD do
-    @ESCAPE for q = 1, 8 do @EMIT
-      if m*8 + q - 1 == num_angles then break end
+  @ESCAPE for q = 1, 8 do @EMIT
+    for m = 0, quadrantSize(q, num_angles) do
       regentlib.assert([angleInQuadrant(q, rexpr [angles[q]][m] end)],
                        'Angle in wrong quadrant')
-    @TIME end @EPACSE
-  end
-  -- Close angles file.
-  C.fclose(f)
+    end
+  @TIME end @EPACSE
+  -- Check that normals exist for all walls.
+  var normalExists = array(false, false, false, false, false, false);
+  @ESCAPE for q = 1, 8 do @EMIT
+    for m = 0, quadrantSize(q, num_angles) do
+      @ESCAPE for wall = 1, 6 do @EMIT
+        if [isWallNormal(wall, rexpr [angles[q]][m] end)] then
+          normalExists[wall-1] = true
+        end
+      @TIME end @EPACSE
+    end
+  @TIME end @EPACSE
+  regentlib.assert(normalExists[0], 'Normal missing for wall xLo')
+  regentlib.assert(normalExists[1], 'Normal missing for wall xHi')
+  regentlib.assert(normalExists[2], 'Normal missing for wall yLo')
+  regentlib.assert(normalExists[3], 'Normal missing for wall yHi')
+  regentlib.assert(normalExists[4], 'Normal missing for wall zLo')
+  regentlib.assert(normalExists[5], 'Normal missing for wall zHi')
 end
 
 local __demand(__cuda) -- MANUALLY PARALLELIZED
@@ -376,24 +404,29 @@ local function mkBound(wall)
   local tempField = terralib.newlist{
     'xLoTemp', 'xHiTemp', 'yLoTemp', 'yHiTemp', 'zLoTemp', 'zHiTemp'
   }[wall]
+  local intensityField = terralib.newlist{
+    'xLoIntensity', 'xHiIntensity',
+    'yLoIntensity', 'yHiIntensity',
+    'zLoIntensity', 'zHiIntensity'
+  }[wall]
   local windowField = terralib.newlist{
     'xLoWindow', 'xHiWindow', 'yLoWindow', 'yHiWindow', 'zLoWindow', 'zHiWindow'
   }[wall]
   local incomingQuadrants = terralib.newlist{
-    terralib.newlist{5, 6, 7, 8}, -- xi < 0
-    terralib.newlist{1, 2, 3, 4}, -- xi > 0
-    terralib.newlist{3, 4, 7, 8}, -- eta < 0
-    terralib.newlist{1, 2, 5, 6}, -- eta > 0
-    terralib.newlist{2, 4, 6, 8}, -- mu < 0
-    terralib.newlist{1, 3, 5, 7}, -- mu > 0
+    terralib.newlist{5, 6, 7, 8}, -- xi <= 0
+    terralib.newlist{1, 2, 3, 4}, -- xi >= 0
+    terralib.newlist{3, 4, 7, 8}, -- eta <= 0
+    terralib.newlist{1, 2, 5, 6}, -- eta >= 0
+    terralib.newlist{2, 4, 6, 8}, -- mu <= 0
+    terralib.newlist{1, 3, 5, 7}, -- mu >= 0
   }[wall]
   local outgoingQuadrants = terralib.newlist{
-    terralib.newlist{1, 2, 3, 4}, -- xi > 0
-    terralib.newlist{5, 6, 7, 8}, -- xi < 0
-    terralib.newlist{1, 2, 5, 6}, -- eta > 0
-    terralib.newlist{3, 4, 7, 8}, -- eta < 0
-    terralib.newlist{1, 3, 5, 7}, -- mu > 0
-    terralib.newlist{2, 4, 6, 8}, -- mu < 0
+    terralib.newlist{1, 2, 3, 4}, -- xi >= 0
+    terralib.newlist{5, 6, 7, 8}, -- xi <= 0
+    terralib.newlist{1, 2, 5, 6}, -- eta >= 0
+    terralib.newlist{3, 4, 7, 8}, -- eta <= 0
+    terralib.newlist{1, 3, 5, 7}, -- mu >= 0
+    terralib.newlist{2, 4, 6, 8}, -- mu <= 0
   }[wall]
 
   local faces = UTIL.generate(8, function()
@@ -421,6 +454,7 @@ local function mkBound(wall)
   do
     var epsw = config.Radiation.u.DOM.[emissField]
     var Tw = config.Radiation.u.DOM.[tempField]
+    var incidentI = config.Radiation.u.DOM.[intensityField]
     var fromCell = config.Radiation.u.DOM.[windowField].fromCell
     var uptoCell = config.Radiation.u.DOM.[windowField].uptoCell
     var num_angles = config.Radiation.u.DOM.angles
@@ -447,10 +481,7 @@ local function mkBound(wall)
         @TIME end @EPACSE
       end
       -- Add blackbody radiation
-      if fromCell[0] <= a and a <= uptoCell[0] and
-         fromCell[1] <= b and b <= uptoCell[1] then
-        value += epsw*SB*pow(Tw,4.0)/PI
-      end
+      value += epsw*SB*pow(Tw,4.0)/PI;
       -- Set outgoing intensity values
       @ESCAPE for _,q in ipairs(outgoingQuadrants) do @EMIT
         for m = 0, quadrantSize(q, num_angles) do
@@ -462,7 +493,14 @@ local function mkBound(wall)
                 rexpr [angles[q]][m].mu  > 0 end,
                 rexpr [angles[q]][m].mu  < 0 end,
               }[wall]] then
-            [faces[q]][idx].I[m] = value
+            var I = value
+            -- Add incident radiation on the wall normal
+            if fromCell[0] <= a and a <= uptoCell[0] and
+               fromCell[1] <= b and b <= uptoCell[1] and
+               [isWallNormal(wall, rexpr [angles[q]][m] end)] then
+              I += incidentI
+            end
+            [faces[q]][idx].I[m] = I
           end
         end
       @TIME end @EPACSE
