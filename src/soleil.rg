@@ -4446,60 +4446,44 @@ do
     if Particles[p].__valid then
       var deltaTime = Integrator_deltaTime
       if Integrator_stage == 1 then
-        var tmp = vs_mul(Particles[p].position_t, ((1.0/6.0)*deltaTime))
-        var v = Particles[p].position_new
-        v[0] += tmp[0]
-        v[1] += tmp[1]
-        v[2] += tmp[2]
-        Particles[p].position_new = v
-        Particles[p].position = vv_add(Particles[p].position_old, vs_mul(Particles[p].position_t, (0.5*deltaTime)))
-        var tmp__11020 = vs_mul(Particles[p].velocity_t, ((1.0/6.0)*deltaTime))
-        var v__11021 = Particles[p].velocity_new
-        v__11021[0] += tmp__11020[0]
-        v__11021[1] += tmp__11020[1]
-        v__11021[2] += tmp__11020[2]
-        Particles[p].velocity_new = v__11021
-        Particles[p].velocity = vv_add(Particles[p].velocity_old, vs_mul(Particles[p].velocity_t, (0.5*deltaTime)))
-        Particles[p].temperature_new += (((1.0/6.0)*deltaTime)*Particles[p].temperature_t)
-        Particles[p].temperature = (Particles[p].temperature_old+((0.5*deltaTime)*Particles[p].temperature_t))
+        Particles[p].position_new = vv_add(Particles[p].position_new,
+                                           vs_mul(Particles[p].position_t, (1.0/6.0)*deltaTime))
+        Particles[p].position = vv_add(Particles[p].position_old,
+                                       vs_mul(Particles[p].position_t, 0.5*deltaTime))
+        Particles[p].velocity_new = vv_add(Particles[p].velocity_new,
+                                           vs_mul(Particles[p].velocity_t, (1.0/6.0)*deltaTime))
+        Particles[p].velocity = vv_add(Particles[p].velocity_old,
+                                       vs_mul(Particles[p].velocity_t, (0.5*deltaTime)))
+        Particles[p].temperature_new += (1.0/6.0)*deltaTime*Particles[p].temperature_t
+        Particles[p].temperature = Particles[p].temperature_old + 0.5*deltaTime*Particles[p].temperature_t
       elseif Integrator_stage == 2 then
-        var tmp = vs_mul(Particles[p].position_t, ((1.0/3.0)*deltaTime))
-        var v = Particles[p].position_new
-        v[0] += tmp[0]
-        v[1] += tmp[1]
-        v[2] += tmp[2]
-        Particles[p].position_new = v
-        Particles[p].position = vv_add(Particles[p].position_old, vs_mul(Particles[p].position_t, (0.5*deltaTime)))
-        var tmp__11024 = vs_mul(Particles[p].velocity_t, ((1.0/3.0)*deltaTime))
-        var v__11025 = Particles[p].velocity_new
-        v__11025[0] += tmp__11024[0]
-        v__11025[1] += tmp__11024[1]
-        v__11025[2] += tmp__11024[2]
-        Particles[p].velocity_new = v__11025
-        Particles[p].velocity = vv_add(Particles[p].velocity_old, vs_mul(Particles[p].velocity_t, (0.5*deltaTime)))
-        Particles[p].temperature_new += (((1.0/3.0)*deltaTime)*Particles[p].temperature_t)
-        Particles[p].temperature = (Particles[p].temperature_old+((0.5*deltaTime)*Particles[p].temperature_t))
+        Particles[p].position_new = vv_add(Particles[p].position_new,
+                                           vs_mul(Particles[p].position_t, (1.0/3.0)*deltaTime))
+        Particles[p].position = vv_add(Particles[p].position_old,
+                                       vs_mul(Particles[p].position_t, 0.5*deltaTime))
+        Particles[p].velocity_new = vv_add(Particles[p].velocity_new,
+                                           vs_mul(Particles[p].velocity_t, (1.0/3.0)*deltaTime))
+        Particles[p].velocity = vv_add(Particles[p].velocity_old,
+                                       vs_mul(Particles[p].velocity_t, (0.5*deltaTime)))
+        Particles[p].temperature_new += (1.0/3.0)*deltaTime*Particles[p].temperature_t
+        Particles[p].temperature = Particles[p].temperature_old + 0.5*deltaTime*Particles[p].temperature_t
       elseif Integrator_stage == 3 then
-        var tmp = vs_mul(Particles[p].position_t, ((1.0/3.0)*deltaTime))
-        var v = Particles[p].position_new
-        v[0] += tmp[0]
-        v[1] += tmp[1]
-        v[2] += tmp[2]
-        Particles[p].position_new = v
-        Particles[p].position = vv_add(Particles[p].position_old, vs_mul(Particles[p].position_t, (1.0*deltaTime)))
-        var tmp__11028 = vs_mul(Particles[p].velocity_t, ((1.0/3.0)*deltaTime))
-        var v__11029 = Particles[p].velocity_new
-        v__11029[0] += tmp__11028[0]
-        v__11029[1] += tmp__11028[1]
-        v__11029[2] += tmp__11028[2]
-        Particles[p].velocity_new = v__11029
-        Particles[p].velocity = vv_add(Particles[p].velocity_old, vs_mul(Particles[p].velocity_t, (1.0*deltaTime)))
-        Particles[p].temperature_new += (((1.0/3.0)*deltaTime)*Particles[p].temperature_t)
-        Particles[p].temperature = (Particles[p].temperature_old+((1.0*deltaTime)*Particles[p].temperature_t))
+        Particles[p].position_new = vv_add(Particles[p].position_new,
+                                           vs_mul(Particles[p].position_t, (1.0/3.0)*deltaTime))
+        Particles[p].position = vv_add(Particles[p].position_old,
+                                       vs_mul(Particles[p].position_t, 1.0*deltaTime))
+        Particles[p].velocity_new = vv_add(Particles[p].velocity_new,
+                                           vs_mul(Particles[p].velocity_t, (1.0/3.0)*deltaTime))
+        Particles[p].velocity = vv_add(Particles[p].velocity_old,
+                                       vs_mul(Particles[p].velocity_t, 1.0*deltaTime))
+        Particles[p].temperature_new += (1.0/3.0)*deltaTime*Particles[p].temperature_t
+        Particles[p].temperature = Particles[p].temperature_old + 1.0*deltaTime*Particles[p].temperature_t
       else -- Integrator_stage == 4
-        Particles[p].position = vv_add(Particles[p].position_new, vs_mul(Particles[p].position_t, ((1.0/6.0)*deltaTime)))
-        Particles[p].velocity = vv_add(Particles[p].velocity_new, vs_mul(Particles[p].velocity_t, ((1.0/6.0)*deltaTime)))
-        Particles[p].temperature = (Particles[p].temperature_new+(((1.0/6.0)*deltaTime)*Particles[p].temperature_t))
+        Particles[p].position = vv_add(Particles[p].position_new,
+                                       vs_mul(Particles[p].position_t, (1.0/6.0)*deltaTime))
+        Particles[p].velocity = vv_add(Particles[p].velocity_new,
+                                       vs_mul(Particles[p].velocity_t, (1.0/6.0)*deltaTime))
+        Particles[p].temperature = Particles[p].temperature_new + (1.0/6.0)*deltaTime*Particles[p].temperature_t
       end
     end
   end
