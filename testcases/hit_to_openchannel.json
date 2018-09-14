@@ -1,11 +1,11 @@
 {
     "configs" : [{
         "Mapping" : {
-            "tiles" : [1,1,1],
+            "tiles" : [2,2,2],
             "tilesPerRank" : [1,1,1],
             "sampleId" : -1,
             "outDir" : "",
-            "wallTime" : 20160
+            "wallTime" : 18000
         },
 
         "Grid" : {
@@ -63,9 +63,9 @@
         },
 
         "Integrator" : {
-            "restartIter" : 71000,
-            "restartTime" : 3.481444e-02,
-            "maxIter" : 1071000,
+            "restartIter" : -1,
+            "restartTime" : -1.0,
+            "maxIter" : 1000000,
             "cfl" : -1.0,
             "fixedDeltaTime" : 4.5e-7
         },
@@ -81,9 +81,9 @@
             "sutherlandViscRef" : -1.0,
             "sutherlandTempRef" : -1.0,
             "sutherlandSRef" : -1.0,
-            "initCase" : "Restart",
-            "restartDir" : "/home/manolis/sw/HIT/part3/fluid_iter71000",
-            "initParams" : [-1.0, -1.0, -1.0, -1.0, -1.0],
+            "initCase" : "Random",
+            "restartDir" : "",
+            "initParams" : [1.2, 104040.0, 0.001, -1.0, -1.0],
             "bodyForce" : [0.0, 0.0, 0.0],
             "turbForcing" : {
                 "type" : "HIT",
@@ -94,19 +94,19 @@
         },
 
         "Particles" : {
-            "initCase" : "Restart",
-            "restartDir" : "/home/manolis/sw/HIT/part3/particles_iter71000",
-            "initNum" : 2112000,
-            "maxNum" : 2112000,
+            "initCase" : "Uniform",
+            "restartDir" : "",
+            "initNum" : 136283479,
+            "maxNum" : 136283479,
             "restitutionCoeff" : -1.0,
-            "convectiveCoeff" : 2.0,
-            "heatCapacity" : 4.5e+2,
+            "convectiveCoeff" : 1359.0,
+            "heatCapacity" : 453.134,
             "initTemperature" : 300.0,
             "density" : 8900.0,
-            "diameterMean" : 1.012082669346191e-05,
+            "diameterMean" : 2.53e-6,
             "bodyForce" : [0.0, 0.0, 0.0],
             "maxSkew" : 1.2,
-            "maxXferNum" : 0,
+            "maxXferNum" : 130000,
             "collisions" : false,
             "feeding" : { "type" : "OFF" }
         },
@@ -122,11 +122,11 @@
         }
     }, {
         "Mapping" : {
-            "tiles" : [2,1,1],
+            "tiles" : [8,2,2],
             "tilesPerRank" : [1,1,1],
             "sampleId" : -1,
             "outDir" : "",
-            "wallTime" : 20160
+            "wallTime" : 18000
         },
 
         "Grid" : {
@@ -212,16 +212,16 @@
             "initCase" : "Uniform",
             "restartDir" : "",
             "initNum" : 0,
-            "maxNum" : 10000000,
+            "maxNum" : 600000000,
             "restitutionCoeff" : -1.0,
-            "convectiveCoeff" : 2.0,
-            "heatCapacity" : 4.5e+2,
+            "convectiveCoeff" : 1359.0,
+            "heatCapacity" : 453.134,
             "initTemperature" : 300.0,
             "density" : 8900.0,
-            "diameterMean" : 1.012082669346191e-05,
+            "diameterMean" : 2.53e-6,
             "bodyForce" : [0.0, 0.0, 0.0],
-            "maxSkew" : 1.0,
-            "maxXferNum" : 0,
+            "maxSkew" : 1.2,
+            "maxXferNum" : 600000,
             "collisions" : false,
             "feeding" : {
                 "type" : "Incoming",
@@ -230,37 +230,9 @@
         },
 
         "Radiation" : {
-            "type" : "DOM",
-            "qa" : 1.0,
-            "qs" : 0.0,
-            "xNum" : 256,
-            "yNum" : 64,
-            "zNum" : 64,
-            "angles" : 350,
-            "xHiEmiss" : 1.0,
-            "xLoEmiss" : 1.0,
-            "yHiEmiss" : 1.0,
-            "yLoEmiss" : 1.0,
-            "zHiEmiss" : 1.0,
-            "zLoEmiss" : 1.0,
-            "xHiTemp" : 0.0,
-            "xLoTemp" : 0.0,
-            "yHiTemp" : 0.0,
-            "yLoTemp" : 0.0,
-            "zHiTemp" : 0.0,
-            "zLoTemp" : 0.0,
-            "xHiIntensity" : 0.0,
-            "xLoIntensity" : 0.0,
-            "yHiIntensity" : 5.0e6,
-            "yLoIntensity" : 5.0e6,
-            "zHiIntensity" : 0.0,
-            "zLoIntensity" : 0.0,
-            "xHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
-            "xLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
-            "yHiWindow" : { "fromCell" : [0,0], "uptoCell" : [9999,9999] },
-            "yLoWindow" : { "fromCell" : [0,0], "uptoCell" : [9999,9999] },
-            "zHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
-            "zLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] }
+            "type" : "Algebraic",
+            "intensity" : 1712320.0,
+            "absorptivity" : 0.4
         },
 
         "IO" : {
