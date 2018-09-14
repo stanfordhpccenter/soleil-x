@@ -55,9 +55,6 @@ local struct Particles_columns {
   position_new : double[3];
   velocity_new : double[3];
   temperature_new : double;
-  position_ghost : double[3];
-  velocity_ghost : double[3];
-  velocity_t_ghost : double[3];
   position_t : double[3];
   velocity_t : double[3];
   temperature_t : double;
@@ -76,9 +73,6 @@ local Particles_primitives = terralib.newlist({
 local Particles_subStepTemp = terralib.newlist({
   'deltaVelocityOverRelaxationTime',
   'deltaTemperatureTerm',
-  'position_ghost',
-  'velocity_ghost',
-  'velocity_t_ghost',
   'position_t',
   'velocity_t',
   'temperature_t',
@@ -4603,148 +4597,105 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Particles_UpdateAuxiliaryStep1(Particles : region(ispace(int1d), Particles_columns),
-                                    BC_xBCParticles : SCHEMA.ParticlesBC,
-                                    BC_yBCParticles : SCHEMA.ParticlesBC,
-                                    BC_zBCParticles : SCHEMA.ParticlesBC,
-                                    Grid_xOrigin : double, Grid_xWidth : double,
-                                    Grid_yOrigin : double, Grid_yWidth : double,
-                                    Grid_zOrigin : double, Grid_zWidth : double,
-                                    Particles_restitutionCoeff : double)
+task Particles_UpdateAuxiliary(Particles : region(ispace(int1d), Particles_columns),
+                               BC_xBCParticles : SCHEMA.ParticlesBC,
+                               BC_yBCParticles : SCHEMA.ParticlesBC,
+                               BC_zBCParticles : SCHEMA.ParticlesBC,
+                               Grid_xOrigin : double, Grid_xWidth : double,
+                               Grid_yOrigin : double, Grid_yWidth : double,
+                               Grid_zOrigin : double, Grid_zWidth : double,
+                               Particles_restitutionCoeff : double)
 where
-  reads(Particles.{position, velocity, velocity_t, __valid}),
-  reads writes(Particles.{position_ghost, velocity_ghost, velocity_t_ghost})
+  reads(Particles.__valid),
+  reads writes(Particles.{position, velocity, velocity_t})
 do
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
-      Particles[p].position_ghost[0] = Particles[p].position[0]
-      Particles[p].position_ghost[1] = Particles[p].position[1]
-      Particles[p].position_ghost[2] = Particles[p].position[2]
-      Particles[p].velocity_ghost[0] = Particles[p].velocity[0]
-      Particles[p].velocity_ghost[1] = Particles[p].velocity[1]
-      Particles[p].velocity_ghost[2] = Particles[p].velocity[2]
-      Particles[p].velocity_t_ghost[0] = Particles[p].velocity_t[0]
-      Particles[p].velocity_t_ghost[1] = Particles[p].velocity_t[1]
-      Particles[p].velocity_t_ghost[2] = Particles[p].velocity_t[2]
       if (Particles[p].position[0]<Grid_xOrigin) then
         if BC_xBCParticles == SCHEMA.ParticlesBC_Periodic then
-          Particles[p].position_ghost[0] = (Particles[p].position[0]+Grid_xWidth)
+          Particles[p].position[0] += Grid_xWidth
         elseif BC_xBCParticles == SCHEMA.ParticlesBC_Bounce then
-          Particles[p].position_ghost[0] = Grid_xOrigin
+          Particles[p].position[0] = Grid_xOrigin
           var impulse = ((-(1.0+Particles_restitutionCoeff))*Particles[p].velocity[0])
           if (impulse<=0.0) then
-            Particles[p].velocity_ghost[0] += impulse
+            Particles[p].velocity[0] += impulse
           end
-          var contact_force = (double(-1)*Particles[p].velocity_t[0])
-          if (contact_force>0.0) then
-            Particles[p].velocity_t_ghost[0] += contact_force
-          end
+          Particles[p].velocity_t[0] max= 0.0
         else -- BC_xBCParticles == SCHEMA.ParticlesBC_Disappear
           -- Do nothing, let out-of-bounds particles get deleted
         end
       end
       if (Particles[p].position[0]>(Grid_xOrigin+Grid_xWidth)) then
         if BC_xBCParticles == SCHEMA.ParticlesBC_Periodic then
-          Particles[p].position_ghost[0] = (Particles[p].position[0]-Grid_xWidth)
+          Particles[p].position[0] -= Grid_xWidth
         elseif BC_xBCParticles == SCHEMA.ParticlesBC_Bounce then
-          Particles[p].position_ghost[0] = (Grid_xOrigin+Grid_xWidth)
+          Particles[p].position[0] = (Grid_xOrigin+Grid_xWidth)
           var impulse = ((-(1.0+Particles_restitutionCoeff))*Particles[p].velocity[0])
           if (impulse>=0.0) then
-            Particles[p].velocity_ghost[0] += impulse
+            Particles[p].velocity[0] += impulse
           end
-          var contact_force = (double(-1)*Particles[p].velocity_t[0])
-          if (contact_force<0.0) then
-            Particles[p].velocity_t_ghost[0] += contact_force
-          end
+          Particles[p].velocity_t[0] min= 0.0
         else -- BC_xBCParticles == SCHEMA.ParticlesBC_Disappear
           -- Do nothing, let out-of-bounds particles get deleted
         end
       end
       if (Particles[p].position[1]<Grid_yOrigin) then
         if BC_yBCParticles == SCHEMA.ParticlesBC_Periodic then
-          Particles[p].position_ghost[1] = (Particles[p].position[1]+Grid_yWidth)
+          Particles[p].position[1] += Grid_yWidth
         elseif BC_yBCParticles == SCHEMA.ParticlesBC_Bounce then
-          Particles[p].position_ghost[1] = Grid_yOrigin
+          Particles[p].position[1] = Grid_yOrigin
           var impulse = ((-(1.0+Particles_restitutionCoeff))*Particles[p].velocity[1])
           if (impulse<=0.0) then
-            Particles[p].velocity_ghost[1] += impulse
+            Particles[p].velocity[1] += impulse
           end
-          var contact_force = (double(-1)*Particles[p].velocity_t[1])
-          if (contact_force>0.0) then
-            Particles[p].velocity_t_ghost[1] += contact_force
-          end
+          Particles[p].velocity_t[1] max= 0.0
         else -- BC_yBCParticles == SCHEMA.ParticlesBC_Disappear
           -- Do nothing, let out-of-bounds particles get deleted
         end
       end
       if (Particles[p].position[1]>(Grid_yOrigin+Grid_yWidth)) then
         if BC_yBCParticles == SCHEMA.ParticlesBC_Periodic then
-          Particles[p].position_ghost[1] = (Particles[p].position[1]-Grid_yWidth)
+          Particles[p].position[1] -= Grid_yWidth
         elseif BC_yBCParticles == SCHEMA.ParticlesBC_Bounce then
-          Particles[p].position_ghost[1] = (Grid_yOrigin+Grid_yWidth)
+          Particles[p].position[1] = (Grid_yOrigin+Grid_yWidth)
           var impulse = ((-(1.0+Particles_restitutionCoeff))*Particles[p].velocity[1])
           if (impulse>=0.0) then
-            Particles[p].velocity_ghost[1] += impulse
+            Particles[p].velocity[1] += impulse
           end
-          var contact_force = (double(-1)*Particles[p].velocity_t[1])
-          if (contact_force<0.0) then
-            Particles[p].velocity_t_ghost[1] += contact_force
-          end
+          Particles[p].velocity_t[1] min= 0.0
         else -- BC_yBCParticles == SCHEMA.ParticlesBC_Disappear
           -- Do nothing, let out-of-bounds particles get deleted
         end
       end
       if (Particles[p].position[2]<Grid_zOrigin) then
         if BC_zBCParticles == SCHEMA.ParticlesBC_Periodic then
-          Particles[p].position_ghost[2] = (Particles[p].position[2]+Grid_zWidth)
+          Particles[p].position[2] += Grid_zWidth
         elseif BC_zBCParticles == SCHEMA.ParticlesBC_Bounce then
-          Particles[p].position_ghost[2] = Grid_zOrigin
+          Particles[p].position[2] = Grid_zOrigin
           var impulse = ((-(1.0+Particles_restitutionCoeff))*Particles[p].velocity[2])
           if (impulse<=0.0) then
-            Particles[p].velocity_ghost[2] += impulse
+            Particles[p].velocity[2] += impulse
           end
-          var contact_force = (double(-1)*Particles[p].velocity_t[2])
-          if (contact_force>0.0) then
-            Particles[p].velocity_t_ghost[2] += contact_force
-          end
+          Particles[p].velocity_t[2] max= 0.0
         else -- BC_zBCParticles == SCHEMA.ParticlesBC_Disappear
           -- Do nothing, let out-of-bounds particles get deleted
         end
       end
       if (Particles[p].position[2]>(Grid_zOrigin+Grid_zWidth)) then
         if BC_zBCParticles == SCHEMA.ParticlesBC_Periodic then
-          Particles[p].position_ghost[2] = (Particles[p].position[2]-Grid_zWidth)
+          Particles[p].position[2] -= Grid_zWidth
         elseif BC_zBCParticles == SCHEMA.ParticlesBC_Bounce then
-          Particles[p].position_ghost[2] = (Grid_zOrigin+Grid_zWidth)
+          Particles[p].position[2] = (Grid_zOrigin+Grid_zWidth)
           var impulse = ((-(1.0+Particles_restitutionCoeff))*Particles[p].velocity[2])
           if (impulse>=0.0) then
-            Particles[p].velocity_ghost[2] += impulse
+            Particles[p].velocity[2] += impulse
           end
-          var contact_force = (double(-1)*Particles[p].velocity_t[2])
-          if (contact_force<0.0) then
-            Particles[p].velocity_t_ghost[2] += contact_force
-          end
+          Particles[p].velocity_t[2] min= 0.0
         else -- BC_zBCParticles == SCHEMA.ParticlesBC_Disappear
           -- Do nothing, let out-of-bounds particles get deleted
         end
       end
-    end
-  end
-end
-
-__demand(__parallel, __cuda)
-task Particles_UpdateAuxiliaryStep2(Particles : region(ispace(int1d), Particles_columns))
-where
-  reads(Particles.{position_ghost, velocity_ghost, velocity_t_ghost, __valid}),
-  reads writes(Particles.{position, velocity, velocity_t})
-do
-  __demand(__openmp)
-  for p in Particles do
-    if Particles[p].__valid then
-      Particles[p].position = Particles[p].position_ghost
-      Particles[p].velocity = Particles[p].velocity_ghost
-      Particles[p].velocity_t = Particles[p].velocity_t_ghost
     end
   end
 end
@@ -5850,15 +5801,14 @@ local function mkInstance() local INSTANCE = {}
       end
 
       -- Handle particle boundary conditions
-      Particles_UpdateAuxiliaryStep1(Particles,
-                                     BC.xBCParticles,
-                                     BC.yBCParticles,
-                                     BC.zBCParticles,
-                                     config.Grid.origin[0], config.Grid.xWidth,
-                                     config.Grid.origin[1], config.Grid.yWidth,
-                                     config.Grid.origin[2], config.Grid.zWidth,
-                                     config.Particles.restitutionCoeff)
-      Particles_UpdateAuxiliaryStep2(Particles)
+      Particles_UpdateAuxiliary(Particles,
+                                BC.xBCParticles,
+                                BC.yBCParticles,
+                                BC.zBCParticles,
+                                config.Grid.origin[0], config.Grid.xWidth,
+                                config.Grid.origin[1], config.Grid.yWidth,
+                                config.Grid.origin[2], config.Grid.zWidth,
+                                config.Particles.restitutionCoeff)
       for c in tiles do
         Particles_number +=
           Particles_DeleteEscapingParticles(p_Particles[c],
