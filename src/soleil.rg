@@ -4237,18 +4237,36 @@ do
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
-      var flowVelocity = InterpolateTriVelocity(Particles[p].cell, Particles[p].position, Fluid, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin)
-      var flowTemperature = InterpolateTriTemp(Particles[p].cell, Particles[p].position, Fluid, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin)
-      var flowDynamicViscosity = GetDynamicViscosity(flowTemperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
+      var flowVelocity = InterpolateTriVelocity(Particles[p].cell,
+                                                Particles[p].position,
+                                                Fluid,
+                                                Grid_xCellWidth, Grid_xRealOrigin,
+                                                Grid_yCellWidth, Grid_yRealOrigin,
+                                                Grid_zCellWidth, Grid_zRealOrigin)
+      var flowTemperature = InterpolateTriTemp(Particles[p].cell,
+                                               Particles[p].position,
+                                               Fluid,
+                                               Grid_xCellWidth, Grid_xRealOrigin,
+                                               Grid_yCellWidth, Grid_yRealOrigin,
+                                               Grid_zCellWidth, Grid_zRealOrigin)
+      var flowDynamicViscosity = GetDynamicViscosity(flowTemperature,
+                                                     Flow_constantVisc,
+                                                     Flow_powerlawTempRef, Flow_powerlawViscRef,
+                                                     Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
+                                                     Flow_viscosityModel)
       Particles[p].position_t = vv_add(Particles[p].position_t, Particles[p].velocity)
       var particleReynoldsNumber = 0.0
-      var relaxationTime = (((Particles[p].density*pow(Particles[p].diameter, 2.0))/(18.0*flowDynamicViscosity))/(1.0+(double(0.15)*pow(particleReynoldsNumber, double(0.687)))))
+      var relaxationTime =
+        Particles[p].density
+        * pow(Particles[p].diameter,2.0)
+        / (18.0*flowDynamicViscosity)
+        / (1.0 + (0.15*pow(particleReynoldsNumber,0.687)))
       var tmp2 = vs_div(vv_sub(flowVelocity, Particles[p].velocity), relaxationTime)
       Particles[p].deltaVelocityOverRelaxationTime = tmp2
       Particles[p].velocity_t = vv_add(Particles[p].velocity_t, tmp2)
-      var tmp3 = (((PI*pow(Particles[p].diameter, 2.0))*Particles_convectiveCoeff)*(flowTemperature-Particles[p].temperature))
+      var tmp3 = PI * pow(Particles[p].diameter,2.0) * Particles_convectiveCoeff * (flowTemperature-Particles[p].temperature)
       Particles[p].deltaTemperatureTerm = tmp3
-      Particles[p].temperature_t += (tmp3/((((PI*pow(Particles[p].diameter, 3.0))/6.0)*Particles[p].density)*Particles_heatCapacity))
+      Particles[p].temperature_t += tmp3/(PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density*Particles_heatCapacity)
     end
   end
 end
