@@ -47,8 +47,6 @@ local struct Particles_columns {
   temperature : double;
   diameter : double;
   density : double;
-  deltaVelocityOverRelaxationTime : double[3];
-  deltaTemperatureTerm : double;
   position_old : double[3];
   velocity_old : double[3];
   temperature_old : double;
@@ -71,8 +69,6 @@ local Particles_primitives = terralib.newlist({
 })
 
 local Particles_subStepTemp = terralib.newlist({
-  'deltaVelocityOverRelaxationTime',
-  'deltaTemperatureTerm',
   'position_t',
   'velocity_t',
   'temperature_t',
@@ -3997,12 +3993,13 @@ task Particles_AddFlowCoupling(Particles : region(ispace(int1d), Particles_colum
                                Grid_yCellWidth : double, Grid_yRealOrigin : double,
                                Grid_zCellWidth : double, Grid_zRealOrigin : double,
                                Particles_convectiveCoeff : double,
-                               Particles_heatCapacity : double)
+                               Particles_heatCapacity : double,
+                               Grid_cellVolume : double)
 where
   reads(Fluid.{centerCoordinates, velocity, temperature}),
   reads(Particles.{cell, position, velocity, diameter, density, temperature, __valid}),
-  reads writes(Particles.{position_t, velocity_t, temperature_t}),
-  writes(Particles.{deltaTemperatureTerm, deltaVelocityOverRelaxationTime})
+  reads writes(Fluid.{rhoVelocity_t, rhoEnergy_t}),
+  reads writes(Particles.{position_t, velocity_t, temperature_t})
 do
   __demand(__openmp)
   for p in Particles do
@@ -4031,12 +4028,18 @@ do
         * pow(Particles[p].diameter,2.0)
         / (18.0*flowDynamicViscosity)
         / (1.0 + (0.15*pow(particleReynoldsNumber,0.687)))
-      var tmp2 = vs_div(vv_sub(flowVelocity, Particles[p].velocity), relaxationTime)
-      Particles[p].deltaVelocityOverRelaxationTime = tmp2
-      Particles[p].velocity_t = vv_add(Particles[p].velocity_t, tmp2)
-      var tmp3 = PI * pow(Particles[p].diameter,2.0) * Particles_convectiveCoeff * (flowTemperature-Particles[p].temperature)
-      Particles[p].deltaTemperatureTerm = tmp3
-      Particles[p].temperature_t += tmp3/(PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density*Particles_heatCapacity)
+      var deltaVelocityOverRelaxationTime =
+        vs_div(vv_sub(flowVelocity, Particles[p].velocity), relaxationTime)
+      Fluid[Particles[p].cell].rhoVelocity_t =
+        vv_add(Fluid[Particles[p].cell].rhoVelocity_t,
+               vs_mul(deltaVelocityOverRelaxationTime,
+                      (-PI)*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density/Grid_cellVolume))
+      Particles[p].velocity_t = vv_add(Particles[p].velocity_t, deltaVelocityOverRelaxationTime)
+      var deltaTemperatureTerm = PI * pow(Particles[p].diameter,2.0) * Particles_convectiveCoeff * (flowTemperature-Particles[p].temperature)
+      Fluid[Particles[p].cell].rhoEnergy_t -= deltaTemperatureTerm/Grid_cellVolume
+      Particles[p].temperature_t +=
+        deltaTemperatureTerm
+        / (PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density*Particles_heatCapacity)
     end
   end
 end
@@ -4117,28 +4120,6 @@ do
       var t4 = pow(Particles[p].temperature, 4.0)
       var alpha = ((((PI*Radiation_qa)*pow(Particles[p].diameter, 2.0))*(Radiation[Fluid[Particles[p].cell].to_Radiation].G-((4.0*SB)*t4)))/4.0)
       Particles[p].temperature_t += (alpha/((((PI*pow(Particles[p].diameter, 3.0))/6.0)*Particles[p].density)*Particles_heatCapacity))
-    end
-  end
-end
-
-__demand(__parallel, __cuda)
-task Flow_AddParticlesCoupling(Particles : region(ispace(int1d), Particles_columns),
-                               Fluid : region(ispace(int3d), Fluid_columns),
-                               Grid_cellVolume : double)
-where
-  reads(Particles.{cell, diameter, density, deltaTemperatureTerm, deltaVelocityOverRelaxationTime, __valid}),
-  reads writes(Fluid.{rhoVelocity_t, rhoEnergy_t})
-do
-  __demand(__openmp)
-  for p in Particles do
-    if Particles[p].__valid then
-      var tmp = vs_div(vs_mul(Particles[p].deltaVelocityOverRelaxationTime, (-(((PI*pow(Particles[p].diameter, 3.0))/6.0)*Particles[p].density))), Grid_cellVolume)
-      var v = Fluid[Particles[p].cell].rhoVelocity_t
-      v[0] += tmp[0]
-      v[1] += tmp[1]
-      v[2] += tmp[2]
-      Fluid[Particles[p].cell].rhoVelocity_t = v
-      Fluid[Particles[p].cell].rhoEnergy_t += ((-Particles[p].deltaTemperatureTerm)/Grid_cellVolume)
     end
   end
 end
@@ -5417,7 +5398,18 @@ local function mkInstance() local INSTANCE = {}
       end
 
       -- Add fluid forces to particles
-      Particles_AddFlowCoupling(Particles, Fluid, config.Flow.constantVisc, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid.xCellWidth, Grid.xRealOrigin, Grid.yCellWidth, Grid.yRealOrigin, Grid.zCellWidth, Grid.zRealOrigin, config.Particles.convectiveCoeff, config.Particles.heatCapacity)
+      Particles_AddFlowCoupling(Particles,
+                                Fluid,
+                                config.Flow.constantVisc,
+                                config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                config.Flow.viscosityModel,
+                                Grid.xCellWidth, Grid.xRealOrigin,
+                                Grid.yCellWidth, Grid.yRealOrigin,
+                                Grid.zCellWidth, Grid.zRealOrigin,
+                                config.Particles.convectiveCoeff,
+                                config.Particles.heatCapacity,
+                                Grid.cellVolume)
       Particles_AddBodyForces(Particles, config.Particles.bodyForce)
 
       -- Add radiation
@@ -5448,9 +5440,6 @@ local function mkInstance() local INSTANCE = {}
                                     config.Radiation.u.DOM.qa)
         end
       else regentlib.assert(false, 'Unhandled case in switch') end
-
-      -- Add particle forces to fluid
-      Flow_AddParticlesCoupling(Particles, Fluid, Grid.cellVolume)
 
       -- Time step
       Flow_UpdateVars(Fluid, Integrator_deltaTime, Integrator_stage)
