@@ -55,7 +55,6 @@ local struct Particles_columns {
   position_new : double[3];
   velocity_new : double[3];
   temperature_new : double;
-  position_t : double[3];
   velocity_t : double[3];
   temperature_t : double;
   __valid : bool;
@@ -73,7 +72,6 @@ local Particles_primitives = terralib.newlist({
 local Particles_subStepTemp = terralib.newlist({
   'deltaVelocityOverRelaxationTime',
   'deltaTemperatureTerm',
-  'position_t',
   'velocity_t',
   'temperature_t',
 })
@@ -2120,12 +2118,11 @@ __demand(__parallel, __cuda)
 task Particles_InitializeTimeDerivatives(Particles : region(ispace(int1d), Particles_columns))
 where
   reads(Particles.__valid),
-  writes(Particles.{position_t, velocity_t, temperature_t})
+  writes(Particles.{velocity_t, temperature_t})
 do
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
-      Particles[p].position_t = array(0.0, 0.0, 0.0)
       Particles[p].velocity_t = array(0.0, 0.0, 0.0)
       Particles[p].temperature_t = 0.0
     end
@@ -4001,7 +3998,7 @@ task Particles_AddFlowCoupling(Particles : region(ispace(int1d), Particles_colum
 where
   reads(Fluid.{centerCoordinates, velocity, temperature}),
   reads(Particles.{cell, position, velocity, diameter, density, temperature, __valid}),
-  reads writes(Particles.{position_t, velocity_t, temperature_t}),
+  reads writes(Particles.{velocity_t, temperature_t}),
   writes(Particles.{deltaTemperatureTerm, deltaVelocityOverRelaxationTime})
 do
   __demand(__openmp)
@@ -4024,7 +4021,6 @@ do
                                                      Flow_powerlawTempRef, Flow_powerlawViscRef,
                                                      Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
                                                      Flow_viscosityModel)
-      Particles[p].position_t = vv_add(Particles[p].position_t, Particles[p].velocity)
       var particleReynoldsNumber = 0.0
       var relaxationTime =
         Particles[p].density
@@ -4212,7 +4208,7 @@ task Particles_UpdateVars(Particles : region(ispace(int1d), Particles_columns),
                           Integrator_stage : int32)
 where
   reads(Particles.{position_old, velocity_old, temperature_old}),
-  reads(Particles.{position_t, velocity_t, temperature_t}),
+  reads(Particles.{velocity, velocity_t, temperature_t}),
   reads(Particles.__valid),
   writes(Particles.{position, temperature, velocity}),
   reads writes(Particles.{position_new, temperature_new, velocity_new})
@@ -4223,9 +4219,9 @@ do
       var deltaTime = Integrator_deltaTime
       if Integrator_stage == 1 then
         Particles[p].position_new = vv_add(Particles[p].position_new,
-                                           vs_mul(Particles[p].position_t, (1.0/6.0)*deltaTime))
+                                           vs_mul(Particles[p].velocity, (1.0/6.0)*deltaTime))
         Particles[p].position = vv_add(Particles[p].position_old,
-                                       vs_mul(Particles[p].position_t, 0.5*deltaTime))
+                                       vs_mul(Particles[p].velocity, 0.5*deltaTime))
         Particles[p].velocity_new = vv_add(Particles[p].velocity_new,
                                            vs_mul(Particles[p].velocity_t, (1.0/6.0)*deltaTime))
         Particles[p].velocity = vv_add(Particles[p].velocity_old,
@@ -4234,9 +4230,9 @@ do
         Particles[p].temperature = Particles[p].temperature_old + 0.5*deltaTime*Particles[p].temperature_t
       elseif Integrator_stage == 2 then
         Particles[p].position_new = vv_add(Particles[p].position_new,
-                                           vs_mul(Particles[p].position_t, (1.0/3.0)*deltaTime))
+                                           vs_mul(Particles[p].velocity, (1.0/3.0)*deltaTime))
         Particles[p].position = vv_add(Particles[p].position_old,
-                                       vs_mul(Particles[p].position_t, 0.5*deltaTime))
+                                       vs_mul(Particles[p].velocity, 0.5*deltaTime))
         Particles[p].velocity_new = vv_add(Particles[p].velocity_new,
                                            vs_mul(Particles[p].velocity_t, (1.0/3.0)*deltaTime))
         Particles[p].velocity = vv_add(Particles[p].velocity_old,
@@ -4245,9 +4241,9 @@ do
         Particles[p].temperature = Particles[p].temperature_old + 0.5*deltaTime*Particles[p].temperature_t
       elseif Integrator_stage == 3 then
         Particles[p].position_new = vv_add(Particles[p].position_new,
-                                           vs_mul(Particles[p].position_t, (1.0/3.0)*deltaTime))
+                                           vs_mul(Particles[p].velocity, (1.0/3.0)*deltaTime))
         Particles[p].position = vv_add(Particles[p].position_old,
-                                       vs_mul(Particles[p].position_t, 1.0*deltaTime))
+                                       vs_mul(Particles[p].velocity, 1.0*deltaTime))
         Particles[p].velocity_new = vv_add(Particles[p].velocity_new,
                                            vs_mul(Particles[p].velocity_t, (1.0/3.0)*deltaTime))
         Particles[p].velocity = vv_add(Particles[p].velocity_old,
@@ -4256,7 +4252,7 @@ do
         Particles[p].temperature = Particles[p].temperature_old + 1.0*deltaTime*Particles[p].temperature_t
       else -- Integrator_stage == 4
         Particles[p].position = vv_add(Particles[p].position_new,
-                                       vs_mul(Particles[p].position_t, (1.0/6.0)*deltaTime))
+                                       vs_mul(Particles[p].velocity, (1.0/6.0)*deltaTime))
         Particles[p].velocity = vv_add(Particles[p].velocity_new,
                                        vs_mul(Particles[p].velocity_t, (1.0/6.0)*deltaTime))
         Particles[p].temperature = Particles[p].temperature_new + (1.0/6.0)*deltaTime*Particles[p].temperature_t
