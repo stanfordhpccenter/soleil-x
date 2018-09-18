@@ -8,11 +8,11 @@
     },
 
     "Grid" : {
-        "xNum" : 128,
+        "xNum" : 256,
         "yNum" : 128,
         "zNum" : 128,
         "origin" : [0.0, 0.0, 0.0],
-        "xWidth" : 0.04,
+        "xWidth" : 0.08,
         "yWidth" : 0.04,
         "zWidth" : 0.04
     },
@@ -64,7 +64,7 @@
     "Integrator" : {
         "restartIter" : -1,
         "restartTime" : -1.0,
-        "maxIter" : 10,
+        "maxIter" : 1000000,
         "cfl" : -1.0,
         "fixedDeltaTime" : 4.5e-7
     },
@@ -82,9 +82,14 @@
         "sutherlandSRef" : -1.0,
         "initCase" : "Random",
         "restartDir" : "",
-        "initParams" : [1.2, 104040.0, 0.001, 0.0, 0.0],
+        "initParams" : [1.2, 104040.0, 0.001, -1.0, -1.0],
         "bodyForce" : [0.0, 0.0, 0.0],
-        "turbForcing" : true
+        "turbForcing" : {
+            "type" : "HIT",
+            "G" : 67.0,
+            "t_o" : 0.029594998,
+            "K_o" : 0.098919475
+        }
     },
 
     "Particles" : {
@@ -92,51 +97,25 @@
         "restartDir" : "",
         "initNum" : 2112000,
         "maxNum" : 2112000,
-        "restitutionCoeff" : 1.0,
+        "restitutionCoeff" : -1.0,
         "convectiveCoeff" : 2.0,
-        "absorptivity" : 1.0,
         "heatCapacity" : 4.5e+2,
         "initTemperature" : 300.0,
         "density" : 8900.0,
         "diameterMean" : 1.012082669346191e-05,
         "bodyForce" : [0.0, 0.0, 0.0],
         "maxSkew" : 1.2,
-        "maxXferNum" : 10000,
+        "maxXferNum" : 2112,
         "collisions" : false,
         "feeding" : { "type" : "OFF" }
     },
 
     "Radiation" : {
-        "type" : "OFF",
-        "intensity" : -1.0,
-        "qa" : -1.0,
-        "qs" : -1.0,
-        "xNum" : 4,
-        "yNum" : 4,
-        "zNum" : 4,
-        "angles" : 0,
-        "xHiEmiss" : -1.0,
-        "xLoEmiss" : -1.0,
-        "yHiEmiss" : -1.0,
-        "yLoEmiss" : -1.0,
-        "zHiEmiss" : -1.0,
-        "zLoEmiss" : -1.0,
-        "xHiTemp" : -1.0,
-        "xLoTemp" : -1.0,
-        "yHiTemp" : -1.0,
-        "yLoTemp" : -1.0,
-        "zHiTemp" : -1.0,
-        "zLoTemp" : -1.0,
-        "xHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
-        "xLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
-        "yHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
-        "yLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
-        "zHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
-        "zLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] }
+        "type" : "OFF"
     },
 
     "IO" : {
-        "wrtRestart" : false,
+        "wrtRestart" : true,
         "restartEveryTimeSteps" : 100,
         "probes" : []
     }
