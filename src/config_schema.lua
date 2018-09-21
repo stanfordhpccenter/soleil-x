@@ -214,6 +214,8 @@ Exports.MultiConfig = {
   copySrc = Exports.Volume,
   -- volume to copy into every timestep (in the 2nd section)
   copyTgt = Exports.Volume,
+  -- How often to copy values from one section to the other
+  copyEveryTimeSteps = int,
 }
 
 return Exports

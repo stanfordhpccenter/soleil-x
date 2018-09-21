@@ -241,5 +241,6 @@
     "copyTgt" : {
         "fromCell" : [0,1,0],
         "uptoCell" : [0,16,15]
-    }
+    },
+    "copyEveryTimeSteps" : 1
 }

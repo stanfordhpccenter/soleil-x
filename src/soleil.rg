@@ -5691,6 +5691,7 @@ task workDual(mc : MultiConfig)
   regentlib.c.legion_domain_point_coloring_destroy(tgtColoring)
   var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
   -- Main simulation loop
+  var timestep = 0
   while true do
     -- Perform preliminary actions before each timestep
     [parallelizeFor(SIM0, SIM0.MainLoopHeader(rexpr mc.configs[0] end))];
@@ -5705,21 +5706,20 @@ task workDual(mc : MultiConfig)
     end
     -- Run 1 iteration of first section
     [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end, FakeCopyQueue))];
-    -- Copy fluid values to second section
-    for c in SIM1.tiles do
-      var src = p_Fluid0_src[c]
-      var tgt = p_Fluid1_tgt[c][0]
-      copy(src.temperature, tgt.temperature_inc)
-      copy(src.velocity, tgt.velocity_inc)
-    end
-    -- Copy particles to second section
-    if mc.configs[1].Particles.feeding.type == SCHEMA.FeedModel_Incoming then
+    -- Copy fluid & particles to second section
+    fill(CopyQueue.__valid, false) -- clear the copyqueue from the previous iteration
+    if timestep % mc.copyEveryTimeSteps == 0 then
+      for c in SIM1.tiles do
+        var src = p_Fluid0_src[c]
+        var tgt = p_Fluid1_tgt[c][0]
+        copy(src.temperature, tgt.temperature_inc)
+        copy(src.velocity, tgt.velocity_inc)
+      end
       fill(CopyQueue.position, array(-1.0, -1.0, -1.0))
       fill(CopyQueue.velocity, array(-1.0, -1.0, -1.0))
       fill(CopyQueue.temperature, -1.0)
       fill(CopyQueue.diameter, -1.0)
       fill(CopyQueue.density, -1.0)
-      fill(CopyQueue.__valid, false)
       for c in SIM0.tiles do
         CopyQueue_push(SIM0.p_Particles[c],
                        p_CopyQueue[c],
@@ -5730,6 +5730,7 @@ task workDual(mc : MultiConfig)
     end
     -- Run 1 iteration of second section
     [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, CopyQueue))];
+    timestep += 1
   end
   -- Cleanups
   [SIM0.Cleanup(rexpr mc.configs[0] end)];
