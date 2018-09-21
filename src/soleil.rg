@@ -4448,25 +4448,27 @@ end
 
 __demand(__cuda) -- MANUALLY PARALLELIZED
 task Particles_DeleteEscapingParticles(Particles : region(ispace(int1d), Particles_columns),
-                                       Grid_xOrigin : double, Grid_xWidth : double,
-                                       Grid_yOrigin : double, Grid_yWidth : double,
-                                       Grid_zOrigin : double, Grid_zWidth : double)
+                                       Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
+                                       Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
+                                       Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
 where
   reads(Particles.position),
   reads writes(Particles.__valid)
 do
+  var Grid_xCellWidth = (Grid_xWidth/Grid_xNum)
+  var Grid_yCellWidth = (Grid_yWidth/Grid_yNum)
+  var Grid_zCellWidth = (Grid_zWidth/Grid_zNum)
   var acc = int64(0)
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
-      var min_x = Grid_xOrigin
-      var max_x = Grid_xOrigin+Grid_xWidth
-      var min_y = Grid_yOrigin
-      var max_y = Grid_yOrigin+Grid_yWidth
-      var min_z = Grid_zOrigin
-      var max_z = Grid_zOrigin+Grid_zWidth
       var pos = Particles[p].position
-      if pos[0]>max_x or pos[0]<min_x or pos[1]>max_y or pos[1]<min_y or pos[2]>max_z or pos[2]<min_z then
+      if pos[0] < Grid_xOrigin - Grid_xBnum * Grid_xCellWidth
+      or pos[1] < Grid_yOrigin - Grid_yBnum * Grid_yCellWidth
+      or pos[2] < Grid_zOrigin - Grid_zBnum * Grid_zCellWidth
+      or pos[0] > Grid_xOrigin + Grid_xWidth + Grid_xBnum * Grid_xCellWidth
+      or pos[1] > Grid_yOrigin + Grid_yWidth + Grid_yBnum * Grid_yCellWidth
+      or pos[2] > Grid_zOrigin + Grid_zWidth + Grid_zBnum * Grid_zCellWidth then
         Particles[p].__valid = false
         acc += (-1)
       end
@@ -5481,9 +5483,9 @@ local function mkInstance() local INSTANCE = {}
       for c in tiles do
         Particles_number +=
           Particles_DeleteEscapingParticles(p_Particles[c],
-                                            config.Grid.origin[0], config.Grid.xWidth,
-                                            config.Grid.origin[1], config.Grid.yWidth,
-                                            config.Grid.origin[2], config.Grid.zWidth)
+                                            Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
+                                            Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
+                                            Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
       end
 
       -- Move particles to new partitions
