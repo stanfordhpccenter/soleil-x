@@ -1,7 +1,7 @@
 {
     "configs" : [{
         "Mapping" : {
-            "tiles" : [2,2,2],
+            "tiles" : [1,1,1],
             "tilesPerRank" : [1,1,1],
             "sampleId" : -1,
             "outDir" : "",
@@ -73,7 +73,7 @@
         "Flow" : {
             "gasConstant" : 289.0,
             "gamma" : 1.4,
-            "prandtl" : 0.71,
+            "prandtl" : 0.650966628817,
             "viscosityModel" : "Constant",
             "constantVisc" : 1.9E-5,
             "powerlawViscRef" : -1.0,
@@ -88,25 +88,25 @@
             "turbForcing" : {
                 "type" : "HIT",
                 "G" : 67.0,
-                "t_o" : 0.029594998,
-                "K_o" : 0.098919475
+                "t_o" : 0.029594375338,
+                "K_o" : 0.0989236400463
             }
         },
 
         "Particles" : {
             "initCase" : "Uniform",
             "restartDir" : "",
-            "initNum" : 136283479,
-            "maxNum" : 136283479,
+            "initNum" : 7656562,
+            "maxNum" : 7656562,
             "restitutionCoeff" : -1.0,
-            "convectiveCoeff" : 1359.0,
-            "heatCapacity" : 453.134,
+            "convectiveCoeff" : 5632.53877113,
+            "heatCapacity" : 453.1343283582089,
             "initTemperature" : 300.0,
             "density" : 8900.0,
-            "diameterMean" : 2.53e-6,
+            "diameterMean" : 1.04882056389e-05,
             "bodyForce" : [0.0, 0.0, 0.0],
             "maxSkew" : 1.2,
-            "maxXferNum" : 130000,
+            "maxXferNum" : 7656,
             "collisions" : false,
             "feeding" : { "type" : "OFF" }
         },
@@ -122,7 +122,7 @@
         }
     }, {
         "Mapping" : {
-            "tiles" : [8,2,2],
+            "tiles" : [4,1,1],
             "tilesPerRank" : [1,1,1],
             "sampleId" : -1,
             "outDir" : "",
@@ -193,7 +193,7 @@
         "Flow" : {
             "gasConstant" : 289.0,
             "gamma" : 1.4,
-            "prandtl" : 0.71,
+            "prandtl" : 0.650966628817,
             "viscosityModel" : "Constant",
             "constantVisc" : 1.9E-5,
             "powerlawViscRef" : -1.0,
@@ -212,16 +212,16 @@
             "initCase" : "Uniform",
             "restartDir" : "",
             "initNum" : 0,
-            "maxNum" : 600000000,
+            "maxNum" : 30626248,
             "restitutionCoeff" : -1.0,
-            "convectiveCoeff" : 1359.0,
-            "heatCapacity" : 453.134,
+            "convectiveCoeff" : 5632.53877113,
+            "heatCapacity" : 453.1343283582089,
             "initTemperature" : 300.0,
             "density" : 8900.0,
-            "diameterMean" : 2.53e-6,
+            "diameterMean" : 1.04882056389e-05,
             "bodyForce" : [0.0, 0.0, 0.0],
             "maxSkew" : 1.2,
-            "maxXferNum" : 600000,
+            "maxXferNum" : 30626,
             "collisions" : false,
             "feeding" : {
                 "type" : "Incoming",
@@ -231,7 +231,7 @@
 
         "Radiation" : {
             "type" : "Algebraic",
-            "intensity" : 1712320.0,
+            "intensity" : 7096998.85162,
             "absorptivity" : 0.4
         },
 
