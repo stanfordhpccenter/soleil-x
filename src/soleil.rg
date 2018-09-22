@@ -4893,7 +4893,7 @@ local function mkInstance() local INSTANCE = {}
     @ESCAPE for k = 1,26 do @EMIT
       -- Make tradequeues smaller for diagonal movement
       var off = [colorOffsets[k]]
-      var num_dirs = off[0]*off[0] + off[1]*off[1] + off[2]*off[2]
+      var num_dirs = off.x*off.x + off.y*off.y + off.z*off.z
       var escapeRatio = 1.0
       for i = 0, num_dirs do
         escapeRatio *= config.Particles.escapeRatioPerDir
