@@ -100,7 +100,7 @@
         "diameterMean" : 4.6e-5,
         "bodyForce" : [0.0, 0.0, 0.0],
         "maxSkew" : 1.0,
-        "maxXferNum" : 0,
+        "escapeRatioPerDir" : 0.0,
         "collisions" : false,
         "feeding" : { "type" : "OFF" }
     },

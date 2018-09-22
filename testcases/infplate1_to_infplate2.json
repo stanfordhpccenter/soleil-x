@@ -101,7 +101,7 @@
             "diameterMean" : 10.0e-6,
             "bodyForce" : [0.0, 0.0, 0.0],
             "maxSkew" : 1.0,
-            "maxXferNum" : 0,
+            "escapeRatioPerDir" : 0.0,
             "collisions" : false,
             "feeding" : { "type" : "OFF" }
         },
@@ -216,7 +216,7 @@
             "diameterMean" : 10.0e-6,
             "bodyForce" : [0.0, 0.0, 0.0],
             "maxSkew" : 1.0,
-            "maxXferNum" : 0,
+            "escapeRatioPerDir" : 0.0,
             "collisions" : false,
             "feeding" : {
                 "type" : "Incoming",

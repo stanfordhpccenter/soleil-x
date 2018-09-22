@@ -188,7 +188,7 @@ Exports.Config = {
     diameterMean = double,
     bodyForce = Array(3,double),
     maxSkew = double,
-    maxXferNum = int,
+    escapeRatioPerDir = double,
     collisions = bool,
     feeding = Exports.FeedModel,
   },

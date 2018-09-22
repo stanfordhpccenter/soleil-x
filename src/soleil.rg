@@ -4882,14 +4882,23 @@ local function mkInstance() local INSTANCE = {}
     [UTIL.emitRegionTagAttach(Fluid_copy, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
 
     -- Create Particles Regions
-    var maxParticlesPerTile = ceil((config.Particles.maxNum/numTiles)*config.Particles.maxSkew)
+    regentlib.assert(config.Particles.maxNum % numTiles == 0,
+                     'Uneven partitioning of particles')
+    var maxParticlesPerTile = ceil((config.Particles.maxNum / numTiles) * config.Particles.maxSkew)
     var is_Particles = ispace(int1d, maxParticlesPerTile * numTiles)
     var [Particles] = region(is_Particles, Particles_columns);
     [UTIL.emitRegionTagAttach(Particles, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     var [Particles_copy] = region(is_Particles, Particles_columns);
     [UTIL.emitRegionTagAttach(Particles_copy, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
-    var is_TradeQueue = ispace(int1d, config.Particles.maxXferNum * numTiles);
     @ESCAPE for k = 1,26 do @EMIT
+      -- Make tradequeues smaller for diagonal movement
+      var off = [colorOffsets[k]]
+      var num_dirs = off[0]*off[0] + off[1]*off[1] + off[2]*off[2]
+      var escapeRatio = 1.0
+      for i = 0, num_dirs do
+        escapeRatio *= config.Particles.escapeRatioPerDir
+      end
+      var is_TradeQueue = ispace(int1d, ceil(escapeRatio * maxParticlesPerTile) * numTiles)
       var [TradeQueue[k]] = region(is_TradeQueue, TradeQueue_columns);
       [UTIL.emitRegionTagAttach(TradeQueue[k], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     @TIME end @EPACSE
