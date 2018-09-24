@@ -96,8 +96,8 @@
         "Particles" : {
             "initCase" : "Uniform",
             "restartDir" : "",
-            "initNum" : 6367342,
-            "maxNum" : 6367342,
+            "initNum" : 1591836,
+            "maxNum" : 1591836,
             "restitutionCoeff" : -1.0,
             "convectiveCoeff" : 5782.87177211,
             "heatCapacity" : 453.1343283582089,
@@ -122,7 +122,7 @@
         }
     }, {
         "Mapping" : {
-            "tiles" : [4,1,1],
+            "tiles" : [2,1,1],
             "tilesPerRank" : [1,1,1],
             "sampleId" : -1,
             "outDir" : "",
@@ -212,7 +212,7 @@
             "initCase" : "Uniform",
             "restartDir" : "",
             "initNum" : 0,
-            "maxNum" : 25469368,
+            "maxNum" : 6367342,
             "restitutionCoeff" : -1.0,
             "convectiveCoeff" : 5782.87177211,
             "heatCapacity" : 453.1343283582089,
