@@ -82,9 +82,9 @@
         "sutherlandSRef" : 110.4,
         "initCase" : "Restart",
         "restartDir" : "",
-        "initParams" : [1.2, 1.0e5, 0.0, 0.0, 0.0],
+        "initParams" : [-1.0, -1.0, -1.0, -1.0, -1.0],
         "bodyForce" : [0.0, 0.0, 0.0],
-        "turbForcing" : false
+        "turbForcing" : { "type" : "OFF" }
     },
 
     "Particles" : {
@@ -94,45 +94,21 @@
         "maxNum" : 1000,
         "restitutionCoeff" : 1.0,
         "convectiveCoeff" : 0.7,
-        "absorptivity" : 1.0,
         "heatCapacity" : 0.7,
         "initTemperature" : 250.0,
         "density" : 8900.0,
         "diameterMean" : 5e-3,
         "bodyForce" : [0.0, 0.0, 0.0],
         "maxSkew" : 1.5,
-        "maxXferNum" : 100,
+        "escapeRatioPerDir" : 0.005,
         "collisions" : false,
         "feeding" : { "type" : "OFF" }
     },
 
     "Radiation" : {
         "type" : "Algebraic",
-        "intensity" : 1e3,
-        "qa" : -1.0,
-        "qs" : -1.0,
-        "xNum" : 4,
-        "yNum" : 4,
-        "zNum" : 4,
-        "angles" : 0,
-        "xHiEmiss" : -1.0,
-        "xLoEmiss" : -1.0,
-        "yHiEmiss" : -1.0,
-        "yLoEmiss" : -1.0,
-        "zHiEmiss" : -1.0,
-        "zLoEmiss" : -1.0,
-        "xHiTemp" : -1.0,
-        "xLoTemp" : -1.0,
-        "yHiTemp" : -1.0,
-        "yLoTemp" : -1.0,
-        "zHiTemp" : -1.0,
-        "zLoTemp" : -1.0,
-        "xHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
-        "xLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
-        "yHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
-        "yLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
-        "zHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
-        "zLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] }
+        "absorptivity" : 1.0,
+        "intensity" : 1e3
     },
 
     "IO" : {

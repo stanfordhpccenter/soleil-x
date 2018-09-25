@@ -1,6 +1,6 @@
 {
     "Mapping" : {
-        "tiles" : [1,1,1],
+        "tiles" : [2,2,2],
         "tilesPerRank" : [1,1,1],
         "sampleId" : -1,
         "outDir" : "",
@@ -8,13 +8,13 @@
     },
 
     "Grid" : {
-        "xNum" : 64,
-        "yNum" : 64,
-        "zNum" : 64,
+        "xNum" : 256,
+        "yNum" : 256,
+        "zNum" : 256,
         "origin" : [0.0, 0.0, 0.0],
-        "xWidth" : 6.283185307179586,
-        "yWidth" : 6.283185307179586,
-        "zWidth" : 6.283185307179586
+        "xWidth" : 0.08,
+        "yWidth" : 0.08,
+        "zWidth" : 0.08
     },
 
     "BC" : {
@@ -62,58 +62,61 @@
     },
 
     "Integrator" : {
-        "restartIter" : 2,
-        "restartTime" : 8.727367e-03,
+        "restartIter" : -1,
+        "restartTime" : -1.0,
         "maxIter" : 5,
-        "cfl" : 1.0,
-        "fixedDeltaTime" : -1.0
+        "cfl" : -1.0,
+        "fixedDeltaTime" : 4.5e-7
     },
 
     "Flow" : {
-        "gasConstant" : 20.4128,
+        "gasConstant" : 289.0,
         "gamma" : 1.4,
-        "prandtl" : 0.7,
-        "viscosityModel" : "PowerLaw",
-        "constantVisc" : 0.004491,
-        "powerlawViscRef" : 0.00044,
-        "powerlawTempRef" : 1.0,
-        "sutherlandViscRef" : 1.716E-5,
-        "sutherlandTempRef" : 273.15,
-        "sutherlandSRef" : 110.4,
-        "initCase" : "Restart",
-        "restartDir" : "/home/manolis/tgv_restart/fluid_iter2",
-        "initParams" : [-1.0, -1.0, -1.0, -1.0, -1.0],
+        "prandtl" : 0.71,
+        "viscosityModel" : "Constant",
+        "constantVisc" : 1.9E-5,
+        "powerlawViscRef" : -1.0,
+        "powerlawTempRef" : -1.0,
+        "sutherlandViscRef" : -1.0,
+        "sutherlandTempRef" : -1.0,
+        "sutherlandSRef" : -1.0,
+        "initCase" : "Random",
+        "restartDir" : "",
+        "initParams" : [1.2, 104040.0, 0.001, -1.0, -1.0],
         "bodyForce" : [0.0, 0.0, 0.0],
-        "turbForcing" : { "type" : "OFF" }
+        "turbForcing" : {
+            "type" : "HIT",
+            "G" : 67.0,
+            "t_o" : 0.029594998,
+            "K_o" : 0.098919475
+        }
     },
 
     "Particles" : {
-        "initCase" : "Restart",
-        "restartDir" : "/home/manolis/tgv_restart/particles_iter2",
-        "initNum" : 1000,
-        "maxNum" : 1000,
+        "initCase" : "Uniform",
+        "restartDir" : "",
+        "initNum" : 16896000,
+        "maxNum" : 16896000,
         "restitutionCoeff" : -1.0,
-        "convectiveCoeff" : 0.7,
-        "heatCapacity" : 0.7,
-        "initTemperature" : 250.0,
+        "convectiveCoeff" : 2.0,
+        "heatCapacity" : 4.5e+2,
+        "initTemperature" : 300.0,
         "density" : 8900.0,
-        "diameterMean" : 5e-3,
+        "diameterMean" : 1.012082669346191e-05,
         "bodyForce" : [0.0, 0.0, 0.0],
-        "maxSkew" : 1.5,
+        "maxSkew" : 1.2,
         "escapeRatioPerDir" : 0.005,
         "collisions" : false,
         "feeding" : { "type" : "OFF" }
     },
 
     "Radiation" : {
-        "type" : "Algebraic",
-        "absorptivity" : 1.0,
-        "intensity" : 1e3
+        "type" : "OFF"
     },
 
     "IO" : {
-        "wrtRestart" : true,
-        "restartEveryTimeSteps" : 1,
+        "wrtRestart" : false,
+        "restartEveryTimeSteps" : 100,
         "probes" : []
     }
 }

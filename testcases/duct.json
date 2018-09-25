@@ -86,7 +86,7 @@
         "restartDir" : "",
         "initParams" : [1.2, 104040.0, 8.0, 0.0, 0.0],
         "bodyForce" : [9.8, 0.0, 0.0],
-        "turbForcing" : false
+        "turbForcing" : { "type" : "OFF" }
     },
 
     "Particles" : {
@@ -96,21 +96,19 @@
         "maxNum" : 100000000,
         "restitutionCoeff" : 1.0,
         "convectiveCoeff" : 2.0,
-        "absorptivity" : 1.0,
         "heatCapacity" : 4.5e+2,
         "initTemperature" : 300.0,
         "density" : 8900.0,
         "diameterMean" : 12e-6,
         "bodyForce" : [9.8, 0.0, 0.0],
         "maxSkew" : 0.0,
-        "maxXferNum" : 1000,
+        "escapeRatioPerDir" : 0.005,
         "collisions" : true,
         "feeding" : { "type" : "OFF" }
     },
 
     "Radiation" : {
         "type" : "DOM",
-        "intensity" : 92592.5925925,
         "qa" : 1.0,
         "qs" : 0.0,
         "xNum" : 136,
@@ -126,9 +124,15 @@
         "xHiTemp" : 0.0,
         "xLoTemp" : 0.0,
         "yHiTemp" : 0.0,
-        "yLoTemp" : 1288.404,
+        "yLoTemp" : 0.0,
         "zHiTemp" : 0.0,
         "zLoTemp" : 0.0,
+        "xHiIntensity" : 0.0,
+        "xLoIntensity" : 0.0,
+        "yHiIntensity" : 0.0,
+        "yLoIntensity" : 5.0e6,
+        "zHiIntensity" : 0.0,
+        "zLoIntensity" : 0.0,
         "xHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
         "xLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
         "yHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },

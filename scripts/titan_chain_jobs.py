@@ -15,24 +15,30 @@ parser.add_argument('num_runs', type=int)
 args = parser.parse_args()
 
 config = json.load(open(args.json_file))
-assert(config['IO']['wrtRestart'])
-assert(float(config['Integrator']['cfl']) < 0.0)
-iters_per_run = int(config['Integrator']['maxIter'])
-dt = float(config['Integrator']['fixedDeltaTime'])
+samples = config['configs'] if 'configs' in config else [config]
+iters_per_run = int(samples[0]['Integrator']['maxIter'])
+dt = float(samples[0]['Integrator']['fixedDeltaTime'])
+for j in range(0, len(samples)):
+    assert(samples[j]['IO']['wrtRestart'])
+    assert(float(samples[j]['Integrator']['cfl']) < 0.0)
+    assert(iters_per_run == int(samples[j]['Integrator']['maxIter']))
+    assert(dt == float(samples[0]['Integrator']['fixedDeltaTime']))
 
 json.dump(config, open('0.json', 'w'), indent=4)
 for i in range(1, args.num_runs):
-    config['Integrator']['restartIter'] = i * iters_per_run
-    config['Integrator']['restartTime'] = i * dt
-    config['Integrator']['maxIter'] = (i+1) * iters_per_run
-    config['Flow']['initCase'] = 'Restart'
-    config['Flow']['restartDir'] = '%s/%s/sample0/fluid_iter%010d' % (args.out_dir, i-1, i * iters_per_run)
-    config['Particles']['initCase'] = 'Restart'
-    config['Particles']['restartDir'] = '%s/%s/sample0/particles_iter%010d' % (args.out_dir, i-1, i * iters_per_run)
+    for j in range(0, len(samples)):
+       samples[j]['Integrator']['restartIter'] = i * iters_per_run
+       samples[j]['Integrator']['restartTime'] = i * iters_per_run * dt
+       samples[j]['Integrator']['maxIter'] = (i+1) * iters_per_run
+       samples[j]['Flow']['initCase'] = 'Restart'
+       samples[j]['Flow']['restartDir'] = '%s/%s/sample%s/fluid_iter%010d' % (args.out_dir, i-1, j, i * iters_per_run)
+       samples[j]['Particles']['initCase'] = 'Restart'
+       samples[j]['Particles']['restartDir'] = '%s/%s/sample%s/particles_iter%010d' % (args.out_dir, i-1, j, i * iters_per_run)
     json.dump(config, open(str(i) + '.json', 'w'), indent=4)
     mkdirp('%s/%s' % (args.out_dir, i-1))
 
+switch = '-i' if len(samples) == 1 else '-m'
 print 'Testcases created in current directory; when ready, run:'
-print 'JOBID=`QUEUE=batch $SOLEIL_DIR/src/soleil.sh -i 0.json -o %s/0`; echo $JOBID' % args.out_dir
+print 'JOBID=`QUEUE=batch $SOLEIL_DIR/src/soleil.sh %s 0.json -o %s/0`; echo $JOBID' % (switch, args.out_dir)
 for i in range(1, args.num_runs):
-    print 'JOBID=`AFTER=$JOBID QUEUE=batch $SOLEIL_DIR/src/soleil.sh -i %s.json -o %s/%s`; echo $JOBID' % (i, args.out_dir, i)
+    print 'JOBID=`AFTER=$JOBID QUEUE=batch $SOLEIL_DIR/src/soleil.sh %s %s.json -o %s/%s`; echo $JOBID' % (switch, i, args.out_dir, i)

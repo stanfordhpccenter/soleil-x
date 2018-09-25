@@ -84,7 +84,7 @@
         "restartDir" : "",
         "initParams" : [0.000525805, 43.4923, 0.0, 0.0, 0.0],
         "bodyForce" : [0.0, 0.0, 0.0],
-        "turbForcing" : false
+        "turbForcing" : { "type" : "OFF" }
     },
 
     "Particles" : {
@@ -94,21 +94,19 @@
         "maxNum" : 1000,
         "restitutionCoeff" : 1.0,
         "convectiveCoeff" : 0.7,
-        "absorptivity" : 1.0,
         "heatCapacity" : 0.7,
         "initTemperature" : 250.0,
         "density" : 8900.0,
         "diameterMean" : 0.00001,
         "bodyForce" : [0.0, 0.0, 0.0],
         "maxSkew" : 1.5,
-        "maxXferNum" : 10,
+        "escapeRatioPerDir" : 0.005,
         "collisions" : false,
         "feeding" : { "type" : "OFF" }
     },
 
     "Radiation" : {
         "type" : "DOM",
-        "intensity" : -1.0,
         "qa" : 0.5,
         "qs" : 0.5,
         "xNum" : 32,
@@ -127,12 +125,18 @@
         "yLoTemp" : 300.0,
         "zHiTemp" : 300.0,
         "zLoTemp" : 300.0,
-        "xHiWindow" : { "fromCell" : [0,0], "uptoCell" : [9999,9999] },
-        "xLoWindow" : { "fromCell" : [0,0], "uptoCell" : [9999,9999] },
-        "yHiWindow" : { "fromCell" : [0,0], "uptoCell" : [9999,9999] },
-        "yLoWindow" : { "fromCell" : [0,0], "uptoCell" : [9999,9999] },
-        "zHiWindow" : { "fromCell" : [0,0], "uptoCell" : [9999,9999] },
-        "zLoWindow" : { "fromCell" : [0,0], "uptoCell" : [9999,9999] }
+        "xHiIntensity" : 0.0,
+        "xLoIntensity" : 0.0,
+        "yHiIntensity" : 0.0,
+        "yLoIntensity" : 0.0,
+        "zHiIntensity" : 0.0,
+        "zLoIntensity" : 0.0,
+        "xHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "xLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "yHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "yLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "zHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "zLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] }
     },
 
     "IO" : {

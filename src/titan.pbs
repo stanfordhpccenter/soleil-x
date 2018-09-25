@@ -17,7 +17,7 @@ NUM_THREADS=8
 GPU_OPTS=
 if [[ "$USE_CUDA" == 1 ]]; then
     NUM_THREADS=7
-    GPU_OPTS="-ll:gpu 1 -ll:fsize 5120"
+    GPU_OPTS="-ll:gpu 1 -ll:fsize 5600"
 fi
 
 # NOTE: LLVM installs a bad ELF interpreter on the executable, so we run it

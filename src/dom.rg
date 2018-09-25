@@ -4,7 +4,7 @@ import 'regent'
 -- MODULE PARAMETERS
 -------------------------------------------------------------------------------
 
-return function(MAX_ANGLES_PER_QUAD, Point_columns, Config) local MODULE = {}
+return function(MAX_ANGLES_PER_QUAD, Point_columns, SCHEMA) local MODULE = {}
 
 -------------------------------------------------------------------------------
 -- IMPORTS
@@ -108,6 +108,18 @@ task quadrantSize(q : int, num_angles : int)
   return num_angles/8 + max(0, min(1, num_angles%8 - q + 1))
 end
 
+-- 1..6, regentlib.rexpr -> regentlib.rexpr
+local function isWallNormal(wall, angle)
+  return terralib.newlist{
+    rexpr angle.xi ==  1.0 and angle.eta ==  0.0 and angle.mu ==  0.0 end,
+    rexpr angle.xi == -1.0 and angle.eta ==  0.0 and angle.mu ==  0.0 end,
+    rexpr angle.xi ==  0.0 and angle.eta ==  1.0 and angle.mu ==  0.0 end,
+    rexpr angle.xi ==  0.0 and angle.eta == -1.0 and angle.mu ==  0.0 end,
+    rexpr angle.xi ==  0.0 and angle.eta ==  0.0 and angle.mu ==  1.0 end,
+    rexpr angle.xi ==  0.0 and angle.eta ==  0.0 and angle.mu == -1.0 end,
+  }[wall]
+end
+
 -------------------------------------------------------------------------------
 -- MODULE-LOCAL TASKS
 -------------------------------------------------------------------------------
@@ -118,7 +130,7 @@ end)
 
 local -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task initialize_angles([angles],
-                       config : Config)
+                       config : SCHEMA.Config)
 where
   [angles:map(function(a) return terralib.newlist{
      regentlib.privilege(regentlib.reads, a, 'xi'),
@@ -132,7 +144,7 @@ where
    } end):flatten()]
 do
   -- Open angles file
-  var num_angles = config.Radiation.angles
+  var num_angles = config.Radiation.u.DOM.angles
   regentlib.assert(
     MAX_ANGLES_PER_QUAD * 8 >= num_angles,
     'Too many angles; recompile with larger MAX_ANGLES_PER_QUAD')
@@ -164,16 +176,32 @@ do
       [angles[q]][m].w = read_double(f)
     @TIME end @EPACSE
   end
+  -- Close angles file.
+  C.fclose(f);
   -- Check that angles are partitioned correctly into quadrants.
-  for m = 0, MAX_ANGLES_PER_QUAD do
-    @ESCAPE for q = 1, 8 do @EMIT
-      if m*8 + q - 1 == num_angles then break end
+  @ESCAPE for q = 1, 8 do @EMIT
+    for m = 0, quadrantSize(q, num_angles) do
       regentlib.assert([angleInQuadrant(q, rexpr [angles[q]][m] end)],
                        'Angle in wrong quadrant')
-    @TIME end @EPACSE
-  end
-  -- Close angles file.
-  C.fclose(f)
+    end
+  @TIME end @EPACSE
+  -- Check that normals exist for all walls.
+  var normalExists = array(false, false, false, false, false, false);
+  @ESCAPE for q = 1, 8 do @EMIT
+    for m = 0, quadrantSize(q, num_angles) do
+      @ESCAPE for wall = 1, 6 do @EMIT
+        if [isWallNormal(wall, rexpr [angles[q]][m] end)] then
+          normalExists[wall-1] = true
+        end
+      @TIME end @EPACSE
+    end
+  @TIME end @EPACSE
+  regentlib.assert(normalExists[0], 'Normal missing for wall xLo')
+  regentlib.assert(normalExists[1], 'Normal missing for wall xHi')
+  regentlib.assert(normalExists[2], 'Normal missing for wall yLo')
+  regentlib.assert(normalExists[3], 'Normal missing for wall yHi')
+  regentlib.assert(normalExists[4], 'Normal missing for wall zLo')
+  regentlib.assert(normalExists[5], 'Normal missing for wall zHi')
 end
 
 local __demand(__cuda) -- MANUALLY PARALLELIZED
@@ -293,11 +321,11 @@ local function mkInitializeFaces(dim, q)
 
   local __demand(__cuda) -- MANUALLY PARALLELIZED
   task initialize_faces(faces : region(ispace(int2d), Face_columns),
-                        config : Config)
+                        config : SCHEMA.Config)
   where
     reads writes(faces.I)
   do
-    var num_angles = config.Radiation.angles
+    var num_angles = config.Radiation.u.DOM.angles
     __demand(__openmp)
     for f in faces do
       for m = 0, quadrantSize(q, num_angles) do
@@ -321,12 +349,14 @@ local initialize_faces = {
 
 local __demand(__cuda) -- MANUALLY PARALLELIZED
 task source_term(points : region(ispace(int3d), Point_columns),
-                 config : Config)
+                 config : SCHEMA.Config)
 where
   reads(points.{Ib, sigma, G}),
   writes(points.S)
 do
-  var omega = config.Radiation.qs/(config.Radiation.qa+config.Radiation.qs)
+  var omega =
+    config.Radiation.u.DOM.qs /
+    (config.Radiation.u.DOM.qa + config.Radiation.u.DOM.qs)
   __demand(__openmp)
   for p in points do
     p.S = (1.0-omega) * p.sigma * p.Ib + omega * p.sigma/(4.0*PI) * p.G
@@ -338,12 +368,12 @@ local function mkCacheIntensity(dim, q)
 
   local __demand(__cuda) -- MANUALLY PARALLELIZED
   task cache_intensity(faces : region(ispace(int2d), Face_columns),
-                       config : Config)
+                       config : SCHEMA.Config)
   where
     reads(faces.I),
     reads writes(faces.I_prev)
   do
-    var num_angles = config.Radiation.angles
+    var num_angles = config.Radiation.u.DOM.angles
     __demand(__openmp)
     for f in faces do
       for m = 0, quadrantSize(q, num_angles) do
@@ -374,24 +404,29 @@ local function mkBound(wall)
   local tempField = terralib.newlist{
     'xLoTemp', 'xHiTemp', 'yLoTemp', 'yHiTemp', 'zLoTemp', 'zHiTemp'
   }[wall]
+  local intensityField = terralib.newlist{
+    'xLoIntensity', 'xHiIntensity',
+    'yLoIntensity', 'yHiIntensity',
+    'zLoIntensity', 'zHiIntensity'
+  }[wall]
   local windowField = terralib.newlist{
     'xLoWindow', 'xHiWindow', 'yLoWindow', 'yHiWindow', 'zLoWindow', 'zHiWindow'
   }[wall]
   local incomingQuadrants = terralib.newlist{
-    terralib.newlist{5, 6, 7, 8}, -- xi < 0
-    terralib.newlist{1, 2, 3, 4}, -- xi > 0
-    terralib.newlist{3, 4, 7, 8}, -- eta < 0
-    terralib.newlist{1, 2, 5, 6}, -- eta > 0
-    terralib.newlist{2, 4, 6, 8}, -- mu < 0
-    terralib.newlist{1, 3, 5, 7}, -- mu > 0
+    terralib.newlist{5, 6, 7, 8}, -- xi <= 0
+    terralib.newlist{1, 2, 3, 4}, -- xi >= 0
+    terralib.newlist{3, 4, 7, 8}, -- eta <= 0
+    terralib.newlist{1, 2, 5, 6}, -- eta >= 0
+    terralib.newlist{2, 4, 6, 8}, -- mu <= 0
+    terralib.newlist{1, 3, 5, 7}, -- mu >= 0
   }[wall]
   local outgoingQuadrants = terralib.newlist{
-    terralib.newlist{1, 2, 3, 4}, -- xi > 0
-    terralib.newlist{5, 6, 7, 8}, -- xi < 0
-    terralib.newlist{1, 2, 5, 6}, -- eta > 0
-    terralib.newlist{3, 4, 7, 8}, -- eta < 0
-    terralib.newlist{1, 3, 5, 7}, -- mu > 0
-    terralib.newlist{2, 4, 6, 8}, -- mu < 0
+    terralib.newlist{1, 2, 3, 4}, -- xi >= 0
+    terralib.newlist{5, 6, 7, 8}, -- xi <= 0
+    terralib.newlist{1, 2, 5, 6}, -- eta >= 0
+    terralib.newlist{3, 4, 7, 8}, -- eta <= 0
+    terralib.newlist{1, 3, 5, 7}, -- mu >= 0
+    terralib.newlist{2, 4, 6, 8}, -- mu <= 0
   }[wall]
 
   local faces = UTIL.generate(8, function()
@@ -401,7 +436,7 @@ local function mkBound(wall)
   local __demand(__cuda) -- MANUALLY PARALLELIZED
   task bound([faces],
              [angles],
-             config : Config)
+             config : SCHEMA.Config)
   where
     [incomingQuadrants:map(function(q)
        return regentlib.privilege(regentlib.reads, faces[q], 'I_prev')
@@ -417,11 +452,12 @@ local function mkBound(wall)
        regentlib.privilege(regentlib.reads, a, 'w'),
      } end):flatten()]
   do
-    var epsw = config.Radiation.[emissField]
-    var Tw = config.Radiation.[tempField]
-    var fromCell = config.Radiation.[windowField].fromCell
-    var uptoCell = config.Radiation.[windowField].uptoCell
-    var num_angles = config.Radiation.angles
+    var epsw = config.Radiation.u.DOM.[emissField]
+    var Tw = config.Radiation.u.DOM.[tempField]
+    var incidentI = config.Radiation.u.DOM.[intensityField]
+    var fromCell = config.Radiation.u.DOM.[windowField].fromCell
+    var uptoCell = config.Radiation.u.DOM.[windowField].uptoCell
+    var num_angles = config.Radiation.u.DOM.angles
     __demand(__openmp)
     for idx in [faces[1]] do
       var a = idx.x
@@ -445,10 +481,7 @@ local function mkBound(wall)
         @TIME end @EPACSE
       end
       -- Add blackbody radiation
-      if fromCell[0] <= a and a <= uptoCell[0] and
-         fromCell[1] <= b and b <= uptoCell[1] then
-        value += epsw*SB*pow(Tw,4.0)/PI
-      end
+      value += epsw*SB*pow(Tw,4.0)/PI;
       -- Set outgoing intensity values
       @ESCAPE for _,q in ipairs(outgoingQuadrants) do @EMIT
         for m = 0, quadrantSize(q, num_angles) do
@@ -460,7 +493,14 @@ local function mkBound(wall)
                 rexpr [angles[q]][m].mu  > 0 end,
                 rexpr [angles[q]][m].mu  < 0 end,
               }[wall]] then
-            [faces[q]][idx].I[m] = value
+            var I = value
+            -- Add incident radiation on the wall normal
+            if fromCell[0] <= a and a <= uptoCell[0] and
+               fromCell[1] <= b and b <= uptoCell[1] and
+               [isWallNormal(wall, rexpr [angles[q]][m] end)] then
+              I += incidentI
+            end
+            [faces[q]][idx].I[m] = I
           end
         end
       @TIME end @EPACSE
@@ -499,7 +539,7 @@ local function mkSweep(q)
              y_faces : region(ispace(int2d), Face_columns),
              z_faces : region(ispace(int2d), Face_columns),
              angles : region(ispace(int1d), Angle_columns),
-             config : Config)
+             config : SCHEMA.Config)
   where
     reads(angles.{xi, eta, mu}, points.{S, sigma}, grid_map.s3d_to_p),
     reads writes(sub_points.I, x_faces.I, y_faces.I, z_faces.I)
@@ -522,14 +562,14 @@ local function mkSweep(q)
       z_faces.bounds.hi.x - z_faces.bounds.lo.x + 1 == Tx and
       z_faces.bounds.hi.y - z_faces.bounds.lo.y + 1 == Ty,
       'Internal error')
-    var dx = config.Grid.xWidth / config.Radiation.xNum
-    var dy = config.Grid.yWidth / config.Radiation.yNum
-    var dz = config.Grid.zWidth / config.Radiation.zNum
+    var dx = config.Grid.xWidth / config.Radiation.u.DOM.xNum
+    var dy = config.Grid.yWidth / config.Radiation.u.DOM.yNum
+    var dz = config.Grid.zWidth / config.Radiation.u.DOM.zNum
     var dAx = dy*dz
     var dAy = dx*dz
     var dAz = dx*dy
     var dV = dx*dy*dz
-    var num_angles = config.Radiation.angles
+    var num_angles = config.Radiation.u.DOM.angles
     var res = 0.0
     -- Launch in order of intra-tile diagonals
     for d = int(diagonals.bounds.lo), int(diagonals.bounds.hi+1) do
@@ -594,7 +634,7 @@ task reduce_intensity(points : region(ispace(int3d), Point_columns),
                       [sub_points],
                       grid_map : region(ispace(int3d), GridMap_columns),
                       [angles],
-                      config : Config)
+                      config : SCHEMA.Config)
 where
   reads(grid_map.p_to_s3d),
   [sub_points:map(function(s)
@@ -619,7 +659,7 @@ do
       == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz,
       'Internal error')
   @TIME end @EPACSE
-  var num_angles = config.Radiation.angles
+  var num_angles = config.Radiation.u.DOM.angles
   __demand(__openmp)
   for p in points do
     p.G = 0.0
@@ -684,18 +724,25 @@ function MODULE.mkInstance() local INSTANCE = {}
   local diagonals = regentlib.newsymbol('diagonals')
   local p_sub_point_offsets = regentlib.newsymbol('p_sub_point_offsets')
 
+  -- NOTE: This quote is included into the main simulation whether or not
+  -- we're using DOM, so the values will be garbage if type ~= DOM.
   function INSTANCE.DeclSymbols(config, tiles) return rquote
 
     var sampleId = config.Mapping.sampleId
 
-    -- Number of points in each dimension
-    var [Nx] = config.Radiation.xNum
-    var [Ny] = config.Radiation.yNum
-    var [Nz] = config.Radiation.zNum
     -- Number of tiles in each dimension
     var [ntx] = config.Mapping.tiles[0]
     var [nty] = config.Mapping.tiles[1]
     var [ntz] = config.Mapping.tiles[2]
+    -- Number of points in each dimension
+    var [Nx] = ntx
+    var [Ny] = nty
+    var [Nz] = ntz
+    if config.Radiation.type == SCHEMA.RadiationModel_DOM then
+      Nx = config.Radiation.u.DOM.xNum
+      Ny = config.Radiation.u.DOM.yNum
+      Nz = config.Radiation.u.DOM.zNum
+    end
     -- Sanity-check partitioning
     regentlib.assert(Nx % ntx == 0, "Uneven partitioning of radiation grid on x")
     regentlib.assert(Ny % nty == 0, "Uneven partitioning of radiation grid on y")
@@ -731,8 +778,12 @@ function MODULE.mkInstance() local INSTANCE = {}
     @TIME end @EPACSE
 
     -- Regions for angles
+    var num_angles = 8
+    if config.Radiation.type == SCHEMA.RadiationModel_DOM then
+      num_angles = config.Radiation.u.DOM.angles
+    end
     @ESCAPE for q = 1, 8 do @EMIT
-      var is_angles = ispace(int1d, quadrantSize(q, config.Radiation.angles))
+      var is_angles = ispace(int1d, quadrantSize(q, num_angles))
       var [angles[q]] = region(is_angles, Angle_columns);
       [UTIL.emitRegionTagAttach(angles[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     @TIME end @EPACSE
@@ -907,7 +958,7 @@ function MODULE.mkInstance() local INSTANCE = {}
       @TIME end @EPACSE
 
       -- Compute the residual.
-      res = sqrt(res/(Nx*Ny*Nz*config.Radiation.angles))
+      res = sqrt(res/(Nx*Ny*Nz*config.Radiation.u.DOM.angles))
 
       -- Update intensity.
       for c in tiles do
