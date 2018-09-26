@@ -238,7 +238,7 @@
         "IO" : {
             "wrtRestart" : true,
             "restartEveryTimeSteps" : 1000,
-            "probes" : []
+            "probes" : [{"fromCell" : [512,0,0], "uptoCell" : [512,127,127]}]
         }
     }],
     "copySrc" : {
