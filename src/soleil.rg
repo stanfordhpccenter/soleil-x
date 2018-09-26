@@ -322,33 +322,6 @@ if USE_HDF then
     int1d, int3d, Particles_columns, Particles_primitives)
 end
 
--- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task Probes_write(Fluid : region(ispace(int3d), Fluid_columns),
-                  exitCond : bool,
-                  Integrator_timeStep : int,
-                  config : Config)
-where
-  reads(Fluid.temperature)
-do
-  var bounds = Fluid.bounds
-  for i = 0,config.IO.probes.length do
-    var probe = config.IO.probes.values[i]
-    var coords = probe.coords
-    if (exitCond or Integrator_timeStep % probe.frequency == 0)
-    and bounds.lo.x <= coords[0] and coords[0] <= bounds.hi.x
-    and bounds.lo.y <= coords[1] and coords[1] <= bounds.hi.y
-    and bounds.lo.z <= coords[2] and coords[2] <= bounds.hi.z then
-      var filename = [&int8](C.malloc(256))
-      C.snprintf(filename, 256, '%s/probe%d.csv', config.Mapping.outDir, i)
-      var file = UTIL.openFile(filename, 'a')
-      C.free(filename)
-      var temp = Fluid[int3d{coords[0],coords[1],coords[2]}].temperature
-      C.fprintf(file, '%d\t%lf\n', Integrator_timeStep, temp)
-      C.fclose(file)
-    end
-  end
-end
-
 -- regentlib.rexpr, regentlib.rexpr, regentlib.rexpr* -> regentlib.rquote
 local function emitConsoleWrite(config, format, ...)
   local args = terralib.newlist{...}
@@ -364,7 +337,7 @@ local function emitConsoleWrite(config, format, ...)
 end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task Console_write(config : Config,
+task Console_Write(config : Config,
                    Integrator_timeStep : int,
                    Integrator_simTime : double,
                    startTime : uint64,
@@ -394,6 +367,122 @@ task Console_write(config : Config,
                     Flow_averageKineticEnergy,
                     Particles_number,
                     Particles_averageTemperature)];
+end
+
+-- regentlib.rexpr, regentlib.rexpr, regentlib.rexpr, regentlib.rexpr*
+--   -> regentlib.rquote
+local function emitProbeWrite(config, probeId, format, ...)
+  local args = terralib.newlist{...}
+  return rquote
+    var filename = [&int8](C.malloc(256))
+    C.snprintf(filename, 256, '%s/probe%d.csv', config.Mapping.outDir, probeId)
+    var file = UTIL.openFile(filename, 'a')
+    C.free(filename)
+    C.fprintf(file, format, [args])
+    C.fflush(file)
+    C.fclose(file)
+  end
+end
+
+__demand(__parallel, __cuda)
+task Probe_AvgFluidT(Fluid : region(ispace(int3d), Fluid_columns),
+                     probe : SCHEMA.Volume,
+                     totalCells : int)
+where
+  reads(Fluid.temperature)
+do
+  var acc = 0.0
+  __demand(__openmp)
+  for c in Fluid do
+    if probe.fromCell[0] <= c.x and c.x <= probe.uptoCell[0] and
+       probe.fromCell[1] <= c.y and c.y <= probe.uptoCell[1] and
+       probe.fromCell[2] <= c.z and c.z <= probe.uptoCell[2] then
+      acc += Fluid[c].temperature / totalCells
+    end
+  end
+  return acc
+end
+
+__demand(__parallel, __cuda)
+task Probe_CountParticles(Particles : region(ispace(int1d), Particles_columns),
+                          probe : SCHEMA.Volume)
+where
+  reads(Particles.{cell, __valid})
+do
+  var acc = 0
+  __demand(__openmp)
+  for p in Particles do
+    if Particles[p].__valid then
+      var cell = Particles[p].cell
+      if probe.fromCell[0] <= cell.x and cell.x <= probe.uptoCell[0] and
+         probe.fromCell[1] <= cell.y and cell.y <= probe.uptoCell[1] and
+         probe.fromCell[2] <= cell.z and cell.z <= probe.uptoCell[2] then
+        acc += 1
+      end
+    end
+  end
+  return acc
+end
+
+__demand(__parallel, __cuda)
+task Probe_AvgParticleT(Particles : region(ispace(int1d), Particles_columns),
+                        probe : SCHEMA.Volume,
+                        totalParticles : int)
+where
+  reads(Particles.{cell, temperature, __valid})
+do
+  var acc = 0.0
+  __demand(__openmp)
+  for p in Particles do
+    if Particles[p].__valid then
+      var cell = Particles[p].cell
+      if probe.fromCell[0] <= cell.x and cell.x <= probe.uptoCell[0] and
+         probe.fromCell[1] <= cell.y and cell.y <= probe.uptoCell[1] and
+         probe.fromCell[2] <= cell.z and cell.z <= probe.uptoCell[2] then
+        acc += Particles[p].temperature / totalParticles
+      end
+    end
+  end
+  return acc
+end
+
+__demand(__parallel, __cuda)
+task Probe_AvgCellOfParticleT(Fluid : region(ispace(int3d), Fluid_columns),
+                              Particles : region(ispace(int1d), Particles_columns),
+                              probe : SCHEMA.Volume,
+                              totalParticles : int)
+where
+  reads(Particles.{cell, temperature, __valid}),
+  reads(Fluid.temperature)
+do
+  var acc = 0.0
+  __demand(__openmp)
+  for p in Particles do
+    if Particles[p].__valid then
+      var cell = Particles[p].cell
+      if probe.fromCell[0] <= cell.x and cell.x <= probe.uptoCell[0] and
+         probe.fromCell[1] <= cell.y and cell.y <= probe.uptoCell[1] and
+         probe.fromCell[2] <= cell.z and cell.z <= probe.uptoCell[2] then
+        acc += Fluid[cell].temperature / totalParticles
+      end
+    end
+  end
+  return acc
+end
+
+-- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+task Probe_Write(config : Config,
+                 probeId : int,
+                 Integrator_timeStep : int,
+                 avgFluidT : double,
+                 avgParticleT : double,
+                 avgCellOfParticleT : double)
+  [emitProbeWrite(config, probeId,
+                  '%d\t%e\t%e\t%e\n',
+                  Integrator_timeStep,
+                  avgFluidT,
+                  avgParticleT,
+                  avgCellOfParticleT)];
 end
 
 -------------------------------------------------------------------------------
@@ -4593,6 +4682,14 @@ local function mkInstance() local INSTANCE = {}
                               '#Part\t'..
                               'Particle T\n')];
 
+    -- Write probe file headers
+    for i = 0,config.IO.probes.length do
+      [emitProbeWrite(config, i, 'Iter\t'..
+                                 'AvgFluidT\t'..
+                                 'AvgParticleT\t'..
+                                 'AvgCellOfParticleT\n')];
+    end
+
     ---------------------------------------------------------------------------
     -- Declare & initialize state variables
     ---------------------------------------------------------------------------
@@ -5192,7 +5289,7 @@ local function mkInstance() local INSTANCE = {}
     Flow_averageTemperature = (Flow_averageTemperature/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
     Flow_averageKineticEnergy = (Flow_averageKineticEnergy/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
     Particles_averageTemperature = (Particles_averageTemperature/Particles_number)
-    Console_write(config,
+    Console_Write(config,
                   Integrator_timeStep,
                   Integrator_simTime,
                   startTime,
@@ -5203,6 +5300,24 @@ local function mkInstance() local INSTANCE = {}
                   Particles_number,
                   Particles_averageTemperature)
 
+    -- Write probe files
+    for i = 0,config.IO.probes.length do
+      var probe = config.IO.probes.values[i]
+      var totalCells =
+        (probe.uptoCell[0] - probe.fromCell[0] + 1) *
+        (probe.uptoCell[1] - probe.fromCell[1] + 1) *
+        (probe.uptoCell[2] - probe.fromCell[2] + 1)
+      var avgFluidT = 0.0
+      avgFluidT += Probe_AvgFluidT(Fluid, probe, totalCells)
+      var totalParticles = 0
+      totalParticles += Probe_CountParticles(Particles, probe)
+      var avgParticleT = 0.0
+      avgParticleT += Probe_AvgParticleT(Particles, probe, totalParticles)
+      var avgCellOfParticleT = 0.0
+      avgCellOfParticleT += Probe_AvgCellOfParticleT(Fluid, Particles, probe, totalParticles)
+      Probe_Write(config, i, Integrator_timeStep, avgFluidT, avgParticleT, avgCellOfParticleT)
+    end
+
     -- Dump restart files
     if config.IO.wrtRestart then
       if Integrator_exitCond or Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 then
@@ -5212,13 +5327,6 @@ local function mkInstance() local INSTANCE = {}
         C.snprintf(dirname, 256, '%s/particles_iter%010d', config.Mapping.outDir, Integrator_timeStep)
         Particles_dump(tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
         C.free(dirname)
-      end
-    end
-
-    -- Write probe files
-    if config.IO.probes.length > 0 then
-      for c in tiles do
-        Probes_write(p_Fluid[c], Integrator_exitCond, Integrator_timeStep, config)
       end
     end
 
