@@ -391,12 +391,14 @@ task Probe_AvgFluidT(Fluid : region(ispace(int3d), Fluid_columns),
 where
   reads(Fluid.temperature)
 do
+  var fromCell = probe.fromCell
+  var uptoCell = probe.fromCell
   var acc = 0.0
   __demand(__openmp)
   for c in Fluid do
-    if probe.fromCell[0] <= c.x and c.x <= probe.uptoCell[0] and
-       probe.fromCell[1] <= c.y and c.y <= probe.uptoCell[1] and
-       probe.fromCell[2] <= c.z and c.z <= probe.uptoCell[2] then
+    if fromCell[0] <= c.x and c.x <= uptoCell[0] and
+       fromCell[1] <= c.y and c.y <= uptoCell[1] and
+       fromCell[2] <= c.z and c.z <= uptoCell[2] then
       acc += Fluid[c].temperature / totalCells
     end
   end
@@ -409,14 +411,16 @@ task Probe_CountParticles(Particles : region(ispace(int1d), Particles_columns),
 where
   reads(Particles.{cell, __valid})
 do
+  var fromCell = probe.fromCell
+  var uptoCell = probe.fromCell
   var acc = 0
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
       var cell = Particles[p].cell
-      if probe.fromCell[0] <= cell.x and cell.x <= probe.uptoCell[0] and
-         probe.fromCell[1] <= cell.y and cell.y <= probe.uptoCell[1] and
-         probe.fromCell[2] <= cell.z and cell.z <= probe.uptoCell[2] then
+      if fromCell[0] <= cell.x and cell.x <= uptoCell[0] and
+         fromCell[1] <= cell.y and cell.y <= uptoCell[1] and
+         fromCell[2] <= cell.z and cell.z <= uptoCell[2] then
         acc += 1
       end
     end
@@ -431,14 +435,16 @@ task Probe_AvgParticleT(Particles : region(ispace(int1d), Particles_columns),
 where
   reads(Particles.{cell, temperature, __valid})
 do
+  var fromCell = probe.fromCell
+  var uptoCell = probe.fromCell
   var acc = 0.0
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
       var cell = Particles[p].cell
-      if probe.fromCell[0] <= cell.x and cell.x <= probe.uptoCell[0] and
-         probe.fromCell[1] <= cell.y and cell.y <= probe.uptoCell[1] and
-         probe.fromCell[2] <= cell.z and cell.z <= probe.uptoCell[2] then
+      if fromCell[0] <= cell.x and cell.x <= uptoCell[0] and
+         fromCell[1] <= cell.y and cell.y <= uptoCell[1] and
+         fromCell[2] <= cell.z and cell.z <= uptoCell[2] then
         acc += Particles[p].temperature / totalParticles
       end
     end
@@ -455,14 +461,16 @@ where
   reads(Particles.{cell, temperature, __valid}),
   reads(Fluid.temperature)
 do
+  var fromCell = probe.fromCell
+  var uptoCell = probe.fromCell
   var acc = 0.0
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
       var cell = Particles[p].cell
-      if probe.fromCell[0] <= cell.x and cell.x <= probe.uptoCell[0] and
-         probe.fromCell[1] <= cell.y and cell.y <= probe.uptoCell[1] and
-         probe.fromCell[2] <= cell.z and cell.z <= probe.uptoCell[2] then
+      if fromCell[0] <= cell.x and cell.x <= uptoCell[0] and
+         fromCell[1] <= cell.y and cell.y <= uptoCell[1] and
+         fromCell[2] <= cell.z and cell.z <= uptoCell[2] then
         acc += Fluid[cell].temperature / totalParticles
       end
     end
