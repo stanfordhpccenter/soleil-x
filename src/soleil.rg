@@ -392,7 +392,7 @@ where
   reads(Fluid.temperature)
 do
   var fromCell = probe.fromCell
-  var uptoCell = probe.fromCell
+  var uptoCell = probe.uptoCell
   var acc = 0.0
   __demand(__openmp)
   for c in Fluid do
@@ -412,7 +412,7 @@ where
   reads(Particles.{cell, __valid})
 do
   var fromCell = probe.fromCell
-  var uptoCell = probe.fromCell
+  var uptoCell = probe.uptoCell
   var acc = 0
   __demand(__openmp)
   for p in Particles do
@@ -436,7 +436,7 @@ where
   reads(Particles.{cell, temperature, __valid})
 do
   var fromCell = probe.fromCell
-  var uptoCell = probe.fromCell
+  var uptoCell = probe.uptoCell
   var acc = 0.0
   __demand(__openmp)
   for p in Particles do
@@ -462,7 +462,7 @@ where
   reads(Fluid.temperature)
 do
   var fromCell = probe.fromCell
-  var uptoCell = probe.fromCell
+  var uptoCell = probe.uptoCell
   var acc = 0.0
   __demand(__openmp)
   for p in Particles do
