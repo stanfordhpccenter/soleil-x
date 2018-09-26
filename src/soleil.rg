@@ -3499,7 +3499,7 @@ do
   __parallel_prefix(Particles.__xfer_slot, Particles.__xfer_slot, +, 1)
   -- Check that there's enough space in the particles sub-region
   regentlib.assert(total_xfers <= avail_slots,
-                   'Not enough space in sub-region for incoming particles')
+                   'Not enough space in sub-region for incoming particles');
   -- Copy moving particles from the transfer queues
   -- NOTE: This part assumes that transfer queues are filled contiguously.
   @ESCAPE for k = 1,26 do local queue = tradeQueues[k] @EMIT
