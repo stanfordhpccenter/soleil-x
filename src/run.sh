@@ -118,10 +118,11 @@ function run_sapling {
     if [[ "$USE_CUDA" == 1 ]]; then
         GPU_OPTS="-ll:gpu 1 -ll:fsize 5500"
     fi
+    export LEGION_FREEZE_ON_ERROR=1
     mpiexec -H "$NODES" --bind-to none \
-        -x LD_LIBRARY_PATH -x SOLEIL_DIR -x REALM_BACKTRACE \
+        -x LD_LIBRARY_PATH -x SOLEIL_DIR -x REALM_BACKTRACE -x LEGION_FREEZE_ON_ERROR \
         "$EXECUTABLE" $ARGS \
-        -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 \
+        -ll:cpu 1 -ll:ocpu 0 \
         $GPU_OPTS -ll:dma 2 -ll:ahandlers 2 \
         -ll:csize 36000 -ll:ostack 8 -lg:sched -1
     # Resources:
