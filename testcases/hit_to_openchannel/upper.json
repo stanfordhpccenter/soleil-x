@@ -5,7 +5,7 @@
             "tilesPerRank" : [1,1,1],
             "sampleId" : -1,
             "outDir" : "",
-            "wallTime" : 18000
+            "wallTime" : 120
         },
 
         "Grid" : {
@@ -65,7 +65,7 @@
         "Integrator" : {
             "restartIter" : -1,
             "restartTime" : -1.0,
-            "maxIter" : 1000000,
+            "maxIter" : 3000,
             "cfl" : -1.0,
             "fixedDeltaTime" : 4.5e-7
         },
@@ -126,7 +126,7 @@
             "tilesPerRank" : [1,1,1],
             "sampleId" : -1,
             "outDir" : "",
-            "wallTime" : 18000
+            "wallTime" : 120
         },
 
         "Grid" : {
@@ -185,7 +185,7 @@
         "Integrator" : {
             "restartIter" : -1,
             "restartTime" : -1.0,
-            "maxIter" : 1000000,
+            "maxIter" : 3000,
             "cfl" : -1.0,
             "fixedDeltaTime" : 4.5e-7
         },
