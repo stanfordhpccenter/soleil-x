@@ -123,7 +123,8 @@ function run_sapling {
         "$EXECUTABLE" $ARGS \
         -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 \
         $GPU_OPTS -ll:dma 2 -ll:ahandlers 2 \
-        -ll:csize 36000 -ll:ostack 8 -lg:sched -1
+        -ll:csize 36000 \
+        -ll:stacksize 8 -ll:ostack 8 -lg:sched -1
     # Resources:
     # 40230MB RAM per node
     # 2 NUMA domains per node
@@ -136,7 +137,8 @@ function run_local {
     source "$SOLEIL_DIR"/src/jobscript_shared.sh
     "$EXECUTABLE" $ARGS \
         -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 3 \
-        -ll:csize 9000 -ll:ostack 8 -lg:sched -1
+        -ll:csize 9000 \
+        -ll:stacksize 8 -ll:ostack 8 -lg:sched -1
 }
 
 ###############################################################################

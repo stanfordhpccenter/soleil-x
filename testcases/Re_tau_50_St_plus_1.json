@@ -142,6 +142,6 @@
     "IO" : {
         "wrtRestart" : true,
         "restartEveryTimeSteps" : 20,
-        "probes" : [{"coords" : [63,16,16], "frequency" : 1}]
+        "probes" : [{ "fromCell" : [63,16,16], "uptoCell" : [63,16,16] }]
     }
 }

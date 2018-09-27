@@ -45,4 +45,5 @@ mpiexec -np "$NUM_RANKS" --map-by ppr:1:node --bind-to none \
     "$EXECUTABLE" $ARGS \
     -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr "$NUM_THREADS" \
     $GPU_OPTS -ll:dma 2 -ll:ahandlers 2 \
-    -ll:csize 28000 -ll:ostack 8 -lg:sched -1
+    -ll:csize 28000 \
+    -ll:stacksize 8 -ll:ostack 8 -lg:sched -1

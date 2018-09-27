@@ -199,10 +199,7 @@ Exports.Config = {
     -- how often to write restart files
     restartEveryTimeSteps = int,
     -- temperature probes
-    probes = UpTo(5,{
-      coords = Array(3,int),
-      frequency = int,
-    }),
+    probes = UpTo(5, Exports.Volume),
   },
 }
 
