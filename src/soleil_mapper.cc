@@ -156,7 +156,6 @@ public:
     // centered and send them to the rank responsible for that.
     // TODO: Cache the decision.
     if (STARTS_WITH(task.get_task_name(), "sweep_") ||
-        STARTS_WITH(task.get_task_name(), "TradeQueue_fillTarget") ||
         STARTS_WITH(task.get_task_name(), "TradeQueue_pull")) {
       unsigned sample_id = find_sample_id(ctx, task);
       const SampleMapping& mapping = sample_mappings_[sample_id];
