@@ -4,11 +4,7 @@ import "regent"
 -- IMPORTS
 -------------------------------------------------------------------------------
 
-local C = terralib.includecstring[[
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-]]
+local C = regentlib.c
 local MAPPER = terralib.includec("soleil_mapper.h")
 local SCHEMA = terralib.includec("config_schema.h")
 local UTIL = require 'util'
@@ -337,6 +333,19 @@ local function emitConsoleWrite(config, format, ...)
 end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+task Console_WriteHeader(config : Config)
+  [emitConsoleWrite(config, 'Iter\t'..
+                            'Sim Time\t'..
+                            'Wall t\t'..
+                            'Delta Time\t'..
+                            'Avg Press\t'..
+                            'Avg Temp\t'..
+                            'Average KE\t'..
+                            '#Part\t'..
+                            'Particle T\n')];
+end
+
+-- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Console_Write(config : Config,
                    Integrator_timeStep : int,
                    Integrator_simTime : double,
@@ -347,7 +356,7 @@ task Console_Write(config : Config,
                    Flow_averageKineticEnergy : double,
                    Particles_number : int64,
                    Particles_averageTemperature : double)
-  var currTime = regentlib.c.legion_get_current_time_in_micros() / 1000;
+  var currTime = C.legion_get_current_time_in_micros() / 1000;
   [emitConsoleWrite(config, '%d\t'..
                             '%e\t'..
                             '%llu.%03llu\t'..
@@ -367,6 +376,16 @@ task Console_Write(config : Config,
                     Flow_averageKineticEnergy,
                     Particles_number,
                     Particles_averageTemperature)];
+end
+
+-- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+task Console_WriteFooter(config : Config,
+                         startTime : uint64)
+  var endTime = C.legion_get_current_time_in_micros() / 1000;
+  [emitConsoleWrite(config,
+                    'Total time: %llu.%03llu seconds\n',
+                    rexpr (endTime - startTime) / 1000 end,
+                    rexpr (endTime - startTime) % 1000 end)];
 end
 
 -- regentlib.rexpr, regentlib.rexpr, regentlib.rexpr, regentlib.rexpr*
@@ -479,18 +498,34 @@ do
 end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+task Probe_WriteHeader(config : Config,
+                       probeId : int)
+  [emitProbeWrite(config, probeId, 'Iter\t'..
+                                   'AvgFluidT\t'..
+                                   'AvgParticleT\t'..
+                                   'AvgCellOfParticleT\n')];
+end
+
+-- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Probe_Write(config : Config,
                  probeId : int,
                  Integrator_timeStep : int,
                  avgFluidT : double,
                  avgParticleT : double,
                  avgCellOfParticleT : double)
-  [emitProbeWrite(config, probeId,
-                  '%d\t%e\t%e\t%e\n',
+  [emitProbeWrite(config, probeId, '%d\t'..
+                                   '%e\t'..
+                                   '%e\t'..
+                                   '%e\n',
                   Integrator_timeStep,
                   avgFluidT,
                   avgParticleT,
                   avgCellOfParticleT)];
+end
+
+-- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+task createDir(dirname : regentlib.string)
+  UTIL.createDir(dirname)
 end
 
 -------------------------------------------------------------------------------
@@ -731,7 +766,7 @@ do
   var magnitude = Flow_initParams[2]
   var rngState : C.drand48_data[1]
   var rngStatePtr = [&C.drand48_data](rngState)
-  C.srand48_r(regentlib.c.legion_get_current_time_in_nanos(), rngStatePtr)
+  C.srand48_r(C.legion_get_current_time_in_nanos(), rngStatePtr)
   for c in Fluid do
     Fluid[c].rho = Flow_initParams[0]
     Fluid[c].pressure = Flow_initParams[1]
@@ -798,7 +833,7 @@ where
 do
   var rngState : C.drand48_data[1]
   var rngStatePtr = [&C.drand48_data](rngState)
-  C.srand48_r(regentlib.c.legion_get_current_time_in_nanos(), rngStatePtr)
+  C.srand48_r(C.legion_get_current_time_in_nanos(), rngStatePtr)
   for c in Fluid do
     Fluid[c].rho = Flow_initParams[0]
     Fluid[c].pressure = Flow_initParams[1]
@@ -4677,25 +4712,14 @@ local function mkInstance() local INSTANCE = {}
     ---------------------------------------------------------------------------
 
     -- Start timer
-    var [startTime] = regentlib.c.legion_get_current_time_in_micros() / 1000;
+    var [startTime] = C.legion_get_current_time_in_micros() / 1000;
 
     -- Write console header
-    [emitConsoleWrite(config, 'Iter\t'..
-                              'Sim Time\t'..
-                              'Wall t\t'..
-                              'Delta Time\t'..
-                              'Avg Press\t'..
-                              'Avg Temp\t'..
-                              'Average KE\t'..
-                              '#Part\t'..
-                              'Particle T\n')];
+    Console_WriteHeader(config)
 
     -- Write probe file headers
     for i = 0,config.IO.probes.length do
-      [emitProbeWrite(config, i, 'Iter\t'..
-                                 'AvgFluidT\t'..
-                                 'AvgParticleT\t'..
-                                 'AvgCellOfParticleT\n')];
+      Probe_WriteHeader(config, i)
     end
 
     ---------------------------------------------------------------------------
@@ -5331,8 +5355,10 @@ local function mkInstance() local INSTANCE = {}
       if Integrator_exitCond or Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 then
         var dirname = [&int8](C.malloc(256))
         C.snprintf(dirname, 256, '%s/fluid_iter%010d', config.Mapping.outDir, Integrator_timeStep)
+        createDir(dirname)
         Fluid_dump(tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
         C.snprintf(dirname, 256, '%s/particles_iter%010d', config.Mapping.outDir, Integrator_timeStep)
+        createDir(dirname)
         Particles_dump(tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
         C.free(dirname)
       end
@@ -5678,11 +5704,7 @@ local function mkInstance() local INSTANCE = {}
     __fence(__execution, __block)
 
     -- Report final time
-    var endTime = regentlib.c.legion_get_current_time_in_micros() / 1000;
-    [emitConsoleWrite(config,
-                      'Total time: %llu.%03llu seconds\n',
-                      rexpr (endTime - startTime) / 1000 end,
-                      rexpr (endTime - startTime) % 1000 end)];
+    Console_WriteFooter(config, startTime)
 
   end end -- Cleanup
 
@@ -5748,12 +5770,12 @@ task workDual(mc : MultiConfig)
   var Fluid0_cellWidth = array(SIM0.Grid.xCellWidth, SIM0.Grid.yCellWidth, SIM0.Grid.zCellWidth)
   var Fluid1_cellWidth = array(SIM1.Grid.xCellWidth, SIM1.Grid.yCellWidth, SIM1.Grid.zCellWidth)
   var CopyQueue_ptr : int64 = 0
-  var coloring_CopyQueue = regentlib.c.legion_domain_point_coloring_create()
+  var coloring_CopyQueue = C.legion_domain_point_coloring_create()
   for c in SIM0.tiles do
     var partSize = CopyQueue_partSize(SIM0.p_Fluid[c].bounds,
                                       mc.configs[0],
                                       mc.copySrc)
-    regentlib.c.legion_domain_point_coloring_color_domain(
+    C.legion_domain_point_coloring_color_domain(
       coloring_CopyQueue, c, rect1d{CopyQueue_ptr,CopyQueue_ptr+partSize-1})
     CopyQueue_ptr += partSize
   end
@@ -5761,7 +5783,7 @@ task workDual(mc : MultiConfig)
   var [CopyQueue] = region(is_CopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(CopyQueue, MAPPER.SAMPLE_ID_TAG, rexpr mc.configs[0].Mapping.sampleId end, int)];
   var p_CopyQueue = partition(disjoint, CopyQueue, coloring_CopyQueue, SIM0.tiles)
-  regentlib.c.legion_domain_point_coloring_destroy(coloring_CopyQueue)
+  C.legion_domain_point_coloring_destroy(coloring_CopyQueue)
   -- Check 2-section configuration
   regentlib.assert(
     -- copySrc is a valid volume
@@ -5797,23 +5819,23 @@ task workDual(mc : MultiConfig)
   [parallelizeFor(SIM1, SIM1.InitRegions(rexpr mc.configs[1] end))];
   var srcOrigin = int3d{mc.copySrc.fromCell[0], mc.copySrc.fromCell[1], mc.copySrc.fromCell[2]}
   var tgtOrigin = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]}
-  var srcColoring = regentlib.c.legion_domain_point_coloring_create()
+  var srcColoring = C.legion_domain_point_coloring_create()
   for c in SIM1.tiles do
     var tgtRect = intersection(SIM1.p_Fluid[c].bounds, mc.copyTgt)
     if rectSize(tgtRect) > 0 then
       var srcRect = rect3d{lo = tgtRect.lo - tgtOrigin + srcOrigin,
                            hi = tgtRect.hi - tgtOrigin + srcOrigin}
-      regentlib.c.legion_domain_point_coloring_color_domain(srcColoring, c, srcRect)
+      C.legion_domain_point_coloring_color_domain(srcColoring, c, srcRect)
     end
   end
   var p_Fluid0_src = partition(disjoint, SIM0.Fluid, srcColoring, SIM1.tiles)
-  regentlib.c.legion_domain_point_coloring_destroy(srcColoring)
-  var tgtColoring = regentlib.c.legion_domain_point_coloring_create()
-  regentlib.c.legion_domain_point_coloring_color_domain(tgtColoring, int1d(0),
+  C.legion_domain_point_coloring_destroy(srcColoring)
+  var tgtColoring = C.legion_domain_point_coloring_create()
+  C.legion_domain_point_coloring_color_domain(tgtColoring, int1d(0),
     rect3d{lo = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]},
            hi = int3d{mc.copyTgt.uptoCell[0], mc.copyTgt.uptoCell[1], mc.copyTgt.uptoCell[2]}})
   var p_Fluid1_isCopied = partition(disjoint, SIM1.Fluid, tgtColoring, ispace(int1d,1))
-  regentlib.c.legion_domain_point_coloring_destroy(tgtColoring)
+  C.legion_domain_point_coloring_destroy(tgtColoring)
   var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
   -- Main simulation loop
   var timestep = 0

@@ -203,8 +203,9 @@ public:
     }
     // For certain whitelisted tasks, defer to the default mapping policy.
     else if (EQUALS(task.get_task_name(), "main") ||
-             EQUALS(task.get_task_name(), "Console_Write") ||
-             EQUALS(task.get_task_name(), "Probe_Write") ||
+             STARTS_WITH(task.get_task_name(), "Console_Write") ||
+             STARTS_WITH(task.get_task_name(), "Probe_Write") ||
+             EQUALS(task.get_task_name(), "createDir") ||
              EQUALS(task.get_task_name(), "cache_grid_translation") ||
              EQUALS(task.get_task_name(), "initialize_angles") ||
              EQUALS(task.get_task_name(), "__dummy") ||
