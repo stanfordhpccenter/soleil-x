@@ -67,9 +67,33 @@ end
 -- Proxy main
 -------------------------------------------------------------------------------
 
-local __forbid(__optimize) __demand(__inner)
+local __forbid(__optimize) __demand(__inner, __replicable)
+task work(config : SCHEMA.Config)
+  -- Declare externally-managed regions
+  var is_points = ispace(int3d, {config.Radiation.u.DOM.xNum,
+                                 config.Radiation.u.DOM.yNum,
+                                 config.Radiation.u.DOM.zNum})
+  var points = region(is_points, Point_columns)
+  var tiles = ispace(int3d, {config.Mapping.tiles[0],
+                             config.Mapping.tiles[1],
+                             config.Mapping.tiles[2]})
+  var p_points =
+    [UTIL.mkPartitionEqually(int3d, int3d, Point_columns)]
+    (points, tiles, 0, 0, 0);
+  -- Declare DOM-managed regions
+  [DOM_INST.DeclSymbols(config, tiles)];
+  [DOM_INST.InitRegions(config, tiles, p_points)];
+  -- Prepare fake inputs
+  fill(points.Ib, (SB/PI) * pow(1000.0,4.0))
+  fill(points.sigma, 5.0);
+  -- Invoke DOM solver
+  [DOM_INST.ComputeRadiationField(config, tiles, p_points)];
+  -- Output results
+  writeIntensity(points)
+end
+
+local __demand(__inner)
 task main()
-  -- Read configuration
   var args = C.legion_runtime_get_input_args()
   var stderr = C.fdopen(2, 'w')
   if args.argc < 2 then
@@ -81,26 +105,7 @@ task main()
   SCHEMA.parse_Config([&SCHEMA.Config](config), args.argv[1])
   regentlib.assert(config[0].Radiation.type == SCHEMA.RadiationModel_DOM,
                    'Configuration file must use DOM radiation model')
-  -- Declare externally-managed regions
-  var is_points = ispace(int3d, {config[0].Radiation.u.DOM.xNum,
-                                 config[0].Radiation.u.DOM.yNum,
-                                 config[0].Radiation.u.DOM.zNum})
-  var points = region(is_points, Point_columns)
-  var tiles = ispace(int3d, {config[0].Mapping.tiles[0],
-                             config[0].Mapping.tiles[1],
-                             config[0].Mapping.tiles[2]})
-  var p_points =
-    [UTIL.mkPartitionEqually(int3d, int3d, Point_columns)](points, tiles);
-  -- Declare DOM-managed regions
-  [DOM_INST.DeclSymbols(rexpr config[0] end, tiles)];
-  [DOM_INST.InitRegions(rexpr config[0] end, tiles, p_points)];
-  -- Prepare fake inputs
-  fill(points.Ib, (SB/PI) * pow(1000.0,4.0))
-  fill(points.sigma, 5.0);
-  -- Invoke DOM solver
-  [DOM_INST.ComputeRadiationField(rexpr config[0] end, tiles, p_points)];
-  -- Output results
-  writeIntensity(points)
+  work(config[0])
 end
 
 regentlib.saveobj(main, 'dom_host.o', 'object')

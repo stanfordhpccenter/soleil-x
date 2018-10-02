@@ -5713,7 +5713,7 @@ end
 
 local SIM = mkInstance()
 
-__forbid(__optimize) __demand(__inner)
+__forbid(__optimize) __demand(__inner, __replicable)
 task workSingle(config : Config)
   [SIM.DeclSymbols(config)];
   var is_FakeCopyQueue = ispace(int1d, 0)
@@ -5736,7 +5736,7 @@ end
 local SIM0 = mkInstance()
 local SIM1 = mkInstance()
 
-__forbid(__optimize) __demand(__inner)
+__forbid(__optimize) __demand(__inner, __replicable)
 task workDual(mc : MultiConfig)
   -- Declare symbols
   [SIM0.DeclSymbols(rexpr mc.configs[0] end)];
