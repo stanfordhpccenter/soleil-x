@@ -103,7 +103,8 @@
         "maxSkew" : 1.2,
         "maxXferNum" : 10000,
         "collisions" : false,
-        "feeding" : { "type" : "OFF" }
+        "feeding" : { "type" : "OFF" },
+        "staggerFactor" : 1
     },
 
     "Radiation" : {

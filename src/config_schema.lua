@@ -191,6 +191,8 @@ Exports.Config = {
     escapeRatioPerDir = double,
     collisions = bool,
     feeding = Exports.FeedModel,
+    -- how many timesteps to advance the fluid before every particle solve
+    staggerFactor = int,
   },
   Radiation = Exports.RadiationModel,
   IO = {

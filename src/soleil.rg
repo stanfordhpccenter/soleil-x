@@ -4306,7 +4306,7 @@ end
 
 __demand(__parallel, __cuda)
 task Particles_UpdateVars(Particles : region(ispace(int1d), Particles_columns),
-                          Integrator_deltaTime : double,
+                          Particles_deltaTime : double,
                           Integrator_stage : int32)
 where
   reads(Particles.{position_old, velocity_old, temperature_old}),
@@ -4318,7 +4318,7 @@ do
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
-      var deltaTime = Integrator_deltaTime
+      var deltaTime = Particles_deltaTime
       if Integrator_stage == 1 then
         Particles[p].position_new = vv_add(Particles[p].position_new,
                                            vs_mul(Particles[p].velocity, (1.0/6.0)*deltaTime))
@@ -4365,7 +4365,8 @@ end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Particles_HandleCollisions(Particles : region(ispace(int1d), Particles_columns),
-                                Integrator_deltaTime : double, Particles_restitutionCoeff : double )
+                                Particles_deltaTime : double,
+                                Particles_restitutionCoeff : double )
 -- This is an adaption of collisionPrt routine of the Soleil-MPI version
 -- TODO: search box implementation
 where
@@ -4389,9 +4390,9 @@ do
 
 
           -- Relative velocity
-          var ux = (x-xold)/Integrator_deltaTime
-          var uy = (y-yold)/Integrator_deltaTime
-          var uz = (z-zold)/Integrator_deltaTime
+          var ux = (x-xold)/Particles_deltaTime
+          var uy = (y-yold)/Particles_deltaTime
+          var uz = (z-zold)/Particles_deltaTime
 
           -- Relevant scalar products
           var x_scal_u = xold*ux + yold*uy + zold*uz
@@ -4410,7 +4411,7 @@ do
 
               -- Checking if collision occurs in this time step
               var timecol = ( -x_scal_u - sqrt(det) ) / u_scal_u
-              if (timecol>0.0 and timecol<Integrator_deltaTime) then
+              if (timecol>0.0 and timecol<Particles_deltaTime) then
 
                 -- We do have a collision
 
@@ -4422,7 +4423,7 @@ do
                 -- Change of velocity and particle location after impact
                 -- Note: for now particle restitution coeff is the same for all particles ?
                 var du = ( 1.0 + min( Particles_restitutionCoeff, Particles_restitutionCoeff ) ) / (1.0 + mr)*x_scal_u/x_scal_x
-                var dx = du * ( Integrator_deltaTime - timecol )
+                var dx = du * ( Particles_deltaTime - timecol )
 
                 -- Update velocities
 
@@ -4668,6 +4669,8 @@ local function mkInstance() local INSTANCE = {}
 
   INSTANCE.Grid = Grid
   INSTANCE.Integrator_deltaTime = Integrator_deltaTime
+  INSTANCE.Integrator_simTime = Integrator_simTime
+  INSTANCE.Integrator_timeStep = Integrator_timeStep
   INSTANCE.Integrator_exitCond = Integrator_exitCond
   INSTANCE.Fluid = Fluid
   INSTANCE.Fluid_copy = Fluid_copy
@@ -4760,6 +4763,10 @@ local function mkInstance() local INSTANCE = {}
     var [Integrator_simTime] = 0.0
     var [Integrator_timeStep] = 0
     var [Integrator_deltaTime] = 0.0
+    if config.Flow.initCase == SCHEMA.FlowInitCase_Restart then
+      Integrator_timeStep = config.Integrator.restartIter
+      Integrator_simTime = config.Integrator.restartTime
+    end
 
     var [Particles_number] = int64(0)
 
@@ -5104,8 +5111,6 @@ local function mkInstance() local INSTANCE = {}
       Flow_InitializePerturbed(Fluid, config.Flow.initParams)
     elseif config.Flow.initCase == SCHEMA.FlowInitCase_Restart then
       Fluid_load(tiles, config.Flow.restartDir, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
-      Integrator_timeStep = config.Integrator.restartIter
-      Integrator_simTime = config.Integrator.restartTime
     else regentlib.assert(false, 'Unhandled case in switch') end
 
     -- initialize ghost cells to their specified values in NSCBC case
@@ -5159,7 +5164,12 @@ local function mkInstance() local INSTANCE = {}
                              Grid.yBnum, config.Grid.yNum,
                              Grid.zBnum, config.Grid.zNum)
 
-    Flow_UpdateAuxiliaryThermodynamics(Fluid, config.Flow.gamma, config.Flow.gasConstant, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+    Flow_UpdateAuxiliaryThermodynamics(Fluid,
+                                       config.Flow.gamma,
+                                       config.Flow.gasConstant,
+                                       Grid.xBnum, config.Grid.xNum,
+                                       Grid.yBnum, config.Grid.yNum,
+                                       Grid.zBnum, config.Grid.zNum)
     if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
       Flow_UpdateAuxiliaryThermodynamicsGhostNSCBC(Fluid,
                                                    config,
@@ -5353,22 +5363,26 @@ local function mkInstance() local INSTANCE = {}
   function INSTANCE.MainLoopBody(config, CopyQueue) return rquote
 
     -- Feed particles
-    if config.Particles.feeding.type == SCHEMA.FeedModel_OFF then
-      -- Do nothing
-    elseif config.Particles.feeding.type == SCHEMA.FeedModel_Incoming then
-      for c in tiles do
-        Particles_number +=
-          CopyQueue_pull(c,
-                         p_Particles[c],
-                         CopyQueue,
-                         config,
-                         Grid.xBnum, Grid.yBnum, Grid.zBnum)
-      end
-    else regentlib.assert(false, 'Unhandled case in switch') end
+    if Integrator_timeStep % config.Particles.staggerFactor == 0 then
+      if config.Particles.feeding.type == SCHEMA.FeedModel_OFF then
+        -- Do nothing
+      elseif config.Particles.feeding.type == SCHEMA.FeedModel_Incoming then
+        for c in tiles do
+          Particles_number +=
+            CopyQueue_pull(c,
+                           p_Particles[c],
+                           CopyQueue,
+                           config,
+                           Grid.xBnum, Grid.yBnum, Grid.zBnum)
+        end
+      else regentlib.assert(false, 'Unhandled case in switch') end
+    end
 
     -- Set iteration-specific fields that persist across RK4 sub-steps
     Flow_InitializeTemporaries(Fluid)
-    Particles_InitializeTemporaries(Particles)
+    if Integrator_timeStep % config.Particles.staggerFactor == 0 then
+      Particles_InitializeTemporaries(Particles)
+    end
 
     -- RK4 sub-time-stepping loop
     var Integrator_time_old = Integrator_simTime
@@ -5492,45 +5506,61 @@ local function mkInstance() local INSTANCE = {}
         Flow_AdjustTurbulentSource(Fluid, Flow_averageFe, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
       end
 
-      -- Add fluid forces to particles
-      Particles_AddFlowCoupling(Particles, Fluid, config.Flow.constantVisc, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid.xCellWidth, Grid.xRealOrigin, Grid.yCellWidth, Grid.yRealOrigin, Grid.zCellWidth, Grid.zRealOrigin, config.Particles.convectiveCoeff, config.Particles.heatCapacity)
-      Particles_AddBodyForces(Particles, config.Particles.bodyForce)
-
-      -- Add radiation
-      if config.Radiation.type == SCHEMA.RadiationModel_OFF then
-        -- Do nothing
-      elseif config.Radiation.type == SCHEMA.RadiationModel_Algebraic then
-        AddRadiation(Particles, config)
-      elseif config.Radiation.type == SCHEMA.RadiationModel_DOM then
-        fill(Radiation.acc_d2, 0.0)
-        fill(Radiation.acc_d2t4, 0.0)
-        for c in tiles do
-          Radiation_AccumulateParticleValues(p_Particles[c], p_Fluid[c], p_Radiation[c])
-        end
-        var Radiation_xCellWidth = (config.Grid.xWidth/config.Radiation.u.DOM.xNum)
-        var Radiation_yCellWidth = (config.Grid.yWidth/config.Radiation.u.DOM.yNum)
-        var Radiation_zCellWidth = (config.Grid.zWidth/config.Radiation.u.DOM.zNum)
-        var Radiation_cellVolume = Radiation_xCellWidth * Radiation_yCellWidth * Radiation_zCellWidth
-        Radiation_UpdateFieldValues(Radiation,
-                                    Radiation_cellVolume,
-                                    config.Radiation.u.DOM.qa,
-                                    config.Radiation.u.DOM.qs);
-        [DOM_INST.ComputeRadiationField(config, tiles, p_Radiation)];
-        for c in tiles do
-          Particles_AbsorbRadiation(p_Particles[c],
-                                    p_Fluid[c],
-                                    p_Radiation[c],
-                                    config.Particles.heatCapacity,
-                                    config.Radiation.u.DOM.qa)
-        end
-      else regentlib.assert(false, 'Unhandled case in switch') end
+      -- Particles & radiation solve
+      if Integrator_timeStep % config.Particles.staggerFactor == 0 then
+        -- Add fluid forces to particles
+        Particles_AddFlowCoupling(Particles,
+                                  Fluid,
+                                  config.Flow.constantVisc,
+                                  config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                  config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                  config.Flow.viscosityModel,
+                                  Grid.xCellWidth, Grid.xRealOrigin,
+                                  Grid.yCellWidth, Grid.yRealOrigin,
+                                  Grid.zCellWidth, Grid.zRealOrigin,
+                                  config.Particles.convectiveCoeff,
+                                  config.Particles.heatCapacity)
+        Particles_AddBodyForces(Particles, config.Particles.bodyForce)
+        -- Add radiation
+        if config.Radiation.type == SCHEMA.RadiationModel_OFF then
+          -- Do nothing
+        elseif config.Radiation.type == SCHEMA.RadiationModel_Algebraic then
+          AddRadiation(Particles, config)
+        elseif config.Radiation.type == SCHEMA.RadiationModel_DOM then
+          fill(Radiation.acc_d2, 0.0)
+          fill(Radiation.acc_d2t4, 0.0)
+          for c in tiles do
+            Radiation_AccumulateParticleValues(p_Particles[c], p_Fluid[c], p_Radiation[c])
+          end
+          var Radiation_xCellWidth = (config.Grid.xWidth/config.Radiation.u.DOM.xNum)
+          var Radiation_yCellWidth = (config.Grid.yWidth/config.Radiation.u.DOM.yNum)
+          var Radiation_zCellWidth = (config.Grid.zWidth/config.Radiation.u.DOM.zNum)
+          var Radiation_cellVolume = Radiation_xCellWidth * Radiation_yCellWidth * Radiation_zCellWidth
+          Radiation_UpdateFieldValues(Radiation,
+                                      Radiation_cellVolume,
+                                      config.Radiation.u.DOM.qa,
+                                      config.Radiation.u.DOM.qs);
+          [DOM_INST.ComputeRadiationField(config, tiles, p_Radiation)];
+          for c in tiles do
+            Particles_AbsorbRadiation(p_Particles[c],
+                                      p_Fluid[c],
+                                      p_Radiation[c],
+                                      config.Particles.heatCapacity,
+                                      config.Radiation.u.DOM.qa)
+          end
+        else regentlib.assert(false, 'Unhandled case in switch') end
+      end
 
       -- Add particle forces to fluid
       Flow_AddParticlesCoupling(Particles, Fluid, Grid.cellVolume)
 
       -- Time step
       Flow_UpdateVars(Fluid, Integrator_deltaTime, Integrator_stage)
-      Particles_UpdateVars(Particles, Integrator_deltaTime, Integrator_stage)
+      if Integrator_timeStep % config.Particles.staggerFactor == 0 then
+        Particles_UpdateVars(Particles,
+                             Integrator_deltaTime * config.Particles.staggerFactor,
+                             Integrator_stage)
+      end
 
       -- Now the new conserved variables values are used so update everything else
       Flow_UpdateAuxiliaryVelocity(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
@@ -5559,7 +5589,7 @@ local function mkInstance() local INSTANCE = {}
                                          Grid.xBnum, config.Grid.xNum,
                                          Grid.yBnum, config.Grid.yNum,
                                          Grid.zBnum, config.Grid.zNum)
-      if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
+      if config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow and config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow then
         Flow_UpdateAuxiliaryThermodynamicsGhostNSCBC(Fluid,
                                                      config,
                                                      config.Flow.gamma,
@@ -5593,54 +5623,57 @@ local function mkInstance() local INSTANCE = {}
                                 Grid.yBnum, config.Grid.yNum,
                                 Grid.zBnum, config.Grid.zNum)
 
-      -- Handle particle collisions
-      -- TODO: Collisions across tiles are not handled.
-      if config.Particles.collisions and Integrator_stage==4 then
-        for c in tiles do
-          Particles_HandleCollisions(p_Particles[c], Integrator_deltaTime, config.Particles.restitutionCoeff)
+      -- Particle movement post-processing
+      if Integrator_timeStep % config.Particles.staggerFactor == 0 then
+        -- Handle particle collisions
+        -- TODO: Collisions across tiles are not handled.
+        if config.Particles.collisions and Integrator_stage==4 then
+          for c in tiles do
+            Particles_HandleCollisions(p_Particles[c],
+                                       Integrator_deltaTime * config.Particles.staggerFactor,
+                                       config.Particles.restitutionCoeff)
+          end
         end
-      end
-
-      -- Handle particle boundary conditions
-      Particles_UpdateAuxiliary(Particles,
-                                BC.xBCParticles,
-                                BC.yBCParticles,
-                                BC.zBCParticles,
-                                config.Grid.origin[0], config.Grid.xWidth,
-                                config.Grid.origin[1], config.Grid.yWidth,
-                                config.Grid.origin[2], config.Grid.zWidth,
-                                config.Particles.restitutionCoeff)
-      for c in tiles do
-        Particles_number +=
-          Particles_DeleteEscapingParticles(p_Particles[c],
-                                            Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
-                                            Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
-                                            Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
-      end
-
-      -- Move particles to new partitions
-      for c in tiles do
-        Particles_LocateInCells(p_Particles[c],
-                                Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
-                                Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
-                                Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
-      end
-      if numTiles > 1 then
+        -- Handle particle boundary conditions
+        Particles_UpdateAuxiliary(Particles,
+                                  BC.xBCParticles,
+                                  BC.yBCParticles,
+                                  BC.zBCParticles,
+                                  config.Grid.origin[0], config.Grid.xWidth,
+                                  config.Grid.origin[1], config.Grid.yWidth,
+                                  config.Grid.origin[2], config.Grid.zWidth,
+                                  config.Particles.restitutionCoeff)
         for c in tiles do
-          TradeQueue_push(c,
-                          p_Particles[c],
-                          [UTIL.range(1,26):map(function(k) return rexpr
-                             [p_TradeQueue[k]][c]
-                           end end)],
-                          Grid.xBnum, config.Grid.xNum, NX,
-                          Grid.yBnum, config.Grid.yNum, NY,
-                          Grid.zBnum, config.Grid.zNum, NZ)
+          Particles_number +=
+            Particles_DeleteEscapingParticles(p_Particles[c],
+                                              Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
+                                              Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
+                                              Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
         end
+        -- Move particles to new partitions
         for c in tiles do
-          TradeQueue_pull(p_Particles[c],
-                          [UTIL.range(1,26):map(function(k) return rexpr
-                             [p_TradeQueue[k]][ (c-[colorOffsets[k]]+{NX,NY,NZ}) % {NX,NY,NZ} ]
-                           end end)])
+          Particles_LocateInCells(p_Particles[c],
+                                  Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
+                                  Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
+                                  Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+        end
+        if numTiles > 1 then
+          for c in tiles do
+            TradeQueue_push(c,
+                            p_Particles[c],
+                            [UTIL.range(1,26):map(function(k) return rexpr
+                               [p_TradeQueue[k]][c]
+                             end end)],
+                            Grid.xBnum, config.Grid.xNum, NX,
+                            Grid.yBnum, config.Grid.yNum, NY,
+                            Grid.zBnum, config.Grid.zNum, NZ)
+          end
+          for c in tiles do
+            TradeQueue_pull(p_Particles[c],
+                            [UTIL.range(1,26):map(function(k) return rexpr
+                               [p_TradeQueue[k]][ (c-[colorOffsets[k]]+{NX,NY,NZ}) % {NX,NY,NZ} ]
+                             end end)])
+          end
         end
       end
 
@@ -5649,7 +5682,7 @@ local function mkInstance() local INSTANCE = {}
     end -- RK4 sub-time-stepping
 
     -- update time derivatives at boundary for NSCBC
-    if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
+    if config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow and config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow then
       Flow_UpdateNSCBCGhostCellTimeDerivatives(Fluid,
                                                config,
                                                Grid.xBnum, config.Grid.xNum,
@@ -5754,6 +5787,10 @@ task workDual(mc : MultiConfig)
   C.legion_domain_point_coloring_destroy(coloring_CopyQueue)
   -- Check 2-section configuration
   regentlib.assert(
+    SIM0.Integrator_simTime == SIM1.Integrator_simTime and
+    SIM0.Integrator_timeStep == SIM1.Integrator_timeStep,
+    'Coupled sections disagree on starting time')
+  regentlib.assert(
     -- copySrc is a valid volume
     0 <= mc.copySrc.fromCell[0] and
     0 <= mc.copySrc.fromCell[1] and
@@ -5806,7 +5843,6 @@ task workDual(mc : MultiConfig)
   C.legion_domain_point_coloring_destroy(tgtColoring)
   var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
   -- Main simulation loop
-  var timestep = 0
   while true do
     -- Perform preliminary actions before each timestep
     [parallelizeFor(SIM0, SIM0.MainLoopHeader(rexpr mc.configs[0] end))];
@@ -5819,11 +5855,11 @@ task workDual(mc : MultiConfig)
     if SIM0.Integrator_exitCond or SIM1.Integrator_exitCond then
       break
     end
-    -- Run 1 iteration of first section
+    -- Run one iteration of first section
     [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end, FakeCopyQueue))];
     -- Copy fluid & particles to second section
     fill(CopyQueue.__valid, false) -- clear the copyqueue from the previous iteration
-    if timestep % mc.copyEveryTimeSteps == 0 then
+    if SIM0.Integrator_timeStep % mc.copyEveryTimeSteps == 0 then
       for c in SIM1.tiles do
         var src = p_Fluid0_src[c]
         var tgt = p_Fluid1_tgt[c][0]
@@ -5843,19 +5879,32 @@ task workDual(mc : MultiConfig)
                        Fluid0_cellWidth, Fluid1_cellWidth)
       end
     end
-    -- Run 1 iteration of second section
+    -- Run one iteration of second section
     [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, CopyQueue))];
-    timestep += 1
   end
   -- Cleanups
   [SIM0.Cleanup(rexpr mc.configs[0] end)];
   [SIM1.Cleanup(rexpr mc.configs[1] end)];
 end
 
-terra initSample(config : &Config, num : int, outDirBase : &int8)
-  config.Mapping.sampleId = num
-  C.snprintf(config.Mapping.outDir, 256, "%s/sample%d", outDirBase, num)
+__demand(__inline)
+task initSingle(config : &Config, launched : int, outDirBase : &int8)
+  config.Mapping.sampleId = launched
+  C.snprintf([&int8](config.Mapping.outDir), 256, "%s/sample%d", outDirBase, launched)
   UTIL.createDir(config.Mapping.outDir)
+end
+
+__demand(__inline)
+task initDual(mc : &MultiConfig, launched : int, outDirBase : &int8)
+  initSingle([&Config](mc.configs), launched, outDirBase)
+  initSingle([&Config](mc.configs) + 1, launched + 1, outDirBase)
+  -- Check 2-section configuration
+  mc.configs[0].Particles.staggerFactor min= mc.copyEveryTimeSteps
+  mc.configs[1].Particles.staggerFactor min= mc.copyEveryTimeSteps
+  regentlib.assert(
+    mc.copyEveryTimeSteps % mc.configs[0].Particles.staggerFactor == 0 and
+    mc.copyEveryTimeSteps % mc.configs[1].Particles.staggerFactor == 0,
+    'Invalid stagger factor configuration')
 end
 
 __demand(__inner)
@@ -5872,14 +5921,13 @@ task main()
     if C.strcmp(args.argv[i], '-i') == 0 and i < args.argc-1 then
       var config : Config[1]
       SCHEMA.parse_Config([&Config](config), args.argv[i+1])
-      initSample([&Config](config), launched, outDirBase)
+      initSingle([&Config](config), launched, outDirBase)
       launched += 1
       workSingle(config[0])
     elseif C.strcmp(args.argv[i], '-m') == 0 and i < args.argc-1 then
       var mc : MultiConfig[1]
       SCHEMA.parse_MultiConfig([&MultiConfig](mc), args.argv[i+1])
-      initSample([&Config](mc[0].configs), launched, outDirBase)
-      initSample([&Config](mc[0].configs) + 1, launched + 1, outDirBase)
+      initDual([&MultiConfig](mc), launched, outDirBase)
       launched += 2
       workDual(mc[0])
     end

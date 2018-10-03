@@ -108,7 +108,8 @@
             "maxSkew" : 1.05,
             "escapeRatioPerDir" : 0.005,
             "collisions" : false,
-            "feeding" : { "type" : "OFF" }
+            "feeding" : { "type" : "OFF" },
+            "staggerFactor" : 1
         },
 
         "Radiation" : {
@@ -226,7 +227,8 @@
             "feeding" : {
                 "type" : "Incoming",
                 "addedVelocity" : [1.8585562500000001,0.0,0.0]
-            }
+            },
+            "staggerFactor" : 1
         },
 
         "Radiation" : {
