@@ -65,7 +65,7 @@
         "Integrator" : {
             "restartIter" : -1,
             "restartTime" : -1.0,
-            "maxIter" : 3000,
+            "maxIter" : 10,
             "cfl" : -1.0,
             "fixedDeltaTime" : 4.5e-7
         },
@@ -116,25 +116,25 @@
         },
 
         "IO" : {
-            "wrtRestart" : true,
+            "wrtRestart" : false,
             "restartEveryTimeSteps" : 1000,
             "probes" : []
         }
     }, {
         "Mapping" : {
-            "tiles" : [2,1,1],
-            "tilesPerRank" : [1,1,1],
+            "tiles" : [1,2,1],
+            "tilesPerRank" : [1,2,1],
             "sampleId" : -1,
             "outDir" : "",
             "wallTime" : 120
         },
 
         "Grid" : {
-            "xNum" : 512,
+            "xNum" : 256,
             "yNum" : 128,
             "zNum" : 128,
             "origin" : [0.0, 0.0, 0.0],
-            "xWidth" : 0.16,
+            "xWidth" : 0.08,
             "yWidth" : 0.04,
             "zWidth" : 0.04
         },
@@ -185,7 +185,7 @@
         "Integrator" : {
             "restartIter" : -1,
             "restartTime" : -1.0,
-            "maxIter" : 3000,
+            "maxIter" : 10,
             "cfl" : -1.0,
             "fixedDeltaTime" : 4.5e-7
         },
@@ -212,7 +212,7 @@
             "initCase" : "Uniform",
             "restartDir" : "",
             "initNum" : 0,
-            "maxNum" : 9046300,
+            "maxNum" : 4523150,
             "restitutionCoeff" : -1.0,
             "convectiveCoeff" : 5499.91551833,
             "heatCapacity" : 453.13432835820896,
@@ -236,9 +236,9 @@
         },
 
         "IO" : {
-            "wrtRestart" : true,
+            "wrtRestart" : false,
             "restartEveryTimeSteps" : 1000,
-            "probes" : [{"fromCell" : [512,0,0], "uptoCell" : [512,127,127]}]
+            "probes" : []
         }
     }],
     "copySrc" : {

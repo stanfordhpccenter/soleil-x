@@ -14,7 +14,7 @@ else
 endif
 
 # CUDA options
-USE_CUDA ?= 1
+USE_CUDA ?= 0
 
 # HDF options
 export USE_HDF ?= 1

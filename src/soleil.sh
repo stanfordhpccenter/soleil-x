@@ -11,7 +11,7 @@ export QUEUE="${QUEUE:-}"
 export AFTER="${AFTER:-}"
 
 # Whether to use GPUs (if available)
-export USE_CUDA="${USE_CUDA:-1}"
+export USE_CUDA="${USE_CUDA:-0}"
 
 # Whether to emit Legion profiler logs
 export PROFILE="${PROFILE:-0}"
