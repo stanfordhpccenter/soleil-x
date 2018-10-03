@@ -2236,21 +2236,6 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Particles_InitializeTimeDerivatives(Particles : region(ispace(int1d), Particles_columns))
-where
-  reads(Particles.__valid),
-  writes(Particles.{velocity_t, temperature_t})
-do
-  __demand(__openmp)
-  for p in Particles do
-    if Particles[p].__valid then
-      Particles[p].velocity_t = array(0.0, 0.0, 0.0)
-      Particles[p].temperature_t = 0.0
-    end
-  end
-end
-
-__demand(__parallel, __cuda)
 task Flow_UpdateGhostVelocityGradient(Fluid : region(ispace(int3d), Fluid_columns),
                                       config : Config,
                                       BC_xNegSign : double[3], BC_yNegSign : double[3], BC_zNegSign : double[3],
@@ -4116,8 +4101,7 @@ task Particles_AddFlowCoupling(Particles : region(ispace(int1d), Particles_colum
 where
   reads(Fluid.{centerCoordinates, velocity, temperature}),
   reads(Particles.{cell, position, velocity, diameter, density, temperature, __valid}),
-  reads writes(Particles.{velocity_t, temperature_t}),
-  writes(Particles.{deltaTemperatureTerm, deltaVelocityOverRelaxationTime})
+  writes(Particles.{velocity_t, temperature_t, deltaTemperatureTerm, deltaVelocityOverRelaxationTime})
 do
   __demand(__openmp)
   for p in Particles do
@@ -4147,10 +4131,10 @@ do
         / (1.0 + (0.15*pow(particleReynoldsNumber,0.687)))
       var tmp2 = vs_div(vv_sub(flowVelocity, Particles[p].velocity), relaxationTime)
       Particles[p].deltaVelocityOverRelaxationTime = tmp2
-      Particles[p].velocity_t = vv_add(Particles[p].velocity_t, tmp2)
+      Particles[p].velocity_t = tmp2
       var tmp3 = PI * pow(Particles[p].diameter,2.0) * Particles_convectiveCoeff * (flowTemperature-Particles[p].temperature)
       Particles[p].deltaTemperatureTerm = tmp3
-      Particles[p].temperature_t += tmp3/(PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density*Particles_heatCapacity)
+      Particles[p].temperature_t = tmp3/(PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density*Particles_heatCapacity)
     end
   end
 end
@@ -5410,7 +5394,6 @@ local function mkInstance() local INSTANCE = {}
                                        Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
 
       Flow_InitializeTimeDerivatives(Fluid)
-      Particles_InitializeTimeDerivatives(Particles)
 
       Flow_AddGetFlux(Fluid,
                       config,
