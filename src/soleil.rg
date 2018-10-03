@@ -4761,12 +4761,8 @@ local function mkInstance() local INSTANCE = {}
 
     var [Integrator_exitCond] = true
     var [Integrator_simTime] = 0.0
-    var [Integrator_timeStep] = 0
-    var [Integrator_deltaTime] = 0.0
-    if config.Flow.initCase == SCHEMA.FlowInitCase_Restart then
-      Integrator_timeStep = config.Integrator.restartIter
-      Integrator_simTime = config.Integrator.restartTime
-    end
+    var [Integrator_timeStep] = config.Integrator.startIter
+    var [Integrator_deltaTime] = config.Integrator.startTime
 
     var [Particles_number] = int64(0)
 

@@ -27,8 +27,8 @@ for j in range(0, len(samples)):
 json.dump(config, open('0.json', 'w'), indent=4)
 for i in range(1, args.num_runs):
     for j in range(0, len(samples)):
-       samples[j]['Integrator']['restartIter'] = i * iters_per_run
-       samples[j]['Integrator']['restartTime'] = i * iters_per_run * dt
+       samples[j]['Integrator']['startIter'] = i * iters_per_run
+       samples[j]['Integrator']['startTime'] = i * iters_per_run * dt
        samples[j]['Integrator']['maxIter'] = (i+1) * iters_per_run
        samples[j]['Flow']['initCase'] = 'Restart'
        samples[j]['Flow']['restartDir'] = '%s/%s/sample%s/fluid_iter%010d' % (args.out_dir, i-1, j, i * iters_per_run)

@@ -152,8 +152,8 @@ Exports.Config = {
     zBCRightHeat = Exports.TempProfile,
   },
   Integrator = {
-    restartIter = int,
-    restartTime = double,
+    startIter = int,
+    startTime = double,
     maxIter = int,
     cfl = double,
     fixedDeltaTime = double,
