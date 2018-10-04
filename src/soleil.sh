@@ -29,7 +29,7 @@ function quit {
 }
 
 function read_json {
-    python -c "
+    python2 -c "
 import json
 def wallTime(sample):
   return int(sample['Mapping']['wallTime'])

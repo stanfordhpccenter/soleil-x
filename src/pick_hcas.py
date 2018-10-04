@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 # Written by Elliott Slaughter
 # See https://upc-bugs.lbl.gov/bugzilla/show_bug.cgi?id=3447

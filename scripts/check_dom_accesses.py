@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 # Takes a log of accesses made by a DOM sweep and verifies that they were made
 # in the correct order. Works with any tiling.
