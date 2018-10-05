@@ -65,9 +65,9 @@
         "Integrator" : {
             "startIter" : 0,
             "startTime" : 0.0,
-            "maxIter" : 3000,
+            "maxIter" : 300000,
             "cfl" : -1.0,
-            "fixedDeltaTime" : 4.5e-7
+            "fixedDeltaTime" : 8.54046201202497e-07
         },
 
         "Flow" : {
@@ -109,7 +109,7 @@
             "escapeRatioPerDir" : 0.005,
             "collisions" : false,
             "feeding" : { "type" : "OFF" },
-            "staggerFactor" : 1
+            "staggerFactor" : 293
         },
 
         "Radiation" : {
@@ -186,9 +186,9 @@
         "Integrator" : {
             "startIter" : 0,
             "startTime" : 0.0,
-            "maxIter" : 3000,
+            "maxIter" : 300000,
             "cfl" : -1.0,
-            "fixedDeltaTime" : 4.5e-7
+            "fixedDeltaTime" : 8.54046201202497e-07
         },
 
         "Flow" : {
@@ -228,7 +228,7 @@
                 "type" : "Incoming",
                 "addedVelocity" : [2.0650625,0.0,0.0]
             },
-            "staggerFactor" : 1
+            "staggerFactor" : 293
         },
 
         "Radiation" : {
@@ -251,5 +251,5 @@
         "fromCell" : [0,0,0],
         "uptoCell" : [0,127,127]
     },
-    "copyEveryTimeSteps" : 337
+    "copyEveryTimeSteps" : 177
 }
