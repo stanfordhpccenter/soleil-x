@@ -105,8 +105,8 @@
         "density" : 8900.0,
         "diameterMean" : 1.012082669346191e-05,
         "bodyForce" : [0.0, 0.0, 0.0],
-        "maxSkew" : 1.0,
-        "escapeRatioPerDir" : 0.0,
+        "maxSkew" : 1.2,
+        "escapeRatioPerDir" : 0.005,
         "collisions" : false,
         "feeding" : { "type" : "OFF" },
         "staggerFactor" : 1
