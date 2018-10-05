@@ -2341,113 +2341,68 @@ do
 end
 
 __demand(__inline)
-task CenteredInviscidFlux(c_l : int3d,
-                          c_r : int3d,
-                          Fluid : region(ispace(int3d), Fluid_columns))
-where
-  reads(Fluid.{rho, velocity, pressure, rhoVelocity, rhoEnthalpy})
-do
-  var rhoFactorDiagonal = 0.0
-  var rhoVelocityFactorDiagonal = array(0.0, 0.0, 0.0)
-  var rhoEnergyFactorDiagonal = 0.0
-  var fpdiag = 0.0
-  rhoFactorDiagonal = (0.5*((Fluid[c_l].rho*Fluid[c_l].velocity[0])+(Fluid[c_r].rho*Fluid[c_r].velocity[0])))
-  rhoVelocityFactorDiagonal = vs_mul(vv_add(vs_mul(Fluid[c_l].rhoVelocity, Fluid[c_l].velocity[0]), vs_mul(Fluid[c_r].rhoVelocity, Fluid[c_r].velocity[0])), 0.5)
-  rhoEnergyFactorDiagonal = (0.5*((Fluid[c_l].rhoEnthalpy*Fluid[c_l].velocity[0])+(Fluid[c_r].rhoEnthalpy*Fluid[c_r].velocity[0])))
-  fpdiag += (0.5*(Fluid[c_l].pressure+Fluid[c_r].pressure))
-  var rhoFactorSkew = 0.0
-  var rhoVelocityFactorSkew = array(0.0, 0.0, 0.0)
-  var rhoEnergyFactorSkew = 0.0
-  var tmp = 0.0
-  tmp = (0.5*Fluid[c_r].velocity[0])
-  rhoFactorSkew += (Fluid[c_l].rho*tmp)
-  var tmp__6137 = vs_mul(Fluid[c_l].rhoVelocity, tmp)
-  rhoVelocityFactorSkew = vv_add(rhoVelocityFactorSkew, tmp__6137)
-  rhoEnergyFactorSkew += (Fluid[c_l].rhoEnthalpy*tmp)
-  tmp = (0.5*Fluid[c_l].velocity[0])
-  rhoFactorSkew += (Fluid[c_r].rho*tmp)
-  var tmp__6139 = vs_mul(Fluid[c_r].rhoVelocity, tmp)
-  rhoVelocityFactorSkew = vv_add(rhoVelocityFactorSkew, tmp__6139)
-  rhoEnergyFactorSkew += (Fluid[c_r].rhoEnthalpy*tmp)
-  var s = 0.5
-  var rhoFlux_temp = ((s*rhoFactorDiagonal)+((1.0-s)*rhoFactorSkew))
-  var rhoVelocityFlux_temp = vv_add(vs_mul(rhoVelocityFactorDiagonal, s), vs_mul(rhoVelocityFactorSkew, (1.0-s)))
-  var rhoEnergyFlux_temp = ((s*rhoEnergyFactorDiagonal)+((1.0-s)*rhoEnergyFactorSkew))
-  rhoVelocityFlux_temp[0] += fpdiag
-  return array(rhoFlux_temp, rhoVelocityFlux_temp[0], rhoVelocityFlux_temp[1], rhoVelocityFlux_temp[2], rhoEnergyFlux_temp)
-end
-
-__demand(__inline)
-task CenteredInviscidFlux_(c_l : int3d,
+task CenteredInviscidFluxX(c_l : int3d,
                            c_r : int3d,
                            Fluid : region(ispace(int3d), Fluid_columns))
 where
-  reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnthalpy})
+  reads(Fluid.{rho, velocity, pressure, rhoVelocity, rhoEnthalpy})
 do
-  var rhoFactorDiagonal = 0.0
-  var rhoVelocityFactorDiagonal = array(0.0, 0.0, 0.0)
-  var rhoEnergyFactorDiagonal = 0.0
-  var fpdiag = 0.0
-  rhoFactorDiagonal = (0.5*((Fluid[c_l].rho*Fluid[c_l].velocity[1])+(Fluid[c_r].rho*Fluid[c_r].velocity[1])))
-  rhoVelocityFactorDiagonal = vs_mul(vv_add(vs_mul(Fluid[c_l].rhoVelocity, Fluid[c_l].velocity[1]), vs_mul(Fluid[c_r].rhoVelocity, Fluid[c_r].velocity[1])), 0.5)
-  rhoEnergyFactorDiagonal = (0.5*((Fluid[c_l].rhoEnthalpy*Fluid[c_l].velocity[1])+(Fluid[c_r].rhoEnthalpy*Fluid[c_r].velocity[1])))
-  fpdiag += (0.5*(Fluid[c_l].pressure+Fluid[c_r].pressure))
-  var rhoFactorSkew = 0.0
-  var rhoVelocityFactorSkew = array(0.0, 0.0, 0.0)
-  var rhoEnergyFactorSkew = 0.0
-  var tmp = 0.0
-  tmp = (0.5*Fluid[c_r].velocity[1])
-  rhoFactorSkew += (Fluid[c_l].rho*tmp)
-  var tmp__6344 = vs_mul(Fluid[c_l].rhoVelocity, tmp)
-  rhoVelocityFactorSkew = vv_add(rhoVelocityFactorSkew, tmp__6344)
-  rhoEnergyFactorSkew += (Fluid[c_l].rhoEnthalpy*tmp)
-  tmp = (0.5*Fluid[c_l].velocity[1])
-  rhoFactorSkew += (Fluid[c_r].rho*tmp)
-  var tmp__6346 = vs_mul(Fluid[c_r].rhoVelocity, tmp)
-  rhoVelocityFactorSkew = vv_add(rhoVelocityFactorSkew, tmp__6346)
-  rhoEnergyFactorSkew += (Fluid[c_r].rhoEnthalpy*tmp)
-  var s = 0.5
-  var rhoFlux_temp = ((s*rhoFactorDiagonal)+((1.0-s)*rhoFactorSkew))
-  var rhoVelocityFlux_temp = vv_add(vs_mul(rhoVelocityFactorDiagonal, s), vs_mul(rhoVelocityFactorSkew, (1.0-s)))
-  var rhoEnergyFlux_temp = ((s*rhoEnergyFactorDiagonal)+((1.0-s)*rhoEnergyFactorSkew))
-  rhoVelocityFlux_temp[1] += fpdiag
+  var rhoFlux_temp =
+    0.25
+    * (Fluid[c_l].rho + Fluid[c_r].rho)
+    * (Fluid[c_l].velocity[0] + Fluid[c_r].velocity[0])
+  var rhoVelocityFlux_temp =
+    vs_mul(vv_add(Fluid[c_l].rhoVelocity, Fluid[c_r].rhoVelocity),
+           0.25 * (Fluid[c_l].velocity[0] + Fluid[c_r].velocity[0]))
+  rhoVelocityFlux_temp[0] += 0.5 * (Fluid[c_l].pressure + Fluid[c_r].pressure)
+  var rhoEnergyFlux_temp =
+    0.25
+    * (Fluid[c_l].rhoEnthalpy + Fluid[c_r].rhoEnthalpy)
+    * (Fluid[c_l].velocity[0] + Fluid[c_r].velocity[0])
   return array(rhoFlux_temp, rhoVelocityFlux_temp[0], rhoVelocityFlux_temp[1], rhoVelocityFlux_temp[2], rhoEnergyFlux_temp)
 end
 
 __demand(__inline)
-task CenteredInviscidFlux__(c_l : int3d,
-                            c_r : int3d,
-                            Fluid : region(ispace(int3d), Fluid_columns))
+task CenteredInviscidFluxY(c_l : int3d,
+                           c_r : int3d,
+                           Fluid : region(ispace(int3d), Fluid_columns))
 where
-  reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnthalpy})
+  reads(Fluid.{rho, velocity, pressure, rhoVelocity, rhoEnthalpy})
 do
-  var rhoFactorDiagonal = 0.0
-  var rhoVelocityFactorDiagonal = array(0.0, 0.0, 0.0)
-  var rhoEnergyFactorDiagonal = 0.0
-  var fpdiag = 0.0
-  rhoFactorDiagonal = (0.5*((Fluid[c_l].rho*Fluid[c_l].velocity[2])+(Fluid[c_r].rho*Fluid[c_r].velocity[2])))
-  rhoVelocityFactorDiagonal = vs_mul(vv_add(vs_mul(Fluid[c_l].rhoVelocity, Fluid[c_l].velocity[2]), vs_mul(Fluid[c_r].rhoVelocity, Fluid[c_r].velocity[2])), 0.5)
-  rhoEnergyFactorDiagonal = (0.5*((Fluid[c_l].rhoEnthalpy*Fluid[c_l].velocity[2])+(Fluid[c_r].rhoEnthalpy*Fluid[c_r].velocity[2])))
-  fpdiag += (0.5*(Fluid[c_l].pressure+Fluid[c_r].pressure))
-  var rhoFactorSkew = 0.0
-  var rhoVelocityFactorSkew = array(0.0, 0.0, 0.0)
-  var rhoEnergyFactorSkew = 0.0
-  var tmp = 0.0
-  tmp = (0.5*Fluid[c_r].velocity[2])
-  rhoFactorSkew += (Fluid[c_l].rho*tmp)
-  var tmp__6551 = vs_mul(Fluid[c_l].rhoVelocity, tmp)
-  rhoVelocityFactorSkew = vv_add(rhoVelocityFactorSkew, tmp__6551)
-  rhoEnergyFactorSkew += (Fluid[c_l].rhoEnthalpy*tmp)
-  tmp = (0.5*Fluid[c_l].velocity[2])
-  rhoFactorSkew += (Fluid[c_r].rho*tmp)
-  var tmp__6553 = vs_mul(Fluid[c_r].rhoVelocity, tmp)
-  rhoVelocityFactorSkew = vv_add(rhoVelocityFactorSkew, tmp__6553)
-  rhoEnergyFactorSkew += (Fluid[c_r].rhoEnthalpy*tmp)
-  var s = 0.5
-  var rhoFlux_temp = ((s*rhoFactorDiagonal)+((1.0-s)*rhoFactorSkew))
-  var rhoVelocityFlux_temp = vv_add(vs_mul(rhoVelocityFactorDiagonal, s), vs_mul(rhoVelocityFactorSkew, (1.0-s)))
-  var rhoEnergyFlux_temp = ((s*rhoEnergyFactorDiagonal)+((1.0-s)*rhoEnergyFactorSkew))
-  rhoVelocityFlux_temp[2] += fpdiag
+  var rhoFlux_temp =
+    0.25
+    * (Fluid[c_l].rho + Fluid[c_r].rho)
+    * (Fluid[c_l].velocity[1] + Fluid[c_r].velocity[1])
+  var rhoVelocityFlux_temp =
+    vs_mul(vv_add(Fluid[c_l].rhoVelocity, Fluid[c_r].rhoVelocity),
+           0.25 * (Fluid[c_l].velocity[1] + Fluid[c_r].velocity[1]))
+  rhoVelocityFlux_temp[1] += 0.5 * (Fluid[c_l].pressure + Fluid[c_r].pressure)
+  var rhoEnergyFlux_temp =
+    0.25
+    * (Fluid[c_l].rhoEnthalpy + Fluid[c_r].rhoEnthalpy)
+    * (Fluid[c_l].velocity[1] + Fluid[c_r].velocity[1])
+  return array(rhoFlux_temp, rhoVelocityFlux_temp[0], rhoVelocityFlux_temp[1], rhoVelocityFlux_temp[2], rhoEnergyFlux_temp)
+end
+
+__demand(__inline)
+task CenteredInviscidFluxZ(c_l : int3d,
+                           c_r : int3d,
+                           Fluid : region(ispace(int3d), Fluid_columns))
+where
+  reads(Fluid.{rho, velocity, pressure, rhoVelocity, rhoEnthalpy})
+do
+  var rhoFlux_temp =
+    0.25
+    * (Fluid[c_l].rho + Fluid[c_r].rho)
+    * (Fluid[c_l].velocity[2] + Fluid[c_r].velocity[2])
+  var rhoVelocityFlux_temp =
+    vs_mul(vv_add(Fluid[c_l].rhoVelocity, Fluid[c_r].rhoVelocity),
+           0.25 * (Fluid[c_l].velocity[2] + Fluid[c_r].velocity[2]))
+  rhoVelocityFlux_temp[2] += 0.5 * (Fluid[c_l].pressure + Fluid[c_r].pressure)
+  var rhoEnergyFlux_temp =
+    0.25
+    * (Fluid[c_l].rhoEnthalpy + Fluid[c_r].rhoEnthalpy)
+    * (Fluid[c_l].velocity[2] + Fluid[c_r].velocity[2])
   return array(rhoFlux_temp, rhoVelocityFlux_temp[0], rhoVelocityFlux_temp[1], rhoVelocityFlux_temp[2], rhoEnergyFlux_temp)
 end
 
@@ -2489,7 +2444,7 @@ do
 
     if interior or xNegGhost  then
       var stencil = (c+{1, 0, 0}) % Fluid.bounds
-      var flux = CenteredInviscidFlux(int3d(c), stencil, Fluid)
+      var flux = CenteredInviscidFluxX(c, (c+{1, 0, 0}) % Fluid.bounds, Fluid)
       Fluid[c].rhoFluxX = flux[0]
       Fluid[c].rhoVelocityFluxX = array(flux[1], flux[2], flux[3])
       Fluid[c].rhoEnergyFluxX = flux[4]
@@ -2540,7 +2495,7 @@ do
     end
     if interior or yNegGhost  then
       var stencil = (c+{0, 1, 0}) % Fluid.bounds
-      var flux = CenteredInviscidFlux_(int3d(c), stencil, Fluid)
+      var flux = CenteredInviscidFluxY(c, (c+{0, 1, 0}) % Fluid.bounds, Fluid)
       Fluid[c].rhoFluxY = flux[0]
       Fluid[c].rhoVelocityFluxY = array(flux[1], flux[2], flux[3])
       Fluid[c].rhoEnergyFluxY = flux[4]
@@ -2591,7 +2546,7 @@ do
     end
     if interior or zNegGhost then
       var stencil = (c+{0, 0, 1}) % Fluid.bounds
-      var flux = CenteredInviscidFlux__(int3d(c), stencil, Fluid)
+      var flux = CenteredInviscidFluxZ(c, (c+{0, 0, 1}) % Fluid.bounds, Fluid)
       Fluid[c].rhoFluxZ = flux[0]
       Fluid[c].rhoVelocityFluxZ = array(flux[1], flux[2], flux[3])
       Fluid[c].rhoEnergyFluxZ = flux[4]
@@ -2720,7 +2675,7 @@ do
 
     if NSCBC_inflow_cell or NSCBC_outflow_cell  then
       -- y fluxes
-      var flux = CenteredInviscidFlux_(int3d(c), ((c+{0, 1, 0})%Fluid.bounds), Fluid)
+      var flux = CenteredInviscidFluxY(c, ((c+{0, 1, 0})%Fluid.bounds), Fluid)
       Fluid[c].rhoFluxY = flux[0]
       Fluid[c].rhoVelocityFluxY = array(flux[1], flux[2], flux[3])
       Fluid[c].rhoEnergyFluxY = flux[4]
@@ -2760,7 +2715,7 @@ do
     end
     if (NSCBC_inflow_cell or NSCBC_outflow_cell) then
       -- z fluxes
-      var flux = CenteredInviscidFlux__(int3d(c), ((c+{0, 0, 1})%Fluid.bounds), Fluid)
+      var flux = CenteredInviscidFluxZ(c, ((c+{0, 0, 1})%Fluid.bounds), Fluid)
       Fluid[c].rhoFluxZ = flux[0]
       Fluid[c].rhoVelocityFluxZ = array(flux[1], flux[2], flux[3])
       Fluid[c].rhoEnergyFluxZ = flux[4]
