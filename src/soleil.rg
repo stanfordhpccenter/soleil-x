@@ -504,6 +504,7 @@ do
         regentlib.assert(
           p1 <= Particles.bounds.hi,
           'Ran out of space while copying over particles from other section')
+        Particles[p1].cell = cell
         Particles[p1].position = p2.position
         Particles[p1].velocity = vv_add(p2.velocity, addedVelocity)
         Particles[p1].temperature = p2.temperature
