@@ -157,6 +157,8 @@ Exports.Config = {
     maxIter = int,
     cfl = double,
     fixedDeltaTime = double,
+    -- what order RK method to use [2-4]
+    rkOrder = int,
   },
   Flow = {
     gasConstant = double,

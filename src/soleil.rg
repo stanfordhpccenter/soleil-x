@@ -179,6 +179,20 @@ local DOM = (require 'dom-desugared')(MAX_ANGLES_PER_QUAD, Radiation_columns, SC
 local PI = 3.1415926535898
 local SB = 5.67e-08
 
+local RK_MIN_ORDER = 2
+local RK_MAX_ORDER = 4
+-- We only support methods with C[i+1] = A[i+1,i] and A[i,j] = 0 for i != j+1
+local RK_B = { -- B[1] B[2] ... B[s]
+  [2] = {    0.0,     1.0},
+  [3] = {1.0/4.0,     0.0, 3.0/4.0},
+  [4] = {1.0/6.0, 1.0/3.0, 1.0/3.0, 1.0/6.0},
+}
+local RK_C = { -- C[2] ... C[s]
+  [2] = {1.0/2.0},
+  [3] = {1.0/3.0, 2.0/3.0},
+  [4] = {1.0/2.0, 1.0/2.0,     1.0},
+}
+
 -------------------------------------------------------------------------------
 -- MACROS
 -------------------------------------------------------------------------------
@@ -4209,57 +4223,54 @@ end
 __demand(__parallel, __cuda)
 task Flow_UpdateVars(Fluid : region(ispace(int3d), Fluid_columns),
                      Integrator_deltaTime : double,
-                     Integrator_stage : int32)
+                     Integrator_stage : int32,
+                     config : Config)
 where
   reads(Fluid.{rho_old, rhoEnergy_old, rhoVelocity_old}),
   reads(Fluid.{rho_t, rhoEnergy_t, rhoVelocity_t}),
   writes(Fluid.{rho, rhoEnergy, rhoVelocity}),
   reads writes(Fluid.{rho_new, rhoEnergy_new, rhoVelocity_new})
 do
-  __demand(__openmp)
-  for c in Fluid do
-    var deltaTime = Integrator_deltaTime
-    if (Integrator_stage==1) then
-      Fluid[c].rho_new += (((1.0/6.0)*deltaTime)*Fluid[c].rho_t)
-      Fluid[c].rho = (Fluid[c].rho_old+((0.5*deltaTime)*Fluid[c].rho_t))
-      var tmp = vs_mul(Fluid[c].rhoVelocity_t, ((1.0/6.0)*deltaTime))
-      Fluid[c].rhoVelocity_new = vv_add(Fluid[c].rhoVelocity_new, tmp)
-      Fluid[c].rhoVelocity = vv_add(Fluid[c].rhoVelocity_old, vs_mul(Fluid[c].rhoVelocity_t, (0.5*deltaTime)))
-
-      Fluid[c].rhoEnergy_new += (((1.0/6.0)*deltaTime)*Fluid[c].rhoEnergy_t)
-      Fluid[c].rhoEnergy = (Fluid[c].rhoEnergy_old+((0.5*deltaTime)*Fluid[c].rhoEnergy_t))
-    else
-      if (Integrator_stage==2) then
-        Fluid[c].rho_new += (((1.0/3.0)*deltaTime)*Fluid[c].rho_t)
-        Fluid[c].rho = (Fluid[c].rho_old+((0.5*deltaTime)*Fluid[c].rho_t))
-        var tmp = vs_mul(Fluid[c].rhoVelocity_t, ((1.0/3.0)*deltaTime))
-        Fluid[c].rhoVelocity_new = vv_add(Fluid[c].rhoVelocity_new, tmp)
-        Fluid[c].rhoVelocity = vv_add(Fluid[c].rhoVelocity_old, vs_mul(Fluid[c].rhoVelocity_t, (0.5*deltaTime)))
-        Fluid[c].rhoEnergy_new += (((1.0/3.0)*deltaTime)*Fluid[c].rhoEnergy_t)
-        Fluid[c].rhoEnergy = (Fluid[c].rhoEnergy_old+((0.5*deltaTime)*Fluid[c].rhoEnergy_t))
-      else
-        if (Integrator_stage==3) then
-          Fluid[c].rho_new += (((1.0/3.0)*deltaTime)*Fluid[c].rho_t)
-          Fluid[c].rho = (Fluid[c].rho_old+((1.0*deltaTime)*Fluid[c].rho_t))
-          var tmp = vs_mul(Fluid[c].rhoVelocity_t, ((1.0/3.0)*deltaTime))
-          Fluid[c].rhoVelocity_new = vv_add(Fluid[c].rhoVelocity_new, tmp)
-          Fluid[c].rhoVelocity = vv_add(Fluid[c].rhoVelocity_old, vs_mul(Fluid[c].rhoVelocity_t, (1.0*deltaTime)))
-          Fluid[c].rhoEnergy_new += (((1.0/3.0)*deltaTime)*Fluid[c].rhoEnergy_t)
-          Fluid[c].rhoEnergy = (Fluid[c].rhoEnergy_old+((1.0*deltaTime)*Fluid[c].rhoEnergy_t))
-        else
-          Fluid[c].rho = (Fluid[c].rho_new+(((1.0/6.0)*deltaTime)*Fluid[c].rho_t))
-          Fluid[c].rhoVelocity = vv_add(Fluid[c].rhoVelocity_new, vs_mul(Fluid[c].rhoVelocity_t, ((1.0/6.0)*deltaTime)))
-          Fluid[c].rhoEnergy = (Fluid[c].rhoEnergy_new+(((1.0/6.0)*deltaTime)*Fluid[c].rhoEnergy_t))
+  var dt = Integrator_deltaTime;
+  @ESCAPE for ORDER = RK_MIN_ORDER,RK_MAX_ORDER do @EMIT
+    if config.Integrator.rkOrder == ORDER then
+      @ESCAPE for STAGE = 1,ORDER do @EMIT
+        if Integrator_stage == STAGE then
+          __demand(__openmp)
+          for c in Fluid do
+            -- Accumulate intermediate values into final values
+            Fluid[c].rho_new +=
+              Fluid[c].rho_t * [RK_B[ORDER][STAGE]] * dt
+            Fluid[c].rhoVelocity_new = vv_add(Fluid[c].rhoVelocity_new,
+              vs_mul(Fluid[c].rhoVelocity_t, [RK_B[ORDER][STAGE]] * dt))
+            Fluid[c].rhoEnergy_new +=
+              Fluid[c].rhoEnergy_t * [RK_B[ORDER][STAGE]] * dt;
+            @ESCAPE if STAGE == ORDER then @EMIT
+              -- Set final values
+              Fluid[c].rho = Fluid[c].rho_new
+              Fluid[c].rhoVelocity = Fluid[c].rhoVelocity_new
+              Fluid[c].rhoEnergy = Fluid[c].rhoEnergy_new
+            @TIME else @EMIT
+              -- Set values for next substep
+              Fluid[c].rho = Fluid[c].rho_old +
+                Fluid[c].rho_t * [RK_C[ORDER][STAGE]] * dt
+              Fluid[c].rhoVelocity = vv_add(Fluid[c].rhoVelocity_old,
+                vs_mul(Fluid[c].rhoVelocity_t, [RK_C[ORDER][STAGE]] * dt))
+              Fluid[c].rhoEnergy = Fluid[c].rhoEnergy_old +
+                Fluid[c].rhoEnergy_t * [RK_C[ORDER][STAGE]] * dt
+            @TIME end @EPACSE
+          end
         end
-      end
+      @TIME end @EPACSE
     end
-  end
+  @TIME end @EPACSE
 end
 
 __demand(__parallel, __cuda)
 task Particles_UpdateVars(Particles : region(ispace(int1d), Particles_columns),
                           Particles_deltaTime : double,
-                          Integrator_stage : int32)
+                          Integrator_stage : int32,
+                          config : Config)
 where
   reads(Particles.{position_old, velocity_old, temperature_old}),
   reads(Particles.{velocity, velocity_t, temperature_t}),
@@ -4267,52 +4278,41 @@ where
   writes(Particles.{position, temperature, velocity}),
   reads writes(Particles.{position_new, temperature_new, velocity_new})
 do
-  __demand(__openmp)
-  for p in Particles do
-    if Particles[p].__valid then
-      var deltaTime = Particles_deltaTime
-      if Integrator_stage == 1 then
-        Particles[p].position_new = vv_add(Particles[p].position_new,
-                                           vs_mul(Particles[p].velocity, (1.0/6.0)*deltaTime))
-        Particles[p].position = vv_add(Particles[p].position_old,
-                                       vs_mul(Particles[p].velocity, 0.5*deltaTime))
-        Particles[p].velocity_new = vv_add(Particles[p].velocity_new,
-                                           vs_mul(Particles[p].velocity_t, (1.0/6.0)*deltaTime))
-        Particles[p].velocity = vv_add(Particles[p].velocity_old,
-                                       vs_mul(Particles[p].velocity_t, (0.5*deltaTime)))
-        Particles[p].temperature_new += (1.0/6.0)*deltaTime*Particles[p].temperature_t
-        Particles[p].temperature = Particles[p].temperature_old + 0.5*deltaTime*Particles[p].temperature_t
-      elseif Integrator_stage == 2 then
-        Particles[p].position_new = vv_add(Particles[p].position_new,
-                                           vs_mul(Particles[p].velocity, (1.0/3.0)*deltaTime))
-        Particles[p].position = vv_add(Particles[p].position_old,
-                                       vs_mul(Particles[p].velocity, 0.5*deltaTime))
-        Particles[p].velocity_new = vv_add(Particles[p].velocity_new,
-                                           vs_mul(Particles[p].velocity_t, (1.0/3.0)*deltaTime))
-        Particles[p].velocity = vv_add(Particles[p].velocity_old,
-                                       vs_mul(Particles[p].velocity_t, (0.5*deltaTime)))
-        Particles[p].temperature_new += (1.0/3.0)*deltaTime*Particles[p].temperature_t
-        Particles[p].temperature = Particles[p].temperature_old + 0.5*deltaTime*Particles[p].temperature_t
-      elseif Integrator_stage == 3 then
-        Particles[p].position_new = vv_add(Particles[p].position_new,
-                                           vs_mul(Particles[p].velocity, (1.0/3.0)*deltaTime))
-        Particles[p].position = vv_add(Particles[p].position_old,
-                                       vs_mul(Particles[p].velocity, 1.0*deltaTime))
-        Particles[p].velocity_new = vv_add(Particles[p].velocity_new,
-                                           vs_mul(Particles[p].velocity_t, (1.0/3.0)*deltaTime))
-        Particles[p].velocity = vv_add(Particles[p].velocity_old,
-                                       vs_mul(Particles[p].velocity_t, 1.0*deltaTime))
-        Particles[p].temperature_new += (1.0/3.0)*deltaTime*Particles[p].temperature_t
-        Particles[p].temperature = Particles[p].temperature_old + 1.0*deltaTime*Particles[p].temperature_t
-      else -- Integrator_stage == 4
-        Particles[p].position = vv_add(Particles[p].position_new,
-                                       vs_mul(Particles[p].velocity, (1.0/6.0)*deltaTime))
-        Particles[p].velocity = vv_add(Particles[p].velocity_new,
-                                       vs_mul(Particles[p].velocity_t, (1.0/6.0)*deltaTime))
-        Particles[p].temperature = Particles[p].temperature_new + (1.0/6.0)*deltaTime*Particles[p].temperature_t
-      end
+  var dt = Particles_deltaTime;
+  @ESCAPE for ORDER = RK_MIN_ORDER,RK_MAX_ORDER do @EMIT
+    if config.Integrator.rkOrder == ORDER then
+      @ESCAPE for STAGE = 1,ORDER do @EMIT
+        if Integrator_stage == STAGE then
+          __demand(__openmp)
+          for p in Particles do
+            if Particles[p].__valid then
+              -- Accumulate intermediate values into final values
+              Particles[p].position_new = vv_add(Particles[p].position_new,
+                vs_mul(Particles[p].velocity, [RK_B[ORDER][STAGE]] * dt))
+              Particles[p].velocity_new = vv_add(Particles[p].velocity_new,
+                vs_mul(Particles[p].velocity_t, [RK_B[ORDER][STAGE]] * dt))
+              Particles[p].temperature_new +=
+                Particles[p].temperature_t * [RK_B[ORDER][STAGE]] * dt;
+              @ESCAPE if STAGE == ORDER then @EMIT
+                -- Set final values
+                Particles[p].position = Particles[p].position_new
+                Particles[p].velocity = Particles[p].velocity_new
+                Particles[p].temperature = Particles[p].temperature_new
+              @TIME else @EMIT
+                -- Set values for next substep
+                Particles[p].position = vv_add(Particles[p].position_old,
+                  vs_mul(Particles[p].velocity, [RK_C[ORDER][STAGE]] * dt))
+                Particles[p].velocity = vv_add(Particles[p].velocity_old,
+                  vs_mul(Particles[p].velocity_t, [RK_C[ORDER][STAGE]] * dt))
+                Particles[p].temperature = Particles[p].temperature_old +
+                  Particles[p].temperature_t * [RK_C[ORDER][STAGE]] * dt
+              @TIME end @EPACSE
+            end
+          end
+        end
+      @TIME end @EPACSE
     end
-  end
+  @TIME end @EPACSE
 end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
@@ -4717,6 +4717,10 @@ local function mkInstance() local INSTANCE = {}
     var [Integrator_simTime] = config.Integrator.startTime
     var [Integrator_timeStep] = config.Integrator.startIter
     var [Integrator_deltaTime] = config.Integrator.fixedDeltaTime
+    regentlib.assert(
+      config.Integrator.rkOrder >= RK_MIN_ORDER and
+      config.Integrator.rkOrder <= RK_MAX_ORDER,
+      'Unsupported RK integration scheme')
 
     var [Particles_number] = int64(0)
 
@@ -5326,15 +5330,15 @@ local function mkInstance() local INSTANCE = {}
       else regentlib.assert(false, 'Unhandled case in switch') end
     end
 
-    -- Set iteration-specific fields that persist across RK4 sub-steps
+    -- Set iteration-specific fields that persist across RK sub-steps
     Flow_InitializeTemporaries(Fluid)
     if Integrator_timeStep % config.Particles.staggerFactor == 0 then
       Particles_InitializeTemporaries(Particles)
     end
 
-    -- RK4 sub-time-stepping loop
+    -- RK sub-time-stepping loop
     var Integrator_time_old = Integrator_simTime
-    for Integrator_stage = 1,5 do
+    for Integrator_stage = 1,config.Integrator.rkOrder+1 do
 
       Flow_ComputeVelocityGradientAll(Fluid,
                                       Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
@@ -5503,11 +5507,12 @@ local function mkInstance() local INSTANCE = {}
       Flow_AddParticlesCoupling(Particles, Fluid, Grid.cellVolume)
 
       -- Time step
-      Flow_UpdateVars(Fluid, Integrator_deltaTime, Integrator_stage)
+      Flow_UpdateVars(Fluid, Integrator_deltaTime, Integrator_stage, config)
       if Integrator_timeStep % config.Particles.staggerFactor == 0 then
         Particles_UpdateVars(Particles,
                              Integrator_deltaTime * config.Particles.staggerFactor,
-                             Integrator_stage)
+                             Integrator_stage,
+                             config)
       end
 
       -- Now the new conserved variables values are used so update everything else
@@ -5575,7 +5580,7 @@ local function mkInstance() local INSTANCE = {}
       if Integrator_timeStep % config.Particles.staggerFactor == 0 then
         -- Handle particle collisions
         -- TODO: Collisions across tiles are not handled.
-        if config.Particles.collisions and Integrator_stage==4 then
+        if config.Particles.collisions and Integrator_stage == config.Integrator.rkOrder then
           for c in tiles do
             Particles_HandleCollisions(p_Particles[c],
                                        Integrator_deltaTime * config.Particles.staggerFactor,
@@ -5625,9 +5630,21 @@ local function mkInstance() local INSTANCE = {}
         end
       end
 
-      Integrator_simTime = (Integrator_time_old+((0.5*(1+(Integrator_stage/3)))*Integrator_deltaTime))
+      @ESCAPE for ORDER = RK_MIN_ORDER,RK_MAX_ORDER do @EMIT
+        if config.Integrator.rkOrder == ORDER then
+          @ESCAPE for STAGE = 1,ORDER do @EMIT
+            if Integrator_stage == STAGE then
+              @ESCAPE if STAGE == ORDER then @EMIT
+                Integrator_simTime = Integrator_time_old + Integrator_deltaTime
+              @TIME else @EMIT
+                Integrator_simTime = Integrator_time_old + [RK_B[ORDER][STAGE]] * Integrator_deltaTime
+              @TIME end @EPACSE
+            end
+          @TIME end @EPACSE
+        end
+      @TIME end @EPACSE
 
-    end -- RK4 sub-time-stepping
+    end -- RK sub-time-stepping
 
     -- update time derivatives at boundary for NSCBC
     if config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow and config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow then
