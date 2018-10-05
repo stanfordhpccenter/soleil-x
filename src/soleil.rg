@@ -2329,20 +2329,12 @@ do
   tmp = (0.5*Fluid[c_r].velocity[0])
   rhoFactorSkew += (Fluid[c_l].rho*tmp)
   var tmp__6137 = vs_mul(Fluid[c_l].rhoVelocity, tmp)
-  var v = rhoVelocityFactorSkew
-  v[0] += tmp__6137[0]
-  v[1] += tmp__6137[1]
-  v[2] += tmp__6137[2]
-  rhoVelocityFactorSkew = v
+  rhoVelocityFactorSkew = vv_add(rhoVelocityFactorSkew, tmp__6137)
   rhoEnergyFactorSkew += (Fluid[c_l].rhoEnthalpy*tmp)
   tmp = (0.5*Fluid[c_l].velocity[0])
   rhoFactorSkew += (Fluid[c_r].rho*tmp)
   var tmp__6139 = vs_mul(Fluid[c_r].rhoVelocity, tmp)
-  var v__6140 = rhoVelocityFactorSkew
-  v__6140[0] += tmp__6139[0]
-  v__6140[1] += tmp__6139[1]
-  v__6140[2] += tmp__6139[2]
-  rhoVelocityFactorSkew = v__6140
+  rhoVelocityFactorSkew = vv_add(rhoVelocityFactorSkew, tmp__6139)
   rhoEnergyFactorSkew += (Fluid[c_r].rhoEnthalpy*tmp)
   var s = 0.5
   var rhoFlux_temp = ((s*rhoFactorDiagonal)+((1.0-s)*rhoFactorSkew))
@@ -2374,20 +2366,12 @@ do
   tmp = (0.5*Fluid[c_r].velocity[1])
   rhoFactorSkew += (Fluid[c_l].rho*tmp)
   var tmp__6344 = vs_mul(Fluid[c_l].rhoVelocity, tmp)
-  var v = rhoVelocityFactorSkew
-  v[0] += tmp__6344[0]
-  v[1] += tmp__6344[1]
-  v[2] += tmp__6344[2]
-  rhoVelocityFactorSkew = v
+  rhoVelocityFactorSkew = vv_add(rhoVelocityFactorSkew, tmp__6344)
   rhoEnergyFactorSkew += (Fluid[c_l].rhoEnthalpy*tmp)
   tmp = (0.5*Fluid[c_l].velocity[1])
   rhoFactorSkew += (Fluid[c_r].rho*tmp)
   var tmp__6346 = vs_mul(Fluid[c_r].rhoVelocity, tmp)
-  var v__6347 = rhoVelocityFactorSkew
-  v__6347[0] += tmp__6346[0]
-  v__6347[1] += tmp__6346[1]
-  v__6347[2] += tmp__6346[2]
-  rhoVelocityFactorSkew = v__6347
+  rhoVelocityFactorSkew = vv_add(rhoVelocityFactorSkew, tmp__6346)
   rhoEnergyFactorSkew += (Fluid[c_r].rhoEnthalpy*tmp)
   var s = 0.5
   var rhoFlux_temp = ((s*rhoFactorDiagonal)+((1.0-s)*rhoFactorSkew))
@@ -2419,20 +2403,12 @@ do
   tmp = (0.5*Fluid[c_r].velocity[2])
   rhoFactorSkew += (Fluid[c_l].rho*tmp)
   var tmp__6551 = vs_mul(Fluid[c_l].rhoVelocity, tmp)
-  var v = rhoVelocityFactorSkew
-  v[0] += tmp__6551[0]
-  v[1] += tmp__6551[1]
-  v[2] += tmp__6551[2]
-  rhoVelocityFactorSkew = v
+  rhoVelocityFactorSkew = vv_add(rhoVelocityFactorSkew, tmp__6551)
   rhoEnergyFactorSkew += (Fluid[c_l].rhoEnthalpy*tmp)
   tmp = (0.5*Fluid[c_l].velocity[2])
   rhoFactorSkew += (Fluid[c_r].rho*tmp)
   var tmp__6553 = vs_mul(Fluid[c_r].rhoVelocity, tmp)
-  var v__6554 = rhoVelocityFactorSkew
-  v__6554[0] += tmp__6553[0]
-  v__6554[1] += tmp__6553[1]
-  v__6554[2] += tmp__6553[2]
-  rhoVelocityFactorSkew = v__6554
+  rhoVelocityFactorSkew = vv_add(rhoVelocityFactorSkew, tmp__6553)
   rhoEnergyFactorSkew += (Fluid[c_r].rhoEnthalpy*tmp)
   var s = 0.5
   var rhoFlux_temp = ((s*rhoFactorDiagonal)+((1.0-s)*rhoFactorSkew))
@@ -2659,30 +2635,18 @@ do
       var stencil3 = ((c+{0, 0, -1})%Fluid.bounds)
 
       Fluid[c].rho_t += ((-(Fluid[c].rhoFluxX-Fluid[stencil1].rhoFluxX))/Grid_xCellWidth)
-      var tmp = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxX, Fluid[stencil1].rhoVelocityFluxX), double((-1))), Grid_xCellWidth)
-      var v = Fluid[c].rhoVelocity_t
-      v[0] += tmp[0]
-      v[1] += tmp[1]
-      v[2] += tmp[2]
-      Fluid[c].rhoVelocity_t = v
+      var tmp1 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxX, Fluid[stencil1].rhoVelocityFluxX), double((-1))), Grid_xCellWidth)
+      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp1)
       Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxX-Fluid[stencil1].rhoEnergyFluxX))/Grid_xCellWidth)
 
       Fluid[c].rho_t += ((-(Fluid[c].rhoFluxY-Fluid[stencil2].rhoFluxY))/Grid_yCellWidth)
-      var tmp__7144 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxY, Fluid[stencil2].rhoVelocityFluxY), double((-1))), Grid_yCellWidth)
-      var v__7145 = Fluid[c].rhoVelocity_t
-      v__7145[0] += tmp__7144[0]
-      v__7145[1] += tmp__7144[1]
-      v__7145[2] += tmp__7144[2]
-      Fluid[c].rhoVelocity_t = v__7145
+      var tmp2 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxY, Fluid[stencil2].rhoVelocityFluxY), double((-1))), Grid_yCellWidth)
+      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp2)
       Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxY-Fluid[stencil2].rhoEnergyFluxY))/Grid_yCellWidth)
 
       Fluid[c].rho_t += ((-(Fluid[c].rhoFluxZ-Fluid[stencil3].rhoFluxZ))/Grid_zCellWidth)
-      var tmp__7146 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxZ, Fluid[stencil3].rhoVelocityFluxZ), double((-1))), Grid_zCellWidth)
-      var v__7147 = Fluid[c].rhoVelocity_t
-      v__7147[0] += tmp__7146[0]
-      v__7147[1] += tmp__7146[1]
-      v__7147[2] += tmp__7146[2]
-      Fluid[c].rhoVelocity_t = v__7147
+      var tmp3 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxZ, Fluid[stencil3].rhoVelocityFluxZ), double((-1))), Grid_zCellWidth)
+      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp3)
       Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxZ-Fluid[stencil3].rhoEnergyFluxZ))/Grid_zCellWidth)
 
     end
@@ -2876,23 +2840,16 @@ do
       end
 
       if NSCBC_outflow_cell then
+
         -- update y and z fluxes for outflow cells
         Fluid[c].rho_t += ((-(Fluid[c].rhoFluxY-Fluid[((c+{0, -1, 0})%Fluid.bounds)].rhoFluxY))/Grid_yCellWidth)
         var tmp__7144 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxY, Fluid[((c+{0, -1, 0})%Fluid.bounds)].rhoVelocityFluxY), double((-1))), Grid_yCellWidth)
-        var v__7145 = Fluid[c].rhoVelocity_t
-        v__7145[0] += tmp__7144[0]
-        v__7145[1] += tmp__7144[1]
-        v__7145[2] += tmp__7144[2]
-        Fluid[c].rhoVelocity_t = v__7145
+        Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp__7144)
         Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxY-Fluid[((c+{0, -1, 0})%Fluid.bounds)].rhoEnergyFluxY))/Grid_yCellWidth)
 
         Fluid[c].rho_t += ((-(Fluid[c].rhoFluxZ-Fluid[((c+{0, 0, -1})%Fluid.bounds)].rhoFluxZ))/Grid_zCellWidth)
         var tmp__7146 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxZ, Fluid[((c+{0, 0, -1})%Fluid.bounds)].rhoVelocityFluxZ), double((-1))), Grid_zCellWidth)
-        var v__7147 = Fluid[c].rhoVelocity_t
-        v__7147[0] += tmp__7146[0]
-        v__7147[1] += tmp__7146[1]
-        v__7147[2] += tmp__7146[2]
-        Fluid[c].rhoVelocity_t = v__7147
+        Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp__7146)
         Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxZ-Fluid[((c+{0, 0, -1})%Fluid.bounds)].rhoEnergyFluxZ))/Grid_zCellWidth)
 
         -- Add in the x fluxes using NSCBC for outflow
@@ -3025,11 +2982,7 @@ do
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
       var tmp = vs_mul(Flow_bodyForce, Fluid[c].rho)
-      var v = Fluid[c].rhoVelocity_t
-      v[0] += tmp[0]
-      v[1] += tmp[1]
-      v[2] += tmp[2]
-      Fluid[c].rhoVelocity_t = v
+      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp)
       Fluid[c].rhoEnergy_t += (Fluid[c].rho*dot(Flow_bodyForce, Fluid[c].velocity))
     end
   end
@@ -3061,11 +3014,7 @@ do
 
     if NSCBC_inflow_cell or NSCBC_outflow_cell then
       var tmp = vs_mul(Flow_bodyForce, Fluid[c].rho)
-      var v = Fluid[c].rhoVelocity_t
-      v[0] += tmp[0]
-      v[1] += tmp[1]
-      v[2] += tmp[2]
-      Fluid[c].rhoVelocity_t = v
+      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp)
       Fluid[c].rhoEnergy_t += (Fluid[c].rho*dot(Flow_bodyForce, Fluid[c].velocity))
     end
   end
@@ -4149,12 +4098,7 @@ do
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
-      var tmp = Particles_bodyForce
-      var v = Particles[p].velocity_t
-      v[0] += tmp[0]
-      v[1] += tmp[1]
-      v[2] += tmp[2]
-      Particles[p].velocity_t = v
+      Particles[p].velocity_t = vv_add(Particles[p].velocity_t, Particles_bodyForce)
     end
   end
 end
@@ -4230,12 +4174,13 @@ do
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
+      -- NOTE: We separate the array-type reduction into 3 separate reductions
+      -- over the 3 indices, to make sure the code generator emits them as
+      -- atomic operations.
       var tmp = vs_div(vs_mul(Particles[p].deltaVelocityOverRelaxationTime, (-(((PI*pow(Particles[p].diameter, 3.0))/6.0)*Particles[p].density))), Grid_cellVolume)
-      var v = Fluid[Particles[p].cell].rhoVelocity_t
-      v[0] += tmp[0]
-      v[1] += tmp[1]
-      v[2] += tmp[2]
-      Fluid[Particles[p].cell].rhoVelocity_t = v
+      Fluid[Particles[p].cell].rhoVelocity_t[0] += tmp[0]
+      Fluid[Particles[p].cell].rhoVelocity_t[1] += tmp[1]
+      Fluid[Particles[p].cell].rhoVelocity_t[2] += tmp[2]
       Fluid[Particles[p].cell].rhoEnergy_t += ((-Particles[p].deltaTemperatureTerm)/Grid_cellVolume)
     end
   end
@@ -4257,13 +4202,8 @@ do
     if (Integrator_stage==1) then
       Fluid[c].rho_new += (((1.0/6.0)*deltaTime)*Fluid[c].rho_t)
       Fluid[c].rho = (Fluid[c].rho_old+((0.5*deltaTime)*Fluid[c].rho_t))
-
       var tmp = vs_mul(Fluid[c].rhoVelocity_t, ((1.0/6.0)*deltaTime))
-      var v = Fluid[c].rhoVelocity_new
-      v[0] += tmp[0]
-      v[1] += tmp[1]
-      v[2] += tmp[2]
-      Fluid[c].rhoVelocity_new = v
+      Fluid[c].rhoVelocity_new = vv_add(Fluid[c].rhoVelocity_new, tmp)
       Fluid[c].rhoVelocity = vv_add(Fluid[c].rhoVelocity_old, vs_mul(Fluid[c].rhoVelocity_t, (0.5*deltaTime)))
 
       Fluid[c].rhoEnergy_new += (((1.0/6.0)*deltaTime)*Fluid[c].rhoEnergy_t)
@@ -4273,11 +4213,7 @@ do
         Fluid[c].rho_new += (((1.0/3.0)*deltaTime)*Fluid[c].rho_t)
         Fluid[c].rho = (Fluid[c].rho_old+((0.5*deltaTime)*Fluid[c].rho_t))
         var tmp = vs_mul(Fluid[c].rhoVelocity_t, ((1.0/3.0)*deltaTime))
-        var v = Fluid[c].rhoVelocity_new
-        v[0] += tmp[0]
-        v[1] += tmp[1]
-        v[2] += tmp[2]
-        Fluid[c].rhoVelocity_new = v
+        Fluid[c].rhoVelocity_new = vv_add(Fluid[c].rhoVelocity_new, tmp)
         Fluid[c].rhoVelocity = vv_add(Fluid[c].rhoVelocity_old, vs_mul(Fluid[c].rhoVelocity_t, (0.5*deltaTime)))
         Fluid[c].rhoEnergy_new += (((1.0/3.0)*deltaTime)*Fluid[c].rhoEnergy_t)
         Fluid[c].rhoEnergy = (Fluid[c].rhoEnergy_old+((0.5*deltaTime)*Fluid[c].rhoEnergy_t))
@@ -4286,11 +4222,7 @@ do
           Fluid[c].rho_new += (((1.0/3.0)*deltaTime)*Fluid[c].rho_t)
           Fluid[c].rho = (Fluid[c].rho_old+((1.0*deltaTime)*Fluid[c].rho_t))
           var tmp = vs_mul(Fluid[c].rhoVelocity_t, ((1.0/3.0)*deltaTime))
-          var v = Fluid[c].rhoVelocity_new
-          v[0] += tmp[0]
-          v[1] += tmp[1]
-          v[2] += tmp[2]
-          Fluid[c].rhoVelocity_new = v
+          Fluid[c].rhoVelocity_new = vv_add(Fluid[c].rhoVelocity_new, tmp)
           Fluid[c].rhoVelocity = vv_add(Fluid[c].rhoVelocity_old, vs_mul(Fluid[c].rhoVelocity_t, (1.0*deltaTime)))
           Fluid[c].rhoEnergy_new += (((1.0/3.0)*deltaTime)*Fluid[c].rhoEnergy_t)
           Fluid[c].rhoEnergy = (Fluid[c].rhoEnergy_old+((1.0*deltaTime)*Fluid[c].rhoEnergy_t))
