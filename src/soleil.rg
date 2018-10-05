@@ -4701,8 +4701,10 @@ local function mkInstance() local INSTANCE = {}
     Console_WriteHeader(config)
 
     -- Write probe file headers
-    for i = 0,config.IO.probes.length do
-      Probe_WriteHeader(config, i)
+    var probeId = 0
+    while probeId < config.IO.probes.length do
+      Probe_WriteHeader(config, probeId)
+      probeId += 1
     end
 
     ---------------------------------------------------------------------------
