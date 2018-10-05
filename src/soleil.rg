@@ -89,7 +89,7 @@ for _,e in ipairs(Particles_columns.entries) do
   local fld,_ = UTIL.parseStructEntry(e)
   assert(Particles_primitives:find(fld) or
          Particles_derived:find(fld) or
-         Particles_fullStepTemp:find(fld) or
+         Particles_iterTemp:find(fld) or
          Particles_subStepTemp:find(fld))
 end
 
