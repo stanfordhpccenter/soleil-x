@@ -2289,7 +2289,7 @@ do
     var yPosGhost = is_yPosGhost(c, Grid_yBnum, Grid_yNum)
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
-    if xNegGhost and BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow then
+    if xNegGhost and BC_xBCLeft ~= SCHEMA.FlowBC_NSCBC_SubsonicInflow then
       var c_bnd = int3d(c)
       var c_int = ((c+{1, 0, 0})%Fluid.bounds)
       var sign = BC_xNegSign
@@ -2297,7 +2297,7 @@ do
       Fluid[c_bnd].velocityGradientY = vv_mul(sign, Fluid[c_int].velocityGradientY)
       Fluid[c_bnd].velocityGradientZ = vv_mul(sign, Fluid[c_int].velocityGradientZ)
     end
-    if xPosGhost and BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow then
+    if xPosGhost and BC_xBCRight ~= SCHEMA.FlowBC_NSCBC_SubsonicOutflow then
       var c_bnd = int3d(c)
       var c_int = ((c+{-1, 0, 0})%Fluid.bounds)
       var sign = BC_xPosSign
