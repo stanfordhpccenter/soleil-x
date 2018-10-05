@@ -4694,9 +4694,9 @@ local function mkInstance() local INSTANCE = {}
     var [numTiles] = NX * NY * NZ
 
     var [Integrator_exitCond] = true
-    var [Integrator_simTime] = 0.0
+    var [Integrator_simTime] = config.Integrator.startTime
     var [Integrator_timeStep] = config.Integrator.startIter
-    var [Integrator_deltaTime] = config.Integrator.startTime
+    var [Integrator_deltaTime] = config.Integrator.fixedDeltaTime
 
     var [Particles_number] = int64(0)
 
@@ -5187,9 +5187,7 @@ local function mkInstance() local INSTANCE = {}
       Integrator_timeStep >= config.Integrator.maxIter
 
     -- Determine time step size
-    if config.Integrator.cfl < 0.0 then
-      Integrator_deltaTime = config.Integrator.fixedDeltaTime
-    else
+    if config.Integrator.cfl > 0.0 then
       var Integrator_maxConvectiveSpectralRadius = 0.0
       var Integrator_maxViscousSpectralRadius = 0.0
       var Integrator_maxHeatConductionSpectralRadius = 0.0
@@ -5789,7 +5787,7 @@ task workDual(mc : MultiConfig)
     [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end, FakeCopyQueue))];
     -- Copy fluid & particles to second section
     fill(CopyQueue.__valid, false) -- clear the copyqueue from the previous iteration
-    if SIM0.Integrator_timeStep % mc.copyEveryTimeSteps == 0 then
+    if SIM1.Integrator_timeStep % mc.copyEveryTimeSteps == 0 then
       for c in SIM1.tiles do
         var src = p_Fluid0_src[c]
         var tgt = p_Fluid1_tgt[c][0]
