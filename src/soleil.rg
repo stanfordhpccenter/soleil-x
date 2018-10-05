@@ -1703,7 +1703,7 @@ do
       -- forward one sided difference
       Fluid[c].velocityGradientX = vs_div(vv_sub(Fluid[(c+{1, 0, 0})].velocity, Fluid[c].velocity), Grid_xCellWidth)
 
-      -- centeral difference
+      -- central difference
       Fluid[c].velocityGradientY = vs_div(vs_mul(vv_sub(Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocity, Fluid[((c+{0, -1, 0})%Fluid.bounds)].velocity), 0.5), Grid_yCellWidth)
       Fluid[c].velocityGradientZ = vs_div(vs_mul(vv_sub(Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity, Fluid[((c+{0, 0, -1})%Fluid.bounds)].velocity), 0.5), Grid_zCellWidth)
     end
@@ -1712,7 +1712,7 @@ do
       -- backward one sided difference
       Fluid[c].velocityGradientX = vs_div(vv_sub(Fluid[c].velocity, Fluid[(c+{-1, 0, 0})].velocity), Grid_xCellWidth)
 
-      -- centeral difference
+      -- central difference
       Fluid[c].velocityGradientY = vs_div(vs_mul(vv_sub(Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocity, Fluid[((c+{0, -1, 0})%Fluid.bounds)].velocity), 0.5), Grid_yCellWidth)
       Fluid[c].velocityGradientZ = vs_div(vs_mul(vv_sub(Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity, Fluid[((c+{0, 0, -1})%Fluid.bounds)].velocity), 0.5), Grid_zCellWidth)
 
@@ -2485,16 +2485,11 @@ do
     var yPosGhost = is_yPosGhost(c, Grid_yBnum, Grid_yNum)
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
-    var ghost_cell = (xNegGhost or xPosGhost or
-                      yNegGhost or yPosGhost or
-                      zNegGhost or zPosGhost )
-    var interior_cell = not (ghost_cell)
-    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
 
-    if interior_cell or xNegGhost  then
+    if interior or xNegGhost  then
       var stencil = (c+{1, 0, 0}) % Fluid.bounds
-      var flux = CenteredInviscidFlux(int3d(c), (c+{1, 0, 0}) % Fluid.bounds, Fluid)
+      var flux = CenteredInviscidFlux(int3d(c), stencil, Fluid)
       Fluid[c].rhoFluxX = flux[0]
       Fluid[c].rhoVelocityFluxX = array(flux[1], flux[2], flux[3])
       Fluid[c].rhoEnergyFluxX = flux[4]
@@ -2543,9 +2538,9 @@ do
       Fluid[c].rhoVelocityFluxX[2] += (-sigmaZX)
       Fluid[c].rhoEnergyFluxX += (-(usigma-heatFlux))
     end
-    if interior_cell or yNegGhost  then
+    if interior or yNegGhost  then
       var stencil = (c+{0, 1, 0}) % Fluid.bounds
-      var flux = CenteredInviscidFlux_(int3d(c), (c+{0, 1, 0}) % Fluid.bounds, Fluid)
+      var flux = CenteredInviscidFlux_(int3d(c), stencil, Fluid)
       Fluid[c].rhoFluxY = flux[0]
       Fluid[c].rhoVelocityFluxY = array(flux[1], flux[2], flux[3])
       Fluid[c].rhoEnergyFluxY = flux[4]
@@ -2594,9 +2589,9 @@ do
       Fluid[c].rhoVelocityFluxY[2] += (-sigmaZY)
       Fluid[c].rhoEnergyFluxY += (-(usigma-heatFlux))
     end
-    if interior_cell or zNegGhost then
+    if interior or zNegGhost then
       var stencil = (c+{0, 0, 1}) % Fluid.bounds
-      var flux = CenteredInviscidFlux__(int3d(c), (c+{0, 0, 1}) % Fluid.bounds, Fluid)
+      var flux = CenteredInviscidFlux__(int3d(c), stencil, Fluid)
       Fluid[c].rhoFluxZ = flux[0]
       Fluid[c].rhoVelocityFluxZ = array(flux[1], flux[2], flux[3])
       Fluid[c].rhoEnergyFluxZ = flux[4]
@@ -5443,19 +5438,69 @@ local function mkInstance() local INSTANCE = {}
                                              Grid.zBnum, config.Grid.zNum)
         Flow_averagePD /= config.Grid.xNum * config.Grid.yNum * config.Grid.zNum
         Flow_ResetDissipation(Fluid)
-        Flow_ComputeDissipationX(Fluid, config.Flow.constantVisc, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid.xBnum, config.Grid.xNum, Grid.xCellWidth, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-        Flow_UpdateDissipationX(Fluid, Grid.xBnum, config.Grid.xNum, Grid.xCellWidth, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-        Flow_ComputeDissipationY(Fluid, config.Flow.constantVisc, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.yCellWidth, Grid.zBnum, config.Grid.zNum)
-        Flow_UpdateDissipationY(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.yCellWidth, Grid.zBnum, config.Grid.zNum)
-        Flow_ComputeDissipationZ(Fluid, config.Flow.constantVisc, config.Flow.powerlawTempRef, config.Flow.powerlawViscRef, config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef, config.Flow.viscosityModel, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum, Grid.zCellWidth)
-        Flow_UpdateDissipationZ(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum, Grid.zCellWidth)
-        Flow_averageDissipation += CalculateAverageDissipation(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-        Flow_averageDissipation = (Flow_averageDissipation/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
-        Flow_averageK += CalculateAverageK(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-        Flow_averageK = (Flow_averageK/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
-        Flow_averageFe += Flow_AddTurbulentSource(Fluid, Flow_averageDissipation, Flow_averageK, Flow_averagePD, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum, config)
-        Flow_averageFe = (Flow_averageFe/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
-        Flow_AdjustTurbulentSource(Fluid, Flow_averageFe, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+        Flow_ComputeDissipationX(Fluid,
+                                 config.Flow.constantVisc,
+                                 config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                 config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                 config.Flow.viscosityModel,
+                                 Grid.xBnum, config.Grid.xNum, Grid.xCellWidth,
+                                 Grid.yBnum, config.Grid.yNum,
+                                 Grid.zBnum, config.Grid.zNum)
+        Flow_UpdateDissipationX(Fluid,
+                                Grid.xBnum, config.Grid.xNum, Grid.xCellWidth,
+                                Grid.yBnum, config.Grid.yNum,
+                                Grid.zBnum, config.Grid.zNum)
+        Flow_ComputeDissipationY(Fluid,
+                                 config.Flow.constantVisc,
+                                 config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                 config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                 config.Flow.viscosityModel,
+                                 Grid.xBnum, config.Grid.xNum,
+                                 Grid.yBnum, config.Grid.yNum, Grid.yCellWidth,
+                                 Grid.zBnum, config.Grid.zNum)
+        Flow_UpdateDissipationY(Fluid,
+                                Grid.xBnum, config.Grid.xNum,
+                                Grid.yBnum, config.Grid.yNum, Grid.yCellWidth,
+                                Grid.zBnum, config.Grid.zNum)
+        Flow_ComputeDissipationZ(Fluid,
+                                 config.Flow.constantVisc,
+                                 config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                 config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                 config.Flow.viscosityModel,
+                                 Grid.xBnum, config.Grid.xNum,
+                                 Grid.yBnum, config.Grid.yNum,
+                                 Grid.zBnum, config.Grid.zNum, Grid.zCellWidth)
+        Flow_UpdateDissipationZ(Fluid,
+                                Grid.xBnum, config.Grid.xNum,
+                                Grid.yBnum, config.Grid.yNum,
+                                Grid.zBnum, config.Grid.zNum, Grid.zCellWidth)
+        Flow_averageDissipation += CalculateAverageDissipation(Fluid,
+                                                               Grid.cellVolume,
+                                                               Grid.xBnum, config.Grid.xNum,
+                                                               Grid.yBnum, config.Grid.yNum,
+                                                               Grid.zBnum, config.Grid.zNum)
+        Flow_averageDissipation /= config.Grid.xNum*config.Grid.yNum*config.Grid.zNum*Grid.cellVolume
+        Flow_averageK += CalculateAverageK(Fluid,
+                                           Grid.cellVolume,
+                                           Grid.xBnum, config.Grid.xNum,
+                                           Grid.yBnum, config.Grid.yNum,
+                                           Grid.zBnum, config.Grid.zNum)
+        Flow_averageK /= config.Grid.xNum*config.Grid.yNum*config.Grid.zNum*Grid.cellVolume
+        Flow_averageFe += Flow_AddTurbulentSource(Fluid,
+                                                  Flow_averageDissipation,
+                                                  Flow_averageK,
+                                                  Flow_averagePD,
+                                                  Grid.cellVolume,
+                                                  Grid.xBnum, config.Grid.xNum,
+                                                  Grid.yBnum, config.Grid.yNum,
+                                                  Grid.zBnum, config.Grid.zNum,
+                                                  config)
+        Flow_averageFe /= config.Grid.xNum*config.Grid.yNum*config.Grid.zNum*Grid.cellVolume
+        Flow_AdjustTurbulentSource(Fluid,
+                                   Flow_averageFe,
+                                   Grid.xBnum, config.Grid.xNum,
+                                   Grid.yBnum, config.Grid.yNum,
+                                   Grid.zBnum, config.Grid.zNum)
       end
 
       -- Particles & radiation solve
@@ -5515,7 +5560,7 @@ local function mkInstance() local INSTANCE = {}
                              config)
       end
 
-      -- Now the new conserved variables values are used so update everything else
+      -- Use the new conserved values to update primitive values
       Flow_UpdateAuxiliaryVelocity(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
       if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
         Flow_UpdateAuxiliaryVelocityGhostNSCBC(Fluid,
@@ -5536,7 +5581,6 @@ local function mkInstance() local INSTANCE = {}
                                Grid.xBnum, config.Grid.xNum,
                                Grid.yBnum, config.Grid.yNum,
                                Grid.zBnum, config.Grid.zNum)
-
       Flow_UpdateAuxiliaryThermodynamics(Fluid,
                                          config.Flow.gamma, config.Flow.gasConstant,
                                          Grid.xBnum, config.Grid.xNum,
@@ -5562,6 +5606,7 @@ local function mkInstance() local INSTANCE = {}
                                      Grid.yBnum, config.Grid.yNum,
                                      Grid.zBnum, config.Grid.zNum)
 
+      -- Compute the conserved values in the ghost cells
       Flow_UpdateGhostConserved(Fluid,
                                 config,
                                 BC.xNegTemperature, BC.xNegVelocity, BC.xPosTemperature, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
@@ -5630,6 +5675,7 @@ local function mkInstance() local INSTANCE = {}
         end
       end
 
+      -- Advance the time for the next sub-step
       @ESCAPE for ORDER = RK_MIN_ORDER,RK_MAX_ORDER do @EMIT
         if config.Integrator.rkOrder == ORDER then
           @ESCAPE for STAGE = 1,ORDER do @EMIT
@@ -5646,7 +5692,7 @@ local function mkInstance() local INSTANCE = {}
 
     end -- RK sub-time-stepping
 
-    -- update time derivatives at boundary for NSCBC
+    -- Update time derivatives at boundary for NSCBC
     if config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow and config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow then
       Flow_UpdateNSCBCGhostCellTimeDerivatives(Fluid,
                                                config,
