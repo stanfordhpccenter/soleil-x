@@ -66,13 +66,32 @@ local Particles_primitives = terralib.newlist({
   'density',
   '__valid',
 })
-
+local Particles_derived = terralib.newlist({
+  'cell',
+})
+local Particles_iterTemp = terralib.newlist({
+  'position_old',
+  'velocity_old',
+  'temperature_old',
+  'position_new',
+  'velocity_new',
+  'temperature_new',
+})
 local Particles_subStepTemp = terralib.newlist({
   'deltaVelocityOverRelaxationTime',
   'deltaTemperatureTerm',
   'velocity_t',
   'temperature_t',
+  '__xfer_dir',
+  '__xfer_slot',
 })
+for _,e in ipairs(Particles_columns.entries) do
+  local fld,_ = UTIL.parseStructEntry(e)
+  assert(Particles_primitives:find(fld) or
+         Particles_derived:find(fld) or
+         Particles_fullStepTemp:find(fld) or
+         Particles_subStepTemp:find(fld))
+end
 
 local Particles_subStepConserved =
   UTIL.setToList(
