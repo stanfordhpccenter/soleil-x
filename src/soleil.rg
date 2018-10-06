@@ -2439,6 +2439,10 @@ do
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
     var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
 
+    var rho = Fluid[c].rho
+    var pressure = Fluid[c].pressure
+    var rhoVelocity = Fluid[c].rhoVelocity
+    var rhoEnthalpy = Fluid[c].rhoEnthalpy
     var temperature = Fluid[c].temperature
     var velocity = Fluid[c].velocity
     var velocityGradientX = Fluid[c].velocityGradientX
@@ -2452,11 +2456,10 @@ do
 
     if interior or xNegGhost  then
       var stencil = (c+{1, 0, 0}) % Fluid.bounds
-      var flux = CenteredInviscidFluxX(c, (c+{1, 0, 0}) % Fluid.bounds, Fluid)
-      var rhoFluxX = flux[0]
-      var rhoVelocityFluxX = array(flux[1], flux[2], flux[3])
-      var rhoEnergyFluxX = flux[4]
-
+      var rho_stencil = Fluid[stencil].rho
+      var pressure_stencil = Fluid[stencil].pressure
+      var rhoVelocity_stencil = Fluid[stencil].rhoVelocity
+      var rhoEnthalpy_stencil = Fluid[stencil].rhoEnthalpy
       var temperature_stencil = Fluid[stencil].temperature
       var velocity_stencil = Fluid[stencil].velocity
       var velocityGradientY_stencil = Fluid[stencil].velocityGradientY
@@ -2488,17 +2491,24 @@ do
       var cp = Flow_gamma * Flow_gasConstant / (Flow_gamma-1.0)
       var heatFlux = (-(cp*muFace/Flow_prandtl))*temperature_XFace
 
+      var rhoFluxX =
+        0.25 * (rho + rho_stencil) * (velocity[0] + velocity_stencil[0])
       Fluid[c].rhoFluxX = rhoFluxX
+      var rhoVelocityFluxX =
+        vs_mul(vv_add(rhoVelocity, rhoVelocity_stencil),
+               0.25 * (velocity[0] + velocity_stencil[0]))
+      rhoVelocityFluxX[0] += 0.5 * (pressure + pressure_stencil)
       Fluid[c].rhoVelocityFluxX = vv_sub(rhoVelocityFluxX, array(sigmaXX,sigmaYX,sigmaZX))
+      var rhoEnergyFluxX =
+        0.25 * (rhoEnthalpy + rhoEnthalpy_stencil) * (velocity[0] + velocity_stencil[0])
       Fluid[c].rhoEnergyFluxX = rhoEnergyFluxX - (usigma-heatFlux)
     end
     if interior or yNegGhost  then
       var stencil = (c+{0, 1, 0}) % Fluid.bounds
-      var flux = CenteredInviscidFluxY(c, (c+{0, 1, 0}) % Fluid.bounds, Fluid)
-      var rhoFluxY = flux[0]
-      var rhoVelocityFluxY = array(flux[1], flux[2], flux[3])
-      var rhoEnergyFluxY = flux[4]
-
+      var rho_stencil = Fluid[stencil].rho
+      var pressure_stencil = Fluid[stencil].pressure
+      var rhoVelocity_stencil = Fluid[stencil].rhoVelocity
+      var rhoEnthalpy_stencil = Fluid[stencil].rhoEnthalpy
       var temperature_stencil = Fluid[stencil].temperature
       var velocity_stencil = Fluid[stencil].velocity
       var velocityGradientX_stencil = Fluid[stencil].velocityGradientX
@@ -2530,17 +2540,24 @@ do
       var cp = Flow_gamma * Flow_gasConstant / (Flow_gamma-1.0)
       var heatFlux = (-(cp*muFace/Flow_prandtl))*temperature_YFace
 
+      var rhoFluxY =
+        0.25 * (rho + rho_stencil) * (velocity[1] + velocity_stencil[1])
       Fluid[c].rhoFluxY = rhoFluxY
+      var rhoVelocityFluxY =
+        vs_mul(vv_add(rhoVelocity, rhoVelocity_stencil),
+               0.25 * (velocity[1] + velocity_stencil[1]))
+      rhoVelocityFluxY[1] += 0.5 * (pressure + pressure_stencil)
       Fluid[c].rhoVelocityFluxY = vv_sub(rhoVelocityFluxY, array(sigmaXY,sigmaYY,sigmaZY))
+      var rhoEnergyFluxY =
+        0.25 * (rhoEnthalpy + rhoEnthalpy_stencil) * (velocity[1] + velocity_stencil[1])
       Fluid[c].rhoEnergyFluxY = rhoEnergyFluxY - (usigma-heatFlux)
     end
     if interior or zNegGhost then
       var stencil = (c+{0, 0, 1}) % Fluid.bounds
-      var flux = CenteredInviscidFluxZ(c, (c+{0, 0, 1}) % Fluid.bounds, Fluid)
-      var rhoFluxZ = flux[0]
-      var rhoVelocityFluxZ = array(flux[1], flux[2], flux[3])
-      var rhoEnergyFluxZ = flux[4]
-
+      var rho_stencil = Fluid[stencil].rho
+      var pressure_stencil = Fluid[stencil].pressure
+      var rhoVelocity_stencil = Fluid[stencil].rhoVelocity
+      var rhoEnthalpy_stencil = Fluid[stencil].rhoEnthalpy
       var temperature_stencil = Fluid[stencil].temperature
       var velocity_stencil = Fluid[stencil].velocity
       var velocityGradientX_stencil = Fluid[stencil].velocityGradientX
@@ -2572,8 +2589,16 @@ do
       var cp = Flow_gamma * Flow_gasConstant / (Flow_gamma-1.0)
       var heatFlux = (-(cp*muFace/Flow_prandtl))*temperature_ZFace
 
+      var rhoFluxZ =
+        0.25 * (rho + rho_stencil) * (velocity[2] + velocity_stencil[2])
       Fluid[c].rhoFluxZ = rhoFluxZ
+      var rhoVelocityFluxZ =
+        vs_mul(vv_add(rhoVelocity, rhoVelocity_stencil),
+               0.25 * (velocity[2] + velocity_stencil[2]))
+      rhoVelocityFluxZ[2] += 0.5 * (pressure + pressure_stencil)
       Fluid[c].rhoVelocityFluxZ = vv_sub(rhoVelocityFluxZ, array(sigmaXZ,sigmaYZ,sigmaZZ))
+      var rhoEnergyFluxZ =
+        0.25 * (rhoEnthalpy + rhoEnthalpy_stencil) * (velocity[2] + velocity_stencil[2])
       Fluid[c].rhoEnergyFluxZ = rhoEnergyFluxZ - (usigma-heatFlux)
     end
   end
