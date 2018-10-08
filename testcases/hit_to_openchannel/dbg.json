@@ -68,7 +68,7 @@
             "maxIter" : 10,
             "cfl" : -1.0,
             "fixedDeltaTime" : 4.5e-7,
-            "rkOrder" : 4
+            "rkOrder" : 2
         },
 
         "Flow" : {
