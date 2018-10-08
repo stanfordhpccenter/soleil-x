@@ -208,6 +208,8 @@ public:
              EQUALS(task.get_task_name(), "cache_grid_translation") ||
              EQUALS(task.get_task_name(), "initialize_angles") ||
              EQUALS(task.get_task_name(), "__dummy") ||
+             strcmp(task.get_task_name(), "Render") == 0 ||
+             strcmp(task.get_task_name(), "Reduce") == 0 ||
              STARTS_WITH(task.get_task_name(), "__binary_")) {
       return DefaultMapper::default_policy_select_initial_processor(ctx, task);
     }
@@ -273,6 +275,7 @@ public:
                           const Task& task,
                           const SliceTaskInput& input,
                           SliceTaskOutput& output) {
+
     output.verify_correctness = false;
     unsigned sample_id = find_sample_id(ctx, task);
     const SampleMapping& mapping = sample_mappings_[sample_id];
@@ -540,6 +543,39 @@ static void create_mappers(Machine machine,
   }
 }
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void cxx_preinitialize1(int numDomainNodes);
+void cxx_preinitialize2();
+
+#ifdef __cplusplus
+}
+#endif
+
+static void preinitializeImageCompositor(Machine machine,
+                                         HighLevelRuntime* runtime,
+                                         const std::set<Processor>& local_procs)
+{
+  InputArgs args = runtime->get_input_args();
+  int numDomainNodes = 0;
+  for(int i = 0; i < args.argc; ++i) {
+    if(!strcmp(args.argv[i], "-i") && i < args.argc - 1) {
+      Config config;
+      parse_Config(&config, args.argv[i + 1]);
+      numDomainNodes = config.Mapping.tiles[0] * config.Mapping.tiles[1] * config.Mapping.tiles[2];
+    } else if(!strcmp(args.argv[i], "-m") && i < args.argc - 1) {
+      MultiConfig mc[1];
+      parse_MultiConfig(mc, args.argv[i + 1]);
+      numDomainNodes = mc[0].configs[0].Mapping.tiles[0] * mc[0].configs[0].Mapping.tiles[1] * mc[0].configs[0].Mapping.tiles[2];
+    }
+  }
+  cxx_preinitialize1(numDomainNodes);
+}
+
 void register_mappers() {
   Runtime::add_registration_callback(create_mappers);
+  Runtime::add_registration_callback(preinitializeImageCompositor);
+  cxx_preinitialize2();
 }

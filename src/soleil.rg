@@ -29,6 +29,9 @@ local USE_HDF = assert(os.getenv('USE_HDF')) ~= '0'
 
 local MAX_ANGLES_PER_QUAD = 44
 
+local IMAGE_PARTICLE_HISTORY_LENGTH = 5
+local IMAGE_RENDER_INTERVAL = 1 -- how many frames between renders
+
 -------------------------------------------------------------------------------
 -- DATA STRUCTURES
 -------------------------------------------------------------------------------
@@ -53,6 +56,7 @@ local struct Particles_columns {
   temperature_new : double;
   velocity_t : double[3];
   temperature_t : double;
+  __renderThis : bool;
   __valid : bool;
   __xfer_dir : int8;
   __xfer_slot : int;
@@ -64,6 +68,7 @@ local Particles_primitives = terralib.newlist({
   'temperature',
   'diameter',
   'density',
+  '__renderThis',
   '__valid',
 })
 local Particles_derived = terralib.newlist({
@@ -560,6 +565,48 @@ end
 task createDir(dirname : regentlib.string)
   UTIL.createDir(dirname)
 end
+
+
+-------------------------------------------------------------------------------
+-- Render
+-------------------------------------------------------------------------------
+
+local root_dir = arg[0]:match(".*/") or "./"
+assert(os.getenv('LG_RT_DIR'), "LG_RT_DIR should be set!")
+local runtime_dir = os.getenv('LG_RT_DIR') .. "/"
+local legion_dir = runtime_dir .. "legion/"
+local mapper_dir = runtime_dir .. "mappers/"
+local realm_dir = runtime_dir .. "realm/"
+local glew_dir = nil --  = os.getenv("EBROOTVTK") .. "/include/vtk-8.0/"
+
+render = terralib.includec("render.h",
+{"-I", root_dir,
+ "-I", runtime_dir,
+ "-I", mapper_dir,
+ "-I", legion_dir,
+ "-I", realm_dir,
+ -- "-I", glew_dir
+})
+
+
+task Render(Fluid : region(ispace(int3d), Fluid_columns),
+            Particles : region(ispace(int1d), Particles_columns),
+            tiles : ispace(int3d),
+            p_Fluid : partition(disjoint, Fluid, tiles),
+            p_Particles : partition(disjoint, Particles, tiles))
+where
+  reads(Fluid.{temperature, pressure, velocity}, Particles.{position, __renderThis})
+do
+  render.cxx_render(__runtime(),
+                    __context(),
+                    __physical(Fluid),
+                    __physical(Particles),
+                    __raw(tiles),
+                    __raw(p_Fluid),
+                    __raw(p_Particles))
+end -- Render
+
+
 
 -------------------------------------------------------------------------------
 -- OTHER ROUTINES
@@ -5688,6 +5735,17 @@ local function mkInstance() local INSTANCE = {}
 
   end end -- Cleanup
 
+  -----------------------------------------------------------------------------
+  -- Visualization
+  -----------------------------------------------------------------------------
+
+  function INSTANCE.Visualize(config) return rquote
+    Render(Fluid, Particles, tiles, p_Fluid, p_Particles)
+    render.cxx_reduce(__runtime(),
+                      __context())
+  end end -- Visualize
+
+
 return INSTANCE end -- mkInstance
 
 -------------------------------------------------------------------------------
@@ -5711,6 +5769,7 @@ local SIM = mkInstance()
 __forbid(__optimize) __demand(__inner, __replicable)
 task workSingle(config : Config)
   [SIM.DeclSymbols(config)];
+  var frame_number = 0
   var is_FakeCopyQueue = ispace(int1d, 0)
   var [FakeCopyQueue] = region(is_FakeCopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
@@ -5723,6 +5782,11 @@ task workSingle(config : Config)
         break
       end
       [SIM.MainLoopBody(config, FakeCopyQueue)];
+      -- Visualize
+      if frame_number % IMAGE_RENDER_INTERVAL == 0 then
+        [SIM.Visualize(config)];
+      end
+      frame_number = frame_number + 1
     end
   end)];
   [SIM.Cleanup(config)];
@@ -5736,6 +5800,7 @@ task workDual(mc : MultiConfig)
   -- Declare symbols
   [SIM0.DeclSymbols(rexpr mc.configs[0] end)];
   [SIM1.DeclSymbols(rexpr mc.configs[1] end)];
+  var frame_number = 0
   var is_FakeCopyQueue = ispace(int1d, 0)
   var [FakeCopyQueue] = region(is_FakeCopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
@@ -5860,6 +5925,12 @@ task workDual(mc : MultiConfig)
     end
     -- Run one iteration of second section
     [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, CopyQueue))];
+    -- Visualize
+    if frame_number % IMAGE_RENDER_INTERVAL == 0 then
+      [SIM.Visualize(mc.configs[0])];
+      [SIM.Visualize(mc.configs[1])];
+    end
+    frame_number = frame_number + 1
   end
   -- Cleanups
   [SIM0.Cleanup(rexpr mc.configs[0] end)];
