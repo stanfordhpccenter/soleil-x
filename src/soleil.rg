@@ -627,8 +627,8 @@ do
 end
 
 __demand(__parallel, __cuda)
-task AddRadiation(Particles : region(ispace(int1d), Particles_columns),
-                  config : Config)
+task Particles_AbsorbRadiationAlgebraic(Particles : region(ispace(int1d), Particles_columns),
+                                        config : Config)
 where
   reads(Particles.{density, diameter, __valid}),
   reads writes(Particles.temperature_t)
@@ -2407,18 +2407,18 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_AddGetFlux(Fluid : region(ispace(int3d), Fluid_columns),
-                     config : Config,
-                     Flow_constantVisc : double,
-                     Flow_gamma : double,
-                     Flow_gasConstant : double,
-                     Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                     Flow_prandtl : double,
-                     Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                     Flow_viscosityModel : SCHEMA.ViscosityModel,
-                     Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
-                     Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
-                     Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
+task Flow_GetFlux(Fluid : region(ispace(int3d), Fluid_columns),
+                  config : Config,
+                  Flow_constantVisc : double,
+                  Flow_gamma : double,
+                  Flow_gasConstant : double,
+                  Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                  Flow_prandtl : double,
+                  Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                  Flow_viscosityModel : SCHEMA.ViscosityModel,
+                  Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
+                  Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
+                  Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
   reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnthalpy, temperature}),
   reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ}),
@@ -2605,10 +2605,10 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_AddUpdateUsingFlux(Fluid : region(ispace(int3d), Fluid_columns),
-                             Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
-                             Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
-                             Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
+task Flow_UpdateUsingFlux(Fluid : region(ispace(int3d), Fluid_columns),
+                          Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
+                          Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
+                          Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
   reads(Fluid.{rhoFluxX, rhoFluxY, rhoFluxZ}),
   reads(Fluid.{rhoVelocityFluxX, rhoVelocityFluxY, rhoVelocityFluxZ}),
@@ -2643,18 +2643,18 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_AddGetFluxGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
-                               config : Config,
-                               Flow_constantVisc : double,
-                               Flow_gamma : double,
-                               Flow_gasConstant : double,
-                               Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                               Flow_prandtl : double,
-                               Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                               Flow_viscosityModel : SCHEMA.ViscosityModel,
-                               Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
-                               Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
-                               Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
+task Flow_GetFluxGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
+                            config : Config,
+                            Flow_constantVisc : double,
+                            Flow_gamma : double,
+                            Flow_gasConstant : double,
+                            Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                            Flow_prandtl : double,
+                            Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                            Flow_viscosityModel : SCHEMA.ViscosityModel,
+                            Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
+                            Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
+                            Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
   reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnthalpy, temperature}),
   reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ}),
@@ -2763,20 +2763,20 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_AddUpdateUsingFluxGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
-                                       config : Config,
-                                       Flow_gamma : double, Flow_gasConstant : double,
-                                       Flow_prandtl : double,
-                                       maxMach : double,
-                                       Flow_lengthScale : double,
-                                       Flow_constantVisc : double,
-                                       Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                                       Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                                       Flow_viscosityModel : SCHEMA.ViscosityModel,
-                                       BC_xPosP_inf : double,
-                                       Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
-                                       Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
-                                       Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
+task Flow_UpdateUsingFluxGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
+                                    config : Config,
+                                    Flow_gamma : double, Flow_gasConstant : double,
+                                    Flow_prandtl : double,
+                                    maxMach : double,
+                                    Flow_lengthScale : double,
+                                    Flow_constantVisc : double,
+                                    Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                                    Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                                    Flow_viscosityModel : SCHEMA.ViscosityModel,
+                                    BC_xPosP_inf : double,
+                                    Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
+                                    Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
+                                    Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
   reads(Fluid.{rho, velocity, pressure, temperature, rhoVelocity, velocityGradientX, velocityGradientY, velocityGradientZ, rhoEnergy, dudtBoundary, dTdtBoundary}),
   reads(Fluid.{rhoFluxY, rhoFluxZ}),
@@ -4132,11 +4132,11 @@ do
 end
 
 __demand(__cuda) -- MANUALLY PARALLELIZED
-task Particles_AbsorbRadiation(Particles : region(ispace(int1d), Particles_columns),
-                               Fluid : region(ispace(int3d), Fluid_columns),
-                               Radiation : region(ispace(int3d), Radiation_columns),
-                               Particles_heatCapacity : double,
-                               Radiation_qa : double)
+task Particles_AbsorbRadiationDOM(Particles : region(ispace(int1d), Particles_columns),
+                                  Fluid : region(ispace(int3d), Fluid_columns),
+                                  Radiation : region(ispace(int3d), Radiation_columns),
+                                  Particles_heatCapacity : double,
+                                  Radiation_qa : double)
 where
   reads(Fluid.to_Radiation),
   reads(Radiation.G),
@@ -5296,6 +5296,7 @@ local function mkInstance() local INSTANCE = {}
     var Integrator_time_old = Integrator_simTime
     for Integrator_stage = 1,config.Integrator.rkOrder+1 do
 
+      -- Compute velocity gradients
       Flow_ComputeVelocityGradientAll(Fluid,
                                       Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
                                       Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
@@ -5315,38 +5316,38 @@ local function mkInstance() local INSTANCE = {}
                                        Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
                                        Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
 
+      -- Initialize conserved derivatives to 0
       Flow_InitializeTimeDerivatives(Fluid)
 
-      Flow_AddGetFlux(Fluid,
-                      config,
-                      config.Flow.constantVisc,
-                      config.Flow.gamma, config.Flow.gasConstant,
-                      config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                      config.Flow.prandtl,
-                      config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                      config.Flow.viscosityModel,
-                      Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                      Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                      Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-      Flow_AddUpdateUsingFlux(Fluid,
-                              Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                              Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                              Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-
+      -- Compute fluxes, use them to update conserved derivatives
+      Flow_GetFlux(Fluid,
+                   config,
+                   config.Flow.constantVisc,
+                   config.Flow.gamma, config.Flow.gasConstant,
+                   config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                   config.Flow.prandtl,
+                   config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                   config.Flow.viscosityModel,
+                   Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                   Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                   Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      Flow_UpdateUsingFlux(Fluid,
+                           Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                           Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                           Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
       if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-        Flow_AddGetFluxGhostNSCBC(Fluid,
-                                  config,
-                                  config.Flow.constantVisc,
-                                  config.Flow.gamma,
-                                  config.Flow.gasConstant,
-                                  config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                  config.Flow.prandtl,
-                                  config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                  config.Flow.viscosityModel,
-                                  Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                  Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                  Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-
+        Flow_GetFluxGhostNSCBC(Fluid,
+                               config,
+                               config.Flow.constantVisc,
+                               config.Flow.gamma,
+                               config.Flow.gasConstant,
+                               config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                               config.Flow.prandtl,
+                               config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                               config.Flow.viscosityModel,
+                               Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                               Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                               Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
         var maxMach = -math.huge
         maxMach max= CalculateMaxMachNumber(Fluid,
                                             config,
@@ -5354,25 +5355,24 @@ local function mkInstance() local INSTANCE = {}
                                             Grid.xBnum, config.Grid.xNum,
                                             Grid.yBnum, config.Grid.yNum,
                                             Grid.zBnum, config.Grid.zNum)
-
         var Flow_lengthScale = config.Grid.xWidth
-
-        Flow_AddUpdateUsingFluxGhostNSCBC(Fluid,
-                                          config,
-                                          config.Flow.gamma, config.Flow.gasConstant,
-                                          config.Flow.prandtl,
-                                          maxMach,
-                                          Flow_lengthScale,
-                                          config.Flow.constantVisc,
-                                          config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                          config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                          config.Flow.viscosityModel,
-                                          config.BC.xBCRightP_inf,
-                                          Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                          Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                          Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+        Flow_UpdateUsingFluxGhostNSCBC(Fluid,
+                                       config,
+                                       config.Flow.gamma, config.Flow.gasConstant,
+                                       config.Flow.prandtl,
+                                       maxMach,
+                                       Flow_lengthScale,
+                                       config.Flow.constantVisc,
+                                       config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                       config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                       config.Flow.viscosityModel,
+                                       config.BC.xBCRightP_inf,
+                                       Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                                       Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                                       Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
       end
 
+      -- Add body forces
       Flow_AddBodyForces(Fluid,
                          config.Flow.bodyForce,
                          Grid.xBnum, config.Grid.xNum,
@@ -5483,7 +5483,7 @@ local function mkInstance() local INSTANCE = {}
         if config.Radiation.type == SCHEMA.RadiationModel_OFF then
           -- Do nothing
         elseif config.Radiation.type == SCHEMA.RadiationModel_Algebraic then
-          AddRadiation(Particles, config)
+          Particles_AbsorbRadiationAlgebraic(Particles, config)
         elseif config.Radiation.type == SCHEMA.RadiationModel_DOM then
           fill(Radiation.acc_d2, 0.0)
           fill(Radiation.acc_d2t4, 0.0)
@@ -5500,11 +5500,11 @@ local function mkInstance() local INSTANCE = {}
                                       config.Radiation.u.DOM.qs);
           [DOM_INST.ComputeRadiationField(config, tiles, p_Radiation)];
           for c in tiles do
-            Particles_AbsorbRadiation(p_Particles[c],
-                                      p_Fluid[c],
-                                      p_Radiation[c],
-                                      config.Particles.heatCapacity,
-                                      config.Radiation.u.DOM.qa)
+            Particles_AbsorbRadiationDOM(p_Particles[c],
+                                         p_Fluid[c],
+                                         p_Radiation[c],
+                                         config.Particles.heatCapacity,
+                                         config.Radiation.u.DOM.qa)
           end
         else regentlib.assert(false, 'Unhandled case in switch') end
       end
