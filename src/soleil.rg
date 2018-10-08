@@ -2253,7 +2253,6 @@ end
 __demand(__parallel, __cuda)
 task Flow_InitializeTimeDerivatives(Fluid : region(ispace(int3d), Fluid_columns))
 where
-  reads(Fluid.{pressure, rhoEnergy}),
   writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
   __demand(__openmp)
