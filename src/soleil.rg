@@ -118,7 +118,6 @@ local struct Fluid_columns {
   velocityGradientY : double[3];
   velocityGradientZ : double[3];
   temperature : double;
-  rhoEnthalpy : double;
   rhoVelocity : double[3];
   rhoEnergy : double;
   rho_old : double;
@@ -698,7 +697,6 @@ where
   writes(Fluid.rhoEnergy_new),
   writes(Fluid.rhoEnergy_old),
   writes(Fluid.rhoEnergy_t),
-  writes(Fluid.rhoEnthalpy),
   writes(Fluid.rhoFluxX),
   writes(Fluid.rhoFluxY),
   writes(Fluid.rhoFluxZ),
@@ -730,7 +728,6 @@ do
     Fluid[c].velocityGradientY = array(0.0, 0.0, 0.0)
     Fluid[c].velocityGradientZ = array(0.0, 0.0, 0.0)
     Fluid[c].temperature = 0.0
-    Fluid[c].rhoEnthalpy = 0.0
     Fluid[c].rhoVelocity = array(0.0, 0.0, 0.0)
     Fluid[c].rhoEnergy = 0.0
     Fluid[c].rho_old = 0.0
@@ -2257,14 +2254,13 @@ __demand(__parallel, __cuda)
 task Flow_InitializeTimeDerivatives(Fluid : region(ispace(int3d), Fluid_columns))
 where
   reads(Fluid.{pressure, rhoEnergy}),
-  writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t, rhoEnthalpy})
+  writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
   __demand(__openmp)
   for c in Fluid do
     Fluid[c].rho_t = 0.0
     Fluid[c].rhoVelocity_t = array(0.0, 0.0, 0.0)
     Fluid[c].rhoEnergy_t = 0.0
-    Fluid[c].rhoEnthalpy = (Fluid[c].rhoEnergy+Fluid[c].pressure)
   end
 end
 
@@ -2345,7 +2341,7 @@ task CenteredInviscidFluxX(c_l : int3d,
                            c_r : int3d,
                            Fluid : region(ispace(int3d), Fluid_columns))
 where
-  reads(Fluid.{rho, velocity, pressure, rhoVelocity, rhoEnthalpy})
+  reads(Fluid.{rho, velocity, pressure, rhoVelocity, rhoEnergy})
 do
   var rhoFlux_temp =
     0.25
@@ -2357,7 +2353,8 @@ do
   rhoVelocityFlux_temp[0] += 0.5 * (Fluid[c_l].pressure + Fluid[c_r].pressure)
   var rhoEnergyFlux_temp =
     0.25
-    * (Fluid[c_l].rhoEnthalpy + Fluid[c_r].rhoEnthalpy)
+    * (Fluid[c_l].rhoEnergy + Fluid[c_l].pressure +
+       Fluid[c_r].rhoEnergy + Fluid[c_r].pressure)
     * (Fluid[c_l].velocity[0] + Fluid[c_r].velocity[0])
   return array(rhoFlux_temp, rhoVelocityFlux_temp[0], rhoVelocityFlux_temp[1], rhoVelocityFlux_temp[2], rhoEnergyFlux_temp)
 end
@@ -2367,7 +2364,7 @@ task CenteredInviscidFluxY(c_l : int3d,
                            c_r : int3d,
                            Fluid : region(ispace(int3d), Fluid_columns))
 where
-  reads(Fluid.{rho, velocity, pressure, rhoVelocity, rhoEnthalpy})
+  reads(Fluid.{rho, velocity, pressure, rhoVelocity, rhoEnergy})
 do
   var rhoFlux_temp =
     0.25
@@ -2379,7 +2376,8 @@ do
   rhoVelocityFlux_temp[1] += 0.5 * (Fluid[c_l].pressure + Fluid[c_r].pressure)
   var rhoEnergyFlux_temp =
     0.25
-    * (Fluid[c_l].rhoEnthalpy + Fluid[c_r].rhoEnthalpy)
+    * (Fluid[c_l].rhoEnergy + Fluid[c_l].pressure +
+       Fluid[c_r].rhoEnergy + Fluid[c_r].pressure)
     * (Fluid[c_l].velocity[1] + Fluid[c_r].velocity[1])
   return array(rhoFlux_temp, rhoVelocityFlux_temp[0], rhoVelocityFlux_temp[1], rhoVelocityFlux_temp[2], rhoEnergyFlux_temp)
 end
@@ -2389,7 +2387,7 @@ task CenteredInviscidFluxZ(c_l : int3d,
                            c_r : int3d,
                            Fluid : region(ispace(int3d), Fluid_columns))
 where
-  reads(Fluid.{rho, velocity, pressure, rhoVelocity, rhoEnthalpy})
+  reads(Fluid.{rho, velocity, pressure, rhoVelocity, rhoEnergy})
 do
   var rhoFlux_temp =
     0.25
@@ -2401,7 +2399,8 @@ do
   rhoVelocityFlux_temp[2] += 0.5 * (Fluid[c_l].pressure + Fluid[c_r].pressure)
   var rhoEnergyFlux_temp =
     0.25
-    * (Fluid[c_l].rhoEnthalpy + Fluid[c_r].rhoEnthalpy)
+    * (Fluid[c_l].rhoEnergy + Fluid[c_l].pressure +
+       Fluid[c_r].rhoEnergy + Fluid[c_r].pressure)
     * (Fluid[c_l].velocity[2] + Fluid[c_r].velocity[2])
   return array(rhoFlux_temp, rhoVelocityFlux_temp[0], rhoVelocityFlux_temp[1], rhoVelocityFlux_temp[2], rhoEnergyFlux_temp)
 end
@@ -2420,7 +2419,7 @@ task Flow_GetFlux(Fluid : region(ispace(int3d), Fluid_columns),
                   Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
                   Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
-  reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnthalpy, temperature}),
+  reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnergy, temperature}),
   reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ}),
   writes(Fluid.{rhoEnergyFluxX, rhoEnergyFluxY, rhoEnergyFluxZ}),
   writes(Fluid.{rhoFluxX, rhoFluxY, rhoFluxZ}),
@@ -2442,7 +2441,7 @@ do
     var rho = Fluid[c].rho
     var pressure = Fluid[c].pressure
     var rhoVelocity = Fluid[c].rhoVelocity
-    var rhoEnthalpy = Fluid[c].rhoEnthalpy
+    var rhoEnergy = Fluid[c].rhoEnergy
     var temperature = Fluid[c].temperature
     var velocity = Fluid[c].velocity
     var velocityGradientX = Fluid[c].velocityGradientX
@@ -2459,7 +2458,7 @@ do
       var rho_stencil = Fluid[stencil].rho
       var pressure_stencil = Fluid[stencil].pressure
       var rhoVelocity_stencil = Fluid[stencil].rhoVelocity
-      var rhoEnthalpy_stencil = Fluid[stencil].rhoEnthalpy
+      var rhoEnergy_stencil = Fluid[stencil].rhoEnergy
       var temperature_stencil = Fluid[stencil].temperature
       var velocity_stencil = Fluid[stencil].velocity
       var velocityGradientY_stencil = Fluid[stencil].velocityGradientY
@@ -2500,7 +2499,10 @@ do
       rhoVelocityFluxX[0] += 0.5 * (pressure + pressure_stencil)
       Fluid[c].rhoVelocityFluxX = vv_sub(rhoVelocityFluxX, array(sigmaXX,sigmaYX,sigmaZX))
       var rhoEnergyFluxX =
-        0.25 * (rhoEnthalpy + rhoEnthalpy_stencil) * (velocity[0] + velocity_stencil[0])
+        0.25
+        * (rhoEnergy + pressure +
+           rhoEnergy_stencil + pressure_stencil)
+        * (velocity[0] + velocity_stencil[0])
       Fluid[c].rhoEnergyFluxX = rhoEnergyFluxX - (usigma-heatFlux)
     end
     if interior or yNegGhost  then
@@ -2508,7 +2510,7 @@ do
       var rho_stencil = Fluid[stencil].rho
       var pressure_stencil = Fluid[stencil].pressure
       var rhoVelocity_stencil = Fluid[stencil].rhoVelocity
-      var rhoEnthalpy_stencil = Fluid[stencil].rhoEnthalpy
+      var rhoEnergy_stencil = Fluid[stencil].rhoEnergy
       var temperature_stencil = Fluid[stencil].temperature
       var velocity_stencil = Fluid[stencil].velocity
       var velocityGradientX_stencil = Fluid[stencil].velocityGradientX
@@ -2549,7 +2551,10 @@ do
       rhoVelocityFluxY[1] += 0.5 * (pressure + pressure_stencil)
       Fluid[c].rhoVelocityFluxY = vv_sub(rhoVelocityFluxY, array(sigmaXY,sigmaYY,sigmaZY))
       var rhoEnergyFluxY =
-        0.25 * (rhoEnthalpy + rhoEnthalpy_stencil) * (velocity[1] + velocity_stencil[1])
+        0.25
+        * (rhoEnergy + pressure +
+           rhoEnergy_stencil + pressure_stencil)
+        * (velocity[1] + velocity_stencil[1])
       Fluid[c].rhoEnergyFluxY = rhoEnergyFluxY - (usigma-heatFlux)
     end
     if interior or zNegGhost then
@@ -2557,7 +2562,7 @@ do
       var rho_stencil = Fluid[stencil].rho
       var pressure_stencil = Fluid[stencil].pressure
       var rhoVelocity_stencil = Fluid[stencil].rhoVelocity
-      var rhoEnthalpy_stencil = Fluid[stencil].rhoEnthalpy
+      var rhoEnergy_stencil = Fluid[stencil].rhoEnergy
       var temperature_stencil = Fluid[stencil].temperature
       var velocity_stencil = Fluid[stencil].velocity
       var velocityGradientX_stencil = Fluid[stencil].velocityGradientX
@@ -2598,7 +2603,10 @@ do
       rhoVelocityFluxZ[2] += 0.5 * (pressure + pressure_stencil)
       Fluid[c].rhoVelocityFluxZ = vv_sub(rhoVelocityFluxZ, array(sigmaXZ,sigmaYZ,sigmaZZ))
       var rhoEnergyFluxZ =
-        0.25 * (rhoEnthalpy + rhoEnthalpy_stencil) * (velocity[2] + velocity_stencil[2])
+        0.25
+        * (rhoEnergy + pressure +
+           rhoEnergy_stencil + pressure_stencil)
+        * (velocity[2] + velocity_stencil[2])
       Fluid[c].rhoEnergyFluxZ = rhoEnergyFluxZ - (usigma-heatFlux)
     end
   end
@@ -2656,7 +2664,7 @@ task Flow_GetFluxGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
                             Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
                             Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
-  reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnthalpy, temperature}),
+  reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnergy, temperature}),
   reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ}),
   reads writes(Fluid.{rhoEnergyFluxY, rhoEnergyFluxZ}),
   reads writes(Fluid.{rhoFluxY, rhoFluxZ}),
