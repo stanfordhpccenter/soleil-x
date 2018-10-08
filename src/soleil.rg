@@ -2405,24 +2405,22 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_GetFlux(Fluid : region(ispace(int3d), Fluid_columns),
-                  config : Config,
-                  Flow_constantVisc : double,
-                  Flow_gamma : double,
-                  Flow_gasConstant : double,
-                  Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                  Flow_prandtl : double,
-                  Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                  Flow_viscosityModel : SCHEMA.ViscosityModel,
-                  Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
-                  Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
-                  Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
+task Flow_GetFluxX(Fluid : region(ispace(int3d), Fluid_columns),
+                   config : Config,
+                   Flow_constantVisc : double,
+                   Flow_gamma : double,
+                   Flow_gasConstant : double,
+                   Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                   Flow_prandtl : double,
+                   Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                   Flow_viscosityModel : SCHEMA.ViscosityModel,
+                   Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
+                   Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
+                   Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
   reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnergy, temperature}),
-  reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ}),
-  writes(Fluid.{rhoEnergyFluxX, rhoEnergyFluxY, rhoEnergyFluxZ}),
-  writes(Fluid.{rhoFluxX, rhoFluxY, rhoFluxZ}),
-  writes(Fluid.{rhoVelocityFluxX, rhoVelocityFluxY, rhoVelocityFluxZ})
+  reads(Fluid.{velocityGradientY, velocityGradientZ}),
+  writes(Fluid.{rhoEnergyFluxX, rhoFluxX, rhoVelocityFluxX})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
@@ -2443,7 +2441,6 @@ do
     var rhoEnergy = Fluid[c].rhoEnergy
     var temperature = Fluid[c].temperature
     var velocity = Fluid[c].velocity
-    var velocityGradientX = Fluid[c].velocityGradientX
     var velocityGradientY = Fluid[c].velocityGradientY
     var velocityGradientZ = Fluid[c].velocityGradientZ
     var mu = GetDynamicViscosity(temperature,
@@ -2504,6 +2501,54 @@ do
         * (velocity[0] + velocity_stencil[0])
       Fluid[c].rhoEnergyFluxX = rhoEnergyFluxX - (usigma-heatFlux)
     end
+  end
+end
+
+__demand(__parallel, __cuda)
+task Flow_GetFluxY(Fluid : region(ispace(int3d), Fluid_columns),
+                   config : Config,
+                   Flow_constantVisc : double,
+                   Flow_gamma : double,
+                   Flow_gasConstant : double,
+                   Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                   Flow_prandtl : double,
+                   Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                   Flow_viscosityModel : SCHEMA.ViscosityModel,
+                   Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
+                   Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
+                   Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
+where
+  reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnergy, temperature}),
+  reads(Fluid.{velocityGradientX, velocityGradientZ}),
+  writes(Fluid.{rhoEnergyFluxY, rhoFluxY, rhoVelocityFluxY})
+do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
+
+  __demand(__openmp)
+  for c in Fluid do
+    var xNegGhost = is_xNegGhost(c, Grid_xBnum)
+    var xPosGhost = is_xPosGhost(c, Grid_xBnum, Grid_xNum)
+    var yNegGhost = is_yNegGhost(c, Grid_yBnum)
+    var yPosGhost = is_yPosGhost(c, Grid_yBnum, Grid_yNum)
+    var zNegGhost = is_zNegGhost(c, Grid_zBnum)
+    var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
+    var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
+
+    var rho = Fluid[c].rho
+    var pressure = Fluid[c].pressure
+    var rhoVelocity = Fluid[c].rhoVelocity
+    var rhoEnergy = Fluid[c].rhoEnergy
+    var temperature = Fluid[c].temperature
+    var velocity = Fluid[c].velocity
+    var velocityGradientX = Fluid[c].velocityGradientX
+    var velocityGradientZ = Fluid[c].velocityGradientZ
+    var mu = GetDynamicViscosity(temperature,
+                                 Flow_constantVisc,
+                                 Flow_powerlawTempRef, Flow_powerlawViscRef,
+                                 Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
+                                 Flow_viscosityModel)
+
     if interior or yNegGhost  then
       var stencil = (c+{0, 1, 0}) % Fluid.bounds
       var rho_stencil = Fluid[stencil].rho
@@ -2556,6 +2601,54 @@ do
         * (velocity[1] + velocity_stencil[1])
       Fluid[c].rhoEnergyFluxY = rhoEnergyFluxY - (usigma-heatFlux)
     end
+  end
+end
+
+__demand(__parallel, __cuda)
+task Flow_GetFluxZ(Fluid : region(ispace(int3d), Fluid_columns),
+                   config : Config,
+                   Flow_constantVisc : double,
+                   Flow_gamma : double,
+                   Flow_gasConstant : double,
+                   Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                   Flow_prandtl : double,
+                   Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                   Flow_viscosityModel : SCHEMA.ViscosityModel,
+                   Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
+                   Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
+                   Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
+where
+  reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnergy, temperature}),
+  reads(Fluid.{velocityGradientX, velocityGradientY}),
+  writes(Fluid.{rhoEnergyFluxZ, rhoFluxZ, rhoVelocityFluxZ})
+do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
+
+  __demand(__openmp)
+  for c in Fluid do
+    var xNegGhost = is_xNegGhost(c, Grid_xBnum)
+    var xPosGhost = is_xPosGhost(c, Grid_xBnum, Grid_xNum)
+    var yNegGhost = is_yNegGhost(c, Grid_yBnum)
+    var yPosGhost = is_yPosGhost(c, Grid_yBnum, Grid_yNum)
+    var zNegGhost = is_zNegGhost(c, Grid_zBnum)
+    var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
+    var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
+
+    var rho = Fluid[c].rho
+    var pressure = Fluid[c].pressure
+    var rhoVelocity = Fluid[c].rhoVelocity
+    var rhoEnergy = Fluid[c].rhoEnergy
+    var temperature = Fluid[c].temperature
+    var velocity = Fluid[c].velocity
+    var velocityGradientX = Fluid[c].velocityGradientX
+    var velocityGradientY = Fluid[c].velocityGradientY
+    var mu = GetDynamicViscosity(temperature,
+                                 Flow_constantVisc,
+                                 Flow_powerlawTempRef, Flow_powerlawViscRef,
+                                 Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
+                                 Flow_viscosityModel)
+
     if interior or zNegGhost then
       var stencil = (c+{0, 0, 1}) % Fluid.bounds
       var rho_stencil = Fluid[stencil].rho
@@ -5327,17 +5420,39 @@ local function mkInstance() local INSTANCE = {}
       Flow_InitializeTimeDerivatives(Fluid)
 
       -- Compute fluxes, use them to update conserved derivatives
-      Flow_GetFlux(Fluid,
-                   config,
-                   config.Flow.constantVisc,
-                   config.Flow.gamma, config.Flow.gasConstant,
-                   config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                   config.Flow.prandtl,
-                   config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                   config.Flow.viscosityModel,
-                   Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                   Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                   Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      Flow_GetFluxX(Fluid,
+                    config,
+                    config.Flow.constantVisc,
+                    config.Flow.gamma, config.Flow.gasConstant,
+                    config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                    config.Flow.prandtl,
+                    config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                    config.Flow.viscosityModel,
+                    Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                    Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                    Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      Flow_GetFluxY(Fluid,
+                    config,
+                    config.Flow.constantVisc,
+                    config.Flow.gamma, config.Flow.gasConstant,
+                    config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                    config.Flow.prandtl,
+                    config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                    config.Flow.viscosityModel,
+                    Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                    Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                    Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      Flow_GetFluxZ(Fluid,
+                    config,
+                    config.Flow.constantVisc,
+                    config.Flow.gamma, config.Flow.gasConstant,
+                    config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                    config.Flow.prandtl,
+                    config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                    config.Flow.viscosityModel,
+                    Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                    Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                    Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
       Flow_UpdateUsingFlux(Fluid,
                            Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
                            Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
