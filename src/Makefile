@@ -21,9 +21,9 @@ export USE_HDF ?= 1
 export HDF_HEADER ?= hdf5.h
 HDF_LIBNAME ?= hdf5
 
-# C compiler options
-CFLAGS += -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime
-CXXFLAGS += -std=c++11 -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime
+#C compiler options
+CFLAGS += -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/runtime/legion -I$(IMAGE_COMPOSITOR_DIR)/include -I$(LEGION_DIR)/runtime/realm
+CXXFLAGS += -std=c++11 -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/runtime/legion -I$(IMAGE_COMPOSITOR_DIR)/include -I$(LEGION_DIR)/runtime/realm
 
 # Regent options
 export INCLUDE_PATH := .
@@ -53,6 +53,10 @@ ifeq ($(USE_HDF), 1)
 endif
 LINK_FLAGS += -lm
 
+# Image compositor linkage
+LINK_FLAGS += -L$(IMAGE_COMPOSITOR_DIR)/src -lImageCompositor
+export INCLUDE_PATH := $(INCLUDE_PATH);$(IMAGE_COMPOSITOR_DIR)/include;$(LEGION_DIR)/runtime/realm
+
 .PHONY: default all clean
 
 default: soleil.exec
@@ -65,7 +69,7 @@ clean:
 %-desugared.rg: %.rg
 	./desugar.py $< > $@
 
-soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o
+soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o
 	$(CXX) -o $@ $^ $(LINK_FLAGS)
 
 soleil.o: soleil-desugared.rg soleil_mapper.h config_schema.h hdf_helper.rg dom-desugared.rg util.rg
@@ -85,3 +89,7 @@ config_schema.o config_schema.h: process_schema.rg config_schema.lua json.h util
 
 json.o: json.c json.h
 	$(CC) $(CFLAGS) -c -o $@ $<
+
+render.o: render.cpp
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
