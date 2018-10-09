@@ -5251,39 +5251,6 @@ local function mkInstance() local INSTANCE = {}
       -- Initialize conserved derivatives to 0
       Flow_InitializeTimeDerivatives(Fluid)
 
-      -- Use fluxes to update conserved value derivatives
-      Flow_UpdateUsingFlux(Fluid,
-                           config,
-                           Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                           Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                           Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-      if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-        var Flow_maxMach = -math.huge
-        Flow_maxMach max= CalculateMaxMachNumber(Fluid,
-                                                 config,
-                                                 config.Flow.gamma, config.Flow.gasConstant,
-                                                 Grid.xBnum, config.Grid.xNum,
-                                                 Grid.yBnum, config.Grid.yNum,
-                                                 Grid.zBnum, config.Grid.zNum)
-        var Flow_lengthScale = config.Grid.xWidth
-        for c in tiles do
-          Flow_UpdateUsingFluxGhostNSCBC(p_Fluid[c],
-                                         config,
-                                         config.Flow.gamma, config.Flow.gasConstant,
-                                         config.Flow.prandtl,
-                                         Flow_maxMach,
-                                         Flow_lengthScale,
-                                         config.Flow.constantVisc,
-                                         config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                         config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                         config.Flow.viscosityModel,
-                                         config.BC.xBCRightP_inf,
-                                         Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                         Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                         Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-        end
-      end
-
       -- Add body forces
       Flow_AddBodyForces(Fluid,
                          config,
@@ -5415,6 +5382,39 @@ local function mkInstance() local INSTANCE = {}
 
       -- Add particle forces to fluid
       Flow_AddParticlesCoupling(Particles, Fluid, Grid.cellVolume)
+
+      -- Use fluxes to update conserved value derivatives
+      Flow_UpdateUsingFlux(Fluid,
+                           config,
+                           Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                           Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                           Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
+        var Flow_maxMach = -math.huge
+        Flow_maxMach max= CalculateMaxMachNumber(Fluid,
+                                                 config,
+                                                 config.Flow.gamma, config.Flow.gasConstant,
+                                                 Grid.xBnum, config.Grid.xNum,
+                                                 Grid.yBnum, config.Grid.yNum,
+                                                 Grid.zBnum, config.Grid.zNum)
+        var Flow_lengthScale = config.Grid.xWidth
+        for c in tiles do
+          Flow_UpdateUsingFluxGhostNSCBC(p_Fluid[c],
+                                         config,
+                                         config.Flow.gamma, config.Flow.gasConstant,
+                                         config.Flow.prandtl,
+                                         Flow_maxMach,
+                                         Flow_lengthScale,
+                                         config.Flow.constantVisc,
+                                         config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                         config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                         config.Flow.viscosityModel,
+                                         config.BC.xBCRightP_inf,
+                                         Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                                         Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                                         Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+        end
+      end
 
       -- Time step
       Flow_UpdateVars(Fluid, Integrator_deltaTime, Integrator_stage, config)
