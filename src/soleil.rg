@@ -182,12 +182,12 @@ local RK_MIN_ORDER = 2
 local RK_MAX_ORDER = 4
 -- We only support methods with C[i+1] = A[i+1,i] and A[i,j] = 0 for i != j+1
 local RK_B = { -- B[1] B[2] ... B[s]
-  [2] = {    0.0,     1.0},
+  [2] = {1.0/4.0, 3.0/4.0},
   [3] = {1.0/4.0,     0.0, 3.0/4.0},
   [4] = {1.0/6.0, 1.0/3.0, 1.0/3.0, 1.0/6.0},
 }
 local RK_C = { -- C[2] ... C[s]
-  [2] = {1.0/2.0},
+  [2] = {2.0/3.0},
   [3] = {1.0/3.0, 2.0/3.0},
   [4] = {1.0/2.0, 1.0/2.0,     1.0},
 }
@@ -2913,7 +2913,7 @@ do
         var tau_13 =  mu*( Fluid[c_bnd].velocityGradientZ[0] + Fluid[c_bnd].velocityGradientX[2] )
         var energy_term_x = (Fluid[c_bnd].velocity[0]*tau11_pos - Fluid[c_int].velocity[0]*tau11_neg) / (Grid_xCellWidth) + c.velocityGradientX[1]*tau_12 + c.velocityGradientX[2]*tau_13
 
-        -- Update the RHS of conservation equaions with x fluxes
+        -- Update the RHS of conservation equations with x fluxes
         Fluid[c_bnd].rho_t += - d1
         Fluid[c_bnd].rhoVelocity_t[0] += -Fluid[c_bnd].velocity[0]*d1 - Fluid[c_bnd].rho*d3 + dtau11_dx
         Fluid[c_bnd].rhoVelocity_t[1] += -Fluid[c_bnd].velocity[1]*d1 - Fluid[c_bnd].rho*d4 + dtau21_dx
