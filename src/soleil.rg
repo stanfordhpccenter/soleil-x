@@ -2263,7 +2263,9 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+-- NOTE: It is safe to not pass the ghost regions to this task, because we
+-- always group ghost cells with their neighboring interior cells.
+__demand(__cuda) -- MANUALLY PARALLELIZED
 task Flow_UpdateGhostVelocityGradient(Fluid : region(ispace(int3d), Fluid_columns),
                                       config : Config,
                                       BC_xNegSign : double[3], BC_yNegSign : double[3], BC_zNegSign : double[3],
@@ -5275,13 +5277,15 @@ local function mkInstance() local INSTANCE = {}
                                                Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
                                                Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
       end
-      Flow_UpdateGhostVelocityGradient(Fluid,
-                                       config,
-                                       BC.xNegSign, BC.yNegSign, BC.zNegSign,
-                                       BC.xPosSign, BC.yPosSign, BC.zPosSign,
-                                       Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                       Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                       Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      for c in tiles do
+        Flow_UpdateGhostVelocityGradient(p_Fluid[c],
+                                         config,
+                                         BC.xNegSign, BC.yNegSign, BC.zNegSign,
+                                         BC.xPosSign, BC.yPosSign, BC.zPosSign,
+                                         Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                                         Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                                         Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      end
 
       -- Compute fluxes
       Flow_GetFluxX(Fluid,
