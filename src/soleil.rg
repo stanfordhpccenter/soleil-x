@@ -5283,10 +5283,7 @@ local function mkInstance() local INSTANCE = {}
                                        Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
                                        Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
 
-      -- Initialize conserved derivatives to 0
-      Flow_InitializeTimeDerivatives(Fluid)
-
-      -- Compute fluxes, use them to update conserved derivatives
+      -- Compute fluxes
       Flow_GetFluxX(Fluid,
                     config,
                     config.Flow.constantVisc,
@@ -5320,24 +5317,29 @@ local function mkInstance() local INSTANCE = {}
                     Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
                     Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
                     Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+
+      -- Initialize conserved derivatives to 0
+      Flow_InitializeTimeDerivatives(Fluid)
+
+      -- Use fluxes to update conserved value derivatives
       Flow_UpdateUsingFlux(Fluid,
                            Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
                            Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
                            Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
       if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-        var maxMach = -math.huge
-        maxMach max= CalculateMaxMachNumber(Fluid,
-                                            config,
-                                            config.Flow.gamma, config.Flow.gasConstant,
-                                            Grid.xBnum, config.Grid.xNum,
-                                            Grid.yBnum, config.Grid.yNum,
-                                            Grid.zBnum, config.Grid.zNum)
+        var Flow_maxMach = -math.huge
+        Flow_maxMach max= CalculateMaxMachNumber(Fluid,
+                                                 config,
+                                                 config.Flow.gamma, config.Flow.gasConstant,
+                                                 Grid.xBnum, config.Grid.xNum,
+                                                 Grid.yBnum, config.Grid.yNum,
+                                                 Grid.zBnum, config.Grid.zNum)
         var Flow_lengthScale = config.Grid.xWidth
         Flow_UpdateUsingFluxGhostNSCBC(Fluid,
                                        config,
                                        config.Flow.gamma, config.Flow.gasConstant,
                                        config.Flow.prandtl,
-                                       maxMach,
+                                       Flow_maxMach,
                                        Flow_lengthScale,
                                        config.Flow.constantVisc,
                                        config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
