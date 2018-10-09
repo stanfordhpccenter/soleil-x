@@ -589,22 +589,6 @@ render = terralib.includec("render.h",
 })
 
 
-task Render(Fluid : region(ispace(int3d), Fluid_columns),
-            Particles : region(ispace(int1d), Particles_columns),
-            tiles : ispace(int3d),
-            p_Fluid : partition(disjoint, Fluid, tiles),
-            p_Particles : partition(disjoint, Particles, tiles))
-where
-  reads(Fluid.{temperature, pressure, velocity}, Particles.{position, __renderThis})
-do
-  render.cxx_render(__runtime(),
-                    __context(),
-                    __physical(Fluid),
-                    __physical(Particles),
-                    __raw(tiles),
-                    __raw(p_Fluid),
-                    __raw(p_Particles))
-end -- Render
 
 
 
@@ -5740,7 +5724,15 @@ local function mkInstance() local INSTANCE = {}
   -----------------------------------------------------------------------------
 
   function INSTANCE.Visualize(config) return rquote
-    Render(Fluid, Particles, tiles, p_Fluid, p_Particles)
+    -- Render(Fluid, Particles, tiles, p_Fluid, p_Particles)
+
+    render.cxx_render(__runtime(),
+                    __context(),
+                    __physical(Fluid),
+                    __physical(Particles),
+                    __raw(tiles),
+                    __raw(p_Fluid),
+                    __raw(p_Particles))
     render.cxx_reduce(__runtime(),
                       __context())
   end end -- Visualize
@@ -5766,7 +5758,7 @@ end
 
 local SIM = mkInstance()
 
-__forbid(__optimize) __demand(__inner, __replicable)
+__forbid(__optimize) 
 task workSingle(config : Config)
   [SIM.DeclSymbols(config)];
   var frame_number = 0
@@ -5795,7 +5787,7 @@ end
 local SIM0 = mkInstance()
 local SIM1 = mkInstance()
 
-__forbid(__optimize) __demand(__inner, __replicable)
+__forbid(__optimize) 
 task workDual(mc : MultiConfig)
   -- Declare symbols
   [SIM0.DeclSymbols(rexpr mc.configs[0] end)];
@@ -5927,8 +5919,8 @@ task workDual(mc : MultiConfig)
     [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, CopyQueue))];
     -- Visualize
     if frame_number % IMAGE_RENDER_INTERVAL == 0 then
-      [SIM.Visualize(mc.configs[0])];
-      [SIM.Visualize(mc.configs[1])];
+      [SIM0.Visualize(rexpr mc.configs[0] end)];
+      [SIM1.Visualize(rexpr mc.configs[1] end)];
     end
     frame_number = frame_number + 1
   end
