@@ -2945,7 +2945,7 @@ end
 
 __demand(__parallel, __cuda)
 task Flow_AddBodyForces(Fluid : region(ispace(int3d), Fluid_columns),
-                        Flow_bodyForce : double[3],
+                        config : Config,
                         Grid_xBnum : int32, Grid_xNum : int32,
                         Grid_yBnum : int32, Grid_yNum : int32,
                         Grid_zBnum : int32, Grid_zNum : int32)
@@ -2953,29 +2953,9 @@ where
   reads(Fluid.{rho, velocity}),
   reads writes(Fluid.{rhoEnergy_t, rhoVelocity_t})
 do
-  __demand(__openmp)
-  for c in Fluid do
-    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      var tmp = vs_mul(Flow_bodyForce, Fluid[c].rho)
-      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp)
-      Fluid[c].rhoEnergy_t += (Fluid[c].rho*dot(Flow_bodyForce, Fluid[c].velocity))
-    end
-  end
-end
-
-__demand(__parallel, __cuda)
-task Flow_AddBodyForcesGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
-                                  config : Config,
-                                  Flow_bodyForce : double[3],
-                                  Grid_xBnum : int32, Grid_xNum : int32,
-                                  Grid_yBnum : int32, Grid_yNum : int32,
-                                  Grid_zBnum : int32, Grid_zNum : int32)
-where
-  reads(Fluid.{rho, velocity}),
-  reads writes(Fluid.{rhoEnergy_t, rhoVelocity_t})
-do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
+  var Flow_bodyForce = config.Flow.bodyForce
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = is_xNegGhost(c, Grid_xBnum)
@@ -2984,10 +2964,11 @@ do
     var yPosGhost = is_yPosGhost(c, Grid_yBnum, Grid_yNum)
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
+    var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
     var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
-    if NSCBC_inflow_cell or NSCBC_outflow_cell then
+    if interior or NSCBC_inflow_cell or NSCBC_outflow_cell then
       var tmp = vs_mul(Flow_bodyForce, Fluid[c].rho)
       Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp)
       Fluid[c].rhoEnergy_t += (Fluid[c].rho*dot(Flow_bodyForce, Fluid[c].velocity))
@@ -5370,18 +5351,10 @@ local function mkInstance() local INSTANCE = {}
 
       -- Add body forces
       Flow_AddBodyForces(Fluid,
-                         config.Flow.bodyForce,
+                         config,
                          Grid.xBnum, config.Grid.xNum,
                          Grid.yBnum, config.Grid.yNum,
                          Grid.zBnum, config.Grid.zNum)
-      if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-        Flow_AddBodyForcesGhostNSCBC(Fluid,
-                                     config,
-                                     config.Flow.bodyForce,
-                                     Grid.xBnum, config.Grid.xNum,
-                                     Grid.yBnum, config.Grid.yNum,
-                                     Grid.zBnum, config.Grid.zNum)
-      end
 
       -- Add turbulent forcing
       if config.Flow.turbForcing.type == SCHEMA.TurbForcingModel_HIT then
