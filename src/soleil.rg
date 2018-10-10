@@ -1089,32 +1089,14 @@ end
 
 __demand(__parallel, __cuda)
 task Flow_UpdateAuxiliaryVelocity(Fluid : region(ispace(int3d), Fluid_columns),
+                                  config : Config,
+                                  Flow_constantVisc : double,
+                                  Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                                  Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                                  Flow_viscosityModel : SCHEMA.ViscosityModel,
                                   Grid_xBnum : int32, Grid_xNum : int32,
                                   Grid_yBnum : int32, Grid_yNum : int32,
                                   Grid_zBnum : int32, Grid_zNum : int32)
-where
-  reads(Fluid.{rho, rhoVelocity}),
-  writes(Fluid.{velocity})
-do
-  __demand(__openmp)
-  for c in Fluid do
-    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      var velocity = vs_div(Fluid[c].rhoVelocity, Fluid[c].rho)
-      Fluid[c].velocity = velocity
-    end
-  end
-end
-
-__demand(__parallel, __cuda)
-task Flow_UpdateAuxiliaryVelocityGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
-                                            config : Config,
-                                            Flow_constantVisc : double,
-                                            Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                                            Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                                            Flow_viscosityModel : SCHEMA.ViscosityModel,
-                                            Grid_xBnum : int32, Grid_xNum : int32,
-                                            Grid_yBnum : int32, Grid_yNum : int32,
-                                            Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{rho, rhoVelocity, temperature, centerCoordinates, velocity_inc}),
   writes(Fluid.{velocity})
@@ -1150,11 +1132,11 @@ do
     var yPosGhost = is_yPosGhost(c, Grid_yBnum, Grid_yNum)
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
-
+    var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
     var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
-    if (NSCBC_inflow_cell) then
+    if NSCBC_inflow_cell then
       var velocity = array(0.0, 0.0, 0.0)
       if BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Constant then
         velocity[0] = BC_xBCLeftInflowProfile_Constant_velocity
@@ -1189,7 +1171,11 @@ do
           d_max = (Grid_zWidth/ 2.0)
         end
         var meanVelocity = BC_xBCLeftInflowProfile_Duct_meanVelocity
-        var mu = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
+        var mu = GetDynamicViscosity(Fluid[c].temperature,
+                                     Flow_constantVisc,
+                                     Flow_powerlawTempRef, Flow_powerlawViscRef,
+                                     Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
+                                     Flow_viscosityModel)
         var Re = Fluid[c].rho*meanVelocity*Grid_yWidth / mu
         var n = -1.7 + 1.8*log(Re)
         velocity[0] = meanVelocity*pow((d/d_max), (1.0/n))
@@ -1199,10 +1185,8 @@ do
       end
       Fluid[c].velocity = velocity
     end
-
-    if (NSCBC_outflow_cell) then
-      var velocity = vs_div(Fluid[c].rhoVelocity, Fluid[c].rho)
-      Fluid[c].velocity = velocity
+    if interior or NSCBC_outflow_cell then
+      Fluid[c].velocity = vs_div(Fluid[c].rhoVelocity, Fluid[c].rho)
     end
   end
 end
@@ -1590,7 +1574,9 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+-- NOTE: It is safe to not pass the ghost regions to this task, because we
+-- always group ghost cells with their neighboring interior cells.
+__demand(__cuda) -- MANUALLY PARALLELIZED
 task Flow_UpdateGhostVelocity(Fluid : region(ispace(int3d), Fluid_columns),
                               config : Config,
                               BC_xNegVelocity : double[3], BC_xPosVelocity : double[3], BC_xNegSign : double[3], BC_xPosSign : double[3],
@@ -1707,34 +1693,12 @@ end
 
 __demand(__parallel, __cuda)
 task Flow_UpdateAuxiliaryThermodynamics(Fluid : region(ispace(int3d), Fluid_columns),
+                                        config : Config,
                                         Flow_gamma : double,
                                         Flow_gasConstant : double,
                                         Grid_xBnum : int32, Grid_xNum : int32,
                                         Grid_yBnum : int32, Grid_yNum : int32,
                                         Grid_zBnum : int32, Grid_zNum : int32)
-where
-  reads(Fluid.{rho, velocity, rhoEnergy}),
-  writes(Fluid.{pressure, temperature})
-do
-  __demand(__openmp)
-  for c in Fluid do
-    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      var kineticEnergy = ((0.5*Fluid[c].rho)*dot(Fluid[c].velocity, Fluid[c].velocity))
-      var pressure = ((Flow_gamma-1.0)*(Fluid[c].rhoEnergy-kineticEnergy))
-      Fluid[c].pressure = pressure
-      Fluid[c].temperature = (pressure/(Flow_gasConstant*Fluid[c].rho))
-    end
-  end
-end
-
-__demand(__parallel, __cuda)
-task Flow_UpdateAuxiliaryThermodynamicsGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
-                                                  config : Config,
-                                                  Flow_gamma : double,
-                                                  Flow_gasConstant : double,
-                                                  Grid_xBnum : int32, Grid_xNum : int32,
-                                                  Grid_yBnum : int32, Grid_yNum : int32,
-                                                  Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{rho, velocity, rhoEnergy, temperature_inc}),
   writes(Fluid.{pressure, temperature})
@@ -1751,39 +1715,35 @@ do
     var yPosGhost = is_yPosGhost(c, Grid_yBnum, Grid_yNum)
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
-    var ghost_cell = (xNegGhost or xPosGhost or
-                      yNegGhost or yPosGhost or
-                      zNegGhost or zPosGhost )
+    var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
     var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
-    if (ghost_cell) then
-      if (NSCBC_inflow_cell)  then
-        var kineticEnergy = (0.5*Fluid[c].rho) * dot(Fluid[c].velocity,Fluid[c].velocity)
-        Fluid[c].pressure = (Flow_gamma-1.0) * (Fluid[c].rhoEnergy-kineticEnergy)
-        var temperature : double
-        if BC_xBCLeftHeat_type == SCHEMA.TempProfile_Constant then
-          temperature = BC_xBCLeftHeat_Constant_temperature
+    if NSCBC_inflow_cell  then
+      var kineticEnergy = (0.5*Fluid[c].rho) * dot(Fluid[c].velocity,Fluid[c].velocity)
+      Fluid[c].pressure = (Flow_gamma-1.0) * (Fluid[c].rhoEnergy-kineticEnergy)
+      var temperature : double
+      if BC_xBCLeftHeat_type == SCHEMA.TempProfile_Constant then
+        temperature = BC_xBCLeftHeat_Constant_temperature
         -- elseif BC_xBCLeftHeat_type == SCHEMA.TempProfile_Parabola then
         --   regentlib.assert(false, 'Parabola heat model not supported')
-        else -- BC_xBCLeftHeat_type == SCHEMA.TempProfile_Incoming
-          temperature = Fluid[c].temperature_inc
-        end
-        Fluid[c].temperature = temperature
+      else -- BC_xBCLeftHeat_type == SCHEMA.TempProfile_Incoming
+        temperature = Fluid[c].temperature_inc
       end
-
-      if (NSCBC_outflow_cell)  then
-        var kineticEnergy = ((0.5*Fluid[c].rho)*dot(Fluid[c].velocity, Fluid[c].velocity))
-        var pressure = ((Flow_gamma-1.0)*(Fluid[c].rhoEnergy-kineticEnergy))
-        Fluid[c].pressure = pressure
-        Fluid[c].temperature = (pressure/(Flow_gasConstant*Fluid[c].rho))
-      end
+      Fluid[c].temperature = temperature
     end
-
+    if interior or NSCBC_outflow_cell then
+      var kineticEnergy = ((0.5*Fluid[c].rho)*dot(Fluid[c].velocity, Fluid[c].velocity))
+      var pressure = ((Flow_gamma-1.0)*(Fluid[c].rhoEnergy-kineticEnergy))
+      Fluid[c].pressure = pressure
+      Fluid[c].temperature = (pressure/(Flow_gasConstant*Fluid[c].rho))
+    end
   end
 end
 
-__demand(__parallel, __cuda)
+-- NOTE: It is safe to not pass the ghost regions to this task, because we
+-- always group ghost cells with their neighboring interior cells.
+__demand(__cuda) -- MANUALLY PARALLELIZED
 task Flow_UpdateGhostThermodynamics(Fluid : region(ispace(int3d), Fluid_columns),
                                     config : Config,
                                     Flow_gamma : double,
@@ -4967,53 +4927,44 @@ local function mkInstance() local INSTANCE = {}
                                                   Grid.yBnum, config.Grid.yNum,
                                                   Grid.zBnum, config.Grid.zNum)
     end
-
-    Flow_UpdateAuxiliaryVelocity(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-    if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-      Flow_UpdateAuxiliaryVelocityGhostNSCBC(Fluid,
-                                             config,
-                                             config.Flow.constantVisc,
-                                             config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                             config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                             config.Flow.viscosityModel,
-                                             Grid.xBnum, config.Grid.xNum,
-                                             Grid.yBnum, config.Grid.yNum,
-                                             Grid.zBnum, config.Grid.zNum)
+    Flow_UpdateAuxiliaryVelocity(Fluid,
+                                 config,
+                                 config.Flow.constantVisc,
+                                 config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                 config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                 config.Flow.viscosityModel,
+                                 Grid.xBnum, config.Grid.xNum,
+                                 Grid.yBnum, config.Grid.yNum,
+                                 Grid.zBnum, config.Grid.zNum)
+    for c in tiles do
+      Flow_UpdateGhostVelocity(p_Fluid[c],
+                               config,
+                               BC.xNegVelocity, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
+                               BC.yNegVelocity, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
+                               BC.zNegVelocity, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
+                               Grid.xBnum, config.Grid.xNum,
+                               Grid.yBnum, config.Grid.yNum,
+                               Grid.zBnum, config.Grid.zNum)
     end
-    Flow_UpdateGhostVelocity(Fluid,
-                             config,
-                             BC.xNegVelocity, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
-                             BC.yNegVelocity, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
-                             BC.zNegVelocity, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
-                             Grid.xBnum, config.Grid.xNum,
-                             Grid.yBnum, config.Grid.yNum,
-                             Grid.zBnum, config.Grid.zNum)
-
     Flow_UpdateAuxiliaryThermodynamics(Fluid,
+                                       config,
                                        config.Flow.gamma,
                                        config.Flow.gasConstant,
                                        Grid.xBnum, config.Grid.xNum,
                                        Grid.yBnum, config.Grid.yNum,
                                        Grid.zBnum, config.Grid.zNum)
-    if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-      Flow_UpdateAuxiliaryThermodynamicsGhostNSCBC(Fluid,
-                                                   config,
-                                                   config.Flow.gamma,
-                                                   config.Flow.gasConstant,
-                                                   Grid.xBnum, config.Grid.xNum,
-                                                   Grid.yBnum, config.Grid.yNum,
-                                                   Grid.zBnum, config.Grid.zNum)
+    for c in tiles do
+      Flow_UpdateGhostThermodynamics(p_Fluid[c],
+                                     config,
+                                     config.Flow.gamma,
+                                     config.Flow.gasConstant,
+                                     BC.xNegTemperature, BC.xPosTemperature,
+                                     BC.yNegTemperature, BC.yPosTemperature,
+                                     BC.zNegTemperature, BC.zPosTemperature,
+                                     Grid.xBnum, config.Grid.xNum,
+                                     Grid.yBnum, config.Grid.yNum,
+                                     Grid.zBnum, config.Grid.zNum)
     end
-    Flow_UpdateGhostThermodynamics(Fluid,
-                                   config,
-                                   config.Flow.gamma,
-                                   config.Flow.gasConstant,
-                                   BC.xNegTemperature, BC.xPosTemperature,
-                                   BC.yNegTemperature, BC.yPosTemperature,
-                                   BC.zNegTemperature, BC.zPosTemperature,
-                                   Grid.xBnum, config.Grid.xNum,
-                                   Grid.yBnum, config.Grid.yNum,
-                                   Grid.zBnum, config.Grid.zNum)
 
     Flow_UpdateGhostConserved(Fluid,
                               config,
@@ -5450,50 +5401,44 @@ local function mkInstance() local INSTANCE = {}
       end
 
       -- Use the new conserved values to update primitive values
-      Flow_UpdateAuxiliaryVelocity(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-      if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-        Flow_UpdateAuxiliaryVelocityGhostNSCBC(Fluid,
-                                               config,
-                                               config.Flow.constantVisc,
-                                               config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                               config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                               config.Flow.viscosityModel,
-                                               Grid.xBnum, config.Grid.xNum,
-                                               Grid.yBnum, config.Grid.yNum,
-                                               Grid.zBnum, config.Grid.zNum)
+      Flow_UpdateAuxiliaryVelocity(Fluid,
+                                   config,
+                                   config.Flow.constantVisc,
+                                   config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                   config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                   config.Flow.viscosityModel,
+                                   Grid.xBnum, config.Grid.xNum,
+                                   Grid.yBnum, config.Grid.yNum,
+                                   Grid.zBnum, config.Grid.zNum)
+      for c in tiles do
+        Flow_UpdateGhostVelocity(p_Fluid[c],
+                                 config,
+                                 BC.xNegVelocity, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
+                                 BC.yNegVelocity, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
+                                 BC.zNegVelocity, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
+                                 Grid.xBnum, config.Grid.xNum,
+                                 Grid.yBnum, config.Grid.yNum,
+                                 Grid.zBnum, config.Grid.zNum)
       end
-      Flow_UpdateGhostVelocity(Fluid,
-                               config,
-                               BC.xNegVelocity, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
-                               BC.yNegVelocity, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
-                               BC.zNegVelocity, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
-                               Grid.xBnum, config.Grid.xNum,
-                               Grid.yBnum, config.Grid.yNum,
-                               Grid.zBnum, config.Grid.zNum)
       Flow_UpdateAuxiliaryThermodynamics(Fluid,
-                                         config.Flow.gamma, config.Flow.gasConstant,
+                                         config,
+                                         config.Flow.gamma,
+                                         config.Flow.gasConstant,
                                          Grid.xBnum, config.Grid.xNum,
                                          Grid.yBnum, config.Grid.yNum,
                                          Grid.zBnum, config.Grid.zNum)
-      if config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow and config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow then
-        Flow_UpdateAuxiliaryThermodynamicsGhostNSCBC(Fluid,
-                                                     config,
-                                                     config.Flow.gamma,
-                                                     config.Flow.gasConstant,
-                                                     Grid.xBnum, config.Grid.xNum,
-                                                     Grid.yBnum, config.Grid.yNum,
-                                                     Grid.zBnum, config.Grid.zNum)
+      for c in tiles do
+        Flow_UpdateGhostThermodynamics(p_Fluid[c],
+                                       config,
+                                       config.Flow.gamma,
+                                       config.Flow.gasConstant,
+                                       BC.xNegTemperature, BC.xPosTemperature,
+                                       BC.yNegTemperature, BC.yPosTemperature,
+                                       BC.zNegTemperature, BC.zPosTemperature,
+                                       Grid.xBnum, config.Grid.xNum,
+                                       Grid.yBnum, config.Grid.yNum,
+                                       Grid.zBnum, config.Grid.zNum)
       end
-      Flow_UpdateGhostThermodynamics(Fluid,
-                                     config,
-                                     config.Flow.gamma,
-                                     config.Flow.gasConstant,
-                                     BC.xNegTemperature, BC.xPosTemperature,
-                                     BC.yNegTemperature, BC.yPosTemperature,
-                                     BC.zNegTemperature, BC.zPosTemperature,
-                                     Grid.xBnum, config.Grid.xNum,
-                                     Grid.yBnum, config.Grid.yNum,
-                                     Grid.zBnum, config.Grid.zNum)
 
       -- Compute the conserved values in the ghost cells
       Flow_UpdateGhostConserved(Fluid,
