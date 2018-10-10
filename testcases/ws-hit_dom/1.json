@@ -1,6 +1,6 @@
 {
     "Mapping" : {
-        "tiles" : [8,8,8],
+        "tiles" : [1,1,1],
         "tilesPerRank" : [1,1,1],
         "sampleId" : -1,
         "outDir" : "",
@@ -8,13 +8,13 @@
     },
 
     "Grid" : {
-        "xNum" : 1024,
-        "yNum" : 1024,
-        "zNum" : 1024,
+        "xNum" : 256,
+        "yNum" : 128,
+        "zNum" : 128,
         "origin" : [0.0, 0.0, 0.0],
-        "xWidth" : 6.283185307,
-        "yWidth" : 6.283185307,
-        "zWidth" : 6.283185307
+        "xWidth" : 1.570796327,
+        "yWidth" : 0.785398163,
+        "zWidth" : 0.785398163
     },
 
     "BC" : {
@@ -91,8 +91,8 @@
     "Particles" : {
         "initCase" : "Uniform",
         "restartDir" : "",
-        "initNum" : 507417972,
-        "maxNum" : 507417972,
+        "initNum" : 1982101,
+        "maxNum" : 1982101,
         "restitutionCoeff" : -1.0,
         "convectiveCoeff" : 108.072940481,
         "heatCapacity" : 506.0,
@@ -111,9 +111,9 @@
         "type" : "DOM",
         "qa" : 0.4,
         "qs" : 0.7,
-        "xNum" : 512,
-        "yNum" : 512,
-        "zNum" : 512,
+        "xNum" : 128,
+        "yNum" : 64,
+        "zNum" : 64,
         "angles" : 350,
         "xHiEmiss" : 1.0,
         "xLoEmiss" : 1.0,
