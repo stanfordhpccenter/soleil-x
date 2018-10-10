@@ -1,6 +1,6 @@
 {
     "Mapping" : {
-        "tiles" : [2,2,1],
+        "tiles" : [1,1,1],
         "tilesPerRank" : [1,1,1],
         "sampleId" : -1,
         "outDir" : "",
@@ -65,7 +65,7 @@
         "startIter" : 0,
         "startTime" : 0.0,
         "maxIter" : 100,
-        "cfl" : 2.0,
+        "cfl" : 0.9,
         "fixedDeltaTime" : -1.0,
         "rkOrder" : 4
     },
@@ -91,8 +91,8 @@
     "Particles" : {
         "initCase" : "Uniform",
         "restartDir" : "",
-        "initNum" : 100,
-        "maxNum" : 1000,
+        "initNum" : 0,
+        "maxNum" : 0,
         "restitutionCoeff" : 1.0,
         "convectiveCoeff" : 0.7,
         "heatCapacity" : 0.7,
