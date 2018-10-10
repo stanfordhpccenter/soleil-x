@@ -1191,8 +1191,9 @@ do
   end
 end
 
--- given a valid rho, v, and T in the interior cells + the specified BC's -> compute the conserved variables in the ghost cells
-__demand(__parallel, __cuda)
+-- NOTE: It is safe to not pass the ghost regions to this task, because we
+-- always group ghost cells with their neighboring interior cells.
+__demand(__cuda) -- MANUALLY PARALLELIZEDp
 task Flow_UpdateGhostConserved(Fluid : region(ispace(int3d), Fluid_columns),
                                config : Config,
                                BC_xNegTemperature : double, BC_xNegVelocity : double[3],
@@ -4966,19 +4967,21 @@ local function mkInstance() local INSTANCE = {}
                                      Grid.zBnum, config.Grid.zNum)
     end
 
-    Flow_UpdateGhostConserved(Fluid,
-                              config,
-                              BC.xNegTemperature, BC.xNegVelocity, BC.xPosTemperature, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
-                              BC.yNegTemperature, BC.yNegVelocity, BC.yPosTemperature, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
-                              BC.zNegTemperature, BC.zNegVelocity, BC.zPosTemperature, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
-                              config.Flow.gamma, config.Flow.gasConstant,
-                              config.Flow.constantVisc,
-                              config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                              config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                              config.Flow.viscosityModel,
-                              Grid.xBnum, config.Grid.xNum,
-                              Grid.yBnum, config.Grid.yNum,
-                              Grid.zBnum, config.Grid.zNum)
+    for c in tiles do
+      Flow_UpdateGhostConserved(p_Fluid[c],
+                                config,
+                                BC.xNegTemperature, BC.xNegVelocity, BC.xPosTemperature, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
+                                BC.yNegTemperature, BC.yNegVelocity, BC.yPosTemperature, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
+                                BC.zNegTemperature, BC.zNegVelocity, BC.zPosTemperature, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
+                                config.Flow.gamma, config.Flow.gasConstant,
+                                config.Flow.constantVisc,
+                                config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                config.Flow.viscosityModel,
+                                Grid.xBnum, config.Grid.xNum,
+                                Grid.yBnum, config.Grid.yNum,
+                                Grid.zBnum, config.Grid.zNum)
+    end
 
     -- Initialize particles
     if config.Particles.initCase == SCHEMA.ParticlesInitCase_Random then
@@ -5441,19 +5444,21 @@ local function mkInstance() local INSTANCE = {}
       end
 
       -- Compute the conserved values in the ghost cells
-      Flow_UpdateGhostConserved(Fluid,
-                                config,
-                                BC.xNegTemperature, BC.xNegVelocity, BC.xPosTemperature, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
-                                BC.yNegTemperature, BC.yNegVelocity, BC.yPosTemperature, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
-                                BC.zNegTemperature, BC.zNegVelocity, BC.zPosTemperature, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
-                                config.Flow.gamma, config.Flow.gasConstant,
-                                config.Flow.constantVisc,
-                                config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                config.Flow.viscosityModel,
-                                Grid.xBnum, config.Grid.xNum,
-                                Grid.yBnum, config.Grid.yNum,
-                                Grid.zBnum, config.Grid.zNum)
+      for c in tiles do
+        Flow_UpdateGhostConserved(p_Fluid[c],
+                                  config,
+                                  BC.xNegTemperature, BC.xNegVelocity, BC.xPosTemperature, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
+                                  BC.yNegTemperature, BC.yNegVelocity, BC.yPosTemperature, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
+                                  BC.zNegTemperature, BC.zNegVelocity, BC.zPosTemperature, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
+                                  config.Flow.gamma, config.Flow.gasConstant,
+                                  config.Flow.constantVisc,
+                                  config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                  config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                  config.Flow.viscosityModel,
+                                  Grid.xBnum, config.Grid.xNum,
+                                  Grid.yBnum, config.Grid.yNum,
+                                  Grid.zBnum, config.Grid.zNum)
+      end
 
       -- Particle movement post-processing
       if Integrator_timeStep % config.Particles.staggerFactor == 0 then
