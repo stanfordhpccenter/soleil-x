@@ -1652,30 +1652,11 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_ComputeVelocityGradientAll(Fluid : region(ispace(int3d), Fluid_columns),
-                                     Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
-                                     Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
-                                     Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
-where
-  reads(Fluid.velocity),
-  writes(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ})
-do
-  __demand(__openmp)
-  for c in Fluid do
-    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      Fluid[c].velocityGradientX = vs_div(vs_mul(vv_sub(Fluid[((c+{1, 0, 0})%Fluid.bounds)].velocity, Fluid[((c+{-1, 0, 0})%Fluid.bounds)].velocity), 0.5), Grid_xCellWidth)
-      Fluid[c].velocityGradientY = vs_div(vs_mul(vv_sub(Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocity, Fluid[((c+{0, -1, 0})%Fluid.bounds)].velocity), 0.5), Grid_yCellWidth)
-      Fluid[c].velocityGradientZ = vs_div(vs_mul(vv_sub(Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity, Fluid[((c+{0, 0, -1})%Fluid.bounds)].velocity), 0.5), Grid_zCellWidth)
-    end
-  end
-end
-
-__demand(__parallel, __cuda)
-task Flow_ComputeVelocityGradientGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
-                                            config : Config,
-                                            Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
-                                            Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
-                                            Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
+task Flow_ComputeVelocityGradient(Fluid : region(ispace(int3d), Fluid_columns),
+                                  config : Config,
+                                  Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
+                                  Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
+                                  Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
   reads(Fluid.velocity),
   writes(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ})
@@ -1690,29 +1671,36 @@ do
     var yPosGhost = is_yPosGhost(c, Grid_yBnum, Grid_yNum)
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
-    var ghost_cell = (xNegGhost or xPosGhost or
-                      yNegGhost or yPosGhost or
-                      zNegGhost or zPosGhost )
+    var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
     var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
+    var v000 = Fluid[c].velocity
+    var v100 = Fluid[(c+{ 1,  0,  0}) % Fluid.bounds].velocity
+    var v010 = Fluid[(c+{ 0,  1,  0}) % Fluid.bounds].velocity
+    var v001 = Fluid[(c+{ 0,  0,  1}) % Fluid.bounds].velocity
+    var v_00 = Fluid[(c+{-1,  0,  0}) % Fluid.bounds].velocity
+    var v0_0 = Fluid[(c+{ 0, -1,  0}) % Fluid.bounds].velocity
+    var v00_ = Fluid[(c+{ 0,  0, -1}) % Fluid.bounds].velocity
+
+    if interior then
+      Fluid[c].velocityGradientX = vs_div(vv_sub(v100, v_00), 2 * Grid_xCellWidth)
+      Fluid[c].velocityGradientY = vs_div(vv_sub(v010, v0_0), 2 * Grid_yCellWidth)
+      Fluid[c].velocityGradientZ = vs_div(vv_sub(v001, v00_), 2 * Grid_zCellWidth)
+    end
     if NSCBC_inflow_cell  then
       -- forward one sided difference
-      Fluid[c].velocityGradientX = vs_div(vv_sub(Fluid[(c+{1, 0, 0})].velocity, Fluid[c].velocity), Grid_xCellWidth)
-
+      Fluid[c].velocityGradientX = vs_div(vv_sub(v100, v000), Grid_xCellWidth)
       -- central difference
-      Fluid[c].velocityGradientY = vs_div(vs_mul(vv_sub(Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocity, Fluid[((c+{0, -1, 0})%Fluid.bounds)].velocity), 0.5), Grid_yCellWidth)
-      Fluid[c].velocityGradientZ = vs_div(vs_mul(vv_sub(Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity, Fluid[((c+{0, 0, -1})%Fluid.bounds)].velocity), 0.5), Grid_zCellWidth)
+      Fluid[c].velocityGradientY = vs_div(vv_sub(v010, v0_0), 2 * Grid_yCellWidth)
+      Fluid[c].velocityGradientZ = vs_div(vv_sub(v001, v00_), 2 * Grid_zCellWidth)
     end
-
     if NSCBC_outflow_cell  then
       -- backward one sided difference
-      Fluid[c].velocityGradientX = vs_div(vv_sub(Fluid[c].velocity, Fluid[(c+{-1, 0, 0})].velocity), Grid_xCellWidth)
-
+      Fluid[c].velocityGradientX = vs_div(vv_sub(v000, v_00), Grid_xCellWidth)
       -- central difference
-      Fluid[c].velocityGradientY = vs_div(vs_mul(vv_sub(Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocity, Fluid[((c+{0, -1, 0})%Fluid.bounds)].velocity), 0.5), Grid_yCellWidth)
-      Fluid[c].velocityGradientZ = vs_div(vs_mul(vv_sub(Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity, Fluid[((c+{0, 0, -1})%Fluid.bounds)].velocity), 0.5), Grid_zCellWidth)
-
+      Fluid[c].velocityGradientY = vs_div(vv_sub(v010, v0_0), 2 * Grid_yCellWidth)
+      Fluid[c].velocityGradientZ = vs_div(vv_sub(v001, v00_), 2 * Grid_zCellWidth)
     end
   end
 end
@@ -2287,52 +2275,34 @@ do
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
     if xNegGhost and BC_xBCLeft ~= SCHEMA.FlowBC_NSCBC_SubsonicInflow then
-      var c_bnd = int3d(c)
-      var c_int = ((c+{1, 0, 0})%Fluid.bounds)
-      var sign = BC_xNegSign
-      Fluid[c_bnd].velocityGradientX = vv_mul(sign, Fluid[c_int].velocityGradientX)
-      Fluid[c_bnd].velocityGradientY = vv_mul(sign, Fluid[c_int].velocityGradientY)
-      Fluid[c_bnd].velocityGradientZ = vv_mul(sign, Fluid[c_int].velocityGradientZ)
+      Fluid[c].velocityGradientX = vv_mul(BC_xNegSign, Fluid[(c+{1, 0, 0})%Fluid.bounds].velocityGradientX)
+      Fluid[c].velocityGradientY = vv_mul(BC_xNegSign, Fluid[(c+{1, 0, 0})%Fluid.bounds].velocityGradientY)
+      Fluid[c].velocityGradientZ = vv_mul(BC_xNegSign, Fluid[(c+{1, 0, 0})%Fluid.bounds].velocityGradientZ)
     end
     if xPosGhost and BC_xBCRight ~= SCHEMA.FlowBC_NSCBC_SubsonicOutflow then
-      var c_bnd = int3d(c)
-      var c_int = ((c+{-1, 0, 0})%Fluid.bounds)
-      var sign = BC_xPosSign
-      Fluid[c_bnd].velocityGradientX = vv_mul(sign, Fluid[c_int].velocityGradientX)
-      Fluid[c_bnd].velocityGradientY = vv_mul(sign, Fluid[c_int].velocityGradientY)
-      Fluid[c_bnd].velocityGradientZ = vv_mul(sign, Fluid[c_int].velocityGradientZ)
+      Fluid[c].velocityGradientX = vv_mul(BC_xPosSign, Fluid[(c+{-1, 0, 0})%Fluid.bounds].velocityGradientX)
+      Fluid[c].velocityGradientY = vv_mul(BC_xPosSign, Fluid[(c+{-1, 0, 0})%Fluid.bounds].velocityGradientY)
+      Fluid[c].velocityGradientZ = vv_mul(BC_xPosSign, Fluid[(c+{-1, 0, 0})%Fluid.bounds].velocityGradientZ)
     end
     if yNegGhost then
-      var c_bnd = int3d(c)
-      var c_int = ((c+{0, 1, 0})%Fluid.bounds)
-      var sign = BC_yNegSign
-      Fluid[c_bnd].velocityGradientX = vv_mul(sign, Fluid[c_int].velocityGradientX)
-      Fluid[c_bnd].velocityGradientY = vv_mul(sign, Fluid[c_int].velocityGradientY)
-      Fluid[c_bnd].velocityGradientZ = vv_mul(sign, Fluid[c_int].velocityGradientZ)
+      Fluid[c].velocityGradientX = vv_mul(BC_yNegSign, Fluid[(c+{0, 1, 0})%Fluid.bounds].velocityGradientX)
+      Fluid[c].velocityGradientY = vv_mul(BC_yNegSign, Fluid[(c+{0, 1, 0})%Fluid.bounds].velocityGradientY)
+      Fluid[c].velocityGradientZ = vv_mul(BC_yNegSign, Fluid[(c+{0, 1, 0})%Fluid.bounds].velocityGradientZ)
     end
     if yPosGhost then
-      var c_bnd = int3d(c)
-      var c_int = ((c+{0, -1, 0})%Fluid.bounds)
-      var sign = BC_yPosSign
-      Fluid[c_bnd].velocityGradientX = vv_mul(sign, Fluid[c_int].velocityGradientX)
-      Fluid[c_bnd].velocityGradientY = vv_mul(sign, Fluid[c_int].velocityGradientY)
-      Fluid[c_bnd].velocityGradientZ = vv_mul(sign, Fluid[c_int].velocityGradientZ)
+      Fluid[c].velocityGradientX = vv_mul(BC_yPosSign, Fluid[(c+{0, -1, 0})%Fluid.bounds].velocityGradientX)
+      Fluid[c].velocityGradientY = vv_mul(BC_yPosSign, Fluid[(c+{0, -1, 0})%Fluid.bounds].velocityGradientY)
+      Fluid[c].velocityGradientZ = vv_mul(BC_yPosSign, Fluid[(c+{0, -1, 0})%Fluid.bounds].velocityGradientZ)
     end
     if zNegGhost then
-      var c_bnd = int3d(c)
-      var c_int = ((c+{0, 0, 1})%Fluid.bounds)
-      var sign = BC_zNegSign
-      Fluid[c_bnd].velocityGradientX = vv_mul(sign, Fluid[c_int].velocityGradientX)
-      Fluid[c_bnd].velocityGradientY = vv_mul(sign, Fluid[c_int].velocityGradientY)
-      Fluid[c_bnd].velocityGradientZ = vv_mul(sign, Fluid[c_int].velocityGradientZ)
+      Fluid[c].velocityGradientX = vv_mul(BC_zNegSign, Fluid[(c+{0, 0, 1})%Fluid.bounds].velocityGradientX)
+      Fluid[c].velocityGradientY = vv_mul(BC_zNegSign, Fluid[(c+{0, 0, 1})%Fluid.bounds].velocityGradientY)
+      Fluid[c].velocityGradientZ = vv_mul(BC_zNegSign, Fluid[(c+{0, 0, 1})%Fluid.bounds].velocityGradientZ)
     end
     if zPosGhost then
-      var c_bnd = int3d(c)
-      var c_int = ((c+{0, 0, -1})%Fluid.bounds)
-      var sign = BC_zPosSign
-      Fluid[c_bnd].velocityGradientX = vv_mul(sign, Fluid[c_int].velocityGradientX)
-      Fluid[c_bnd].velocityGradientY = vv_mul(sign, Fluid[c_int].velocityGradientY)
-      Fluid[c_bnd].velocityGradientZ = vv_mul(sign, Fluid[c_int].velocityGradientZ)
+      Fluid[c].velocityGradientX = vv_mul(BC_zPosSign, Fluid[(c+{0, 0, -1})%Fluid.bounds].velocityGradientX)
+      Fluid[c].velocityGradientY = vv_mul(BC_zPosSign, Fluid[(c+{0, 0, -1})%Fluid.bounds].velocityGradientY)
+      Fluid[c].velocityGradientZ = vv_mul(BC_zPosSign, Fluid[(c+{0, 0, -1})%Fluid.bounds].velocityGradientZ)
     end
   end
 end
@@ -5242,17 +5212,11 @@ local function mkInstance() local INSTANCE = {}
     for Integrator_stage = 1,config.Integrator.rkOrder+1 do
 
       -- Compute velocity gradients
-      Flow_ComputeVelocityGradientAll(Fluid,
-                                      Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                      Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                      Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-      if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-        Flow_ComputeVelocityGradientGhostNSCBC(Fluid,
-                                               config,
-                                               Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                               Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                               Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-      end
+      Flow_ComputeVelocityGradient(Fluid,
+                                   config,
+                                   Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                                   Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                                   Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
       for c in tiles do
         Flow_UpdateGhostVelocityGradient(p_Fluid[c],
                                          config,
