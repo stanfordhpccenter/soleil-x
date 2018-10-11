@@ -5352,7 +5352,7 @@ local function mkInstance() local INSTANCE = {}
       Flow_AddParticlesCoupling(Particles, Fluid, Grid.cellVolume)
 
       -- Use fluxes to update conserved value derivatives
-      Flow_UpdateUsingFluxX(Fluid,
+      Flow_UpdateUsingFluxZ(Fluid,
                             config,
                             Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
                             Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
@@ -5362,7 +5362,7 @@ local function mkInstance() local INSTANCE = {}
                             Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
                             Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
                             Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-      Flow_UpdateUsingFluxZ(Fluid,
+      Flow_UpdateUsingFluxX(Fluid,
                             config,
                             Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
                             Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
