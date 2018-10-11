@@ -284,7 +284,8 @@ end
 -------------------------------------------------------------------------------
 
 local __demand(__inline)
-task Fluid_dump(colors : ispace(int3d),
+task Fluid_dump(_ : int,
+                colors : ispace(int3d),
                 dirname : &int8,
                 Fluid : region(ispace(int3d),Fluid_columns),
                 Fluid_copy : region(ispace(int3d),Fluid_columns),
@@ -299,7 +300,8 @@ do
 end
 
 local __demand(__inline)
-task Fluid_load(colors : ispace(int3d),
+task Fluid_load(_ : int,
+                colors : ispace(int3d),
                 dirname : &int8,
                 Fluid : region(ispace(int3d),Fluid_columns),
                 Fluid_copy : region(ispace(int3d),Fluid_columns),
@@ -314,7 +316,8 @@ do
 end
 
 local __demand(__inline)
-task Particles_dump(colors : ispace(int3d),
+task Particles_dump(_ : int,
+                    colors : ispace(int3d),
                     dirname : &int8,
                     Particles : region(ispace(int1d),Particles_columns),
                     Particles_copy : region(ispace(int1d),Particles_columns),
@@ -329,7 +332,8 @@ do
 end
 
 local __demand(__inline)
-task Particles_load(colors : ispace(int3d),
+task Particles_load(_ : int,
+                    colors : ispace(int3d),
                     dirname : &int8,
                     Particles : region(ispace(int1d),Particles_columns),
                     Particles_copy : region(ispace(int1d),Particles_columns),
@@ -559,6 +563,7 @@ end
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task createDir(dirname : regentlib.string)
   UTIL.createDir(dirname)
+  return 0
 end
 
 -------------------------------------------------------------------------------
@@ -4896,7 +4901,7 @@ local function mkInstance() local INSTANCE = {}
     elseif config.Flow.initCase == SCHEMA.FlowInitCase_Perturbed then
       Flow_InitializePerturbed(Fluid, config.Flow.initParams)
     elseif config.Flow.initCase == SCHEMA.FlowInitCase_Restart then
-      Fluid_load(tiles, config.Flow.restartDir, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
+      Fluid_load(0, tiles, config.Flow.restartDir, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
     else regentlib.assert(false, 'Unhandled case in switch') end
 
     -- initialize ghost cells to their specified values in NSCBC case
@@ -4987,7 +4992,7 @@ local function mkInstance() local INSTANCE = {}
     if config.Particles.initCase == SCHEMA.ParticlesInitCase_Random then
       regentlib.assert(false, "Random particle initialization is disabled")
     elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart then
-      Particles_load(tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
+      Particles_load(0, tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
       for c in tiles do
         Particles_LocateInCells(p_Particles[c],
                                 Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
@@ -5122,11 +5127,11 @@ local function mkInstance() local INSTANCE = {}
       if Integrator_exitCond or Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 then
         var dirname = [&int8](C.malloc(256))
         C.snprintf(dirname, 256, '%s/fluid_iter%010d', config.Mapping.outDir, Integrator_timeStep)
-        createDir(dirname)
-        Fluid_dump(tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
+        var _1 = createDir(dirname)
+        Fluid_dump(_1, tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
         C.snprintf(dirname, 256, '%s/particles_iter%010d', config.Mapping.outDir, Integrator_timeStep)
-        createDir(dirname)
-        Particles_dump(tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
+        var _2 = createDir(dirname)
+        Particles_dump(_2, tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
         C.free(dirname)
       end
     end

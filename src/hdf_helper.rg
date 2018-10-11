@@ -235,7 +235,8 @@ function Exports.mkHDFTasks(indexType, colorType, fSpace, flds)
     indexType == int3d and rexpr {1,1,1} end or
     assert(false)
 
-  local task dumpTile(dirname : regentlib.string,
+  local task dumpTile(_ : int,
+                      dirname : regentlib.string,
                       r : region(ispace(indexType),fSpace),
                       s : region(ispace(indexType),fSpace))
   where reads(r.[flds]), reads writes(s.[flds]), r * s do
@@ -250,7 +251,8 @@ function Exports.mkHDFTasks(indexType, colorType, fSpace, flds)
   end
 
   local __demand(__inline)
-  task dump(colors : ispace(colorType),
+  task dump(_ : int,
+            colors : ispace(colorType),
             dirname : &int8,
             r : region(ispace(indexType),fSpace),
             s : region(ispace(indexType),fSpace),
@@ -259,11 +261,12 @@ function Exports.mkHDFTasks(indexType, colorType, fSpace, flds)
   where reads(r.[flds]), reads writes(s.[flds]), r * s do
     -- TODO: Sanity checks: bounds.lo == 0, same size, compatible partitions
     for c in colors do
-      dumpTile([regentlib.string](dirname), p_r[c], p_s[c])
+      dumpTile(_, [regentlib.string](dirname), p_r[c], p_s[c])
     end
   end
 
-  local task loadTile(dirname : regentlib.string,
+  local task loadTile(_ : int,
+                      dirname : regentlib.string,
                       r : region(ispace(indexType),fSpace),
                       s : region(ispace(indexType),fSpace))
   where reads writes(r.[flds]), reads writes(s.[flds]), r * s do
@@ -277,7 +280,8 @@ function Exports.mkHDFTasks(indexType, colorType, fSpace, flds)
   end
 
   local __demand(__inline)
-  task load(colors : ispace(colorType),
+  task load(_ : int,
+            colors : ispace(colorType),
             dirname : &int8,
             r : region(ispace(indexType),fSpace),
             s : region(ispace(indexType),fSpace),
@@ -287,7 +291,7 @@ function Exports.mkHDFTasks(indexType, colorType, fSpace, flds)
     -- TODO: Sanity checks: bounds.lo == 0, same size, compatible partitions
     -- TODO: Check that the file has the correct size etc.
     for c in colors do
-      loadTile([regentlib.string](dirname), p_r[c], p_s[c])
+      loadTile(_, [regentlib.string](dirname), p_r[c], p_s[c])
     end
   end
 
