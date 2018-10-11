@@ -106,7 +106,7 @@
             "density" : 8900.0,
             "diameterMean" : 1.07681368551e-05,
             "bodyForce" : [0.0, 0.0, 0.0],
-            "maxSkew" : 1.05,
+            "maxSkew" : 1.2,
             "escapeRatioPerDir" : 0.005,
             "collisions" : false,
             "feeding" : { "type" : "OFF" },
@@ -223,7 +223,7 @@
             "density" : 8900.0,
             "diameterMean" : 1.07681368551e-05,
             "bodyForce" : [0.0, 0.0, 0.0],
-            "maxSkew" : 1.05,
+            "maxSkew" : 1.2,
             "escapeRatioPerDir" : 0.005,
             "collisions" : false,
             "feeding" : {
