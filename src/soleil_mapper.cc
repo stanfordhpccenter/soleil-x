@@ -533,6 +533,8 @@ private:
 
 //=============================================================================
 
+static MapperID imageReductionMapperID;
+
 static void create_mappers(Machine machine,
                            HighLevelRuntime* runtime,
                            const std::set<Processor>& local_procs) {
@@ -540,42 +542,24 @@ static void create_mappers(Machine machine,
     SoleilMapper* mapper =
       new SoleilMapper(runtime->get_mapper_runtime(), machine, proc);
     runtime->replace_default_mapper(mapper, proc);
+    ImageReductionMapper* irMapper =
+      new ImageReductionMapper(runtime->get_mapper_runtime(), machine, proc);
+    runtime->add_mapper(imageReductionMapperID, irMapper, proc);
   }
 }
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-void cxx_preinitialize1(int numDomainNodes);
-void cxx_preinitialize2();
-
+    
+  void cxx_preinitialize(MapperID);
+  
 #ifdef __cplusplus
 }
 #endif
 
-static void preinitializeImageCompositor(Machine machine,
-                                         HighLevelRuntime* runtime,
-                                         const std::set<Processor>& local_procs)
-{
-  InputArgs args = runtime->get_input_args();
-  int numDomainNodes = 0;
-  for(int i = 0; i < args.argc; ++i) {
-    if(!strcmp(args.argv[i], "-i") && i < args.argc - 1) {
-      Config config;
-      parse_Config(&config, args.argv[i + 1]);
-      numDomainNodes = config.Mapping.tiles[0] * config.Mapping.tiles[1] * config.Mapping.tiles[2];
-    } else if(!strcmp(args.argv[i], "-m") && i < args.argc - 1) {
-      MultiConfig mc[1];
-      parse_MultiConfig(mc, args.argv[i + 1]);
-      numDomainNodes = mc[0].configs[0].Mapping.tiles[0] * mc[0].configs[0].Mapping.tiles[1] * mc[0].configs[0].Mapping.tiles[2];
-    }
-  }
-  cxx_preinitialize1(numDomainNodes);
-}
-
 void register_mappers() {
+  imageReductionMapperID = runtime->generate_dynamic_mapper_id();
+  cxx_preinitialize(imageReductionMapperID);
   Runtime::add_registration_callback(create_mappers);
-  Runtime::add_registration_callback(preinitializeImageCompositor);
-  cxx_preinitialize2();
 }

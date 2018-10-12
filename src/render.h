@@ -27,8 +27,7 @@ extern "C" {
   const unsigned imageWidth = 1280;
   const unsigned imageHeight = 720;
 
-  void cxx_preinitialize1(int numDomainNodes);
-  void cxx_preinitialize2();
+  void cxx_preinitialize(MapperID);
   
   void cxx_render(legion_runtime_t runtime_,
                   legion_context_t ctx_,
