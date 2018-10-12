@@ -220,27 +220,39 @@ public:
     }
   }
 
-  // Assign priorities to sweep tasks such that we prioritize the tile that has
-  // more dependencies downstream (count the number of diagonals between the
-  // launch tile and the end of the domain).
   virtual TaskPriority default_policy_select_task_priority(
                               MapperContext ctx,
                               const Task& task) {
-    if (!STARTS_WITH(task.get_task_name(), "sweep_")) {
-      return DefaultMapper::default_policy_select_task_priority(ctx, task);
+    // Unless handled specially below, all tasks have the same priority.
+    int priority = 0;
+    // Assign priorities to sweep tasks such that we prioritize the tile that
+    // has more dependencies downstream (count the number of diagonals between
+    // the launch tile and the end of the domain).
+    if (STARTS_WITH(task.get_task_name(), "sweep_")) {
+      unsigned sample_id = find_sample_id(ctx, task);
+      const SampleMapping& mapping = sample_mappings_[sample_id];
+      std::array<bool,3> dir = parse_direction(task);
+      DomainPoint tile = find_tile(ctx, task, mapping);
+      priority =
+	(dir[0] ? mapping.x_tiles() - tile[0] - 1 : tile[0]) +
+	(dir[1] ? mapping.y_tiles() - tile[1] - 1 : tile[1]) +
+	(dir[2] ? mapping.z_tiles() - tile[2] - 1 : tile[2]) ;
+      LOG.debug() << "Sample " << sample_id << ":"
+                  << " Task " << task.get_task_name()
+                  << " on tile " << tile
+                  << " given priority " << priority;
     }
-    unsigned sample_id = find_sample_id(ctx, task);
-    const SampleMapping& mapping = sample_mappings_[sample_id];
-    std::array<bool,3> dir = parse_direction(task);
-    DomainPoint tile = find_tile(ctx, task, mapping);
-    int priority =
-      (dir[0] ? mapping.x_tiles() - tile[0] - 1 : tile[0]) +
-      (dir[1] ? mapping.y_tiles() - tile[1] - 1 : tile[1]) +
-      (dir[2] ? mapping.z_tiles() - tile[2] - 1 : tile[2]) ;
-    LOG.debug() << "Sample " << sample_id << ":"
-                << " Task " << task.get_task_name()
-                << " on tile " << tile
-                << " given priority " << priority;
+    // Increase priority of tasks on the critical path of the fluid solve.
+    if (STARTS_WITH(task.get_task_name(), "Flow_ComputeVelocityGradient") ||
+        STARTS_WITH(task.get_task_name(), "Flow_UpdateGhostVelocityGradient") ||
+	STARTS_WITH(task.get_task_name(), "Flow_GetFlux") ||
+	STARTS_WITH(task.get_task_name(), "Flow_UpdateUsingFlux")) {
+      unsigned sample_id = find_sample_id(ctx, task);
+      priority = 1;
+      LOG.debug() << "Sample " << sample_id << ":"
+                  << " Task " << task.get_task_name()
+                  << " given priority " << priority;
+    }
     return priority;
   }
 

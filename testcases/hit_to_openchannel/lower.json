@@ -65,7 +65,7 @@
         "Integrator" : {
             "startIter" : 0,
             "startTime" : 0.0,
-            "maxIter" : 300000,
+            "maxIter" : 10000,
             "cfl" : -1.0,
             "fixedDeltaTime" : 8.54046201202497e-07,
             "rkOrder" : 4
@@ -106,7 +106,7 @@
             "density" : 8900.0,
             "diameterMean" : 1.07681368551e-05,
             "bodyForce" : [0.0, 0.0, 0.0],
-            "maxSkew" : 1.05,
+            "maxSkew" : 1.2,
             "escapeRatioPerDir" : 0.005,
             "collisions" : false,
             "feeding" : { "type" : "OFF" },
@@ -187,7 +187,7 @@
         "Integrator" : {
             "startIter" : 0,
             "startTime" : 0.0,
-            "maxIter" : 300000,
+            "maxIter" : 10000,
             "cfl" : -1.0,
             "fixedDeltaTime" : 8.54046201202497e-07,
             "rkOrder" : 4
@@ -223,7 +223,7 @@
             "density" : 8900.0,
             "diameterMean" : 1.07681368551e-05,
             "bodyForce" : [0.0, 0.0, 0.0],
-            "maxSkew" : 1.05,
+            "maxSkew" : 1.2,
             "escapeRatioPerDir" : 0.005,
             "collisions" : false,
             "feeding" : {

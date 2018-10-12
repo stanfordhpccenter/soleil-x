@@ -289,7 +289,8 @@ end
 -------------------------------------------------------------------------------
 
 local __demand(__inline)
-task Fluid_dump(colors : ispace(int3d),
+task Fluid_dump(_ : int,
+                colors : ispace(int3d),
                 dirname : &int8,
                 Fluid : region(ispace(int3d),Fluid_columns),
                 Fluid_copy : region(ispace(int3d),Fluid_columns),
@@ -304,7 +305,8 @@ do
 end
 
 local __demand(__inline)
-task Fluid_load(colors : ispace(int3d),
+task Fluid_load(_ : int,
+                colors : ispace(int3d),
                 dirname : &int8,
                 Fluid : region(ispace(int3d),Fluid_columns),
                 Fluid_copy : region(ispace(int3d),Fluid_columns),
@@ -319,7 +321,8 @@ do
 end
 
 local __demand(__inline)
-task Particles_dump(colors : ispace(int3d),
+task Particles_dump(_ : int,
+                    colors : ispace(int3d),
                     dirname : &int8,
                     Particles : region(ispace(int1d),Particles_columns),
                     Particles_copy : region(ispace(int1d),Particles_columns),
@@ -334,7 +337,8 @@ do
 end
 
 local __demand(__inline)
-task Particles_load(colors : ispace(int3d),
+task Particles_load(_ : int,
+                    colors : ispace(int3d),
                     dirname : &int8,
                     Particles : region(ispace(int1d),Particles_columns),
                     Particles_copy : region(ispace(int1d),Particles_columns),
@@ -564,6 +568,7 @@ end
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task createDir(dirname : regentlib.string)
   UTIL.createDir(dirname)
+  return 0
 end
 
 
@@ -1120,32 +1125,14 @@ end
 
 __demand(__parallel, __cuda)
 task Flow_UpdateAuxiliaryVelocity(Fluid : region(ispace(int3d), Fluid_columns),
+                                  config : Config,
+                                  Flow_constantVisc : double,
+                                  Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                                  Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                                  Flow_viscosityModel : SCHEMA.ViscosityModel,
                                   Grid_xBnum : int32, Grid_xNum : int32,
                                   Grid_yBnum : int32, Grid_yNum : int32,
                                   Grid_zBnum : int32, Grid_zNum : int32)
-where
-  reads(Fluid.{rho, rhoVelocity}),
-  writes(Fluid.{velocity})
-do
-  __demand(__openmp)
-  for c in Fluid do
-    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      var velocity = vs_div(Fluid[c].rhoVelocity, Fluid[c].rho)
-      Fluid[c].velocity = velocity
-    end
-  end
-end
-
-__demand(__parallel, __cuda)
-task Flow_UpdateAuxiliaryVelocityGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
-                                            config : Config,
-                                            Flow_constantVisc : double,
-                                            Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                                            Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                                            Flow_viscosityModel : SCHEMA.ViscosityModel,
-                                            Grid_xBnum : int32, Grid_xNum : int32,
-                                            Grid_yBnum : int32, Grid_yNum : int32,
-                                            Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{rho, rhoVelocity, temperature, centerCoordinates, velocity_inc}),
   writes(Fluid.{velocity})
@@ -1181,11 +1168,11 @@ do
     var yPosGhost = is_yPosGhost(c, Grid_yBnum, Grid_yNum)
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
-
+    var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
     var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
-    if (NSCBC_inflow_cell) then
+    if NSCBC_inflow_cell then
       var velocity = array(0.0, 0.0, 0.0)
       if BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Constant then
         velocity[0] = BC_xBCLeftInflowProfile_Constant_velocity
@@ -1220,7 +1207,11 @@ do
           d_max = (Grid_zWidth/ 2.0)
         end
         var meanVelocity = BC_xBCLeftInflowProfile_Duct_meanVelocity
-        var mu = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
+        var mu = GetDynamicViscosity(Fluid[c].temperature,
+                                     Flow_constantVisc,
+                                     Flow_powerlawTempRef, Flow_powerlawViscRef,
+                                     Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
+                                     Flow_viscosityModel)
         var Re = Fluid[c].rho*meanVelocity*Grid_yWidth / mu
         var n = -1.7 + 1.8*log(Re)
         velocity[0] = meanVelocity*pow((d/d_max), (1.0/n))
@@ -1230,16 +1221,15 @@ do
       end
       Fluid[c].velocity = velocity
     end
-
-    if (NSCBC_outflow_cell) then
-      var velocity = vs_div(Fluid[c].rhoVelocity, Fluid[c].rho)
-      Fluid[c].velocity = velocity
+    if interior or NSCBC_outflow_cell then
+      Fluid[c].velocity = vs_div(Fluid[c].rhoVelocity, Fluid[c].rho)
     end
   end
 end
 
--- given a valid rho, v, and T in the interior cells + the specified BC's -> compute the conserved variables in the ghost cells
-__demand(__parallel, __cuda)
+-- NOTE: It is safe to not pass the ghost regions to this task, because we
+-- always group ghost cells with their neighboring interior cells.
+__demand(__cuda) -- MANUALLY PARALLELIZEDp
 task Flow_UpdateGhostConserved(Fluid : region(ispace(int3d), Fluid_columns),
                                config : Config,
                                BC_xNegTemperature : double, BC_xNegVelocity : double[3],
@@ -1621,7 +1611,9 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+-- NOTE: It is safe to not pass the ghost regions to this task, because we
+-- always group ghost cells with their neighboring interior cells.
+__demand(__cuda) -- MANUALLY PARALLELIZED
 task Flow_UpdateGhostVelocity(Fluid : region(ispace(int3d), Fluid_columns),
                               config : Config,
                               BC_xNegVelocity : double[3], BC_xPosVelocity : double[3], BC_xNegSign : double[3], BC_xPosSign : double[3],
@@ -1683,30 +1675,11 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_ComputeVelocityGradientAll(Fluid : region(ispace(int3d), Fluid_columns),
-                                     Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
-                                     Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
-                                     Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
-where
-  reads(Fluid.velocity),
-  writes(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ})
-do
-  __demand(__openmp)
-  for c in Fluid do
-    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      Fluid[c].velocityGradientX = vs_div(vs_mul(vv_sub(Fluid[((c+{1, 0, 0})%Fluid.bounds)].velocity, Fluid[((c+{-1, 0, 0})%Fluid.bounds)].velocity), 0.5), Grid_xCellWidth)
-      Fluid[c].velocityGradientY = vs_div(vs_mul(vv_sub(Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocity, Fluid[((c+{0, -1, 0})%Fluid.bounds)].velocity), 0.5), Grid_yCellWidth)
-      Fluid[c].velocityGradientZ = vs_div(vs_mul(vv_sub(Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity, Fluid[((c+{0, 0, -1})%Fluid.bounds)].velocity), 0.5), Grid_zCellWidth)
-    end
-  end
-end
-
-__demand(__parallel, __cuda)
-task Flow_ComputeVelocityGradientGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
-                                            config : Config,
-                                            Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
-                                            Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
-                                            Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
+task Flow_ComputeVelocityGradient(Fluid : region(ispace(int3d), Fluid_columns),
+                                  config : Config,
+                                  Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
+                                  Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
+                                  Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
   reads(Fluid.velocity),
   writes(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ})
@@ -1721,63 +1694,48 @@ do
     var yPosGhost = is_yPosGhost(c, Grid_yBnum, Grid_yNum)
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
-    var ghost_cell = (xNegGhost or xPosGhost or
-                      yNegGhost or yPosGhost or
-                      zNegGhost or zPosGhost )
+    var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
     var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
+    var v000 = Fluid[c].velocity
+    var v100 = Fluid[(c+{ 1,  0,  0}) % Fluid.bounds].velocity
+    var v010 = Fluid[(c+{ 0,  1,  0}) % Fluid.bounds].velocity
+    var v001 = Fluid[(c+{ 0,  0,  1}) % Fluid.bounds].velocity
+    var v_00 = Fluid[(c+{-1,  0,  0}) % Fluid.bounds].velocity
+    var v0_0 = Fluid[(c+{ 0, -1,  0}) % Fluid.bounds].velocity
+    var v00_ = Fluid[(c+{ 0,  0, -1}) % Fluid.bounds].velocity
+
+    if interior then
+      Fluid[c].velocityGradientX = vs_div(vv_sub(v100, v_00), 2 * Grid_xCellWidth)
+      Fluid[c].velocityGradientY = vs_div(vv_sub(v010, v0_0), 2 * Grid_yCellWidth)
+      Fluid[c].velocityGradientZ = vs_div(vv_sub(v001, v00_), 2 * Grid_zCellWidth)
+    end
     if NSCBC_inflow_cell  then
       -- forward one sided difference
-      Fluid[c].velocityGradientX = vs_div(vv_sub(Fluid[(c+{1, 0, 0})].velocity, Fluid[c].velocity), Grid_xCellWidth)
-
+      Fluid[c].velocityGradientX = vs_div(vv_sub(v100, v000), Grid_xCellWidth)
       -- central difference
-      Fluid[c].velocityGradientY = vs_div(vs_mul(vv_sub(Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocity, Fluid[((c+{0, -1, 0})%Fluid.bounds)].velocity), 0.5), Grid_yCellWidth)
-      Fluid[c].velocityGradientZ = vs_div(vs_mul(vv_sub(Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity, Fluid[((c+{0, 0, -1})%Fluid.bounds)].velocity), 0.5), Grid_zCellWidth)
+      Fluid[c].velocityGradientY = vs_div(vv_sub(v010, v0_0), 2 * Grid_yCellWidth)
+      Fluid[c].velocityGradientZ = vs_div(vv_sub(v001, v00_), 2 * Grid_zCellWidth)
     end
-
     if NSCBC_outflow_cell  then
       -- backward one sided difference
-      Fluid[c].velocityGradientX = vs_div(vv_sub(Fluid[c].velocity, Fluid[(c+{-1, 0, 0})].velocity), Grid_xCellWidth)
-
+      Fluid[c].velocityGradientX = vs_div(vv_sub(v000, v_00), Grid_xCellWidth)
       -- central difference
-      Fluid[c].velocityGradientY = vs_div(vs_mul(vv_sub(Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocity, Fluid[((c+{0, -1, 0})%Fluid.bounds)].velocity), 0.5), Grid_yCellWidth)
-      Fluid[c].velocityGradientZ = vs_div(vs_mul(vv_sub(Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity, Fluid[((c+{0, 0, -1})%Fluid.bounds)].velocity), 0.5), Grid_zCellWidth)
-
+      Fluid[c].velocityGradientY = vs_div(vv_sub(v010, v0_0), 2 * Grid_yCellWidth)
+      Fluid[c].velocityGradientZ = vs_div(vv_sub(v001, v00_), 2 * Grid_zCellWidth)
     end
   end
 end
 
 __demand(__parallel, __cuda)
 task Flow_UpdateAuxiliaryThermodynamics(Fluid : region(ispace(int3d), Fluid_columns),
+                                        config : Config,
                                         Flow_gamma : double,
                                         Flow_gasConstant : double,
                                         Grid_xBnum : int32, Grid_xNum : int32,
                                         Grid_yBnum : int32, Grid_yNum : int32,
                                         Grid_zBnum : int32, Grid_zNum : int32)
-where
-  reads(Fluid.{rho, velocity, rhoEnergy}),
-  writes(Fluid.{pressure, temperature})
-do
-  __demand(__openmp)
-  for c in Fluid do
-    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      var kineticEnergy = ((0.5*Fluid[c].rho)*dot(Fluid[c].velocity, Fluid[c].velocity))
-      var pressure = ((Flow_gamma-1.0)*(Fluid[c].rhoEnergy-kineticEnergy))
-      Fluid[c].pressure = pressure
-      Fluid[c].temperature = (pressure/(Flow_gasConstant*Fluid[c].rho))
-    end
-  end
-end
-
-__demand(__parallel, __cuda)
-task Flow_UpdateAuxiliaryThermodynamicsGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
-                                                  config : Config,
-                                                  Flow_gamma : double,
-                                                  Flow_gasConstant : double,
-                                                  Grid_xBnum : int32, Grid_xNum : int32,
-                                                  Grid_yBnum : int32, Grid_yNum : int32,
-                                                  Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{rho, velocity, rhoEnergy, temperature_inc}),
   writes(Fluid.{pressure, temperature})
@@ -1794,39 +1752,35 @@ do
     var yPosGhost = is_yPosGhost(c, Grid_yBnum, Grid_yNum)
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
-    var ghost_cell = (xNegGhost or xPosGhost or
-                      yNegGhost or yPosGhost or
-                      zNegGhost or zPosGhost )
+    var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
     var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
-    if (ghost_cell) then
-      if (NSCBC_inflow_cell)  then
-        var kineticEnergy = (0.5*Fluid[c].rho) * dot(Fluid[c].velocity,Fluid[c].velocity)
-        Fluid[c].pressure = (Flow_gamma-1.0) * (Fluid[c].rhoEnergy-kineticEnergy)
-        var temperature : double
-        if BC_xBCLeftHeat_type == SCHEMA.TempProfile_Constant then
-          temperature = BC_xBCLeftHeat_Constant_temperature
+    if NSCBC_inflow_cell  then
+      var kineticEnergy = (0.5*Fluid[c].rho) * dot(Fluid[c].velocity,Fluid[c].velocity)
+      Fluid[c].pressure = (Flow_gamma-1.0) * (Fluid[c].rhoEnergy-kineticEnergy)
+      var temperature : double
+      if BC_xBCLeftHeat_type == SCHEMA.TempProfile_Constant then
+        temperature = BC_xBCLeftHeat_Constant_temperature
         -- elseif BC_xBCLeftHeat_type == SCHEMA.TempProfile_Parabola then
         --   regentlib.assert(false, 'Parabola heat model not supported')
-        else -- BC_xBCLeftHeat_type == SCHEMA.TempProfile_Incoming
-          temperature = Fluid[c].temperature_inc
-        end
-        Fluid[c].temperature = temperature
+      else -- BC_xBCLeftHeat_type == SCHEMA.TempProfile_Incoming
+        temperature = Fluid[c].temperature_inc
       end
-
-      if (NSCBC_outflow_cell)  then
-        var kineticEnergy = ((0.5*Fluid[c].rho)*dot(Fluid[c].velocity, Fluid[c].velocity))
-        var pressure = ((Flow_gamma-1.0)*(Fluid[c].rhoEnergy-kineticEnergy))
-        Fluid[c].pressure = pressure
-        Fluid[c].temperature = (pressure/(Flow_gasConstant*Fluid[c].rho))
-      end
+      Fluid[c].temperature = temperature
     end
-
+    if interior or NSCBC_outflow_cell then
+      var kineticEnergy = ((0.5*Fluid[c].rho)*dot(Fluid[c].velocity, Fluid[c].velocity))
+      var pressure = ((Flow_gamma-1.0)*(Fluid[c].rhoEnergy-kineticEnergy))
+      Fluid[c].pressure = pressure
+      Fluid[c].temperature = (pressure/(Flow_gasConstant*Fluid[c].rho))
+    end
   end
 end
 
-__demand(__parallel, __cuda)
+-- NOTE: It is safe to not pass the ghost regions to this task, because we
+-- always group ghost cells with their neighboring interior cells.
+__demand(__cuda) -- MANUALLY PARALLELIZED
 task Flow_UpdateGhostThermodynamics(Fluid : region(ispace(int3d), Fluid_columns),
                                     config : Config,
                                     Flow_gamma : double,
@@ -2163,7 +2117,6 @@ do
   var BC_xBCRight = config.BC.xBCRight
   __demand(__openmp)
   for c in Fluid do
-
     var xNegGhost = is_xNegGhost(c, Grid_xBnum)
     var xPosGhost = is_xPosGhost(c, Grid_xBnum, Grid_xNum)
     var yNegGhost = is_yNegGhost(c, Grid_yBnum)
@@ -2178,7 +2131,8 @@ do
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
     if interior_cell or NSCBC_inflow_cell or NSCBC_outflow_cell then
       var c_sound = GetSoundSpeed(Fluid[c].temperature, Flow_gamma, Flow_gasConstant)
-      acc max= (Fluid[c].velocity[0]*Fluid[c].velocity[0] + Fluid[c].velocity[1]*Fluid[c].velocity[1] + Fluid[c].velocity[2]*Fluid[c].velocity[2]) / c_sound
+      var velocity = Fluid[c].velocity
+      acc max= dot(velocity,velocity) / c_sound
     end
   end
   return acc
@@ -2294,7 +2248,9 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+-- NOTE: It is safe to not pass the ghost regions to this task, because we
+-- always group ghost cells with their neighboring interior cells.
+__demand(__cuda) -- MANUALLY PARALLELIZED
 task Flow_UpdateGhostVelocityGradient(Fluid : region(ispace(int3d), Fluid_columns),
                                       config : Config,
                                       BC_xNegSign : double[3], BC_yNegSign : double[3], BC_zNegSign : double[3],
@@ -2316,144 +2272,55 @@ do
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
     if xNegGhost and BC_xBCLeft ~= SCHEMA.FlowBC_NSCBC_SubsonicInflow then
-      var c_bnd = int3d(c)
-      var c_int = ((c+{1, 0, 0})%Fluid.bounds)
-      var sign = BC_xNegSign
-      Fluid[c_bnd].velocityGradientX = vv_mul(sign, Fluid[c_int].velocityGradientX)
-      Fluid[c_bnd].velocityGradientY = vv_mul(sign, Fluid[c_int].velocityGradientY)
-      Fluid[c_bnd].velocityGradientZ = vv_mul(sign, Fluid[c_int].velocityGradientZ)
+      Fluid[c].velocityGradientX = vv_mul(BC_xNegSign, Fluid[(c+{1, 0, 0})%Fluid.bounds].velocityGradientX)
+      Fluid[c].velocityGradientY = vv_mul(BC_xNegSign, Fluid[(c+{1, 0, 0})%Fluid.bounds].velocityGradientY)
+      Fluid[c].velocityGradientZ = vv_mul(BC_xNegSign, Fluid[(c+{1, 0, 0})%Fluid.bounds].velocityGradientZ)
     end
     if xPosGhost and BC_xBCRight ~= SCHEMA.FlowBC_NSCBC_SubsonicOutflow then
-      var c_bnd = int3d(c)
-      var c_int = ((c+{-1, 0, 0})%Fluid.bounds)
-      var sign = BC_xPosSign
-      Fluid[c_bnd].velocityGradientX = vv_mul(sign, Fluid[c_int].velocityGradientX)
-      Fluid[c_bnd].velocityGradientY = vv_mul(sign, Fluid[c_int].velocityGradientY)
-      Fluid[c_bnd].velocityGradientZ = vv_mul(sign, Fluid[c_int].velocityGradientZ)
+      Fluid[c].velocityGradientX = vv_mul(BC_xPosSign, Fluid[(c+{-1, 0, 0})%Fluid.bounds].velocityGradientX)
+      Fluid[c].velocityGradientY = vv_mul(BC_xPosSign, Fluid[(c+{-1, 0, 0})%Fluid.bounds].velocityGradientY)
+      Fluid[c].velocityGradientZ = vv_mul(BC_xPosSign, Fluid[(c+{-1, 0, 0})%Fluid.bounds].velocityGradientZ)
     end
     if yNegGhost then
-      var c_bnd = int3d(c)
-      var c_int = ((c+{0, 1, 0})%Fluid.bounds)
-      var sign = BC_yNegSign
-      Fluid[c_bnd].velocityGradientX = vv_mul(sign, Fluid[c_int].velocityGradientX)
-      Fluid[c_bnd].velocityGradientY = vv_mul(sign, Fluid[c_int].velocityGradientY)
-      Fluid[c_bnd].velocityGradientZ = vv_mul(sign, Fluid[c_int].velocityGradientZ)
+      Fluid[c].velocityGradientX = vv_mul(BC_yNegSign, Fluid[(c+{0, 1, 0})%Fluid.bounds].velocityGradientX)
+      Fluid[c].velocityGradientY = vv_mul(BC_yNegSign, Fluid[(c+{0, 1, 0})%Fluid.bounds].velocityGradientY)
+      Fluid[c].velocityGradientZ = vv_mul(BC_yNegSign, Fluid[(c+{0, 1, 0})%Fluid.bounds].velocityGradientZ)
     end
     if yPosGhost then
-      var c_bnd = int3d(c)
-      var c_int = ((c+{0, -1, 0})%Fluid.bounds)
-      var sign = BC_yPosSign
-      Fluid[c_bnd].velocityGradientX = vv_mul(sign, Fluid[c_int].velocityGradientX)
-      Fluid[c_bnd].velocityGradientY = vv_mul(sign, Fluid[c_int].velocityGradientY)
-      Fluid[c_bnd].velocityGradientZ = vv_mul(sign, Fluid[c_int].velocityGradientZ)
+      Fluid[c].velocityGradientX = vv_mul(BC_yPosSign, Fluid[(c+{0, -1, 0})%Fluid.bounds].velocityGradientX)
+      Fluid[c].velocityGradientY = vv_mul(BC_yPosSign, Fluid[(c+{0, -1, 0})%Fluid.bounds].velocityGradientY)
+      Fluid[c].velocityGradientZ = vv_mul(BC_yPosSign, Fluid[(c+{0, -1, 0})%Fluid.bounds].velocityGradientZ)
     end
     if zNegGhost then
-      var c_bnd = int3d(c)
-      var c_int = ((c+{0, 0, 1})%Fluid.bounds)
-      var sign = BC_zNegSign
-      Fluid[c_bnd].velocityGradientX = vv_mul(sign, Fluid[c_int].velocityGradientX)
-      Fluid[c_bnd].velocityGradientY = vv_mul(sign, Fluid[c_int].velocityGradientY)
-      Fluid[c_bnd].velocityGradientZ = vv_mul(sign, Fluid[c_int].velocityGradientZ)
+      Fluid[c].velocityGradientX = vv_mul(BC_zNegSign, Fluid[(c+{0, 0, 1})%Fluid.bounds].velocityGradientX)
+      Fluid[c].velocityGradientY = vv_mul(BC_zNegSign, Fluid[(c+{0, 0, 1})%Fluid.bounds].velocityGradientY)
+      Fluid[c].velocityGradientZ = vv_mul(BC_zNegSign, Fluid[(c+{0, 0, 1})%Fluid.bounds].velocityGradientZ)
     end
     if zPosGhost then
-      var c_bnd = int3d(c)
-      var c_int = ((c+{0, 0, -1})%Fluid.bounds)
-      var sign = BC_zPosSign
-      Fluid[c_bnd].velocityGradientX = vv_mul(sign, Fluid[c_int].velocityGradientX)
-      Fluid[c_bnd].velocityGradientY = vv_mul(sign, Fluid[c_int].velocityGradientY)
-      Fluid[c_bnd].velocityGradientZ = vv_mul(sign, Fluid[c_int].velocityGradientZ)
+      Fluid[c].velocityGradientX = vv_mul(BC_zPosSign, Fluid[(c+{0, 0, -1})%Fluid.bounds].velocityGradientX)
+      Fluid[c].velocityGradientY = vv_mul(BC_zPosSign, Fluid[(c+{0, 0, -1})%Fluid.bounds].velocityGradientY)
+      Fluid[c].velocityGradientZ = vv_mul(BC_zPosSign, Fluid[(c+{0, 0, -1})%Fluid.bounds].velocityGradientZ)
     end
   end
 end
 
-__demand(__inline)
-task CenteredInviscidFluxX(c_l : int3d,
-                           c_r : int3d,
-                           Fluid : region(ispace(int3d), Fluid_columns))
-where
-  reads(Fluid.{rho, velocity, pressure, rhoVelocity, rhoEnergy})
-do
-  var rhoFlux_temp =
-    0.25
-    * (Fluid[c_l].rho + Fluid[c_r].rho)
-    * (Fluid[c_l].velocity[0] + Fluid[c_r].velocity[0])
-  var rhoVelocityFlux_temp =
-    vs_mul(vv_add(Fluid[c_l].rhoVelocity, Fluid[c_r].rhoVelocity),
-           0.25 * (Fluid[c_l].velocity[0] + Fluid[c_r].velocity[0]))
-  rhoVelocityFlux_temp[0] += 0.5 * (Fluid[c_l].pressure + Fluid[c_r].pressure)
-  var rhoEnergyFlux_temp =
-    0.25
-    * (Fluid[c_l].rhoEnergy + Fluid[c_l].pressure +
-       Fluid[c_r].rhoEnergy + Fluid[c_r].pressure)
-    * (Fluid[c_l].velocity[0] + Fluid[c_r].velocity[0])
-  return array(rhoFlux_temp, rhoVelocityFlux_temp[0], rhoVelocityFlux_temp[1], rhoVelocityFlux_temp[2], rhoEnergyFlux_temp)
-end
-
-__demand(__inline)
-task CenteredInviscidFluxY(c_l : int3d,
-                           c_r : int3d,
-                           Fluid : region(ispace(int3d), Fluid_columns))
-where
-  reads(Fluid.{rho, velocity, pressure, rhoVelocity, rhoEnergy})
-do
-  var rhoFlux_temp =
-    0.25
-    * (Fluid[c_l].rho + Fluid[c_r].rho)
-    * (Fluid[c_l].velocity[1] + Fluid[c_r].velocity[1])
-  var rhoVelocityFlux_temp =
-    vs_mul(vv_add(Fluid[c_l].rhoVelocity, Fluid[c_r].rhoVelocity),
-           0.25 * (Fluid[c_l].velocity[1] + Fluid[c_r].velocity[1]))
-  rhoVelocityFlux_temp[1] += 0.5 * (Fluid[c_l].pressure + Fluid[c_r].pressure)
-  var rhoEnergyFlux_temp =
-    0.25
-    * (Fluid[c_l].rhoEnergy + Fluid[c_l].pressure +
-       Fluid[c_r].rhoEnergy + Fluid[c_r].pressure)
-    * (Fluid[c_l].velocity[1] + Fluid[c_r].velocity[1])
-  return array(rhoFlux_temp, rhoVelocityFlux_temp[0], rhoVelocityFlux_temp[1], rhoVelocityFlux_temp[2], rhoEnergyFlux_temp)
-end
-
-__demand(__inline)
-task CenteredInviscidFluxZ(c_l : int3d,
-                           c_r : int3d,
-                           Fluid : region(ispace(int3d), Fluid_columns))
-where
-  reads(Fluid.{rho, velocity, pressure, rhoVelocity, rhoEnergy})
-do
-  var rhoFlux_temp =
-    0.25
-    * (Fluid[c_l].rho + Fluid[c_r].rho)
-    * (Fluid[c_l].velocity[2] + Fluid[c_r].velocity[2])
-  var rhoVelocityFlux_temp =
-    vs_mul(vv_add(Fluid[c_l].rhoVelocity, Fluid[c_r].rhoVelocity),
-           0.25 * (Fluid[c_l].velocity[2] + Fluid[c_r].velocity[2]))
-  rhoVelocityFlux_temp[2] += 0.5 * (Fluid[c_l].pressure + Fluid[c_r].pressure)
-  var rhoEnergyFlux_temp =
-    0.25
-    * (Fluid[c_l].rhoEnergy + Fluid[c_l].pressure +
-       Fluid[c_r].rhoEnergy + Fluid[c_r].pressure)
-    * (Fluid[c_l].velocity[2] + Fluid[c_r].velocity[2])
-  return array(rhoFlux_temp, rhoVelocityFlux_temp[0], rhoVelocityFlux_temp[1], rhoVelocityFlux_temp[2], rhoEnergyFlux_temp)
-end
-
 __demand(__parallel, __cuda)
-task Flow_GetFlux(Fluid : region(ispace(int3d), Fluid_columns),
-                  config : Config,
-                  Flow_constantVisc : double,
-                  Flow_gamma : double,
-                  Flow_gasConstant : double,
-                  Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                  Flow_prandtl : double,
-                  Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                  Flow_viscosityModel : SCHEMA.ViscosityModel,
-                  Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
-                  Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
-                  Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
+task Flow_GetFluxX(Fluid : region(ispace(int3d), Fluid_columns),
+                   config : Config,
+                   Flow_constantVisc : double,
+                   Flow_gamma : double,
+                   Flow_gasConstant : double,
+                   Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                   Flow_prandtl : double,
+                   Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                   Flow_viscosityModel : SCHEMA.ViscosityModel,
+                   Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
+                   Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
+                   Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
   reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnergy, temperature}),
-  reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ}),
-  writes(Fluid.{rhoEnergyFluxX, rhoEnergyFluxY, rhoEnergyFluxZ}),
-  writes(Fluid.{rhoFluxX, rhoFluxY, rhoFluxZ}),
-  writes(Fluid.{rhoVelocityFluxX, rhoVelocityFluxY, rhoVelocityFluxZ})
+  reads(Fluid.{velocityGradientY, velocityGradientZ}),
+  writes(Fluid.{rhoEnergyFluxX, rhoFluxX, rhoVelocityFluxX})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
@@ -2467,6 +2334,8 @@ do
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
     var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     var rho = Fluid[c].rho
     var pressure = Fluid[c].pressure
@@ -2474,7 +2343,6 @@ do
     var rhoEnergy = Fluid[c].rhoEnergy
     var temperature = Fluid[c].temperature
     var velocity = Fluid[c].velocity
-    var velocityGradientX = Fluid[c].velocityGradientX
     var velocityGradientY = Fluid[c].velocityGradientY
     var velocityGradientZ = Fluid[c].velocityGradientZ
     var mu = GetDynamicViscosity(temperature,
@@ -2535,7 +2403,57 @@ do
         * (velocity[0] + velocity_stencil[0])
       Fluid[c].rhoEnergyFluxX = rhoEnergyFluxX - (usigma-heatFlux)
     end
-    if interior or yNegGhost  then
+  end
+end
+
+__demand(__parallel, __cuda)
+task Flow_GetFluxY(Fluid : region(ispace(int3d), Fluid_columns),
+                   config : Config,
+                   Flow_constantVisc : double,
+                   Flow_gamma : double,
+                   Flow_gasConstant : double,
+                   Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                   Flow_prandtl : double,
+                   Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                   Flow_viscosityModel : SCHEMA.ViscosityModel,
+                   Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
+                   Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
+                   Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
+where
+  reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnergy, temperature}),
+  reads(Fluid.{velocityGradientX, velocityGradientZ}),
+  writes(Fluid.{rhoEnergyFluxY, rhoFluxY, rhoVelocityFluxY})
+do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
+
+  __demand(__openmp)
+  for c in Fluid do
+    var xNegGhost = is_xNegGhost(c, Grid_xBnum)
+    var xPosGhost = is_xPosGhost(c, Grid_xBnum, Grid_xNum)
+    var yNegGhost = is_yNegGhost(c, Grid_yBnum)
+    var yPosGhost = is_yPosGhost(c, Grid_yBnum, Grid_yNum)
+    var zNegGhost = is_zNegGhost(c, Grid_zBnum)
+    var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
+    var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+
+    var rho = Fluid[c].rho
+    var pressure = Fluid[c].pressure
+    var rhoVelocity = Fluid[c].rhoVelocity
+    var rhoEnergy = Fluid[c].rhoEnergy
+    var temperature = Fluid[c].temperature
+    var velocity = Fluid[c].velocity
+    var velocityGradientX = Fluid[c].velocityGradientX
+    var velocityGradientZ = Fluid[c].velocityGradientZ
+    var mu = GetDynamicViscosity(temperature,
+                                 Flow_constantVisc,
+                                 Flow_powerlawTempRef, Flow_powerlawViscRef,
+                                 Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
+                                 Flow_viscosityModel)
+
+    if interior or yNegGhost or NSCBC_inflow_cell or NSCBC_outflow_cell then
       var stencil = (c+{0, 1, 0}) % Fluid.bounds
       var rho_stencil = Fluid[stencil].rho
       var pressure_stencil = Fluid[stencil].pressure
@@ -2587,7 +2505,57 @@ do
         * (velocity[1] + velocity_stencil[1])
       Fluid[c].rhoEnergyFluxY = rhoEnergyFluxY - (usigma-heatFlux)
     end
-    if interior or zNegGhost then
+  end
+end
+
+__demand(__parallel, __cuda)
+task Flow_GetFluxZ(Fluid : region(ispace(int3d), Fluid_columns),
+                   config : Config,
+                   Flow_constantVisc : double,
+                   Flow_gamma : double,
+                   Flow_gasConstant : double,
+                   Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                   Flow_prandtl : double,
+                   Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                   Flow_viscosityModel : SCHEMA.ViscosityModel,
+                   Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
+                   Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
+                   Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
+where
+  reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnergy, temperature}),
+  reads(Fluid.{velocityGradientX, velocityGradientY}),
+  writes(Fluid.{rhoEnergyFluxZ, rhoFluxZ, rhoVelocityFluxZ})
+do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
+
+  __demand(__openmp)
+  for c in Fluid do
+    var xNegGhost = is_xNegGhost(c, Grid_xBnum)
+    var xPosGhost = is_xPosGhost(c, Grid_xBnum, Grid_xNum)
+    var yNegGhost = is_yNegGhost(c, Grid_yBnum)
+    var yPosGhost = is_yPosGhost(c, Grid_yBnum, Grid_yNum)
+    var zNegGhost = is_zNegGhost(c, Grid_zBnum)
+    var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
+    var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+
+    var rho = Fluid[c].rho
+    var pressure = Fluid[c].pressure
+    var rhoVelocity = Fluid[c].rhoVelocity
+    var rhoEnergy = Fluid[c].rhoEnergy
+    var temperature = Fluid[c].temperature
+    var velocity = Fluid[c].velocity
+    var velocityGradientX = Fluid[c].velocityGradientX
+    var velocityGradientY = Fluid[c].velocityGradientY
+    var mu = GetDynamicViscosity(temperature,
+                                 Flow_constantVisc,
+                                 Flow_powerlawTempRef, Flow_powerlawViscRef,
+                                 Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
+                                 Flow_viscosityModel)
+
+    if interior or zNegGhost or NSCBC_inflow_cell or NSCBC_outflow_cell then
       var stencil = (c+{0, 0, 1}) % Fluid.bounds
       var rho_stencil = Fluid[stencil].rho
       var pressure_stencil = Fluid[stencil].pressure
@@ -2643,62 +2611,14 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_UpdateUsingFlux(Fluid : region(ispace(int3d), Fluid_columns),
-                          Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
-                          Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
-                          Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
+task Flow_UpdateUsingFluxX(Fluid : region(ispace(int3d), Fluid_columns),
+                           config : Config,
+                           Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
+                           Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
+                           Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
-  reads(Fluid.{rhoFluxX, rhoFluxY, rhoFluxZ}),
-  reads(Fluid.{rhoVelocityFluxX, rhoVelocityFluxY, rhoVelocityFluxZ}),
-  reads(Fluid.{rhoEnergyFluxX, rhoEnergyFluxY, rhoEnergyFluxZ}),
-  reads writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
-do
-  __demand(__openmp)
-  for c in Fluid do
-    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-
-      var stencil1 = ((c+{-1, 0, 0})%Fluid.bounds)
-      var stencil2 = ((c+{0, -1, 0})%Fluid.bounds)
-      var stencil3 = ((c+{0, 0, -1})%Fluid.bounds)
-
-      Fluid[c].rho_t += ((-(Fluid[c].rhoFluxX-Fluid[stencil1].rhoFluxX))/Grid_xCellWidth)
-      var tmp1 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxX, Fluid[stencil1].rhoVelocityFluxX), double((-1))), Grid_xCellWidth)
-      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp1)
-      Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxX-Fluid[stencil1].rhoEnergyFluxX))/Grid_xCellWidth)
-
-      Fluid[c].rho_t += ((-(Fluid[c].rhoFluxY-Fluid[stencil2].rhoFluxY))/Grid_yCellWidth)
-      var tmp2 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxY, Fluid[stencil2].rhoVelocityFluxY), double((-1))), Grid_yCellWidth)
-      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp2)
-      Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxY-Fluid[stencil2].rhoEnergyFluxY))/Grid_yCellWidth)
-
-      Fluid[c].rho_t += ((-(Fluid[c].rhoFluxZ-Fluid[stencil3].rhoFluxZ))/Grid_zCellWidth)
-      var tmp3 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxZ, Fluid[stencil3].rhoVelocityFluxZ), double((-1))), Grid_zCellWidth)
-      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp3)
-      Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxZ-Fluid[stencil3].rhoEnergyFluxZ))/Grid_zCellWidth)
-
-    end
-  end
-end
-
-__demand(__parallel, __cuda)
-task Flow_GetFluxGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
-                            config : Config,
-                            Flow_constantVisc : double,
-                            Flow_gamma : double,
-                            Flow_gasConstant : double,
-                            Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                            Flow_prandtl : double,
-                            Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                            Flow_viscosityModel : SCHEMA.ViscosityModel,
-                            Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
-                            Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
-                            Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
-where
-  reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnergy, temperature}),
-  reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ}),
-  reads writes(Fluid.{rhoEnergyFluxY, rhoEnergyFluxZ}),
-  reads writes(Fluid.{rhoFluxY, rhoFluxZ}),
-  reads writes(Fluid.{rhoVelocityFluxY, rhoVelocityFluxZ})
+  reads(Fluid.{rhoFluxX, rhoVelocityFluxX, rhoEnergyFluxX}),
+  reads writes atomic(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
@@ -2710,102 +2630,93 @@ do
     var yPosGhost = is_yPosGhost(c, Grid_yBnum, Grid_yNum)
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
-    var ghost_cell = (xNegGhost or xPosGhost or
-                      yNegGhost or yPosGhost or
-                      zNegGhost or zPosGhost )
-    var interior_cell = not (ghost_cell)
+    var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
     var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
-    if NSCBC_inflow_cell or NSCBC_outflow_cell  then
-      -- y fluxes
-      var flux = CenteredInviscidFluxY(c, ((c+{0, 1, 0})%Fluid.bounds), Fluid)
-      Fluid[c].rhoFluxY = flux[0]
-      Fluid[c].rhoVelocityFluxY = array(flux[1], flux[2], flux[3])
-      Fluid[c].rhoEnergyFluxY = flux[4]
-      var muFace = (0.5*(GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)+GetDynamicViscosity(Fluid[((c+{0, 1, 0})%Fluid.bounds)].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)))
-      var velocityFace = array(0.0, 0.0, 0.0)
-      var velocityY_XFace = 0.0
-      var velocityY_ZFace = 0.0
-      var velocityX_XFace = 0.0
-      var velocityZ_ZFace = 0.0
-      velocityFace = vs_mul(vv_add(Fluid[c].velocity, Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocity), 0.5)
-      velocityY_XFace = (0.5*(Fluid[c].velocityGradientX[1]+Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocityGradientX[1]))
-      velocityY_ZFace = (0.5*(Fluid[c].velocityGradientZ[1]+Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocityGradientZ[1]))
-      velocityX_XFace = (0.5*(Fluid[c].velocityGradientX[0]+Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocityGradientX[0]))
-      velocityZ_ZFace = (0.5*(Fluid[c].velocityGradientZ[2]+Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocityGradientZ[2]))
-      var velocityX_YFace = 0.0
-      var velocityY_YFace = 0.0
-      var velocityZ_YFace = 0.0
-      var temperature_YFace = 0.0
-      velocityX_YFace = (0.5*(Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocity[0]-Fluid[c].velocity[0]))
-      velocityY_YFace = (0.5*(Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocity[1]-Fluid[c].velocity[1]))
-      velocityZ_YFace = (0.5*(Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocity[2]-Fluid[c].velocity[2]))
-      temperature_YFace = (0.5*(Fluid[((c+{0, 1, 0})%Fluid.bounds)].temperature-Fluid[c].temperature))
-      velocityX_YFace *= (1/(Grid_yCellWidth*0.5))
-      velocityY_YFace *= (1/(Grid_yCellWidth*0.5))
-      velocityZ_YFace *= (1/(Grid_yCellWidth*0.5))
-      temperature_YFace *= (1/(Grid_yCellWidth*0.5))
-      var sigmaXY = (muFace*(velocityX_YFace+velocityY_XFace))
-      var sigmaYY = ((muFace*(((4.0*velocityY_YFace)-(2.0*velocityX_XFace))-(2.0*velocityZ_ZFace)))/3.0)
-      var sigmaZY = (muFace*(velocityZ_YFace+velocityY_ZFace))
-      var usigma = (((velocityFace[0]*sigmaXY)+(velocityFace[1]*sigmaYY))+(velocityFace[2]*sigmaZY))
-      var cp = ((Flow_gamma*Flow_gasConstant)/(Flow_gamma-1.0))
-      var heatFlux = ((-((cp*muFace)/Flow_prandtl))*temperature_YFace)
-      Fluid[c].rhoVelocityFluxY[0] += (-sigmaXY)
-      Fluid[c].rhoVelocityFluxY[1] += (-sigmaYY)
-      Fluid[c].rhoVelocityFluxY[2] += (-sigmaZY)
-      Fluid[c].rhoEnergyFluxY += (-(usigma-heatFlux))
-    end
-    if (NSCBC_inflow_cell or NSCBC_outflow_cell) then
-      -- z fluxes
-      var flux = CenteredInviscidFluxZ(c, ((c+{0, 0, 1})%Fluid.bounds), Fluid)
-      Fluid[c].rhoFluxZ = flux[0]
-      Fluid[c].rhoVelocityFluxZ = array(flux[1], flux[2], flux[3])
-      Fluid[c].rhoEnergyFluxZ = flux[4]
-      var muFace = (0.5*(GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)+GetDynamicViscosity(Fluid[((c+{0, 0, 1})%Fluid.bounds)].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)))
-      var velocityFace = array(0.0, 0.0, 0.0)
-      var velocityZ_XFace = 0.0
-      var velocityZ_YFace = 0.0
-      var velocityX_XFace = 0.0
-      var velocityY_YFace = 0.0
-      velocityFace = vs_mul(vv_add(Fluid[c].velocity, Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity), 0.5)
-      velocityZ_XFace = (0.5*(Fluid[c].velocityGradientX[2]+Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocityGradientX[2]))
-      velocityZ_YFace = (0.5*(Fluid[c].velocityGradientY[2]+Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocityGradientY[2]))
-      velocityX_XFace = (0.5*(Fluid[c].velocityGradientX[0]+Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocityGradientX[0]))
-      velocityY_YFace = (0.5*(Fluid[c].velocityGradientY[1]+Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocityGradientY[1]))
-      var velocityX_ZFace = 0.0
-      var velocityY_ZFace = 0.0
-      var velocityZ_ZFace = 0.0
-      var temperature_ZFace = 0.0
-      velocityX_ZFace = (0.5*(Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity[0]-Fluid[c].velocity[0]))
-      velocityY_ZFace = (0.5*(Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity[1]-Fluid[c].velocity[1]))
-      velocityZ_ZFace = (0.5*(Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity[2]-Fluid[c].velocity[2]))
-      temperature_ZFace = (0.5*(Fluid[((c+{0, 0, 1})%Fluid.bounds)].temperature-Fluid[c].temperature))
-      velocityX_ZFace *= (1/(Grid_zCellWidth*0.5))
-      velocityY_ZFace *= (1/(Grid_zCellWidth*0.5))
-      velocityZ_ZFace *= (1/(Grid_zCellWidth*0.5))
-      temperature_ZFace *= (1/(Grid_zCellWidth*0.5))
-      var sigmaXZ = (muFace*(velocityX_ZFace+velocityZ_XFace))
-      var sigmaYZ = (muFace*(velocityY_ZFace+velocityZ_YFace))
-      var sigmaZZ = ((muFace*(((4.0*velocityZ_ZFace)-(2.0*velocityX_XFace))-(2.0*velocityY_YFace)))/3.0)
-      var usigma = (((velocityFace[0]*sigmaXZ)+(velocityFace[1]*sigmaYZ))+(velocityFace[2]*sigmaZZ))
-      var cp = ((Flow_gamma*Flow_gasConstant)/(Flow_gamma-1.0))
-      var heatFlux = ((-((cp*muFace)/Flow_prandtl))*temperature_ZFace)
-      Fluid[c].rhoVelocityFluxZ[0] += (-sigmaXZ)
-      Fluid[c].rhoVelocityFluxZ[1] += (-sigmaYZ)
-      Fluid[c].rhoVelocityFluxZ[2] += (-sigmaZZ)
-      Fluid[c].rhoEnergyFluxZ += (-(usigma-heatFlux))
+    if interior then
+      Fluid[c].rho_t += ((-(Fluid[c].rhoFluxX-Fluid[(c+{-1, 0, 0})%Fluid.bounds].rhoFluxX))/Grid_xCellWidth)
+      var tmp1 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxX, Fluid[(c+{-1, 0, 0})%Fluid.bounds].rhoVelocityFluxX), double((-1))), Grid_xCellWidth)
+      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp1)
+      Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxX-Fluid[(c+{-1, 0, 0})%Fluid.bounds].rhoEnergyFluxX))/Grid_xCellWidth)
     end
   end
 end
 
 __demand(__parallel, __cuda)
+task Flow_UpdateUsingFluxY(Fluid : region(ispace(int3d), Fluid_columns),
+                           config : Config,
+                           Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
+                           Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
+                           Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
+where
+  reads(Fluid.{rhoFluxY, rhoVelocityFluxY, rhoEnergyFluxY}),
+  reads writes atomic(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
+do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
+  __demand(__openmp)
+  for c in Fluid do
+    var xNegGhost = is_xNegGhost(c, Grid_xBnum)
+    var xPosGhost = is_xPosGhost(c, Grid_xBnum, Grid_xNum)
+    var yNegGhost = is_yNegGhost(c, Grid_yBnum)
+    var yPosGhost = is_yPosGhost(c, Grid_yBnum, Grid_yNum)
+    var zNegGhost = is_zNegGhost(c, Grid_zBnum)
+    var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
+    var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+
+    if interior or NSCBC_inflow_cell or NSCBC_outflow_cell then
+      Fluid[c].rho_t += ((-(Fluid[c].rhoFluxY-Fluid[(c+{0, -1, 0})%Fluid.bounds].rhoFluxY))/Grid_yCellWidth)
+      var tmp2 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxY, Fluid[(c+{0, -1, 0})%Fluid.bounds].rhoVelocityFluxY), double((-1))), Grid_yCellWidth)
+      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp2)
+      Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxY-Fluid[(c+{0, -1, 0})%Fluid.bounds].rhoEnergyFluxY))/Grid_yCellWidth)
+    end
+  end
+end
+
+__demand(__parallel, __cuda)
+task Flow_UpdateUsingFluxZ(Fluid : region(ispace(int3d), Fluid_columns),
+                           config : Config,
+                           Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
+                           Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
+                           Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
+where
+  reads(Fluid.{rhoFluxZ, rhoVelocityFluxZ, rhoEnergyFluxZ}),
+  reads writes atomic(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
+do
+  var BC_xBCLeft = config.BC.xBCLeft
+  var BC_xBCRight = config.BC.xBCRight
+  __demand(__openmp)
+  for c in Fluid do
+    var xNegGhost = is_xNegGhost(c, Grid_xBnum)
+    var xPosGhost = is_xPosGhost(c, Grid_xBnum, Grid_xNum)
+    var yNegGhost = is_yNegGhost(c, Grid_yBnum)
+    var yPosGhost = is_yPosGhost(c, Grid_yBnum, Grid_yNum)
+    var zNegGhost = is_zNegGhost(c, Grid_zBnum)
+    var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
+    var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
+    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+
+    if interior or NSCBC_inflow_cell or NSCBC_outflow_cell then
+      Fluid[c].rho_t += ((-(Fluid[c].rhoFluxZ-Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoFluxZ))/Grid_zCellWidth)
+      var tmp3 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxZ, Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoVelocityFluxZ), double((-1))), Grid_zCellWidth)
+      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp3)
+      Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxZ-Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoEnergyFluxZ))/Grid_zCellWidth)
+    end
+  end
+end
+
+-- NOTE: It is safe to not pass the ghost regions to this task, because we
+-- always group ghost cells with their neighboring interior cells.
+__demand(__cuda) -- MANUALLY PARALLELIZED
 task Flow_UpdateUsingFluxGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
                                     config : Config,
                                     Flow_gamma : double, Flow_gasConstant : double,
                                     Flow_prandtl : double,
-                                    maxMach : double,
+                                    Flow_maxMach : double,
                                     Flow_lengthScale : double,
                                     Flow_constantVisc : double,
                                     Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
@@ -2816,11 +2727,9 @@ task Flow_UpdateUsingFluxGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns)
                                     Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
                                     Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
-  reads(Fluid.{rho, velocity, pressure, temperature, rhoVelocity, velocityGradientX, velocityGradientY, velocityGradientZ, rhoEnergy, dudtBoundary, dTdtBoundary}),
-  reads(Fluid.{rhoFluxY, rhoFluxZ}),
-  reads(Fluid.{rhoVelocityFluxY, rhoVelocityFluxZ}),
-  reads(Fluid.{rhoEnergyFluxY, rhoEnergyFluxZ}),
-  reads writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
+  reads(Fluid.{rho, velocity, pressure, temperature, rhoVelocity, dudtBoundary, dTdtBoundary}),
+  reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ}),
+  reads writes atomic(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
@@ -2840,10 +2749,6 @@ do
 
     if ghost_cell then
       if NSCBC_inflow_cell then
-        -- add y and z fluxes for inflow cells
-        Fluid[c].rho_t += ((-(Fluid[c].rhoFluxY-Fluid[((c+{0, -1, 0})%Fluid.bounds)].rhoFluxY))/Grid_yCellWidth)
-        Fluid[c].rho_t += ((-(Fluid[c].rhoFluxZ-Fluid[((c+{0, 0, -1})%Fluid.bounds)].rhoFluxZ))/Grid_zCellWidth)
-
         -- Add in the x flux using NSCBC
         var c_bnd = int3d(c)
         var c_int = ((c+{1, 0, 0})%Fluid.bounds)
@@ -2867,25 +2772,13 @@ do
       end
 
       if NSCBC_outflow_cell then
-
-        -- update y and z fluxes for outflow cells
-        Fluid[c].rho_t += ((-(Fluid[c].rhoFluxY-Fluid[((c+{0, -1, 0})%Fluid.bounds)].rhoFluxY))/Grid_yCellWidth)
-        var tmp__7144 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxY, Fluid[((c+{0, -1, 0})%Fluid.bounds)].rhoVelocityFluxY), double((-1))), Grid_yCellWidth)
-        Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp__7144)
-        Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxY-Fluid[((c+{0, -1, 0})%Fluid.bounds)].rhoEnergyFluxY))/Grid_yCellWidth)
-
-        Fluid[c].rho_t += ((-(Fluid[c].rhoFluxZ-Fluid[((c+{0, 0, -1})%Fluid.bounds)].rhoFluxZ))/Grid_zCellWidth)
-        var tmp__7146 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxZ, Fluid[((c+{0, 0, -1})%Fluid.bounds)].rhoVelocityFluxZ), double((-1))), Grid_zCellWidth)
-        Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp__7146)
-        Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxZ-Fluid[((c+{0, 0, -1})%Fluid.bounds)].rhoEnergyFluxZ))/Grid_zCellWidth)
-
         -- Add in the x fluxes using NSCBC for outflow
         var c_bnd = int3d(c)
         var c_int = ((c+{-1, 0, 0})%Fluid.bounds)
 
         var sigma = 0.25 -- Specified constant
         var c_sound = GetSoundSpeed(Fluid[c_bnd].temperature, Flow_gamma, Flow_gasConstant)
-        var K = sigma*(1.0-maxMach*maxMach)*c_sound/Flow_lengthScale
+        var K = sigma*(1.0-Flow_maxMach*Flow_maxMach)*c_sound/Flow_lengthScale
 
         var L1 = K*(Fluid[c_bnd].pressure - BC_xPosP_inf)
 
@@ -2997,37 +2890,17 @@ end
 
 __demand(__parallel, __cuda)
 task Flow_AddBodyForces(Fluid : region(ispace(int3d), Fluid_columns),
-                        Flow_bodyForce : double[3],
+                        config : Config,
                         Grid_xBnum : int32, Grid_xNum : int32,
                         Grid_yBnum : int32, Grid_yNum : int32,
                         Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{rho, velocity}),
-  reads writes(Fluid.{rhoEnergy_t, rhoVelocity_t})
-do
-  __demand(__openmp)
-  for c in Fluid do
-    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      var tmp = vs_mul(Flow_bodyForce, Fluid[c].rho)
-      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp)
-      Fluid[c].rhoEnergy_t += (Fluid[c].rho*dot(Flow_bodyForce, Fluid[c].velocity))
-    end
-  end
-end
-
-__demand(__parallel, __cuda)
-task Flow_AddBodyForcesGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
-                                  config : Config,
-                                  Flow_bodyForce : double[3],
-                                  Grid_xBnum : int32, Grid_xNum : int32,
-                                  Grid_yBnum : int32, Grid_yNum : int32,
-                                  Grid_zBnum : int32, Grid_zNum : int32)
-where
-  reads(Fluid.{rho, velocity}),
-  reads writes(Fluid.{rhoEnergy_t, rhoVelocity_t})
+  reads writes atomic(Fluid.{rhoEnergy_t, rhoVelocity_t})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
+  var Flow_bodyForce = config.Flow.bodyForce
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = is_xNegGhost(c, Grid_xBnum)
@@ -3036,10 +2909,11 @@ do
     var yPosGhost = is_yPosGhost(c, Grid_yBnum, Grid_yNum)
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
+    var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
     var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
-    if NSCBC_inflow_cell or NSCBC_outflow_cell then
+    if interior or NSCBC_inflow_cell or NSCBC_outflow_cell then
       var tmp = vs_mul(Flow_bodyForce, Fluid[c].rho)
       Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp)
       Fluid[c].rhoEnergy_t += (Fluid[c].rho*dot(Flow_bodyForce, Fluid[c].velocity))
@@ -3323,7 +3197,7 @@ task Flow_AddTurbulentSource(Fluid : region(ispace(int3d), Fluid_columns),
                              config : Config)
 where
   reads(Fluid.{rho, velocity}),
-  reads writes(Fluid.{rhoVelocity_t, rhoEnergy_t})
+  reads writes atomic(Fluid.{rhoVelocity_t, rhoEnergy_t})
 do
   var W = Flow_averagePD + Flow_averageDissipation
   var G = config.Flow.turbForcing.u.HIT.G
@@ -3351,7 +3225,7 @@ task Flow_AdjustTurbulentSource(Fluid : region(ispace(int3d), Fluid_columns),
                                 Grid_yBnum : int32, Grid_yNum : int32,
                                 Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads writes(Fluid.rhoEnergy_t)
+  reads writes atomic(Fluid.rhoEnergy_t)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -4197,7 +4071,7 @@ task Flow_AddParticlesCoupling(Particles : region(ispace(int1d), Particles_colum
                                Grid_cellVolume : double)
 where
   reads(Particles.{cell, diameter, density, deltaTemperatureTerm, deltaVelocityOverRelaxationTime, __valid}),
-  reads writes(Fluid.{rhoVelocity_t, rhoEnergy_t})
+  reads writes atomic(Fluid.{rhoVelocity_t, rhoEnergy_t})
 do
   __demand(__openmp)
   for p in Particles do
@@ -5058,7 +4932,7 @@ local function mkInstance() local INSTANCE = {}
     elseif config.Flow.initCase == SCHEMA.FlowInitCase_Perturbed then
       Flow_InitializePerturbed(Fluid, config.Flow.initParams)
     elseif config.Flow.initCase == SCHEMA.FlowInitCase_Restart then
-      Fluid_load(tiles, config.Flow.restartDir, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
+      Fluid_load(0, tiles, config.Flow.restartDir, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
     else regentlib.assert(false, 'Unhandled case in switch') end
 
     -- initialize ghost cells to their specified values in NSCBC case
@@ -5090,73 +4964,66 @@ local function mkInstance() local INSTANCE = {}
                                                   Grid.yBnum, config.Grid.yNum,
                                                   Grid.zBnum, config.Grid.zNum)
     end
-
-    Flow_UpdateAuxiliaryVelocity(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-    if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-      Flow_UpdateAuxiliaryVelocityGhostNSCBC(Fluid,
-                                             config,
-                                             config.Flow.constantVisc,
-                                             config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                             config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                             config.Flow.viscosityModel,
-                                             Grid.xBnum, config.Grid.xNum,
-                                             Grid.yBnum, config.Grid.yNum,
-                                             Grid.zBnum, config.Grid.zNum)
+    Flow_UpdateAuxiliaryVelocity(Fluid,
+                                 config,
+                                 config.Flow.constantVisc,
+                                 config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                 config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                 config.Flow.viscosityModel,
+                                 Grid.xBnum, config.Grid.xNum,
+                                 Grid.yBnum, config.Grid.yNum,
+                                 Grid.zBnum, config.Grid.zNum)
+    for c in tiles do
+      Flow_UpdateGhostVelocity(p_Fluid[c],
+                               config,
+                               BC.xNegVelocity, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
+                               BC.yNegVelocity, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
+                               BC.zNegVelocity, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
+                               Grid.xBnum, config.Grid.xNum,
+                               Grid.yBnum, config.Grid.yNum,
+                               Grid.zBnum, config.Grid.zNum)
     end
-    Flow_UpdateGhostVelocity(Fluid,
-                             config,
-                             BC.xNegVelocity, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
-                             BC.yNegVelocity, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
-                             BC.zNegVelocity, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
-                             Grid.xBnum, config.Grid.xNum,
-                             Grid.yBnum, config.Grid.yNum,
-                             Grid.zBnum, config.Grid.zNum)
-
     Flow_UpdateAuxiliaryThermodynamics(Fluid,
+                                       config,
                                        config.Flow.gamma,
                                        config.Flow.gasConstant,
                                        Grid.xBnum, config.Grid.xNum,
                                        Grid.yBnum, config.Grid.yNum,
                                        Grid.zBnum, config.Grid.zNum)
-    if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-      Flow_UpdateAuxiliaryThermodynamicsGhostNSCBC(Fluid,
-                                                   config,
-                                                   config.Flow.gamma,
-                                                   config.Flow.gasConstant,
-                                                   Grid.xBnum, config.Grid.xNum,
-                                                   Grid.yBnum, config.Grid.yNum,
-                                                   Grid.zBnum, config.Grid.zNum)
+    for c in tiles do
+      Flow_UpdateGhostThermodynamics(p_Fluid[c],
+                                     config,
+                                     config.Flow.gamma,
+                                     config.Flow.gasConstant,
+                                     BC.xNegTemperature, BC.xPosTemperature,
+                                     BC.yNegTemperature, BC.yPosTemperature,
+                                     BC.zNegTemperature, BC.zPosTemperature,
+                                     Grid.xBnum, config.Grid.xNum,
+                                     Grid.yBnum, config.Grid.yNum,
+                                     Grid.zBnum, config.Grid.zNum)
     end
-    Flow_UpdateGhostThermodynamics(Fluid,
-                                   config,
-                                   config.Flow.gamma,
-                                   config.Flow.gasConstant,
-                                   BC.xNegTemperature, BC.xPosTemperature,
-                                   BC.yNegTemperature, BC.yPosTemperature,
-                                   BC.zNegTemperature, BC.zPosTemperature,
-                                   Grid.xBnum, config.Grid.xNum,
-                                   Grid.yBnum, config.Grid.yNum,
-                                   Grid.zBnum, config.Grid.zNum)
 
-    Flow_UpdateGhostConserved(Fluid,
-                              config,
-                              BC.xNegTemperature, BC.xNegVelocity, BC.xPosTemperature, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
-                              BC.yNegTemperature, BC.yNegVelocity, BC.yPosTemperature, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
-                              BC.zNegTemperature, BC.zNegVelocity, BC.zPosTemperature, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
-                              config.Flow.gamma, config.Flow.gasConstant,
-                              config.Flow.constantVisc,
-                              config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                              config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                              config.Flow.viscosityModel,
-                              Grid.xBnum, config.Grid.xNum,
-                              Grid.yBnum, config.Grid.yNum,
-                              Grid.zBnum, config.Grid.zNum)
+    for c in tiles do
+      Flow_UpdateGhostConserved(p_Fluid[c],
+                                config,
+                                BC.xNegTemperature, BC.xNegVelocity, BC.xPosTemperature, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
+                                BC.yNegTemperature, BC.yNegVelocity, BC.yPosTemperature, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
+                                BC.zNegTemperature, BC.zNegVelocity, BC.zPosTemperature, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
+                                config.Flow.gamma, config.Flow.gasConstant,
+                                config.Flow.constantVisc,
+                                config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                config.Flow.viscosityModel,
+                                Grid.xBnum, config.Grid.xNum,
+                                Grid.yBnum, config.Grid.yNum,
+                                Grid.zBnum, config.Grid.zNum)
+    end
 
     -- Initialize particles
     if config.Particles.initCase == SCHEMA.ParticlesInitCase_Random then
       regentlib.assert(false, "Random particle initialization is disabled")
     elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart then
-      Particles_load(tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
+      Particles_load(0, tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
       for c in tiles do
         Particles_LocateInCells(p_Particles[c],
                                 Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
@@ -5291,11 +5158,11 @@ local function mkInstance() local INSTANCE = {}
       if Integrator_exitCond or Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 then
         var dirname = [&int8](C.malloc(256))
         C.snprintf(dirname, 256, '%s/fluid_iter%010d', config.Mapping.outDir, Integrator_timeStep)
-        createDir(dirname)
-        Fluid_dump(tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
+        var _1 = createDir(dirname)
+        Fluid_dump(_1, tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
         C.snprintf(dirname, 256, '%s/particles_iter%010d', config.Mapping.outDir, Integrator_timeStep)
-        createDir(dirname)
-        Particles_dump(tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
+        var _2 = createDir(dirname)
+        Particles_dump(_2, tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
         C.free(dirname)
       end
     end
@@ -5335,95 +5202,65 @@ local function mkInstance() local INSTANCE = {}
     for Integrator_stage = 1,config.Integrator.rkOrder+1 do
 
       -- Compute velocity gradients
-      Flow_ComputeVelocityGradientAll(Fluid,
-                                      Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                      Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                      Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-      if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-        Flow_ComputeVelocityGradientGhostNSCBC(Fluid,
-                                               config,
-                                               Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                               Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                               Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      Flow_ComputeVelocityGradient(Fluid,
+                                   config,
+                                   Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                                   Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                                   Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      for c in tiles do
+        Flow_UpdateGhostVelocityGradient(p_Fluid[c],
+                                         config,
+                                         BC.xNegSign, BC.yNegSign, BC.zNegSign,
+                                         BC.xPosSign, BC.yPosSign, BC.zPosSign,
+                                         Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                                         Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                                         Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
       end
-      Flow_UpdateGhostVelocityGradient(Fluid,
-                                       config,
-                                       BC.xNegSign, BC.yNegSign, BC.zNegSign,
-                                       BC.xPosSign, BC.yPosSign, BC.zPosSign,
-                                       Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                       Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                       Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+
+      -- Compute fluxes
+      Flow_GetFluxX(Fluid,
+                    config,
+                    config.Flow.constantVisc,
+                    config.Flow.gamma, config.Flow.gasConstant,
+                    config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                    config.Flow.prandtl,
+                    config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                    config.Flow.viscosityModel,
+                    Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                    Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                    Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      Flow_GetFluxY(Fluid,
+                    config,
+                    config.Flow.constantVisc,
+                    config.Flow.gamma, config.Flow.gasConstant,
+                    config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                    config.Flow.prandtl,
+                    config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                    config.Flow.viscosityModel,
+                    Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                    Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                    Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      Flow_GetFluxZ(Fluid,
+                    config,
+                    config.Flow.constantVisc,
+                    config.Flow.gamma, config.Flow.gasConstant,
+                    config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                    config.Flow.prandtl,
+                    config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                    config.Flow.viscosityModel,
+                    Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                    Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                    Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
 
       -- Initialize conserved derivatives to 0
       Flow_InitializeTimeDerivatives(Fluid)
 
-      -- Compute fluxes, use them to update conserved derivatives
-      Flow_GetFlux(Fluid,
-                   config,
-                   config.Flow.constantVisc,
-                   config.Flow.gamma, config.Flow.gasConstant,
-                   config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                   config.Flow.prandtl,
-                   config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                   config.Flow.viscosityModel,
-                   Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                   Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                   Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-      Flow_UpdateUsingFlux(Fluid,
-                           Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                           Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                           Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-      if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-        Flow_GetFluxGhostNSCBC(Fluid,
-                               config,
-                               config.Flow.constantVisc,
-                               config.Flow.gamma,
-                               config.Flow.gasConstant,
-                               config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                               config.Flow.prandtl,
-                               config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                               config.Flow.viscosityModel,
-                               Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                               Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                               Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-        var maxMach = -math.huge
-        maxMach max= CalculateMaxMachNumber(Fluid,
-                                            config,
-                                            config.Flow.gamma, config.Flow.gasConstant,
-                                            Grid.xBnum, config.Grid.xNum,
-                                            Grid.yBnum, config.Grid.yNum,
-                                            Grid.zBnum, config.Grid.zNum)
-        var Flow_lengthScale = config.Grid.xWidth
-        Flow_UpdateUsingFluxGhostNSCBC(Fluid,
-                                       config,
-                                       config.Flow.gamma, config.Flow.gasConstant,
-                                       config.Flow.prandtl,
-                                       maxMach,
-                                       Flow_lengthScale,
-                                       config.Flow.constantVisc,
-                                       config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                       config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                       config.Flow.viscosityModel,
-                                       config.BC.xBCRightP_inf,
-                                       Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                       Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                       Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-      end
-
       -- Add body forces
       Flow_AddBodyForces(Fluid,
-                         config.Flow.bodyForce,
+                         config,
                          Grid.xBnum, config.Grid.xNum,
                          Grid.yBnum, config.Grid.yNum,
                          Grid.zBnum, config.Grid.zNum)
-      if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-        Flow_AddBodyForcesGhostNSCBC(Fluid,
-                                     config,
-                                     config.Flow.bodyForce,
-                                     Grid.xBnum, config.Grid.xNum,
-                                     Grid.yBnum, config.Grid.yNum,
-                                     Grid.zBnum, config.Grid.zNum)
-      end
 
       -- Add turbulent forcing
       if config.Flow.turbForcing.type == SCHEMA.TurbForcingModel_HIT then
@@ -5550,6 +5387,49 @@ local function mkInstance() local INSTANCE = {}
       -- Add particle forces to fluid
       Flow_AddParticlesCoupling(Particles, Fluid, Grid.cellVolume)
 
+      -- Use fluxes to update conserved value derivatives
+      Flow_UpdateUsingFluxZ(Fluid,
+                            config,
+                            Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                            Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                            Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      Flow_UpdateUsingFluxY(Fluid,
+                            config,
+                            Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                            Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                            Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      Flow_UpdateUsingFluxX(Fluid,
+                            config,
+                            Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                            Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                            Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
+        var Flow_maxMach = -math.huge
+        Flow_maxMach max= CalculateMaxMachNumber(Fluid,
+                                                 config,
+                                                 config.Flow.gamma, config.Flow.gasConstant,
+                                                 Grid.xBnum, config.Grid.xNum,
+                                                 Grid.yBnum, config.Grid.yNum,
+                                                 Grid.zBnum, config.Grid.zNum)
+        var Flow_lengthScale = config.Grid.xWidth
+        for c in tiles do
+          Flow_UpdateUsingFluxGhostNSCBC(p_Fluid[c],
+                                         config,
+                                         config.Flow.gamma, config.Flow.gasConstant,
+                                         config.Flow.prandtl,
+                                         Flow_maxMach,
+                                         Flow_lengthScale,
+                                         config.Flow.constantVisc,
+                                         config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                         config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                         config.Flow.viscosityModel,
+                                         config.BC.xBCRightP_inf,
+                                         Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+                                         Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+                                         Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+        end
+      end
+
       -- Time step
       Flow_UpdateVars(Fluid, Integrator_deltaTime, Integrator_stage, config)
       if Integrator_timeStep % config.Particles.staggerFactor == 0 then
@@ -5560,65 +5440,61 @@ local function mkInstance() local INSTANCE = {}
       end
 
       -- Use the new conserved values to update primitive values
-      Flow_UpdateAuxiliaryVelocity(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-      if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-        Flow_UpdateAuxiliaryVelocityGhostNSCBC(Fluid,
-                                               config,
-                                               config.Flow.constantVisc,
-                                               config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                               config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                               config.Flow.viscosityModel,
-                                               Grid.xBnum, config.Grid.xNum,
-                                               Grid.yBnum, config.Grid.yNum,
-                                               Grid.zBnum, config.Grid.zNum)
+      Flow_UpdateAuxiliaryVelocity(Fluid,
+                                   config,
+                                   config.Flow.constantVisc,
+                                   config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                   config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                   config.Flow.viscosityModel,
+                                   Grid.xBnum, config.Grid.xNum,
+                                   Grid.yBnum, config.Grid.yNum,
+                                   Grid.zBnum, config.Grid.zNum)
+      for c in tiles do
+        Flow_UpdateGhostVelocity(p_Fluid[c],
+                                 config,
+                                 BC.xNegVelocity, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
+                                 BC.yNegVelocity, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
+                                 BC.zNegVelocity, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
+                                 Grid.xBnum, config.Grid.xNum,
+                                 Grid.yBnum, config.Grid.yNum,
+                                 Grid.zBnum, config.Grid.zNum)
       end
-      Flow_UpdateGhostVelocity(Fluid,
-                               config,
-                               BC.xNegVelocity, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
-                               BC.yNegVelocity, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
-                               BC.zNegVelocity, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
-                               Grid.xBnum, config.Grid.xNum,
-                               Grid.yBnum, config.Grid.yNum,
-                               Grid.zBnum, config.Grid.zNum)
       Flow_UpdateAuxiliaryThermodynamics(Fluid,
-                                         config.Flow.gamma, config.Flow.gasConstant,
+                                         config,
+                                         config.Flow.gamma,
+                                         config.Flow.gasConstant,
                                          Grid.xBnum, config.Grid.xNum,
                                          Grid.yBnum, config.Grid.yNum,
                                          Grid.zBnum, config.Grid.zNum)
-      if config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow and config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow then
-        Flow_UpdateAuxiliaryThermodynamicsGhostNSCBC(Fluid,
-                                                     config,
-                                                     config.Flow.gamma,
-                                                     config.Flow.gasConstant,
-                                                     Grid.xBnum, config.Grid.xNum,
-                                                     Grid.yBnum, config.Grid.yNum,
-                                                     Grid.zBnum, config.Grid.zNum)
+      for c in tiles do
+        Flow_UpdateGhostThermodynamics(p_Fluid[c],
+                                       config,
+                                       config.Flow.gamma,
+                                       config.Flow.gasConstant,
+                                       BC.xNegTemperature, BC.xPosTemperature,
+                                       BC.yNegTemperature, BC.yPosTemperature,
+                                       BC.zNegTemperature, BC.zPosTemperature,
+                                       Grid.xBnum, config.Grid.xNum,
+                                       Grid.yBnum, config.Grid.yNum,
+                                       Grid.zBnum, config.Grid.zNum)
       end
-      Flow_UpdateGhostThermodynamics(Fluid,
-                                     config,
-                                     config.Flow.gamma,
-                                     config.Flow.gasConstant,
-                                     BC.xNegTemperature, BC.xPosTemperature,
-                                     BC.yNegTemperature, BC.yPosTemperature,
-                                     BC.zNegTemperature, BC.zPosTemperature,
-                                     Grid.xBnum, config.Grid.xNum,
-                                     Grid.yBnum, config.Grid.yNum,
-                                     Grid.zBnum, config.Grid.zNum)
 
       -- Compute the conserved values in the ghost cells
-      Flow_UpdateGhostConserved(Fluid,
-                                config,
-                                BC.xNegTemperature, BC.xNegVelocity, BC.xPosTemperature, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
-                                BC.yNegTemperature, BC.yNegVelocity, BC.yPosTemperature, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
-                                BC.zNegTemperature, BC.zNegVelocity, BC.zPosTemperature, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
-                                config.Flow.gamma, config.Flow.gasConstant,
-                                config.Flow.constantVisc,
-                                config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                config.Flow.viscosityModel,
-                                Grid.xBnum, config.Grid.xNum,
-                                Grid.yBnum, config.Grid.yNum,
-                                Grid.zBnum, config.Grid.zNum)
+      for c in tiles do
+        Flow_UpdateGhostConserved(p_Fluid[c],
+                                  config,
+                                  BC.xNegTemperature, BC.xNegVelocity, BC.xPosTemperature, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
+                                  BC.yNegTemperature, BC.yNegVelocity, BC.yPosTemperature, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
+                                  BC.zNegTemperature, BC.zNegVelocity, BC.zPosTemperature, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
+                                  config.Flow.gamma, config.Flow.gasConstant,
+                                  config.Flow.constantVisc,
+                                  config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                  config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                  config.Flow.viscosityModel,
+                                  Grid.xBnum, config.Grid.xNum,
+                                  Grid.yBnum, config.Grid.yNum,
+                                  Grid.zBnum, config.Grid.zNum)
+      end
 
       -- Particle movement post-processing
       if Integrator_timeStep % config.Particles.staggerFactor == 0 then
