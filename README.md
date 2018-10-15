@@ -368,7 +368,7 @@ Setup (PizDaint @ ETH)
 # Module loads
 module swap PrgEnv-cray PrgEnv-gnu
 module load daint-gpu
-module load cudatoolkit/8.0.61_2.4.3-6.0.4.0_3.1__gb475d12
+module load cudatoolkit/9.2.148_3.19-6.0.7.1_2.1__g3d9acc8
 # Build config
 export CC=cc
 export CXX=CC
@@ -379,7 +379,7 @@ export LEGION_DIR=???
 export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
 # CUDA config
-export CUDA_HOME=/opt/nvidia/cudatoolkit8.0/8.0.61_2.4.3-6.0.4.0_3.1__gb475d12/
+export CUDA_HOME=/opt/nvidia/cudatoolkit9.2/9.2.148_3.19-6.0.7.1_2.1__g3d9acc8
 export CUDA="$CUDA_HOME"
 export GPU_ARCH=pascal
 ```
