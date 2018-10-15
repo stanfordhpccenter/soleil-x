@@ -5604,13 +5604,17 @@ local function mkInstance() local INSTANCE = {}
 
     render.cxx_render(__runtime(),
                     __context(),
+                    config.Mapping.sampleId,
                     __physical(Fluid),
+                    __fields(Fluid),
                     __physical(Particles),
+                    __fields(Particles),
                     __raw(tiles),
                     __raw(p_Fluid),
                     __raw(p_Particles))
     render.cxx_reduce(__runtime(),
-                      __context())
+                      __context(),
+                      config.Mapping.sampleId)
   end end -- Visualize
 
 

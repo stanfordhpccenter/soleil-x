@@ -546,6 +546,10 @@ private:
 //=============================================================================
 
 static MapperID imageReductionMapperID;
+class ImageReductionMapper : public DefaultMapper {
+public:
+  ImageReductionMapper(MapperRuntime* rt, Machine machine, Processor local);
+};
 
 static void create_mappers(Machine machine,
                            HighLevelRuntime* runtime,
@@ -556,7 +560,7 @@ static void create_mappers(Machine machine,
     runtime->replace_default_mapper(mapper, proc);
     ImageReductionMapper* irMapper =
       new ImageReductionMapper(runtime->get_mapper_runtime(), machine, proc);
-    runtime->add_mapper(imageReductionMapperID, irMapper, proc);
+    runtime->add_mapper(imageReductionMapperID, (Mapping::Mapper*)irMapper, proc);
   }
 }
 
@@ -571,7 +575,7 @@ extern "C" {
 #endif
 
 void register_mappers() {
-  imageReductionMapperID = runtime->generate_dynamic_mapper_id();
+  imageReductionMapperID = Legion::Runtime::generate_static_mapper_id();
   cxx_preinitialize(imageReductionMapperID);
   Runtime::add_registration_callback(create_mappers);
 }
