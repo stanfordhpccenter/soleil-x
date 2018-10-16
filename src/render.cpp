@@ -16,6 +16,7 @@
 #include "render.h"
 #include "legion_visualization.h"
 #include "legion_c_util.h"
+#include "image_reduction_mapper.h"
 
 using namespace Legion;
 
@@ -76,6 +77,7 @@ extern "C" {
     
     if(gImageCompositors.find(sampleId) == gImageCompositors.end()) {
       gImageCompositors[sampleId] = new Visualization::ImageReduction(logicalPartition, imageDescriptor, ctx, runtime, gImageReductionMapperID);
+      ImageReductionMapper::registerRenderTaskName("render_task");
     }
     
     Visualization::ImageReduction* compositor = gImageCompositors[sampleId];
@@ -110,7 +112,13 @@ extern "C" {
     req2.add_field(Visualization::ImageReduction::FID_FIELD_A);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_Z);
     renderLauncher.add_region_requirement(req2);
+    
+    ImageReductionMapper::clearPlacement(logicalPartition);
 
+    MustEpochLauncher mustEpochLauncher;
+    mustEpochLauncher.add_index_task(renderLauncher);
+    FutureMap futures = runtime->execute_must_epoch(ctx, mustEpochLauncher);
+    futures.wait_all_results();
   }
   
   
@@ -121,13 +129,10 @@ extern "C" {
                   legion_mapper_id_t sampleId
                   )
   {
-    std::cout << "in cxx_reduce" << std::endl;
-        
-#if 0
     Visualization::ImageReduction* compositor = gImageCompositors[sampleId];
-    Runtime *runtime = CObjectWrapper::unwrap(runtime_);
-    Context ctx = CObjectWrapper::unwrap(ctx_)->context();
-#endif
+    compositor->set_depth_func(GL_LESS);
+    FutureMap futures = compositor->reduce_associative_commutative();
+    futures.wait_all_results();
   }
   
 #ifdef __cplusplus
