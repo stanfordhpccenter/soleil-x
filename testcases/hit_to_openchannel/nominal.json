@@ -215,7 +215,7 @@
             "initCase" : "Uniform",
             "restartDir" : "",
             "initNum" : 0,
-            "maxNum" : 7656562,
+            "maxNum" : 7656564,
             "restitutionCoeff" : -1.0,
             "convectiveCoeff" : 5632.53877113,
             "heatCapacity" : 453.1343283582089,
