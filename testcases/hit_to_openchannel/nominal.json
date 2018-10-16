@@ -67,7 +67,7 @@
             "startTime" : 0.0,
             "maxIter" : 10000,
             "cfl" : -1.0,
-            "fixedDeltaTime" : 8.54046201202497e-07,
+            "fixedDeltaTime" : 1.7979920025315728e-07,
             "rkOrder" : 4
         },
 
@@ -110,7 +110,7 @@
             "escapeRatioPerDir" : 0.005,
             "collisions" : false,
             "feeding" : { "type" : "OFF" },
-            "staggerFactor" : 293
+            "staggerFactor" : 1392
         },
 
         "Radiation" : {
@@ -124,7 +124,7 @@
         }
     }, {
         "Mapping" : {
-            "tiles" : [2,1,1],
+            "tiles" : [4,1,1],
             "tilesPerRank" : [1,1,1],
             "sampleId" : -1,
             "outDir" : "",
@@ -189,7 +189,7 @@
             "startTime" : 0.0,
             "maxIter" : 10000,
             "cfl" : -1.0,
-            "fixedDeltaTime" : 8.54046201202497e-07,
+            "fixedDeltaTime" : 1.7979920025315728e-07,
             "rkOrder" : 4
         },
 
@@ -215,7 +215,7 @@
             "initCase" : "Uniform",
             "restartDir" : "",
             "initNum" : 0,
-            "maxNum" : 7656562,
+            "maxNum" : 7656564,
             "restitutionCoeff" : -1.0,
             "convectiveCoeff" : 5632.53877113,
             "heatCapacity" : 453.1343283582089,
@@ -230,13 +230,41 @@
                 "type" : "Incoming",
                 "addedVelocity" : [2.0650625,0.0,0.0]
             },
-            "staggerFactor" : 293
+            "staggerFactor" : 1392
         },
 
         "Radiation" : {
-            "type" : "Algebraic",
-            "intensity" : 7096998.85162,
-            "absorptivity" : 0.4
+            "type" : "DOM",
+            "qa" : 0.4,
+            "qs" : 0.7,
+            "xNum" : 256,
+            "yNum" : 64,
+            "zNum" : 64,
+            "angles" : 350,
+            "xHiEmiss" : 1.0,
+            "xLoEmiss" : 1.0,
+            "yHiEmiss" : 1.0,
+            "yLoEmiss" : 1.0,
+            "zHiEmiss" : 1.0,
+            "zLoEmiss" : 1.0,
+            "xHiTemp" : 0.0,
+            "xLoTemp" : 0.0,
+            "yHiTemp" : 0.0,
+            "yLoTemp" : 0.0,
+            "zHiTemp" : 0.0,
+            "zLoTemp" : 0.0,
+            "xHiIntensity" : 0.0,
+            "xLoIntensity" : 0.0,
+            "yHiIntensity" : 3548499.42581,
+            "yLoIntensity" : 3548499.42581,
+            "zHiIntensity" : 0.0,
+            "zLoIntensity" : 0.0,
+            "xHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+            "xLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+            "yHiWindow" : { "fromCell" : [0,0], "uptoCell" : [9999,9999] },
+            "yLoWindow" : { "fromCell" : [0,0], "uptoCell" : [9999,9999] },
+            "zHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+            "zLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] }
         },
 
         "IO" : {
@@ -253,5 +281,5 @@
         "fromCell" : [0,0,0],
         "uptoCell" : [0,127,127]
     },
-    "copyEveryTimeSteps" : 177
+    "copyEveryTimeSteps" : 841
 }
