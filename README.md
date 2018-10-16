@@ -300,9 +300,11 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ### Install Legion
 
+The `/ccs/proj` filesystem seems to be having trouble handling all our intermediate build files, so we need to use the scratch filesystem for those.
+
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 60 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 60 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1' --scratch "$SCRATCH"
 ```
 
 ### Compile Soleil-X
