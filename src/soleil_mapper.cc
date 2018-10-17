@@ -149,6 +149,12 @@ public:
   }
 
 public:
+  virtual void select_task_options(const MapperContext ctx,
+                                   const Task& task,
+                                   TaskOptions& output) {
+    DefaultMapper::select_task_options(ctx, task, output);
+  }
+
   virtual Processor default_policy_select_initial_processor(
                               MapperContext ctx,
                               const Task& task) {
@@ -173,19 +179,8 @@ public:
     // Send each work task to the first in the set of ranks allocated to the
     // corresponding sample.
     else if (STARTS_WITH(task.get_task_name(), "work")) {
-      unsigned sample_id = static_cast<unsigned>(-1);
-      if (EQUALS(task.get_task_name(), "workSingle")) {
-        const Config* config = static_cast<const Config*>(first_arg(task));
-        sample_id = static_cast<unsigned>(config->Mapping.sampleId);
-        assert(sample_id < sample_mappings_.size());
-      } else if (EQUALS(task.get_task_name(), "workDual")) {
-        const MultiConfig* mc =
-          static_cast<const MultiConfig*>(first_arg(task));
-        sample_id = static_cast<unsigned>(mc->configs[0].Mapping.sampleId);
-        assert(sample_id < sample_mappings_.size());
-      } else {
-        CHECK(false, "Unexpected work task name: %s", task.get_task_name());
-      }
+      unsigned sample_id = work_task_sample_ids(task)[0];
+      assert(sample_id < sample_mappings_.size());
       const SampleMapping& mapping = sample_mappings_[sample_id];
       Processor target_proc =
         select_proc(Point<3>(0,0,0), Processor::LOC_PROC, mapping);
@@ -276,6 +271,16 @@ public:
                               bool force_new_instances,
                               bool meets_constraints) {
     return req.region;
+  }
+
+  // Disable an optimization done by the default mapper (extends the set of
+  // eligible processors to include all the processors of the same type on the
+  // target node).
+  virtual void default_policy_select_target_processors(
+                              MapperContext ctx,
+                              const Task &task,
+                              std::vector<Processor> &target_procs) {
+    target_procs.push_back(task.target_proc);
   }
 
   // Farm index space launches made by work tasks across all the ranks
@@ -431,6 +436,23 @@ public:
   }
 
 private:
+  std::vector<unsigned> work_task_sample_ids(const Task& task) {
+    std::vector<unsigned> sample_ids;
+    if (EQUALS(task.get_task_name(), "workSingle")) {
+      const Config* config = static_cast<const Config*>(first_arg(task));
+      sample_ids.push_back(static_cast<unsigned>(config->Mapping.sampleId));
+    } else if (EQUALS(task.get_task_name(), "workDual")) {
+      const MultiConfig* mc = static_cast<const MultiConfig*>(first_arg(task));
+      sample_ids.push_back
+        (static_cast<unsigned>(mc->configs[0].Mapping.sampleId));
+      sample_ids.push_back
+        (static_cast<unsigned>(mc->configs[1].Mapping.sampleId));
+    } else {
+      CHECK(false, "Unexpected work task name: %s", task.get_task_name());
+    }
+    return sample_ids;
+  }
+
   unsigned find_sample_id(const MapperContext ctx,
                           const RegionRequirement& req) const {
     LogicalRegion region = req.region.exists() ? req.region
