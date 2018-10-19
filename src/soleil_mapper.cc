@@ -16,6 +16,8 @@ using namespace Legion;
 using namespace Legion::Mapping;
 
 //=============================================================================
+// HELPER CODE
+//=============================================================================
 
 static Realm::Logger LOG("soleil_mapper");
 
@@ -39,6 +41,8 @@ static const void* first_arg(const Task& task) {
   return static_cast<const void*>(ptr + sizeof(uint64_t));
 }
 
+//=============================================================================
+// INTRA-SAMPLE MAPPING
 //=============================================================================
 
 // Maps super-tiles to ranks, in row-major order. Within a super-tile, tiles
@@ -91,11 +95,13 @@ private:
 };
 
 //=============================================================================
+// MAPPER CLASS: CONSTRUCTOR
+//=============================================================================
 
 class SoleilMapper : public DefaultMapper {
 public:
-  SoleilMapper(MapperRuntime* rt, Machine machine, Processor local)
-    : DefaultMapper(rt, machine, local, "soleil_mapper"),
+  SoleilMapper(Runtime* rt, Machine machine, Processor local)
+    : DefaultMapper(rt->get_mapper_runtime(), machine, local, "soleil_mapper"),
       all_procs_(remote_cpus.size()) {
     // Set the umask of the process to clear S_IWGRP and S_IWOTH.
     umask(022);
@@ -147,6 +153,10 @@ public:
       get_procs(rank, kind).push_back(*it);
     }
   }
+
+//=============================================================================
+// MAPPER CLASS: MAJOR OVERRIDES
+//=============================================================================
 
 public:
   virtual void select_task_options(const MapperContext ctx,
@@ -213,76 +223,6 @@ public:
     }
   }
 
-  virtual TaskPriority default_policy_select_task_priority(
-                              MapperContext ctx,
-                              const Task& task) {
-    // Unless handled specially below, all tasks have the same priority.
-    int priority = 0;
-    // Assign priorities to sweep tasks such that we prioritize the tile that
-    // has more dependencies downstream (count the number of diagonals between
-    // the launch tile and the end of the domain).
-    if (STARTS_WITH(task.get_task_name(), "sweep_")) {
-      unsigned sample_id = find_sample_id(ctx, task);
-      const SampleMapping& mapping = sample_mappings_[sample_id];
-      std::array<bool,3> dir = parse_direction(task);
-      DomainPoint tile = find_tile(ctx, task, mapping);
-      priority =
-	(dir[0] ? mapping.x_tiles() - tile[0] - 1 : tile[0]) +
-	(dir[1] ? mapping.y_tiles() - tile[1] - 1 : tile[1]) +
-	(dir[2] ? mapping.z_tiles() - tile[2] - 1 : tile[2]) ;
-      LOG.debug() << "Sample " << sample_id << ":"
-                  << " Task " << task.get_task_name()
-                  << " on tile " << tile
-                  << " given priority " << priority;
-    }
-    // Increase priority of tasks on the critical path of the fluid solve.
-    if (STARTS_WITH(task.get_task_name(), "Flow_ComputeVelocityGradient") ||
-        STARTS_WITH(task.get_task_name(), "Flow_UpdateGhostVelocityGradient") ||
-	STARTS_WITH(task.get_task_name(), "Flow_GetFlux") ||
-	STARTS_WITH(task.get_task_name(), "Flow_UpdateUsingFlux")) {
-      unsigned sample_id = find_sample_id(ctx, task);
-      priority = 1;
-      LOG.debug() << "Sample " << sample_id << ":"
-                  << " Task " << task.get_task_name()
-                  << " given priority " << priority;
-    }
-    return priority;
-  }
-
-  // TODO: Select appropriate memories for instances that will be communicated,
-  // (e.g. parallelizer-created ghost partitions), such as RDMA memory,
-  // zero-copy memory.
-  virtual Memory default_policy_select_target_memory(
-                              MapperContext ctx,
-                              Processor target_proc,
-                              const RegionRequirement& req) {
-    return DefaultMapper::default_policy_select_target_memory
-      (ctx, target_proc, req);
-  }
-
-  // Disable an optimization done by the default mapper (attempts to reuse an
-  // instance that covers a superset of the requested index space, by searching
-  // higher up the partition tree).
-  virtual LogicalRegion default_policy_select_instance_region(
-                              MapperContext ctx,
-                              Memory target_memory,
-                              const RegionRequirement& req,
-                              const LayoutConstraintSet& constraints,
-                              bool force_new_instances,
-                              bool meets_constraints) {
-    return req.region;
-  }
-
-  // Disable an optimization done by the default mapper (extends the set of
-  // eligible processors to include all the processors of the same type on the
-  // target node).
-  virtual void default_policy_select_target_processors(
-                              MapperContext ctx,
-                              const Task &task,
-                              std::vector<Processor> &target_procs) {
-    target_procs.push_back(task.target_proc);
-  }
-
   // Farm index space launches made by work tasks across all the ranks
   // allocated to the corresponding sample.
   // TODO: Cache the decision.
@@ -303,7 +243,7 @@ public:
       dir = parse_direction(task)[dim];
       if (STARTS_WITH(task.get_task_name(), "initialize_faces_") ||
           STARTS_WITH(task.get_task_name(), "bound_")) {
-        // Do nothing
+        // Do nothing.
       } else if (STARTS_WITH(task.get_task_name(), "cache_intensity_")) {
         // We want to run these tasks on the opposite end of the domain implied
         // by their name.
@@ -345,6 +285,42 @@ public:
                   << " tile " << tile
                   << " mapped to processor " << target_proc;
     }
+  }
+
+  virtual TaskPriority default_policy_select_task_priority(
+                              MapperContext ctx,
+                              const Task& task) {
+    // Unless handled specially below, all tasks have the same priority.
+    int priority = 0;
+    // Assign priorities to sweep tasks such that we prioritize the tile that
+    // has more dependencies downstream (count the number of diagonals between
+    // the launch tile and the end of the domain).
+    if (STARTS_WITH(task.get_task_name(), "sweep_")) {
+      unsigned sample_id = find_sample_id(ctx, task);
+      const SampleMapping& mapping = sample_mappings_[sample_id];
+      std::array<bool,3> dir = parse_direction(task);
+      DomainPoint tile = find_tile(ctx, task, mapping);
+      priority =
+        (dir[0] ? mapping.x_tiles() - tile[0] - 1 : tile[0]) +
+        (dir[1] ? mapping.y_tiles() - tile[1] - 1 : tile[1]) +
+        (dir[2] ? mapping.z_tiles() - tile[2] - 1 : tile[2]) ;
+      LOG.debug() << "Sample " << sample_id << ":"
+                  << " Task " << task.get_task_name()
+                  << " on tile " << tile
+                  << " given priority " << priority;
+    }
+    // Increase priority of tasks on the critical path of the fluid solve.
+    if (STARTS_WITH(task.get_task_name(), "Flow_ComputeVelocityGradient") ||
+        STARTS_WITH(task.get_task_name(), "Flow_UpdateGhostVelocityGradient") ||
+        STARTS_WITH(task.get_task_name(), "Flow_GetFlux") ||
+        STARTS_WITH(task.get_task_name(), "Flow_UpdateUsingFlux")) {
+      unsigned sample_id = find_sample_id(ctx, task);
+      priority = 1;
+      LOG.debug() << "Sample " << sample_id << ":"
+                  << " Task " << task.get_task_name()
+                  << " given priority " << priority;
+    }
+    return priority;
   }
 
   virtual void map_copy(const MapperContext ctx,
@@ -435,8 +411,51 @@ public:
           "Could not locate destination instance for explicit copy");
   }
 
+//=============================================================================
+// MAPPER CLASS: MINOR OVERRIDES
+//=============================================================================
+
+public:
+  // TODO: Select appropriate memories for instances that will be communicated,
+  // (e.g. parallelizer-created ghost partitions), such as RDMA memory,
+  // zero-copy memory.
+  virtual Memory default_policy_select_target_memory(
+                              MapperContext ctx,
+                              Processor target_proc,
+                              const RegionRequirement& req) {
+    return DefaultMapper::default_policy_select_target_memory
+      (ctx, target_proc, req);
+  }
+
+  // Disable an optimization done by the default mapper (attempts to reuse an
+  // instance that covers a superset of the requested index space, by searching
+  // higher up the partition tree).
+  virtual LogicalRegion default_policy_select_instance_region(
+                              MapperContext ctx,
+                              Memory target_memory,
+                              const RegionRequirement& req,
+                              const LayoutConstraintSet& constraints,
+                              bool force_new_instances,
+                              bool meets_constraints) {
+    return req.region;
+  }
+
+  // Disable an optimization done by the default mapper (extends the set of
+  // eligible processors to include all the processors of the same type on the
+  // target node).
+  virtual void default_policy_select_target_processors(
+                              MapperContext ctx,
+                              const Task &task,
+                              std::vector<Processor> &target_procs) {
+    target_procs.push_back(task.target_proc);
+  }
+
+//=============================================================================
+// MAPPER CLASS: HELPER METHODS
+//=============================================================================
+
 private:
-  std::vector<unsigned> work_task_sample_ids(const Task& task) {
+  std::vector<unsigned> work_task_sample_ids(const Task& task) const {
     std::vector<unsigned> sample_ids;
     if (EQUALS(task.get_task_name(), "workSingle")) {
       const Config* config = static_cast<const Config*>(first_arg(task));
@@ -470,6 +489,7 @@ private:
     return sample_id;
   }
 
+  // XXX: Always using the first region argument to figure out the sample ID.
   unsigned find_sample_id(const MapperContext ctx,
                           const Task& task) const {
     CHECK(!task.regions.empty(),
@@ -557,20 +577,24 @@ private:
     return region;
   }
 
+//=============================================================================
+// MAPPER CLASS: MEMBER VARIABLES
+//=============================================================================
+
 private:
   std::vector<SampleMapping> sample_mappings_;
   std::vector<std::vector<std::vector<Processor> > > all_procs_;
 };
 
 //=============================================================================
+// MAPPER REGISTRATION
+//=============================================================================
 
 static void create_mappers(Machine machine,
-                           HighLevelRuntime* runtime,
+                           Runtime* rt,
                            const std::set<Processor>& local_procs) {
   for (Processor proc : local_procs) {
-    SoleilMapper* mapper =
-      new SoleilMapper(runtime->get_mapper_runtime(), machine, proc);
-    runtime->replace_default_mapper(mapper, proc);
+    runtime->replace_default_mapper(new SoleilMapper(rt, machine, proc), proc);
   }
 }
 
