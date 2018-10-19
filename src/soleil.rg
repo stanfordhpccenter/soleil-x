@@ -114,6 +114,7 @@ local struct Fluid_columns {
   pressure : double;
   velocity : double[3];
   centerCoordinates : double[3];
+  cellWidth : double[3];
   velocityGradientX : double[3];
   velocityGradientY : double[3];
   velocityGradientZ : double[3];
@@ -567,6 +568,140 @@ task createDir(dirname : regentlib.string)
 end
 
 -------------------------------------------------------------------------------
+-- MESH ROUTINES
+-------------------------------------------------------------------------------
+
+-- Description:
+--     Generate the cell center on a uniform mesh
+-- Input:
+--     x_min = domain minimum
+--     x_max = domain maximum 
+--     Nx = number of cells between x_min and x_max
+--     i  = cell index between x_min and x_max
+--         Note: i = 0 has x_min as left face and 
+--               i = Nx-1 has x_max as right face
+--               so no ghost cells accounted for here
+-- Output:
+--     location of cell center
+terra uniform_cell_center(x_min : double,
+                          x_max : double,
+                          Nx    : uint64,
+                          i     : uint64) : double
+
+  var dx = (x_max-x_min)/Nx
+  return x_min + i*dx + dx/2.0
+
+end
+
+-- Description:
+--     Linear interpolation, given the line defined by the points 
+--     (x=alpha, y=a) and (x=beta, y=b) find the y location of the
+--     point on the line (x=xi, y=?) 
+-- Input:
+--     xi = location on x axis
+--     alpha = lower point on x axis
+--     beta =  upper point on x axis 
+--     a = lower point on y axis 
+--     b = upper point on y axis 
+-- Output:
+--     y location on line at x=xi
+terra linear_interpolation(xi : double,
+                           alpha : double,
+                           beta  : double,
+                           a     : double,
+                           b     : double) : double
+
+  --return (b-a)/(beta-alpha)*xi + (a - (b-a)/(beta-alpha)*alpha)
+  return (b-a)/(beta-alpha)*(xi-alpha) + a
+
+end
+
+-- Description:
+--     non-linear map point (x) on the interval (x_min, x_max) using
+--     a cosine  
+-- Input:
+--     x = location on uniform mesh
+--     x_min = domain minimum
+--     x_max = domain maximum 
+-- Output:
+--     x location on a non-uniform mesh
+terra transform_uniform_to_nonuniform(x : double,
+                                      x_min : double,
+                                      x_max : double) : double
+
+  -- map x onto the interval -1 to 1
+  var x_scaled_minus1_to_plus1 = linear_interpolation(x, x_min, x_max, -1.0, 1.0)
+
+  -- map non-uniformly onto the interval -1 to 1
+  var x_non_uniform_minus1_to_plus1 = -1.0*cos(PI*(x_scaled_minus1_to_plus1+1.0)/2.0)
+
+  -- map non-uniform sample back to origional interval x_min to x_max
+  return  linear_interpolation(x_non_uniform_minus1_to_plus1, -1.0, 1.0, x_min, x_max)
+
+end
+
+
+-- Description:
+--     Generate the cell center of a nonuniform mesh
+-- Input:
+--     x_min = domain minimum
+--     x_max = domain maximum 
+--     Nx = number of cells between x_min and x_max
+--     i  = cell index between x_min and x_max
+--         Note: i = 0 has x_min as left face and 
+--               i = Nx-1 has x_max as right face
+--               so no ghost cells accounted for here
+-- Output:
+--     x location on a non-uniform mesh
+terra nonuniform_cell_center(x_min : double,
+                             x_max : double,
+                             Nx    : uint64,
+                             i     : uint64) : double
+
+  var x_uniform = uniform_cell_center(x_min, x_max, Nx, i)
+  return transform_uniform_to_nonuniform(x_uniform, x_min, x_max)
+
+end
+
+-- Description:
+--     Find 1st derivative using central difference scheme
+-- Input:
+--     y_minus = y in neighbor cell in the negative direction
+--     y_plus = y in neighbor cell in the positive direction 
+--     dx_minus = cell width of neighbor cell in the negative direction
+--     dx = cell width of current cell 
+--     dx_plus = cell width of neighbor cell in the positive direction
+-- Output:
+--     1st derivative using central difference scheme
+terra central_difference(y_minus  : double,
+                         y_plus   : double,
+                         dx_minus : double,
+                         dx       : double,
+                         dx_plus  : double) : double
+
+  return (y_plus - y_minus)/(0.5*dx_minus + dx + 0.5*dx_plus)
+
+end
+
+-- Description:
+--     Find 1st derivative using one sided difference scheme
+-- Input:
+--     y_minus = y in neighbor cell in the negative direction
+--     y_plus = y in neighbor cell in the positive direction 
+--     dx_minus = cell width of neighbor cell in the negative direction
+--     dx_plus = cell width of neighbor cell in the positive direction
+-- Output:
+--     1st derivative using one sided difference scheme
+terra one_sided_difference(y_minus  : double,
+                           y_plus   : double,
+                           dx_minus : double,
+                           dx_plus  : double) : double
+
+  return (y_plus - y_minus)/(0.5*dx_minus + 0.5*dx_plus)
+
+end
+
+-------------------------------------------------------------------------------
 -- OTHER ROUTINES
 -------------------------------------------------------------------------------
 
@@ -693,6 +828,7 @@ __demand(__parallel, __cuda)
 task Flow_InitializeCell(Fluid : region(ispace(int3d), Fluid_columns))
 where
   writes(Fluid.centerCoordinates),
+  writes(Fluid.cellWidth),
   writes(Fluid.dissipation),
   writes(Fluid.dissipationFlux),
   writes(Fluid.pressure),
@@ -729,6 +865,7 @@ do
     Fluid[c].pressure = 0.0
     Fluid[c].velocity = array(0.0, 0.0, 0.0)
     Fluid[c].centerCoordinates = array(0.0, 0.0, 0.0)
+    Fluid[c].cellWidth = array(0.0, 0.0, 0.0)
     Fluid[c].velocityGradientX = array(0.0, 0.0, 0.0)
     Fluid[c].velocityGradientY = array(0.0, 0.0, 0.0)
     Fluid[c].velocityGradientZ = array(0.0, 0.0, 0.0)
@@ -772,12 +909,107 @@ task Flow_InitializeCenterCoordinates(Fluid : region(ispace(int3d), Fluid_column
 where
   writes(Fluid.centerCoordinates)
 do
-  __demand(__openmp)
-  for c in Fluid do
-    Fluid[c].centerCoordinates = array(Grid_xOrigin + (Grid_xWidth/Grid_xNum) * (c.x-Grid_xBnum+0.5),
-                                       Grid_yOrigin + (Grid_yWidth/Grid_yNum) * (c.y-Grid_yBnum+0.5),
-                                       Grid_zOrigin + (Grid_zWidth/Grid_zNum) * (c.z-Grid_zBnum+0.5))
+
+  -- Find cell center coordinates
+  for cell in Fluid do
+    var xNegGhost = is_xNegGhost(cell, Grid_xBnum)
+    var xPosGhost = is_xPosGhost(cell, Grid_xBnum, Grid_xNum)
+    var yNegGhost = is_yNegGhost(cell, Grid_yBnum)
+    var yPosGhost = is_yPosGhost(cell, Grid_yBnum, Grid_yNum)
+    var zNegGhost = is_zNegGhost(cell, Grid_zBnum)
+    var zPosGhost = is_zPosGhost(cell, Grid_zBnum, Grid_zNum)
+
+    if not (xNegGhost or xPosGhost) then
+      cell.centerCoordinates[0] = nonuniform_cell_center(Grid_xOrigin, Grid_xOrigin + Grid_xWidth , Grid_xNum, cell.x-Grid_xBnum)
+    end
+    if not (yNegGhost or yPosGhost) then
+      cell.centerCoordinates[1] = nonuniform_cell_center(Grid_yOrigin, Grid_yOrigin + Grid_yWidth , Grid_yNum, cell.y-Grid_yBnum)
+    end
+    if not (zNegGhost or zPosGhost) then
+      cell.centerCoordinates[2] = nonuniform_cell_center(Grid_zOrigin, Grid_zOrigin + Grid_zWidth , Grid_zNum, cell.z-Grid_zBnum)
+   end
   end
+
+  -- Find cell width
+  -- NOTE: do not parallelize this loop it assumes it can reference values set in previous iterations
+  for cell in Fluid do
+
+    var xNegGhost = is_xNegGhost(cell, Grid_xBnum)
+    var xPosGhost = is_xPosGhost(cell, Grid_xBnum, Grid_xNum)
+    var yNegGhost = is_yNegGhost(cell, Grid_yBnum)
+    var yPosGhost = is_yPosGhost(cell, Grid_yBnum, Grid_yNum)
+    var zNegGhost = is_zNegGhost(cell, Grid_zBnum)
+    var zPosGhost = is_zPosGhost(cell, Grid_zBnum, Grid_zNum)
+
+    var xNegBoundary = is_xNegGhost((cell-{1,0,0})%Fluid.bounds, Grid_xBnum) or (Grid_xBnum==0 and cell.x==0)
+    var yNegBoundary = is_yNegGhost((cell-{0,1,0})%Fluid.bounds, Grid_yBnum) or (Grid_yBnum==0 and cell.y==0)
+    var zNegBoundary = is_zNegGhost((cell-{0,0,1})%Fluid.bounds, Grid_zBnum) or (Grid_zBnum==0 and cell.z==0)
+
+    if not (xNegGhost or xPosGhost) then
+      if xNegBoundary then
+        cell.cellWidth[0] = 2.0*(cell.centerCoordinates[0] - Grid_xOrigin)
+      else
+        var cell_face_location = (Fluid[cell - {1,0,0}]).centerCoordinates[0] + 0.5*(Fluid[cell - {1,0,0}]).cellWidth[0]
+        cell.cellWidth[0] = 2.0*(cell.centerCoordinates[0] - cell_face_location)
+      end
+    end
+
+    if not (yNegGhost or yPosGhost) then
+      if yNegBoundary then
+        cell.cellWidth[1] = 2.0*(cell.centerCoordinates[1] - Grid_yOrigin)
+      else
+        var cell_face_location = (Fluid[cell - {0,1,0}]).centerCoordinates[1] + 0.5*(Fluid[cell - {0,1,0}]).cellWidth[1]
+        cell.cellWidth[1] = 2.0*(cell.centerCoordinates[1] - cell_face_location)
+      end
+    end
+
+    if not (zNegGhost or zPosGhost) then
+      if zNegBoundary then
+        cell.cellWidth[2] = 2.0*(cell.centerCoordinates[2] - Grid_zOrigin)
+      else
+        var cell_face_location = (Fluid[cell - {0,0,1}]).centerCoordinates[2] + 0.5*(Fluid[cell - {0,0,1}]).cellWidth[2]
+        cell.cellWidth[2] = 2.0*(cell.centerCoordinates[2] - cell_face_location)
+      end
+    end
+
+  end
+
+  -- Find cell center coordinates and cell with in ghost cells in each direction
+  for cell in Fluid do
+
+    var xNegGhost = is_xNegGhost(cell, Grid_xBnum)
+    var xPosGhost = is_xPosGhost(cell, Grid_xBnum, Grid_xNum)
+    var yNegGhost = is_yNegGhost(cell, Grid_yBnum)
+    var yPosGhost = is_yPosGhost(cell, Grid_yBnum, Grid_yNum)
+    var zNegGhost = is_zNegGhost(cell, Grid_zBnum)
+    var zPosGhost = is_zPosGhost(cell, Grid_zBnum, Grid_zNum)
+
+    if xNegGhost then
+      cell.centerCoordinates[0] = Fluid[cell+{1,0,0}].centerCoordinates[0] - Fluid[cell+{1,0,0}].cellWidth[0]
+      cell.cellWidth[0] = Fluid[cell+{1,0,0}].cellWidth[0]
+    elseif xPosGhost then
+      cell.centerCoordinates[0] = Fluid[cell-{1,0,0}].centerCoordinates[0] + Fluid[cell-{1,0,0}].cellWidth[0]
+      cell.cellWidth[0] = Fluid[cell-{1,0,0}].cellWidth[0]
+    end
+
+    if yNegGhost then
+      cell.centerCoordinates[1] = Fluid[cell+{0,1,0}].centerCoordinates[1] - Fluid[cell+{0,1,0}].cellWidth[1]
+      cell.cellWidth[1] = Fluid[cell+{0,1,0}].cellWidth[1]
+    elseif yPosGhost then
+      cell.centerCoordinates[1] = Fluid[cell-{0,1,0}].centerCoordinates[1] + Fluid[cell-{0,1,0}].cellWidth[1]
+      cell.cellWidth[1] = Fluid[cell-{0,1,0}].cellWidth[1]
+    end
+
+    if zNegGhost then
+      cell.centerCoordinates[2] = Fluid[cell+{0,0,1}].centerCoordinates[2] - Fluid[cell+{0,0,1}].cellWidth[2]
+      cell.cellWidth = Fluid[cell+{0,0,1}].cellWidth[2]
+    elseif zPosGhost then
+      cell.centerCoordinates[2] = Fluid[cell-{0,0,1}].centerCoordinates[2] + Fluid[cell-{0,0,1}].cellWidth[2]
+      cell.cellWidth[2] = Fluid[cell-{0,0,1}].cellWidth[2]
+    end
+
+  end
+
 end
 
 __demand(__parallel, __cuda)
@@ -812,7 +1044,6 @@ do
   end
 end
 
--- CHANGE do not compute xy instead just pass in cell center since it is computed before this task will be called
 __demand(__parallel, __cuda)
 task Flow_InitializeTaylorGreen2D(Fluid : region(ispace(int3d), Fluid_columns),
                                   Flow_initParams : double[5],
@@ -827,7 +1058,7 @@ do
     var taylorGreenDensity = Flow_initParams[0]
     var taylorGreenPressure = Flow_initParams[1]
     var taylorGreenVelocity = Flow_initParams[2]
-    var xy = [double[3]](array((Grid_xOrigin+((Grid_xWidth/double(Grid_xNum))*(double((int3d(c).x-uint64(Grid_xBnum)))+0.5))), (Grid_yOrigin+((Grid_yWidth/double(Grid_yNum))*(double((int3d(c).y-uint64(Grid_yBnum)))+0.5))), (Grid_zOrigin+((Grid_zWidth/double(Grid_zNum))*(double((int3d(c).z-uint64(Grid_zBnum)))+0.5)))))
+    var xy = cell.centerCoordinates
     var coorZ = 0
     Fluid[c].rho = taylorGreenDensity
     Fluid[c].velocity = vs_mul([double[3]](array(((sin(xy[0])*cos(xy[1]))*cos(coorZ)), (((-cos(xy[0]))*sin(xy[1]))*cos(coorZ)), 0.0)), taylorGreenVelocity)
@@ -837,7 +1068,6 @@ do
   end
 end
 
--- CHANGE do not compute xy instead just pass in cell center since it is computed before this task will be called
 __demand(__parallel, __cuda)
 task Flow_InitializeTaylorGreen3D(Fluid : region(ispace(int3d), Fluid_columns),
                                   Flow_initParams : double[5],
@@ -852,7 +1082,7 @@ do
     var taylorGreenDensity = Flow_initParams[0]
     var taylorGreenPressure = Flow_initParams[1]
     var taylorGreenVelocity = Flow_initParams[2]
-    var xy = [double[3]](array((Grid_xOrigin+((Grid_xWidth/double(Grid_xNum))*(double((int3d(c).x-uint64(Grid_xBnum)))+0.5))), (Grid_yOrigin+((Grid_yWidth/double(Grid_yNum))*(double((int3d(c).y-uint64(Grid_yBnum)))+0.5))), (Grid_zOrigin+((Grid_zWidth/double(Grid_zNum))*(double((int3d(c).z-uint64(Grid_zBnum)))+0.5)))))
+    var xy = cell.centerCoordinates
     Fluid[c].rho = taylorGreenDensity
     Fluid[c].velocity = vs_mul([double[3]](array(((sin(xy[0])*cos(xy[1]))*cos(xy[2])), (((-cos(xy[0]))*sin(xy[1]))*cos(xy[2])), 0.0)), taylorGreenVelocity)
     var factorA = (cos((2.0*xy[2]))+2.0)
@@ -906,14 +1136,6 @@ do
   var Grid_xWidth = config.Grid.xWidth
   var Grid_yWidth = config.Grid.yWidth
   var Grid_zWidth = config.Grid.zWidth
-  -- Cell step size
-  var Grid_xCellWidth = (Grid_xWidth/Grid_xNum)
-  var Grid_yCellWidth = (Grid_yWidth/Grid_yNum)
-  var Grid_zCellWidth = (Grid_zWidth/Grid_zNum)
-  -- Compute real origin and width accounting for ghost cells
-  var Grid_xRealOrigin = (Grid_xOrigin-(Grid_xCellWidth*Grid_xBnum))
-  var Grid_yRealOrigin = (Grid_yOrigin-(Grid_yCellWidth*Grid_yBnum))
-  var Grid_zRealOrigin = (Grid_zOrigin-(Grid_zCellWidth*Grid_zBnum))
   -- Inflow values
   var BC_xBCLeftHeat_type = config.BC.xBCLeftHeat.type
   var BC_xBCLeftHeat_Constant_temperature = config.BC.xBCLeftHeat.u.Constant.temperature
@@ -1108,22 +1330,10 @@ where
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
-  -- Domain origin
-  var Grid_xOrigin = config.Grid.origin[0]
-  var Grid_yOrigin = config.Grid.origin[1]
-  var Grid_zOrigin = config.Grid.origin[2]
   -- Domain Size
   var Grid_xWidth = config.Grid.xWidth
   var Grid_yWidth = config.Grid.yWidth
   var Grid_zWidth = config.Grid.zWidth
-  -- Cell step size
-  var Grid_xCellWidth = (Grid_xWidth/Grid_xNum)
-  var Grid_yCellWidth = (Grid_yWidth/Grid_yNum)
-  var Grid_zCellWidth = (Grid_zWidth/Grid_zNum)
-  -- Compute real origin and width accounting for ghost cells
-  var Grid_xRealOrigin = (Grid_xOrigin-(Grid_xCellWidth*Grid_xBnum))
-  var Grid_yRealOrigin = (Grid_yOrigin-(Grid_yCellWidth*Grid_yBnum))
-  var Grid_zRealOrigin = (Grid_zOrigin-(Grid_zCellWidth*Grid_zBnum))
   -- Inflow values
   var BC_xBCLeftInflowProfile_type = config.BC.xBCLeftInflowProfile.type
   var BC_xBCLeftInflowProfile_Constant_velocity = config.BC.xBCLeftInflowProfile.u.Constant.velocity
@@ -1249,14 +1459,6 @@ do
   var Grid_xWidth = config.Grid.xWidth
   var Grid_yWidth = config.Grid.yWidth
   var Grid_zWidth = config.Grid.zWidth
-  -- Cell step size
-  var Grid_xCellWidth = (Grid_xWidth/Grid_xNum)
-  var Grid_yCellWidth = (Grid_yWidth/Grid_yNum)
-  var Grid_zCellWidth = (Grid_zWidth/Grid_zNum)
-  -- Compute real origin and width accounting for ghost cells
-  var Grid_xRealOrigin = (Grid_xOrigin-(Grid_xCellWidth*Grid_xBnum))
-  var Grid_yRealOrigin = (Grid_yOrigin-(Grid_yCellWidth*Grid_yBnum))
-  var Grid_zRealOrigin = (Grid_zOrigin-(Grid_zCellWidth*Grid_zBnum))
   -- Inflow values
   var BC_xBCLeftHeat_type = config.BC.xBCLeftHeat.type
   var BC_xBCLeftHeat_Constant_temperature = config.BC.xBCLeftHeat.u.Constant.temperature
@@ -1958,7 +2160,6 @@ end
 
 __demand(__parallel, __cuda)
 task CalculateAveragePressure(Fluid : region(ispace(int3d), Fluid_columns),
-                              Grid_cellVolume : double,
                               Grid_xBnum : int32, Grid_xNum : int32,
                               Grid_yBnum : int32, Grid_yNum : int32,
                               Grid_zBnum : int32, Grid_zNum : int32)
@@ -1969,6 +2170,7 @@ do
   __demand(__openmp)
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
+      var Grid_cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
       acc += (Fluid[c].pressure*Grid_cellVolume)
     end
   end
@@ -1977,7 +2179,6 @@ end
 
 __demand(__parallel, __cuda)
 task CalculateAverageTemperature(Fluid : region(ispace(int3d), Fluid_columns),
-                                 Grid_cellVolume : double,
                                  Grid_xBnum : int32, Grid_xNum : int32,
                                  Grid_yBnum : int32, Grid_yNum : int32,
                                  Grid_zBnum : int32, Grid_zNum : int32)
@@ -1988,6 +2189,7 @@ do
   __demand(__openmp)
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
+      var Grid_cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
       acc += (Fluid[c].temperature*Grid_cellVolume)
     end
   end
@@ -1996,7 +2198,6 @@ end
 
 __demand(__parallel, __cuda)
 task CalculateAverageKineticEnergy(Fluid : region(ispace(int3d), Fluid_columns),
-                                   Grid_cellVolume : double,
                                    Grid_xBnum : int32, Grid_xNum : int32,
                                    Grid_yBnum : int32, Grid_yNum : int32,
                                    Grid_zBnum : int32, Grid_zNum : int32)
@@ -2007,6 +2208,7 @@ do
   __demand(__openmp)
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
+      var Grid_cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
       var kineticEnergy = ((0.5*Fluid[c].rho)*dot(Fluid[c].velocity, Fluid[c].velocity))
       acc += (kineticEnergy*Grid_cellVolume)
     end
@@ -2110,16 +2312,19 @@ end
 __demand(__parallel, __cuda)
 task CalculateConvectiveSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
                                        Flow_gamma : double,
-                                       Flow_gasConstant : double,
-                                       Grid_dXYZInverseSquare : double,
-                                       Grid_xCellWidth : double, Grid_yCellWidth : double, Grid_zCellWidth : double)
+                                       Flow_gasConstant : double)
 where
   reads(Fluid.{velocity, temperature})
 do
   var acc = -math.huge
   __demand(__openmp)
   for c in Fluid do
-    acc max= ((((fabs(Fluid[c].velocity[0])/Grid_xCellWidth)+(fabs(Fluid[c].velocity[1])/Grid_yCellWidth))+(fabs(Fluid[c].velocity[2])/Grid_zCellWidth))+(GetSoundSpeed(Fluid[c].temperature, Flow_gamma, Flow_gasConstant)*sqrt(Grid_dXYZInverseSquare)))
+    var Grid_dXYZInverseSquare =
+      1.0/c.cellWidth[0]/c.cellWidth[0] +
+      1.0/c.cellWidth[1]/c.cellWidth[1] +
+      1.0/c.cellWidth[2]/c.cellWidth[2]
+
+    acc max= ((((fabs(Fluid[c].velocity[0])/c.cellWidth[0])+(fabs(Fluid[c].velocity[1])/c.cellWidth[1]))+(fabs(Fluid[c].velocity[2])/c.cellWidth[2]))+(GetSoundSpeed(Fluid[c].temperature, Flow_gamma, Flow_gasConstant)*sqrt(Grid_dXYZInverseSquare)))
   end
   return acc
 end
@@ -2129,14 +2334,17 @@ task CalculateViscousSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns)
                                     Flow_constantVisc : double,
                                     Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
                                     Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                                    Flow_viscosityModel : SCHEMA.ViscosityModel,
-                                    Grid_dXYZInverseSquare : double)
+                                    Flow_viscosityModel : SCHEMA.ViscosityModel)
 where
   reads(Fluid.{rho, temperature})
 do
   var acc = -math.huge
   __demand(__openmp)
   for c in Fluid do
+    var Grid_dXYZInverseSquare =
+      1.0/c.cellWidth[0]/c.cellWidth[0] +
+      1.0/c.cellWidth[1]/c.cellWidth[1] +
+      1.0/c.cellWidth[2]/c.cellWidth[2]
     var dynamicViscosity = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
     acc max= ((((2.0*dynamicViscosity)/Fluid[c].rho)*Grid_dXYZInverseSquare)*4.0)
   end
@@ -2151,14 +2359,17 @@ task CalculateHeatConductionSpectralRadius(Fluid : region(ispace(int3d), Fluid_c
                                            Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
                                            Flow_prandtl : double,
                                            Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                                           Flow_viscosityModel : SCHEMA.ViscosityModel,
-                                           Grid_dXYZInverseSquare : double)
+                                           Flow_viscosityModel : SCHEMA.ViscosityModel)
 where
   reads(Fluid.{rho, temperature})
 do
   var acc = -math.huge
   __demand(__openmp)
   for c in Fluid do
+    var Grid_dXYZInverseSquare =
+      1.0/c.cellWidth[0]/c.cellWidth[0] +
+      1.0/c.cellWidth[1]/c.cellWidth[1] +
+      1.0/c.cellWidth[2]/c.cellWidth[2]
     var dynamicViscosity = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
     var cv = (Flow_gasConstant/(Flow_gamma-1.0))
     var cp = (Flow_gamma*cv)
@@ -4393,10 +4604,11 @@ local function mkInstance() local INSTANCE = {}
 
   local startTime = regentlib.newsymbol()
   local Grid = {
-    xCellWidth = regentlib.newsymbol(),
-    yCellWidth = regentlib.newsymbol(),
-    zCellWidth = regentlib.newsymbol(),
-    cellVolume = regentlib.newsymbol(),
+-- NUMC
+--    xCellWidth = regentlib.newsymbol(),
+--    yCellWidth = regentlib.newsymbol(),
+--    zCellWidth = regentlib.newsymbol(),
+--    cellVolume = regentlib.newsymbol(),
     xBnum = regentlib.newsymbol(),
     yBnum = regentlib.newsymbol(),
     zBnum = regentlib.newsymbol(),
@@ -4501,10 +4713,11 @@ local function mkInstance() local INSTANCE = {}
     ---------------------------------------------------------------------------
 
     -- Cell step size (TODO: Change when we go to non-uniform meshes)
-    var [Grid.xCellWidth] = config.Grid.xWidth / config.Grid.xNum
-    var [Grid.yCellWidth] = config.Grid.yWidth / config.Grid.yNum
-    var [Grid.zCellWidth] = config.Grid.zWidth / config.Grid.zNum
-    var [Grid.cellVolume] = Grid.xCellWidth * Grid.yCellWidth * Grid.zCellWidth
+    -- NUMC
+--    var [Grid.xCellWidth] = config.Grid.xWidth / config.Grid.xNum
+--    var [Grid.yCellWidth] = config.Grid.yWidth / config.Grid.yNum
+--    var [Grid.zCellWidth] = config.Grid.zWidth / config.Grid.zNum
+--    var [Grid.cellVolume] = Grid.xCellWidth * Grid.yCellWidth * Grid.zCellWidth
 
     var [BC.xPosSign]
     var [BC.xNegSign]
@@ -4541,9 +4754,10 @@ local function mkInstance() local INSTANCE = {}
     if config.BC.zBCLeft == SCHEMA.FlowBC_Periodic then Grid.zBnum = 0 end
 
     -- Compute real origin, accounting for ghost cells
-    var [Grid.xRealOrigin] = (config.Grid.origin[0]-(Grid.xCellWidth*Grid.xBnum))
-    var [Grid.yRealOrigin] = (config.Grid.origin[1]-(Grid.yCellWidth*Grid.yBnum))
-    var [Grid.zRealOrigin] = (config.Grid.origin[2]-(Grid.zCellWidth*Grid.zBnum))
+    -- NUMC
+--    var [Grid.xRealOrigin] = (config.Grid.origin[0]-(Grid.xCellWidth*Grid.xBnum))
+--    var [Grid.yRealOrigin] = (config.Grid.origin[1]-(Grid.yCellWidth*Grid.yBnum))
+--    var [Grid.zRealOrigin] = (config.Grid.origin[2]-(Grid.zCellWidth*Grid.zBnum))
 
     var [NX] = config.Mapping.tiles[0]
     var [NY] = config.Mapping.tiles[1]
@@ -4882,6 +5096,13 @@ local function mkInstance() local INSTANCE = {}
                                      Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
                                      Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
 
+    -- Compute real origin, accounting for ghost cells 
+    -- ONLY WORKS WITH ONE GHOST CELL DEPTH
+    Grid.xRealOrigin = (config.Grid.origin[0] - Fluid[Fluid.bounds.lo].CellWidth[0]*Grid.xBnum)
+    Grid.yRealOrigin = (config.Grid.origin[1] - Fluid[Fluid.bounds.lo].CellWidth[1]*Grid.yBnum)
+    Grid.zRealOrigin = (config.Grid.origin[2] - Fluid[Fluid.bounds.lo].CellWidth[2]*Grid.zBnum)
+
+
     if config.Flow.initCase == SCHEMA.FlowInitCase_Uniform then
       Flow_InitializeUniform(Fluid, config.Flow.initParams)
     elseif config.Flow.initCase == SCHEMA.FlowInitCase_Random then
@@ -5045,21 +5266,15 @@ local function mkInstance() local INSTANCE = {}
       var Integrator_maxConvectiveSpectralRadius = 0.0
       var Integrator_maxViscousSpectralRadius = 0.0
       var Integrator_maxHeatConductionSpectralRadius = 0.0
-      var Grid_dXYZInverseSquare =
-        1.0/Grid.xCellWidth/Grid.xCellWidth +
-        1.0/Grid.yCellWidth/Grid.yCellWidth +
-        1.0/Grid.zCellWidth/Grid.zCellWidth
       Integrator_maxConvectiveSpectralRadius max=
         CalculateConvectiveSpectralRadius(Fluid,
-                                          config.Flow.gamma, config.Flow.gasConstant,
-                                          Grid_dXYZInverseSquare, Grid.xCellWidth, Grid.yCellWidth, Grid.zCellWidth)
+                                          config.Flow.gamma, config.Flow.gasConstant)
       Integrator_maxViscousSpectralRadius max=
         CalculateViscousSpectralRadius(Fluid,
                                        config.Flow.constantVisc,
                                        config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
                                        config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                       config.Flow.viscosityModel,
-                                       Grid_dXYZInverseSquare)
+                                       config.Flow.viscosityModel)
       Integrator_maxHeatConductionSpectralRadius max=
         CalculateHeatConductionSpectralRadius(Fluid,
                                               config.Flow.constantVisc,
@@ -5067,8 +5282,7 @@ local function mkInstance() local INSTANCE = {}
                                               config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
                                               config.Flow.prandtl,
                                               config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                              config.Flow.viscosityModel,
-                                              Grid_dXYZInverseSquare)
+                                              config.Flow.viscosityModel)
       Integrator_deltaTime = (config.Integrator.cfl/max(Integrator_maxConvectiveSpectralRadius, max(Integrator_maxViscousSpectralRadius, Integrator_maxHeatConductionSpectralRadius)))
     end
 
@@ -5085,13 +5299,21 @@ local function mkInstance() local INSTANCE = {}
     var Flow_averageTemperature = 0.0
     var Flow_averageKineticEnergy = 0.0
     var Particles_averageTemperature = 0.0
-    Flow_averagePressure += CalculateAveragePressure(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-    Flow_averageTemperature += CalculateAverageTemperature(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-    Flow_averageKineticEnergy += CalculateAverageKineticEnergy(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+    Flow_averagePressure += CalculateAveragePressure(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+    Flow_averageTemperature += CalculateAverageTemperature(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+    Flow_averageKineticEnergy += CalculateAverageKineticEnergy(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
     Particles_averageTemperature += Particles_IntegrateQuantities(Particles)
-    Flow_averagePressure = (Flow_averagePressure/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
-    Flow_averageTemperature = (Flow_averageTemperature/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
-    Flow_averageKineticEnergy = (Flow_averageKineticEnergy/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
+
+    var interior_volume = 0.0
+    for c in Flow do
+      if in_interior(c, Grid.xBnum, Grid.xNum, Grid.yBnum, Grid.yNum, Grid.zBnum, Grid.zNum) then
+        interior_volume += c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
+      end
+    end
+
+    Flow_averagePressure = (Flow_averagePressure/interior_volume)
+    Flow_averageTemperature = (Flow_averageTemperature/interior_volume)
+    Flow_averageKineticEnergy = (Flow_averageKineticEnergy/interior_volume)
     Particles_averageTemperature = (Particles_averageTemperature/Particles_number)
     Console_Write(config,
                   Integrator_timeStep,
