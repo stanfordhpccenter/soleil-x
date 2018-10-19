@@ -542,7 +542,7 @@ function Exports.mkPartitionEqually(r_istype, cs_istype, fs)
     task partitionEqually(r : region(ispace(int1d), fs),
                           cs : ispace(int3d),
                           bnum : int)
-      var N = [int](r.bounds.hi - 2*bnum + 1)
+      var N = int64(r.bounds.hi - 2*bnum + 1)
       var ntx = cs.bounds.hi.x + 1
       var nty = cs.bounds.hi.y + 1
       var ntz = cs.bounds.hi.z + 1
