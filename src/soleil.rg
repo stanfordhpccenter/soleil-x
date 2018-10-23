@@ -902,12 +902,13 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_InitializeCenterCoordinates(Fluid : region(ispace(int3d), Fluid_columns),
-                                      Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
-                                      Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
-                                      Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
+task Flow_InitializeGeometry(Fluid : region(ispace(int3d), Fluid_columns),
+                             Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
+                             Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
+                             Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
 where
-  writes(Fluid.centerCoordinates)
+  reads writes(Fluid.centerCoordinates),
+  reads writes(Fluid.cellWidth)
 do
 
   -- Find cell center coordinates
@@ -1002,13 +1003,19 @@ do
 
     if zNegGhost then
       cell.centerCoordinates[2] = Fluid[cell+{0,0,1}].centerCoordinates[2] - Fluid[cell+{0,0,1}].cellWidth[2]
-      cell.cellWidth = Fluid[cell+{0,0,1}].cellWidth[2]
+      cell.cellWidth[2] = Fluid[cell+{0,0,1}].cellWidth[2]
     elseif zPosGhost then
       cell.centerCoordinates[2] = Fluid[cell-{0,0,1}].centerCoordinates[2] + Fluid[cell-{0,0,1}].cellWidth[2]
       cell.cellWidth[2] = Fluid[cell-{0,0,1}].cellWidth[2]
     end
 
   end
+
+--  var xRealOrigin = (Grid_xOrigin - Fluid[Fluid.bounds.lo].cellWidth[0]*Grid_xBnum)
+--  var yRealOrigin = (Grid_yOrigin - Fluid[Fluid.bounds.lo].cellWidth[1]*Grid_yBnum)
+--  var zRealOrigin = (Grid_zOrigin - Fluid[Fluid.bounds.lo].cellWidth[2]*Grid_zBnum)
+--
+--  return {xRealOrigin, yRealOrigin, zRealOrigin}
 
 end
 
@@ -1051,6 +1058,7 @@ task Flow_InitializeTaylorGreen2D(Fluid : region(ispace(int3d), Fluid_columns),
                                   Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
                                   Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
 where
+  reads(Fluid.centerCoordinates),
   writes(Fluid.{rho, velocity, pressure})
 do
   __demand(__openmp)
@@ -1058,7 +1066,7 @@ do
     var taylorGreenDensity = Flow_initParams[0]
     var taylorGreenPressure = Flow_initParams[1]
     var taylorGreenVelocity = Flow_initParams[2]
-    var xy = cell.centerCoordinates
+    var xy = c.centerCoordinates
     var coorZ = 0
     Fluid[c].rho = taylorGreenDensity
     Fluid[c].velocity = vs_mul([double[3]](array(((sin(xy[0])*cos(xy[1]))*cos(coorZ)), (((-cos(xy[0]))*sin(xy[1]))*cos(coorZ)), 0.0)), taylorGreenVelocity)
@@ -1075,6 +1083,7 @@ task Flow_InitializeTaylorGreen3D(Fluid : region(ispace(int3d), Fluid_columns),
                                   Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
                                   Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
 where
+  reads(Fluid.centerCoordinates),
   writes(Fluid.{rho, velocity, pressure})
 do
   __demand(__openmp)
@@ -1082,7 +1091,7 @@ do
     var taylorGreenDensity = Flow_initParams[0]
     var taylorGreenPressure = Flow_initParams[1]
     var taylorGreenVelocity = Flow_initParams[2]
-    var xy = cell.centerCoordinates
+    var xy = c.centerCoordinates
     Fluid[c].rho = taylorGreenDensity
     Fluid[c].velocity = vs_mul([double[3]](array(((sin(xy[0])*cos(xy[1]))*cos(xy[2])), (((-cos(xy[0]))*sin(xy[1]))*cos(xy[2])), 0.0)), taylorGreenVelocity)
     var factorA = (cos((2.0*xy[2]))+2.0)
@@ -1848,11 +1857,11 @@ end
 __demand(__parallel, __cuda)
 task Flow_ComputeVelocityGradient(Fluid : region(ispace(int3d), Fluid_columns),
                                   config : Config,
-                                  Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
-                                  Grid_yBnum : int32, Grid_yCellWidth : double, Grid_yNum : int32,
-                                  Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
+                                  Grid_xBnum : int32, Grid_xNum : int32,
+                                  Grid_yBnum : int32, Grid_yNum : int32,
+                                  Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.velocity),
+  reads(Fluid.{cellWidth,velocity}),
   writes(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ})
 do
   var BC_xBCLeft = config.BC.xBCLeft
@@ -1869,7 +1878,6 @@ do
     var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
-    var v000 = Fluid[c].velocity
     var v100 = Fluid[(c+{ 1,  0,  0}) % Fluid.bounds].velocity
     var v010 = Fluid[(c+{ 0,  1,  0}) % Fluid.bounds].velocity
     var v001 = Fluid[(c+{ 0,  0,  1}) % Fluid.bounds].velocity
@@ -1877,24 +1885,32 @@ do
     var v0_0 = Fluid[(c+{ 0, -1,  0}) % Fluid.bounds].velocity
     var v00_ = Fluid[(c+{ 0,  0, -1}) % Fluid.bounds].velocity
 
+    var dx100 = Fluid[(c+{ 1,  0,  0}) % Fluid.bounds].cellWidth[0]
+    var dx_00 = Fluid[(c+{-1,  0,  0}) % Fluid.bounds].cellWidth[0]
+    var dy010 = Fluid[(c+{ 0,  1,  0}) % Fluid.bounds].cellWidth[1]
+    var dy0_0 = Fluid[(c+{ 0, -1,  0}) % Fluid.bounds].cellWidth[1]
+    var dz001 = Fluid[(c+{ 0,  0,  1}) % Fluid.bounds].cellWidth[2]
+    var dz00_ = Fluid[(c+{ 0,  0, -1}) % Fluid.bounds].cellWidth[2]
+
     if interior then
-      Fluid[c].velocityGradientX = vs_div(vv_sub(v100, v_00), 2 * Grid_xCellWidth)
-      Fluid[c].velocityGradientY = vs_div(vv_sub(v010, v0_0), 2 * Grid_yCellWidth)
-      Fluid[c].velocityGradientZ = vs_div(vv_sub(v001, v00_), 2 * Grid_zCellWidth)
+
+      Fluid[c].velocityGradientX = vs_div(vv_sub(v100, v_00), 0.5*dx100 + c.cellWidth[0] + 0.5*dx_00)
+      Fluid[c].velocityGradientY = vs_div(vv_sub(v010, v0_0), 0.5*dy010 + c.cellWidth[1] + 0.5*dy0_0)
+      Fluid[c].velocityGradientZ = vs_div(vv_sub(v001, v00_), 0.5*dz001 + c.cellWidth[2] + 0.5*dz00_)
     end
     if NSCBC_inflow_cell  then
       -- forward one sided difference
-      Fluid[c].velocityGradientX = vs_div(vv_sub(v100, v000), Grid_xCellWidth)
+      Fluid[c].velocityGradientX = vs_div(vv_sub(v100, c.velocity), 0.5*(dx100 + c.cellWidth[0]))
       -- central difference
-      Fluid[c].velocityGradientY = vs_div(vv_sub(v010, v0_0), 2 * Grid_yCellWidth)
-      Fluid[c].velocityGradientZ = vs_div(vv_sub(v001, v00_), 2 * Grid_zCellWidth)
+      Fluid[c].velocityGradientY = vs_div(vv_sub(v010, v0_0), 0.5*dy010 + c.cellWidth[1] + 0.5*dy0_0)
+      Fluid[c].velocityGradientZ = vs_div(vv_sub(v001, v00_), 0.5*dz001 + c.cellWidth[2] + 0.5*dz00_)
     end
     if NSCBC_outflow_cell  then
       -- backward one sided difference
-      Fluid[c].velocityGradientX = vs_div(vv_sub(v000, v_00), Grid_xCellWidth)
+      Fluid[c].velocityGradientX = vs_div(vv_sub(c.velocity, v_00), 0.5*(c.cellWidth[0] + dx_00))
       -- central difference
-      Fluid[c].velocityGradientY = vs_div(vv_sub(v010, v0_0), 2 * Grid_yCellWidth)
-      Fluid[c].velocityGradientZ = vs_div(vv_sub(v001, v00_), 2 * Grid_zCellWidth)
+      Fluid[c].velocityGradientY = vs_div(vv_sub(v010, v0_0), 0.5*dy010 + c.cellWidth[1] + 0.5*dy0_0)
+      Fluid[c].velocityGradientZ = vs_div(vv_sub(v001, v00_), 0.5*dz001 + c.cellWidth[2] + 0.5*dz00_)
     end
   end
 end
@@ -2159,12 +2175,30 @@ do
 end
 
 __demand(__parallel, __cuda)
+task CalculateIneriorVolume(Fluid : region(ispace(int3d), Fluid_columns),
+                            Grid_xBnum : int32, Grid_xNum : int32,
+                            Grid_yBnum : int32, Grid_yNum : int32,
+                            Grid_zBnum : int32, Grid_zNum : int32)
+where
+  reads(Fluid.{cellWidth,pressure})
+do
+  var acc = 0.0
+  __demand(__openmp)
+  for c in Fluid do
+    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
+      acc += c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
+    end
+  end
+  return acc
+end
+
+__demand(__parallel, __cuda)
 task CalculateAveragePressure(Fluid : region(ispace(int3d), Fluid_columns),
                               Grid_xBnum : int32, Grid_xNum : int32,
                               Grid_yBnum : int32, Grid_yNum : int32,
                               Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.pressure)
+  reads(Fluid.{cellWidth,pressure})
 do
   var acc = 0.0
   __demand(__openmp)
@@ -2183,7 +2217,7 @@ task CalculateAverageTemperature(Fluid : region(ispace(int3d), Fluid_columns),
                                  Grid_yBnum : int32, Grid_yNum : int32,
                                  Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.temperature)
+  reads(Fluid.{cellWidth,temperature})
 do
   var acc = 0.0
   __demand(__openmp)
@@ -2202,7 +2236,7 @@ task CalculateAverageKineticEnergy(Fluid : region(ispace(int3d), Fluid_columns),
                                    Grid_yBnum : int32, Grid_yNum : int32,
                                    Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.{rho, velocity})
+  reads(Fluid.{cellWidth, rho, velocity})
 do
   var acc = 0.0
   __demand(__openmp)
@@ -2314,7 +2348,7 @@ task CalculateConvectiveSpectralRadius(Fluid : region(ispace(int3d), Fluid_colum
                                        Flow_gamma : double,
                                        Flow_gasConstant : double)
 where
-  reads(Fluid.{velocity, temperature})
+  reads(Fluid.{cellWidth, velocity, temperature})
 do
   var acc = -math.huge
   __demand(__openmp)
@@ -2336,7 +2370,7 @@ task CalculateViscousSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns)
                                     Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
                                     Flow_viscosityModel : SCHEMA.ViscosityModel)
 where
-  reads(Fluid.{rho, temperature})
+  reads(Fluid.{cellWidth, rho, temperature})
 do
   var acc = -math.huge
   __demand(__openmp)
@@ -2361,7 +2395,7 @@ task CalculateHeatConductionSpectralRadius(Fluid : region(ispace(int3d), Fluid_c
                                            Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
                                            Flow_viscosityModel : SCHEMA.ViscosityModel)
 where
-  reads(Fluid.{rho, temperature})
+  reads(Fluid.{cellWidth, rho, temperature})
 do
   var acc = -math.huge
   __demand(__openmp)
@@ -4753,12 +4787,6 @@ local function mkInstance() local INSTANCE = {}
     if config.BC.yBCLeft == SCHEMA.FlowBC_Periodic then Grid.yBnum = 0 end
     if config.BC.zBCLeft == SCHEMA.FlowBC_Periodic then Grid.zBnum = 0 end
 
-    -- Compute real origin, accounting for ghost cells
-    -- NUMC
---    var [Grid.xRealOrigin] = (config.Grid.origin[0]-(Grid.xCellWidth*Grid.xBnum))
---    var [Grid.yRealOrigin] = (config.Grid.origin[1]-(Grid.yCellWidth*Grid.yBnum))
---    var [Grid.zRealOrigin] = (config.Grid.origin[2]-(Grid.zCellWidth*Grid.zBnum))
-
     var [NX] = config.Mapping.tiles[0]
     var [NY] = config.Mapping.tiles[1]
     var [NZ] = config.Mapping.tiles[2]
@@ -5091,17 +5119,15 @@ local function mkInstance() local INSTANCE = {}
                          config.Radiation.u.DOM.zNum)
     end
     Flow_InitializeCell(Fluid)
-    Flow_InitializeCenterCoordinates(Fluid,
-                                     Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
-                                     Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
-                                     Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
 
-    -- Compute real origin, accounting for ghost cells 
-    -- ONLY WORKS WITH ONE GHOST CELL DEPTH
-    Grid.xRealOrigin = (config.Grid.origin[0] - Fluid[Fluid.bounds.lo].CellWidth[0]*Grid.xBnum)
-    Grid.yRealOrigin = (config.Grid.origin[1] - Fluid[Fluid.bounds.lo].CellWidth[1]*Grid.yBnum)
-    Grid.zRealOrigin = (config.Grid.origin[2] - Fluid[Fluid.bounds.lo].CellWidth[2]*Grid.zBnum)
+    Flow_InitializeGeometry(Fluid,
+                            Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
+                            Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
+                            Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
 
+--    var [Grid.xRealOrigin] = (config.Grid.origin[0] - Fluid[Fluid.bounds.lo].cellWidth[0]*Grid.xBnum)
+--    var [Grid.yRealOrigin] = (config.Grid.origin[1] - Fluid[Fluid.bounds.lo].cellWidth[1]*Grid.yBnum)
+--    var [Grid.zRealOrigin] = (config.Grid.origin[2] - Fluid[Fluid.bounds.lo].cellWidth[2]*Grid.zBnum)
 
     if config.Flow.initCase == SCHEMA.FlowInitCase_Uniform then
       Flow_InitializeUniform(Fluid, config.Flow.initParams)
@@ -5305,11 +5331,7 @@ local function mkInstance() local INSTANCE = {}
     Particles_averageTemperature += Particles_IntegrateQuantities(Particles)
 
     var interior_volume = 0.0
-    for c in Flow do
-      if in_interior(c, Grid.xBnum, Grid.xNum, Grid.yBnum, Grid.yNum, Grid.zBnum, Grid.zNum) then
-        interior_volume += c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
-      end
-    end
+    interior_volume += CalculateIneriorVolume(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
 
     Flow_averagePressure = (Flow_averagePressure/interior_volume)
     Flow_averageTemperature = (Flow_averageTemperature/interior_volume)
@@ -5395,231 +5417,231 @@ local function mkInstance() local INSTANCE = {}
       -- Compute velocity gradients
       Flow_ComputeVelocityGradient(Fluid,
                                    config,
-                                   Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                   Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                   Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-      for c in tiles do
-        Flow_UpdateGhostVelocityGradient(p_Fluid[c],
-                                         config,
-                                         BC.xNegSign, BC.yNegSign, BC.zNegSign,
-                                         BC.xPosSign, BC.yPosSign, BC.zPosSign,
-                                         Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                         Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                         Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-      end
-
-      -- Compute fluxes
-      Flow_GetFluxX(Fluid,
-                    config,
-                    config.Flow.constantVisc,
-                    config.Flow.gamma, config.Flow.gasConstant,
-                    config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                    config.Flow.prandtl,
-                    config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                    config.Flow.viscosityModel,
-                    Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                    Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                    Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-      Flow_GetFluxY(Fluid,
-                    config,
-                    config.Flow.constantVisc,
-                    config.Flow.gamma, config.Flow.gasConstant,
-                    config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                    config.Flow.prandtl,
-                    config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                    config.Flow.viscosityModel,
-                    Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                    Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                    Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-      Flow_GetFluxZ(Fluid,
-                    config,
-                    config.Flow.constantVisc,
-                    config.Flow.gamma, config.Flow.gasConstant,
-                    config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                    config.Flow.prandtl,
-                    config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                    config.Flow.viscosityModel,
-                    Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                    Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                    Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-
-      -- Initialize conserved derivatives to 0
-      Flow_InitializeTimeDerivatives(Fluid)
-
-      -- Add body forces
-      Flow_AddBodyForces(Fluid,
-                         config,
-                         Grid.xBnum, config.Grid.xNum,
-                         Grid.yBnum, config.Grid.yNum,
-                         Grid.zBnum, config.Grid.zNum)
-
-      -- Add turbulent forcing
-      if config.Flow.turbForcing.type == SCHEMA.TurbForcingModel_HIT then
-        var Flow_averageDissipation = 0.0
-        var Flow_averageFe = 0.0
-        var Flow_averageK = 0.0
-        var Flow_averagePD = 0.0
-        Flow_averagePD += CalculateAveragePD(Fluid,
-                                             Grid.xBnum, config.Grid.xNum,
-                                             Grid.yBnum, config.Grid.yNum,
-                                             Grid.zBnum, config.Grid.zNum)
-        Flow_averagePD /= config.Grid.xNum * config.Grid.yNum * config.Grid.zNum
-        Flow_ResetDissipation(Fluid)
-        Flow_ComputeDissipationX(Fluid,
-                                 config.Flow.constantVisc,
-                                 config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                 config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                 config.Flow.viscosityModel,
-                                 Grid.xBnum, config.Grid.xNum, Grid.xCellWidth,
-                                 Grid.yBnum, config.Grid.yNum,
-                                 Grid.zBnum, config.Grid.zNum)
-        Flow_UpdateDissipationX(Fluid,
-                                Grid.xBnum, config.Grid.xNum, Grid.xCellWidth,
-                                Grid.yBnum, config.Grid.yNum,
-                                Grid.zBnum, config.Grid.zNum)
-        Flow_ComputeDissipationY(Fluid,
-                                 config.Flow.constantVisc,
-                                 config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                 config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                 config.Flow.viscosityModel,
-                                 Grid.xBnum, config.Grid.xNum,
-                                 Grid.yBnum, config.Grid.yNum, Grid.yCellWidth,
-                                 Grid.zBnum, config.Grid.zNum)
-        Flow_UpdateDissipationY(Fluid,
-                                Grid.xBnum, config.Grid.xNum,
-                                Grid.yBnum, config.Grid.yNum, Grid.yCellWidth,
-                                Grid.zBnum, config.Grid.zNum)
-        Flow_ComputeDissipationZ(Fluid,
-                                 config.Flow.constantVisc,
-                                 config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                 config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                 config.Flow.viscosityModel,
-                                 Grid.xBnum, config.Grid.xNum,
-                                 Grid.yBnum, config.Grid.yNum,
-                                 Grid.zBnum, config.Grid.zNum, Grid.zCellWidth)
-        Flow_UpdateDissipationZ(Fluid,
-                                Grid.xBnum, config.Grid.xNum,
-                                Grid.yBnum, config.Grid.yNum,
-                                Grid.zBnum, config.Grid.zNum, Grid.zCellWidth)
-        Flow_averageDissipation += CalculateAverageDissipation(Fluid,
-                                                               Grid.cellVolume,
-                                                               Grid.xBnum, config.Grid.xNum,
-                                                               Grid.yBnum, config.Grid.yNum,
-                                                               Grid.zBnum, config.Grid.zNum)
-        Flow_averageDissipation /= config.Grid.xNum*config.Grid.yNum*config.Grid.zNum*Grid.cellVolume
-        Flow_averageK += CalculateAverageK(Fluid,
-                                           Grid.cellVolume,
-                                           Grid.xBnum, config.Grid.xNum,
-                                           Grid.yBnum, config.Grid.yNum,
-                                           Grid.zBnum, config.Grid.zNum)
-        Flow_averageK /= config.Grid.xNum*config.Grid.yNum*config.Grid.zNum*Grid.cellVolume
-        Flow_averageFe += Flow_AddTurbulentSource(Fluid,
-                                                  Flow_averageDissipation,
-                                                  Flow_averageK,
-                                                  Flow_averagePD,
-                                                  Grid.cellVolume,
-                                                  Grid.xBnum, config.Grid.xNum,
-                                                  Grid.yBnum, config.Grid.yNum,
-                                                  Grid.zBnum, config.Grid.zNum,
-                                                  config)
-        Flow_averageFe /= config.Grid.xNum*config.Grid.yNum*config.Grid.zNum*Grid.cellVolume
-        Flow_AdjustTurbulentSource(Fluid,
-                                   Flow_averageFe,
                                    Grid.xBnum, config.Grid.xNum,
                                    Grid.yBnum, config.Grid.yNum,
                                    Grid.zBnum, config.Grid.zNum)
-      end
+      --for c in tiles do
+      --  Flow_UpdateGhostVelocityGradient(p_Fluid[c],
+      --                                   config,
+      --                                   BC.xNegSign, BC.yNegSign, BC.zNegSign,
+      --                                   BC.xPosSign, BC.yPosSign, BC.zPosSign,
+      --                                   Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+      --                                   Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+      --                                   Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      --end
 
-      -- Particles & radiation solve
-      if Integrator_timeStep % config.Particles.staggerFactor == 0 then
-        -- Add fluid forces to particles
-        Particles_AddFlowCoupling(Particles,
-                                  Fluid,
-                                  config.Flow.constantVisc,
-                                  config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                  config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                  config.Flow.viscosityModel,
-                                  Grid.xCellWidth, Grid.xRealOrigin,
-                                  Grid.yCellWidth, Grid.yRealOrigin,
-                                  Grid.zCellWidth, Grid.zRealOrigin,
-                                  config.Particles.convectiveCoeff,
-                                  config.Particles.heatCapacity)
-        Particles_AddBodyForces(Particles, config.Particles.bodyForce)
-        -- Add radiation
-        if config.Radiation.type == SCHEMA.RadiationModel_OFF then
-          -- Do nothing
-        elseif config.Radiation.type == SCHEMA.RadiationModel_Algebraic then
-          Particles_AbsorbRadiationAlgebraic(Particles, config)
-        elseif config.Radiation.type == SCHEMA.RadiationModel_DOM then
-          fill(Radiation.acc_d2, 0.0)
-          fill(Radiation.acc_d2t4, 0.0)
-          for c in tiles do
-            Radiation_AccumulateParticleValues(p_Particles[c], p_Fluid[c], p_Radiation[c])
-          end
-          var Radiation_xCellWidth = (config.Grid.xWidth/config.Radiation.u.DOM.xNum)
-          var Radiation_yCellWidth = (config.Grid.yWidth/config.Radiation.u.DOM.yNum)
-          var Radiation_zCellWidth = (config.Grid.zWidth/config.Radiation.u.DOM.zNum)
-          var Radiation_cellVolume = Radiation_xCellWidth * Radiation_yCellWidth * Radiation_zCellWidth
-          Radiation_UpdateFieldValues(Radiation,
-                                      Radiation_cellVolume,
-                                      config.Radiation.u.DOM.qa,
-                                      config.Radiation.u.DOM.qs);
-          [DOM_INST.ComputeRadiationField(config, tiles, p_Radiation)];
-          for c in tiles do
-            Particles_AbsorbRadiationDOM(p_Particles[c],
-                                         p_Fluid[c],
-                                         p_Radiation[c],
-                                         config.Particles.heatCapacity,
-                                         config.Radiation.u.DOM.qa)
-          end
-        else regentlib.assert(false, 'Unhandled case in switch') end
-      end
+      ---- Compute fluxes
+      --Flow_GetFluxX(Fluid,
+      --              config,
+      --              config.Flow.constantVisc,
+      --              config.Flow.gamma, config.Flow.gasConstant,
+      --              config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+      --              config.Flow.prandtl,
+      --              config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+      --              config.Flow.viscosityModel,
+      --              Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+      --              Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+      --              Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      --Flow_GetFluxY(Fluid,
+      --              config,
+      --              config.Flow.constantVisc,
+      --              config.Flow.gamma, config.Flow.gasConstant,
+      --              config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+      --              config.Flow.prandtl,
+      --              config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+      --              config.Flow.viscosityModel,
+      --              Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+      --              Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+      --              Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      --Flow_GetFluxZ(Fluid,
+      --              config,
+      --              config.Flow.constantVisc,
+      --              config.Flow.gamma, config.Flow.gasConstant,
+      --              config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+      --              config.Flow.prandtl,
+      --              config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+      --              config.Flow.viscosityModel,
+      --              Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+      --              Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+      --              Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
 
-      -- Add particle forces to fluid
-      Flow_AddParticlesCoupling(Particles, Fluid, Grid.cellVolume)
+      ---- Initialize conserved derivatives to 0
+      --Flow_InitializeTimeDerivatives(Fluid)
 
-      -- Use fluxes to update conserved value derivatives
-      Flow_UpdateUsingFluxZ(Fluid,
-                            config,
-                            Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                            Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                            Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-      Flow_UpdateUsingFluxY(Fluid,
-                            config,
-                            Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                            Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                            Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-      Flow_UpdateUsingFluxX(Fluid,
-                            config,
-                            Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                            Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                            Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-      if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-        var Flow_maxMach = -math.huge
-        Flow_maxMach max= CalculateMaxMachNumber(Fluid,
-                                                 config,
-                                                 config.Flow.gamma, config.Flow.gasConstant,
-                                                 Grid.xBnum, config.Grid.xNum,
-                                                 Grid.yBnum, config.Grid.yNum,
-                                                 Grid.zBnum, config.Grid.zNum)
-        var Flow_lengthScale = config.Grid.xWidth
-        for c in tiles do
-          Flow_UpdateUsingFluxGhostNSCBC(p_Fluid[c],
-                                         config,
-                                         config.Flow.gamma, config.Flow.gasConstant,
-                                         config.Flow.prandtl,
-                                         Flow_maxMach,
-                                         Flow_lengthScale,
-                                         config.Flow.constantVisc,
-                                         config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                         config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                         config.Flow.viscosityModel,
-                                         config.BC.xBCRightP_inf,
-                                         Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
-                                         Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
-                                         Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
-        end
-      end
+      ---- Add body forces
+      --Flow_AddBodyForces(Fluid,
+      --                   config,
+      --                   Grid.xBnum, config.Grid.xNum,
+      --                   Grid.yBnum, config.Grid.yNum,
+      --                   Grid.zBnum, config.Grid.zNum)
+
+      ---- Add turbulent forcing
+      --if config.Flow.turbForcing.type == SCHEMA.TurbForcingModel_HIT then
+      --  var Flow_averageDissipation = 0.0
+      --  var Flow_averageFe = 0.0
+      --  var Flow_averageK = 0.0
+      --  var Flow_averagePD = 0.0
+      --  Flow_averagePD += CalculateAveragePD(Fluid,
+      --                                       Grid.xBnum, config.Grid.xNum,
+      --                                       Grid.yBnum, config.Grid.yNum,
+      --                                       Grid.zBnum, config.Grid.zNum)
+      --  Flow_averagePD /= config.Grid.xNum * config.Grid.yNum * config.Grid.zNum
+      --  Flow_ResetDissipation(Fluid)
+      --  Flow_ComputeDissipationX(Fluid,
+      --                           config.Flow.constantVisc,
+      --                           config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+      --                           config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+      --                           config.Flow.viscosityModel,
+      --                           Grid.xBnum, config.Grid.xNum, Grid.xCellWidth,
+      --                           Grid.yBnum, config.Grid.yNum,
+      --                           Grid.zBnum, config.Grid.zNum)
+      --  Flow_UpdateDissipationX(Fluid,
+      --                          Grid.xBnum, config.Grid.xNum, Grid.xCellWidth,
+      --                          Grid.yBnum, config.Grid.yNum,
+      --                          Grid.zBnum, config.Grid.zNum)
+      --  Flow_ComputeDissipationY(Fluid,
+      --                           config.Flow.constantVisc,
+      --                           config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+      --                           config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+      --                           config.Flow.viscosityModel,
+      --                           Grid.xBnum, config.Grid.xNum,
+      --                           Grid.yBnum, config.Grid.yNum, Grid.yCellWidth,
+      --                           Grid.zBnum, config.Grid.zNum)
+      --  Flow_UpdateDissipationY(Fluid,
+      --                          Grid.xBnum, config.Grid.xNum,
+      --                          Grid.yBnum, config.Grid.yNum, Grid.yCellWidth,
+      --                          Grid.zBnum, config.Grid.zNum)
+      --  Flow_ComputeDissipationZ(Fluid,
+      --                           config.Flow.constantVisc,
+      --                           config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+      --                           config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+      --                           config.Flow.viscosityModel,
+      --                           Grid.xBnum, config.Grid.xNum,
+      --                           Grid.yBnum, config.Grid.yNum,
+      --                           Grid.zBnum, config.Grid.zNum, Grid.zCellWidth)
+      --  Flow_UpdateDissipationZ(Fluid,
+      --                          Grid.xBnum, config.Grid.xNum,
+      --                          Grid.yBnum, config.Grid.yNum,
+      --                          Grid.zBnum, config.Grid.zNum, Grid.zCellWidth)
+      --  Flow_averageDissipation += CalculateAverageDissipation(Fluid,
+      --                                                         Grid.cellVolume,
+      --                                                         Grid.xBnum, config.Grid.xNum,
+      --                                                         Grid.yBnum, config.Grid.yNum,
+      --                                                         Grid.zBnum, config.Grid.zNum)
+      --  Flow_averageDissipation /= config.Grid.xNum*config.Grid.yNum*config.Grid.zNum*Grid.cellVolume
+      --  Flow_averageK += CalculateAverageK(Fluid,
+      --                                     Grid.cellVolume,
+      --                                     Grid.xBnum, config.Grid.xNum,
+      --                                     Grid.yBnum, config.Grid.yNum,
+      --                                     Grid.zBnum, config.Grid.zNum)
+      --  Flow_averageK /= config.Grid.xNum*config.Grid.yNum*config.Grid.zNum*Grid.cellVolume
+      --  Flow_averageFe += Flow_AddTurbulentSource(Fluid,
+      --                                            Flow_averageDissipation,
+      --                                            Flow_averageK,
+      --                                            Flow_averagePD,
+      --                                            Grid.cellVolume,
+      --                                            Grid.xBnum, config.Grid.xNum,
+      --                                            Grid.yBnum, config.Grid.yNum,
+      --                                            Grid.zBnum, config.Grid.zNum,
+      --                                            config)
+      --  Flow_averageFe /= config.Grid.xNum*config.Grid.yNum*config.Grid.zNum*Grid.cellVolume
+      --  Flow_AdjustTurbulentSource(Fluid,
+      --                             Flow_averageFe,
+      --                             Grid.xBnum, config.Grid.xNum,
+      --                             Grid.yBnum, config.Grid.yNum,
+      --                             Grid.zBnum, config.Grid.zNum)
+      --end
+
+      ---- Particles & radiation solve
+      --if Integrator_timeStep % config.Particles.staggerFactor == 0 then
+      --  -- Add fluid forces to particles
+      --  Particles_AddFlowCoupling(Particles,
+      --                            Fluid,
+      --                            config.Flow.constantVisc,
+      --                            config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+      --                            config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+      --                            config.Flow.viscosityModel,
+      --                            Grid.xCellWidth, Grid.xRealOrigin,
+      --                            Grid.yCellWidth, Grid.yRealOrigin,
+      --                            Grid.zCellWidth, Grid.zRealOrigin,
+      --                            config.Particles.convectiveCoeff,
+      --                            config.Particles.heatCapacity)
+      --  Particles_AddBodyForces(Particles, config.Particles.bodyForce)
+      --  -- Add radiation
+      --  if config.Radiation.type == SCHEMA.RadiationModel_OFF then
+      --    -- Do nothing
+      --  elseif config.Radiation.type == SCHEMA.RadiationModel_Algebraic then
+      --    Particles_AbsorbRadiationAlgebraic(Particles, config)
+      --  elseif config.Radiation.type == SCHEMA.RadiationModel_DOM then
+      --    fill(Radiation.acc_d2, 0.0)
+      --    fill(Radiation.acc_d2t4, 0.0)
+      --    for c in tiles do
+      --      Radiation_AccumulateParticleValues(p_Particles[c], p_Fluid[c], p_Radiation[c])
+      --    end
+      --    var Radiation_xCellWidth = (config.Grid.xWidth/config.Radiation.u.DOM.xNum)
+      --    var Radiation_yCellWidth = (config.Grid.yWidth/config.Radiation.u.DOM.yNum)
+      --    var Radiation_zCellWidth = (config.Grid.zWidth/config.Radiation.u.DOM.zNum)
+      --    var Radiation_cellVolume = Radiation_xCellWidth * Radiation_yCellWidth * Radiation_zCellWidth
+      --    Radiation_UpdateFieldValues(Radiation,
+      --                                Radiation_cellVolume,
+      --                                config.Radiation.u.DOM.qa,
+      --                                config.Radiation.u.DOM.qs);
+      --    [DOM_INST.ComputeRadiationField(config, tiles, p_Radiation)];
+      --    for c in tiles do
+      --      Particles_AbsorbRadiationDOM(p_Particles[c],
+      --                                   p_Fluid[c],
+      --                                   p_Radiation[c],
+      --                                   config.Particles.heatCapacity,
+      --                                   config.Radiation.u.DOM.qa)
+      --    end
+      --  else regentlib.assert(false, 'Unhandled case in switch') end
+      --end
+
+      ---- Add particle forces to fluid
+      --Flow_AddParticlesCoupling(Particles, Fluid, Grid.cellVolume)
+
+      ---- Use fluxes to update conserved value derivatives
+      --Flow_UpdateUsingFluxZ(Fluid,
+      --                      config,
+      --                      Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+      --                      Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+      --                      Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      --Flow_UpdateUsingFluxY(Fluid,
+      --                      config,
+      --                      Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+      --                      Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+      --                      Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      --Flow_UpdateUsingFluxX(Fluid,
+      --                      config,
+      --                      Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+      --                      Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+      --                      Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      --if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
+      --  var Flow_maxMach = -math.huge
+      --  Flow_maxMach max= CalculateMaxMachNumber(Fluid,
+      --                                           config,
+      --                                           config.Flow.gamma, config.Flow.gasConstant,
+      --                                           Grid.xBnum, config.Grid.xNum,
+      --                                           Grid.yBnum, config.Grid.yNum,
+      --                                           Grid.zBnum, config.Grid.zNum)
+      --  var Flow_lengthScale = config.Grid.xWidth
+      --  for c in tiles do
+      --    Flow_UpdateUsingFluxGhostNSCBC(p_Fluid[c],
+      --                                   config,
+      --                                   config.Flow.gamma, config.Flow.gasConstant,
+      --                                   config.Flow.prandtl,
+      --                                   Flow_maxMach,
+      --                                   Flow_lengthScale,
+      --                                   config.Flow.constantVisc,
+      --                                   config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+      --                                   config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+      --                                   config.Flow.viscosityModel,
+      --                                   config.BC.xBCRightP_inf,
+      --                                   Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
+      --                                   Grid.yBnum, Grid.yCellWidth, config.Grid.yNum,
+      --                                   Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
+      --  end
+      --end
 
       -- Time step
       Flow_UpdateVars(Fluid, Integrator_deltaTime, Integrator_stage, config)
@@ -5834,134 +5856,134 @@ task workDual(mc : MultiConfig)
   -- Declare symbols
   [SIM0.DeclSymbols(rexpr mc.configs[0] end)];
   [SIM1.DeclSymbols(rexpr mc.configs[1] end)];
-  var is_FakeCopyQueue = ispace(int1d, 0)
-  var [FakeCopyQueue] = region(is_FakeCopyQueue, CopyQueue_columns);
-  [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
-  var copySrcOrigin = array(
-    SIM0.Grid.xRealOrigin + mc.copySrc.fromCell[0] * SIM0.Grid.xCellWidth,
-    SIM0.Grid.yRealOrigin + mc.copySrc.fromCell[1] * SIM0.Grid.yCellWidth,
-    SIM0.Grid.zRealOrigin + mc.copySrc.fromCell[2] * SIM0.Grid.zCellWidth)
-  var copyTgtOrigin = array(
-    SIM1.Grid.xRealOrigin + mc.copyTgt.fromCell[0] * SIM1.Grid.xCellWidth,
-    SIM1.Grid.yRealOrigin + mc.copyTgt.fromCell[1] * SIM1.Grid.yCellWidth,
-    SIM1.Grid.zRealOrigin + mc.copyTgt.fromCell[2] * SIM1.Grid.zCellWidth)
-  var Fluid0_cellWidth = array(SIM0.Grid.xCellWidth, SIM0.Grid.yCellWidth, SIM0.Grid.zCellWidth)
-  var Fluid1_cellWidth = array(SIM1.Grid.xCellWidth, SIM1.Grid.yCellWidth, SIM1.Grid.zCellWidth)
-  var CopyQueue_ptr : int64 = 0
-  var coloring_CopyQueue = C.legion_domain_point_coloring_create()
-  for c in SIM0.tiles do
-    var partSize = CopyQueue_partSize(SIM0.p_Fluid[c].bounds,
-                                      mc.configs[0],
-                                      mc.copySrc)
-    C.legion_domain_point_coloring_color_domain(
-      coloring_CopyQueue, c, rect1d{CopyQueue_ptr,CopyQueue_ptr+partSize-1})
-    CopyQueue_ptr += partSize
-  end
-  var is_CopyQueue = ispace(int1d, CopyQueue_ptr)
-  var [CopyQueue] = region(is_CopyQueue, CopyQueue_columns);
-  [UTIL.emitRegionTagAttach(CopyQueue, MAPPER.SAMPLE_ID_TAG, rexpr mc.configs[0].Mapping.sampleId end, int)];
-  var p_CopyQueue = partition(disjoint, CopyQueue, coloring_CopyQueue, SIM0.tiles)
-  C.legion_domain_point_coloring_destroy(coloring_CopyQueue)
-  -- Check 2-section configuration
-  regentlib.assert(
-    SIM0.Integrator_simTime == SIM1.Integrator_simTime and
-    SIM0.Integrator_timeStep == SIM1.Integrator_timeStep,
-    'Coupled sections disagree on starting time')
-  regentlib.assert(
-    -- copySrc is a valid volume
-    0 <= mc.copySrc.fromCell[0] and
-    0 <= mc.copySrc.fromCell[1] and
-    0 <= mc.copySrc.fromCell[2] and
-    mc.copySrc.fromCell[0] <= mc.copySrc.uptoCell[0] and
-    mc.copySrc.fromCell[1] <= mc.copySrc.uptoCell[1] and
-    mc.copySrc.fromCell[2] <= mc.copySrc.uptoCell[2] and
-    mc.copySrc.uptoCell[0] < mc.configs[0].Grid.xNum + 2 * SIM0.Grid.xBnum and
-    mc.copySrc.uptoCell[1] < mc.configs[0].Grid.yNum + 2 * SIM0.Grid.yBnum and
-    mc.copySrc.uptoCell[2] < mc.configs[0].Grid.zNum + 2 * SIM0.Grid.zBnum and
-    -- copyTgt is a valid volume
-    0 <= mc.copyTgt.fromCell[0] and
-    0 <= mc.copyTgt.fromCell[1] and
-    0 <= mc.copyTgt.fromCell[2] and
-    mc.copyTgt.fromCell[0] <= mc.copyTgt.uptoCell[0] and
-    mc.copyTgt.fromCell[1] <= mc.copyTgt.uptoCell[1] and
-    mc.copyTgt.fromCell[2] <= mc.copyTgt.uptoCell[2] and
-    mc.copyTgt.uptoCell[0] < mc.configs[1].Grid.xNum + 2 * SIM1.Grid.xBnum and
-    mc.copyTgt.uptoCell[1] < mc.configs[1].Grid.yNum + 2 * SIM1.Grid.yBnum and
-    mc.copySrc.uptoCell[2] < mc.configs[1].Grid.zNum + 2 * SIM1.Grid.zBnum and
-    -- volumes have the same size
-    mc.copySrc.uptoCell[0] - mc.copySrc.fromCell[0] ==
-    mc.copyTgt.uptoCell[0] - mc.copyTgt.fromCell[0] and
-    mc.copySrc.uptoCell[1] - mc.copySrc.fromCell[1] ==
-    mc.copyTgt.uptoCell[1] - mc.copyTgt.fromCell[1] and
-    mc.copySrc.uptoCell[2] - mc.copySrc.fromCell[2] ==
-    mc.copyTgt.uptoCell[2] - mc.copyTgt.fromCell[2],
-    'Invalid volume copy configuration');
-  -- Initialize regions & partitions
-  [parallelizeFor(SIM0, SIM0.InitRegions(rexpr mc.configs[0] end))];
-  [parallelizeFor(SIM1, SIM1.InitRegions(rexpr mc.configs[1] end))];
-  var srcOrigin = int3d{mc.copySrc.fromCell[0], mc.copySrc.fromCell[1], mc.copySrc.fromCell[2]}
-  var tgtOrigin = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]}
-  var srcColoring = C.legion_domain_point_coloring_create()
-  for c in SIM1.tiles do
-    var tgtRect = intersection(SIM1.p_Fluid[c].bounds, mc.copyTgt)
-    if rectSize(tgtRect) > 0 then
-      var srcRect = rect3d{lo = tgtRect.lo - tgtOrigin + srcOrigin,
-                           hi = tgtRect.hi - tgtOrigin + srcOrigin}
-      C.legion_domain_point_coloring_color_domain(srcColoring, c, srcRect)
-    end
-  end
-  var p_Fluid0_src = partition(disjoint, SIM0.Fluid, srcColoring, SIM1.tiles)
-  C.legion_domain_point_coloring_destroy(srcColoring)
-  var tgtColoring = C.legion_domain_point_coloring_create()
-  C.legion_domain_point_coloring_color_domain(tgtColoring, int1d(0),
-    rect3d{lo = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]},
-           hi = int3d{mc.copyTgt.uptoCell[0], mc.copyTgt.uptoCell[1], mc.copyTgt.uptoCell[2]}})
-  var p_Fluid1_isCopied = partition(disjoint, SIM1.Fluid, tgtColoring, ispace(int1d,1))
-  C.legion_domain_point_coloring_destroy(tgtColoring)
-  var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
-  -- Main simulation loop
-  while true do
-    -- Perform preliminary actions before each timestep
-    [parallelizeFor(SIM0, SIM0.MainLoopHeader(rexpr mc.configs[0] end))];
-    [parallelizeFor(SIM1, SIM1.MainLoopHeader(rexpr mc.configs[1] end))];
-    -- Make sure both simulations are using the same timestep
-    SIM0.Integrator_deltaTime = min(SIM0.Integrator_deltaTime, SIM1.Integrator_deltaTime)
-    SIM1.Integrator_deltaTime = min(SIM0.Integrator_deltaTime, SIM1.Integrator_deltaTime);
-    [parallelizeFor(SIM0, SIM0.PerformIO(rexpr mc.configs[0] end))];
-    [parallelizeFor(SIM1, SIM1.PerformIO(rexpr mc.configs[1] end))];
-    if SIM0.Integrator_exitCond or SIM1.Integrator_exitCond then
-      break
-    end
-    -- Run one iteration of first section
-    [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end, FakeCopyQueue))];
-    -- Copy fluid & particles to second section
-    fill(CopyQueue.__valid, false) -- clear the copyqueue from the previous iteration
-    if SIM1.Integrator_timeStep % mc.copyEveryTimeSteps == 0 then
-      for c in SIM1.tiles do
-        var src = p_Fluid0_src[c]
-        var tgt = p_Fluid1_tgt[c][0]
-        copy(src.temperature, tgt.temperature_inc)
-        copy(src.velocity, tgt.velocity_inc)
-      end
-      fill(CopyQueue.position, array(-1.0, -1.0, -1.0))
-      fill(CopyQueue.velocity, array(-1.0, -1.0, -1.0))
-      fill(CopyQueue.temperature, -1.0)
-      fill(CopyQueue.diameter, -1.0)
-      fill(CopyQueue.density, -1.0)
-      for c in SIM0.tiles do
-        CopyQueue_push(SIM0.p_Particles[c],
-                       p_CopyQueue[c],
-                       mc.copySrc,
-                       copySrcOrigin, copyTgtOrigin,
-                       Fluid0_cellWidth, Fluid1_cellWidth)
-      end
-    end
-    -- Run one iteration of second section
-    [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, CopyQueue))];
-  end
-  -- Cleanups
-  [SIM0.Cleanup(rexpr mc.configs[0] end)];
-  [SIM1.Cleanup(rexpr mc.configs[1] end)];
+--  var is_FakeCopyQueue = ispace(int1d, 0)
+--  var [FakeCopyQueue] = region(is_FakeCopyQueue, CopyQueue_columns);
+--  [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
+--  var copySrcOrigin = array(
+--    SIM0.Grid.xRealOrigin + mc.copySrc.fromCell[0] * SIM0.Grid.xCellWidth,
+--    SIM0.Grid.yRealOrigin + mc.copySrc.fromCell[1] * SIM0.Grid.yCellWidth,
+--    SIM0.Grid.zRealOrigin + mc.copySrc.fromCell[2] * SIM0.Grid.zCellWidth)
+--  var copyTgtOrigin = array(
+--    SIM1.Grid.xRealOrigin + mc.copyTgt.fromCell[0] * SIM1.Grid.xCellWidth,
+--    SIM1.Grid.yRealOrigin + mc.copyTgt.fromCell[1] * SIM1.Grid.yCellWidth,
+--    SIM1.Grid.zRealOrigin + mc.copyTgt.fromCell[2] * SIM1.Grid.zCellWidth)
+--  var Fluid0_cellWidth = array(SIM0.Grid.xCellWidth, SIM0.Grid.yCellWidth, SIM0.Grid.zCellWidth)
+--  var Fluid1_cellWidth = array(SIM1.Grid.xCellWidth, SIM1.Grid.yCellWidth, SIM1.Grid.zCellWidth)
+--  var CopyQueue_ptr : int64 = 0
+--  var coloring_CopyQueue = C.legion_domain_point_coloring_create()
+--  for c in SIM0.tiles do
+--    var partSize = CopyQueue_partSize(SIM0.p_Fluid[c].bounds,
+--                                      mc.configs[0],
+--                                      mc.copySrc)
+--    C.legion_domain_point_coloring_color_domain(
+--      coloring_CopyQueue, c, rect1d{CopyQueue_ptr,CopyQueue_ptr+partSize-1})
+--    CopyQueue_ptr += partSize
+--  end
+--  var is_CopyQueue = ispace(int1d, CopyQueue_ptr)
+--  var [CopyQueue] = region(is_CopyQueue, CopyQueue_columns);
+--  [UTIL.emitRegionTagAttach(CopyQueue, MAPPER.SAMPLE_ID_TAG, rexpr mc.configs[0].Mapping.sampleId end, int)];
+--  var p_CopyQueue = partition(disjoint, CopyQueue, coloring_CopyQueue, SIM0.tiles)
+--  C.legion_domain_point_coloring_destroy(coloring_CopyQueue)
+--  -- Check 2-section configuration
+--  regentlib.assert(
+--    SIM0.Integrator_simTime == SIM1.Integrator_simTime and
+--    SIM0.Integrator_timeStep == SIM1.Integrator_timeStep,
+--    'Coupled sections disagree on starting time')
+--  regentlib.assert(
+--    -- copySrc is a valid volume
+--    0 <= mc.copySrc.fromCell[0] and
+--    0 <= mc.copySrc.fromCell[1] and
+--    0 <= mc.copySrc.fromCell[2] and
+--    mc.copySrc.fromCell[0] <= mc.copySrc.uptoCell[0] and
+--    mc.copySrc.fromCell[1] <= mc.copySrc.uptoCell[1] and
+--    mc.copySrc.fromCell[2] <= mc.copySrc.uptoCell[2] and
+--    mc.copySrc.uptoCell[0] < mc.configs[0].Grid.xNum + 2 * SIM0.Grid.xBnum and
+--    mc.copySrc.uptoCell[1] < mc.configs[0].Grid.yNum + 2 * SIM0.Grid.yBnum and
+--    mc.copySrc.uptoCell[2] < mc.configs[0].Grid.zNum + 2 * SIM0.Grid.zBnum and
+--    -- copyTgt is a valid volume
+--    0 <= mc.copyTgt.fromCell[0] and
+--    0 <= mc.copyTgt.fromCell[1] and
+--    0 <= mc.copyTgt.fromCell[2] and
+--    mc.copyTgt.fromCell[0] <= mc.copyTgt.uptoCell[0] and
+--    mc.copyTgt.fromCell[1] <= mc.copyTgt.uptoCell[1] and
+--    mc.copyTgt.fromCell[2] <= mc.copyTgt.uptoCell[2] and
+--    mc.copyTgt.uptoCell[0] < mc.configs[1].Grid.xNum + 2 * SIM1.Grid.xBnum and
+--    mc.copyTgt.uptoCell[1] < mc.configs[1].Grid.yNum + 2 * SIM1.Grid.yBnum and
+--    mc.copySrc.uptoCell[2] < mc.configs[1].Grid.zNum + 2 * SIM1.Grid.zBnum and
+--    -- volumes have the same size
+--    mc.copySrc.uptoCell[0] - mc.copySrc.fromCell[0] ==
+--    mc.copyTgt.uptoCell[0] - mc.copyTgt.fromCell[0] and
+--    mc.copySrc.uptoCell[1] - mc.copySrc.fromCell[1] ==
+--    mc.copyTgt.uptoCell[1] - mc.copyTgt.fromCell[1] and
+--    mc.copySrc.uptoCell[2] - mc.copySrc.fromCell[2] ==
+--    mc.copyTgt.uptoCell[2] - mc.copyTgt.fromCell[2],
+--    'Invalid volume copy configuration');
+--  -- Initialize regions & partitions
+--  [parallelizeFor(SIM0, SIM0.InitRegions(rexpr mc.configs[0] end))];
+--  [parallelizeFor(SIM1, SIM1.InitRegions(rexpr mc.configs[1] end))];
+--  var srcOrigin = int3d{mc.copySrc.fromCell[0], mc.copySrc.fromCell[1], mc.copySrc.fromCell[2]}
+--  var tgtOrigin = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]}
+--  var srcColoring = C.legion_domain_point_coloring_create()
+--  for c in SIM1.tiles do
+--    var tgtRect = intersection(SIM1.p_Fluid[c].bounds, mc.copyTgt)
+--    if rectSize(tgtRect) > 0 then
+--      var srcRect = rect3d{lo = tgtRect.lo - tgtOrigin + srcOrigin,
+--                           hi = tgtRect.hi - tgtOrigin + srcOrigin}
+--      C.legion_domain_point_coloring_color_domain(srcColoring, c, srcRect)
+--    end
+--  end
+--  var p_Fluid0_src = partition(disjoint, SIM0.Fluid, srcColoring, SIM1.tiles)
+--  C.legion_domain_point_coloring_destroy(srcColoring)
+--  var tgtColoring = C.legion_domain_point_coloring_create()
+--  C.legion_domain_point_coloring_color_domain(tgtColoring, int1d(0),
+--    rect3d{lo = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]},
+--           hi = int3d{mc.copyTgt.uptoCell[0], mc.copyTgt.uptoCell[1], mc.copyTgt.uptoCell[2]}})
+--  var p_Fluid1_isCopied = partition(disjoint, SIM1.Fluid, tgtColoring, ispace(int1d,1))
+--  C.legion_domain_point_coloring_destroy(tgtColoring)
+--  var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
+--  -- Main simulation loop
+--  while true do
+--    -- Perform preliminary actions before each timestep
+--    [parallelizeFor(SIM0, SIM0.MainLoopHeader(rexpr mc.configs[0] end))];
+--    [parallelizeFor(SIM1, SIM1.MainLoopHeader(rexpr mc.configs[1] end))];
+--    -- Make sure both simulations are using the same timestep
+--    SIM0.Integrator_deltaTime = min(SIM0.Integrator_deltaTime, SIM1.Integrator_deltaTime)
+--    SIM1.Integrator_deltaTime = min(SIM0.Integrator_deltaTime, SIM1.Integrator_deltaTime);
+--    [parallelizeFor(SIM0, SIM0.PerformIO(rexpr mc.configs[0] end))];
+--    [parallelizeFor(SIM1, SIM1.PerformIO(rexpr mc.configs[1] end))];
+--    if SIM0.Integrator_exitCond or SIM1.Integrator_exitCond then
+--      break
+--    end
+--    -- Run one iteration of first section
+--    [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end, FakeCopyQueue))];
+--    -- Copy fluid & particles to second section
+--    fill(CopyQueue.__valid, false) -- clear the copyqueue from the previous iteration
+--    if SIM1.Integrator_timeStep % mc.copyEveryTimeSteps == 0 then
+--      for c in SIM1.tiles do
+--        var src = p_Fluid0_src[c]
+--        var tgt = p_Fluid1_tgt[c][0]
+--        copy(src.temperature, tgt.temperature_inc)
+--        copy(src.velocity, tgt.velocity_inc)
+--      end
+--      fill(CopyQueue.position, array(-1.0, -1.0, -1.0))
+--      fill(CopyQueue.velocity, array(-1.0, -1.0, -1.0))
+--      fill(CopyQueue.temperature, -1.0)
+--      fill(CopyQueue.diameter, -1.0)
+--      fill(CopyQueue.density, -1.0)
+--      for c in SIM0.tiles do
+--        CopyQueue_push(SIM0.p_Particles[c],
+--                       p_CopyQueue[c],
+--                       mc.copySrc,
+--                       copySrcOrigin, copyTgtOrigin,
+--                       Fluid0_cellWidth, Fluid1_cellWidth)
+--      end
+--    end
+--    -- Run one iteration of second section
+--    [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, CopyQueue))];
+--  end
+--  -- Cleanups
+--  [SIM0.Cleanup(rexpr mc.configs[0] end)];
+--  [SIM1.Cleanup(rexpr mc.configs[1] end)];
 end
 
 __demand(__inline)
