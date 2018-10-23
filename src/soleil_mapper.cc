@@ -431,10 +431,6 @@ private:
     if (task.is_index_space && task.index_domain.get_dim() == 3) {
       unsigned sample_id = find_sample_id(ctx, task);
       SampleMapping& mapping = sample_mappings_[sample_id];
-      LOG.debug() << "ID " << task.get_unique_id()
-                  << ": Sample " << sample_id
-                  << ": Task " << task.get_task_name()
-                  << ": 3D index space launch";
       return mapping.tiling_3d_functor();
     }
     // 2D index space tasks
@@ -454,10 +450,6 @@ private:
         CHECK(false, "Unexpected 2D domain on index space launch of task %s",
               task.get_task_name());
       }
-      LOG.debug() << "ID " << task.get_unique_id()
-                  << ": Sample " << sample_id
-                  << ": Task " << task.get_task_name()
-                  << ": 2D index space launch";
       return mapping.tiling_2d_functor(dim, dir);
     }
     // Sample-specific tasks that are launched individually
@@ -475,11 +467,6 @@ private:
       unsigned sample_id = find_sample_id(ctx, task);
       SampleMapping& mapping = sample_mappings_[sample_id];
       DomainPoint tile = find_tile(ctx, task);
-      LOG.debug() << "ID " << task.get_unique_id()
-                  << ": Sample " << sample_id
-                  << ": Task " << task.get_task_name()
-                  << ": Sequential launch"
-                  << ": Tile " << tile;
       return mapping.hardcoded_functor(tile);
     }
     // Other tasks: fail and notify the user
@@ -561,6 +548,7 @@ public:
     }
     // Other tasks
     else {
+      unsigned sample_id = find_sample_id(ctx, task);
       DomainPoint tile = find_tile(ctx, task);
       VariantInfo info =
         default_find_preferred_variant(task, ctx, false/*needs tight*/);
@@ -572,7 +560,9 @@ public:
       // we should be executing there at this point).
       assert(target_proc.address_space() == node_id);
 #endif
-      LOG.debug() << "ID " << task.get_unique_id()
+      LOG.debug() << "Sample " << sample_id
+                  << ": Task " << task.get_task_name()
+                  << ": Sequential launch"
                   << ": Tile " << tile
                   << ": Processor " << target_proc;
       return target_proc;
@@ -584,6 +574,7 @@ public:
                           const SliceTaskInput& input,
                           SliceTaskOutput& output) {
     output.verify_correctness = false;
+    unsigned sample_id = find_sample_id(ctx, task);
     VariantInfo info =
       default_find_preferred_variant(task, ctx, false/*needs tight*/);
     SplinteringFunctor* functor = pick_functor(ctx, task);
@@ -598,7 +589,9 @@ public:
 #endif
       output.slices.emplace_back(Domain(it.p, it.p), target_proc,
                                  false/*recurse*/, false/*stealable*/);
-      LOG.debug() << "ID " << task.get_unique_id()
+      LOG.debug() << "Sample " << sample_id
+                  << ": Task " << task.get_task_name()
+                  << ": Index space launch"
                   << ": Tile " << it.p
                   << ": Processor " << target_proc;
     }
@@ -621,9 +614,6 @@ public:
         (dir[0] ? mapping.x_tiles() - tile[0] - 1 : tile[0]) +
         (dir[1] ? mapping.y_tiles() - tile[1] - 1 : tile[1]) +
         (dir[2] ? mapping.z_tiles() - tile[2] - 1 : tile[2]) ;
-      LOG.debug() << "ID " << task.get_unique_id()
-                  << ": Tile " << tile
-                  << ": Priority " << priority;
     }
     // Increase priority of tasks on the critical path of the fluid solve.
     if (STARTS_WITH(task.get_task_name(), "Flow_ComputeVelocityGradient") ||
@@ -631,8 +621,6 @@ public:
         STARTS_WITH(task.get_task_name(), "Flow_GetFlux") ||
         STARTS_WITH(task.get_task_name(), "Flow_UpdateUsingFlux")) {
       priority = 1;
-      LOG.debug() << "ID " << task.get_unique_id()
-                  << ": Priority " << priority;
     }
     return priority;
   }
