@@ -85,7 +85,7 @@ public:
     rt->register_sharding_functor(id, this);
   }
 public:
-  virtual AddressSpace get_rank(const DomainPoint &point);
+  AddressSpace get_rank(const DomainPoint &point);
   virtual SplinterID splinter(const DomainPoint &point) = 0;
 public:
   const ShardingID id;
@@ -107,11 +107,12 @@ public:
                                            / config.Mapping.tilesPerRank[2])},
       first_rank_(first_rank),
       tiling_3d_functor_(rt, *this),
-      tiling_2d_functors_{
-        {Tiling2DFunctor(rt,*this,0,false), Tiling2DFunctor(rt,*this,0,true)},
-        {Tiling2DFunctor(rt,*this,1,false), Tiling2DFunctor(rt,*this,1,true)},
-        {Tiling2DFunctor(rt,*this,2,false), Tiling2DFunctor(rt,*this,2,true)}
-      } {
+      tiling_2d_functors_{{Tiling2DFunctor(rt, *this, 0, false),
+                           Tiling2DFunctor(rt, *this, 0, true )},
+                          {Tiling2DFunctor(rt, *this, 1, false),
+                           Tiling2DFunctor(rt, *this, 1, true )},
+                          {Tiling2DFunctor(rt, *this, 2, false),
+                           Tiling2DFunctor(rt, *this, 2, true )}} {
     // NOTE: We first reserve the full amount of elements we will need, because
     // the address of each ShardingFunctor needs to be stable, as they are
     // registered by address with the runtime.
@@ -176,7 +177,7 @@ public:
       CHECK(0 <= point[0] && point[0] < parent_.x_tiles() &&
             0 <= point[1] && point[1] < parent_.y_tiles() &&
             0 <= point[2] && point[2] < parent_.z_tiles(),
-            "Unexpected domain on index space launch");
+            "Unexpected point on index space launch");
       return
         (point[0] / parent_.tiles_per_rank_[0]) * parent_.ranks_per_dim_[1]
                                                 * parent_.ranks_per_dim_[2] +
@@ -188,7 +189,7 @@ public:
       CHECK(0 <= point[0] && point[0] < parent_.x_tiles() &&
             0 <= point[1] && point[1] < parent_.y_tiles() &&
             0 <= point[2] && point[2] < parent_.z_tiles(),
-            "Unexpected domain on index space launch");
+            "Unexpected point on index space launch");
       return
         (point[0] % parent_.tiles_per_rank_[0]) * parent_.tiles_per_rank_[1]
                                                 * parent_.tiles_per_rank_[2] +
@@ -538,11 +539,20 @@ public:
     }
   }
 
+  // NOTE: Will only run if Legion is compiled with dynamic control replication.
+  virtual void select_sharding_functor(const MapperContext ctx,
+                                       const Task& task,
+                                       const SelectShardingFunctorInput& input,
+                                       SelectShardingFunctorOutput& output) {
+    output.chosen_functor = pick_functor(ctx, task)->id;
+  }
+
   virtual Processor default_policy_select_initial_processor(
                               MapperContext ctx,
                               const Task& task) {
     // Index space tasks: slice_task has already filled in the correct target.
     if (task.is_index_space) {
+      assert(task.target_proc.address_space() == node_id); // mapping remotely
       return task.target_proc;
     }
     // Main task: defer to the default mapping policy.
@@ -556,7 +566,14 @@ public:
         default_find_preferred_variant(task, ctx, false/*needs tight*/);
       SplinteringFunctor* functor = pick_functor(ctx, task);
       Processor target_proc = select_proc(tile, info.proc_kind, functor);
+#ifdef MAX_APPLICATION_SHARDING_ID
+      // The sharding functor should have already been invoked, set the shard,
+      // and sent the task to the appropriate rank to be remotely mapped (and
+      // we should be executing there at this point).
+      assert(target_proc.address_space() == node_id);
+#endif
       LOG.debug() << "ID " << task.get_unique_id()
+                  << ": Tile " << tile
                   << ": Processor " << target_proc;
       return target_proc;
     }
@@ -572,6 +589,13 @@ public:
     SplinteringFunctor* functor = pick_functor(ctx, task);
     for (Domain::DomainPointIterator it(input.domain); it; it++) {
       Processor target_proc = select_proc(it.p, info.proc_kind, functor);
+#ifdef MAX_APPLICATION_SHARDING_ID
+      // The sharding functor should have already been called and split the
+      // launch domain by shard. Therefore, at this point we should only have
+      // to slice within a single shard (corresponding to the current rank,
+      // since we're doing remote mapping).
+      assert(target_proc.address_space() == node_id);
+#endif
       output.slices.emplace_back(Domain(it.p, it.p), target_proc,
                                  false/*recurse*/, false/*stealable*/);
       LOG.debug() << "ID " << task.get_unique_id()
@@ -597,6 +621,9 @@ public:
         (dir[0] ? mapping.x_tiles() - tile[0] - 1 : tile[0]) +
         (dir[1] ? mapping.y_tiles() - tile[1] - 1 : tile[1]) +
         (dir[2] ? mapping.z_tiles() - tile[2] - 1 : tile[2]) ;
+      LOG.debug() << "ID " << task.get_unique_id()
+                  << ": Tile " << tile
+                  << ": Priority " << priority;
     }
     // Increase priority of tasks on the critical path of the fluid solve.
     if (STARTS_WITH(task.get_task_name(), "Flow_ComputeVelocityGradient") ||
@@ -604,12 +631,25 @@ public:
         STARTS_WITH(task.get_task_name(), "Flow_GetFlux") ||
         STARTS_WITH(task.get_task_name(), "Flow_UpdateUsingFlux")) {
       priority = 1;
-    }
-    if (priority != 0) {
       LOG.debug() << "ID " << task.get_unique_id()
                   << ": Priority " << priority;
     }
     return priority;
+  }
+
+  // Send each cross-section explicit copy to the first rank of the first
+  // section, to be mapped further.
+  // NOTE: Will only run if Legion is compiled with dynamic control replication.
+  virtual void select_sharding_functor(const MapperContext ctx,
+                                       const Copy& copy,
+                                       const SelectShardingFunctorInput& input,
+                                       SelectShardingFunctorOutput& output) {
+    CHECK(copy.parent_task != NULL &&
+          EQUALS(copy.parent_task->get_task_name(), "workDual"),
+          "Unsupported: Sharded copy outside of workDual");
+    unsigned sample_id = find_sample_id(ctx, *(copy.parent_task));
+    SampleMapping& mapping = sample_mappings_[sample_id];
+    output.chosen_functor = mapping.hardcoded_functor(Point<3>(0,0,0))->id;
   }
 
   virtual void map_copy(const MapperContext ctx,
@@ -740,6 +780,44 @@ public:
                               const Task &task,
                               std::vector<Processor> &target_procs) {
     target_procs.push_back(task.target_proc);
+  }
+
+  // Shouldn't have to shard any of the following operations.
+  virtual void select_sharding_functor(const MapperContext ctx,
+                                       const Close& close,
+                                       const SelectShardingFunctorInput& input,
+                                       SelectShardingFunctorOutput& output) {
+    CHECK(false, "Unsupported: Sharded Close");
+  }
+  virtual void select_sharding_functor(const MapperContext ctx,
+                                       const Acquire& acquire,
+                                       const SelectShardingFunctorInput& input,
+                                       SelectShardingFunctorOutput& output) {
+    CHECK(false, "Unsupported: Sharded Acquire");
+  }
+  virtual void select_sharding_functor(const MapperContext ctx,
+                                       const Release& release,
+                                       const SelectShardingFunctorInput& input,
+                                       SelectShardingFunctorOutput& output) {
+    CHECK(false, "Unsupported: Sharded Release");
+  }
+  virtual void select_sharding_functor(const MapperContext ctx,
+                                       const Partition& partition,
+                                       const SelectShardingFunctorInput& input,
+                                       SelectShardingFunctorOutput& output) {
+    CHECK(false, "Unsupported: Sharded Partition");
+  }
+  virtual void select_sharding_functor(const MapperContext ctx,
+                                       const Fill& fill,
+                                       const SelectShardingFunctorInput& input,
+                                       SelectShardingFunctorOutput& output) {
+    CHECK(false, "Unsupported: Sharded Fill");
+  }
+  virtual void select_sharding_functor(const MapperContext ctx,
+                                       const MustEpoch& epoch,
+                                       const SelectShardingFunctorInput& input,
+                                       MustEpochShardingFunctorOutput& output) {
+    CHECK(false, "Unsupported: Sharded MustEpoch");
   }
 
 //=============================================================================
