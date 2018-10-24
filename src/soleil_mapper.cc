@@ -1,4 +1,5 @@
 #include <array>
+#include <deque>
 #include <iostream>
 #include <fstream>
 #include <regex>
@@ -131,6 +132,8 @@ public:
       }
     }
   }
+  SampleMapping(const SampleMapping& rhs) = delete;
+  SampleMapping& operator=(const SampleMapping& rhs) = delete;
 
 public:
   AddressSpace get_rank(ShardID shard_id) const {
@@ -562,12 +565,6 @@ public:
         default_find_preferred_variant(task, ctx, false/*needs tight*/);
       SplinteringFunctor* functor = pick_functor(ctx, task);
       Processor target_proc = select_proc(tile, info.proc_kind, functor);
-#ifdef MAX_APPLICATION_SHARDING_ID
-      // The sharding functor should have already been invoked, set the shard,
-      // and sent the task to the appropriate rank to be remotely mapped (and
-      // we should be executing there at this point).
-      assert(target_proc.address_space() == node_id);
-#endif
       LOG.debug() << "Sample " << sample_id
                   << ": Task " << task.get_task_name()
                   << ": Sequential launch"
@@ -588,13 +585,6 @@ public:
     SplinteringFunctor* functor = pick_functor(ctx, task);
     for (Domain::DomainPointIterator it(input.domain); it; it++) {
       Processor target_proc = select_proc(it.p, info.proc_kind, functor);
-#ifdef MAX_APPLICATION_SHARDING_ID
-      // The sharding functor should have already been called and split the
-      // launch domain by shard. Therefore, at this point we should only have
-      // to slice within a single shard (corresponding to the current rank,
-      // since we're doing remote mapping).
-      assert(target_proc.address_space() == node_id);
-#endif
       output.slices.emplace_back(Domain(it.p, it.p), target_proc,
                                  false/*recurse*/, false/*stealable*/);
       LOG.debug() << "Sample " << sample_id
@@ -886,7 +876,7 @@ private:
 //=============================================================================
 
 private:
-  std::vector<SampleMapping> sample_mappings_;
+  std::deque<SampleMapping> sample_mappings_;
   std::vector<std::vector<std::vector<Processor> > > all_procs_;
 };
 
