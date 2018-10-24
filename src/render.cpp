@@ -73,7 +73,7 @@ extern "C" {
     Runtime *runtime = CObjectWrapper::unwrap(runtime_);
     Context ctx = CObjectWrapper::unwrap(ctx_)->context();
     LogicalPartition logicalPartition = CObjectWrapper::unwrap(fluidPartition_);
-    Visualization::ImageDescriptor imageDescriptor = { imageWidth, imageHeight, 1, 1, logicalPartition };
+    Visualization::ImageDescriptor imageDescriptor = { imageWidth, imageHeight, 1, 1 };
     
     if(gImageCompositors.find(sampleId) == gImageCompositors.end()) {
       gImageCompositors[sampleId] = new Visualization::ImageReduction(logicalPartition, imageDescriptor, ctx, runtime, gImageReductionMapperID);
@@ -81,6 +81,7 @@ extern "C" {
     }
     
     Visualization::ImageReduction* compositor = gImageCompositors[sampleId];
+    imageDescriptor = compositor->imageDescriptor();
     
     PhysicalRegion* particles = CObjectWrapper::unwrap(particles_[0]);
     std::vector<legion_field_id_t> particles_fields;
