@@ -799,12 +799,14 @@ public:
                                        SelectShardingFunctorOutput& output) {
     CHECK(false, "Unsupported: Sharded Fill");
   }
+#ifdef MAX_APPLICATION_SHARDING_ID
   virtual void select_sharding_functor(const MapperContext ctx,
                                        const MustEpoch& epoch,
                                        const SelectShardingFunctorInput& input,
                                        MustEpochShardingFunctorOutput& output) {
     CHECK(false, "Unsupported: Sharded MustEpoch");
   }
+#endif
 
 //=============================================================================
 // MAPPER CLASS: HELPER METHODS
