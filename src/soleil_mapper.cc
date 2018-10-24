@@ -539,12 +539,12 @@ public:
   virtual Processor default_policy_select_initial_processor(
                               MapperContext ctx,
                               const Task& task) {
-    // Index space tasks: slice_task has already filled in the correct target.
+    // Index space tasks: defer to the default mapping policy; slice_task will
+    // eventually be called to do the mapping properly
     if (task.is_index_space) {
-      assert(task.target_proc.address_space() == node_id); // mapping remotely
-      return task.target_proc;
+      return DefaultMapper::default_policy_select_initial_processor(ctx, task);
     }
-    // Main task: defer to the default mapping policy.
+    // Main task: defer to the default mapping policy
     else if (EQUALS(task.get_task_name(), "main")) {
       return DefaultMapper::default_policy_select_initial_processor(ctx, task);
     }
