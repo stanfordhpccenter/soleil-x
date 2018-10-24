@@ -220,6 +220,9 @@ local function emitValueParser(name, lval, rval, typ)
       if [rval].type ~= JSON.json_integer then
         [fldReadErr('Wrong type', name)]
       end
+      if [int]([rval].u.integer) ~= [rval].u.integer then
+        [fldReadErr('Integer value overflow', name)]
+      end
       [lval] = [rval].u.integer
     end
   elseif typ == double then

@@ -242,13 +242,13 @@ do
     grid_map.bounds.lo.x == 0 and
     grid_map.bounds.lo.y == 0 and
     grid_map.bounds.lo.z == 0 and
-    int(sub_point_offsets.bounds.lo) == 0 and
-    int(sub_point_offsets.bounds.hi + 1) == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz and
-    int(diagonals.bounds.lo) == 0 and
-    int(diagonals.bounds.hi) == (Tx-1)+(Ty-1)+(Tz-1),
+    int64(sub_point_offsets.bounds.lo) == 0 and
+    int64(sub_point_offsets.bounds.hi + 1) == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz and
+    int64(diagonals.bounds.lo) == 0 and
+    int64(diagonals.bounds.hi) == (Tx-1)+(Ty-1)+(Tz-1),
     'Internal error')
   var coloring = regentlib.c.legion_domain_point_coloring_create()
-  var rect_start = 0
+  var rect_start = int64(0)
   -- Start one-before the first grid-order index
   var grid = int3d{-1,0,0}
   for d = 0, (Tx-1)+(Ty-1)+(Tz-1)+1 do
@@ -297,7 +297,7 @@ do
   regentlib.assert(grid.x == Tx-1 and
                    grid.y == Ty-1 and
                    grid.z == Tz-1 and
-                   rect_start == int(sub_point_offsets.bounds.hi + 1),
+                   rect_start == int64(sub_point_offsets.bounds.hi + 1),
                    'Internal error')
   -- Construct & return partition of sub-point offsets
   var p = partition(disjoint, sub_point_offsets, coloring, diagonals)
@@ -548,13 +548,13 @@ local function mkSweep(q)
     var Ty = points.bounds.hi.y - points.bounds.lo.y + 1
     var Tz = points.bounds.hi.z - points.bounds.lo.z + 1
     regentlib.assert(
-      int(sub_points.bounds.hi - sub_points.bounds.lo + 1)
+      int64(sub_points.bounds.hi - sub_points.bounds.lo + 1)
       == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz and
       grid_map.bounds.lo.x == 0 and grid_map.bounds.hi.x + 1 == Tx and
       grid_map.bounds.lo.y == 0 and grid_map.bounds.hi.y + 1 == Ty and
       grid_map.bounds.lo.z == 0 and grid_map.bounds.hi.z + 1 == Tz and
-      int(sub_point_offsets.bounds.lo) == 0 and
-      int(sub_point_offsets.bounds.hi + 1) == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz and
+      int64(sub_point_offsets.bounds.lo) == 0 and
+      int64(sub_point_offsets.bounds.hi + 1) == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz and
       x_faces.bounds.hi.x - x_faces.bounds.lo.x + 1 == Ty and
       x_faces.bounds.hi.y - x_faces.bounds.lo.y + 1 == Tz and
       y_faces.bounds.hi.x - y_faces.bounds.lo.x + 1 == Tx and
@@ -572,11 +572,11 @@ local function mkSweep(q)
     var num_angles = config.Radiation.u.DOM.angles
     var res = 0.0
     -- Launch in order of intra-tile diagonals
-    for d = int(diagonals.bounds.lo), int(diagonals.bounds.hi+1) do
+    for d = int64(diagonals.bounds.lo), int64(diagonals.bounds.hi+1) do
       __demand(__openmp)
       for s1d_off in p_sub_point_offsets[d] do
         -- Compute sub-point index, translate to point index
-        var m = int(s1d_off) % MAX_ANGLES_PER_QUAD
+        var m = int64(s1d_off) % MAX_ANGLES_PER_QUAD
         if m < quadrantSize(q, num_angles) then
           var s3d_off = int3d{s1d_off / MAX_ANGLES_PER_QUAD % Tx,
                               s1d_off / MAX_ANGLES_PER_QUAD / Tx % Ty,
@@ -655,7 +655,7 @@ do
     'Internal error');
   @ESCAPE for q = 1, 8 do @EMIT
     regentlib.assert(
-      int([sub_points[q]].bounds.hi - [sub_points[q]].bounds.lo + 1)
+      int64([sub_points[q]].bounds.hi - [sub_points[q]].bounds.lo + 1)
       == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz,
       'Internal error')
   @TIME end @EPACSE
