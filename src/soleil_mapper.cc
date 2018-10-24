@@ -79,9 +79,11 @@ typedef unsigned SplinterID;
 class SampleMapping;
 
 class SplinteringFunctor : public ShardingFunctor {
+private:
+  static ShardingID NEXT_ID;
 public:
   SplinteringFunctor(Runtime* rt, SampleMapping& parent)
-    : id(rt->generate_dynamic_sharding_id()), parent_(parent) {
+    : id(NEXT_ID++), parent_(parent) {
     rt->register_sharding_functor(id, this);
   }
 public:
@@ -92,6 +94,8 @@ public:
 protected:
   SampleMapping& parent_;
 };
+
+ShardingID SplinteringFunctor::NEXT_ID = 12345;
 
 class SampleMapping {
 public:
