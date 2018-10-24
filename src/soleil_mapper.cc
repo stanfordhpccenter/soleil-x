@@ -497,6 +497,7 @@ public:
       EQUALS(task.get_task_name(), "workDual");
   }
 
+#ifdef MAX_APPLICATION_SHARDING_ID
   // Replicate each work task over all ranks assigned to the corresponding
   // sample(s).
   virtual void map_replicate_task(const MapperContext ctx,
@@ -531,6 +532,7 @@ public:
       }
     }
   }
+#endif
 
   // NOTE: Will only run if Legion is compiled with dynamic control replication.
   virtual void select_sharding_functor(const MapperContext ctx,
