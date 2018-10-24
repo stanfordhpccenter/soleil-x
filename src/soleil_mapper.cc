@@ -95,6 +95,11 @@ protected:
 
 class SampleMapping {
 public:
+  class Tiling3DFunctor;
+  class Tiling2DFunctor;
+  class HardcodedFunctor;
+
+public:
   SampleMapping(Runtime* rt, const Config& config, AddressSpace first_rank)
     : tiles_per_rank_{static_cast<unsigned>(config.Mapping.tilesPerRank[0]),
                       static_cast<unsigned>(config.Mapping.tilesPerRank[1]),
@@ -106,21 +111,18 @@ public:
                      static_cast<unsigned>(config.Mapping.tiles[2]
                                            / config.Mapping.tilesPerRank[2])},
       first_rank_(first_rank),
-      tiling_3d_functor_(rt, *this),
-      tiling_2d_functors_{{Tiling2DFunctor(rt, *this, 0, false),
-                           Tiling2DFunctor(rt, *this, 0, true )},
-                          {Tiling2DFunctor(rt, *this, 1, false),
-                           Tiling2DFunctor(rt, *this, 1, true )},
-                          {Tiling2DFunctor(rt, *this, 2, false),
-                           Tiling2DFunctor(rt, *this, 2, true )}} {
-    // NOTE: We first reserve the full amount of elements we will need, because
-    // the address of each ShardingFunctor needs to be stable, as they are
-    // registered by address with the runtime.
-    hardcoded_functors_.reserve(num_tiles());
+      tiling_3d_functor_(new Tiling3DFunctor(rt, *this)),
+      tiling_2d_functors_{{new Tiling2DFunctor(rt, *this, 0, false),
+                           new Tiling2DFunctor(rt, *this, 0, true )},
+                          {new Tiling2DFunctor(rt, *this, 1, false),
+                           new Tiling2DFunctor(rt, *this, 1, true )},
+                          {new Tiling2DFunctor(rt, *this, 2, false),
+                           new Tiling2DFunctor(rt, *this, 2, true )}} {
     for (unsigned x = 0; x < x_tiles(); ++x) {
       for (unsigned y = 0; y < y_tiles(); ++y) {
         for (unsigned z = 0; z < z_tiles(); ++z) {
-          hardcoded_functors_.emplace_back(rt, *this, Point<3>(x,y,z));
+          hardcoded_functors_.push_back
+            (new HardcodedFunctor(rt, *this, Point<3>(x,y,z)));
         }
       }
     }
@@ -145,21 +147,21 @@ public:
   unsigned num_tiles() const {
     return x_tiles() * y_tiles() * z_tiles();
   }
-  SplinteringFunctor* tiling_3d_functor() {
-    return &tiling_3d_functor_;
+  Tiling3DFunctor* tiling_3d_functor() {
+    return tiling_3d_functor_;
   }
-  SplinteringFunctor* tiling_2d_functor(int dim, bool dir) {
+  Tiling2DFunctor* tiling_2d_functor(int dim, bool dir) {
     assert(0 <= dim && dim < 3);
-    return &(tiling_2d_functors_[dim][dir]);
+    return tiling_2d_functors_[dim][dir];
   }
-  SplinteringFunctor* hardcoded_functor(const DomainPoint& tile) {
+  HardcodedFunctor* hardcoded_functor(const DomainPoint& tile) {
     assert(tile.get_dim() == 3);
     assert(0 <= tile[0] && tile[0] < x_tiles());
     assert(0 <= tile[1] && tile[1] < y_tiles());
     assert(0 <= tile[2] && tile[2] < z_tiles());
-    return &(hardcoded_functors_[tile[0] * y_tiles() * z_tiles() +
-                                 tile[1] * z_tiles() +
-                                 tile[2]]);
+    return hardcoded_functors_[tile[0] * y_tiles() * z_tiles() +
+                               tile[1] * z_tiles() +
+                               tile[2]];
   }
 
 public:
@@ -211,11 +213,11 @@ public:
     virtual ShardID shard(const DomainPoint& point,
                           const Domain& full_space,
                           const size_t total_shards) {
-      return parent_.tiling_3d_functor_.shard
+      return parent_.tiling_3d_functor_->shard
         (to_point_3d(point), full_space, total_shards);
     }
     virtual SplinterID splinter(const DomainPoint &point) {
-      return parent_.tiling_3d_functor_.splinter(to_point_3d(point));
+      return parent_.tiling_3d_functor_->splinter(to_point_3d(point));
     }
   private:
     DomainPoint to_point_3d(const DomainPoint& point) const {
@@ -246,10 +248,10 @@ public:
     virtual ShardID shard(const DomainPoint& point,
                           const Domain& full_space,
                           const size_t total_shards) {
-      return parent_.tiling_3d_functor_.shard(tile_, full_space, total_shards);
+      return parent_.tiling_3d_functor_->shard(tile_, full_space, total_shards);
     }
     virtual SplinterID splinter(const DomainPoint &point) {
-      return parent_.tiling_3d_functor_.splinter(tile_);
+      return parent_.tiling_3d_functor_->splinter(tile_);
     }
   private:
     DomainPoint tile_;
@@ -259,9 +261,9 @@ private:
   unsigned tiles_per_rank_[3];
   unsigned ranks_per_dim_[3];
   AddressSpace first_rank_;
-  Tiling3DFunctor tiling_3d_functor_;
-  Tiling2DFunctor tiling_2d_functors_[3][2];
-  std::vector<HardcodedFunctor> hardcoded_functors_;
+  Tiling3DFunctor* tiling_3d_functor_;
+  Tiling2DFunctor* tiling_2d_functors_[3][2];
+  std::vector<HardcodedFunctor*> hardcoded_functors_;
 };
 
 AddressSpace SplinteringFunctor::get_rank(const DomainPoint &point) {
