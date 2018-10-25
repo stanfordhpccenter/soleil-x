@@ -2220,8 +2220,8 @@ do
   __demand(__openmp)
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      var Grid_cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
-      acc += (Fluid[c].pressure*Grid_cellVolume)
+      var cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
+      acc += Fluid[c].pressure*cellVolume
     end
   end
   return acc
@@ -2239,8 +2239,8 @@ do
   __demand(__openmp)
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      var Grid_cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
-      acc += (Fluid[c].temperature*Grid_cellVolume)
+      var cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
+      acc += Fluid[c].temperature*cellVolume
     end
   end
   return acc
@@ -2258,9 +2258,47 @@ do
   __demand(__openmp)
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      var Grid_cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
-      var kineticEnergy = ((0.5*Fluid[c].rho)*dot(Fluid[c].velocity, Fluid[c].velocity))
-      acc += (kineticEnergy*Grid_cellVolume)
+      var cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
+      var kineticEnergy = 0.5*Fluid[c].rho*dot(Fluid[c].velocity, Fluid[c].velocity)
+      acc += kineticEnergy*cellVolume
+    end
+  end
+  return acc
+end
+
+__demand(__parallel, __cuda)
+task CalculateAverageDissipation(Fluid : region(ispace(int3d), Fluid_columns),
+                                 Grid_xBnum : int32, Grid_xNum : int32,
+                                 Grid_yBnum : int32, Grid_yNum : int32,
+                                 Grid_zBnum : int32, Grid_zNum : int32)
+where
+  reads(Fluid.{cellWidth, dissipation})
+do
+  var acc = 0.0
+  __demand(__openmp)
+  for c in Fluid do
+    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
+      var cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
+      acc += Fluid[c].dissipation*cellVolume
+    end
+  end
+  return acc
+end
+
+__demand(__parallel, __cuda)
+task CalculateAverageK(Fluid : region(ispace(int3d), Fluid_columns),
+                       Grid_xBnum : int32, Grid_xNum : int32,
+                       Grid_yBnum : int32, Grid_yNum : int32,
+                       Grid_zBnum : int32, Grid_zNum : int32)
+where
+  reads(Fluid.{cellWidth, rho, velocity})
+do
+  var acc = 0.0
+  __demand(__openmp)
+  for c in Fluid do
+    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
+      var cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
+      acc += 0.5*Fluid[c].rho*dot(Fluid[c].velocity, Fluid[c].velocity)*cellVolume
     end
   end
   return acc
@@ -3380,9 +3418,8 @@ do
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if interior or NSCBC_inflow_cell or NSCBC_outflow_cell then
-      var tmp = vs_mul(Flow_bodyForce, Fluid[c].rho)
-      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp)
-      Fluid[c].rhoEnergy_t += (Fluid[c].rho*dot(Flow_bodyForce, Fluid[c].velocity))
+      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, vs_mul(Flow_bodyForce, Fluid[c].rho))
+      Fluid[c].rhoEnergy_t += Fluid[c].rho*dot(Flow_bodyForce, Fluid[c].velocity)
     end
   end
 end
@@ -3423,43 +3460,109 @@ task Flow_ComputeDissipationX(Fluid : region(ispace(int3d), Fluid_columns),
                               Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
                               Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
                               Flow_viscosityModel : SCHEMA.ViscosityModel,
-                              Grid_xBnum : int32, Grid_xNum : int32, Grid_xCellWidth : double,
+                              Grid_xBnum : int32, Grid_xNum : int32,
                               Grid_yBnum : int32, Grid_yNum : int32,
                               Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.{velocity, temperature, velocityGradientY, velocityGradientZ}),
+  reads(Fluid.{centerCoordinates, cellWidth}),
+  reads(Fluid.{velocity, temperature, velocityGradientX, velocityGradientY, velocityGradientZ}),
   writes(Fluid.dissipationFlux)
 do
   __demand(__openmp)
   for c in Fluid do
     if (in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) or (max(int32((uint64(Grid_xBnum)-int3d(c).x)), 0)==1)) then
-      var muFace = (0.5*(GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)+GetDynamicViscosity(Fluid[((c+{1, 0, 0})%Fluid.bounds)].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)))
+
+
+      var temperature = Fluid[c].temperature
+      var velocity = Fluid[c].velocity
+      var velocityGradientX = Fluid[c].velocityGradientX
+      var velocityGradientY = Fluid[c].velocityGradientY
+      var velocityGradientZ = Fluid[c].velocityGradientZ
+      var mu = GetDynamicViscosity(temperature,
+                                   Flow_constantVisc,
+                                   Flow_powerlawTempRef, Flow_powerlawViscRef,
+                                   Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
+                                   Flow_viscosityModel)
+      var xCellWidth = Fluid[c].cellWidth[0]
+
+      var stencil = (c+{1, 0, 0}) % Fluid.bounds
+      var temperature_stencil = Fluid[stencil].temperature
+      var velocity_stencil = Fluid[stencil].velocity
+      var velocityGradientX_stencil = Fluid[stencil].velocityGradientX
+      var velocityGradientY_stencil = Fluid[stencil].velocityGradientY
+      var velocityGradientZ_stencil = Fluid[stencil].velocityGradientZ
+      var mu_stencil = GetDynamicViscosity(temperature_stencil,
+                                           Flow_constantVisc,
+                                           Flow_powerlawTempRef, Flow_powerlawViscRef,
+                                           Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
+                                           Flow_viscosityModel)
+      var xCellWidth_stencil = Fluid[stencil].cellWidth[0]
+
+
+      var muFace = linear_interpolation(Fluid[c].centerCoordinates[0] + xCellWidth/2.0,
+                                        Fluid[c].centerCoordinates[0],
+                                        Fluid[c].centerCoordinates[0] + xCellWidth/2.0 + xCellWidth_stencil/2.0,
+                                        mu,
+                                        mu_stencil)
+
       var velocityFace = array(0.0, 0.0, 0.0)
-      var velocityX_YFace = 0.0
-      var velocityX_ZFace = 0.0
-      var velocityY_YFace = 0.0
-      var velocityZ_ZFace = 0.0
-      velocityFace = vs_mul(vv_add(Fluid[c].velocity, Fluid[((c+{1, 0, 0})%Fluid.bounds)].velocity), 0.5)
-      velocityX_YFace = (0.5*(Fluid[c].velocityGradientY[0]+Fluid[((c+{1, 0, 0})%Fluid.bounds)].velocityGradientY[0]))
-      velocityX_ZFace = (0.5*(Fluid[c].velocityGradientZ[0]+Fluid[((c+{1, 0, 0})%Fluid.bounds)].velocityGradientZ[0]))
-      velocityY_YFace = (0.5*(Fluid[c].velocityGradientY[1]+Fluid[((c+{1, 0, 0})%Fluid.bounds)].velocityGradientY[1]))
-      velocityZ_ZFace = (0.5*(Fluid[c].velocityGradientZ[2]+Fluid[((c+{1, 0, 0})%Fluid.bounds)].velocityGradientZ[2]))
-      var velocityX_XFace = 0.0
-      var velocityY_XFace = 0.0
-      var velocityZ_XFace = 0.0
-      var temperature_XFace = 0.0
-      velocityX_XFace = (0.5*(Fluid[((c+{1, 0, 0})%Fluid.bounds)].velocity[0]-Fluid[c].velocity[0]))
-      velocityY_XFace = (0.5*(Fluid[((c+{1, 0, 0})%Fluid.bounds)].velocity[1]-Fluid[c].velocity[1]))
-      velocityZ_XFace = (0.5*(Fluid[((c+{1, 0, 0})%Fluid.bounds)].velocity[2]-Fluid[c].velocity[2]))
-      temperature_XFace = (0.5*(Fluid[((c+{1, 0, 0})%Fluid.bounds)].temperature-Fluid[c].temperature))
-      velocityX_XFace *= (1/(Grid_xCellWidth*0.5))
-      velocityY_XFace *= (1/(Grid_xCellWidth*0.5))
-      velocityZ_XFace *= (1/(Grid_xCellWidth*0.5))
-      temperature_XFace *= (1/(Grid_xCellWidth*0.5))
-      var sigmaXX = ((muFace*(((4.0*velocityX_XFace)-(2.0*velocityY_YFace))-(2.0*velocityZ_ZFace)))/3.0)
-      var sigmaYX = (muFace*(velocityY_XFace+velocityX_YFace))
-      var sigmaZX = (muFace*(velocityZ_XFace+velocityX_ZFace))
-      var usigma = (((velocityFace[0]*sigmaXX)+(velocityFace[1]*sigmaYX))+(velocityFace[2]*sigmaZX))
+      velocityFace[0] = linear_interpolation(Fluid[c].centerCoordinates[0] + xCellWidth/2.0,
+                                             Fluid[c].centerCoordinates[0],
+                                             Fluid[c].centerCoordinates[0] + xCellWidth/2.0 + xCellWidth_stencil/2.0,
+                                             velocity[0],
+                                             velocity_stencil[0])
+      velocityFace[1] = linear_interpolation(Fluid[c].centerCoordinates[0] + xCellWidth/2.0,
+                                             Fluid[c].centerCoordinates[0],
+                                             Fluid[c].centerCoordinates[0] + xCellWidth/2.0 + xCellWidth_stencil/2.0,
+                                             velocity[1],
+                                             velocity_stencil[1])
+      velocityFace[2] = linear_interpolation(Fluid[c].centerCoordinates[0] + xCellWidth/2.0,
+                                             Fluid[c].centerCoordinates[0],
+                                             Fluid[c].centerCoordinates[0] + xCellWidth/2.0 + xCellWidth_stencil/2.0,
+                                             velocity[2],
+                                             velocity_stencil[2])
+
+      var velocityX_XFace = linear_interpolation(Fluid[c].centerCoordinates[0] + xCellWidth/2.0,
+                                                 Fluid[c].centerCoordinates[0],
+                                                 Fluid[c].centerCoordinates[0] + xCellWidth/2.0 + xCellWidth_stencil/2.0,
+                                                 velocityGradientX[0],
+                                                 velocityGradientX_stencil[0])
+      var velocityX_YFace = linear_interpolation(Fluid[c].centerCoordinates[0] + xCellWidth/2.0,
+                                                 Fluid[c].centerCoordinates[0],
+                                                 Fluid[c].centerCoordinates[0] + xCellWidth/2.0 + xCellWidth_stencil/2.0,
+                                                 velocityGradientY[0],
+                                                 velocityGradientY_stencil[0])
+      var velocityX_ZFace = linear_interpolation(Fluid[c].centerCoordinates[0] + xCellWidth/2.0,
+                                                 Fluid[c].centerCoordinates[0],
+                                                 Fluid[c].centerCoordinates[0] + xCellWidth/2.0 + xCellWidth_stencil/2.0,
+                                                 velocityGradientZ[0],
+                                                 velocityGradientZ_stencil[0])
+      var velocityY_XFace = linear_interpolation(Fluid[c].centerCoordinates[0] + xCellWidth/2.0,
+                                                 Fluid[c].centerCoordinates[0],
+                                                 Fluid[c].centerCoordinates[0] + xCellWidth/2.0 + xCellWidth_stencil/2.0,
+                                                 velocityGradientX[1],
+                                                 velocityGradientX_stencil[1])
+      var velocityY_YFace = linear_interpolation(Fluid[c].centerCoordinates[0] + xCellWidth/2.0,
+                                                 Fluid[c].centerCoordinates[0],
+                                                 Fluid[c].centerCoordinates[0] + xCellWidth/2.0 + xCellWidth_stencil/2.0,
+                                                 velocityGradientY[1],
+                                                 velocityGradientY_stencil[1])
+      var velocityZ_XFace = linear_interpolation(Fluid[c].centerCoordinates[0] + xCellWidth/2.0,
+                                                 Fluid[c].centerCoordinates[0],
+                                                 Fluid[c].centerCoordinates[0] + xCellWidth/2.0 + xCellWidth_stencil/2.0,
+                                                 velocityGradientX[2],
+                                                 velocityGradientX_stencil[2])
+      var velocityZ_ZFace = linear_interpolation(Fluid[c].centerCoordinates[0] + xCellWidth/2.0,
+                                                 Fluid[c].centerCoordinates[0],
+                                                 Fluid[c].centerCoordinates[0] + xCellWidth/2.0 + xCellWidth_stencil/2.0,
+                                                 velocityGradientZ[2],
+                                                 velocityGradientZ_stencil[2])
+
+      var sigmaXX = muFace*(4.0*velocityX_XFace-2.0*velocityY_YFace-2.0*velocityZ_ZFace)/3.0
+      var sigmaYX = muFace*(velocityY_XFace+velocityX_YFace)
+      var sigmaZX = muFace*(velocityZ_XFace+velocityX_ZFace)
+
+      var usigma = velocityFace[0]*sigmaXX + velocityFace[1]*sigmaYX + velocityFace[2]*sigmaZX
       Fluid[c].dissipationFlux = usigma
     end
   end
@@ -3468,17 +3571,18 @@ end
 -- CHANGE to reduces
 __demand(__parallel, __cuda)
 task Flow_UpdateDissipationX(Fluid : region(ispace(int3d), Fluid_columns),
-                             Grid_xBnum : int32, Grid_xNum : int32, Grid_xCellWidth : double,
+                             Grid_xBnum : int32, Grid_xNum : int32,
                              Grid_yBnum : int32, Grid_yNum : int32,
                              Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.dissipationFlux),
+  reads(Fluid.{cellWidth}),
+  reads(Fluid.{cellWidth,dissipationFlux}),
   reads writes(Fluid.dissipation)
 do
   __demand(__openmp)
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      Fluid[c].dissipation += ((Fluid[c].dissipationFlux-Fluid[((c+{-1, 0, 0})%Fluid.bounds)].dissipationFlux)/Grid_xCellWidth)
+      Fluid[c].dissipation += (Fluid[c].dissipationFlux-Fluid[((c+{-1, 0, 0})%Fluid.bounds)].dissipationFlux)/Fluid[c].cellWidth[0]
     end
   end
 end
@@ -3490,42 +3594,107 @@ task Flow_ComputeDissipationY(Fluid : region(ispace(int3d), Fluid_columns),
                               Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
                               Flow_viscosityModel : SCHEMA.ViscosityModel,
                               Grid_xBnum : int32, Grid_xNum : int32,
-                              Grid_yBnum : int32, Grid_yNum : int32, Grid_yCellWidth : double,
+                              Grid_yBnum : int32, Grid_yNum : int32,
                               Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.{velocity, temperature, velocityGradientX, velocityGradientZ}),
+  reads(Fluid.{centerCoordinates, cellWidth}),
+  reads(Fluid.{velocity, temperature, velocityGradientX, velocityGradientY, velocityGradientZ}),
   writes(Fluid.dissipationFlux)
 do
   __demand(__openmp)
   for c in Fluid do
     if (in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) or (max(int32((uint64(Grid_yBnum)-int3d(c).y)), 0)==1)) then
-      var muFace = (0.5*(GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)+GetDynamicViscosity(Fluid[((c+{0, 1, 0})%Fluid.bounds)].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)))
+
+      var temperature = Fluid[c].temperature
+      var velocity = Fluid[c].velocity
+      var velocityGradientX = Fluid[c].velocityGradientX
+      var velocityGradientY = Fluid[c].velocityGradientY
+      var velocityGradientZ = Fluid[c].velocityGradientZ
+      var mu = GetDynamicViscosity(temperature,
+                                   Flow_constantVisc,
+                                   Flow_powerlawTempRef, Flow_powerlawViscRef,
+                                   Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
+                                   Flow_viscosityModel)
+      var yCellWidth = Fluid[c].cellWidth[1]
+
+      var stencil = (c+{0, 1, 0}) % Fluid.bounds
+      var temperature_stencil = Fluid[stencil].temperature
+      var velocity_stencil = Fluid[stencil].velocity
+      var velocityGradientX_stencil = Fluid[stencil].velocityGradientX
+      var velocityGradientY_stencil = Fluid[stencil].velocityGradientY
+      var velocityGradientZ_stencil = Fluid[stencil].velocityGradientZ
+      var mu_stencil = GetDynamicViscosity(temperature_stencil,
+                                           Flow_constantVisc,
+                                           Flow_powerlawTempRef, Flow_powerlawViscRef,
+                                           Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
+                                           Flow_viscosityModel)
+      var yCellWidth_stencil = Fluid[stencil].cellWidth[1]
+
+      var muFace = linear_interpolation(Fluid[c].centerCoordinates[1] + yCellWidth/2.0,
+                                        Fluid[c].centerCoordinates[1],
+                                        Fluid[c].centerCoordinates[1] + yCellWidth/2.0 + yCellWidth_stencil/2.0,
+                                        mu,
+                                        mu_stencil)
+
       var velocityFace = array(0.0, 0.0, 0.0)
-      var velocityY_XFace = 0.0
-      var velocityY_ZFace = 0.0
-      var velocityX_XFace = 0.0
-      var velocityZ_ZFace = 0.0
-      velocityFace = vs_mul(vv_add(Fluid[c].velocity, Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocity), 0.5)
-      velocityY_XFace = (0.5*(Fluid[c].velocityGradientX[1]+Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocityGradientX[1]))
-      velocityY_ZFace = (0.5*(Fluid[c].velocityGradientZ[1]+Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocityGradientZ[1]))
-      velocityX_XFace = (0.5*(Fluid[c].velocityGradientX[0]+Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocityGradientX[0]))
-      velocityZ_ZFace = (0.5*(Fluid[c].velocityGradientZ[2]+Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocityGradientZ[2]))
-      var velocityX_YFace = 0.0
-      var velocityY_YFace = 0.0
-      var velocityZ_YFace = 0.0
-      var temperature_YFace = 0.0
-      velocityX_YFace = (0.5*(Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocity[0]-Fluid[c].velocity[0]))
-      velocityY_YFace = (0.5*(Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocity[1]-Fluid[c].velocity[1]))
-      velocityZ_YFace = (0.5*(Fluid[((c+{0, 1, 0})%Fluid.bounds)].velocity[2]-Fluid[c].velocity[2]))
-      temperature_YFace = (0.5*(Fluid[((c+{0, 1, 0})%Fluid.bounds)].temperature-Fluid[c].temperature))
-      velocityX_YFace *= (1/(Grid_yCellWidth*0.5))
-      velocityY_YFace *= (1/(Grid_yCellWidth*0.5))
-      velocityZ_YFace *= (1/(Grid_yCellWidth*0.5))
-      temperature_YFace *= (1/(Grid_yCellWidth*0.5))
-      var sigmaXY = (muFace*(velocityX_YFace+velocityY_XFace))
-      var sigmaYY = ((muFace*(((4.0*velocityY_YFace)-(2.0*velocityX_XFace))-(2.0*velocityZ_ZFace)))/3.0)
-      var sigmaZY = (muFace*(velocityZ_YFace+velocityY_ZFace))
-      var usigma = (((velocityFace[0]*sigmaXY)+(velocityFace[1]*sigmaYY))+(velocityFace[2]*sigmaZY))
+      velocityFace[0] = linear_interpolation(Fluid[c].centerCoordinates[1] + yCellWidth/2.0,
+                                             Fluid[c].centerCoordinates[1],
+                                             Fluid[c].centerCoordinates[1] + yCellWidth/2.0 + yCellWidth_stencil/2.0,
+                                             velocity[0],
+                                             velocity_stencil[0])
+      velocityFace[1] = linear_interpolation(Fluid[c].centerCoordinates[1] + yCellWidth/2.0,
+                                             Fluid[c].centerCoordinates[1],
+                                             Fluid[c].centerCoordinates[1] + yCellWidth/2.0 + yCellWidth_stencil/2.0,
+                                             velocity[1],
+                                             velocity_stencil[1])
+      velocityFace[2] = linear_interpolation(Fluid[c].centerCoordinates[1] + yCellWidth/2.0,
+                                             Fluid[c].centerCoordinates[1],
+                                             Fluid[c].centerCoordinates[1] + yCellWidth/2.0 + yCellWidth_stencil/2.0,
+                                             velocity[2],
+                                             velocity_stencil[2])
+
+      var velocityX_XFace = linear_interpolation(Fluid[c].centerCoordinates[1] + yCellWidth/2.0,
+                                                 Fluid[c].centerCoordinates[1],
+                                                 Fluid[c].centerCoordinates[1] + yCellWidth/2.0 + yCellWidth_stencil/2.0,
+                                                 velocityGradientX[0],
+                                                 velocityGradientX_stencil[0])
+      var velocityX_YFace = linear_interpolation(Fluid[c].centerCoordinates[1] + yCellWidth/2.0,
+                                                 Fluid[c].centerCoordinates[1],
+                                                 Fluid[c].centerCoordinates[1] + yCellWidth/2.0 + yCellWidth_stencil/2.0,
+                                                 velocityGradientY[0],
+                                                 velocityGradientY_stencil[0])
+      var velocityY_XFace = linear_interpolation(Fluid[c].centerCoordinates[1] + yCellWidth/2.0,
+                                                 Fluid[c].centerCoordinates[1],
+                                                 Fluid[c].centerCoordinates[1] + yCellWidth/2.0 + yCellWidth_stencil/2.0,
+                                                 velocityGradientX[1],
+                                                 velocityGradientX_stencil[1])
+      var velocityY_YFace = linear_interpolation(Fluid[c].centerCoordinates[1] + yCellWidth/2.0,
+                                                 Fluid[c].centerCoordinates[1],
+                                                 Fluid[c].centerCoordinates[1] + yCellWidth/2.0 + yCellWidth_stencil/2.0,
+                                                 velocityGradientY[1],
+                                                 velocityGradientY_stencil[1])
+      var velocityY_ZFace = linear_interpolation(Fluid[c].centerCoordinates[1] + yCellWidth/2.0,
+                                                 Fluid[c].centerCoordinates[1],
+                                                 Fluid[c].centerCoordinates[1] + yCellWidth/2.0 + yCellWidth_stencil/2.0,
+                                                 velocityGradientZ[1],
+                                                 velocityGradientZ_stencil[1])
+      var velocityZ_YFace = linear_interpolation(Fluid[c].centerCoordinates[1] + yCellWidth/2.0,
+                                                 Fluid[c].centerCoordinates[1],
+                                                 Fluid[c].centerCoordinates[1] + yCellWidth/2.0 + yCellWidth_stencil/2.0,
+                                                 velocityGradientY[2],
+                                                 velocityGradientY_stencil[2])
+      var velocityZ_ZFace = linear_interpolation(Fluid[c].centerCoordinates[1] + yCellWidth/2.0,
+                                                 Fluid[c].centerCoordinates[1],
+                                                 Fluid[c].centerCoordinates[1] + yCellWidth/2.0 + yCellWidth_stencil/2.0,
+                                                 velocityGradientZ[2],
+                                                 velocityGradientZ_stencil[2])
+
+      var sigmaXY = muFace*(velocityX_YFace+velocityY_XFace)
+      var sigmaYY = muFace*(4.0*velocityY_YFace-2.0*velocityX_XFace-2.0*velocityZ_ZFace)/3.0
+      var sigmaZY = muFace*(velocityZ_YFace+velocityY_ZFace)
+
+      var usigma = velocityFace[0]*sigmaXY + velocityFace[1]*sigmaYY + velocityFace[2]*sigmaZY
+
       Fluid[c].dissipationFlux = usigma
     end
   end
@@ -3534,16 +3703,16 @@ end
 __demand(__parallel, __cuda)
 task Flow_UpdateDissipationY(Fluid : region(ispace(int3d), Fluid_columns),
                              Grid_xBnum : int32, Grid_xNum : int32,
-                             Grid_yBnum : int32, Grid_yNum : int32, Grid_yCellWidth : double,
+                             Grid_yBnum : int32, Grid_yNum : int32,
                              Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.dissipationFlux),
+  reads(Fluid.{cellWidth, dissipationFlux}),
   reads writes(Fluid.dissipation)
 do
   __demand(__openmp)
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      Fluid[c].dissipation += ((Fluid[c].dissipationFlux-Fluid[((c+{0, -1, 0})%Fluid.bounds)].dissipationFlux)/Grid_yCellWidth)
+      Fluid[c].dissipation += (Fluid[c].dissipationFlux-Fluid[((c+{0, -1, 0})%Fluid.bounds)].dissipationFlux)/c.cellWidth[1]
     end
   end
 end
@@ -3556,41 +3725,108 @@ task Flow_ComputeDissipationZ(Fluid : region(ispace(int3d), Fluid_columns),
                               Flow_viscosityModel : SCHEMA.ViscosityModel,
                               Grid_xBnum : int32, Grid_xNum : int32,
                               Grid_yBnum : int32, Grid_yNum : int32,
-                              Grid_zBnum : int32, Grid_zNum : int32, Grid_zCellWidth : double)
+                              Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.{velocity, temperature, velocityGradientX, velocityGradientY}),
+  reads(Fluid.{centerCoordinates, cellWidth}),
+  reads(Fluid.{velocity, temperature, velocityGradientX, velocityGradientY, velocityGradientZ}),
   writes(Fluid.dissipationFlux)
 do
   __demand(__openmp)
   for c in Fluid do
     if (in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) or (max(int32((uint64(Grid_zBnum)-int3d(c).z)), 0)==1)) then
-      var muFace = (0.5*(GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)+GetDynamicViscosity(Fluid[((c+{0, 0, 1})%Fluid.bounds)].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)))
+
+      var temperature = Fluid[c].temperature
+      var velocity = Fluid[c].velocity
+      var velocityGradientX = Fluid[c].velocityGradientX
+      var velocityGradientY = Fluid[c].velocityGradientY
+      var velocityGradientZ = Fluid[c].velocityGradientZ
+      var mu = GetDynamicViscosity(temperature,
+                                   Flow_constantVisc,
+                                   Flow_powerlawTempRef, Flow_powerlawViscRef,
+                                   Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
+                                   Flow_viscosityModel)
+      var zCellWidth = Fluid[c].cellWidth[2]
+
+
+
+      var stencil = (c+{0, 0, 1}) % Fluid.bounds
+      var temperature_stencil = Fluid[stencil].temperature
+      var velocity_stencil = Fluid[stencil].velocity
+      var velocityGradientX_stencil = Fluid[stencil].velocityGradientX
+      var velocityGradientY_stencil = Fluid[stencil].velocityGradientY
+      var velocityGradientZ_stencil = Fluid[stencil].velocityGradientZ
+      var mu_stencil = GetDynamicViscosity(temperature_stencil,
+                                           Flow_constantVisc,
+                                           Flow_powerlawTempRef, Flow_powerlawViscRef,
+                                           Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
+                                           Flow_viscosityModel)
+      var zCellWidth_stencil = Fluid[stencil].cellWidth[2]
+
+      var muFace = linear_interpolation(Fluid[c].centerCoordinates[2] + zCellWidth/2.0,
+                                        Fluid[c].centerCoordinates[2],
+                                        Fluid[c].centerCoordinates[2] + zCellWidth/2.0 + zCellWidth_stencil/2.0,
+                                        mu,
+                                        mu_stencil)
+
       var velocityFace = array(0.0, 0.0, 0.0)
-      var velocityZ_XFace = 0.0
-      var velocityZ_YFace = 0.0
-      var velocityX_XFace = 0.0
-      var velocityY_YFace = 0.0
-      velocityFace = vs_mul(vv_add(Fluid[c].velocity, Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity), 0.5)
-      velocityZ_XFace = (0.5*(Fluid[c].velocityGradientX[2]+Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocityGradientX[2]))
-      velocityZ_YFace = (0.5*(Fluid[c].velocityGradientY[2]+Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocityGradientY[2]))
-      velocityX_XFace = (0.5*(Fluid[c].velocityGradientX[0]+Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocityGradientX[0]))
-      velocityY_YFace = (0.5*(Fluid[c].velocityGradientY[1]+Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocityGradientY[1]))
-      var velocityX_ZFace = 0.0
-      var velocityY_ZFace = 0.0
-      var velocityZ_ZFace = 0.0
-      var temperature_ZFace = 0.0
-      velocityX_ZFace = (0.5*(Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity[0]-Fluid[c].velocity[0]))
-      velocityY_ZFace = (0.5*(Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity[1]-Fluid[c].velocity[1]))
-      velocityZ_ZFace = (0.5*(Fluid[((c+{0, 0, 1})%Fluid.bounds)].velocity[2]-Fluid[c].velocity[2]))
-      temperature_ZFace = (0.5*(Fluid[((c+{0, 0, 1})%Fluid.bounds)].temperature-Fluid[c].temperature))
-      velocityX_ZFace *= (1/(Grid_zCellWidth*0.5))
-      velocityY_ZFace *= (1/(Grid_zCellWidth*0.5))
-      velocityZ_ZFace *= (1/(Grid_zCellWidth*0.5))
-      temperature_ZFace *= (1/(Grid_zCellWidth*0.5))
-      var sigmaXZ = (muFace*(velocityX_ZFace+velocityZ_XFace))
-      var sigmaYZ = (muFace*(velocityY_ZFace+velocityZ_YFace))
-      var sigmaZZ = ((muFace*(((4.0*velocityZ_ZFace)-(2.0*velocityX_XFace))-(2.0*velocityY_YFace)))/3.0)
-      var usigma = (((velocityFace[0]*sigmaXZ)+(velocityFace[1]*sigmaYZ))+(velocityFace[2]*sigmaZZ))
+      velocityFace[0] = linear_interpolation(Fluid[c].centerCoordinates[2] + zCellWidth/2.0,
+                                             Fluid[c].centerCoordinates[2],
+                                             Fluid[c].centerCoordinates[2] + zCellWidth/2.0 + zCellWidth_stencil/2.0,
+                                             velocity[0],
+                                             velocity_stencil[0])
+      velocityFace[1] = linear_interpolation(Fluid[c].centerCoordinates[2] + zCellWidth/2.0,
+                                             Fluid[c].centerCoordinates[2],
+                                             Fluid[c].centerCoordinates[2] + zCellWidth/2.0 + zCellWidth_stencil/2.0,
+                                             velocity[1],
+                                             velocity_stencil[1])
+      velocityFace[2] = linear_interpolation(Fluid[c].centerCoordinates[2] + zCellWidth/2.0,
+                                             Fluid[c].centerCoordinates[2],
+                                             Fluid[c].centerCoordinates[2] + zCellWidth/2.0 + zCellWidth_stencil/2.0,
+                                             velocity[2],
+                                             velocity_stencil[2])
+
+      var velocityX_XFace = linear_interpolation(Fluid[c].centerCoordinates[2] + zCellWidth/2.0,
+                                                 Fluid[c].centerCoordinates[2],
+                                                 Fluid[c].centerCoordinates[2] + zCellWidth/2.0 + zCellWidth_stencil/2.0,
+                                                 velocityGradientX[0],
+                                                 velocityGradientX_stencil[0])
+      var velocityX_ZFace = linear_interpolation(Fluid[c].centerCoordinates[1] + zCellWidth/2.0,
+                                                 Fluid[c].centerCoordinates[1],
+                                                 Fluid[c].centerCoordinates[1] + zCellWidth/2.0 + zCellWidth_stencil/2.0,
+                                                 velocityGradientZ[0],
+                                                 velocityGradientZ_stencil[0])
+      var velocityY_YFace = linear_interpolation(Fluid[c].centerCoordinates[2] + zCellWidth/2.0,
+                                                 Fluid[c].centerCoordinates[2],
+                                                 Fluid[c].centerCoordinates[2] + zCellWidth/2.0 + zCellWidth_stencil/2.0,
+                                                 velocityGradientY[1],
+                                                 velocityGradientY_stencil[1])
+      var velocityY_ZFace = linear_interpolation(Fluid[c].centerCoordinates[2] + zCellWidth/2.0,
+                                                 Fluid[c].centerCoordinates[2],
+                                                 Fluid[c].centerCoordinates[2] + zCellWidth/2.0 + zCellWidth_stencil/2.0,
+                                                 velocityGradientZ[1],
+                                                 velocityGradientZ_stencil[1])
+      var velocityZ_XFace = linear_interpolation(Fluid[c].centerCoordinates[2] + zCellWidth/2.0,
+                                                 Fluid[c].centerCoordinates[2],
+                                                 Fluid[c].centerCoordinates[2] + zCellWidth/2.0 + zCellWidth_stencil/2.0,
+                                                 velocityGradientX[2],
+                                                 velocityGradientX_stencil[2])
+      var velocityZ_YFace = linear_interpolation(Fluid[c].centerCoordinates[2] + zCellWidth/2.0,
+                                                 Fluid[c].centerCoordinates[2],
+                                                 Fluid[c].centerCoordinates[2] + zCellWidth/2.0 + zCellWidth_stencil/2.0,
+                                                 velocityGradientY[2],
+                                                 velocityGradientY_stencil[2])
+      var velocityZ_ZFace = linear_interpolation(Fluid[c].centerCoordinates[2] + zCellWidth/2.0,
+                                                 Fluid[c].centerCoordinates[2],
+                                                 Fluid[c].centerCoordinates[2] + zCellWidth/2.0 + zCellWidth_stencil/2.0,
+                                                 velocityGradientZ[2],
+                                                 velocityGradientZ_stencil[2])
+
+      var sigmaXZ = muFace*(velocityX_ZFace+velocityZ_XFace)
+      var sigmaYZ = muFace*(velocityY_ZFace+velocityZ_YFace)
+      var sigmaZZ = muFace*(4.0*velocityZ_ZFace-2.0*velocityX_XFace-2.0*velocityY_YFace)/3.0
+
+      var usigma = velocityFace[0]*sigmaXZ + velocityFace[1]*sigmaYZ + velocityFace[2]*sigmaZZ
+
       Fluid[c].dissipationFlux = usigma
     end
   end
@@ -3600,63 +3836,25 @@ __demand(__parallel, __cuda)
 task Flow_UpdateDissipationZ(Fluid : region(ispace(int3d), Fluid_columns),
                              Grid_xBnum : int32, Grid_xNum : int32,
                              Grid_yBnum : int32, Grid_yNum : int32,
-                             Grid_zBnum : int32, Grid_zNum : int32, Grid_zCellWidth : double)
+                             Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.dissipationFlux),
+  reads(Fluid.{cellWidth, dissipationFlux}),
   reads writes(Fluid.dissipation)
 do
   __demand(__openmp)
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      Fluid[c].dissipation += ((Fluid[c].dissipationFlux-Fluid[((c+{0, 0, -1})%Fluid.bounds)].dissipationFlux)/Grid_zCellWidth)
+      Fluid[c].dissipation += (Fluid[c].dissipationFlux-Fluid[((c+{0, 0, -1})%Fluid.bounds)].dissipationFlux)/Fluid[c].cellWidth[2]
     end
   end
 end
 
-__demand(__parallel, __cuda)
-task CalculateAverageDissipation(Fluid : region(ispace(int3d), Fluid_columns),
-                                 Grid_cellVolume : double,
-                                 Grid_xBnum : int32, Grid_xNum : int32,
-                                 Grid_yBnum : int32, Grid_yNum : int32,
-                                 Grid_zBnum : int32, Grid_zNum : int32)
-where
-  reads(Fluid.dissipation)
-do
-  var acc = 0.0
-  __demand(__openmp)
-  for c in Fluid do
-    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      acc += (Fluid[c].dissipation*Grid_cellVolume)
-    end
-  end
-  return acc
-end
-
-__demand(__parallel, __cuda)
-task CalculateAverageK(Fluid : region(ispace(int3d), Fluid_columns),
-                       Grid_cellVolume : double,
-                       Grid_xBnum : int32, Grid_xNum : int32,
-                       Grid_yBnum : int32, Grid_yNum : int32,
-                       Grid_zBnum : int32, Grid_zNum : int32)
-where
-  reads(Fluid.{rho, velocity})
-do
-  var acc = 0.0
-  __demand(__openmp)
-  for c in Fluid do
-    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      acc += (((0.5*Fluid[c].rho)*dot(Fluid[c].velocity, Fluid[c].velocity))*Grid_cellVolume)
-    end
-  end
-  return acc
-end
 
 __demand(__parallel, __cuda)
 task Flow_AddTurbulentSource(Fluid : region(ispace(int3d), Fluid_columns),
                              Flow_averageDissipation : double,
                              Flow_averageK : double,
                              Flow_averagePD : double,
-                             Grid_cellVolume : double,
                              Grid_xBnum : int32, Grid_xNum : int32,
                              Grid_yBnum : int32, Grid_yNum : int32,
                              Grid_zBnum : int32, Grid_zNum : int32,
@@ -3666,7 +3864,7 @@ where
   reads writes atomic(Fluid.{rhoVelocity_t, rhoEnergy_t})
 do
   var W = Flow_averagePD + Flow_averageDissipation
-  var G = config.Flow.turbForcing.u.HIT.G
+  var G   = config.Flow.turbForcing.u.HIT.G
   var t_o = config.Flow.turbForcing.u.HIT.t_o
   var K_o = config.Flow.turbForcing.u.HIT.K_o
   var A = (-W-G*(Flow_averageK-K_o)/t_o) / (2.0*Flow_averageK)
@@ -3677,7 +3875,9 @@ do
       var force = vs_mul(Fluid[c].velocity, Fluid[c].rho*A)
       Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, force)
       Fluid[c].rhoEnergy_t += dot(force, Fluid[c].velocity)
-      acc += dot(force, Fluid[c].velocity) * Grid_cellVolume
+
+      var cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
+      acc += dot(force, Fluid[c].velocity) * cellVolume
     end
   end
   return acc
@@ -5718,92 +5918,102 @@ local function mkInstance() local INSTANCE = {}
                     Grid.yBnum, config.Grid.yNum,
                     Grid.zBnum, config.Grid.zNum)
 
-      ---- Initialize conserved derivatives to 0
-      --Flow_InitializeTimeDerivatives(Fluid)
+      -- Initialize conserved derivatives to 0
+      Flow_InitializeTimeDerivatives(Fluid)
 
-      ---- Add body forces
-      --Flow_AddBodyForces(Fluid,
-      --                   config,
-      --                   Grid.xBnum, config.Grid.xNum,
-      --                   Grid.yBnum, config.Grid.yNum,
-      --                   Grid.zBnum, config.Grid.zNum)
+      -- Add body forces
+      Flow_AddBodyForces(Fluid,
+                         config,
+                         Grid.xBnum, config.Grid.xNum,
+                         Grid.yBnum, config.Grid.yNum,
+                         Grid.zBnum, config.Grid.zNum)
 
-      ---- Add turbulent forcing
-      --if config.Flow.turbForcing.type == SCHEMA.TurbForcingModel_HIT then
-      --  var Flow_averageDissipation = 0.0
-      --  var Flow_averageFe = 0.0
-      --  var Flow_averageK = 0.0
-      --  var Flow_averagePD = 0.0
-      --  Flow_averagePD += CalculateAveragePD(Fluid,
-      --                                       Grid.xBnum, config.Grid.xNum,
-      --                                       Grid.yBnum, config.Grid.yNum,
-      --                                       Grid.zBnum, config.Grid.zNum)
-      --  Flow_averagePD /= config.Grid.xNum * config.Grid.yNum * config.Grid.zNum
-      --  Flow_ResetDissipation(Fluid)
-      --  Flow_ComputeDissipationX(Fluid,
-      --                           config.Flow.constantVisc,
-      --                           config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-      --                           config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-      --                           config.Flow.viscosityModel,
-      --                           Grid.xBnum, config.Grid.xNum, Grid.xCellWidth,
-      --                           Grid.yBnum, config.Grid.yNum,
-      --                           Grid.zBnum, config.Grid.zNum)
-      --  Flow_UpdateDissipationX(Fluid,
-      --                          Grid.xBnum, config.Grid.xNum, Grid.xCellWidth,
-      --                          Grid.yBnum, config.Grid.yNum,
-      --                          Grid.zBnum, config.Grid.zNum)
-      --  Flow_ComputeDissipationY(Fluid,
-      --                           config.Flow.constantVisc,
-      --                           config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-      --                           config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-      --                           config.Flow.viscosityModel,
-      --                           Grid.xBnum, config.Grid.xNum,
-      --                           Grid.yBnum, config.Grid.yNum, Grid.yCellWidth,
-      --                           Grid.zBnum, config.Grid.zNum)
-      --  Flow_UpdateDissipationY(Fluid,
-      --                          Grid.xBnum, config.Grid.xNum,
-      --                          Grid.yBnum, config.Grid.yNum, Grid.yCellWidth,
-      --                          Grid.zBnum, config.Grid.zNum)
-      --  Flow_ComputeDissipationZ(Fluid,
-      --                           config.Flow.constantVisc,
-      --                           config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-      --                           config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-      --                           config.Flow.viscosityModel,
-      --                           Grid.xBnum, config.Grid.xNum,
-      --                           Grid.yBnum, config.Grid.yNum,
-      --                           Grid.zBnum, config.Grid.zNum, Grid.zCellWidth)
-      --  Flow_UpdateDissipationZ(Fluid,
-      --                          Grid.xBnum, config.Grid.xNum,
-      --                          Grid.yBnum, config.Grid.yNum,
-      --                          Grid.zBnum, config.Grid.zNum, Grid.zCellWidth)
-      --  Flow_averageDissipation += CalculateAverageDissipation(Fluid,
-      --                                                         Grid.cellVolume,
-      --                                                         Grid.xBnum, config.Grid.xNum,
-      --                                                         Grid.yBnum, config.Grid.yNum,
-      --                                                         Grid.zBnum, config.Grid.zNum)
-      --  Flow_averageDissipation /= config.Grid.xNum*config.Grid.yNum*config.Grid.zNum*Grid.cellVolume
-      --  Flow_averageK += CalculateAverageK(Fluid,
-      --                                     Grid.cellVolume,
-      --                                     Grid.xBnum, config.Grid.xNum,
-      --                                     Grid.yBnum, config.Grid.yNum,
-      --                                     Grid.zBnum, config.Grid.zNum)
-      --  Flow_averageK /= config.Grid.xNum*config.Grid.yNum*config.Grid.zNum*Grid.cellVolume
-      --  Flow_averageFe += Flow_AddTurbulentSource(Fluid,
-      --                                            Flow_averageDissipation,
-      --                                            Flow_averageK,
-      --                                            Flow_averagePD,
-      --                                            Grid.cellVolume,
-      --                                            Grid.xBnum, config.Grid.xNum,
-      --                                            Grid.yBnum, config.Grid.yNum,
-      --                                            Grid.zBnum, config.Grid.zNum,
-      --                                            config)
-      --  Flow_averageFe /= config.Grid.xNum*config.Grid.yNum*config.Grid.zNum*Grid.cellVolume
-      --  Flow_AdjustTurbulentSource(Fluid,
-      --                             Flow_averageFe,
-      --                             Grid.xBnum, config.Grid.xNum,
-      --                             Grid.yBnum, config.Grid.yNum,
-      --                             Grid.zBnum, config.Grid.zNum)
-      --end
+      -- Add turbulent forcing
+      if config.Flow.turbForcing.type == SCHEMA.TurbForcingModel_HIT then
+        var Flow_averageDissipation = 0.0
+        var Flow_averageFe = 0.0
+        var Flow_averageK = 0.0
+        var Flow_averagePD = 0.0
+
+        Flow_averagePD += CalculateAveragePD(Fluid,
+                                             Grid.xBnum, config.Grid.xNum,
+                                             Grid.yBnum, config.Grid.yNum,
+                                             Grid.zBnum, config.Grid.zNum)
+        -- CHECK: Should this be a volume average?
+        Flow_averagePD /= config.Grid.xNum * config.Grid.yNum * config.Grid.zNum
+
+        Flow_ResetDissipation(Fluid)
+
+        Flow_ComputeDissipationX(Fluid,
+                                 config.Flow.constantVisc,
+                                 config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                 config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                 config.Flow.viscosityModel,
+                                 Grid.xBnum, config.Grid.xNum,
+                                 Grid.yBnum, config.Grid.yNum,
+                                 Grid.zBnum, config.Grid.zNum)
+        Flow_UpdateDissipationX(Fluid,
+                                Grid.xBnum, config.Grid.xNum,
+                                Grid.yBnum, config.Grid.yNum,
+                                Grid.zBnum, config.Grid.zNum)
+
+        Flow_ComputeDissipationY(Fluid,
+                                 config.Flow.constantVisc,
+                                 config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                 config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                 config.Flow.viscosityModel,
+                                 Grid.xBnum, config.Grid.xNum,
+                                 Grid.yBnum, config.Grid.yNum,
+                                 Grid.zBnum, config.Grid.zNum)
+        Flow_UpdateDissipationY(Fluid,
+                                Grid.xBnum, config.Grid.xNum,
+                                Grid.yBnum, config.Grid.yNum,
+                                Grid.zBnum, config.Grid.zNum)
+
+        Flow_ComputeDissipationZ(Fluid,
+                                 config.Flow.constantVisc,
+                                 config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                 config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                 config.Flow.viscosityModel,
+                                 Grid.xBnum, config.Grid.xNum,
+                                 Grid.yBnum, config.Grid.yNum,
+                                 Grid.zBnum, config.Grid.zNum)
+        Flow_UpdateDissipationZ(Fluid,
+                                Grid.xBnum, config.Grid.xNum,
+                                Grid.yBnum, config.Grid.yNum,
+                                Grid.zBnum, config.Grid.zNum)
+
+        var interior_volume = 0.0
+        interior_volume += CalculateIneriorVolume(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+
+        Flow_averageDissipation += CalculateAverageDissipation(Fluid,
+                                                               Grid.xBnum, config.Grid.xNum,
+                                                               Grid.yBnum, config.Grid.yNum,
+                                                               Grid.zBnum, config.Grid.zNum)
+        Flow_averageDissipation /= interior_volume 
+
+        Flow_averageK += CalculateAverageK(Fluid,
+                                           Grid.xBnum, config.Grid.xNum,
+                                           Grid.yBnum, config.Grid.yNum,
+                                           Grid.zBnum, config.Grid.zNum)
+        Flow_averageK /= interior_volume
+
+        Flow_averageFe += Flow_AddTurbulentSource(Fluid,
+                                                  Flow_averageDissipation,
+                                                  Flow_averageK,
+                                                  Flow_averagePD,
+                                                  Grid.xBnum, config.Grid.xNum,
+                                                  Grid.yBnum, config.Grid.yNum,
+                                                  Grid.zBnum, config.Grid.zNum,
+                                                  config)
+        Flow_averageFe /= interior_volume
+
+        Flow_AdjustTurbulentSource(Fluid,
+                                   Flow_averageFe,
+                                   Grid.xBnum, config.Grid.xNum,
+                                   Grid.yBnum, config.Grid.yNum,
+                                   Grid.zBnum, config.Grid.zNum)
+      end
 
       ---- Particles & radiation solve
       --if Integrator_timeStep % config.Particles.staggerFactor == 0 then
