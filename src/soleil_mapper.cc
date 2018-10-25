@@ -500,7 +500,7 @@ public:
       EQUALS(task.get_task_name(), "workDual");
   }
 
-#ifdef MAX_APPLICATION_SHARDING_ID
+#ifndef NO_LEGION_CONTROL_REPLICATION
   // Replicate each work task over all ranks assigned to the corresponding
   // sample(s).
   virtual void map_replicate_task(const MapperContext ctx,
@@ -799,14 +799,12 @@ public:
                                        SelectShardingFunctorOutput& output) {
     CHECK(false, "Unsupported: Sharded Fill");
   }
-#ifdef MAX_APPLICATION_SHARDING_ID
   virtual void select_sharding_functor(const MapperContext ctx,
                                        const MustEpoch& epoch,
                                        const SelectShardingFunctorInput& input,
                                        MustEpochShardingFunctorOutput& output) {
     CHECK(false, "Unsupported: Sharded MustEpoch");
   }
-#endif
 
 //=============================================================================
 // MAPPER CLASS: HELPER METHODS
