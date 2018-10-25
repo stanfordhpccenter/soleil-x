@@ -577,14 +577,16 @@ task GetDynamicViscosity(temperature : double,
                          Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
                          Flow_viscosityModel : SCHEMA.ViscosityModel)
   var viscosity = 0.0
-  if (Flow_viscosityModel == SCHEMA.ViscosityModel_Constant) then
+  if Flow_viscosityModel == SCHEMA.ViscosityModel_Constant then
     viscosity = Flow_constantVisc
-  else
-    if (Flow_viscosityModel == SCHEMA.ViscosityModel_PowerLaw) then
-      viscosity = (Flow_powerlawViscRef*pow((temperature/Flow_powerlawTempRef), double(0.75)))
-    else
-      viscosity = ((Flow_sutherlandViscRef*pow((temperature/Flow_sutherlandTempRef), (3.0/2.0)))*((Flow_sutherlandTempRef+Flow_sutherlandSRef)/(temperature+Flow_sutherlandSRef)))
-    end
+  elseif Flow_viscosityModel == SCHEMA.ViscosityModel_PowerLaw then
+    viscosity = Flow_powerlawViscRef*pow(temperature/Flow_powerlawTempRef, 0.75)
+  else -- Flow_viscosityModel == SCHEMA.ViscosityModel_Sutherland
+    viscosity =
+      Flow_sutherlandViscRef
+      * pow(temperature/Flow_sutherlandTempRef, 1.5)
+      * (Flow_sutherlandTempRef + Flow_sutherlandSRef)
+      / (temperature + Flow_sutherlandSRef)
   end
   return viscosity
 end
@@ -618,14 +620,14 @@ do
   for p in Particles do
     var relIdx = int(p - pBase)
     if relIdx < particlesPerTask then
-      p.__valid = true
+      Particles[p].__valid = true
       var c = lo + int3d{relIdx%xSize, relIdx/xSize%ySize, relIdx/xSize/ySize%zSize}
-      p.cell = c
-      p.position = Fluid[c].centerCoordinates
-      p.velocity = Fluid[c].velocity
-      p.density = Particles_density
-      p.temperature = Particles_initTemperature
-      p.diameter = Particles_diameterMean
+      Particles[p].cell = c
+      Particles[p].position = Fluid[c].centerCoordinates
+      Particles[p].velocity = Fluid[c].velocity
+      Particles[p].density = Particles_density
+      Particles[p].temperature = Particles_initTemperature
+      Particles[p].diameter = Particles_diameterMean
     end
   end
 end
@@ -642,12 +644,11 @@ do
   var heatCapacity = config.Particles.heatCapacity
   __demand(__openmp)
   for p in Particles do
-    if p.__valid then
-      var crossSectionArea = PI*pow(p.diameter,2.0)/4.0
-      var volume = PI*pow(p.diameter,3.0)/6.0
-      var mass = volume*p.density
+    if Particles[p].__valid then
+      var crossSectionArea = PI*pow(Particles[p].diameter,2.0)/4.0
+      var mass = PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density
       var absorbedRadiationIntensity = absorptivity*intensity*crossSectionArea
-      p.temperature_t += absorbedRadiationIntensity/(mass*heatCapacity)
+      Particles[p].temperature_t += absorbedRadiationIntensity/(mass*heatCapacity)
     end
   end
 end
@@ -659,7 +660,7 @@ where
 do
   __demand(__openmp)
   for p in Particles do
-    p.__valid = false
+    Particles[p].__valid = false
   end
 end
 
@@ -3276,10 +3277,11 @@ do
   var num_invalid = 0
   __demand(__openmp)
   for p in Particles do
-    if p.__valid and color ~= Fluid_elemColor(p.cell,
-                                              Grid_xBnum, Grid_xNum, NX,
-                                              Grid_yBnum, Grid_yNum, NY,
-                                              Grid_zBnum, Grid_zNum, NZ) then
+    if Particles[p].__valid and
+       color ~= Fluid_elemColor(Particles[p].cell,
+                                Grid_xBnum, Grid_xNum, NX,
+                                Grid_yBnum, Grid_yNum, NY,
+                                Grid_zBnum, Grid_zNum, NZ) then
       num_invalid += 1
     end
   end
@@ -3943,12 +3945,7 @@ do
                                                      Flow_powerlawTempRef, Flow_powerlawViscRef,
                                                      Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
                                                      Flow_viscosityModel)
-      var particleReynoldsNumber = 0.0
-      var relaxationTime =
-        Particles[p].density
-        * pow(Particles[p].diameter,2.0)
-        / (18.0*flowDynamicViscosity)
-        / (1.0 + (0.15*pow(particleReynoldsNumber,0.687)))
+      var relaxationTime = Particles[p].density * pow(Particles[p].diameter,2.0) / (18.0 * flowDynamicViscosity)
       var tmp2 = vs_div(vv_sub(flowVelocity, Particles[p].velocity), relaxationTime)
       Particles[p].deltaVelocityOverRelaxationTime = tmp2
       Particles[p].velocity_t = tmp2
@@ -4027,9 +4024,10 @@ do
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
+      var mass = PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density
       var t4 = pow(Particles[p].temperature, 4.0)
-      var alpha = ((((PI*Radiation_qa)*pow(Particles[p].diameter, 2.0))*(Radiation[Fluid[Particles[p].cell].to_Radiation].G-((4.0*SB)*t4)))/4.0)
-      Particles[p].temperature_t += (alpha/((((PI*pow(Particles[p].diameter, 3.0))/6.0)*Particles[p].density)*Particles_heatCapacity))
+      var alpha = PI*Radiation_qa*pow(Particles[p].diameter, 2.0)*(Radiation[Fluid[Particles[p].cell].to_Radiation].G-4.0*SB*t4)/4.0
+      Particles[p].temperature_t += alpha/(mass*Particles_heatCapacity)
     end
   end
 end
@@ -4048,7 +4046,8 @@ do
       -- NOTE: We separate the array-type reduction into 3 separate reductions
       -- over the 3 indices, to make sure the code generator emits them as
       -- atomic operations.
-      var tmp = vs_div(vs_mul(Particles[p].deltaVelocityOverRelaxationTime, (-(((PI*pow(Particles[p].diameter, 3.0))/6.0)*Particles[p].density))), Grid_cellVolume)
+      var mass = PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density
+      var tmp = vs_mul(Particles[p].deltaVelocityOverRelaxationTime, -mass/Grid_cellVolume)
       Fluid[Particles[p].cell].rhoVelocity_t[0] += tmp[0]
       Fluid[Particles[p].cell].rhoVelocity_t[1] += tmp[1]
       Fluid[Particles[p].cell].rhoVelocity_t[2] += tmp[2]
