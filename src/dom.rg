@@ -498,7 +498,7 @@ local function mkBound(wall)
             if fromCell[0] <= a and a <= uptoCell[0] and
                fromCell[1] <= b and b <= uptoCell[1] and
                [isWallNormal(wall, rexpr [angles[q]][m] end)] then
-              I += incidentI
+              I += incidentI / [angles[q]][m].w
             end
             [faces[q]][idx].I[m] = I
           end
