@@ -3860,7 +3860,7 @@ task Flow_AddTurbulentSource(Fluid : region(ispace(int3d), Fluid_columns),
                              Grid_zBnum : int32, Grid_zNum : int32,
                              config : Config)
 where
-  reads(Fluid.{rho, velocity}),
+  reads(Fluid.{cellWidth, rho, velocity}),
   reads writes atomic(Fluid.{rhoVelocity_t, rhoEnergy_t})
 do
   var W = Flow_averagePD + Flow_averageDissipation
