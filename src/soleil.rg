@@ -1012,7 +1012,6 @@ do
 
   end
 
-
 end
 
 __demand(__parallel, __cuda)
@@ -3913,21 +3912,25 @@ task locate(pos : double[3],
             Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
             Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
             Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
+
   var xcw = Grid_xWidth/Grid_xNum
   var xro = Grid_xOrigin-Grid_xBnum*xcw
   var xpos = floor((pos[0]-xro)/xcw)
   var xrnum = Grid_xNum+2*Grid_xBnum
   var xidx = max(0, min(xrnum-1, xpos))
+
   var ycw = Grid_yWidth/Grid_yNum
   var yro = Grid_yOrigin-Grid_yBnum*ycw
   var ypos = floor((pos[1]-yro)/ycw)
   var yrnum = Grid_yNum+2*Grid_yBnum
   var yidx = max(0, min(yrnum-1, ypos))
+
   var zcw = Grid_zWidth/Grid_zNum
   var zro = Grid_zOrigin-Grid_zBnum*zcw
   var zpos = floor((pos[2]-zro)/zcw)
   var zrnum = Grid_zNum+2*Grid_zBnum
   var zidx = max(0, min(zrnum-1, zpos))
+
   return int3d{xidx, yidx, zidx}
 end
 
@@ -5283,10 +5286,7 @@ end
 
 __demand(__cuda) -- MANUALLY PARALLELIZED
 task Particles_DeleteEscapingParticles(Particles : region(ispace(int1d), Particles_columns),
-                                       Fluid : region(ispace(int3d), Fluid_columns),
-                                       Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
-                                       Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
-                                       Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
+                                       Fluid : region(ispace(int3d), Fluid_columns))
 where
   reads(Particles.position),
   reads(Fluid.{centerCoordinates, cellWidth}),
@@ -5299,6 +5299,7 @@ do
   var x_max = Fluid[Fluid.bounds.hi].centerCoordinates[0] + 0.5*Fluid[Fluid.bounds.hi].cellWidth[0]
   var y_max = Fluid[Fluid.bounds.hi].centerCoordinates[1] + 0.5*Fluid[Fluid.bounds.hi].cellWidth[1]
   var z_max = Fluid[Fluid.bounds.hi].centerCoordinates[2] + 0.5*Fluid[Fluid.bounds.hi].cellWidth[2]
+
   var acc = int64(0)
   __demand(__openmp)
   for p in Particles do
@@ -6423,14 +6424,12 @@ local function mkInstance() local INSTANCE = {}
                                   config.Grid.origin[1], config.Grid.yWidth,
                                   config.Grid.origin[2], config.Grid.zWidth,
                                   config.Particles.restitutionCoeff)
-        --for c in tiles do
-        --  Particles_number +=
-        --    Particles_DeleteEscapingParticles(p_Particles[c],
-        --                                      Fluid,
-        --                                      Grid.xBnum, config.Grid.xNum,
-        --                                      Grid.yBnum, config.Grid.yNum,
-        --                                      Grid.zBnum, config.Grid.zNum)
-        --end
+        for c in tiles do
+          Particles_number +=
+            Particles_DeleteEscapingParticles(p_Particles[c],
+                                              Fluid)
+        end
+
         ---- Move particles to new partitions
         --for c in tiles do
         --  Particles_LocateInCells(p_Particles[c],
