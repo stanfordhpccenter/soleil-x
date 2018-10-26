@@ -119,7 +119,7 @@ function run_sapling {
         GPU_OPTS="-ll:gpu 1 -ll:fsize 5500"
     fi
     mpiexec -H "$NODES" --bind-to none \
-        -x LD_LIBRARY_PATH -x SOLEIL_DIR -x GASNET_BACKTRACE \
+        -x LD_LIBRARY_PATH -x SOLEIL_DIR -x GASNET_BACKTRACE -x LEGION_FREEZE_ON_ERROR \
         "$EXECUTABLE" $ARGS \
         -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 \
         $GPU_OPTS -ll:dma 2 -ll:ahandlers 2 \
