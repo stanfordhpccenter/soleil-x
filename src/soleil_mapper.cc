@@ -85,7 +85,7 @@ private:
 public:
   SplinteringFunctor(Runtime* rt, SampleMapping& parent)
     : id(NEXT_ID++), parent_(parent) {
-    rt->register_sharding_functor(id, this);
+    rt->register_sharding_functor(id, this, true);
   }
 public:
   AddressSpace get_rank(const DomainPoint &point);
