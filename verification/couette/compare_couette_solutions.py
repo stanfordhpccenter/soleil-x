@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import json
 from pprint import pprint
 import matplotlib.pyplot as plt
@@ -9,9 +10,10 @@ import h5py
 #                                 User Input                                 #
 ##############################################################################
 
-soleil_input_file = '/home/lalo/Desktop/soleil_x_build/soleil_x/verification/couette/couette.json'
+dir_name = os.path.join(os.environ['SOLEIL_DIR'], 'verification/couette')
 
-hdf_filename = "/home/lalo/Desktop/soleil_x_build/soleil_x/verification/couette/sample0/fluid_iter0000100000/0,0,0-31,33,31.hdf"
+soleil_input_file = os.path.join(dir_name, 'couette.json')
+hdf_filename = os.path.join(dir_name, 'sample0/fluid_iter0000001000/0,0,0-31,33,31.hdf')
 
 
 ##############################################################################
@@ -23,10 +25,9 @@ with open(soleil_input_file) as f:
 
 #pprint(data)
 
-yNum = data["Grid"]["yNum"]
-yWidth  = data["Grid"]["yWidth"]
-U  = data["BC"]["yBCRightVel"][0]
-
+yNum   = data["Grid"]["yNum"]
+yWidth = data["Grid"]["yWidth"]
+U      = data["BC"]["yBCRightVel"][0]
 
 # this solution assumes that y_min = 0.0
 if not (data["Grid"]["origin"] == [0.0,0.0,0.0]):
@@ -36,6 +37,11 @@ if not (data["Grid"]["origin"] == [0.0,0.0,0.0]):
 if not (data["BC"]["yBCLeftVel"] == [0.0,0.0,0.0]):
   sys.exit() 
 
+remove_y_ghost = True
+if data["BC"]["yBCLeftVel"] == 'Periodic:'
+  remove_y_ghost = False
+
+# Couette profile
 def u(y):
   return (U/yWidth)*y
 
@@ -53,11 +59,11 @@ u_slice_analytical = u(y_slice)
 
 f = h5py.File(hdf_filename, 'r')
 
-## List all groups
-#print('Data Sets:')
-#for k in f.keys() :
-#  print(k)
-#print('')
+# List all groups
+print('Data Sets:')
+for k in f.keys() :
+  print(k)
+print('')
 
 # Get the data
 pressure    = f['pressure']
@@ -65,7 +71,6 @@ rho         = f['rho']
 velocity    = f['velocity']
 temperature = f['temperature']
 
-remove_y_ghost = True
 
 if remove_y_ghost:
   Ny = rho.shape[1]
@@ -73,7 +78,6 @@ if remove_y_ghost:
   rho = rho[:,1:Ny-1,:]
   velocity = velocity[:,1:Ny-1,:]
   temperature = temperature[:,1:Ny-1,:]
-
 
 # Get dimension of data
 Nx = rho.shape[2]
@@ -88,10 +92,11 @@ z_slice_idx = 0
 #pressure_slice = pressure[z_slice_idx,:,x_slice_idx][1:Ny-1]
 #temperature_slice = temperature[z_slice_idx,:,x_slice_idx][1:Ny-1]
 
-u_slice = velocity[z_slice_idx,:,x_slice_idx][:,0]
-rho_slice = rho[z_slice_idx,:,x_slice_idx]
-pressure_slice = pressure[z_slice_idx,:,x_slice_idx]
+u_slice   =            velocity[z_slice_idx,:,x_slice_idx][:,0]
+rho_slice =                 rho[z_slice_idx,:,x_slice_idx]
+pressure_slice =       pressure[z_slice_idx,:,x_slice_idx]
 temperature_slice = temperature[z_slice_idx,:,x_slice_idx]
+
 
 ##############################################################################
 #                          Read Soleil Output Data                           #

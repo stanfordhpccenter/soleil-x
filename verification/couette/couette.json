@@ -64,8 +64,8 @@
     "Integrator" : {
         "startIter" : 0,
         "startTime" : 0.0,
-        "maxIter" : 5000,
-        "cfl" : 1.0,
+        "maxIter" : 1000,
+        "cfl" : 0.5,
         "fixedDeltaTime" : -1.0,
         "rkOrder" : 4
     },

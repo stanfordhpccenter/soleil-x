@@ -152,10 +152,16 @@ local struct Fluid_columns {
 }
 
 local Fluid_primitives = terralib.newlist({
+  'centerCoordinates',
+  'cellWidth',
   'rho',
   'pressure',
   'velocity',
   'temperature',
+  'velocityGradientX',
+  'velocityGradientY',
+  'velocityGradientZ',
+  'temperatureGradient',
 })
 
 struct Radiation_columns {
