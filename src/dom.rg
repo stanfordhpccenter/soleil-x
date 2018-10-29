@@ -2,16 +2,6 @@ import 'regent'
 
 local SCHEMA = terralib.includec("config_schema.h")
 
--------------------------------------------------------------------------------
--- MODULE PARAMETERS
--------------------------------------------------------------------------------
-
-local MODULE = {}
-
--------------------------------------------------------------------------------
--- QUADRANT MACROS
--------------------------------------------------------------------------------
-
 local __demand(__inline)
 task quadrantSize(q : int, num_angles : int)
   return num_angles/8 + max(0, min(1, num_angles%8 - q + 1))
@@ -42,9 +32,3 @@ task initialize_angles(angles : region(ispace(int1d), int))
     @TIME end @EPACSE
   end
 end
-
--------------------------------------------------------------------------------
--- MODULE END
--------------------------------------------------------------------------------
-
-return MODULE
