@@ -81,8 +81,10 @@ Exports.RadiationModel = Union{
     yLoTemp = double,
     zHiTemp = double,
     zLoTemp = double,
-    -- intensity coming in perpendicular on each wall [W/m^2]
+    -- incoming wall intensity [W/m^2]
+    -- power per unit of particle area (as projected on the wall)
     -- assumed monochromatic and collimated
+    -- only applied over the quadrature point that is normal to the wall
     xHiIntensity = double,
     xLoIntensity = double,
     yHiIntensity = double,
@@ -195,6 +197,7 @@ Exports.Config = {
     feeding = Exports.FeedModel,
     -- how many timesteps to advance the fluid before every particle solve
     staggerFactor = int,
+    parcelSize = int,
   },
   Radiation = Exports.RadiationModel,
   IO = {

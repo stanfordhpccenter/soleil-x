@@ -498,7 +498,7 @@ local function mkBound(wall)
             if fromCell[0] <= a and a <= uptoCell[0] and
                fromCell[1] <= b and b <= uptoCell[1] and
                [isWallNormal(wall, rexpr [angles[q]][m] end)] then
-              I += incidentI
+              I += incidentI / [angles[q]][m].w
             end
             [faces[q]][idx].I[m] = I
           end
@@ -758,7 +758,7 @@ function MODULE.mkInstance() local INSTANCE = {}
     -- Regions for sub-points
     -- Conceptually int4d, but rolled into 1 dimension to make CUDA code
     -- generation easier. The effective storage order is Z > Y > X > M.
-    var is_sub_points = ispace(int1d, MAX_ANGLES_PER_QUAD*Nx*Ny*Nz);
+    var is_sub_points = ispace(int1d, int64(MAX_ANGLES_PER_QUAD)*Nx*Ny*Nz);
     @ESCAPE for q = 1, 8 do @EMIT
       var [sub_points[q]] = region(is_sub_points, SubPoint_columns);
       [UTIL.emitRegionTagAttach(sub_points[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
@@ -789,7 +789,7 @@ function MODULE.mkInstance() local INSTANCE = {}
     @TIME end @EPACSE
 
     -- Regions for intra-tile information
-    var is_sub_point_offsets = ispace(int1d, MAX_ANGLES_PER_QUAD*Tx*Ty*Tz)
+    var is_sub_point_offsets = ispace(int1d, int64(MAX_ANGLES_PER_QUAD)*Tx*Ty*Tz)
     var [sub_point_offsets] = region(is_sub_point_offsets, bool);
     [UTIL.emitRegionTagAttach(sub_point_offsets, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     var is_grid_map = ispace(int3d, {Tx,Ty,Tz})

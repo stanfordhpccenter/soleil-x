@@ -104,7 +104,8 @@
         "escapeRatioPerDir" : 0.005,
         "collisions" : false,
         "feeding" : { "type" : "OFF" },
-        "staggerFactor" : 7406
+        "staggerFactor" : 7406,
+        "parcelSize" : 1
     },
 
     "Radiation" : {
