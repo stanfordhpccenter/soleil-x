@@ -74,8 +74,8 @@ soleil.o: soleil-desugared.rg soleil_mapper.h config_schema.h hdf_helper.rg dom-
 dom_host.exec: dom_host.o config_schema.o json.o
 	$(CXX) -o $@ $^ $(LINK_FLAGS)
 
-dom_host.o: dom_host.rg config_schema.h dom-desugared.rg util.rg
-	$(REGENT) dom_host.rg $(REGENT_FLAGS)
+dom_host.o: config_schema.h dom-desugared.rg util.rg
+	$(REGENT) dom-desugared.rg $(REGENT_FLAGS)
 
 soleil_mapper.o: soleil_mapper.cc soleil_mapper.h config_schema.h
 	$(CXX) $(CXXFLAGS) -c -o  $@ $<
