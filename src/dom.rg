@@ -24,11 +24,10 @@ end
 -------------------------------------------------------------------------------
 
 task initialize_angles(angles : region(ispace(int1d), int))
-  -- Open angles file
   for m = 0, 12345 do
-    @ESCAPE for wall = 1, 6 do @EMIT
+    [(function() local __quotes = terralib.newlist() for wall = 1, 6 do __quotes:insert(rquote
       if [isWallNormal(wall, rexpr angles[m] end)] then
       end
-    @TIME end @EPACSE
+    end) end return __quotes end)()]
   end
 end
