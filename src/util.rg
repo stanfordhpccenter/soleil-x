@@ -2,14 +2,6 @@ import 'regent'
 
 local Exports = {}
 
-local C = terralib.includecstring([[
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-]])
-
 -------------------------------------------------------------------------------
 -- Numeric
 -------------------------------------------------------------------------------
@@ -34,33 +26,6 @@ function Exports.isEmpty(tbl)
   return true
 end
 
--- map(K,V) -> K*
-function Exports.keys(tbl)
-  local res = terralib.newlist()
-  for k,v in pairs(tbl) do
-    res:insert(k)
-  end
-  return res
-end
-
--- T*, (T -> bool) -> bool
-function Exports.all(list, pred)
-  assert(terralib.israwlist(list))
-  for _,x in ipairs(list) do
-    if not pred(x) then return false end
-  end
-  return true
-end
-
--- T*, (T -> bool) -> bool
-function Exports.any(list, pred)
-  assert(terralib.israwlist(list))
-  for _,x in ipairs(list) do
-    if pred(x) then return true end
-  end
-  return false
-end
-
 -- table -> table
 function Exports.copyTable(tbl)
   local cpy = {}
@@ -83,40 +48,6 @@ end
 
 local TerraList = getmetatable(terralib.newlist())
 
--- (T -> bool) -> bool
-function TerraList:all(pred)
-  return Exports.all(self, pred)
-end
-
--- (T -> bool) -> bool
-function TerraList:any(pred)
-  return Exports.any(self, pred)
-end
-
--- () -> T*
-function TerraList:copy()
-  return self:map(function(x) return x end)
-end
-
--- T -> int?
-function TerraList:find(x)
-  for i,elem in ipairs(self) do
-    if elem == x then
-      return i
-    end
-  end
-  return nil
-end
-
--- () -> set(T)
-function TerraList:toSet()
-  local set = {}
-  for _,elem in ipairs(self) do
-    set[elem] = true
-  end
-  return set
-end
-
 -- string? -> string
 function TerraList:join(sep)
   sep = sep or ' '
@@ -127,22 +58,6 @@ function TerraList:join(sep)
     end
     res = res..tostring(elem)
   end
-  return res
-end
-
--- () -> T*
-function TerraList:reverse()
-  local res = terralib.newlist()
-  for i = #self, 1, -1 do
-    res:insert(self[i])
-  end
-  return res
-end
-
--- () -> T
-function TerraList:pop()
-  local res = self[#self]
-  self[#self] = nil
   return res
 end
 
@@ -168,69 +83,9 @@ function TerraList:flatten(res)
   return res
 end
 
--- int, int -> T*
-function Exports.range(first, last)
-  local res = terralib.newlist()
-  for i = first,last do
-    res:insert(i)
-  end
-  return res
-end
-
 -------------------------------------------------------------------------------
 -- Sets
 -------------------------------------------------------------------------------
-
--- set(T) -> T*
-function Exports.setToList(set)
-  local list = terralib.newlist()
-  for e,_ in pairs(set) do
-    list:insert(e)
-  end
-  return list
-end
-
--- T* -> set(T)
-function Exports.listToSet(list)
-  local set = {}
-  for _,e in ipairs(list) do
-    set[e] = true
-  end
-  return set
-end
-
--- set(T) -> T
-function Exports.setPop(set)
-  local elem
-  for e,_ in pairs(set) do
-    elem = e
-    break
-  end
-  set[elem] = nil
-  return elem
-end
-
--- set(T), T* -> set(T)
-function Exports.setSubList(set, list)
-  local res = Exports.copyTable(set)
-  for _,e in ipairs(list) do
-    res[e] = nil
-  end
-  return res
-end
-
--------------------------------------------------------------------------------
--- Sets
--------------------------------------------------------------------------------
-
--- set(T) -> T*
-function Exports.setToList(set)
-  local list = terralib.newlist()
-  for elem,_ in pairs(set) do
-    list:insert(elem)
-  end
-  return list
-end
 
 -- set(T) -> T
 function Exports.setPop(set)
@@ -246,14 +101,6 @@ end
 -------------------------------------------------------------------------------
 -- Strings
 -------------------------------------------------------------------------------
-
--- string -> string*
-function string:split(sep)
-  local fields = terralib.newlist()
-  local pattern = string.format("([^%s]+)", sep)
-  self:gsub(pattern, function(c) fields:insert(c) end)
-  return fields
-end
 
 -- string -> bool
 function string:startswith(subStr)
@@ -356,65 +203,6 @@ function Exports.prettyPrintStruct(s, cStyle, indent)
   return lines:join('\n')
 end
 
--- terralib.struct -> string*
-function Exports.fieldNames(s)
-  return s.entries:map(function(e)
-    local name,typ = Exports.parseStructEntry(e)
-    return name
-  end)
-end
-
--- string, terralib.struct, string*, map(string,terralib.type)?
---   -> terralib.struct
-function Exports.deriveStruct(newName, origStruct, keptFlds, addedFlds)
-  addedFlds = addedFlds or {}
-  local origFlds = {}
-  for _,e in ipairs(origStruct.entries) do
-    local name,typ = Exports.parseStructEntry(e)
-    assert(not addedFlds[name])
-    origFlds[name] = typ
-  end
-  local newStruct = terralib.types.newstruct(newName)
-  for _,name in ipairs(keptFlds) do
-    local typ = assert(origFlds[name])
-    newStruct.entries:insert({name,typ})
-  end
-  for name,typ in pairs(addedFlds) do
-    newStruct.entries:insert({name,typ})
-  end
-  return newStruct
-end
-
--------------------------------------------------------------------------------
--- Filesystem
--------------------------------------------------------------------------------
-
-terra Exports.createDir(name : &int8)
-  var mode = 493 -- octal 0755 = rwxr-xr-x
-  var res = C.mkdir(name, mode)
-  if res < 0 then
-    var stderr = C.fdopen(2, 'w')
-    C.fprintf(stderr, 'Cannot create directory %s: ', name)
-    C.fflush(stderr)
-    C.perror('')
-    C.fflush(stderr)
-    C.exit(1)
-  end
-end
-
-terra Exports.openFile(name : &int8, mode : &int8) : &C.FILE
-  var file = C.fopen(name, mode)
-  if file == nil then
-    var stderr = C.fdopen(2, 'w')
-    C.fprintf(stderr, 'Cannot open file %s in mode "%s": ', name, mode)
-    C.fflush(stderr)
-    C.perror('')
-    C.fflush(stderr)
-    C.exit(1)
-  end
-  return file
-end
-
 -------------------------------------------------------------------------------
 -- Graphs
 -------------------------------------------------------------------------------
@@ -460,112 +248,6 @@ function Exports.revTopoSort(graph)
     end
   end
   return res
-end
-
--------------------------------------------------------------------------------
--- Regent metaprogramming
--------------------------------------------------------------------------------
-
--- regentlib.symbol, int, regentlib.rexpr, terralib.type -> regentlib.rquote
-function Exports.emitRegionTagAttach(r, tag, value, typ)
-  return rquote
-    var info : typ[1]
-    info[0] = value
-    regentlib.c.legion_logical_region_attach_semantic_information(
-      __runtime(), __raw(r), tag, [&typ](info), [sizeof(typ)], false)
-  end
-end
-
--- intXd, intXd, terralib.struct -> regentlib.task
-function Exports.mkPartitionEqually(r_istype, cs_istype, fs)
-  local partitionEqually
-  if r_istype == int3d and cs_istype == int3d then
-    __demand(__inline)
-    task partitionEqually(r : region(ispace(int3d), fs),
-                          cs : ispace(int3d),
-                          xBnum : int, yBnum : int, zBnum : int)
-      var Nx = r.bounds.hi.x - 2*xBnum + 1; var ntx = cs.bounds.hi.x + 1
-      var Ny = r.bounds.hi.y - 2*yBnum + 1; var nty = cs.bounds.hi.y + 1
-      var Nz = r.bounds.hi.z - 2*zBnum + 1; var ntz = cs.bounds.hi.z + 1
-      regentlib.assert(Nx % ntx == 0, "Uneven partitioning on x")
-      regentlib.assert(Ny % nty == 0, "Uneven partitioning on y")
-      regentlib.assert(Nz % ntz == 0, "Uneven partitioning on z")
-      var coloring = regentlib.c.legion_domain_point_coloring_create()
-      for c in cs do
-        var rect = rect3d{
-          lo = int3d{xBnum + (Nx/ntx)*(c.x),
-                     yBnum + (Ny/nty)*(c.y),
-                     zBnum + (Nz/ntz)*(c.z)},
-          hi = int3d{xBnum + (Nx/ntx)*(c.x+1) - 1,
-                     yBnum + (Ny/nty)*(c.y+1) - 1,
-                     zBnum + (Nz/ntz)*(c.z+1) - 1}}
-        if c.x == 0 then rect.lo.x -= xBnum end
-        if c.y == 0 then rect.lo.y -= yBnum end
-        if c.z == 0 then rect.lo.z -= zBnum end
-        if c.x == ntx-1 then rect.hi.x += xBnum end
-        if c.y == nty-1 then rect.hi.y += yBnum end
-        if c.z == ntz-1 then rect.hi.z += zBnum end
-        regentlib.c.legion_domain_point_coloring_color_domain(coloring, c, rect)
-      end
-      var p = partition(disjoint, r, coloring, cs)
-      regentlib.c.legion_domain_point_coloring_destroy(coloring)
-      return p
-    end
-  elseif r_istype == int2d and cs_istype == int2d then
-    __demand(__inline)
-    task partitionEqually(r : region(ispace(int2d), fs),
-                          cs : ispace(int2d),
-                          xBnum : int, yBnum : int)
-      var Nx = r.bounds.hi.x - 2*xBnum + 1; var ntx = cs.bounds.hi.x + 1
-      var Ny = r.bounds.hi.y - 2*yBnum + 1; var nty = cs.bounds.hi.y + 1
-      regentlib.assert(Nx % ntx == 0, "Uneven partitioning on x")
-      regentlib.assert(Ny % nty == 0, "Uneven partitioning on y")
-      var coloring = regentlib.c.legion_domain_point_coloring_create()
-      for c in cs do
-        var rect = rect2d{
-          lo = int2d{xBnum + (Nx/ntx)*(c.x),
-                     yBnum + (Ny/nty)*(c.y)},
-          hi = int2d{xBnum + (Nx/ntx)*(c.x+1) - 1,
-                     yBnum + (Ny/nty)*(c.y+1) - 1}}
-        if c.x == 0 then rect.lo.x -= xBnum end
-        if c.y == 0 then rect.lo.y -= yBnum end
-        if c.x == ntx-1 then rect.hi.x += xBnum end
-        if c.y == nty-1 then rect.hi.y += yBnum end
-        regentlib.c.legion_domain_point_coloring_color_domain(coloring, c, rect)
-      end
-      var p = partition(disjoint, r, coloring, cs)
-      regentlib.c.legion_domain_point_coloring_destroy(coloring)
-      return p
-    end
-  elseif r_istype == int1d and cs_istype == int3d then
-    __demand(__inline)
-    task partitionEqually(r : region(ispace(int1d), fs),
-                          cs : ispace(int3d),
-                          bnum : int)
-      var N = int64(r.bounds.hi - 2*bnum + 1)
-      var ntx = cs.bounds.hi.x + 1
-      var nty = cs.bounds.hi.y + 1
-      var ntz = cs.bounds.hi.z + 1
-      regentlib.assert(N % (ntx*nty*ntz) == 0, "Uneven partitioning")
-      var coloring = regentlib.c.legion_domain_point_coloring_create()
-      for c in cs do
-        var rect = rect1d{
-          lo = bnum + (N/ntx/nty/ntz)*(c.x*nty*ntz+c.y*ntz+c.z),
-          hi = bnum + (N/ntx/nty/ntz)*(c.x*nty*ntz+c.y*ntz+c.z+1) - 1}
-        if c.x == 0 and
-           c.y == 0 and
-           c.z == 0 then rect.lo -= bnum end
-        if c.x == ntx-1 and
-           c.y == nty-1 and
-           c.z == ntz-1 then rect.hi += bnum end
-        regentlib.c.legion_domain_point_coloring_color_domain(coloring, c, rect)
-      end
-      var p = partition(disjoint, r, coloring, cs)
-      regentlib.c.legion_domain_point_coloring_destroy(coloring)
-      return p
-    end
-  else assert(false) end
-  return partitionEqually
 end
 
 -------------------------------------------------------------------------------
