@@ -61,28 +61,6 @@ function TerraList:join(sep)
   return res
 end
 
--- int, (() -> T) -> T*
-function Exports.generate(n, generator)
-  local res = terralib.newlist()
-  for i = 1,n do
-    res:insert(generator())
-  end
-  return res
-end
-
--- () -> T*
-function TerraList:flatten(res)
-  res = res or terralib.newlist()
-  for _,e in ipairs(self) do
-    if terralib.israwlist(e) then
-      e:flatten(res)
-    else
-      res:insert(e)
-    end
-  end
-  return res
-end
-
 -------------------------------------------------------------------------------
 -- Sets
 -------------------------------------------------------------------------------

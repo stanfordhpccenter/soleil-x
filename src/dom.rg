@@ -7,12 +7,6 @@ import 'regent'
 return function(MAX_ANGLES_PER_QUAD, Point_columns, SCHEMA) local MODULE = {}
 
 -------------------------------------------------------------------------------
--- IMPORTS
--------------------------------------------------------------------------------
-
-local UTIL = require 'util'
-
--------------------------------------------------------------------------------
 -- MODULE-LOCAL FIELD SPACES
 -------------------------------------------------------------------------------
 
@@ -48,35 +42,22 @@ end
 -- MODULE-LOCAL TASKS
 -------------------------------------------------------------------------------
 
-local angles = UTIL.generate(8, function()
-  return regentlib.newsymbol(region(ispace(int1d), Angle_columns))
-end)
+local angles = regentlib.newsymbol(region(ispace(int1d), Angle_columns))
 
 local -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task initialize_angles([angles],
                        config : SCHEMA.Config)
 where
-  [angles:map(function(a) return terralib.newlist{
-     regentlib.privilege(regentlib.reads, a, 'xi'),
-     regentlib.privilege(regentlib.reads, a, 'eta'),
-     regentlib.privilege(regentlib.reads, a, 'mu'),
-     regentlib.privilege(regentlib.reads, a, 'w'),
-     regentlib.privilege(regentlib.writes, a, 'xi'),
-     regentlib.privilege(regentlib.writes, a, 'eta'),
-     regentlib.privilege(regentlib.writes, a, 'mu'),
-     regentlib.privilege(regentlib.writes, a, 'w'),
-   } end):flatten()]
+  reads writes(angles.{xi, eta, mu, w})
 do
   -- Open angles file
   var num_angles = config.Radiation.u.DOM.angles;
-  @ESCAPE for q = 1, 8 do @EMIT
-    for m = 0, quadrantSize(q, num_angles) do
-      @ESCAPE for wall = 1, 6 do @EMIT
-        if [isWallNormal(wall, rexpr [angles[q]][m] end)] then
-        end
-      @TIME end @EPACSE
-    end
-  @TIME end @EPACSE
+  for m = 0, 12345 do
+    @ESCAPE for wall = 1, 6 do @EMIT
+      if [isWallNormal(wall, rexpr angles[m] end)] then
+      end
+    @TIME end @EPACSE
+  end
 end
 
 -------------------------------------------------------------------------------
