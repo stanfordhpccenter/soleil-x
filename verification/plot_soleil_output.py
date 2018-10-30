@@ -5,8 +5,11 @@ import h5py
 import matplotlib.pyplot as plt
 
 # list of things to plot
-scalar_data_to_plot = ['rho','pressure','temperature']
-vector_data_to_plot = ['cellWidth','velocity','velocityGradientX','velocityGradientY','velocityGradientZ','temperatureGradient']
+#scalar_data_to_plot = ['rho','pressure','temperature']
+#vector_data_to_plot = ['cellWidth','velocity','velocityGradientX','velocityGradientY','velocityGradientZ','temperatureGradient']
+
+scalar_data_to_plot = ['rho','pressure','temperature', 'debug_scalar']
+vector_data_to_plot = ['velocity','velocityGradientY', 'debug_vector1', 'debug_vector2', 'debug_vector3']
 
 # --------------------------------------------------------------------------- #
 #                            Read Command Line Input                          #
@@ -55,21 +58,21 @@ x_values = f['centerCoordinates'][z_slice_idx,y_slice_idx,   :      ][:,0]
 y_values = f['centerCoordinates'][z_slice_idx,    :     ,x_slice_idx][:,1]
 z_values = f['centerCoordinates'][    :     ,y_slice_idx,x_slice_idx][:,2]
 
-# Plot cell centers in each direction
-plt.figure()
-plt.plot(x_values,np.zeros(len(x_values)),'o')
-plt.xlabel('x')
-plt.title('x values')
-
-plt.figure()
-plt.plot(y_values,np.zeros(len(y_values)),'o')
-plt.xlabel('y')
-plt.title('y values')
-
-plt.figure()
-plt.plot(z_values,np.zeros(len(z_values)),'o')
-plt.xlabel('y')
-plt.title('z values')
+## Plot cell centers in each direction
+#plt.figure()
+#plt.plot(x_values,np.zeros(len(x_values)),'o')
+#plt.xlabel('x')
+#plt.title('x values')
+#
+#plt.figure()
+#plt.plot(y_values,np.zeros(len(y_values)),'o')
+#plt.xlabel('y')
+#plt.title('y values')
+#
+#plt.figure()
+#plt.plot(z_values,np.zeros(len(z_values)),'o')
+#plt.xlabel('y')
+#plt.title('z values')
 
 for scalar_feild_name in scalar_data_to_plot: 
   #scalar_feild_name = 'rho'
@@ -87,7 +90,34 @@ for vector_feild_name in vector_data_to_plot:
     idx = {'x':0, 'y':1, 'z':2}
     plt.figure()
     plt.plot(f['{}'.format(vector_feild_name)][z_slice_idx,:,x_slice_idx][:,idx[vector_component]], y_values, 'ok', label='Soleil-X')
-    plt.xlabel('{}_{}'.format(vector_feild_name, vector_component), fontsize = 20)
+
+    x_label = ''
+    if vector_feild_name == 'velocityGradientX':
+      if vector_component == 'x':
+        x_label = r'$\frac{{\partial {}}}{{ \partial {} }}$'.format('u','x')
+      elif vector_component == 'y':
+        x_label = r'$\frac{{\partial {}}}{{ \partial {} }}$'.format('v','x')
+      elif vector_component == 'z':
+        x_label = r'$\frac{{\partial {}}}{{ \partial {} }}$'.format('w','x')
+    elif vector_feild_name == 'velocityGradientY':
+      if vector_component == 'x':
+        x_label = r'$\frac{{\partial {}}}{{ \partial {} }}$'.format('u','y')
+      elif vector_component == 'y':
+        x_label = r'$\frac{{\partial {}}}{{ \partial {} }}$'.format('v','y')
+      elif vector_component == 'z':
+        x_label = r'$\frac{{\partial {}}}{{ \partial {} }}$'.format('w','y')
+    elif vector_feild_name == 'velocityGradientZ':
+      if vector_component == 'x':
+        x_label = r'$\frac{{\partial {}}}{{ \partial {} }}$'.format('u','Z')
+      elif vector_component == 'y':
+        x_label = r'$\frac{{\partial {}}}{{ \partial {} }}$'.format('v','Z')
+      elif vector_component == 'z':
+        x_label = r'$\frac{{\partial {}}}{{ \partial {} }}$'.format('w','Z')
+    else:
+        x_label = '{}_{}'.format(vector_feild_name, vector_component)
+
+    plt.title(x_label)
+    plt.xlabel(x_label, fontsize = 20)
     plt.ylabel(r'$y \ [m]$', fontsize = 20)
     #plt.legend()
     #plt.savefig('{}.pdf'.format(vector_feild_name), bbox_inches='tight')

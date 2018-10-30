@@ -148,6 +148,10 @@ local struct Fluid_columns {
   temperature_old_NSCBC : double;
   velocity_inc : double[3];
   temperature_inc : double;
+  debug_scalar : double;
+  debug_vector1 : double[3];
+  debug_vector2 : double[3];
+  debug_vector3: double[3];
 }
 
 local Fluid_primitives = terralib.newlist({
@@ -160,7 +164,20 @@ local Fluid_primitives = terralib.newlist({
   'velocityGradientX',
   'velocityGradientY',
   'velocityGradientZ',
+  'rhoFluxX',
+  'rhoFluxY',
+  'rhoFluxZ',
+  'rhoVelocityFluxX',
+  'rhoVelocityFluxY',
+  'rhoVelocityFluxZ',
+  'rhoEnergyFluxX',
+  'rhoEnergyFluxY',
+  'rhoEnergyFluxZ',
   'temperatureGradient',
+  'debug_scalar',
+  'debug_vector1',
+  'debug_vector2',
+  'debug_vector3',
 })
 
 struct Radiation_columns {
@@ -708,38 +725,38 @@ terra one_sided_difference(y_minus  : double,
 
 end
 
--- Task for bugugging
-task Debug_DumpAndExit(tiles : ispace(int3d),
-                       Fluid : region(ispace(int3d), Fluid_columns),
-                       Fluid_copy : region(ispace(int3d), Fluid_columns),
-                       p_Fluid : partition(disjoint, Fluid, tiles),
-                       p_Fluid_copy : partition(disjoint, Fluid_copy, tiles),
-                       config : Config,
-                       Integrator_timeStep : int)
-where
-  reads writes(Fluid, Fluid_copy), Fluid * Fluid_copy
-do
-
---    for c in tiles do
-      -- Dump restart files
-      var dirname = [&int8](C.malloc(256))
-
-      -- Fluid
-      C.snprintf(dirname, 256, '%s/debug_fluid_iter%010d', config.Mapping.outDir, Integrator_timeStep)
-      var _1 = createDir(dirname)
-      Fluid_dump(_1, tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
-      --Fluid_dump(_1, tiles, dirname, Fluid, Fluid_copy, p_Fluid[c], p_Fluid_copy[c])
-
-      -- Particles
-      --C.snprintf(dirname, 256, '%s/debug_particles_iter%010d', config.Mapping.outDir, Integrator_timeStep)
-      --var _2 = createDir(dirname)
-      --Particles_dump(_2, tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
-      --C.free(dirname)
---    end
-
-    regentlib.assert(false, 'Hit Debug_DumpAndExit task')
-
-end
+---- Task for bugugging
+--task Debug_DumpAndExit(tiles : ispace(int3d),
+--                       Fluid : region(ispace(int3d), Fluid_columns),
+--                       Fluid_copy : region(ispace(int3d), Fluid_columns),
+--                       p_Fluid : partition(disjoint, Fluid, tiles),
+--                       p_Fluid_copy : partition(disjoint, Fluid_copy, tiles),
+--                       config : Config,
+--                       Integrator_timeStep : int)
+--where
+--  reads writes(Fluid, Fluid_copy), Fluid * Fluid_copy
+--do
+--
+----    for c in tiles do
+--      -- Dump restart files
+--      var dirname = [&int8](C.malloc(256))
+--
+--      -- Fluid
+--      C.snprintf(dirname, 256, '%s/debug_fluid_iter%010d', config.Mapping.outDir, Integrator_timeStep)
+--      var _1 = createDir(dirname)
+--      Fluid_dump(_1, tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
+--      --Fluid_dump(_1, tiles, dirname, Fluid, Fluid_copy, p_Fluid[c], p_Fluid_copy[c])
+--
+--      -- Particles
+--      --C.snprintf(dirname, 256, '%s/debug_particles_iter%010d', config.Mapping.outDir, Integrator_timeStep)
+--      --var _2 = createDir(dirname)
+--      --Particles_dump(_2, tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
+--      --C.free(dirname)
+----    end
+--
+--    regentlib.assert(false, 'Hit Debug_DumpAndExit task')
+--
+--end
 
 
 -------------------------------------------------------------------------------
@@ -873,6 +890,10 @@ where
   writes(Fluid.dissipation),
   writes(Fluid.dissipationFlux),
   writes(Fluid.pressure),
+  writes(Fluid.debug_scalar),
+  writes(Fluid.debug_vector1),
+  writes(Fluid.debug_vector2),
+  writes(Fluid.debug_vector3),
   writes(Fluid.rho),
   writes(Fluid.rhoEnergy),
   writes(Fluid.{rhoEnergyFluxX, rhoEnergyFluxY, rhoEnergyFluxZ}),
@@ -941,6 +962,10 @@ do
     Fluid[c].temperature_old_NSCBC = 0.0
     Fluid[c].velocity_inc = array(0.0, 0.0, 0.0)
     Fluid[c].temperature_inc = 0.0
+    Fluid[c].debug_scalar = 0.0
+    Fluid[c].debug_vector1 = array(0.0, 0.0, 0.0)
+    Fluid[c].debug_vector2 = array(0.0, 0.0, 0.0)
+    Fluid[c].debug_vector3 = array(0.0, 0.0, 0.0)
   end
 end
 
@@ -2624,6 +2649,7 @@ task Flow_GetFluxX(Fluid : region(ispace(int3d), Fluid_columns),
                    Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{centerCoordinates, cellWidth}),
+  reads writes(Fluid.{debug_vector1}),
   reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnergy, temperature}),
   reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ, temperatureGradient}),
   writes(Fluid.{rhoEnergyFluxX, rhoFluxX, rhoVelocityFluxX})
@@ -2760,7 +2786,6 @@ do
                                                  velocityGradientZ_stencil[2])
 
 
-
       var temperature_XFace = linear_interpolation(Fluid[c].centerCoordinates[0] + xCellWidth/2.0,
                                                    Fluid[c].centerCoordinates[0],
                                                    Fluid[c].centerCoordinates[0] + xCellWidth/2.0 + xCellWidth_stencil/2.0,
@@ -2784,6 +2809,8 @@ do
       rhoVelocityFluxX[0] += pressureFace
       Fluid[c].rhoVelocityFluxX = vv_sub(rhoVelocityFluxX, array(sigmaXX,sigmaYX,sigmaZX))
 
+      Fluid[c].debug_vector1 = vv_sub(rhoVelocityFluxX, array(sigmaXX,sigmaYX,sigmaZX))
+
       -- Energy Flux Flux
       Fluid[c].rhoEnergyFluxX = (rhoEnergyFace + pressureFace)*velocityFace[0] - (usigma-heatFlux)
     end
@@ -2806,6 +2833,7 @@ task Flow_GetFluxY(Fluid : region(ispace(int3d), Fluid_columns),
                    Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{centerCoordinates, cellWidth}),
+  reads writes(Fluid.{debug_vector2}),
   reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnergy, temperature}),
   reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ, temperatureGradient}),
   writes(Fluid.{rhoEnergyFluxY, rhoFluxY, rhoVelocityFluxY})
@@ -2962,6 +2990,8 @@ do
       rhoVelocityFluxY[1] += pressureFace
       Fluid[c].rhoVelocityFluxY = vv_sub(rhoVelocityFluxY, array(sigmaXY,sigmaYY,sigmaZY))
 
+      Fluid[c].debug_vector2 = vv_sub(rhoVelocityFluxY, array(sigmaXY,sigmaYY,sigmaZY))
+
       -- Energy Flux Flux
       Fluid[c].rhoEnergyFluxY = (rhoEnergyFace + pressureFace)*velocityFace[1] - (usigma-heatFlux)
     end
@@ -2983,6 +3013,7 @@ task Flow_GetFluxZ(Fluid : region(ispace(int3d), Fluid_columns),
                    Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{centerCoordinates, cellWidth}),
+  reads writes(Fluid.{debug_vector3}),
   reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnergy, temperature}),
   reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ, temperatureGradient}),
   writes(Fluid.{rhoEnergyFluxZ, rhoFluxZ, rhoVelocityFluxZ})
@@ -3140,6 +3171,8 @@ do
       rhoVelocityFluxZ[2] += pressureFace
       Fluid[c].rhoVelocityFluxZ = vv_sub(rhoVelocityFluxZ, array(sigmaXZ,sigmaYZ,sigmaZZ))
 
+      Fluid[c].debug_vector3 = vv_sub(rhoVelocityFluxZ, array(sigmaXZ,sigmaYZ,sigmaZZ))
+
       -- Energy Flux Flux
       Fluid[c].rhoEnergyFluxZ = (rhoEnergyFace + pressureFace)*velocityFace[2] - (usigma-heatFlux)
     end
@@ -3191,6 +3224,7 @@ task Flow_UpdateUsingFluxY(Fluid : region(ispace(int3d), Fluid_columns),
                            Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{cellWidth, rhoFluxY, rhoVelocityFluxY, rhoEnergyFluxY}),
+  reads writes (Fluid.{debug_scalar, debug_vector1, debug_vector2, debug_vector3}),
   reads writes atomic(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
   var BC_xBCLeft = config.BC.xBCLeft
@@ -3214,6 +3248,7 @@ do
 
       var tmp2 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxY, Fluid[(c+{0, -1, 0})%Fluid.bounds].rhoVelocityFluxY), double((-1))), yCellWidth)
       Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp2)
+
 
       Fluid[c].rhoEnergy_t += (-(Fluid[c].rhoEnergyFluxY-Fluid[(c+{0, -1, 0})%Fluid.bounds].rhoEnergyFluxY))/yCellWidth
     end
@@ -6194,13 +6229,13 @@ local function mkInstance() local INSTANCE = {}
                     Grid.zBnum, config.Grid.zNum)
 
 
-      Debug_DumpAndExit(tiles,
-                        Fluid,
-                        Fluid_copy,
-                        p_Fluid,
-                        p_Fluid_copy,
-                        config,
-                        Integrator_timeStep)
+--      Debug_DumpAndExit(tiles,
+--                        Fluid,
+--                        Fluid_copy,
+--                        p_Fluid,
+--                        p_Fluid_copy,
+--                        config,
+--                        Integrator_timeStep)
 
       -- Initialize conserved derivatives to 0
       Flow_InitializeTimeDerivatives(Fluid)
