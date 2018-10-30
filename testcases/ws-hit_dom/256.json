@@ -91,8 +91,8 @@
     "Particles" : {
         "initCase" : "Uniform",
         "restartDir" : "",
-        "initNum" : 507417972,
-        "maxNum" : 507417972,
+        "initNum" : 507418112,
+        "maxNum" : 507418112,
         "restitutionCoeff" : -1.0,
         "convectiveCoeff" : 108.072940481,
         "heatCapacity" : 506.0,
@@ -104,8 +104,7 @@
         "escapeRatioPerDir" : 0.005,
         "collisions" : false,
         "feeding" : { "type" : "OFF" },
-        "staggerFactor" : 1,
-        "parcelSize" : 1
+        "staggerFactor" : 1
     },
 
     "Radiation" : {
