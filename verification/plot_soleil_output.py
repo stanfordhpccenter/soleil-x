@@ -5,8 +5,8 @@ import h5py
 import matplotlib.pyplot as plt
 
 # list of things to plot
-data_to_plot = ['centerCoordinates','cellWidth','rho','pressure','velocity','temperature']
-#data_to_plot = ['centerCoordinates','cellWidth','rho','pressure','velocity','temperature','velocityGradientX','velocityGradientY','velocityGradientZ']
+scalar_data_to_plot = ['rho','pressure','temperature']
+vector_data_to_plot = ['cellWidth','velocity','velocityGradientX','velocityGradientY','velocityGradientZ','temperatureGradient']
 
 # --------------------------------------------------------------------------- #
 #                            Read Command Line Input                          #
@@ -54,8 +54,8 @@ z_slice_idx = 0
 x_values = f['centerCoordinates'][z_slice_idx,y_slice_idx,   :      ][:,0]
 y_values = f['centerCoordinates'][z_slice_idx,    :     ,x_slice_idx][:,1]
 z_values = f['centerCoordinates'][    :     ,y_slice_idx,x_slice_idx][:,2]
-print(x_values)
 
+# Plot cell centers in each direction
 plt.figure()
 plt.plot(x_values,np.zeros(len(x_values)),'o')
 plt.xlabel('x')
@@ -71,28 +71,28 @@ plt.plot(z_values,np.zeros(len(z_values)),'o')
 plt.xlabel('y')
 plt.title('z values')
 
-scalar_feild_name = 'rho'
-plt.figure()
-plt.plot(f['{}'.format(scalar_feild_name)][z_slice_idx,:,x_slice_idx], y_values, 'ok', label='Soleil-X')
-plt.xlabel('{}'.format(scalar_feild_name), fontsize = 20)
-plt.ylabel(r'$y \ [m]$', fontsize = 20)
-plt.legend()
-plt.savefig('{}.pdf'.format(scalar_feild_name), bbox_inches='tight')
+for scalar_feild_name in scalar_data_to_plot: 
+  #scalar_feild_name = 'rho'
+  plt.figure()
+  plt.plot(f['{}'.format(scalar_feild_name)][z_slice_idx,:,x_slice_idx], y_values, 'ok', label='Soleil-X')
+  plt.xlabel('{}'.format(scalar_feild_name), fontsize = 20)
+  plt.ylabel(r'$y \ [m]$', fontsize = 20)
+  #plt.legend()
+  #plt.savefig('{}.pdf'.format(scalar_feild_name), bbox_inches='tight')
 
-vector_feild_name = 'velocity'
-vector_component = 'x'
-idx = {'x':0, 'y':1, 'z':2}
-plt.figure()
-plt.plot(f['{}'.format(vector_feild_name)][z_slice_idx,:,x_slice_idx][:,idx[vector_component]], y_values, 'ok', label='Soleil-X')
-plt.xlabel('{}'.format(vector_feild_name), fontsize = 20)
-plt.ylabel(r'$y \ [m]$', fontsize = 20)
-plt.legend()
-plt.savefig('{}.pdf'.format(vector_feild_name), bbox_inches='tight')
+for vector_feild_name in vector_data_to_plot: 
+  for vector_component in ['x','y','z']:
+    #vector_feild_name = 'velocity'
+    #vector_component = 'x'
+    idx = {'x':0, 'y':1, 'z':2}
+    plt.figure()
+    plt.plot(f['{}'.format(vector_feild_name)][z_slice_idx,:,x_slice_idx][:,idx[vector_component]], y_values, 'ok', label='Soleil-X')
+    plt.xlabel('{}_{}'.format(vector_feild_name, vector_component), fontsize = 20)
+    plt.ylabel(r'$y \ [m]$', fontsize = 20)
+    #plt.legend()
+    #plt.savefig('{}.pdf'.format(vector_feild_name), bbox_inches='tight')
 
 plt.show()
-
-
-
 
 ###############################################################################
 #for feild_name in data_to_plot:

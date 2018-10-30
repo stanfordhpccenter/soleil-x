@@ -197,6 +197,7 @@ public:
     }
     // For certain whitelisted tasks, defer to the default mapping policy.
     else if (EQUALS(task.get_task_name(), "main") ||
+             STARTS_WITH(task.get_task_name(), "Debug_") ||
              STARTS_WITH(task.get_task_name(), "Console_Write") ||
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
              EQUALS(task.get_task_name(), "createDir") ||

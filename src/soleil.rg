@@ -1,5 +1,4 @@
 import "regent"
-
 -------------------------------------------------------------------------------
 -- IMPORTS
 -------------------------------------------------------------------------------
@@ -640,7 +639,8 @@ terra transform_uniform_to_nonuniform(x : double,
   var x_scaled_minus1_to_plus1 = linear_interpolation(x, x_min, x_max, -1.0, 1.0)
 
   -- map non-uniformly onto the interval -1 to 1
-  var x_non_uniform_minus1_to_plus1 = -1.0*cos(PI*(x_scaled_minus1_to_plus1+1.0)/2.0)
+  --var x_non_uniform_minus1_to_plus1 = -1.0*cos(PI*(x_scaled_minus1_to_plus1+1.0)/2.0)
+  var x_non_uniform_minus1_to_plus1 = x_scaled_minus1_to_plus1
 
   -- map non-uniform sample back to origional interval x_min to x_max
   return  linear_interpolation(x_non_uniform_minus1_to_plus1, -1.0, 1.0, x_min, x_max)
@@ -707,6 +707,40 @@ terra one_sided_difference(y_minus  : double,
   return (y_plus - y_minus)/(0.5*dx_minus + 0.5*dx_plus)
 
 end
+
+-- Task for bugugging
+task Debug_DumpAndExit(tiles : ispace(int3d),
+                       Fluid : region(ispace(int3d), Fluid_columns),
+                       Fluid_copy : region(ispace(int3d), Fluid_columns),
+                       p_Fluid : partition(disjoint, Fluid, tiles),
+                       p_Fluid_copy : partition(disjoint, Fluid_copy, tiles),
+                       config : Config,
+                       Integrator_timeStep : int)
+where
+  reads writes(Fluid, Fluid_copy), Fluid * Fluid_copy
+do
+
+--    for c in tiles do
+      -- Dump restart files
+      var dirname = [&int8](C.malloc(256))
+
+      -- Fluid
+      C.snprintf(dirname, 256, '%s/debug_fluid_iter%010d', config.Mapping.outDir, Integrator_timeStep)
+      var _1 = createDir(dirname)
+      Fluid_dump(_1, tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
+      --Fluid_dump(_1, tiles, dirname, Fluid, Fluid_copy, p_Fluid[c], p_Fluid_copy[c])
+
+      -- Particles
+      --C.snprintf(dirname, 256, '%s/debug_particles_iter%010d', config.Mapping.outDir, Integrator_timeStep)
+      --var _2 = createDir(dirname)
+      --Particles_dump(_2, tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
+      --C.free(dirname)
+--    end
+
+    regentlib.assert(false, 'Hit Debug_DumpAndExit task')
+
+end
+
 
 -------------------------------------------------------------------------------
 -- OTHER ROUTINES
@@ -857,6 +891,7 @@ where
   writes(Fluid.rho_old),
   writes(Fluid.rho_t),
   writes(Fluid.temperature),
+  writes(Fluid.temperatureGradient),
   writes(Fluid.velocity),
   writes(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ}),
   writes(Fluid.dudtBoundary),
@@ -877,6 +912,7 @@ do
     Fluid[c].velocityGradientY = array(0.0, 0.0, 0.0)
     Fluid[c].velocityGradientZ = array(0.0, 0.0, 0.0)
     Fluid[c].temperature = 0.0
+    Fluid[c].temperatureGradient = array(0.0, 0.0, 0.0)
     Fluid[c].rhoVelocity = array(0.0, 0.0, 0.0)
     Fluid[c].rhoEnergy = 0.0
     Fluid[c].rho_old = 0.0
@@ -1279,11 +1315,11 @@ do
   __demand(__openmp)
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      var tmpTemperature = (Fluid[c].pressure/(Flow_gasConstant*Fluid[c].rho))
-      var velocity = Fluid[c].velocity
       Fluid[c].rhoVelocity = vs_mul(Fluid[c].velocity, Fluid[c].rho)
+
+      var tmpTemperature = (Fluid[c].pressure/(Flow_gasConstant*Fluid[c].rho))
       var cv = (Flow_gasConstant/(Flow_gamma-1.0))
-      Fluid[c].rhoEnergy = Fluid[c].rho*((cv*tmpTemperature)+(0.5*dot(velocity, velocity)))
+      Fluid[c].rhoEnergy = Fluid[c].rho*((cv*tmpTemperature)+(0.5*dot(Fluid[c].velocity, Fluid[c].velocity)))
     end
   end
 end
@@ -1315,11 +1351,11 @@ do
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if (NSCBC_inflow_cell or NSCBC_outflow_cell) then
-      var tmpTemperature = (Fluid[c].pressure/(Flow_gasConstant*Fluid[c].rho))
-      var velocity = Fluid[c].velocity
       Fluid[c].rhoVelocity = vs_mul(Fluid[c].velocity, Fluid[c].rho)
+
+      var tmpTemperature = (Fluid[c].pressure/(Flow_gasConstant*Fluid[c].rho))
       var cv = (Flow_gasConstant/(Flow_gamma-1.0))
-      Fluid[c].rhoEnergy = Fluid[c].rho*((cv*tmpTemperature)+(0.5*dot(velocity, velocity)))
+      Fluid[c].rhoEnergy = Fluid[c].rho*((cv*tmpTemperature)+(0.5*dot(Fluid[c].velocity, Fluid[c].velocity)))
     end
   end
 end
@@ -1907,7 +1943,7 @@ do
     if NSCBC_inflow_cell  then
       -- forward one sided difference
       Fluid[c].velocityGradientX = vs_div(vv_sub(v100, c.velocity), 0.5*(dx100 + c.cellWidth[0]))
-      Fluid[c].temperatureGradient[0] = (T100-c.temperature)/(0.5*dx100 + c.cellWidth[0])
+      Fluid[c].temperatureGradient[0] = (T100-c.temperature)/(0.5*(dx100 + c.cellWidth[0]))
       -- central difference
       Fluid[c].velocityGradientY = vs_div(vv_sub(v010, v0_0), 0.5*dy010 + c.cellWidth[1] + 0.5*dy0_0)
       Fluid[c].velocityGradientZ = vs_div(vv_sub(v001, v00_), 0.5*dz001 + c.cellWidth[2] + 0.5*dz00_)
@@ -1917,7 +1953,7 @@ do
     if NSCBC_outflow_cell  then
       -- backward one sided difference
       Fluid[c].velocityGradientX = vs_div(vv_sub(c.velocity, v_00), 0.5*(c.cellWidth[0] + dx_00))
-      Fluid[c].temperatureGradient[0] = (c.temperature-T_00)/(0.5*dx_00 + c.cellWidth[0])
+      Fluid[c].temperatureGradient[0] = (c.temperature-T_00)/(0.5*(dx_00 + c.cellWidth[0]))
       -- central difference
       Fluid[c].velocityGradientY = vs_div(vv_sub(v010, v0_0), 0.5*dy010 + c.cellWidth[1] + 0.5*dy0_0)
       Fluid[c].velocityGradientZ = vs_div(vv_sub(v001, v00_), 0.5*dz001 + c.cellWidth[2] + 0.5*dz00_)
@@ -2753,6 +2789,7 @@ do
     end
   end
 end
+
 
 __demand(__parallel, __cuda)
 task Flow_GetFluxY(Fluid : region(ispace(int3d), Fluid_columns),
@@ -6155,6 +6192,15 @@ local function mkInstance() local INSTANCE = {}
                     Grid.xBnum, config.Grid.xNum,
                     Grid.yBnum, config.Grid.yNum,
                     Grid.zBnum, config.Grid.zNum)
+
+
+      Debug_DumpAndExit(tiles,
+                        Fluid,
+                        Fluid_copy,
+                        p_Fluid,
+                        p_Fluid_copy,
+                        config,
+                        Integrator_timeStep)
 
       -- Initialize conserved derivatives to 0
       Flow_InitializeTimeDerivatives(Fluid)

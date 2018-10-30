@@ -65,7 +65,7 @@
         "startIter" : 0,
         "startTime" : 0.0,
         "maxIter" : 1000,
-        "cfl" : 0.5,
+        "cfl" : 0.1,
         "fixedDeltaTime" : -1.0,
         "rkOrder" : 4
     },
@@ -108,9 +108,7 @@
      },
  
      "Radiation" : {
-         "type" : "Algebraic",
-         "absorptivity" : 1.0,
-         "intensity" : 1e3
+         "type" : "OFF"
      },
  
      "IO" : {
