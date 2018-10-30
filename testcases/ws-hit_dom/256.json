@@ -66,7 +66,7 @@
         "startTime" : 0.0,
         "maxIter" : 100,
         "cfl" : -1.0,
-        "fixedDeltaTime" : 1.6769157947025218e-05,
+        "fixedDeltaTime" : 1.3238808905546225e-05,
         "rkOrder" : 4
     },
 
@@ -91,8 +91,8 @@
     "Particles" : {
         "initCase" : "Uniform",
         "restartDir" : "",
-        "initNum" : 507418112,
-        "maxNum" : 507418112,
+        "initNum" : 507417972,
+        "maxNum" : 507417972,
         "restitutionCoeff" : -1.0,
         "convectiveCoeff" : 108.072940481,
         "heatCapacity" : 506.0,
@@ -104,7 +104,7 @@
         "escapeRatioPerDir" : 0.005,
         "collisions" : false,
         "feeding" : { "type" : "OFF" },
-        "staggerFactor" : 7406,
+        "staggerFactor" : 1,
         "parcelSize" : 1
     },
 
