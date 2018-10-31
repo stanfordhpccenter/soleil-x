@@ -37,10 +37,7 @@ for k in f.keys() :
 print('')
 
 # Get the data
-pressure_hdf = f['pressure']
 rho_hdf = f['rho']
-velocity_hdf = f['velocity']
-temperature_hdf = f['temperature']
 
 # Note that the hdf5 files are dumped in [k,j,i] or [z,y,x] format
 Nx = f['rho'].shape[2]
@@ -85,8 +82,6 @@ for scalar_feild_name in scalar_data_to_plot:
 
 for vector_feild_name in vector_data_to_plot: 
   for vector_component in ['x','y','z']:
-    #vector_feild_name = 'velocity'
-    #vector_component = 'x'
     idx = {'x':0, 'y':1, 'z':2}
     plt.figure()
     plt.plot(f['{}'.format(vector_feild_name)][z_slice_idx,:,x_slice_idx][:,idx[vector_component]], y_values, 'ok', label='Soleil-X')

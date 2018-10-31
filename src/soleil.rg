@@ -885,15 +885,15 @@ end
 __demand(__parallel, __cuda)
 task Flow_InitializeCell(Fluid : region(ispace(int3d), Fluid_columns))
 where
+  writes(Fluid.debug_scalar),
+  writes(Fluid.debug_vector1),
+  writes(Fluid.debug_vector2),
+  writes(Fluid.debug_vector3),
   writes(Fluid.centerCoordinates),
   writes(Fluid.cellWidth),
   writes(Fluid.dissipation),
   writes(Fluid.dissipationFlux),
   writes(Fluid.pressure),
-  writes(Fluid.debug_scalar),
-  writes(Fluid.debug_vector1),
-  writes(Fluid.debug_vector2),
-  writes(Fluid.debug_vector3),
   writes(Fluid.rho),
   writes(Fluid.rhoEnergy),
   writes(Fluid.{rhoEnergyFluxX, rhoEnergyFluxY, rhoEnergyFluxZ}),
@@ -2649,7 +2649,6 @@ task Flow_GetFluxX(Fluid : region(ispace(int3d), Fluid_columns),
                    Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{centerCoordinates, cellWidth}),
-  reads writes(Fluid.{debug_vector1}),
   reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnergy, temperature}),
   reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ, temperatureGradient}),
   writes(Fluid.{rhoEnergyFluxX, rhoFluxX, rhoVelocityFluxX})
@@ -2809,7 +2808,7 @@ do
       rhoVelocityFluxX[0] += pressureFace
       Fluid[c].rhoVelocityFluxX = vv_sub(rhoVelocityFluxX, array(sigmaXX,sigmaYX,sigmaZX))
 
-      Fluid[c].debug_vector1 = vv_sub(rhoVelocityFluxX, array(sigmaXX,sigmaYX,sigmaZX))
+      --Fluid[c].debug_vector1 = vv_sub(rhoVelocityFluxX, array(sigmaXX,sigmaYX,sigmaZX))
 
       -- Energy Flux Flux
       Fluid[c].rhoEnergyFluxX = (rhoEnergyFace + pressureFace)*velocityFace[0] - (usigma-heatFlux)
@@ -2832,6 +2831,7 @@ task Flow_GetFluxY(Fluid : region(ispace(int3d), Fluid_columns),
                    Grid_yBnum : int32, Grid_yNum : int32,
                    Grid_zBnum : int32, Grid_zNum : int32)
 where
+  reads writes(Fluid.{debug_vector1}),
   reads(Fluid.{centerCoordinates, cellWidth}),
   reads writes(Fluid.{debug_vector2}),
   reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnergy, temperature}),
@@ -2990,7 +2990,7 @@ do
       rhoVelocityFluxY[1] += pressureFace
       Fluid[c].rhoVelocityFluxY = vv_sub(rhoVelocityFluxY, array(sigmaXY,sigmaYY,sigmaZY))
 
-      Fluid[c].debug_vector2 = vv_sub(rhoVelocityFluxY, array(sigmaXY,sigmaYY,sigmaZY))
+      Fluid[c].debug_vector1    = vv_sub(rhoVelocityFluxY, array(sigmaXY,sigmaYY,sigmaZY))
 
       -- Energy Flux Flux
       Fluid[c].rhoEnergyFluxY = (rhoEnergyFace + pressureFace)*velocityFace[1] - (usigma-heatFlux)
@@ -3171,7 +3171,7 @@ do
       rhoVelocityFluxZ[2] += pressureFace
       Fluid[c].rhoVelocityFluxZ = vv_sub(rhoVelocityFluxZ, array(sigmaXZ,sigmaYZ,sigmaZZ))
 
-      Fluid[c].debug_vector3 = vv_sub(rhoVelocityFluxZ, array(sigmaXZ,sigmaYZ,sigmaZZ))
+      --Fluid[c].debug_vector3    = vv_sub(rhoVelocityFluxZ, array(sigmaXZ,sigmaYZ,sigmaZZ))
 
       -- Energy Flux Flux
       Fluid[c].rhoEnergyFluxZ = (rhoEnergyFace + pressureFace)*velocityFace[2] - (usigma-heatFlux)
@@ -3211,6 +3211,8 @@ do
       var tmp1 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxX, Fluid[(c+{-1, 0, 0})%Fluid.bounds].rhoVelocityFluxX), double((-1))), xCellWidth)
       Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp1)
 
+      --Fluid[c].debug_vector1 = tmp1
+
       Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxX-Fluid[(c+{-1, 0, 0})%Fluid.bounds].rhoEnergyFluxX))/xCellWidth)
     end
   end
@@ -3223,6 +3225,7 @@ task Flow_UpdateUsingFluxY(Fluid : region(ispace(int3d), Fluid_columns),
                            Grid_yBnum : int32, Grid_yNum : int32,
                            Grid_zBnum : int32, Grid_zNum : int32)
 where
+  reads writes(Fluid.{debug_vector2}),
   reads(Fluid.{cellWidth, rhoFluxY, rhoVelocityFluxY, rhoEnergyFluxY}),
   reads writes (Fluid.{debug_scalar, debug_vector1, debug_vector2, debug_vector3}),
   reads writes atomic(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
@@ -3249,6 +3252,7 @@ do
       var tmp2 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxY, Fluid[(c+{0, -1, 0})%Fluid.bounds].rhoVelocityFluxY), double((-1))), yCellWidth)
       Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp2)
 
+      Fluid[c].debug_vector2 = tmp2
 
       Fluid[c].rhoEnergy_t += (-(Fluid[c].rhoEnergyFluxY-Fluid[(c+{0, -1, 0})%Fluid.bounds].rhoEnergyFluxY))/yCellWidth
     end
@@ -3262,6 +3266,7 @@ task Flow_UpdateUsingFluxZ(Fluid : region(ispace(int3d), Fluid_columns),
                            Grid_yBnum : int32, Grid_yNum : int32,
                            Grid_zBnum : int32, Grid_zNum : int32)
 where
+  reads writes(Fluid.{debug_vector3}),
   reads(Fluid.{cellWidth, rhoFluxZ, rhoVelocityFluxZ, rhoEnergyFluxZ}),
   reads writes atomic(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
@@ -3286,6 +3291,8 @@ do
 
       var tmp3 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxZ, Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoVelocityFluxZ), double((-1))), zCellWidth)
       Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp3)
+
+      Fluid[c].debug_vector3 = tmp3
 
       Fluid[c].rhoEnergy_t += (-(Fluid[c].rhoEnergyFluxZ-Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoEnergyFluxZ))/zCellWidth
     end
