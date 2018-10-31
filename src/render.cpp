@@ -17,6 +17,7 @@
 #include "legion_visualization.h"
 #include "legion_c_util.h"
 #include "image_reduction_mapper.h"
+#include <unistd.h>
 
 using namespace Legion;
 
@@ -33,6 +34,7 @@ extern "C" {
   static void render_task(const Task *task,
                           const std::vector<PhysicalRegion> &regions,
                           Context ctx, HighLevelRuntime *runtime) {
+    std::cout << "in render_task" << getpid() << " " << task->get_unique_id() << std::endl;
   }
   
   
@@ -43,7 +45,7 @@ extern "C" {
     gImageReductionMapperID = mapperID;
     gRenderTaskID = Legion::HighLevelRuntime::generate_static_task_id();
     TaskVariantRegistrar registrar(gRenderTaskID, "render_task");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
     Runtime::preregister_task_variant<render_task>(registrar, "render_task");
     
   }
@@ -54,9 +56,11 @@ extern "C" {
                   legion_context_t ctx_,
                   legion_mapper_id_t sampleId,
                   legion_physical_region_t* fluid_,
-                  FieldID* fluidFields,
+                  FieldID fluidFields[],
+                  int numFluidFields,
                   legion_physical_region_t* particles_,
-                  FieldID* particlesFields,
+                  FieldID particlesFields[],
+                  int numParticlesFields,
                   legion_index_space_t tiles_,
                   legion_logical_partition_t fluidPartition_,
                   legion_logical_partition_t particlesPartition_
@@ -89,23 +93,17 @@ extern "C" {
     const FieldAccessor<READ_ONLY, float, 1> particles_position_acc(*particles, particles_fields[0]);
     const FieldAccessor<READ_ONLY, float, 1> particles_position_history_acc(*particles, particles_fields[1]);
     
-//    IndexSpace tiles = CObjectWrapper::unwrap(tiles_);
-//    LogicalPartition fluidPartition = CObjectWrapper::unwrap(fluidPartition_);
-//    LogicalPartition particlesPartition = CObjectWrapper::unwrap(particlesPartition_);
-
     ArgumentMap argMap;
     IndexTaskLauncher renderLauncher(gRenderTaskID, compositor->everywhereDomain(), TaskArgument(&imageDescriptor, sizeof(imageDescriptor)), argMap, Predicate::TRUE_PRED, false, gImageReductionMapperID);
     
     RegionRequirement req0(fluid->get_logical_region(), 0, READ_ONLY, SIMULTANEOUS, fluid->get_logical_region(), gImageReductionMapperID);
-    unsigned numFluidFields = sizeof(fluidFields) / sizeof(fluidFields[0]);
-    for(unsigned i = 0; i < numFluidFields; ++i) req0.add_field(fluidFields[i]);
+    for(int i = 0; i < numFluidFields; ++i) req0.add_field(fluidFields[i]);
     renderLauncher.add_region_requirement(req0);
     
     RegionRequirement req1(particles->get_logical_region(), 0, READ_ONLY, SIMULTANEOUS, particles->get_logical_region(), gImageReductionMapperID);
-    unsigned numParticlesFields = sizeof(particlesFields) / sizeof(particlesFields[0]);
-    for(unsigned i = 0; i < numParticlesFields; ++i) req1.add_field(particlesFields[i]);
+    for(int i = 0; i < numParticlesFields; ++i) req1.add_field(particlesFields[i]);
     renderLauncher.add_region_requirement(req1);
-    
+
     RegionRequirement req2(compositor->sourceImage(), 0, READ_ONLY, EXCLUSIVE, compositor->sourceImage(), gImageReductionMapperID);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_R);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_G);
@@ -116,9 +114,7 @@ extern "C" {
     
     ImageReductionMapper::clearPlacement(logicalPartition);
 
-    MustEpochLauncher mustEpochLauncher;
-    mustEpochLauncher.add_index_task(renderLauncher);
-    FutureMap futures = runtime->execute_must_epoch(ctx, mustEpochLauncher);
+    FutureMap futures = runtime->execute_index_space(ctx, renderLauncher);
     futures.wait_all_results();
   }
   

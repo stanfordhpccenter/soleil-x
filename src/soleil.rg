@@ -5614,15 +5614,20 @@ local function mkInstance() local INSTANCE = {}
   -----------------------------------------------------------------------------
 
   function INSTANCE.Visualize(config) return rquote
-    -- Render(Fluid, Particles, tiles, p_Fluid, p_Particles)
 
+    var numFluidFields : int = 37
+    var fluidFields : C.legion_field_id_t[numFluidFields] = __fields(Fluid)
+    var numParticlesFields : int = 20
+    var particlesFields : C.legion_field_id_t[numParticlesFields] = __fields(Particles)
     render.cxx_render(__runtime(),
                     __context(),
                     config.Mapping.sampleId,
                     __physical(Fluid),
-                    __fields(Fluid),
+                    fluidFields,
+                    numFluidFields,
                     __physical(Particles),
-                    __fields(Particles),
+                    particlesFields,
+                    numParticlesFields,
                     __raw(tiles),
                     __raw(p_Fluid),
                     __raw(p_Particles))

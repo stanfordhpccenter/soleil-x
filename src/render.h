@@ -34,8 +34,10 @@ extern "C" {
                   legion_mapper_id_t sampleId,
                   legion_physical_region_t *fluid_,
                   legion_field_id_t* fluidFields_,
+                  int numFluidFields,
                   legion_physical_region_t *particles_,
                   legion_field_id_t* particlesFields_,
+                  int numParticlesFields,
                   legion_index_space_t tiles,
                   legion_logical_partition_t p_fluid,
                   legion_logical_partition_t p_particles
