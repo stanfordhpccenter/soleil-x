@@ -3,16 +3,29 @@ import json
 from pprint import pprint
 import matplotlib.pyplot as plt
 import sys
+import os
 import h5py
 
 ##############################################################################
 #                                 User Input                                 #
 ##############################################################################
+if len(sys.argv) == 2:
+    # Data to postprocess
+    filename = sys.argv[1]
+else :
+    print('*************************************')
+    print('Error: Not enough command line arguments')
+    print('Useage: Pick one of the following')
+    print('$ python {} your_data.hdf'.format(sys.argv[0]))
+    print('*************************************')
+    sys.exit(2)
 
-soleil_input_file = '/home/lalo/Desktop/soleil_x_build/soleil_x/verification/poiseuille/poiseuille.json'
 
-hdf_filename = "/home/lalo/Desktop/soleil_x_build/soleil_x/verification/poiseuille/sample0/fluid_iter0000100000/0,0,0-15,65,15.hdf"
+dir_name = os.path.join(os.environ['SOLEIL_DIR'], 'verification/poiseuille')
 
+soleil_input_file = os.path.join(dir_name, 'poiseuille.json')
+#hdf_filename = os.path.join(dir_name, 'sample0/fluid_iter0000008000/0,0,0-31,33,31.hdf')
+hdf_filename = filename
 
 ##############################################################################
 #                           Read Soleil Input File                           #
@@ -32,15 +45,6 @@ constantVisc = data["Flow"]["constantVisc"]
 if not (data["Grid"]["origin"] == [0.0,0.0,0.0]):
   sys.exit() 
 
-def u(y):
-  return -(g/constantVisc)*np.power(y,2.0)/2.0 + (g/constantVisc)*(yWidth/2.0) * y
-
-# Get y values at slice
-dy = yWidth/yNum
-
-y_slice = np.linspace(0.0+(dy/2.0), yWidth-(dy/2.0), yNum)
-
-u_slice_analytical = u(y_slice)
 
 ##############################################################################
 #                          Read Soleil Output Data                           #
@@ -48,13 +52,14 @@ u_slice_analytical = u(y_slice)
 
 f = h5py.File(hdf_filename, 'r')
 
-## List all groups
-#print('Data Sets:')
-#for k in f.keys() :
-#  print(k)
-#print('')
+# List all groups
+print('Data Sets:')
+for k in f.keys() :
+  print(k)
+print('')
 
 # Get the data
+centerCoordinates = f['centerCoordinates']
 pressure    = f['pressure']
 rho         = f['rho']
 velocity    = f['velocity']
@@ -64,6 +69,7 @@ remove_y_ghost = True
 
 if remove_y_ghost:
   Ny = rho.shape[1]
+  centerCoordinates = centerCoordinates[:,1:Ny-1,:]
   pressure = pressure[:,1:Ny-1,:]
   rho = rho[:,1:Ny-1,:]
   velocity = velocity[:,1:Ny-1,:]
@@ -83,19 +89,24 @@ z_slice_idx = 0
 #pressure_slice = pressure[z_slice_idx,:,x_slice_idx][1:Ny-1]
 #temperature_slice = temperature[z_slice_idx,:,x_slice_idx][1:Ny-1]
 
-u_slice = velocity[z_slice_idx,:,x_slice_idx][:,0]
-rho_slice = rho[z_slice_idx,:,x_slice_idx]
-pressure_slice = pressure[z_slice_idx,:,x_slice_idx]
+y_slice =     centerCoordinates[z_slice_idx,:,x_slice_idx][:,1]
+u_slice    =           velocity[z_slice_idx,:,x_slice_idx][:,0]
+rho_slice  =                rho[z_slice_idx,:,x_slice_idx]
+pressure_slice =       pressure[z_slice_idx,:,x_slice_idx]
 temperature_slice = temperature[z_slice_idx,:,x_slice_idx]
+
+##############################################################################
+#                          Compute Analytical Solution                       #
+##############################################################################
+
+def u(y):
+  return -(g/constantVisc)*np.power(y,2.0)/2.0 + (g/constantVisc)*(yWidth/2.0) * y
+
+u_slice_analytical = u(y_slice)
 
 ##############################################################################
 #                          Read Soleil Output Data                           #
 ##############################################################################
-
-#u_analytical = np.zeros([Nz,Ny,Nx])
-#for i in xrange(Nx):
-# for k in xrange(Nz):
-#   u_analytical[k,:,i] = u_slice_analytical 
 
 L2_error = np.linalg.norm(u_slice-u_slice_analytical)
 print('L2 Error = {}'.format(L2_error))
@@ -109,4 +120,3 @@ plt.legend()
 plt.savefig('poiseuille_solutions.pdf', bbox_inches='tight')
 
 plt.show()
-
