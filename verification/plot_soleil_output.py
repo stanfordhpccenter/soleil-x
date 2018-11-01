@@ -9,7 +9,8 @@ import matplotlib.pyplot as plt
 #vector_data_to_plot = ['cellWidth','velocity','velocityGradientX','velocityGradientY','velocityGradientZ','temperatureGradient']
 
 scalar_data_to_plot = ['rho','pressure','temperature', 'debug_scalar']
-vector_data_to_plot = ['velocity','velocityGradientY', 'debug_vector1', 'debug_vector2', 'debug_vector3']
+#vector_data_to_plot = ['velocity','velocityGradientX','velocityGradientY','velocityGradientZ', 'debug_vector1', 'debug_vector2', 'debug_vector3']
+vector_data_to_plot = ['velocity','velocityGradientY','debug_vector1','debug_vector2','debug_vector3']
 
 # --------------------------------------------------------------------------- #
 #                            Read Command Line Input                          #
