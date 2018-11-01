@@ -606,10 +606,16 @@ end
 --               so no ghost cells accounted for here
 -- Output:
 --     location of cell center
-terra uniform_cell_center(x_min : double,
-                          x_max : double,
-                          Nx    : uint64,
-                          i     : uint64) : double
+--terra uniform_cell_center(x_min : double,
+--                          x_max : double,
+--                          Nx    : uint64,
+--                          i     : uint64) : double
+
+local __demand(__inline)
+task uniform_cell_center(x_min : double,
+                         x_max : double,
+                         Nx    : uint64,
+                         i     : uint64) : double
 
   var dx = (x_max-x_min)/Nx
   return x_min + i*dx + dx/2.0
@@ -628,11 +634,17 @@ end
 --     b = upper point on y axis 
 -- Output:
 --     y location on line at x=xi
-terra linear_interpolation(xi : double,
-                           alpha : double,
-                           beta  : double,
-                           a     : double,
-                           b     : double) : double
+--terra linear_interpolation(xi : double,
+--                           alpha : double,
+--                           beta  : double,
+--                           a     : double,
+--                           b     : double) : double
+local __demand(__inline)
+task linear_interpolation(xi : double,
+                          alpha : double,
+                          beta  : double,
+                          a     : double,
+                          b     : double) : double
 
   --return (b-a)/(beta-alpha)*xi + (a - (b-a)/(beta-alpha)*alpha)
   return (b-a)/(beta-alpha)*(xi-alpha) + a
@@ -648,9 +660,13 @@ end
 --     x_max = domain maximum 
 -- Output:
 --     x location on a non-uniform mesh
-terra transform_uniform_to_nonuniform(x : double,
-                                      x_min : double,
-                                      x_max : double) : double
+--terra transform_uniform_to_nonuniform(x : double,
+--                                      x_min : double,
+--                                      x_max : double) : double
+local __demand(__inline)
+task transform_uniform_to_nonuniform(x : double,
+                                     x_min : double,
+                                     x_max : double) : double
 
   -- map x onto the interval -1 to 1
   var x_scaled_minus1_to_plus1 = linear_interpolation(x, x_min, x_max, -1.0, 1.0)
@@ -677,10 +693,15 @@ end
 --               so no ghost cells accounted for here
 -- Output:
 --     x location on a non-uniform mesh
-terra nonuniform_cell_center(x_min : double,
-                             x_max : double,
-                             Nx    : uint64,
-                             i     : uint64) : double
+--terra nonuniform_cell_center(x_min : double,
+--                             x_max : double,
+--                             Nx    : uint64,
+--                             i     : uint64) : double
+local __demand(__inline)
+task nonuniform_cell_center(x_min : double,
+                            x_max : double,
+                            Nx    : uint64,
+                            i     : uint64) : double
 
   var x_uniform = uniform_cell_center(x_min, x_max, Nx, i)
   return transform_uniform_to_nonuniform(x_uniform, x_min, x_max)
@@ -3433,7 +3454,7 @@ do
         var lambda_4 = Fluid[c_bnd].velocity[0]
         var lambda_5 = Fluid[c_bnd].velocity[0] + c_sound
 
-        var drho_dx = (Fluid[c_bnd].rho - Fluid[c_int].rho) / (0.5*Fluid[c_int].cellWidth[0] + 0.5*Fluid[c_bnd].cellWidth[0])
+        var drho_dx = (Fluid[c_bnd].rho         - Fluid[c_int].rho        ) / (0.5*Fluid[c_int].cellWidth[0] + 0.5*Fluid[c_bnd].cellWidth[0])
         var dp_dx   = (Fluid[c_bnd].pressure    - Fluid[c_int].pressure   ) / (0.5*Fluid[c_int].cellWidth[0] + 0.5*Fluid[c_bnd].cellWidth[0])
         var du_dx   = (Fluid[c_bnd].velocity[0] - Fluid[c_int].velocity[0]) / (0.5*Fluid[c_int].cellWidth[0] + 0.5*Fluid[c_bnd].cellWidth[0])
         var dv_dx   = (Fluid[c_bnd].velocity[1] - Fluid[c_int].velocity[1]) / (0.5*Fluid[c_int].cellWidth[0] + 0.5*Fluid[c_bnd].cellWidth[0])
@@ -4458,23 +4479,23 @@ end
 -------------------------------------------------------------------------------
 
 __demand(__inline)
-task TrilinearInterpolateVelocity(xyz : double[3],
-                                  c000 : double[3],
-                                  c100 : double[3],
-                                  c010 : double[3],
-                                  c110 : double[3],
-                                  c001 : double[3],
-                                  c101 : double[3],
-                                  c011 : double[3],
-                                  c111 : double[3],
-                                  xyz000 : double[3],
-                                  xyz100 : double[3],
-                                  xyz010 : double[3],
-                                  xyz110 : double[3],
-                                  xyz001 : double[3],
-                                  xyz101 : double[3],
-                                  xyz011 : double[3],
-                                  xyz111 : double[3])
+task TrilinearInterpolateVector(xyz : double[3],
+                                c000 : double[3],
+                                c100 : double[3],
+                                c010 : double[3],
+                                c110 : double[3],
+                                c001 : double[3],
+                                c101 : double[3],
+                                c011 : double[3],
+                                c111 : double[3],
+                                xyz000 : double[3],
+                                xyz100 : double[3],
+                                xyz010 : double[3],
+                                xyz110 : double[3],
+                                xyz001 : double[3],
+                                xyz101 : double[3],
+                                xyz011 : double[3],
+                                xyz111 : double[3])
 
   var dX = (xyz[0] - xyz000[0])/(xyz100[0] - xyz000[0])
   var dY = (xyz[1] - xyz000[1])/(xyz010[1] - xyz000[1])
@@ -4740,11 +4761,11 @@ do
     end
   end
 
-  return TrilinearInterpolateVelocity(xyz, v000, v100, v010, v110, v001, v101, v011, v111, xyz000, xyz100, xyz010, xyz110, xyz001, xyz101, xyz011, xyz111)
+  return TrilinearInterpolateVector(xyz, v000, v100, v010, v110, v001, v101, v011, v111, xyz000, xyz100, xyz010, xyz110, xyz001, xyz101, xyz011, xyz111)
 end
 
 __demand(__inline)
-task TrilinearInterpolateTemp(xyz : double[3],
+task TrilinearInterpolateScalar(xyz : double[3],
                               c000 : double,
                               c100 : double,
                               c010 : double,
@@ -5024,7 +5045,7 @@ do
     end
   end
 
-  return TrilinearInterpolateTemp(xyz, v000, v100, v010, v110, v001, v101, v011, v111, xyz000, xyz100, xyz010, xyz110, xyz001, xyz101, xyz011, xyz111)
+  return TrilinearInterpolateScalar(xyz, v000, v100, v010, v110, v001, v101, v011, v111, xyz000, xyz100, xyz010, xyz110, xyz001, xyz101, xyz011, xyz111)
 end
 
 __demand(__parallel, __cuda)
@@ -6361,7 +6382,7 @@ local function mkInstance() local INSTANCE = {}
                                              Grid.xBnum, config.Grid.xNum,
                                              Grid.yBnum, config.Grid.yNum,
                                              Grid.zBnum, config.Grid.zNum)
-        -- CHECK: Should this be a volume average?
+        -- TODO CHECK: Should this be a volume average?
         Flow_averagePD /= config.Grid.xNum * config.Grid.yNum * config.Grid.zNum
 
         Flow_ResetDissipation(Fluid)
@@ -6460,6 +6481,7 @@ local function mkInstance() local INSTANCE = {}
           for c in tiles do
             Radiation_AccumulateParticleValues(p_Particles[c], p_Fluid[c], p_Radiation[c])
           end
+          -- TODO: Radiation not updated for non-uniform mesh
           var Radiation_xCellWidth = (config.Grid.xWidth/config.Radiation.u.DOM.xNum)
           var Radiation_yCellWidth = (config.Grid.yWidth/config.Radiation.u.DOM.yNum)
           var Radiation_zCellWidth = (config.Grid.zWidth/config.Radiation.u.DOM.zNum)
