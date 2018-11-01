@@ -45,7 +45,7 @@ extern "C" {
     gImageReductionMapperID = mapperID;
     gRenderTaskID = Legion::HighLevelRuntime::generate_static_task_id();
     TaskVariantRegistrar registrar(gRenderTaskID, "render_task");
-    registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     Runtime::preregister_task_variant<render_task>(registrar, "render_task");
     
   }
