@@ -16,6 +16,7 @@ Exports.ParticlesBC = Enum('Periodic','Bounce','Disappear')
 Exports.ViscosityModel = Enum('Constant','PowerLaw','Sutherland')
 Exports.FlowInitCase = Enum('Uniform','Random','Restart','Perturbed','TaylorGreen2DVortex','TaylorGreen3DVortex')
 Exports.ParticlesInitCase = Enum('Random','Restart','Uniform')
+Exports.GridType = Enum('Uniform','Stretched')
 Exports.TempProfile = Union{
   Constant = {
     temperature = double,
@@ -127,6 +128,10 @@ Exports.Config = {
     xWidth = double,
     yWidth = double,
     zWidth = double,
+    -- grid type in each direction
+    xType = Exports.GridType,
+    yType = Exports.GridType,
+    zType = Exports.GridType,
   },
   BC = {
     xBCLeft = Exports.FlowBC,

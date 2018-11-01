@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 scalar_data_to_plot = ['rho','pressure','temperature', 'debug_scalar']
 #vector_data_to_plot = ['velocity','velocityGradientX','velocityGradientY','velocityGradientZ', 'debug_vector1', 'debug_vector2', 'debug_vector3']
-vector_data_to_plot = ['velocity','velocityGradientY','debug_vector1','debug_vector2','debug_vector3']
+vector_data_to_plot = ['cellWidth','velocity','velocityGradientY','debug_vector1','debug_vector2','debug_vector3']
 
 # --------------------------------------------------------------------------- #
 #                            Read Command Line Input                          #
@@ -56,21 +56,21 @@ x_values = f['centerCoordinates'][z_slice_idx,y_slice_idx,   :      ][:,0]
 y_values = f['centerCoordinates'][z_slice_idx,    :     ,x_slice_idx][:,1]
 z_values = f['centerCoordinates'][    :     ,y_slice_idx,x_slice_idx][:,2]
 
-## Plot cell centers in each direction
-#plt.figure()
-#plt.plot(x_values,np.zeros(len(x_values)),'o')
-#plt.xlabel('x')
-#plt.title('x values')
-#
-#plt.figure()
-#plt.plot(y_values,np.zeros(len(y_values)),'o')
-#plt.xlabel('y')
-#plt.title('y values')
-#
-#plt.figure()
-#plt.plot(z_values,np.zeros(len(z_values)),'o')
-#plt.xlabel('y')
-#plt.title('z values')
+# Plot cell centers in each direction
+plt.figure()
+plt.plot(x_values,np.zeros(len(x_values)),'o')
+plt.xlabel('x')
+plt.title('x values')
+
+plt.figure()
+plt.plot(y_values,np.zeros(len(y_values)),'o')
+plt.xlabel('y')
+plt.title('y values')
+
+plt.figure()
+plt.plot(z_values,np.zeros(len(z_values)),'o')
+plt.xlabel('y')
+plt.title('z values')
 
 for scalar_feild_name in scalar_data_to_plot: 
   #scalar_feild_name = 'rho'

@@ -656,8 +656,8 @@ terra transform_uniform_to_nonuniform(x : double,
   var x_scaled_minus1_to_plus1 = linear_interpolation(x, x_min, x_max, -1.0, 1.0)
 
   -- map non-uniformly onto the interval -1 to 1
-  --var x_non_uniform_minus1_to_plus1 = -1.0*cos(PI*(x_scaled_minus1_to_plus1+1.0)/2.0)
-  var x_non_uniform_minus1_to_plus1 = x_scaled_minus1_to_plus1
+  var x_non_uniform_minus1_to_plus1 = -1.0*cos(PI*(x_scaled_minus1_to_plus1+1.0)/2.0)
+  --var x_non_uniform_minus1_to_plus1 = x_scaled_minus1_to_plus1
 
   -- map non-uniform sample back to origional interval x_min to x_max
   return  linear_interpolation(x_non_uniform_minus1_to_plus1, -1.0, 1.0, x_min, x_max)
@@ -971,6 +971,7 @@ end
 
 __demand(__parallel, __cuda)
 task Flow_InitializeGeometry(Fluid : region(ispace(int3d), Fluid_columns),
+                             Grid_xType : SCHEMA.GridType, Grid_yType : SCHEMA.GridType, Grid_zType : SCHEMA.GridType,
                              Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
                              Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
                              Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
@@ -989,14 +990,35 @@ do
     var zPosGhost = is_zPosGhost(cell, Grid_zBnum, Grid_zNum)
 
     if not (xNegGhost or xPosGhost) then
-      cell.centerCoordinates[0] = nonuniform_cell_center(Grid_xOrigin, Grid_xOrigin + Grid_xWidth , Grid_xNum, cell.x-Grid_xBnum)
+      if (Grid_xType == SCHEMA.GridType_Uniform) then
+        cell.centerCoordinates[0] = uniform_cell_center(Grid_xOrigin, Grid_xOrigin + Grid_xWidth , Grid_xNum, cell.x-Grid_xBnum)
+      elseif (Grid_xType == SCHEMA.GridType_Stretched) then
+        cell.centerCoordinates[0] = nonuniform_cell_center(Grid_xOrigin, Grid_xOrigin + Grid_xWidth , Grid_xNum, cell.x-Grid_xBnum)
+      else 
+        regentlib.assert(false, 'Unhandled case in switch')
+      end
     end
+
     if not (yNegGhost or yPosGhost) then
-      cell.centerCoordinates[1] = nonuniform_cell_center(Grid_yOrigin, Grid_yOrigin + Grid_yWidth , Grid_yNum, cell.y-Grid_yBnum)
+      if (Grid_yType == SCHEMA.GridType_Uniform) then
+        cell.centerCoordinates[1] = uniform_cell_center(Grid_yOrigin, Grid_yOrigin + Grid_yWidth , Grid_yNum, cell.y-Grid_yBnum)
+      elseif (Grid_yType == SCHEMA.GridType_Stretched) then
+        cell.centerCoordinates[1] = nonuniform_cell_center(Grid_yOrigin, Grid_yOrigin + Grid_yWidth , Grid_yNum, cell.y-Grid_yBnum)
+      else 
+        regentlib.assert(false, 'Unhandled case in switch')
+      end
     end
+
     if not (zNegGhost or zPosGhost) then
-      cell.centerCoordinates[2] = nonuniform_cell_center(Grid_zOrigin, Grid_zOrigin + Grid_zWidth , Grid_zNum, cell.z-Grid_zBnum)
+      if (Grid_zType == SCHEMA.GridType_Uniform) then
+        cell.centerCoordinates[2] = uniform_cell_center(Grid_zOrigin, Grid_zOrigin + Grid_zWidth , Grid_zNum, cell.z-Grid_zBnum)
+      elseif (Grid_zType == SCHEMA.GridType_Stretched) then
+        cell.centerCoordinates[2] = nonuniform_cell_center(Grid_zOrigin, Grid_zOrigin + Grid_zWidth , Grid_zNum, cell.z-Grid_zBnum)
+      else 
+        regentlib.assert(false, 'Unhandled case in switch')
+      end
    end
+
   end
 
   -- Find cell width
@@ -5963,6 +5985,7 @@ local function mkInstance() local INSTANCE = {}
     Flow_InitializeCell(Fluid)
 
     Flow_InitializeGeometry(Fluid,
+                            config.Grid.xType, config.Grid.yType, config.Grid.zType,
                             Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
                             Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
                             Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
