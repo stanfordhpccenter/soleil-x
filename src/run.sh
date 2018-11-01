@@ -123,7 +123,6 @@ function run_sapling {
         "$EXECUTABLE" $ARGS \
         -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 \
         $GPU_OPTS -ll:dma 2 -ll:ahandlers 2 \
--lg:registration \
         -ll:csize 36000 \
         -ll:stacksize 8 -ll:ostack 8 -lg:sched -1
     # Resources:

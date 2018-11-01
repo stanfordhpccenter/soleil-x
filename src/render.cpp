@@ -66,6 +66,7 @@ extern "C" {
                   legion_logical_partition_t particlesPartition_
                   )
   {
+std::cout << __FUNCTION__ << " pid " << getpid() << std::endl;
     
     PhysicalRegion* fluid = CObjectWrapper::unwrap(fluid_[0]);
     std::vector<legion_field_id_t> fluid_fields;
