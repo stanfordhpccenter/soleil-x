@@ -1011,32 +1011,26 @@ do
     var zPosGhost = is_zPosGhost(cell, Grid_zBnum, Grid_zNum)
 
     if not (xNegGhost or xPosGhost) then
-      if (Grid_xType == SCHEMA.GridType_Uniform) then
-        cell.centerCoordinates[0] = uniform_cell_center(Grid_xOrigin, Grid_xOrigin + Grid_xWidth , Grid_xNum, cell.x-Grid_xBnum)
-      elseif (Grid_xType == SCHEMA.GridType_Stretched) then
+      if (Grid_xType == SCHEMA.GridType_Stretched) then
         cell.centerCoordinates[0] = nonuniform_cell_center(Grid_xOrigin, Grid_xOrigin + Grid_xWidth , Grid_xNum, cell.x-Grid_xBnum)
-      else 
-        regentlib.assert(false, 'Unhandled case in switch')
+      else (Grid_xType == SCHEMA.GridType_Uniform)
+        cell.centerCoordinates[0] = uniform_cell_center(Grid_xOrigin, Grid_xOrigin + Grid_xWidth , Grid_xNum, cell.x-Grid_xBnum)
       end
     end
 
     if not (yNegGhost or yPosGhost) then
-      if (Grid_yType == SCHEMA.GridType_Uniform) then
-        cell.centerCoordinates[1] = uniform_cell_center(Grid_yOrigin, Grid_yOrigin + Grid_yWidth , Grid_yNum, cell.y-Grid_yBnum)
-      elseif (Grid_yType == SCHEMA.GridType_Stretched) then
+      if (Grid_yType == SCHEMA.GridType_Stretched) then
         cell.centerCoordinates[1] = nonuniform_cell_center(Grid_yOrigin, Grid_yOrigin + Grid_yWidth , Grid_yNum, cell.y-Grid_yBnum)
-      else 
-        regentlib.assert(false, 'Unhandled case in switch')
+      else (Grid_yType == SCHEMA.GridType_Uniform)
+        cell.centerCoordinates[1] = uniform_cell_center(Grid_yOrigin, Grid_yOrigin + Grid_yWidth , Grid_yNum, cell.y-Grid_yBnum)
       end
     end
 
     if not (zNegGhost or zPosGhost) then
-      if (Grid_zType == SCHEMA.GridType_Uniform) then
-        cell.centerCoordinates[2] = uniform_cell_center(Grid_zOrigin, Grid_zOrigin + Grid_zWidth , Grid_zNum, cell.z-Grid_zBnum)
-      elseif (Grid_zType == SCHEMA.GridType_Stretched) then
+      if (Grid_zType == SCHEMA.GridType_Stretched) then
         cell.centerCoordinates[2] = nonuniform_cell_center(Grid_zOrigin, Grid_zOrigin + Grid_zWidth , Grid_zNum, cell.z-Grid_zBnum)
-      else 
-        regentlib.assert(false, 'Unhandled case in switch')
+      else (Grid_zType == SCHEMA.GridType_Uniform)
+        cell.centerCoordinates[2] = uniform_cell_center(Grid_zOrigin, Grid_zOrigin + Grid_zWidth , Grid_zNum, cell.z-Grid_zBnum)
       end
    end
 
