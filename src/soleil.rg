@@ -5565,7 +5565,6 @@ task Particles_DeleteEscapingParticles(Particles : region(ispace(int1d), Particl
                                        z_min : double, z_max : double)
 where
   reads(Particles.position),
-  reads(Fluid.{centerCoordinates, cellWidth}),
   reads writes(Particles.__valid)
 do
   var acc = int64(0)
