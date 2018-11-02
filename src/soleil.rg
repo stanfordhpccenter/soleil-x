@@ -1116,17 +1116,86 @@ do
 
   end
 
-
-  -- Return max and min points covered by domain in each direction
-  --var x_min = Fluid[Fluid.bounds.lo].centerCoordinates[0] - 0.5*Fluid[Fluid.bounds.lo].cellWidth[0]
-  --var y_min = Fluid[Fluid.bounds.lo].centerCoordinates[1] - 0.5*Fluid[Fluid.bounds.lo].cellWidth[1]
-  --var z_min = Fluid[Fluid.bounds.lo].centerCoordinates[2] - 0.5*Fluid[Fluid.bounds.lo].cellWidth[2]
-  --var x_max = Fluid[Fluid.bounds.hi].centerCoordinates[0] + 0.5*Fluid[Fluid.bounds.hi].cellWidth[0]
-  --var y_max = Fluid[Fluid.bounds.hi].centerCoordinates[1] + 0.5*Fluid[Fluid.bounds.hi].cellWidth[1]
-  --var z_max = Fluid[Fluid.bounds.hi].centerCoordinates[2] + 0.5*Fluid[Fluid.bounds.hi].cellWidth[2]
-  --return array(x_min, x_max, y_min, y_max, z_min, z_max)
-
 end
+
+__demand(__parallel, __cuda)
+task Flow_FindRealOriginX(Fluid : region(ispace(int3d), Fluid_columns),
+                          Grid_xOrigin : double)
+where
+ reads(Fluid.{centerCoordinates, cellWidth})
+do
+ var x_min = Grid_xOrigin
+ for c in Fluid do
+   x_min min= Fluid[c].centerCoordinates[0] - 0.5*Fluid[c].cellWidth[0]
+ end
+ return x_min
+end
+
+__demand(__parallel, __cuda)
+task Flow_FindRealOriginY(Fluid : region(ispace(int3d), Fluid_columns),
+                          Grid_yOrigin : double)
+where
+ reads(Fluid.{centerCoordinates, cellWidth})
+do
+ var y_min = Grid_yOrigin
+ for c in Fluid do
+   y_min min= Fluid[c].centerCoordinates[1] - 0.5*Fluid[c].cellWidth[1]
+ end
+ return y_min
+end
+
+__demand(__parallel, __cuda)
+task Flow_FindRealOriginZ(Fluid : region(ispace(int3d), Fluid_columns),
+                          Grid_zOrigin : double)
+where
+ reads(Fluid.{centerCoordinates, cellWidth})
+do
+ var z_min = Grid_zOrigin
+ for c in Fluid do
+   z_min min= Fluid[c].centerCoordinates[2] - 0.5*Fluid[c].cellWidth[2]
+ end
+ return z_min
+end
+
+__demand(__parallel, __cuda)
+task Flow_FindRealMaxX(Fluid : region(ispace(int3d), Fluid_columns),
+                       Grid_xMax : double)
+where
+ reads(Fluid.{centerCoordinates, cellWidth})
+do
+ var x_max = Grid_xMax
+ for c in Fluid do
+   x_max max= Fluid[c].centerCoordinates[0] + 0.5*Fluid[c].cellWidth[0]
+ end
+ return x_max
+end
+
+__demand(__parallel, __cuda)
+task Flow_FindRealMaxY(Fluid : region(ispace(int3d), Fluid_columns),
+                       Grid_yMax : double)
+where
+ reads(Fluid.{centerCoordinates, cellWidth})
+do
+ var y_max = Grid_yMax
+ for c in Fluid do
+   y_max max= Fluid[c].centerCoordinates[1] + 0.5*Fluid[c].cellWidth[1]
+ end
+ return y_max
+end
+
+__demand(__parallel, __cuda)
+task Flow_FindRealMaxZ(Fluid : region(ispace(int3d), Fluid_columns),
+                       Grid_zMax : double)
+where
+ reads(Fluid.{centerCoordinates, cellWidth})
+do
+ var z_max = Grid_zMax
+ for c in Fluid do
+   z_max max= Fluid[c].centerCoordinates[2] + 0.5*Fluid[c].cellWidth[2]
+ end
+ return z_max
+end
+
 
 __demand(__parallel, __cuda)
 task Flow_InitializeUniform(Fluid : region(ispace(int3d), Fluid_columns), Flow_initParams : double[5])
@@ -5491,20 +5560,14 @@ end
 
 __demand(__cuda) -- MANUALLY PARALLELIZED
 task Particles_DeleteEscapingParticles(Particles : region(ispace(int1d), Particles_columns),
-                                       Fluid : region(ispace(int3d), Fluid_columns))
+                                       x_min : double, x_max : double,
+                                       y_min : double, y_max : double,
+                                       z_min : double, z_max : double)
 where
   reads(Particles.position),
   reads(Fluid.{centerCoordinates, cellWidth}),
   reads writes(Particles.__valid)
 do
-
-  var x_min = Fluid[Fluid.bounds.lo].centerCoordinates[0] - 0.5*Fluid[Fluid.bounds.lo].cellWidth[0]
-  var y_min = Fluid[Fluid.bounds.lo].centerCoordinates[1] - 0.5*Fluid[Fluid.bounds.lo].cellWidth[1]
-  var z_min = Fluid[Fluid.bounds.lo].centerCoordinates[2] - 0.5*Fluid[Fluid.bounds.lo].cellWidth[2]
-  var x_max = Fluid[Fluid.bounds.hi].centerCoordinates[0] + 0.5*Fluid[Fluid.bounds.hi].cellWidth[0]
-  var y_max = Fluid[Fluid.bounds.hi].centerCoordinates[1] + 0.5*Fluid[Fluid.bounds.hi].cellWidth[1]
-  var z_max = Fluid[Fluid.bounds.hi].centerCoordinates[2] + 0.5*Fluid[Fluid.bounds.hi].cellWidth[2]
-
   var acc = int64(0)
   __demand(__openmp)
   for p in Particles do
@@ -5544,6 +5607,9 @@ local function mkInstance() local INSTANCE = {}
     xRealOrigin = regentlib.newsymbol(),
     yRealOrigin = regentlib.newsymbol(),
     zRealOrigin = regentlib.newsymbol(),
+    xRealMax = regentlib.newsymbol(),
+    yRealMax = regentlib.newsymbol(),
+    zRealMax = regentlib.newsymbol(),
   }
   local BC = {
     xPosSign = regentlib.newsymbol(double[3]),
@@ -6015,15 +6081,19 @@ local function mkInstance() local INSTANCE = {}
                             Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
                             Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
 
-    -- WE ESSENTUALLY WANT TO DO THIS 
---    var [Grid.xRealOrigin] = (config.Grid.origin[0] - Fluid[Fluid.bounds.lo].cellWidth[0]*Grid.xBnum)
---    var [Grid.yRealOrigin] = (config.Grid.origin[1] - Fluid[Fluid.bounds.lo].cellWidth[1]*Grid.yBnum)
---    var [Grid.zRealOrigin] = (config.Grid.origin[2] - Fluid[Fluid.bounds.lo].cellWidth[2]*Grid.zBnum)
-    -- OR THIS 
---    var [Grid.xRealOrigin] = (Fluid[Fluid.bounds.lo].centerCoordinates[0] - 0.5*Fluid[Fluid.bounds.lo].cellWidth[0])
---    var [Grid.yRealOrigin] = (Fluid[Fluid.bounds.lo].centerCoordinates[1] - 0.5*Fluid[Fluid.bounds.lo].cellWidth[1])
---    var [Grid.zRealOrigin] = (Fluid[Fluid.bounds.lo].centerCoordinates[2] - 0.5*Fluid[Fluid.bounds.lo].cellWidth[2])
-    -- WITH ONLY ONE GHOST CELL IN EACH DIRECTION THEY GIVE THE SAME THING
+    var [Grid.xRealOrigin] = config.Grid.origin[0]
+    var [Grid.yRealOrigin] = config.Grid.origin[1]
+    var [Grid.zRealOrigin] = config.Grid.origin[2]
+    Grid.xRealOrigin min= Flow_FindRealOriginX(Fluid, config.Grid.origin[0])
+    Grid.yRealOrigin min= Flow_FindRealOriginY(Fluid, config.Grid.origin[1])
+    Grid.zRealOrigin min= Flow_FindRealOriginZ(Fluid, config.Grid.origin[2])
+
+    var [Grid.xRealMax] = config.Grid.origin[0] + config.Grid.xWidth
+    var [Grid.yRealMax] = config.Grid.origin[1] + config.Grid.yWidth
+    var [Grid.zRealMax] = config.Grid.origin[2] + config.Grid.zWidth
+    Grid.xRealMax max= Flow_FindRealMaxX(Fluid, config.Grid.origin[0] + config.Grid.xWidth)
+    Grid.yRealMax max= Flow_FindRealMaxY(Fluid, config.Grid.origin[1] + config.Grid.yWidth)
+    Grid.zRealMax max= Flow_FindRealMaxZ(Fluid, config.Grid.origin[2] + config.Grid.zWidth)
 
     if config.Flow.initCase == SCHEMA.FlowInitCase_Uniform then
       Flow_InitializeUniform(Fluid, config.Flow.initParams)
@@ -6649,16 +6719,18 @@ local function mkInstance() local INSTANCE = {}
         for c in tiles do
           Particles_number +=
             Particles_DeleteEscapingParticles(p_Particles[c],
-                                              Fluid)
+                                              Grid.xRealOrigin, Grid.xRealMax,
+                                              Grid.yRealOrigin, Grid.yRealMax,
+                                              Grid.zRealOrigin, Grid.zRealMax)
         end
 
-        ---- Move particles to new partitions
-        --for c in tiles do
-        --  Particles_LocateInCells(p_Particles[c],
-        --                          Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
-        --                          Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
-        --                          Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
-        --end
+        -- Move particles to new partitions
+        for c in tiles do
+          Particles_LocateInCells(p_Particles[c],
+                                  Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
+                                  Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
+                                  Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+        end
         --if numTiles > 1 then
         --  for c in tiles do
         --    TradeQueue_push(c,
