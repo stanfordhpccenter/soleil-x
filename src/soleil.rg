@@ -1116,6 +1116,16 @@ do
 
   end
 
+
+  -- Return max and min points covered by domain in each direction
+  --var x_min = Fluid[Fluid.bounds.lo].centerCoordinates[0] - 0.5*Fluid[Fluid.bounds.lo].cellWidth[0]
+  --var y_min = Fluid[Fluid.bounds.lo].centerCoordinates[1] - 0.5*Fluid[Fluid.bounds.lo].cellWidth[1]
+  --var z_min = Fluid[Fluid.bounds.lo].centerCoordinates[2] - 0.5*Fluid[Fluid.bounds.lo].cellWidth[2]
+  --var x_max = Fluid[Fluid.bounds.hi].centerCoordinates[0] + 0.5*Fluid[Fluid.bounds.hi].cellWidth[0]
+  --var y_max = Fluid[Fluid.bounds.hi].centerCoordinates[1] + 0.5*Fluid[Fluid.bounds.hi].cellWidth[1]
+  --var z_max = Fluid[Fluid.bounds.hi].centerCoordinates[2] + 0.5*Fluid[Fluid.bounds.hi].cellWidth[2]
+  --return array(x_min, x_max, y_min, y_max, z_min, z_max)
+
 end
 
 __demand(__parallel, __cuda)
@@ -6005,9 +6015,15 @@ local function mkInstance() local INSTANCE = {}
                             Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
                             Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
 
+    -- WE ESSENTUALLY WANT TO DO THIS 
 --    var [Grid.xRealOrigin] = (config.Grid.origin[0] - Fluid[Fluid.bounds.lo].cellWidth[0]*Grid.xBnum)
 --    var [Grid.yRealOrigin] = (config.Grid.origin[1] - Fluid[Fluid.bounds.lo].cellWidth[1]*Grid.yBnum)
 --    var [Grid.zRealOrigin] = (config.Grid.origin[2] - Fluid[Fluid.bounds.lo].cellWidth[2]*Grid.zBnum)
+    -- OR THIS 
+--    var [Grid.xRealOrigin] = (Fluid[Fluid.bounds.lo].centerCoordinates[0] - 0.5*Fluid[Fluid.bounds.lo].cellWidth[0])
+--    var [Grid.yRealOrigin] = (Fluid[Fluid.bounds.lo].centerCoordinates[1] - 0.5*Fluid[Fluid.bounds.lo].cellWidth[1])
+--    var [Grid.zRealOrigin] = (Fluid[Fluid.bounds.lo].centerCoordinates[2] - 0.5*Fluid[Fluid.bounds.lo].cellWidth[2])
+    -- WITH ONLY ONE GHOST CELL IN EACH DIRECTION THEY GIVE THE SAME THING
 
     if config.Flow.initCase == SCHEMA.FlowInitCase_Uniform then
       Flow_InitializeUniform(Fluid, config.Flow.initParams)
