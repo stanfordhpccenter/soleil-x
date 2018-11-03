@@ -19,9 +19,6 @@ export PROFILE="${PROFILE:-0}"
 # Whether to print a backtrace on crash (interferes with signal handling)
 export GASNET_BACKTRACE="${GASNET_BACKTRACE:-1}"
 
-# Whether to freeze Legion on crash
-export LEGION_FREEZE_ON_ERROR="${LEGION_FREEZE_ON_ERROR:-0}"
-
 ###############################################################################
 # Helper functions
 ###############################################################################
