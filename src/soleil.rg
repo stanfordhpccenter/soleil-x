@@ -577,14 +577,16 @@ task GetDynamicViscosity(temperature : double,
                          Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
                          Flow_viscosityModel : SCHEMA.ViscosityModel)
   var viscosity = 0.0
-  if (Flow_viscosityModel == SCHEMA.ViscosityModel_Constant) then
+  if Flow_viscosityModel == SCHEMA.ViscosityModel_Constant then
     viscosity = Flow_constantVisc
-  else
-    if (Flow_viscosityModel == SCHEMA.ViscosityModel_PowerLaw) then
-      viscosity = (Flow_powerlawViscRef*pow((temperature/Flow_powerlawTempRef), double(0.75)))
-    else
-      viscosity = ((Flow_sutherlandViscRef*pow((temperature/Flow_sutherlandTempRef), (3.0/2.0)))*((Flow_sutherlandTempRef+Flow_sutherlandSRef)/(temperature+Flow_sutherlandSRef)))
-    end
+  elseif Flow_viscosityModel == SCHEMA.ViscosityModel_PowerLaw then
+    viscosity = Flow_powerlawViscRef*pow(temperature/Flow_powerlawTempRef, 0.75)
+  else -- Flow_viscosityModel == SCHEMA.ViscosityModel_Sutherland
+    viscosity =
+      Flow_sutherlandViscRef
+      * pow(temperature/Flow_sutherlandTempRef, 1.5)
+      * (Flow_sutherlandTempRef + Flow_sutherlandSRef)
+      / (temperature + Flow_sutherlandSRef)
   end
   return viscosity
 end
@@ -610,7 +612,8 @@ do
   var xSize = hi.x-lo.x+1
   var ySize = hi.y-lo.y+1
   var zSize = hi.z-lo.z+1
-  var particlesPerTask = config.Particles.initNum / (config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2])
+  var numTiles = config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2]
+  var particlesPerTask = config.Particles.initNum / config.Particles.parcelSize / numTiles
   var Particles_density = config.Particles.density
   var Particles_initTemperature = config.Particles.initTemperature
   var Particles_diameterMean = config.Particles.diameterMean
@@ -618,14 +621,14 @@ do
   for p in Particles do
     var relIdx = int(p - pBase)
     if relIdx < particlesPerTask then
-      p.__valid = true
+      Particles[p].__valid = true
       var c = lo + int3d{relIdx%xSize, relIdx/xSize%ySize, relIdx/xSize/ySize%zSize}
-      p.cell = c
-      p.position = Fluid[c].centerCoordinates
-      p.velocity = Fluid[c].velocity
-      p.density = Particles_density
-      p.temperature = Particles_initTemperature
-      p.diameter = Particles_diameterMean
+      Particles[p].cell = c
+      Particles[p].position = Fluid[c].centerCoordinates
+      Particles[p].velocity = Fluid[c].velocity
+      Particles[p].density = Particles_density
+      Particles[p].temperature = Particles_initTemperature
+      Particles[p].diameter = Particles_diameterMean
     end
   end
 end
@@ -642,12 +645,11 @@ do
   var heatCapacity = config.Particles.heatCapacity
   __demand(__openmp)
   for p in Particles do
-    if p.__valid then
-      var crossSectionArea = PI*pow(p.diameter,2.0)/4.0
-      var volume = PI*pow(p.diameter,3.0)/6.0
-      var mass = volume*p.density
+    if Particles[p].__valid then
+      var crossSectionArea = PI*pow(Particles[p].diameter,2.0)/4.0
+      var mass = PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density
       var absorbedRadiationIntensity = absorptivity*intensity*crossSectionArea
-      p.temperature_t += absorbedRadiationIntensity/(mass*heatCapacity)
+      Particles[p].temperature_t += absorbedRadiationIntensity/(mass*heatCapacity)
     end
   end
 end
@@ -659,7 +661,7 @@ where
 do
   __demand(__openmp)
   for p in Particles do
-    p.__valid = false
+    Particles[p].__valid = false
   end
 end
 
@@ -3276,10 +3278,11 @@ do
   var num_invalid = 0
   __demand(__openmp)
   for p in Particles do
-    if p.__valid and color ~= Fluid_elemColor(p.cell,
-                                              Grid_xBnum, Grid_xNum, NX,
-                                              Grid_yBnum, Grid_yNum, NY,
-                                              Grid_zBnum, Grid_zNum, NZ) then
+    if Particles[p].__valid and
+       color ~= Fluid_elemColor(Particles[p].cell,
+                                Grid_xBnum, Grid_xNum, NX,
+                                Grid_yBnum, Grid_yNum, NY,
+                                Grid_zBnum, Grid_zNum, NZ) then
       num_invalid += 1
     end
   end
@@ -3483,7 +3486,7 @@ task CopyQueue_partSize(fluidPartBounds : rect3d,
   return ceil(
     copiedCells
     / [double](totalCells)
-    * config.Particles.maxNum
+    * (config.Particles.maxNum / config.Particles.parcelSize)
     * config.Particles.maxSkew
   )
 end
@@ -3943,12 +3946,7 @@ do
                                                      Flow_powerlawTempRef, Flow_powerlawViscRef,
                                                      Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
                                                      Flow_viscosityModel)
-      var particleReynoldsNumber = 0.0
-      var relaxationTime =
-        Particles[p].density
-        * pow(Particles[p].diameter,2.0)
-        / (18.0*flowDynamicViscosity)
-        / (1.0 + (0.15*pow(particleReynoldsNumber,0.687)))
+      var relaxationTime = Particles[p].density * pow(Particles[p].diameter,2.0) / (18.0 * flowDynamicViscosity)
       var tmp2 = vs_div(vv_sub(flowVelocity, Particles[p].velocity), relaxationTime)
       Particles[p].deltaVelocityOverRelaxationTime = tmp2
       Particles[p].velocity_t = tmp2
@@ -3994,6 +3992,7 @@ end
 
 __demand(__parallel, __cuda)
 task Radiation_UpdateFieldValues(Radiation : region(ispace(int3d), Radiation_columns),
+                                 config : Config,
                                  Radiation_cellVolume : double,
                                  Radiation_qa : double,
                                  Radiation_qs : double)
@@ -4001,9 +4000,10 @@ where
   reads(Radiation.{acc_d2, acc_d2t4}),
   writes(Radiation.{Ib, sigma})
 do
+  var Particles_parcelSize = config.Particles.parcelSize
   __demand(__openmp)
   for c in Radiation do
-    c.sigma = c.acc_d2*PI*(Radiation_qa+Radiation_qs)/(4.0*Radiation_cellVolume)
+    c.sigma = c.acc_d2*PI*Particles_parcelSize*(Radiation_qa+Radiation_qs)/(4.0*Radiation_cellVolume)
     if c.acc_d2 == 0.0 then
       c.Ib = 0.0
     else
@@ -4027,9 +4027,10 @@ do
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
+      var mass = PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density
       var t4 = pow(Particles[p].temperature, 4.0)
-      var alpha = ((((PI*Radiation_qa)*pow(Particles[p].diameter, 2.0))*(Radiation[Fluid[Particles[p].cell].to_Radiation].G-((4.0*SB)*t4)))/4.0)
-      Particles[p].temperature_t += (alpha/((((PI*pow(Particles[p].diameter, 3.0))/6.0)*Particles[p].density)*Particles_heatCapacity))
+      var alpha = PI*Radiation_qa*pow(Particles[p].diameter, 2.0)*(Radiation[Fluid[Particles[p].cell].to_Radiation].G-4.0*SB*t4)/4.0
+      Particles[p].temperature_t += alpha/(mass*Particles_heatCapacity)
     end
   end
 end
@@ -4037,22 +4038,25 @@ end
 __demand(__parallel, __cuda)
 task Flow_AddParticlesCoupling(Particles : region(ispace(int1d), Particles_columns),
                                Fluid : region(ispace(int3d), Fluid_columns),
+                               config : Config,
                                Grid_cellVolume : double)
 where
   reads(Particles.{cell, diameter, density, deltaTemperatureTerm, deltaVelocityOverRelaxationTime, __valid}),
   reads writes atomic(Fluid.{rhoVelocity_t, rhoEnergy_t})
 do
+  var Particles_parcelSize = config.Particles.parcelSize
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
       -- NOTE: We separate the array-type reduction into 3 separate reductions
       -- over the 3 indices, to make sure the code generator emits them as
       -- atomic operations.
-      var tmp = vs_div(vs_mul(Particles[p].deltaVelocityOverRelaxationTime, (-(((PI*pow(Particles[p].diameter, 3.0))/6.0)*Particles[p].density))), Grid_cellVolume)
+      var mass = PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density
+      var tmp = vs_mul(Particles[p].deltaVelocityOverRelaxationTime, -mass*Particles_parcelSize/Grid_cellVolume)
       Fluid[Particles[p].cell].rhoVelocity_t[0] += tmp[0]
       Fluid[Particles[p].cell].rhoVelocity_t[1] += tmp[1]
       Fluid[Particles[p].cell].rhoVelocity_t[2] += tmp[2]
-      Fluid[Particles[p].cell].rhoEnergy_t += ((-Particles[p].deltaTemperatureTerm)/Grid_cellVolume)
+      Fluid[Particles[p].cell].rhoEnergy_t -= Particles_parcelSize*Particles[p].deltaTemperatureTerm/Grid_cellVolume
     end
   end
 end
@@ -4154,6 +4158,7 @@ end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Particles_HandleCollisions(Particles : region(ispace(int1d), Particles_columns),
+                                config : Config,
                                 Particles_deltaTime : double,
                                 Particles_restitutionCoeff : double )
 -- This is an adaption of collisionPrt routine of the Soleil-MPI version
@@ -4162,6 +4167,7 @@ where
   reads(Particles.{position_old, diameter, density, __valid}),
   reads writes(Particles.{position, velocity})
 do
+  var Particles_parcelSize = config.Particles.parcelSize
   for p1 in Particles do
     if p1.__valid then
       for p2 in Particles do
@@ -4189,7 +4195,7 @@ do
           var u_scal_u = ux*ux + uy*uy + uz*uz
 
           -- Critical distance
-          var dcrit = 0.5*( p1.diameter + p2.diameter )
+          var dcrit = 0.5 * sqrt(Particles_parcelSize) * ( p1.diameter + p2.diameter )
 
           -- Checking if particles are getting away from each other
           if x_scal_u<0.0 then
@@ -4789,9 +4795,12 @@ local function mkInstance() local INSTANCE = {}
     [UTIL.emitRegionTagAttach(Fluid_copy, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
 
     -- Create Particles Regions
-    regentlib.assert(config.Particles.maxNum % numTiles == 0,
+    regentlib.assert(config.Particles.maxNum % config.Particles.parcelSize == 0,
+                     'Uneven parceling of particles')
+    regentlib.assert((config.Particles.maxNum / config.Particles.parcelSize) % numTiles == 0,
                      'Uneven partitioning of particles')
-    var maxParticlesPerTile = ceil((config.Particles.maxNum / numTiles) * config.Particles.maxSkew)
+    var maxParticlesPerTile =
+      ceil((config.Particles.maxNum / config.Particles.parcelSize / numTiles) * config.Particles.maxSkew)
     var is_Particles = ispace(int1d, maxParticlesPerTile * numTiles)
     var [Particles] = region(is_Particles, Particles_columns);
     [UTIL.emitRegionTagAttach(Particles, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
@@ -5006,8 +5015,11 @@ local function mkInstance() local INSTANCE = {}
                                     Grid.yBnum, config.Grid.yNum, NY,
                                     Grid.zBnum, config.Grid.zNum, NZ)
       end
-      Particles_number += Particles_CalculateNumber(Particles)
     elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform then
+      regentlib.assert(config.Particles.initNum % config.Particles.parcelSize == 0,
+                       'Uneven parceling of particles')
+      regentlib.assert((config.Particles.initNum / config.Particles.parcelSize) % numTiles == 0,
+                       'Uneven partitioning of particles')
       regentlib.assert(config.Particles.initNum <= config.Particles.maxNum,
                        "Not enough space for initial number of particles")
       for c in tiles do
@@ -5016,8 +5028,8 @@ local function mkInstance() local INSTANCE = {}
                                     config,
                                     Grid.xBnum, Grid.yBnum, Grid.zBnum)
       end
-      Particles_number = (config.Particles.initNum / numTiles) * numTiles
     else regentlib.assert(false, 'Unhandled case in switch') end
+    Particles_number += Particles_CalculateNumber(Particles)
 
     -- Initialize radiation
     if config.Radiation.type == SCHEMA.RadiationModel_OFF then
@@ -5339,6 +5351,7 @@ local function mkInstance() local INSTANCE = {}
           var Radiation_zCellWidth = (config.Grid.zWidth/config.Radiation.u.DOM.zNum)
           var Radiation_cellVolume = Radiation_xCellWidth * Radiation_yCellWidth * Radiation_zCellWidth
           Radiation_UpdateFieldValues(Radiation,
+                                      config,
                                       Radiation_cellVolume,
                                       config.Radiation.u.DOM.qa,
                                       config.Radiation.u.DOM.qs);
@@ -5354,7 +5367,7 @@ local function mkInstance() local INSTANCE = {}
       end
 
       -- Add particle forces to fluid
-      Flow_AddParticlesCoupling(Particles, Fluid, Grid.cellVolume)
+      Flow_AddParticlesCoupling(Particles, Fluid, config, Grid.cellVolume)
 
       -- Use fluxes to update conserved value derivatives
       Flow_UpdateUsingFluxZ(Fluid,
@@ -5472,6 +5485,7 @@ local function mkInstance() local INSTANCE = {}
         if config.Particles.collisions and Integrator_stage == config.Integrator.rkOrder then
           for c in tiles do
             Particles_HandleCollisions(p_Particles[c],
+                                       config,
                                        Integrator_deltaTime * config.Particles.staggerFactor,
                                        config.Particles.restitutionCoeff)
           end

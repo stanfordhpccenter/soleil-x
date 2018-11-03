@@ -158,5 +158,6 @@ elif [[ "$(uname -n)" == *"sh-ln"* ]]; then
 elif [[ "$(uname -n)" == *"sapling"* ]]; then
     run_sapling
 else
+    echo 'Hostname not recognized; assuming local machine run'
     run_local
 fi

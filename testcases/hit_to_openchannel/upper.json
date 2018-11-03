@@ -110,7 +110,8 @@
             "escapeRatioPerDir" : 0.005,
             "collisions" : false,
             "feeding" : { "type" : "OFF" },
-            "staggerFactor" : 1392
+            "staggerFactor" : 1392,
+            "parcelSize" : 1
         },
 
         "Radiation" : {
@@ -230,7 +231,8 @@
                 "type" : "Incoming",
                 "addedVelocity" : [2.168315625,0.0,0.0]
             },
-            "staggerFactor" : 1392
+            "staggerFactor" : 1392,
+            "parcelSize" : 1
         },
 
         "Radiation" : {
