@@ -17,7 +17,20 @@
 #include "math.h"
 //This program requires the OpenGL and GLUT libraries
 // You can obtain them for free from http://www.opengl.org
-#include "GL/glut.h"
+
+#ifdef __APPLE__
+#include <OpenGL/gl.h>
+#include "OpenGL/glu.h"
+#else
+#ifdef USE_SOFTWARE_OPENGL
+#include "GL/osmesa.h"
+#else
+#include "vtk_glew.h"
+
+#endif
+#include "GL/glu.h"
+#endif
+
 
 struct GLvector
 {
@@ -94,15 +107,7 @@ GLboolean bSpin = true;
 GLboolean bMove = true;
 GLboolean bLight = true;
 
-
-//void vIdle();
-//void vDrawScene();
-//void vResize(GLsizei, GLsizei);
-//void vKeyboard(unsigned char cKey, int iX, int iY);
-//void vSpecial(int iKey, int iX, int iY);
-
-//GLvoid vPrintHelp();
-//GLvoid vSetTime(GLfloat fTime);
+void vResize(GLsizei, GLsizei);
 
 GLfloat fSample1(GLfloat fX, GLfloat fY, GLfloat fZ);
 GLfloat fSample2(GLfloat fX, GLfloat fY, GLfloat fZ);
@@ -110,30 +115,17 @@ GLfloat fSample3(GLfloat fX, GLfloat fY, GLfloat fZ);
 GLfloat (*fSample)(GLfloat fX, GLfloat fY, GLfloat fZ) = fSample1;
 
 GLvoid vMarchingCubes();
-GLvoid vMarchCube1(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale);
-GLvoid vMarchCube2(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale);
-GLvoid (*vMarchCube)(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale) = vMarchCube1;
+GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale);
 
 
-void main(int argc, char **argv)
+void initializeMarchingCubes()
 {
   GLfloat afPropertiesAmbient [] = {0.50, 0.50, 0.50, 1.00};
   GLfloat afPropertiesDiffuse [] = {0.75, 0.75, 0.75, 1.00};
   GLfloat afPropertiesSpecular[] = {1.00, 1.00, 1.00, 1.00};
   
-  GLsizei iWidth = 640.0;
-  GLsizei iHeight = 480.0;
-  
-  glutInit(&argc, argv);
-  glutInitWindowPosition( 0, 0);
-  glutInitWindowSize(iWidth, iHeight);
-  glutInitDisplayMode( GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE );
-  glutCreateWindow( "Marching Cubes" );
-  glutDisplayFunc( vDrawScene );
-  glutIdleFunc( vIdle );
-  glutReshapeFunc( vResize );
-  glutKeyboardFunc( vKeyboard );
-  glutSpecialFunc( vSpecial );
+  GLsizei iWidth = 1280;
+  GLsizei iHeight = 720;
   
   glClearColor( 0.0, 0.0, 0.0, 1.0 );
   glClearDepth( 1.0 );
@@ -157,32 +149,8 @@ void main(int argc, char **argv)
   glMaterialf( GL_FRONT, GL_SHININESS, 25.0);
   
   vResize(iWidth, iHeight);
-  
-  vPrintHelp();
-  glutMainLoop();
 }
 
-#endif
-
-#if 0
-
-GLvoid vPrintHelp()
-{
-  printf("Marching Cubes Example by Cory Bloyd (dejaspaminacan@my-deja.com)\n\n");
-  
-  printf("+/-  increase/decrease sample density\n");
-  printf("PageUp/PageDown  increase/decrease surface value\n");
-  printf("s  change sample function\n");
-  printf("c  toggle marching cubes / marching tetrahedrons\n");
-  printf("w  wireframe on/off\n");
-  printf("l  toggle lighting / color-by-normal\n");
-  printf("Home  spin scene on/off\n");
-  printf("End  source point animation on/off\n");
-}
-
-#endif
-
-#if 0
 
 void vResize( GLsizei iWidth, GLsizei iHeight )
 {
@@ -208,116 +176,6 @@ void vResize( GLsizei iWidth, GLsizei iHeight )
   glMatrixMode( GL_MODELVIEW );
 }
 
-void vKeyboard(unsigned char cKey, int iX, int iY)
-{
-  switch(cKey)
-  {
-    case 'w' :
-    {
-      if(ePolygonMode == GL_LINE)
-      {
-        ePolygonMode = GL_FILL;
-      }
-      else
-      {
-        ePolygonMode = GL_LINE;
-      }
-      glPolygonMode(GL_FRONT_AND_BACK, ePolygonMode);
-    } break;
-    case '+' :
-    case '=' :
-    {
-      ++iDataSetSize;
-      fStepSize = 1.0/iDataSetSize;
-    } break;
-    case '-' :
-    {
-      if(iDataSetSize > 1)
-      {
-        --iDataSetSize;
-        fStepSize = 1.0/iDataSetSize;
-      }
-    } break;
-    case 'c' :
-    {
-      if(vMarchCube == vMarchCube1)
-      {
-        vMarchCube = vMarchCube2;//Use Marching Tetrahedrons
-      }
-      else
-      {
-        vMarchCube = vMarchCube1;//Use Marching Cubes
-      }
-    } break;
-    case 's' :
-    {
-      if(fSample == fSample1)
-      {
-        fSample = fSample2;
-      }
-      else if(fSample == fSample2)
-      {
-        fSample = fSample3;
-      }
-      else
-      {
-        fSample = fSample1;
-      }
-    } break;
-    case 'l' :
-    {
-      if(bLight)
-      {
-        glDisable(GL_LIGHTING);//use vertex colors
-      }
-      else
-      {
-        glEnable(GL_LIGHTING);//use lit material color
-      }
-      
-      bLight = !bLight;
-    };
-  }
-}
-
-
-void vSpecial(int iKey, int iX, int iY)
-{
-  switch(iKey)
-  {
-    case GLUT_KEY_PAGE_UP :
-    {
-      if(fTargetValue < 1000.0)
-      {
-        fTargetValue *= 1.1;
-      }
-    } break;
-    case GLUT_KEY_PAGE_DOWN :
-    {
-      if(fTargetValue > 1.0)
-      {
-        fTargetValue /= 1.1;
-      }
-    } break;
-    case GLUT_KEY_HOME :
-    {
-      bSpin = !bSpin;
-    } break;
-    case GLUT_KEY_END :
-    {
-      bMove = !bMove;
-    } break;
-  }
-}
-
-void vIdle()
-{
-  glutPostRedisplay();
-}
-
-#endif
-
-
 
 
 void vDrawScene()
@@ -340,18 +198,17 @@ void vDrawScene()
     fTime  += 0.025;
   }
   
-  vSetTime(fTime);
   
   glTranslatef(0.0, 0.0, -1.0);
   glRotatef( -fPitch, 1.0, 0.0, 0.0);
   glRotatef(     0.0, 0.0, 1.0, 0.0);
   glRotatef(    fYaw, 0.0, 0.0, 1.0);
   
-  glPushAttrib(GL_LIGHTING_BIT);
-  glDisable(GL_LIGHTING);
-  glColor3f(1.0, 1.0, 1.0);
-  glutWireCube(1.0);
-  glPopAttrib();
+  //  glPushAttrib(GL_LIGHTING_BIT);
+  //  glDisable(GL_LIGHTING);
+  //  glColor3f(1.0, 1.0, 1.0);
+  //  glutWireCube(1.0);
+  //  glPopAttrib();
   
   
   glPushMatrix();
@@ -364,7 +221,7 @@ void vDrawScene()
   
   glPopMatrix();
   
-  glutSwapBuffers();
+  //  glutSwapBuffers();
 }
 
 //fGetOffset finds the approximate point of intersection of the surface
@@ -417,26 +274,8 @@ GLvoid vNormalizeVector(GLvector &rfVectorResult, GLvector &rfVectorSource)
 }
 
 
-//Generate a sample data set.  fSample1(), fSample2() and fSample3() define three scalar fields whose
-// values vary by the X,Y and Z coordinates and by the fTime value set by vSetTime()
-GLvoid vSetTime(GLfloat fNewTime)
-{
-  GLfloat fOffset;
-  GLint iSourceNum;
-  
-  for(iSourceNum = 0; iSourceNum < 3; iSourceNum++)
-  {
-    sSourcePoint[iSourceNum].fX = 0.5;
-    sSourcePoint[iSourceNum].fY = 0.5;
-    sSourcePoint[iSourceNum].fZ = 0.5;
-  }
-  
-  fTime = fNewTime;
-  fOffset = 1.0 + sinf(fTime);
-  sSourcePoint[0].fX *= fOffset;
-  sSourcePoint[1].fY *= fOffset;
-  sSourcePoint[2].fZ *= fOffset;
-}
+
+
 
 //fSample1 finds the distance of (fX, fY, fZ) from three moving points
 GLfloat fSample1(GLfloat fX, GLfloat fY, GLfloat fZ)
@@ -461,36 +300,6 @@ GLfloat fSample1(GLfloat fX, GLfloat fY, GLfloat fZ)
   return fResult;
 }
 
-//fSample2 finds the distance of (fX, fY, fZ) from three moving lines
-GLfloat fSample2(GLfloat fX, GLfloat fY, GLfloat fZ)
-{
-  GLdouble fResult = 0.0;
-  GLdouble fDx, fDy, fDz;
-  fDx = fX - sSourcePoint[0].fX;
-  fDy = fY - sSourcePoint[0].fY;
-  fResult += 0.5/(fDx*fDx + fDy*fDy);
-  
-  fDx = fX - sSourcePoint[1].fX;
-  fDz = fZ - sSourcePoint[1].fZ;
-  fResult += 0.75/(fDx*fDx + fDz*fDz);
-  
-  fDy = fY - sSourcePoint[2].fY;
-  fDz = fZ - sSourcePoint[2].fZ;
-  fResult += 1.0/(fDy*fDy + fDz*fDz);
-  
-  return fResult;
-}
-
-
-//fSample2 defines a height field by plugging the distance from the center into the sin and cos functions
-GLfloat fSample3(GLfloat fX, GLfloat fY, GLfloat fZ)
-{
-  GLfloat fHeight = 20.0*(fTime + sqrt((0.5-fX)*(0.5-fX) + (0.5-fY)*(0.5-fY)));
-  fHeight = 1.5 + 0.1*(sinf(fHeight) + cosf(fHeight));
-  GLdouble fResult = (fHeight - fZ)*50.0;
-  
-  return fResult;
-}
 
 
 //vGetNormal() finds the gradient of the scalar field at a point
@@ -505,7 +314,7 @@ GLvoid vGetNormal(GLvector &rfNormal, GLfloat fX, GLfloat fY, GLfloat fZ)
 
 
 //vMarchCube1 performs the Marching Cubes algorithm on a single cube
-GLvoid vMarchCube1(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale)
+GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale)
 {
   extern GLint aiCubeEdgeFlags[256];
   extern GLint a2iTriangleConnectionTable[256][16];
@@ -579,110 +388,7 @@ GLvoid vMarchCube1(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale)
   }
 }
 
-//vMarchTetrahedron performs the Marching Tetrahedrons algorithm on a single tetrahedron
-GLvoid vMarchTetrahedron(GLvector *pasTetrahedronPosition, GLfloat *pafTetrahedronValue)
-{
-  extern GLint aiTetrahedronEdgeFlags[16];
-  extern GLint a2iTetrahedronTriangles[16][7];
-  
-  GLint iEdge, iVert0, iVert1, iEdgeFlags, iTriangle, iCorner, iVertex, iFlagIndex = 0;
-  GLfloat fOffset, fInvOffset, fValue = 0.0;
-  GLvector asEdgeVertex[6];
-  GLvector asEdgeNorm[6];
-  GLvector sColor;
-  
-  //Find which vertices are inside of the surface and which are outside
-  for(iVertex = 0; iVertex < 4; iVertex++)
-  {
-    if(pafTetrahedronValue[iVertex] <= fTargetValue)
-      iFlagIndex |= 1<<iVertex;
-  }
-  
-  //Find which edges are intersected by the surface
-  iEdgeFlags = aiTetrahedronEdgeFlags[iFlagIndex];
-  
-  //If the tetrahedron is entirely inside or outside of the surface, then there will be no intersections
-  if(iEdgeFlags == 0)
-  {
-    return;
-  }
-  //Find the point of intersection of the surface with each edge
-  // Then find the normal to the surface at those points
-  for(iEdge = 0; iEdge < 6; iEdge++)
-  {
-    //if there is an intersection on this edge
-    if(iEdgeFlags & (1<<iEdge))
-    {
-      iVert0 = a2iTetrahedronEdgeConnection[iEdge][0];
-      iVert1 = a2iTetrahedronEdgeConnection[iEdge][1];
-      fOffset = fGetOffset(pafTetrahedronValue[iVert0], pafTetrahedronValue[iVert1], fTargetValue);
-      fInvOffset = 1.0 - fOffset;
-      
-      asEdgeVertex[iEdge].fX = fInvOffset*pasTetrahedronPosition[iVert0].fX  +  fOffset*pasTetrahedronPosition[iVert1].fX;
-      asEdgeVertex[iEdge].fY = fInvOffset*pasTetrahedronPosition[iVert0].fY  +  fOffset*pasTetrahedronPosition[iVert1].fY;
-      asEdgeVertex[iEdge].fZ = fInvOffset*pasTetrahedronPosition[iVert0].fZ  +  fOffset*pasTetrahedronPosition[iVert1].fZ;
-      
-      vGetNormal(asEdgeNorm[iEdge], asEdgeVertex[iEdge].fX, asEdgeVertex[iEdge].fY, asEdgeVertex[iEdge].fZ);
-    }
-  }
-  //Draw the triangles that were found.  There can be up to 2 per tetrahedron
-  for(iTriangle = 0; iTriangle < 2; iTriangle++)
-  {
-    if(a2iTetrahedronTriangles[iFlagIndex][3*iTriangle] < 0)
-      break;
-    
-    for(iCorner = 0; iCorner < 3; iCorner++)
-    {
-      iVertex = a2iTetrahedronTriangles[iFlagIndex][3*iTriangle+iCorner];
-      
-      vGetColor(sColor, asEdgeVertex[iVertex], asEdgeNorm[iVertex]);
-      glColor3f(sColor.fX, sColor.fY, sColor.fZ);
-      glNormal3f(asEdgeNorm[iVertex].fX,   asEdgeNorm[iVertex].fY,   asEdgeNorm[iVertex].fZ);
-      glVertex3f(asEdgeVertex[iVertex].fX, asEdgeVertex[iVertex].fY, asEdgeVertex[iVertex].fZ);
-    }
-  }
-}
 
-
-
-//vMarchCube2 performs the Marching Tetrahedrons algorithm on a single cube by making six calls to vMarchTetrahedron
-GLvoid vMarchCube2(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale)
-{
-  GLint iVertex, iTetrahedron, iVertexInACube;
-  GLvector asCubePosition[8];
-  GLfloat  afCubeValue[8];
-  GLvector asTetrahedronPosition[4];
-  GLfloat  afTetrahedronValue[4];
-  
-  //Make a local copy of the cube's corner positions
-  for(iVertex = 0; iVertex < 8; iVertex++)
-  {
-    asCubePosition[iVertex].fX = fX + a2fVertexOffset[iVertex][0]*fScale;
-    asCubePosition[iVertex].fY = fY + a2fVertexOffset[iVertex][1]*fScale;
-    asCubePosition[iVertex].fZ = fZ + a2fVertexOffset[iVertex][2]*fScale;
-  }
-  
-  //Make a local copy of the cube's corner values
-  for(iVertex = 0; iVertex < 8; iVertex++)
-  {
-    afCubeValue[iVertex] = fSample(asCubePosition[iVertex].fX,
-                                   asCubePosition[iVertex].fY,
-                                   asCubePosition[iVertex].fZ);
-  }
-  
-  for(iTetrahedron = 0; iTetrahedron < 6; iTetrahedron++)
-  {
-    for(iVertex = 0; iVertex < 4; iVertex++)
-    {
-      iVertexInACube = a2iTetrahedronsInACube[iTetrahedron][iVertex];
-      asTetrahedronPosition[iVertex].fX = asCubePosition[iVertexInACube].fX;
-      asTetrahedronPosition[iVertex].fY = asCubePosition[iVertexInACube].fY;
-      asTetrahedronPosition[iVertex].fZ = asCubePosition[iVertexInACube].fZ;
-      afTetrahedronValue[iVertex] = afCubeValue[iVertexInACube];
-    }
-    vMarchTetrahedron(asTetrahedronPosition, afTetrahedronValue);
-  }
-}
 
 
 //vMarchingCubes iterates over the entire dataset, calling vMarchCube on each cube
@@ -1034,3 +740,5 @@ GLint a2iTriangleConnectionTable[256][16] =
   {0, 3, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
   {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}
 };
+
+

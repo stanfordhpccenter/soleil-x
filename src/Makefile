@@ -61,7 +61,7 @@ export INCLUDE_PATH := $(INCLUDE_PATH);$(IMAGE_COMPOSITOR_DIR)/include;$(LEGION_
 
 default: soleil.exec
 
-all: soleil.exec dom_host.exec
+all: soleil.exec dom_host.exec render_standalone
 
 clean:
 	$(RM) *.exec *.o *-desugared.rg config_schema.h
@@ -92,4 +92,16 @@ json.o: json.c json.h
 
 render.o: render.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+marchingCubes.o:	marchingCubes.cc
+	$(CXX) $(CXXFLAGS) -DUSE_SOFTWARE_OPENGL -c -o $@ $<
+
+renderImage.o:	renderImage.cc
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+render_standalone.o:	render_standalone.cc
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+render_standalone:  render_standalone.o  marchingCubes.o renderImage.o
+	$(CXX) -o $@ $^ -L/usr/lib/x86_64-linux-gnu/ -lGL -lGLU
 
