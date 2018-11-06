@@ -9,36 +9,49 @@ def mkdirp(directory):
         os.makedirs(directory)
 
 parser = argparse.ArgumentParser()
-parser.add_argument('json_file')
-parser.add_argument('out_dir')
 parser.add_argument('num_runs', type=int)
+parser.add_argument('out_dir')
+parser.add_argument('json_file', nargs='+', type=argparse.FileType('r'))
 args = parser.parse_args()
 
-config = json.load(open(args.json_file))
-samples = config['configs'] if 'configs' in config else [config]
-iters_per_run = int(samples[0]['Integrator']['maxIter'])
-dt = float(samples[0]['Integrator']['fixedDeltaTime'])
-for j in range(0, len(samples)):
-    assert(samples[j]['IO']['wrtRestart'])
-    assert(float(samples[j]['Integrator']['cfl']) < 0.0)
-    assert(iters_per_run == int(samples[j]['Integrator']['maxIter']))
-    assert(dt == float(samples[0]['Integrator']['fixedDeltaTime']))
+cases = []
+for fin in args.json_file:
+    case = json.load(fin)
+    cases.append(case)
+    assert('configs' in case and len(case['configs']) == 2)
+    iters = int(case['configs'][0]['Integrator']['maxIter'])
+    dt = float(case['configs'][0]['Integrator']['fixedDeltaTime'])
+    for config in case['configs']:
+        assert(int(config['Integrator']['startIter']) == 0)
+        assert(float(config['Integrator']['startTime']) == 0.0)
+        assert(int(config['Integrator']['maxIter']) == iters)
+        assert(float(config['Integrator']['cfl']) < 0.0)
+        assert(float(config['Integrator']['fixedDeltaTime']) == dt)
+        assert(config['Flow']['initCase'] != 'Restart')
+        assert(config['Particles']['initCase'] != 'Restart')
+        assert(config['IO']['wrtRestart'])
 
-json.dump(config, open('0.json', 'w'), indent=4)
-for i in range(1, args.num_runs):
-    for j in range(0, len(samples)):
-       samples[j]['Integrator']['startIter'] = i * iters_per_run
-       samples[j]['Integrator']['startTime'] = i * iters_per_run * dt
-       samples[j]['Integrator']['maxIter'] = (i+1) * iters_per_run
-       samples[j]['Flow']['initCase'] = 'Restart'
-       samples[j]['Flow']['restartDir'] = '%s/%s/sample%s/fluid_iter%010d' % (args.out_dir, i-1, j, i * iters_per_run)
-       samples[j]['Particles']['initCase'] = 'Restart'
-       samples[j]['Particles']['restartDir'] = '%s/%s/sample%s/particles_iter%010d' % (args.out_dir, i-1, j, i * iters_per_run)
-    json.dump(config, open(str(i) + '.json', 'w'), indent=4)
-    mkdirp('%s/%s' % (args.out_dir, i-1))
+for i in range(0, args.num_runs):
+    mkdirp('run%s' % i)
+    mkdirp('%s/run%s' % (args.out_dir, i))
+    for j in range(0, len(cases)):
+        if i > 0:
+            for k in range(0, 2):
+                config = cases[j]['configs'][k]
+                iters = int(config['Integrator']['maxIter']) - int(config['Integrator']['startIter'])
+                dt = float(config['Integrator']['fixedDeltaTime'])
+                config['Integrator']['startIter'] = i * iters
+                config['Integrator']['startTime'] = i * iters * dt
+                config['Integrator']['maxIter'] = (i+1) * iters
+                config['Flow']['initCase'] = 'Restart'
+                config['Flow']['restartDir'] = '%s/run%s/sample%s/fluid_iter%010d' % (args.out_dir, i-1, 2*j+k, i*iters)
+                config['Particles']['initCase'] = 'Restart'
+                config['Particles']['restartDir'] = '%s/run%s/sample%s/particles_iter%010d' % (args.out_dir, i-1, 2*j+k, i*iters)
+        with open('run%s/case%s.json' % (i, j), 'w') as fout:
+            json.dump(cases[j], fout, indent=4)
 
-switch = '-i' if len(samples) == 1 else '-m'
-print 'Testcases created in current directory; when ready, run:'
-print 'JOBID=`QUEUE=batch $SOLEIL_DIR/src/soleil.sh %s 0.json -o %s/0`; echo $JOBID' % (switch, args.out_dir)
-for i in range(1, args.num_runs):
-    print 'JOBID=`AFTER=$JOBID QUEUE=batch $SOLEIL_DIR/src/soleil.sh %s %s.json -o %s/%s`; echo $JOBID' % (switch, i, args.out_dir, i)
+print "Testcases created; when you're ready, run:"
+for i in range(0, args.num_runs):
+    after_str = 'AFTER=$JOBID ' if i > 0 else ''
+    cases_str = ' '.join(['-m run%s/case%s.json' % (i,j) for j in range(0,len(cases))])
+    print 'JOBID=`%sQUEUE=batch $SOLEIL_DIR/src/soleil.sh %s -o %s/run%s`; echo $JOBID' % (after_str, cases_str, args.out_dir, i)

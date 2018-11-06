@@ -11,6 +11,6 @@ JSON_TEMPLATE="$2"
 
 I=0
 while read -r LINE; do
-    "$SCRIPT_DIR"/make_config.py $LINE --json_template "$JSON_TEMPLATE" > run"$I".json
+    "$SCRIPT_DIR"/make_config.py $LINE --json_template "$JSON_TEMPLATE" > case"$I".json
     I="$(( I + 1 ))"
 done < "$DAT_FILE"
