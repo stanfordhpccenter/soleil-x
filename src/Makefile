@@ -103,5 +103,5 @@ render_standalone.o:	render_standalone.cc
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 render_standalone:  render_standalone.o  marchingCubes.o renderImage.o
-	$(CXX) -o $@ $^ -L/usr/lib/x86_64-linux-gnu/ -lGL -lGLU
+	$(CXX) -o $@ $^ -L/usr/lib/x86_64-linux-gnu/ -lGL -lGLU -lOSMesa
 

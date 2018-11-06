@@ -13,8 +13,13 @@
 // This code is public domain.
 //
 
-#include "stdio.h"
-#include "math.h"
+#include <stdio.h>
+#include <math.h>
+#include <iostream>
+
+#include "render_standalone.h"
+#include "renderImage.h"
+
 //This program requires the OpenGL and GLUT libraries
 // You can obtain them for free from http://www.opengl.org
 
@@ -30,6 +35,13 @@
 #endif
 #include "GL/glu.h"
 #endif
+
+
+
+int gNumFluidX, gNumFluidY, gNumFluidZ;
+FieldData *gRho, *gPressure, *gVelocity, *gCenterCoordinates, *gTemperature;
+FieldData *gDomainMin, *gDomainMax;
+VisualizationField gVisualizationField;
 
 
 struct GLvector
@@ -178,31 +190,54 @@ void vResize( GLsizei iWidth, GLsizei iHeight )
 
 
 
-void vDrawScene()
+void vDrawScene(int numFluidX,
+                int numFluidY,
+                int numFluidZ,
+                FieldData* rho,
+                FieldData* pressure,
+                FieldData* velocity,
+                FieldData* centerCoordinates,
+                FieldData* temperature,
+                FieldData domainMin[3],
+                FieldData domainMax[3],
+                VisualizationField visualizationField)
 {
-  static GLfloat fPitch = 0.0;
-  static GLfloat fYaw   = 0.0;
-  static GLfloat fTime = 0.0;
+  gNumFluidX = numFluidX;
+  gNumFluidY = numFluidY;
+  gNumFluidZ = numFluidZ;
+  gRho = rho;
+  gPressure = pressure;
+  gVelocity = velocity;
+  gCenterCoordinates = centerCoordinates;
+  gTemperature = temperature;
+  gDomainMin = domainMin;
+  gDomainMax = domainMax;
+  gVisualizationField = visualizationField;
+  
+  
+  //  static GLfloat fPitch = 0.0;
+  //  static GLfloat fYaw   = 0.0;
+  //  static GLfloat fTime = 0.0;
   
   glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
   
-  glPushMatrix();
+  // glPushMatrix();
   
-  if(bSpin)
-  {
-    fPitch += 4.0;
-    fYaw   += 2.5;
-  }
-  if(bMove)
-  {
-    fTime  += 0.025;
-  }
+  //  if(bSpin)
+  //  {
+  //    fPitch += 4.0;
+  //    fYaw   += 2.5;
+  //  }
+  //  if(bMove)
+  //  {
+  //    fTime  += 0.025;
+  //  }
   
   
-  glTranslatef(0.0, 0.0, -1.0);
-  glRotatef( -fPitch, 1.0, 0.0, 0.0);
-  glRotatef(     0.0, 0.0, 1.0, 0.0);
-  glRotatef(    fYaw, 0.0, 0.0, 1.0);
+  //  glTranslatef(0.0, 0.0, -1.0);
+  //  glRotatef( -fPitch, 1.0, 0.0, 0.0);
+  //  glRotatef(     0.0, 0.0, 1.0, 0.0);
+  //  glRotatef(    fYaw, 0.0, 0.0, 1.0);
   
   //  glPushAttrib(GL_LIGHTING_BIT);
   //  glDisable(GL_LIGHTING);
@@ -218,10 +253,10 @@ void vDrawScene()
   glEnd();
   glPopMatrix();
   
+  // glPopMatrix();
   
-  glPopMatrix();
+  glFinish();
   
-  //  glutSwapBuffers();
 }
 
 //fGetOffset finds the approximate point of intersection of the surface
@@ -274,12 +309,17 @@ GLvoid vNormalizeVector(GLvector &rfVectorResult, GLvector &rfVectorSource)
 }
 
 
-
+int index(GLfloat x, int numX, FieldData min, FieldData max) {
+  FieldData increment = (max - min) / (numX - 1);
+  int result = (x - min) / increment;
+  return result;
+}
 
 
 //fSample1 finds the distance of (fX, fY, fZ) from three moving points
 GLfloat fSample1(GLfloat fX, GLfloat fY, GLfloat fZ)
 {
+#if 0
   GLdouble fResult = 0.0;
   GLdouble fDx, fDy, fDz;
   fDx = fX - sSourcePoint[0].fX;
@@ -298,6 +338,30 @@ GLfloat fSample1(GLfloat fX, GLfloat fY, GLfloat fZ)
   fResult += 1.5/(fDx*fDx + fDy*fDy + fDz*fDz);
   
   return fResult;
+#else
+  int xIndex = index(fX, gNumFluidX, gDomainMin[0], gDomainMax[0]);
+  int yIndex = index(fY, gNumFluidY, gDomainMin[1], gDomainMax[1]);
+  int zIndex = index(fZ, gNumFluidZ, gDomainMin[2], gDomainMax[2]);
+  
+  FieldData* data;
+  switch(gVisualizationField) {
+    case rhoField:
+      data = gRho;
+      break;
+    case pressureField:
+      data = gPressure;
+      break;
+    case temperatureField:
+      data = gTemperature;
+      break;
+    default:
+      std::cerr << "invalid visualization field" << std::endl;
+      data = gRho;
+      break;
+  }
+  int index = xIndex * (gNumFluidY * gNumFluidZ) + yIndex * gNumFluidZ + zIndex;
+  return data[index];
+#endif
 }
 
 

@@ -4,22 +4,31 @@
 
 #include "render_standalone.h"
 
-const unsigned WIDTH = 1280;
-const unsigned HEIGHT = 720;
 
+typedef enum {
+  rhoField = 1,
+  pressureField,
+  velocityField,
+  temperatureField
+} VisualizationField;
 
 void setCameraPosition(FieldData domainMin[3], FieldData domainMax[3]);
 
 
-void renderImage(int numLines,
+void renderImage(int numFluidX,
+                 int numFluidY,
+                 int numFluidZ,
                  FieldData* rho,
                  FieldData* pressure,
                  FieldData* velocity,
                  FieldData* centerCoordinates,
                  FieldData* temperature,
                  FieldData domainMin[3],
-                 FieldData domainMax[3]);
+                 FieldData domainMax[3],
+                 VisualizationField visualizationField);
 
+
+void write_ppm(const char *filename, const GLfloat *rgba, int width, int height);
 
 #endif // __renderimage_h__
 

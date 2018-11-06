@@ -18,5 +18,8 @@
 
 typedef double FieldData;
 
+const unsigned WIDTH = 1280;
+const unsigned HEIGHT = 720;
+
 #endif // __render_standalone_h__
 
