@@ -10,15 +10,21 @@
 #include "renderImage.h"
 
 
-void initializeMarchingCubes();
-
+void renderInitialize(FieldData domainMin[3], FieldData domainMax[3]);
 
 void createGraphicsContext(OSMesaContext &mesaCtx,
-                           GLfloat* &rgbaBuffer,
+                           GLubyte* &rgbaBuffer,
                            GLfloat* &depthBuffer) {
 #if OSMESA_MAJOR_VERSION * 100 + OSMESA_MINOR_VERSION >= 305
   /* specify Z, stencil, accum sizes */
   mesaCtx = OSMesaCreateContextExt(GL_RGBA, 32, 0, 0, NULL);
+  {
+    int z, s, a;
+    glGetIntegerv(GL_DEPTH_BITS, &z);
+    glGetIntegerv(GL_STENCIL_BITS, &s);
+    glGetIntegerv(GL_ACCUM_RED_BITS, &a);
+    printf("Depth=%d Stencil=%d Accum=%d\n", z, s, a);
+  }
 #else
   mesaCtx = OSMesaCreateContext(GL_RGBA, NULL);
 #endif
@@ -26,26 +32,29 @@ void createGraphicsContext(OSMesaContext &mesaCtx,
     printf("OSMesaCreateContext failed!\n");
     return;
   }
+  
+
   /* Allocate the image buffer */
   const int fieldsPerPixel = 4;
-  rgbaBuffer = (GLfloat *) malloc(WIDTH * HEIGHT * fieldsPerPixel * sizeof(GLfloat));
+  rgbaBuffer = new GLubyte[WIDTH * HEIGHT * fieldsPerPixel];
   if (!rgbaBuffer) {
     printf("Alloc image buffer failed!\n");
     return;
   }
   
   /* Bind the buffer to the context and make it current */
-  if (!OSMesaMakeCurrent(mesaCtx, rgbaBuffer, GL_FLOAT, WIDTH, HEIGHT)) {
+  if (!OSMesaMakeCurrent(mesaCtx, rgbaBuffer, GL_UNSIGNED_BYTE, WIDTH, HEIGHT)) {
     printf("OSMesaMakeCurrent failed!\n");
     return;
   }
   
   /* Allocate the depth buffer. */
-  depthBuffer = (GLfloat*)malloc(WIDTH * HEIGHT * sizeof(GLfloat));
+  depthBuffer = new GLfloat[WIDTH * HEIGHT];
   if (!depthBuffer) {
     printf("Alloc depth buffer failed!\n");
     return;
   }
+
 
 }
 
@@ -83,19 +92,29 @@ void loadFluidData(char* fileName,
 }
 
 
+#if 0
 void retrieveRenderedImage(GLfloat* rgbaBuffer,
                            GLfloat* depthBuffer) {
   glReadPixels(0, 0, WIDTH, HEIGHT, GL_RGBA, GL_FLOAT, rgbaBuffer);
+  GLenum error = glGetError();
+  if(error != GL_NO_ERROR) {
+    std::cerr << "glReadPixels (RGBA) returned error " << error << std::endl;
+  }
   glReadPixels(0, 0, WIDTH, HEIGHT, GL_DEPTH_COMPONENT, GL_FLOAT, depthBuffer);
+  error = glGetError();
+  if(error != GL_NO_ERROR) {
+    std::cerr << "glReadPixels (DEPTH) returned error " << error << std::endl;
+  }
 }
+#endif
 
 
 void saveImageToFile(char* fluidFileName,
-                     GLfloat* rgbaBuffer) {
+                     GLubyte* rgbaBuffer) {
   // base output file name on fluidFileName
   char filename[256] = { 0 };
-  sprintf(filename, "%s.ppm", fluidFileName);
-  write_ppm(filename, rgbaBuffer, WIDTH, HEIGHT);
+  sprintf(filename, "%s.tga", fluidFileName);
+  write_targa(filename, rgbaBuffer, WIDTH, HEIGHT);
 }
 
 
@@ -114,6 +133,7 @@ int main(int argc, char **argv) {
   
   if(argc < 3) {
     std::cerr << "missing name of fluid file" << std::endl;
+    return -1;
   }
   char* fluidFileName = argv[2];
   
@@ -128,19 +148,24 @@ int main(int argc, char **argv) {
   loadFluidData(fluidFileName, numFluidLines, rho, pressure, velocity, centerCoordinates,  temperature, domainMin, domainMax);
   
   OSMesaContext mesaCtx;
-  GLfloat* rgbaBuffer;
+  GLubyte* rgbaBuffer;
   GLfloat* depthBuffer;
   createGraphicsContext(mesaCtx, rgbaBuffer, depthBuffer);
   
-  initializeMarchingCubes();
-  
+  renderInitialize(domainMin, domainMax);
   renderImage(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, temperatureField);
-  
-  retrieveRenderedImage(rgbaBuffer, depthBuffer);
   
   saveImageToFile(fluidFileName, rgbaBuffer);
   
   destroyGraphicsContext(mesaCtx);
+
+  delete [] rgbaBuffer;
+  delete [] depthBuffer;
+  delete [] rho;
+  delete [] pressure;
+  delete [] velocity;
+  delete [] centerCoordinates;
+  delete [] temperature;
 }
 
 

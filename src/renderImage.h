@@ -28,7 +28,8 @@ void renderImage(int numFluidX,
                  VisualizationField visualizationField);
 
 
-void write_ppm(const char *filename, const GLfloat *rgba, int width, int height);
+void write_targa(const char *filename, const GLubyte *rgba, int width, int height);
+void write_ppm(const char *filename, const GLubyte *rgba, int width, int height);
 
 #endif // __renderimage_h__
 

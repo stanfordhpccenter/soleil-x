@@ -1,6 +1,8 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <iostream>
+
 #include "renderImage.h"
 
 void vDrawScene(int numFluidX,
@@ -15,35 +17,67 @@ void vDrawScene(int numFluidX,
                 FieldData domainMax[3],
                 VisualizationField visualizationField);
 
+void vResize(int, int);
+
+void initializeMarchingCubes(GLfloat lightPosition[4]);
+
 
 void setCameraPosition(FieldData domainMin[3], FieldData domainMax[3]) {
   // TODO add camera motion
+  glViewport( 0, 0, WIDTH, HEIGHT );
   glMatrixMode(GL_PROJECTION);
   glPushMatrix();
   glLoadIdentity();
-  FieldData scale[3];
-  for(unsigned i = 0; i < 3; ++i) scale[i] = domainMax[i] - domainMin[i];
-  FieldData scaleOffset = 0.1;
   glOrtho(domainMin[0], domainMax[0], domainMin[1], domainMax[1], domainMin[2], domainMax[2]);
+  
   glMatrixMode(GL_MODELVIEW);
   glPushMatrix();
   glLoadIdentity();
-  gluLookAt(domainMin[0] - scale[0] * scaleOffset,
-            domainMax[1] + scale[1] * scaleOffset,
-            domainMin[2] - scale[2] * scaleOffset,
-            domainMin[0] + domainMax[0] * 0.5,
-            domainMax[1],
-            domainMin[2] + domainMax[2] * 0.5,
-            0.0, 0.0, 1.0);
+
+#if 0
+  FieldData scale[3];
+  for(unsigned i = 0; i < 3; ++i) scale[i] = domainMax[i] - domainMin[i];
+  FieldData scaleOffset = 0.1;
+#endif
+  
+  GLfloat from[] =
+#if 1
+  { 0, .5, 0 };
+#else
+  { (GLfloat)(domainMin[0] - scale[0] * scaleOffset),
+    (GLfloat)(domainMax[1] + scale[1] * scaleOffset),
+    (GLfloat)(domainMin[2] - scale[2] * scaleOffset) };
+#endif
+  GLfloat at[] =
+#if 1
+  { .5, .5, .5 };
+#else
+  { (GLfloat)(domainMin[0] + domainMax[0] * 0.5),
+    (GLfloat)(domainMin[1] + domainMax[1] * 0.5),
+    (GLfloat)(domainMin[2] + domainMax[2] * 0.5) };
+#endif
+  GLfloat up[] = { 0, 1, 0 };
+  std::cout << "camera from " << from[0] << "," << from[1] << "," << from[2] << std::endl;
+  std::cout << "camera at   " << at[0] << "," << at[1] << "," << at[2] << std::endl;
+  std::cout << "camera up   " << up[0] << "," << up[1] << "," << up[2] << std::endl;
+  gluLookAt(from[0], from[1], from[2], at[0], at[1], at[2], up[0], up[1], up[2]);
 }
 
 
-void getLightPosition(FieldData domainMin[3], FieldData domainMax[3], GLfloat lightPosition[3]) {
+
+void renderInitialize(FieldData domainMin[3], FieldData domainMax[3]) {
+#if 0
+  GLfloat lightPosition[4];
   lightPosition[0] = 0.5 * (domainMax[0] - domainMin[0]);
-  lightPosition[1] = domainMax[1] * 2;
-  lightPosition[3] = 0.5 * (domainMax[2] - domainMin[2]);
+  lightPosition[1] = domainMax[1] * 1.5;
+  lightPosition[2] = 0.5 * (domainMax[2] - domainMin[2]);
+  lightPosition[3] = 1.0;
+#else
+  GLfloat lightPosition[4] = { .5, 2, .5, 1 };
+#endif
+  initializeMarchingCubes(lightPosition);
+  std::cout << "light position " << lightPosition[0] << "," << lightPosition[1] << "," << lightPosition[2] << "," << lightPosition[3] << std::endl;
 }
-
 
 void renderImage(int numFluidX,
                  int numFluidY,
@@ -57,15 +91,58 @@ void renderImage(int numFluidX,
                  FieldData domainMax[3],
                  VisualizationField visualizationField) {
   
-  GLfloat lightPosition[3] = { 0 };
-  getLightPosition(domainMin, domainMax, lightPosition);
+  std::cout << "domain min " << domainMin[0] << "," << domainMin[1] << "," << domainMin[2] << std::endl;
+  std::cout << "domain max " << domainMax[0] << "," << domainMax[1] << "," << domainMax[2] << std::endl;
+  
   setCameraPosition(domainMin, domainMax);
   vDrawScene(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, visualizationField);
 }
 
 
+
+
 void
-write_ppm(const char *filename, const GLfloat *rgba, int width, int height)
+write_targa(const char *filename, const GLubyte *buffer, int width, int height)
+{
+  FILE *f = fopen( filename, "w" );
+  if (f) {
+    int i, x, y;
+    const GLubyte *ptr = buffer;
+    fputc (0x00, f);  /* ID Length, 0 => No ID   */
+    fputc (0x00, f);  /* Color Map Type, 0 => No color map included   */
+    fputc (0x02, f);  /* Image Type, 2 => Uncompressed, True-color Image */
+    fputc (0x00, f);  /* Next five bytes are about the color map entries */
+    fputc (0x00, f);  /* 2 bytes Index, 2 bytes length, 1 byte size */
+    fputc (0x00, f);
+    fputc (0x00, f);
+    fputc (0x00, f);
+    fputc (0x00, f);  /* X-origin of Image */
+    fputc (0x00, f);
+    fputc (0x00, f);  /* Y-origin of Image */
+    fputc (0x00, f);
+    fputc (WIDTH & 0xff, f);      /* Image Width */
+    fputc ((WIDTH>>8) & 0xff, f);
+    fputc (HEIGHT & 0xff, f);     /* Image Height   */
+    fputc ((HEIGHT>>8) & 0xff, f);
+    fputc (0x18, f);     /* Pixel Depth, 0x18 => 24 Bits  */
+    fputc (0x20, f);     /* Image Descriptor  */
+    fclose(f);
+    f = fopen( filename, "ab" );  /* reopen in binary append mode */
+    for (y=HEIGHT-1; y>=0; y--) {
+      for (x=0; x<WIDTH; x++) {
+        i = (y*WIDTH + x) * 4;
+        fputc(ptr[i+2], f); /* write blue */
+        fputc(ptr[i+1], f); /* write green */
+        fputc(ptr[i], f);   /* write red */
+      }
+    }
+    std::cout << "wrote targa file " << filename << std::endl;
+  }
+}
+
+
+void
+write_ppm(const char *filename, const GLubyte *rgba, int width, int height)
 {
   FILE *f = fopen( filename, "w" );
   if (f) {
@@ -82,7 +159,7 @@ write_ppm(const char *filename, const GLfloat *rgba, int width, int height)
     for (y = height - 1; y >= 0; y--) {
       unsigned char outputBuffer[width * 3];
       unsigned char *outputPtr = outputBuffer;
-      GLfloat* rgbaPtr = (GLfloat*)rgba + (y * width * 4);
+      GLubyte* rgbaPtr = (GLubyte*)rgba + (y * width * 4);
       for (x = 0; x < width; x++) {
         int r, g, b;
         r = (int) (rgbaPtr[0] * 255.0);

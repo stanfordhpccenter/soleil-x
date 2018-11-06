@@ -112,7 +112,7 @@ static const GLfloat afSpecularBlue [] = {0.25, 0.25, 1.00, 1.00};
 GLenum    ePolygonMode = GL_FILL;
 GLint     iDataSetSize = 16;
 GLfloat   fStepSize = 1.0/iDataSetSize;
-GLfloat   fTargetValue = 48.0;
+GLfloat   fTargetValue = 4.88675;
 GLfloat   fTime = 0.0;
 GLvector  sSourcePoint[3];
 GLboolean bSpin = true;
@@ -130,14 +130,11 @@ GLvoid vMarchingCubes();
 GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale);
 
 
-void initializeMarchingCubes()
+void initializeMarchingCubes(GLfloat lightPosition[4])
 {
   GLfloat afPropertiesAmbient [] = {0.50, 0.50, 0.50, 1.00};
   GLfloat afPropertiesDiffuse [] = {0.75, 0.75, 0.75, 1.00};
   GLfloat afPropertiesSpecular[] = {1.00, 1.00, 1.00, 1.00};
-  
-  GLsizei iWidth = 1280;
-  GLsizei iHeight = 720;
   
   glClearColor( 0.0, 0.0, 0.0, 1.0 );
   glClearDepth( 1.0 );
@@ -149,6 +146,7 @@ void initializeMarchingCubes()
   glLightfv( GL_LIGHT0, GL_AMBIENT,  afPropertiesAmbient);
   glLightfv( GL_LIGHT0, GL_DIFFUSE,  afPropertiesDiffuse);
   glLightfv( GL_LIGHT0, GL_SPECULAR, afPropertiesSpecular);
+  glLightfv( GL_LIGHT0, GL_POSITION, lightPosition);
   glLightModelf(GL_LIGHT_MODEL_TWO_SIDE, 1.0);
   
   glEnable( GL_LIGHT0 );
@@ -159,8 +157,6 @@ void initializeMarchingCubes()
   glMaterialfv(GL_FRONT, GL_DIFFUSE,   afDiffuseBlue);
   glMaterialfv(GL_FRONT, GL_SPECULAR,  afSpecularWhite);
   glMaterialf( GL_FRONT, GL_SHININESS, 25.0);
-  
-  vResize(iWidth, iHeight);
 }
 
 
@@ -239,15 +235,15 @@ void vDrawScene(int numFluidX,
   //  glRotatef(     0.0, 0.0, 1.0, 0.0);
   //  glRotatef(    fYaw, 0.0, 0.0, 1.0);
   
-  //  glPushAttrib(GL_LIGHTING_BIT);
-  //  glDisable(GL_LIGHTING);
-  //  glColor3f(1.0, 1.0, 1.0);
-  //  glutWireCube(1.0);
-  //  glPopAttrib();
+//  glPushAttrib(GL_LIGHTING_BIT);
+//  glDisable(GL_LIGHTING);
+//  glColor3f(1.0, 1.0, 1.0);
+//  glutWireCube(1.0);
+//  glPopAttrib();
   
   
   glPushMatrix();
-  glTranslatef(-0.5, -0.5, -0.5);
+  //glTranslatef(-0.5, -0.5, -0.5);
   glBegin(GL_TRIANGLES);
   vMarchingCubes();
   glEnd();
@@ -360,6 +356,9 @@ GLfloat fSample1(GLfloat fX, GLfloat fY, GLfloat fZ)
       break;
   }
   int index = xIndex * (gNumFluidY * gNumFluidZ) + yIndex * gNumFluidZ + zIndex;
+  
+  //std::cout << "sample at " << fX << "," << fY << "," << fZ << " = " << data[index] << std::endl;
+  
   return data[index];
 #endif
 }
@@ -402,8 +401,9 @@ GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale)
   iFlagIndex = 0;
   for(iVertexTest = 0; iVertexTest < 8; iVertexTest++)
   {
-    if(afCubeValue[iVertexTest] <= fTargetValue)
+    if(afCubeValue[iVertexTest] <= fTargetValue) {
       iFlagIndex |= 1<<iVertexTest;
+    }
   }
   
   //Find which edges are intersected by the surface
@@ -437,8 +437,9 @@ GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale)
   //Draw the triangles that were found.  There can be up to five per cube
   for(iTriangle = 0; iTriangle < 5; iTriangle++)
   {
-    if(a2iTriangleConnectionTable[iFlagIndex][3*iTriangle] < 0)
+    if(a2iTriangleConnectionTable[iFlagIndex][3*iTriangle] < 0) {
       break;
+    }
     
     for(iCorner = 0; iCorner < 3; iCorner++)
     {
@@ -448,8 +449,11 @@ GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale)
       glColor3f(sColor.fX, sColor.fY, sColor.fZ);
       glNormal3f(asEdgeNorm[iVertex].fX,   asEdgeNorm[iVertex].fY,   asEdgeNorm[iVertex].fZ);
       glVertex3f(asEdgeVertex[iVertex].fX, asEdgeVertex[iVertex].fY, asEdgeVertex[iVertex].fZ);
+      
+      std::cout << "draw triangle " << asEdgeVertex[iVertex].fX << "," << asEdgeVertex[iVertex].fY << "," << asEdgeVertex[iVertex].fZ << " normal " <<
+      asEdgeNorm[iVertex].fX << "," << asEdgeNorm[iVertex].fY << "," << asEdgeNorm[iVertex].fZ << std::endl;
     }
-  }
+  }  
 }
 
 
