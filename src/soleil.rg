@@ -593,6 +593,46 @@ end
 -------------------------------------------------------------------------------
 -- MESH ROUTINES
 -------------------------------------------------------------------------------
+-- Description:
+--     Linear interpolation, given the line defined by the points 
+--     (x=alpha, y=a) and (x=beta, y=b) find the y location of the
+--     point on the line (x=xi, y=?) 
+-- Input:
+--     xi = location on x axis
+--     alpha = lower point on x axis
+--     beta =  upper point on x axis 
+--     a = lower point on y axis 
+--     b = upper point on y axis 
+-- Output:
+--     y location on line at x=xi
+local __demand(__inline)
+task linear_interpolation(xi : double,
+                          alpha : double,
+                          beta  : double,
+                          a     : double,
+                          b     : double) : double
+
+  --return (b-a)/(beta-alpha)*xi + (a - (b-a)/(beta-alpha)*alpha)
+  return (b-a)/(beta-alpha)*(xi-alpha) + a
+
+end
+
+
+-- Description:
+--     Generate the cell width of a nonuniform mesh
+-- Input:
+--     x_min = domain minimum
+--     x_max = domain maximum 
+--     Nx = number of cells between x_min and x_max
+-- Output:
+--     width of the non-uniform mesh cell
+local __demand(__inline)
+task uniform_cell_width(x_min : double,
+                        x_max : double,
+                        Nx    : uint64) : double
+  return (x_max-x_min)/Nx
+end
+
 
 -- Description:
 --     Generate the cell center on a uniform mesh
@@ -606,50 +646,61 @@ end
 --               so no ghost cells accounted for here
 -- Output:
 --     location of cell center
---terra uniform_cell_center(x_min : double,
---                          x_max : double,
---                          Nx    : uint64,
---                          i     : uint64) : double
-
 local __demand(__inline)
 task uniform_cell_center(x_min : double,
                          x_max : double,
                          Nx    : uint64,
                          i     : uint64) : double
-
-  var dx = (x_max-x_min)/Nx
+  var dx = uniform_cell_width(x_min, x_max, Nx)
   return x_min + i*dx + dx/2.0
-
 end
 
 -- Description:
---     Linear interpolation, given the line defined by the points 
---     (x=alpha, y=a) and (x=beta, y=b) find the y location of the
---     point on the line (x=xi, y=?) 
+--     Generate the location of the face in the negative direction
 -- Input:
---     xi = location on x axis
---     alpha = lower point on x axis
---     beta =  upper point on x axis 
---     a = lower point on y axis 
---     b = upper point on y axis 
+--     x_min = domain minimum
+--     x_max = domain maximum 
+--     Nx = number of cells between x_min and x_max
+--     i  = cell index between x_min and x_max
+--         Note: i = 0 has x_min as negative direction (left) face and 
+--               i = Nx-1 has x_max as positive direction (right) face
+--               so no ghost cells accounted for here
 -- Output:
---     y location on line at x=xi
---terra linear_interpolation(xi : double,
---                           alpha : double,
---                           beta  : double,
---                           a     : double,
---                           b     : double) : double
+--     location of face in the negative direction
 local __demand(__inline)
-task linear_interpolation(xi : double,
-                          alpha : double,
-                          beta  : double,
-                          a     : double,
-                          b     : double) : double
+task uniform_cell_neg_face(x_min : double,
+                           x_max : double,
+                           Nx    : uint64,
+                           i     : uint64) : double
 
-  --return (b-a)/(beta-alpha)*xi + (a - (b-a)/(beta-alpha)*alpha)
-  return (b-a)/(beta-alpha)*(xi-alpha) + a
-
+  var dx = uniform_cell_width(x_min, x_max, Nx)
+  var x_center = uniform_cell_center(x_min, x_max, Nx, i)
+  return x_center - 0.5*dx
 end
+
+-- Description:
+--     Generate the location of the face in the postive direction
+-- Input:
+--     x_min = domain minimum
+--     x_max = domain maximum 
+--     Nx = number of cells between x_min and x_max
+--     i  = cell index between x_min and x_max
+--         Note: i = 0 has x_min as negative direction (left) face and 
+--               i = Nx-1 has x_max as positive direction (right) face
+--               so no ghost cells accounted for here
+-- Output:
+--     location of face in the postive direction
+local __demand(__inline)
+task uniform_cell_pos_face(x_min : double,
+                           x_max : double,
+                           Nx    : uint64,
+                           i     : uint64) : double
+
+  var dx = uniform_cell_width(x_min, x_max, Nx)
+  var x_center = uniform_cell_center(x_min, x_max, Nx, i)
+  return x_center + 0.5*dx
+end
+
 
 -- Description:
 --     non-linear map point (x) on the interval (x_min, x_max) using
@@ -660,9 +711,6 @@ end
 --     x_max = domain maximum 
 -- Output:
 --     x location on a non-uniform mesh
---terra transform_uniform_to_nonuniform(x : double,
---                                      x_min : double,
---                                      x_max : double) : double
 local __demand(__inline)
 task transform_uniform_to_nonuniform(x : double,
                                      x_min : double,
@@ -673,10 +721,56 @@ task transform_uniform_to_nonuniform(x : double,
 
   -- map non-uniformly onto the interval -1 to 1
   var x_non_uniform_minus1_to_plus1 = -1.0*cos(PI*(x_scaled_minus1_to_plus1+1.0)/2.0)
-  --var x_non_uniform_minus1_to_plus1 = x_scaled_minus1_to_plus1
 
   -- map non-uniform sample back to origional interval x_min to x_max
   return  linear_interpolation(x_non_uniform_minus1_to_plus1, -1.0, 1.0, x_min, x_max)
+
+end
+
+-- Description:
+--     Generate the location of the face in the negative direction
+--     on a non uniform mesh
+-- Input:
+--     x_min = domain minimum
+--     x_max = domain maximum 
+--     Nx = number of cells between x_min and x_max
+--     i  = cell index between x_min and x_max
+--         Note: i = 0 has x_min as negative direction (left) face and 
+--               i = Nx-1 has x_max as positive direction (right) face
+--               so no ghost cells accounted for here
+-- Output:
+--     location of face in the negative direction
+local __demand(__inline)
+task nonuniform_cell_neg_face(x_min : double,
+                              x_max : double,
+                              Nx    : uint64,
+                              i     : uint64) : double
+
+  var x_uniform_neg_face = uniform_cell_neg_face(x_min, x_max, Nx, i)
+  return transform_uniform_to_nonuniform(x_uniform_neg_face, x_min, x_max)
+end
+
+-- Description:
+--     Generate the location of the face in the postive direction
+--     on a non uniform mesh
+-- Input:
+--     x_min = domain minimum
+--     x_max = domain maximum 
+--     Nx = number of cells between x_min and x_max
+--     i  = cell index between x_min and x_max
+--         Note: i = 0 has x_min as negative direction (left) face and 
+--               i = Nx-1 has x_max as positive direction (right) face
+--               so no ghost cells accounted for here
+-- Output:
+--     location of face in the postive direction
+local __demand(__inline)
+task nonuniform_cell_pos_face(x_min : double,
+                              x_max : double,
+                              Nx    : uint64,
+                              i     : uint64) : double
+
+  var x_uniform_pos_face = uniform_cell_pos_face(x_min, x_max, Nx, i)
+  return transform_uniform_to_nonuniform(x_uniform_pos_face, x_min, x_max)
 
 end
 
@@ -693,20 +787,49 @@ end
 --               so no ghost cells accounted for here
 -- Output:
 --     x location on a non-uniform mesh
---terra nonuniform_cell_center(x_min : double,
---                             x_max : double,
---                             Nx    : uint64,
---                             i     : uint64) : double
 local __demand(__inline)
 task nonuniform_cell_center(x_min : double,
                             x_max : double,
                             Nx    : uint64,
                             i     : uint64) : double
 
-  var x_uniform = uniform_cell_center(x_min, x_max, Nx, i)
-  return transform_uniform_to_nonuniform(x_uniform, x_min, x_max)
+  var x_non_uniform_neg_face = nonuniform_cell_neg_face(x_min, x_max, Nx, i)
+  var x_non_uniform_pos_face = nonuniform_cell_pos_face(x_min, x_max, Nx, i)
+
+  var x_non_uniform_center = 0.5*(x_non_uniform_neg_face + x_non_uniform_pos_face)
+
+  return x_non_uniform_center 
 
 end
+
+
+-- Description:
+--     Generate the cell width of a nonuniform mesh
+-- Input:
+--     x_min = domain minimum
+--     x_max = domain maximum 
+--     Nx = number of cells between x_min and x_max
+--     i  = cell index between x_min and x_max
+--         Note: i = 0 has x_min as left face and 
+--               i = Nx-1 has x_max as right face
+--               so no ghost cells accounted for here
+-- Output:
+--     width of the non-uniform mesh cell
+local __demand(__inline)
+task nonuniform_cell_width(x_min : double,
+                           x_max : double,
+                           Nx    : uint64,
+                           i     : uint64) : double
+
+  var x_non_uniform_neg_face = nonuniform_cell_neg_face(x_min, x_max, Nx, i)
+  var x_non_uniform_pos_face = nonuniform_cell_pos_face(x_min, x_max, Nx, i)
+
+  var x_non_uniform_dx = x_non_uniform_pos_face - x_non_uniform_neg_face
+
+  return x_non_uniform_dx 
+
+end
+
 
 -- Description:
 --     Find 1st derivative using central difference scheme
@@ -745,40 +868,6 @@ terra one_sided_difference(y_minus  : double,
   return (y_plus - y_minus)/(0.5*dx_minus + 0.5*dx_plus)
 
 end
-
----- Task for bugugging
---task Debug_DumpAndExit(tiles : ispace(int3d),
---                       Fluid : region(ispace(int3d), Fluid_columns),
---                       Fluid_copy : region(ispace(int3d), Fluid_columns),
---                       p_Fluid : partition(disjoint, Fluid, tiles),
---                       p_Fluid_copy : partition(disjoint, Fluid_copy, tiles),
---                       config : Config,
---                       Integrator_timeStep : int)
---where
---  reads writes(Fluid, Fluid_copy), Fluid * Fluid_copy
---do
---
-----    for c in tiles do
---      -- Dump restart files
---      var dirname = [&int8](C.malloc(256))
---
---      -- Fluid
---      C.snprintf(dirname, 256, '%s/debug_fluid_iter%010d', config.Mapping.outDir, Integrator_timeStep)
---      var _1 = createDir(dirname)
---      Fluid_dump(_1, tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
---      --Fluid_dump(_1, tiles, dirname, Fluid, Fluid_copy, p_Fluid[c], p_Fluid_copy[c])
---
---      -- Particles
---      --C.snprintf(dirname, 256, '%s/debug_particles_iter%010d', config.Mapping.outDir, Integrator_timeStep)
---      --var _2 = createDir(dirname)
---      --Particles_dump(_2, tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
---      --C.free(dirname)
-----    end
---
---    regentlib.assert(false, 'Hit Debug_DumpAndExit task')
---
---end
-
 
 -------------------------------------------------------------------------------
 -- OTHER ROUTINES
@@ -1000,8 +1089,7 @@ where
   reads writes(Fluid.centerCoordinates),
   reads writes(Fluid.cellWidth)
 do
-
-  -- Find cell center coordinates
+  -- Find cell center coordinates and cell width of interior cells
   for cell in Fluid do
     var xNegGhost = is_xNegGhost(cell, Grid_xBnum)
     var xPosGhost = is_xPosGhost(cell, Grid_xBnum, Grid_xNum)
@@ -1011,76 +1099,47 @@ do
     var zPosGhost = is_zPosGhost(cell, Grid_zBnum, Grid_zNum)
 
     if not (xNegGhost or xPosGhost) then
+      var x_neg_boundary = Grid_xOrigin
+      var x_pos_boundary = Grid_xOrigin + Grid_xWidth
+      var x_idx_interior = cell.x - Grid_xBnum
       if (Grid_xType == SCHEMA.GridType_Stretched) then
-        cell.centerCoordinates[0] = nonuniform_cell_center(Grid_xOrigin, Grid_xOrigin + Grid_xWidth , Grid_xNum, cell.x-Grid_xBnum)
-      else (Grid_xType == SCHEMA.GridType_Uniform)
-        cell.centerCoordinates[0] = uniform_cell_center(Grid_xOrigin, Grid_xOrigin + Grid_xWidth , Grid_xNum, cell.x-Grid_xBnum)
+        cell.centerCoordinates[0] = nonuniform_cell_center(x_neg_boundary, x_pos_boundary, Grid_xNum, x_idx_interior)
+        cell.cellWidth[0]         = nonuniform_cell_width( x_neg_boundary, x_pos_boundary, Grid_xNum, x_idx_interior)
+      elseif (Grid_xType == SCHEMA.GridType_Uniform) then
+        cell.centerCoordinates[0] = uniform_cell_center(x_neg_boundary, x_pos_boundary, Grid_xNum, x_idx_interior)
+        cell.cellWidth[0]         = uniform_cell_width( x_neg_boundary, x_pos_boundary, Grid_xNum)
       end
     end
 
     if not (yNegGhost or yPosGhost) then
+      var y_neg_boundary = Grid_yOrigin
+      var y_pos_boundary = Grid_yOrigin + Grid_yWidth
+      var y_idx_interior = cell.y - Grid_yBnum
       if (Grid_yType == SCHEMA.GridType_Stretched) then
-        cell.centerCoordinates[1] = nonuniform_cell_center(Grid_yOrigin, Grid_yOrigin + Grid_yWidth , Grid_yNum, cell.y-Grid_yBnum)
-      else (Grid_yType == SCHEMA.GridType_Uniform)
-        cell.centerCoordinates[1] = uniform_cell_center(Grid_yOrigin, Grid_yOrigin + Grid_yWidth , Grid_yNum, cell.y-Grid_yBnum)
+        cell.centerCoordinates[1] = nonuniform_cell_center(y_neg_boundary, y_pos_boundary, Grid_yNum, y_idx_interior)
+        cell.cellWidth[1]         = nonuniform_cell_width( y_neg_boundary, y_pos_boundary, Grid_yNum, y_idx_interior)
+      elseif (Grid_yType == SCHEMA.GridType_Uniform) then
+        cell.centerCoordinates[1] = uniform_cell_center(y_neg_boundary, y_pos_boundary, Grid_yNum, y_idx_interior)
+        cell.cellWidth[1]         = uniform_cell_width( y_neg_boundary, y_pos_boundary, Grid_yNum)
       end
     end
 
     if not (zNegGhost or zPosGhost) then
+      var z_neg_boundary = Grid_zOrigin
+      var z_pos_boundary = Grid_zOrigin + Grid_zWidth
+      var z_idx_interior = cell.z - Grid_zBnum
       if (Grid_zType == SCHEMA.GridType_Stretched) then
-        cell.centerCoordinates[2] = nonuniform_cell_center(Grid_zOrigin, Grid_zOrigin + Grid_zWidth , Grid_zNum, cell.z-Grid_zBnum)
-      else (Grid_zType == SCHEMA.GridType_Uniform)
-        cell.centerCoordinates[2] = uniform_cell_center(Grid_zOrigin, Grid_zOrigin + Grid_zWidth , Grid_zNum, cell.z-Grid_zBnum)
-      end
-   end
-
-  end
-
-  -- Find cell width
-  -- NOTE: do not parallelize this loop it assumes it can reference values set in previous iterations
-  for cell in Fluid do
-
-    var xNegGhost = is_xNegGhost(cell, Grid_xBnum)
-    var xPosGhost = is_xPosGhost(cell, Grid_xBnum, Grid_xNum)
-    var yNegGhost = is_yNegGhost(cell, Grid_yBnum)
-    var yPosGhost = is_yPosGhost(cell, Grid_yBnum, Grid_yNum)
-    var zNegGhost = is_zNegGhost(cell, Grid_zBnum)
-    var zPosGhost = is_zPosGhost(cell, Grid_zBnum, Grid_zNum)
-
-    var xNegBoundary = is_xNegGhost((cell-{1,0,0})%Fluid.bounds, Grid_xBnum) or (Grid_xBnum==0 and cell.x==0)
-    var yNegBoundary = is_yNegGhost((cell-{0,1,0})%Fluid.bounds, Grid_yBnum) or (Grid_yBnum==0 and cell.y==0)
-    var zNegBoundary = is_zNegGhost((cell-{0,0,1})%Fluid.bounds, Grid_zBnum) or (Grid_zBnum==0 and cell.z==0)
-
-    if not (xNegGhost or xPosGhost) then
-      if xNegBoundary then
-        cell.cellWidth[0] = 2.0*(cell.centerCoordinates[0] - Grid_xOrigin)
-      else
-        var cell_face_location = (Fluid[cell - {1,0,0}]).centerCoordinates[0] + 0.5*(Fluid[cell - {1,0,0}]).cellWidth[0]
-        cell.cellWidth[0] = 2.0*(cell.centerCoordinates[0] - cell_face_location)
-      end
-    end
-
-    if not (yNegGhost or yPosGhost) then
-      if yNegBoundary then
-        cell.cellWidth[1] = 2.0*(cell.centerCoordinates[1] - Grid_yOrigin)
-      else
-        var cell_face_location = (Fluid[cell - {0,1,0}]).centerCoordinates[1] + 0.5*(Fluid[cell - {0,1,0}]).cellWidth[1]
-        cell.cellWidth[1] = 2.0*(cell.centerCoordinates[1] - cell_face_location)
-      end
-    end
-
-    if not (zNegGhost or zPosGhost) then
-      if zNegBoundary then
-        cell.cellWidth[2] = 2.0*(cell.centerCoordinates[2] - Grid_zOrigin)
-      else
-        var cell_face_location = (Fluid[cell - {0,0,1}]).centerCoordinates[2] + 0.5*(Fluid[cell - {0,0,1}]).cellWidth[2]
-        cell.cellWidth[2] = 2.0*(cell.centerCoordinates[2] - cell_face_location)
+        cell.centerCoordinates[2] = nonuniform_cell_center(z_neg_boundary, z_pos_boundary, Grid_zNum, z_idx_interior)
+        cell.cellWidth[2]         = nonuniform_cell_width( z_neg_boundary, z_pos_boundary, Grid_zNum, z_idx_interior)
+      elseif (Grid_zType == SCHEMA.GridType_Uniform) then
+        cell.centerCoordinates[2] = uniform_cell_center(z_neg_boundary, z_pos_boundary, Grid_zNum, z_idx_interior)
+        cell.cellWidth[2]         = uniform_cell_width( z_neg_boundary, z_pos_boundary, Grid_zNum)
       end
     end
 
   end
 
-  -- Find cell center coordinates and cell with in ghost cells in each direction
+  -- Find cell center coordinates and cell with in ghost cells
   for cell in Fluid do
 
     var xNegGhost = is_xNegGhost(cell, Grid_xBnum)
@@ -4183,33 +4242,76 @@ end
 
 __demand(__inline)
 task locate(pos : double[3],
+            Grid_xType : SCHEMA.GridType, Grid_yType : SCHEMA.GridType, Grid_zType : SCHEMA.GridType,
             Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
             Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
             Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
 
-  var xcw = Grid_xWidth/Grid_xNum
-  var xro = Grid_xOrigin-Grid_xBnum*xcw
-  var xpos = floor((pos[0]-xro)/xcw)
-  var xrnum = Grid_xNum+2*Grid_xBnum
-  var xidx = max(0, min(xrnum-1, xpos))
+  var xidx = 0
+  if (Grid_xType == SCHEMA.GridType_Uniform) then
+    var xcw = Grid_xWidth/Grid_xNum
+    var xro = Grid_xOrigin-Grid_xBnum*xcw
+    var xpos = floor((pos[0]-xro)/xcw)
+    var xrnum = Grid_xNum+2*Grid_xBnum
+    var xidx = max(0, min(xrnum-1, xpos))
+  elseif (Grid_xType == SCHEMA.GridType_Stretched) then
+    var x_neg_boundary = Grid_xOrigin
+    var x_pos_boundary = Grid_xOrigin + Grid_xWidth
+    -- assumes only one ghost cell in each direction
+    if pos[0] < x_neg_boundary then
+      xidx = 0
+    elseif pos[0] > x_pos_boundary then
+      xidx = (Grid_xNum + 2*Grid_xBnum) - 1
+    else
+      -- brut force search in interior cells
+      for xidx_interior=0,(Grid_xNum+Grid_xBnum) do
+        if (pos[0]>nonuniform_cell_neg_face(x_neg_boundary, x_pos_boundary, Grid_xNum, xidx_interior)) and
+           (pos[0]<nonuniform_cell_pos_face(x_neg_boundary, x_pos_boundary, Grid_xNum, xidx_interior)) then
 
-  var ycw = Grid_yWidth/Grid_yNum
-  var yro = Grid_yOrigin-Grid_yBnum*ycw
-  var ypos = floor((pos[1]-yro)/ycw)
-  var yrnum = Grid_yNum+2*Grid_yBnum
-  var yidx = max(0, min(yrnum-1, ypos))
+          -- Convert from interior index back to global index (accounts for ghost cells)
+          xidx = (xidx_interior + Grid_xBnum)
+          break
 
-  var zcw = Grid_zWidth/Grid_zNum
-  var zro = Grid_zOrigin-Grid_zBnum*zcw
-  var zpos = floor((pos[2]-zro)/zcw)
-  var zrnum = Grid_zNum+2*Grid_zBnum
-  var zidx = max(0, min(zrnum-1, zpos))
+        end 
+      end
+    end
+
+  end
+
+  var yidx = 0
+  if (Grid_yType == SCHEMA.GridType_Uniform) then
+    var ycw = Grid_yWidth/Grid_yNum
+    var yro = Grid_yOrigin-Grid_yBnum*ycw
+    var ypos = floor((pos[1]-yro)/ycw)
+    var yrnum = Grid_yNum+2*Grid_yBnum
+    var yidx = max(0, min(yrnum-1, ypos))
+  elseif (Grid_yType == SCHEMA.GridType_Stretched) then
+
+    -- TODO: Place holder
+    yidx = 0
+
+  end
+
+  var zidx = 0
+  if (Grid_zType == SCHEMA.GridType_Uniform) then
+    var zcw = Grid_zWidth/Grid_zNum
+    var zro = Grid_zOrigin-Grid_zBnum*zcw
+    var zpos = floor((pos[2]-zro)/zcw)
+    var zrnum = Grid_zNum+2*Grid_zBnum
+    var zidx = max(0, min(zrnum-1, zpos))
+  elseif (Grid_zType == SCHEMA.GridType_Stretched) then
+
+    -- TODO: Place holder
+    zidx = 0
+
+  end
 
   return int3d{xidx, yidx, zidx}
 end
 
 __demand(__cuda) -- MANUALLY PARALLELIZED
 task Particles_LocateInCells(Particles : region(ispace(int1d), Particles_columns),
+                             Grid_xType : SCHEMA.GridType, Grid_yType : SCHEMA.GridType, Grid_zType : SCHEMA.GridType,
                              Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
                              Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
                              Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
@@ -4221,12 +4323,38 @@ do
   for p in Particles do
     if Particles[p].__valid then
       Particles[p].cell = locate(Particles[p].position,
+                                 Grid_xType, Grid_yType, Grid_zType,
                                  Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth,
                                  Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth,
                                  Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
     end
   end
 end
+
+--__demand(__parallel, __cuda)
+--task Flow_PositionToCell(Fluid : region(ispace(int3d), Fluid_columns),
+--                         Grid_xType : SCHEMA.GridType, Grid_yType : SCHEMA.GridType, Grid_zType : SCHEMA.GridType,
+--                         position : double [3])
+--where
+--  reads (Fluid.centerCoordinates),
+--  reads (Fluid.cellWidth)
+--do
+--
+--  -- Find cell center coordinates
+--  for cell in Fluid do
+--    if (position[0] > (cell.centerCoordinates[0] - cell.cellWidth[0])) and 
+--       (position[0] < (cell.centerCoordinates[0] + cell.cellWidth[0])) and
+--       (position[1] > (cell.centerCoordinates[1] - cell.cellWidth[1])) and 
+--       (position[1] < (cell.centerCoordinates[1] + cell.cellWidth[1])) and
+--       (position[2] > (cell.centerCoordinates[2] - cell.cellWidth[2])) and 
+--       (position[2] < (cell.centerCoordinates[2] + cell.cellWidth[2])) then
+--  
+--      return int3d{xidx, yidx, zidx}
+--
+--    end
+--  end
+--
+--end
 
 __demand(__inline)
 task Fluid_elemColor(idx : int3d,
@@ -4519,6 +4647,7 @@ do
   for p2 in CopyQueue do
     if p2.__valid then
       var cell = locate(p2.position,
+                        config.Grid.xType, config.Grid.yType, config.Grid.zType,
                         Grid_xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
                         Grid_yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
                         Grid_zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
@@ -6207,6 +6336,7 @@ local function mkInstance() local INSTANCE = {}
       Particles_load(0, tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
       for c in tiles do
         Particles_LocateInCells(p_Particles[c],
+                                config.Grid.xType, config.Grid.yType, config.Grid.zType,
                                 Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
                                 Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
                                 Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
@@ -6430,15 +6560,6 @@ local function mkInstance() local INSTANCE = {}
                     Grid.xBnum, config.Grid.xNum,
                     Grid.yBnum, config.Grid.yNum,
                     Grid.zBnum, config.Grid.zNum)
-
-
---      Debug_DumpAndExit(tiles,
---                        Fluid,
---                        Fluid_copy,
---                        p_Fluid,
---                        p_Fluid_copy,
---                        config,
---                        Integrator_timeStep)
 
       -- Initialize conserved derivatives to 0
       Flow_InitializeTimeDerivatives(Fluid)
@@ -6726,6 +6847,7 @@ local function mkInstance() local INSTANCE = {}
         -- Move particles to new partitions
         for c in tiles do
           Particles_LocateInCells(p_Particles[c],
+                                  config.Grid.xType, config.Grid.yType, config.Grid.zType,
                                   Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
                                   Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
                                   Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
