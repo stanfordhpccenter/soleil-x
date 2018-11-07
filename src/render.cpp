@@ -86,6 +86,7 @@ extern "C" {
     IndexSpace indexSpace = fluid.get_logical_region().get_index_space();
     Domain domain = runtime->get_index_space_domain(ctx, indexSpace);
     Rect<3> rect = domain;
+    std::cout << "renderTask subdomain " << rect << std::endl;
 
     for (PointInRectIterator<3> pir(rect); pir(); pir++) {
       fprintf(fluidOut, "%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\n",
