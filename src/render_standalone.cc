@@ -1,8 +1,4 @@
 
-//
-// This is a standalone renderer, used to develop the visualization algorithm offline.
-// Keep this file for future development.
-
 #include <iostream>
 #include <stdio.h>
 
@@ -10,7 +6,6 @@
 #include "renderImage.h"
 
 
-void renderInitialize(FieldData domainMin[3], FieldData domainMax[3]);
 
 void createGraphicsContext(OSMesaContext &mesaCtx,
                            GLubyte* &rgbaBuffer,
@@ -18,13 +13,6 @@ void createGraphicsContext(OSMesaContext &mesaCtx,
 #if OSMESA_MAJOR_VERSION * 100 + OSMESA_MINOR_VERSION >= 305
   /* specify Z, stencil, accum sizes */
   mesaCtx = OSMesaCreateContextExt(GL_RGBA, 32, 0, 0, NULL);
-  {
-    int z, s, a;
-    glGetIntegerv(GL_DEPTH_BITS, &z);
-    glGetIntegerv(GL_STENCIL_BITS, &s);
-    glGetIntegerv(GL_ACCUM_RED_BITS, &a);
-    printf("Depth=%d Stencil=%d Accum=%d\n", z, s, a);
-  }
 #else
   mesaCtx = OSMesaCreateContext(GL_RGBA, NULL);
 #endif
@@ -33,7 +21,7 @@ void createGraphicsContext(OSMesaContext &mesaCtx,
     return;
   }
   
-
+  
   /* Allocate the image buffer */
   const int fieldsPerPixel = 4;
   rgbaBuffer = new GLubyte[WIDTH * HEIGHT * fieldsPerPixel];
@@ -48,16 +36,21 @@ void createGraphicsContext(OSMesaContext &mesaCtx,
     return;
   }
   
+  {
+    int z, s, a;
+    glGetIntegerv(GL_DEPTH_BITS, &z);
+    glGetIntegerv(GL_STENCIL_BITS, &s);
+    glGetIntegerv(GL_ACCUM_RED_BITS, &a);
+    printf("Depth=%d Stencil=%d Accum=%d\n", z, s, a);
+  }
+  
   /* Allocate the depth buffer. */
   depthBuffer = new GLfloat[WIDTH * HEIGHT];
   if (!depthBuffer) {
     printf("Alloc depth buffer failed!\n");
     return;
   }
-
-
 }
-
 
 static void destroyGraphicsContext(OSMesaContext mesaCtx) {
   /* destroy the context */
@@ -92,22 +85,6 @@ void loadFluidData(char* fileName,
 }
 
 
-#if 0
-void retrieveRenderedImage(GLfloat* rgbaBuffer,
-                           GLfloat* depthBuffer) {
-  glReadPixels(0, 0, WIDTH, HEIGHT, GL_RGBA, GL_FLOAT, rgbaBuffer);
-  GLenum error = glGetError();
-  if(error != GL_NO_ERROR) {
-    std::cerr << "glReadPixels (RGBA) returned error " << error << std::endl;
-  }
-  glReadPixels(0, 0, WIDTH, HEIGHT, GL_DEPTH_COMPONENT, GL_FLOAT, depthBuffer);
-  error = glGetError();
-  if(error != GL_NO_ERROR) {
-    std::cerr << "glReadPixels (DEPTH) returned error " << error << std::endl;
-  }
-}
-#endif
-
 
 void saveImageToFile(char* fluidFileName,
                      GLubyte* rgbaBuffer) {
@@ -116,6 +93,7 @@ void saveImageToFile(char* fluidFileName,
   sprintf(filename, "%s.tga", fluidFileName);
   write_targa(filename, rgbaBuffer, WIDTH, HEIGHT);
 }
+
 
 
 int main(int argc, char **argv) {
@@ -136,7 +114,12 @@ int main(int argc, char **argv) {
     return -1;
   }
   char* fluidFileName = argv[2];
-  
+
+  OSMesaContext mesaCtx;
+  GLubyte* rgbaBuffer;
+  GLfloat* depthBuffer;
+  createGraphicsContext(mesaCtx, rgbaBuffer, depthBuffer);
+
   FieldData* rho = new FieldData[numFluidLines];
   FieldData* pressure = new FieldData[numFluidLines];
   FieldData* velocity = new FieldData[numFluidLines * 3];
@@ -146,19 +129,15 @@ int main(int argc, char **argv) {
   FieldData domainMax[3] = { 0 };
   
   loadFluidData(fluidFileName, numFluidLines, rho, pressure, velocity, centerCoordinates,  temperature, domainMin, domainMax);
-  
-  OSMesaContext mesaCtx;
-  GLubyte* rgbaBuffer;
-  GLfloat* depthBuffer;
-  createGraphicsContext(mesaCtx, rgbaBuffer, depthBuffer);
-  
+
   renderInitialize(domainMin, domainMax);
   renderImage(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, temperatureField);
-  
+
   saveImageToFile(fluidFileName, rgbaBuffer);
   
+  
   destroyGraphicsContext(mesaCtx);
-
+  
   delete [] rgbaBuffer;
   delete [] depthBuffer;
   delete [] rho;
@@ -166,6 +145,6 @@ int main(int argc, char **argv) {
   delete [] velocity;
   delete [] centerCoordinates;
   delete [] temperature;
-}
 
+}
 

@@ -14,7 +14,7 @@ typedef enum {
 
 void setCameraPosition(FieldData domainMin[3], FieldData domainMax[3]);
 
-
+void renderInitialize(FieldData domainMin[3], FieldData domainMax[3]);
 void renderImage(int numFluidX,
                  int numFluidY,
                  int numFluidZ,
