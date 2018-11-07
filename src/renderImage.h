@@ -25,7 +25,8 @@ void renderImage(int numFluidX,
                  FieldData* temperature,
                  FieldData domainMin[3],
                  FieldData domainMax[3],
-                 VisualizationField visualizationField);
+                 VisualizationField visualizationField,
+                 FieldData targetValue);
 
 
 void write_targa(const char *filename, const GLubyte *rgba, int width, int height);

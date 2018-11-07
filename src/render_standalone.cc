@@ -131,7 +131,7 @@ int main(int argc, char **argv) {
   loadFluidData(fluidFileName, numFluidLines, rho, pressure, velocity, centerCoordinates,  temperature, domainMin, domainMax);
 
   renderInitialize(domainMin, domainMax);
-  renderImage(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, temperatureField);
+  renderImage(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, temperatureField, 4.88675);
 
   saveImageToFile(fluidFileName, rgbaBuffer);
   

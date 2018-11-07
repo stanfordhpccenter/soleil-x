@@ -42,6 +42,7 @@ int gNumFluidX, gNumFluidY, gNumFluidZ;
 FieldData *gRho, *gPressure, *gVelocity, *gCenterCoordinates, *gTemperature;
 FieldData *gDomainMin, *gDomainMax;
 VisualizationField gVisualizationField;
+int gDrawnTriangles;
 
 
 struct GLvector
@@ -110,21 +111,11 @@ static const GLfloat afSpecularBlue [] = {0.25, 0.25, 1.00, 1.00};
 
 
 GLenum    ePolygonMode = GL_FILL;
-GLint     iDataSetSize = 16;
-GLfloat   fStepSize = 1.0/iDataSetSize;
-GLfloat   fTargetValue = 4.88675;
+GLfloat   fTargetValue;
 GLfloat   fTime = 0.0;
 GLvector  sSourcePoint[3];
-GLboolean bSpin = true;
-GLboolean bMove = true;
-GLboolean bLight = true;
 
-void vResize(GLsizei, GLsizei);
-
-GLfloat fSample1(GLfloat fX, GLfloat fY, GLfloat fZ);
-GLfloat fSample2(GLfloat fX, GLfloat fY, GLfloat fZ);
-GLfloat fSample3(GLfloat fX, GLfloat fY, GLfloat fZ);
-GLfloat (*fSample)(GLfloat fX, GLfloat fY, GLfloat fZ) = fSample1;
+GLfloat fSample(GLfloat fX, GLfloat fY, GLfloat fZ);
 
 GLvoid vMarchingCubes();
 GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale);
@@ -160,30 +151,6 @@ void initializeMarchingCubes(GLfloat lightPosition[4])
 }
 
 
-void vResize( GLsizei iWidth, GLsizei iHeight )
-{
-  GLfloat fAspect, fHalfWorldSize = (1.4142135623730950488016887242097/2);
-  
-  glViewport( 0, 0, iWidth, iHeight );
-  glMatrixMode (GL_PROJECTION);
-  glLoadIdentity ();
-  
-  if(iWidth <= iHeight)
-  {
-    fAspect = (GLfloat)iHeight / (GLfloat)iWidth;
-    glOrtho(-fHalfWorldSize, fHalfWorldSize, -fHalfWorldSize*fAspect,
-            fHalfWorldSize*fAspect, -10*fHalfWorldSize, 10*fHalfWorldSize);
-  }
-  else
-  {
-    fAspect = (GLfloat)iWidth / (GLfloat)iHeight;
-    glOrtho(-fHalfWorldSize*fAspect, fHalfWorldSize*fAspect, -fHalfWorldSize,
-            fHalfWorldSize, -10*fHalfWorldSize, 10*fHalfWorldSize);
-  }
-  
-  glMatrixMode( GL_MODELVIEW );
-}
-
 
 
 void vDrawScene(int numFluidX,
@@ -196,7 +163,8 @@ void vDrawScene(int numFluidX,
                 FieldData* temperature,
                 FieldData domainMin[3],
                 FieldData domainMax[3],
-                VisualizationField visualizationField)
+                VisualizationField visualizationField,
+                FieldData targetValue)
 {
   gNumFluidX = numFluidX;
   gNumFluidY = numFluidY;
@@ -209,6 +177,7 @@ void vDrawScene(int numFluidX,
   gDomainMin = domainMin;
   gDomainMax = domainMax;
   gVisualizationField = visualizationField;
+  fTargetValue = targetValue;
   
   
   //  static GLfloat fPitch = 0.0;
@@ -313,7 +282,7 @@ int index(GLfloat x, int numX, FieldData min, FieldData max) {
 
 
 //fSample1 finds the distance of (fX, fY, fZ) from three moving points
-GLfloat fSample1(GLfloat fX, GLfloat fY, GLfloat fZ)
+GLfloat fSample(GLfloat fX, GLfloat fY, GLfloat fZ)
 {
 #if 0
   GLdouble fResult = 0.0;
@@ -377,7 +346,7 @@ GLvoid vGetNormal(GLvector &rfNormal, GLfloat fX, GLfloat fY, GLfloat fZ)
 
 
 //vMarchCube1 performs the Marching Cubes algorithm on a single cube
-GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale)
+GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat scaleY, GLfloat scaleZ)
 {
   extern GLint aiCubeEdgeFlags[256];
   extern GLint a2iTriangleConnectionTable[256][16];
@@ -392,9 +361,9 @@ GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale)
   //Make a local copy of the values at the cube's corners
   for(iVertex = 0; iVertex < 8; iVertex++)
   {
-    afCubeValue[iVertex] = fSample(fX + a2fVertexOffset[iVertex][0]*fScale,
-                                   fY + a2fVertexOffset[iVertex][1]*fScale,
-                                   fZ + a2fVertexOffset[iVertex][2]*fScale);
+    afCubeValue[iVertex] = fSample(fX + a2fVertexOffset[iVertex][0]*scaleX,
+                                   fY + a2fVertexOffset[iVertex][1]*scaleY,
+                                   fZ + a2fVertexOffset[iVertex][2]*scaleZ);
   }
   
   //Find which vertices are inside of the surface and which are outside
@@ -425,9 +394,9 @@ GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale)
       fOffset = fGetOffset(afCubeValue[ a2iEdgeConnection[iEdge][0] ],
                            afCubeValue[ a2iEdgeConnection[iEdge][1] ], fTargetValue);
       
-      asEdgeVertex[iEdge].fX = fX + (a2fVertexOffset[ a2iEdgeConnection[iEdge][0] ][0]  +  fOffset * a2fEdgeDirection[iEdge][0]) * fScale;
-      asEdgeVertex[iEdge].fY = fY + (a2fVertexOffset[ a2iEdgeConnection[iEdge][0] ][1]  +  fOffset * a2fEdgeDirection[iEdge][1]) * fScale;
-      asEdgeVertex[iEdge].fZ = fZ + (a2fVertexOffset[ a2iEdgeConnection[iEdge][0] ][2]  +  fOffset * a2fEdgeDirection[iEdge][2]) * fScale;
+      asEdgeVertex[iEdge].fX = fX + (a2fVertexOffset[ a2iEdgeConnection[iEdge][0] ][0]  +  fOffset * a2fEdgeDirection[iEdge][0]) * scaleX;
+      asEdgeVertex[iEdge].fY = fY + (a2fVertexOffset[ a2iEdgeConnection[iEdge][0] ][1]  +  fOffset * a2fEdgeDirection[iEdge][1]) * scaleY;
+      asEdgeVertex[iEdge].fZ = fZ + (a2fVertexOffset[ a2iEdgeConnection[iEdge][0] ][2]  +  fOffset * a2fEdgeDirection[iEdge][2]) * scaleZ;
       
       vGetNormal(asEdgeNorm[iEdge], asEdgeVertex[iEdge].fX, asEdgeVertex[iEdge].fY, asEdgeVertex[iEdge].fZ);
     }
@@ -448,10 +417,15 @@ GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale)
       vGetColor(sColor, asEdgeVertex[iVertex], asEdgeNorm[iVertex]);
       glColor3f(sColor.fX, sColor.fY, sColor.fZ);
       glNormal3f(asEdgeNorm[iVertex].fX,   asEdgeNorm[iVertex].fY,   asEdgeNorm[iVertex].fZ);
+#if 0
       glVertex3f(asEdgeVertex[iVertex].fX, asEdgeVertex[iVertex].fY, asEdgeVertex[iVertex].fZ);
+#else
+      glVertex3f(asEdgeVertex[iVertex].fX * (gDomainMax[0] - gDomainMin[0]),
+                 asEdgeVertex[iVertex].fY * (gDomainMax[1] - gDomainMin[1]),
+                 asEdgeVertex[iVertex].fZ * (gDomainMax[2] - gDomainMin[2]));
+#endif
+      gDrawnTriangles++;
       
-      std::cout << "draw triangle " << asEdgeVertex[iVertex].fX << "," << asEdgeVertex[iVertex].fY << "," << asEdgeVertex[iVertex].fZ << " normal " <<
-      asEdgeNorm[iVertex].fX << "," << asEdgeNorm[iVertex].fY << "," << asEdgeNorm[iVertex].fZ << std::endl;
     }
   }  
 }
@@ -462,13 +436,19 @@ GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale)
 //vMarchingCubes iterates over the entire dataset, calling vMarchCube on each cube
 GLvoid vMarchingCubes()
 {
+  gDrawnTriangles = 0;
   GLint iX, iY, iZ;
-  for(iX = 0; iX < iDataSetSize; iX++)
-    for(iY = 0; iY < iDataSetSize; iY++)
-      for(iZ = 0; iZ < iDataSetSize; iZ++)
+  float stepSizeX = 1.0 / gNumFluidX;
+  float stepSizeY = 1.0 / gNumFluidY;
+  float stepSizeZ = 1.0 / gNumFluidZ;
+
+  for(iX = 0; iX < gNumFluidX; iX++)
+    for(iY = 0; iY < gNumFluidY; iY++)
+      for(iZ = 0; iZ < gNumFluidZ; iZ++)
       {
-        vMarchCube(iX*fStepSize, iY*fStepSize, iZ*fStepSize, fStepSize);
+        vMarchCube(iX*stepSizeX, iY*stepSizeY, iZ*stepSizeZ, stepSizeX, stepSizeY, stepSizeZ);
       }
+  std::cout << "drew " << gDrawnTriangles << " triangles" << std::endl;
 }
 
 

@@ -15,7 +15,8 @@ void vDrawScene(int numFluidX,
                 FieldData* temperature,
                 FieldData domainMin[3],
                 FieldData domainMax[3],
-                VisualizationField visualizationField);
+                VisualizationField visualizationField,
+                FieldData targetValue);
 
 void vResize(int, int);
 
@@ -34,14 +35,14 @@ void setCameraPosition(FieldData domainMin[3], FieldData domainMax[3]) {
   glPushMatrix();
   glLoadIdentity();
 
-#if 0
+#if 1
   FieldData scale[3];
   for(unsigned i = 0; i < 3; ++i) scale[i] = domainMax[i] - domainMin[i];
   FieldData scaleOffset = 0.1;
 #endif
   
   GLfloat from[] =
-#if 1
+#if 0
   { 0, .5, 0 };
 #else
   { (GLfloat)(domainMin[0] - scale[0] * scaleOffset),
@@ -49,7 +50,7 @@ void setCameraPosition(FieldData domainMin[3], FieldData domainMax[3]) {
     (GLfloat)(domainMin[2] - scale[2] * scaleOffset) };
 #endif
   GLfloat at[] =
-#if 1
+#if 0
   { .5, .5, .5 };
 #else
   { (GLfloat)(domainMin[0] + domainMax[0] * 0.5),
@@ -66,7 +67,7 @@ void setCameraPosition(FieldData domainMin[3], FieldData domainMax[3]) {
 
 
 void renderInitialize(FieldData domainMin[3], FieldData domainMax[3]) {
-#if 0
+#if 1
   GLfloat lightPosition[4];
   lightPosition[0] = 0.5 * (domainMax[0] - domainMin[0]);
   lightPosition[1] = domainMax[1] * 1.5;
@@ -89,13 +90,14 @@ void renderImage(int numFluidX,
                  FieldData* temperature,
                  FieldData domainMin[3],
                  FieldData domainMax[3],
-                 VisualizationField visualizationField) {
+                 VisualizationField visualizationField,
+                 FieldData targetValue) {
   
   std::cout << "domain min " << domainMin[0] << "," << domainMin[1] << "," << domainMin[2] << std::endl;
   std::cout << "domain max " << domainMax[0] << "," << domainMax[1] << "," << domainMax[2] << std::endl;
   
   setCameraPosition(domainMin, domainMax);
-  vDrawScene(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, visualizationField);
+  vDrawScene(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, visualizationField, targetValue);
 }
 
 
