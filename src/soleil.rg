@@ -109,11 +109,11 @@ local CopyQueue_columns =
                     Particles_primitives)
 
 local struct Fluid_columns {
+  centerCoordinates : double[3];
+  cellWidth : double[3];
   rho : double;
   pressure : double;
   velocity : double[3];
-  centerCoordinates : double[3];
-  cellWidth : double[3];
   velocityGradientX : double[3];
   velocityGradientY : double[3];
   velocityGradientZ : double[3];
@@ -611,10 +611,7 @@ task linear_interpolation(xi : double,
                           beta  : double,
                           a     : double,
                           b     : double) : double
-
-  --return (b-a)/(beta-alpha)*xi + (a - (b-a)/(beta-alpha)*alpha)
   return (b-a)/(beta-alpha)*(xi-alpha) + a
-
 end
 
 
@@ -672,7 +669,6 @@ task uniform_cell_neg_face(x_min : double,
                            x_max : double,
                            Nx    : uint64,
                            i     : uint64) : double
-
   var dx = uniform_cell_width(x_min, x_max, Nx)
   var x_center = uniform_cell_center(x_min, x_max, Nx, i)
   return x_center - 0.5*dx
@@ -695,7 +691,6 @@ task uniform_cell_pos_face(x_min : double,
                            x_max : double,
                            Nx    : uint64,
                            i     : uint64) : double
-
   var dx = uniform_cell_width(x_min, x_max, Nx)
   var x_center = uniform_cell_center(x_min, x_max, Nx, i)
   return x_center + 0.5*dx
@@ -715,7 +710,6 @@ local __demand(__inline)
 task transform_uniform_to_nonuniform(x : double,
                                      x_min : double,
                                      x_max : double) : double
-
   -- map x onto the interval -1 to 1
   var x_scaled_minus1_to_plus1 = linear_interpolation(x, x_min, x_max, -1.0, 1.0)
 
@@ -724,7 +718,6 @@ task transform_uniform_to_nonuniform(x : double,
 
   -- map non-uniform sample back to origional interval x_min to x_max
   return  linear_interpolation(x_non_uniform_minus1_to_plus1, -1.0, 1.0, x_min, x_max)
-
 end
 
 -- Description:
@@ -745,7 +738,6 @@ task nonuniform_cell_neg_face(x_min : double,
                               x_max : double,
                               Nx    : uint64,
                               i     : uint64) : double
-
   var x_uniform_neg_face = uniform_cell_neg_face(x_min, x_max, Nx, i)
   return transform_uniform_to_nonuniform(x_uniform_neg_face, x_min, x_max)
 end
@@ -768,10 +760,8 @@ task nonuniform_cell_pos_face(x_min : double,
                               x_max : double,
                               Nx    : uint64,
                               i     : uint64) : double
-
   var x_uniform_pos_face = uniform_cell_pos_face(x_min, x_max, Nx, i)
   return transform_uniform_to_nonuniform(x_uniform_pos_face, x_min, x_max)
-
 end
 
 
@@ -792,14 +782,12 @@ task nonuniform_cell_center(x_min : double,
                             x_max : double,
                             Nx    : uint64,
                             i     : uint64) : double
-
   var x_non_uniform_neg_face = nonuniform_cell_neg_face(x_min, x_max, Nx, i)
   var x_non_uniform_pos_face = nonuniform_cell_pos_face(x_min, x_max, Nx, i)
 
   var x_non_uniform_center = 0.5*(x_non_uniform_neg_face + x_non_uniform_pos_face)
 
   return x_non_uniform_center 
-
 end
 
 
@@ -820,14 +808,12 @@ task nonuniform_cell_width(x_min : double,
                            x_max : double,
                            Nx    : uint64,
                            i     : uint64) : double
-
   var x_non_uniform_neg_face = nonuniform_cell_neg_face(x_min, x_max, Nx, i)
   var x_non_uniform_pos_face = nonuniform_cell_pos_face(x_min, x_max, Nx, i)
 
   var x_non_uniform_dx = x_non_uniform_pos_face - x_non_uniform_neg_face
 
   return x_non_uniform_dx 
-
 end
 
 
@@ -846,9 +832,7 @@ terra central_difference(y_minus  : double,
                          dx_minus : double,
                          dx       : double,
                          dx_plus  : double) : double
-
   return (y_plus - y_minus)/(0.5*dx_minus + dx + 0.5*dx_plus)
-
 end
 
 -- Description:
@@ -864,9 +848,7 @@ terra one_sided_difference(y_minus  : double,
                            y_plus   : double,
                            dx_minus : double,
                            dx_plus  : double) : double
-
   return (y_plus - y_minus)/(0.5*dx_minus + 0.5*dx_plus)
-
 end
 
 -------------------------------------------------------------------------------
@@ -3725,14 +3707,15 @@ task CalculateAveragePD(Fluid : region(ispace(int3d), Fluid_columns),
                         Grid_yBnum : int32, Grid_yNum : int32,
                         Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.{pressure, velocityGradientX, velocityGradientY, velocityGradientZ})
+  reads(Fluid.{cellWidth, pressure, velocityGradientX, velocityGradientY, velocityGradientZ})
 do
   var acc = 0.0
   __demand(__openmp)
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
+      var cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
       var divU = Fluid[c].velocityGradientX[0] + Fluid[c].velocityGradientY[1] + Fluid[c].velocityGradientZ[2]
-      acc += divU * Fluid[c].pressure
+      acc += (divU * Fluid[c].pressure)*cellVolume
     end
   end
   return acc
@@ -6603,12 +6586,14 @@ local function mkInstance() local INSTANCE = {}
         var Flow_averageK = 0.0
         var Flow_averagePD = 0.0
 
+        var interior_volume = 0.0
+        interior_volume += CalculateIneriorVolume(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+
         Flow_averagePD += CalculateAveragePD(Fluid,
                                              Grid.xBnum, config.Grid.xNum,
                                              Grid.yBnum, config.Grid.yNum,
                                              Grid.zBnum, config.Grid.zNum)
-        -- TODO CHECK: Should this be a volume average?
-        Flow_averagePD /= config.Grid.xNum * config.Grid.yNum * config.Grid.zNum
+        Flow_averagePD /= interior_volume
 
         Flow_ResetDissipation(Fluid)
 
@@ -6650,9 +6635,6 @@ local function mkInstance() local INSTANCE = {}
                                 Grid.xBnum, config.Grid.xNum,
                                 Grid.yBnum, config.Grid.yNum,
                                 Grid.zBnum, config.Grid.zNum)
-
-        var interior_volume = 0.0
-        interior_volume += CalculateIneriorVolume(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
 
         Flow_averageDissipation += CalculateAverageDissipation(Fluid,
                                                                Grid.xBnum, config.Grid.xNum,
@@ -6993,132 +6975,133 @@ task workDual(mc : MultiConfig)
   var is_FakeCopyQueue = ispace(int1d, 0)
   var [FakeCopyQueue] = region(is_FakeCopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
-  -- TODO: Update for non-uniform mesh
-  var copySrcOrigin = array(
-    SIM0.Grid.xRealOrigin + mc.copySrc.fromCell[0] * SIM0.Grid.xCellWidth,
-    SIM0.Grid.yRealOrigin + mc.copySrc.fromCell[1] * SIM0.Grid.yCellWidth,
-    SIM0.Grid.zRealOrigin + mc.copySrc.fromCell[2] * SIM0.Grid.zCellWidth)
-  var copyTgtOrigin = array(
-    SIM1.Grid.xRealOrigin + mc.copyTgt.fromCell[0] * SIM1.Grid.xCellWidth,
-    SIM1.Grid.yRealOrigin + mc.copyTgt.fromCell[1] * SIM1.Grid.yCellWidth,
-    SIM1.Grid.zRealOrigin + mc.copyTgt.fromCell[2] * SIM1.Grid.zCellWidth)
-  var Fluid0_cellWidth = array(SIM0.Grid.xCellWidth, SIM0.Grid.yCellWidth, SIM0.Grid.zCellWidth)
-  var Fluid1_cellWidth = array(SIM1.Grid.xCellWidth, SIM1.Grid.yCellWidth, SIM1.Grid.zCellWidth)
-  var CopyQueue_ptr : int64 = 0
-  var coloring_CopyQueue = C.legion_domain_point_coloring_create()
-  for c in SIM0.tiles do
-    var partSize = CopyQueue_partSize(SIM0.p_Fluid[c].bounds,
-                                      mc.configs[0],
-                                      mc.copySrc)
-    C.legion_domain_point_coloring_color_domain(
-      coloring_CopyQueue, c, rect1d{CopyQueue_ptr,CopyQueue_ptr+partSize-1})
-    CopyQueue_ptr += partSize
-  end
-  var is_CopyQueue = ispace(int1d, CopyQueue_ptr)
-  var [CopyQueue] = region(is_CopyQueue, CopyQueue_columns);
-  [UTIL.emitRegionTagAttach(CopyQueue, MAPPER.SAMPLE_ID_TAG, rexpr mc.configs[0].Mapping.sampleId end, int)];
-  var p_CopyQueue = partition(disjoint, CopyQueue, coloring_CopyQueue, SIM0.tiles)
-  C.legion_domain_point_coloring_destroy(coloring_CopyQueue)
-  -- Check 2-section configuration
-  regentlib.assert(
-    SIM0.Integrator_simTime == SIM1.Integrator_simTime and
-    SIM0.Integrator_timeStep == SIM1.Integrator_timeStep,
-    'Coupled sections disagree on starting time')
-  regentlib.assert(
-    -- copySrc is a valid volume
-    0 <= mc.copySrc.fromCell[0] and
-    0 <= mc.copySrc.fromCell[1] and
-    0 <= mc.copySrc.fromCell[2] and
-    mc.copySrc.fromCell[0] <= mc.copySrc.uptoCell[0] and
-    mc.copySrc.fromCell[1] <= mc.copySrc.uptoCell[1] and
-    mc.copySrc.fromCell[2] <= mc.copySrc.uptoCell[2] and
-    mc.copySrc.uptoCell[0] < mc.configs[0].Grid.xNum + 2 * SIM0.Grid.xBnum and
-    mc.copySrc.uptoCell[1] < mc.configs[0].Grid.yNum + 2 * SIM0.Grid.yBnum and
-    mc.copySrc.uptoCell[2] < mc.configs[0].Grid.zNum + 2 * SIM0.Grid.zBnum and
-    -- copyTgt is a valid volume
-    0 <= mc.copyTgt.fromCell[0] and
-    0 <= mc.copyTgt.fromCell[1] and
-    0 <= mc.copyTgt.fromCell[2] and
-    mc.copyTgt.fromCell[0] <= mc.copyTgt.uptoCell[0] and
-    mc.copyTgt.fromCell[1] <= mc.copyTgt.uptoCell[1] and
-    mc.copyTgt.fromCell[2] <= mc.copyTgt.uptoCell[2] and
-    mc.copyTgt.uptoCell[0] < mc.configs[1].Grid.xNum + 2 * SIM1.Grid.xBnum and
-    mc.copyTgt.uptoCell[1] < mc.configs[1].Grid.yNum + 2 * SIM1.Grid.yBnum and
-    mc.copySrc.uptoCell[2] < mc.configs[1].Grid.zNum + 2 * SIM1.Grid.zBnum and
-    -- volumes have the same size
-    mc.copySrc.uptoCell[0] - mc.copySrc.fromCell[0] ==
-    mc.copyTgt.uptoCell[0] - mc.copyTgt.fromCell[0] and
-    mc.copySrc.uptoCell[1] - mc.copySrc.fromCell[1] ==
-    mc.copyTgt.uptoCell[1] - mc.copyTgt.fromCell[1] and
-    mc.copySrc.uptoCell[2] - mc.copySrc.fromCell[2] ==
-    mc.copyTgt.uptoCell[2] - mc.copyTgt.fromCell[2],
-    'Invalid volume copy configuration');
-  -- Initialize regions & partitions
-  [parallelizeFor(SIM0, SIM0.InitRegions(rexpr mc.configs[0] end))];
-  [parallelizeFor(SIM1, SIM1.InitRegions(rexpr mc.configs[1] end))];
-  var srcOrigin = int3d{mc.copySrc.fromCell[0], mc.copySrc.fromCell[1], mc.copySrc.fromCell[2]}
-  var tgtOrigin = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]}
-  var srcColoring = C.legion_domain_point_coloring_create()
-  for c in SIM1.tiles do
-    var tgtRect = intersection(SIM1.p_Fluid[c].bounds, mc.copyTgt)
-    if rectSize(tgtRect) > 0 then
-      var srcRect = rect3d{lo = tgtRect.lo - tgtOrigin + srcOrigin,
-                           hi = tgtRect.hi - tgtOrigin + srcOrigin}
-      C.legion_domain_point_coloring_color_domain(srcColoring, c, srcRect)
-    end
-  end
-  var p_Fluid0_src = partition(disjoint, SIM0.Fluid, srcColoring, SIM1.tiles)
-  C.legion_domain_point_coloring_destroy(srcColoring)
-  var tgtColoring = C.legion_domain_point_coloring_create()
-  C.legion_domain_point_coloring_color_domain(tgtColoring, int1d(0),
-    rect3d{lo = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]},
-           hi = int3d{mc.copyTgt.uptoCell[0], mc.copyTgt.uptoCell[1], mc.copyTgt.uptoCell[2]}})
-  var p_Fluid1_isCopied = partition(disjoint, SIM1.Fluid, tgtColoring, ispace(int1d,1))
-  C.legion_domain_point_coloring_destroy(tgtColoring)
-  var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
-  -- Main simulation loop
-  while true do
-    -- Perform preliminary actions before each timestep
-    [parallelizeFor(SIM0, SIM0.MainLoopHeader(rexpr mc.configs[0] end))];
-    [parallelizeFor(SIM1, SIM1.MainLoopHeader(rexpr mc.configs[1] end))];
-    -- Make sure both simulations are using the same timestep
-    SIM0.Integrator_deltaTime = min(SIM0.Integrator_deltaTime, SIM1.Integrator_deltaTime)
-    SIM1.Integrator_deltaTime = min(SIM0.Integrator_deltaTime, SIM1.Integrator_deltaTime);
-    [parallelizeFor(SIM0, SIM0.PerformIO(rexpr mc.configs[0] end))];
-    [parallelizeFor(SIM1, SIM1.PerformIO(rexpr mc.configs[1] end))];
-    if SIM0.Integrator_exitCond or SIM1.Integrator_exitCond then
-      break
-    end
-    -- Run one iteration of first section
-    [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end, FakeCopyQueue))];
-    -- Copy fluid & particles to second section
-    fill(CopyQueue.__valid, false) -- clear the copyqueue from the previous iteration
-    if SIM1.Integrator_timeStep % mc.copyEveryTimeSteps == 0 then
-      for c in SIM1.tiles do
-        var src = p_Fluid0_src[c]
-        var tgt = p_Fluid1_tgt[c][0]
-        copy(src.temperature, tgt.temperature_inc)
-        copy(src.velocity, tgt.velocity_inc)
-      end
-      fill(CopyQueue.position, array(-1.0, -1.0, -1.0))
-      fill(CopyQueue.velocity, array(-1.0, -1.0, -1.0))
-      fill(CopyQueue.temperature, -1.0)
-      fill(CopyQueue.diameter, -1.0)
-      fill(CopyQueue.density, -1.0)
-      for c in SIM0.tiles do
-        CopyQueue_push(SIM0.p_Particles[c],
-                       p_CopyQueue[c],
-                       mc.copySrc,
-                       copySrcOrigin, copyTgtOrigin,
-                       Fluid0_cellWidth, Fluid1_cellWidth)
-      end
-    end
-    -- Run one iteration of second section
-    [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, CopyQueue))];
-  end
+  ---- TODO: Update for non-uniform mesh
+  ---- Now RealOrigin is not set in DeclSymbols but in InitRegions
+  --var copySrcOrigin = array(
+  --  SIM0.Grid.xRealOrigin + mc.copySrc.fromCell[0] * SIM0.Grid.xCellWidth,
+  --  SIM0.Grid.yRealOrigin + mc.copySrc.fromCell[1] * SIM0.Grid.yCellWidth,
+  --  SIM0.Grid.zRealOrigin + mc.copySrc.fromCell[2] * SIM0.Grid.zCellWidth)
+  --var copyTgtOrigin = array(
+  --  SIM1.Grid.xRealOrigin + mc.copyTgt.fromCell[0] * SIM1.Grid.xCellWidth,
+  --  SIM1.Grid.yRealOrigin + mc.copyTgt.fromCell[1] * SIM1.Grid.yCellWidth,
+  --  SIM1.Grid.zRealOrigin + mc.copyTgt.fromCell[2] * SIM1.Grid.zCellWidth)
+  --var Fluid0_cellWidth = array(SIM0.Grid.xCellWidth, SIM0.Grid.yCellWidth, SIM0.Grid.zCellWidth)
+  --var Fluid1_cellWidth = array(SIM1.Grid.xCellWidth, SIM1.Grid.yCellWidth, SIM1.Grid.zCellWidth)
+  --var CopyQueue_ptr : int64 = 0
+  --var coloring_CopyQueue = C.legion_domain_point_coloring_create()
+  --for c in SIM0.tiles do
+  --  var partSize = CopyQueue_partSize(SIM0.p_Fluid[c].bounds,
+  --                                    mc.configs[0],
+  --                                    mc.copySrc)
+  --  C.legion_domain_point_coloring_color_domain(
+  --    coloring_CopyQueue, c, rect1d{CopyQueue_ptr,CopyQueue_ptr+partSize-1})
+  --  CopyQueue_ptr += partSize
+  --end
+  --var is_CopyQueue = ispace(int1d, CopyQueue_ptr)
+  --var [CopyQueue] = region(is_CopyQueue, CopyQueue_columns);
+  --[UTIL.emitRegionTagAttach(CopyQueue, MAPPER.SAMPLE_ID_TAG, rexpr mc.configs[0].Mapping.sampleId end, int)];
+  --var p_CopyQueue = partition(disjoint, CopyQueue, coloring_CopyQueue, SIM0.tiles)
+  --C.legion_domain_point_coloring_destroy(coloring_CopyQueue)
+  ---- Check 2-section configuration
+  --regentlib.assert(
+  --  SIM0.Integrator_simTime == SIM1.Integrator_simTime and
+  --  SIM0.Integrator_timeStep == SIM1.Integrator_timeStep,
+  --  'Coupled sections disagree on starting time')
+  --regentlib.assert(
+  --  -- copySrc is a valid volume
+  --  0 <= mc.copySrc.fromCell[0] and
+  --  0 <= mc.copySrc.fromCell[1] and
+  --  0 <= mc.copySrc.fromCell[2] and
+  --  mc.copySrc.fromCell[0] <= mc.copySrc.uptoCell[0] and
+  --  mc.copySrc.fromCell[1] <= mc.copySrc.uptoCell[1] and
+  --  mc.copySrc.fromCell[2] <= mc.copySrc.uptoCell[2] and
+  --  mc.copySrc.uptoCell[0] < mc.configs[0].Grid.xNum + 2 * SIM0.Grid.xBnum and
+  --  mc.copySrc.uptoCell[1] < mc.configs[0].Grid.yNum + 2 * SIM0.Grid.yBnum and
+  --  mc.copySrc.uptoCell[2] < mc.configs[0].Grid.zNum + 2 * SIM0.Grid.zBnum and
+  --  -- copyTgt is a valid volume
+  --  0 <= mc.copyTgt.fromCell[0] and
+  --  0 <= mc.copyTgt.fromCell[1] and
+  --  0 <= mc.copyTgt.fromCell[2] and
+  --  mc.copyTgt.fromCell[0] <= mc.copyTgt.uptoCell[0] and
+  --  mc.copyTgt.fromCell[1] <= mc.copyTgt.uptoCell[1] and
+  --  mc.copyTgt.fromCell[2] <= mc.copyTgt.uptoCell[2] and
+  --  mc.copyTgt.uptoCell[0] < mc.configs[1].Grid.xNum + 2 * SIM1.Grid.xBnum and
+  --  mc.copyTgt.uptoCell[1] < mc.configs[1].Grid.yNum + 2 * SIM1.Grid.yBnum and
+  --  mc.copySrc.uptoCell[2] < mc.configs[1].Grid.zNum + 2 * SIM1.Grid.zBnum and
+  --  -- volumes have the same size
+  --  mc.copySrc.uptoCell[0] - mc.copySrc.fromCell[0] ==
+  --  mc.copyTgt.uptoCell[0] - mc.copyTgt.fromCell[0] and
+  --  mc.copySrc.uptoCell[1] - mc.copySrc.fromCell[1] ==
+  --  mc.copyTgt.uptoCell[1] - mc.copyTgt.fromCell[1] and
+  --  mc.copySrc.uptoCell[2] - mc.copySrc.fromCell[2] ==
+  --  mc.copyTgt.uptoCell[2] - mc.copyTgt.fromCell[2],
+  --  'Invalid volume copy configuration');
+  ---- Initialize regions & partitions
+  --[parallelizeFor(SIM0, SIM0.InitRegions(rexpr mc.configs[0] end))];
+  --[parallelizeFor(SIM1, SIM1.InitRegions(rexpr mc.configs[1] end))];
+  --var srcOrigin = int3d{mc.copySrc.fromCell[0], mc.copySrc.fromCell[1], mc.copySrc.fromCell[2]}
+  --var tgtOrigin = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]}
+  --var srcColoring = C.legion_domain_point_coloring_create()
+  --for c in SIM1.tiles do
+  --  var tgtRect = intersection(SIM1.p_Fluid[c].bounds, mc.copyTgt)
+  --  if rectSize(tgtRect) > 0 then
+  --    var srcRect = rect3d{lo = tgtRect.lo - tgtOrigin + srcOrigin,
+  --                         hi = tgtRect.hi - tgtOrigin + srcOrigin}
+  --    C.legion_domain_point_coloring_color_domain(srcColoring, c, srcRect)
+  --  end
+  --end
+  --var p_Fluid0_src = partition(disjoint, SIM0.Fluid, srcColoring, SIM1.tiles)
+  --C.legion_domain_point_coloring_destroy(srcColoring)
+  --var tgtColoring = C.legion_domain_point_coloring_create()
+  --C.legion_domain_point_coloring_color_domain(tgtColoring, int1d(0),
+  --  rect3d{lo = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]},
+  --         hi = int3d{mc.copyTgt.uptoCell[0], mc.copyTgt.uptoCell[1], mc.copyTgt.uptoCell[2]}})
+  --var p_Fluid1_isCopied = partition(disjoint, SIM1.Fluid, tgtColoring, ispace(int1d,1))
+  --C.legion_domain_point_coloring_destroy(tgtColoring)
+  --var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
+  ---- Main simulation loop
+  --while true do
+  --  -- Perform preliminary actions before each timestep
+  --  [parallelizeFor(SIM0, SIM0.MainLoopHeader(rexpr mc.configs[0] end))];
+  --  [parallelizeFor(SIM1, SIM1.MainLoopHeader(rexpr mc.configs[1] end))];
+  --  -- Make sure both simulations are using the same timestep
+  --  SIM0.Integrator_deltaTime = min(SIM0.Integrator_deltaTime, SIM1.Integrator_deltaTime)
+  --  SIM1.Integrator_deltaTime = min(SIM0.Integrator_deltaTime, SIM1.Integrator_deltaTime);
+  --  [parallelizeFor(SIM0, SIM0.PerformIO(rexpr mc.configs[0] end))];
+  --  [parallelizeFor(SIM1, SIM1.PerformIO(rexpr mc.configs[1] end))];
+  --  if SIM0.Integrator_exitCond or SIM1.Integrator_exitCond then
+  --    break
+  --  end
+  --  -- Run one iteration of first section
+  --  [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end, FakeCopyQueue))];
+  --  -- Copy fluid & particles to second section
+  --  fill(CopyQueue.__valid, false) -- clear the copyqueue from the previous iteration
+  --  if SIM1.Integrator_timeStep % mc.copyEveryTimeSteps == 0 then
+  --    for c in SIM1.tiles do
+  --      var src = p_Fluid0_src[c]
+  --      var tgt = p_Fluid1_tgt[c][0]
+  --      copy(src.temperature, tgt.temperature_inc)
+  --      copy(src.velocity, tgt.velocity_inc)
+  --    end
+  --    fill(CopyQueue.position, array(-1.0, -1.0, -1.0))
+  --    fill(CopyQueue.velocity, array(-1.0, -1.0, -1.0))
+  --    fill(CopyQueue.temperature, -1.0)
+  --    fill(CopyQueue.diameter, -1.0)
+  --    fill(CopyQueue.density, -1.0)
+  --    for c in SIM0.tiles do
+  --      CopyQueue_push(SIM0.p_Particles[c],
+  --                     p_CopyQueue[c],
+  --                     mc.copySrc,
+  --                     copySrcOrigin, copyTgtOrigin,
+  --                     Fluid0_cellWidth, Fluid1_cellWidth)
+  --    end
+  --  end
+  --  -- Run one iteration of second section
+  --  [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, CopyQueue))];
+  --end
   -- Cleanups
-  [SIM0.Cleanup(rexpr mc.configs[0] end)];
-  [SIM1.Cleanup(rexpr mc.configs[1] end)];
+  --[SIM0.Cleanup(rexpr mc.configs[0] end)];
+  --[SIM1.Cleanup(rexpr mc.configs[1] end)];
 end
 
 __demand(__inline)
