@@ -13,7 +13,7 @@ See below for instructions targeting specific systems.
 The following are automatically installed during Legion installation:
 
 * LLVM 3.8 (for CUDA 8.0+) or 3.5 (for CUDA 7.5, and better debug info)
-* GASNET (custom version)
+* GASNET (custom version -- optimized for Legion)
 * Terra (custom version -- we need to use LuaJIT2.1 instead of the default LuaJIT2.0, because the latter exhibits a spurious out-of-memory error when compiling large Regent programs)
 * HDF5 (any recent version)
 
