@@ -71,7 +71,7 @@ function run_lassen {
     fi
     bsub -J soleil -G guests -alloc_flags smt4 \
         -nnodes "$NUM_NODES" -W "$MINUTES" -q "$QUEUE" $DEPS \
-        $SOLEIL_DIR"/src/lassen.lsf
+        "$SOLEIL_DIR"/src/lassen.lsf
 }
 
 function run_pizdaint {
@@ -161,7 +161,7 @@ if [[ "$(uname -n)" == *"titan"* ]]; then
     run_titan
 elif [[ "$(hostname -d)" == *"summit"* ]]; then
     run_summit
-elif [[ "$(hostname -d)" == *"lassen"* ]]; then
+elif [[ "$(uname -n)" == *"lassen"* ]]; then
     run_lassen
 elif [[ "$(uname -n)" == *"daint"* ]]; then
     run_pizdaint
