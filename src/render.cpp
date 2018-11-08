@@ -87,6 +87,7 @@ extern "C" {
     Domain domain = runtime->get_index_space_domain(ctx, indexSpace);
     Rect<3> rect = domain;
     std::cout << "renderTask subdomain " << rect << std::endl;
+    std::cout << "renderTask indexSpace " << indexSpace << std::endl;
 
     for (PointInRectIterator<3> pir(rect); pir(); pir++) {
       fprintf(fluidOut, "%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\n",
@@ -191,24 +192,38 @@ std::cout << __FUNCTION__ << " pid " << getpid() << std::endl;
     const FieldAccessor<READ_ONLY, float, 1> particles_position_acc(*particles, particles_fields[0]);
     const FieldAccessor<READ_ONLY, float, 1> particles_position_history_acc(*particles, particles_fields[1]);
     
+
+#if 0
+PROBLEM
+in the indextasklauncher we use everywhereDomain which has two nodes
+in the region requirements the color space of everywhereDomain must match the colorspace of fluidPartition
+fluidPartition should have two nodes, yes?
+have we run into a legion limitation?
+#endif
+
     ArgumentMap argMap;
     IndexTaskLauncher renderLauncher(gRenderTaskID, compositor->everywhereDomain(), TaskArgument(&imageDescriptor, sizeof(imageDescriptor)), argMap, Predicate::TRUE_PRED, false, gImageReductionMapperID);
     
-    RegionRequirement req0(fluid->get_logical_region(), 0, READ_ONLY, SIMULTANEOUS, fluid->get_logical_region(), gImageReductionMapperID);
+    LogicalPartition fluidPartition = CObjectWrapper::unwrap(fluidPartition_);
+std::cout << "fluid partition " << fluidPartition << std::endl;
+    RegionRequirement req0(fluidPartition, 0, READ_ONLY, SIMULTANEOUS, fluid->get_logical_region(), gImageReductionMapperID);
     for(int i = 0; i < numFluidFields; ++i) req0.add_field(fluidFields[i]);
     renderLauncher.add_region_requirement(req0);
     
-    RegionRequirement req1(particles->get_logical_region(), 0, READ_ONLY, SIMULTANEOUS, particles->get_logical_region(), gImageReductionMapperID);
+    LogicalPartition particlesPartition = CObjectWrapper::unwrap(particlesPartition_);
+    RegionRequirement req1(particlesPartition, 0, READ_ONLY, SIMULTANEOUS, particles->get_logical_region(), gImageReductionMapperID);
     for(int i = 0; i < numParticlesFields; ++i) req1.add_field(particlesFields[i]);
     renderLauncher.add_region_requirement(req1);
 
-    RegionRequirement req2(compositor->sourceImage(), 0, READ_WRITE, EXCLUSIVE, compositor->sourceImage(), gImageReductionMapperID);
+
+    RegionRequirement req2(fluidPartition, 0, READ_WRITE, EXCLUSIVE, compositor->sourceImage(), gImageReductionMapperID);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_R);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_G);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_B);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_A);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_Z);
     renderLauncher.add_region_requirement(req2);
+
     
     ImageReductionMapper::clearPlacement(logicalPartition);
 
