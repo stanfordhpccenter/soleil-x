@@ -62,6 +62,18 @@ function run_summit {
         "$SOLEIL_DIR"/src/summit.lsf
 }
 
+function run_lassen {
+    export QUEUE="${QUEUE:-pdebug}"
+    NUM_NODES="$(( NUM_RANKS/2 + NUM_RANKS%2 ))"
+    DEPS=
+    if [[ ! -z "$AFTER" ]]; then
+        DEPS="-w 'done($AFTER)'"
+    fi
+    bsub -J soleil -G guests -alloc_flags smt4 \
+        -nnodes "$NUM_NODES" -W "$MINUTES" -q "$QUEUE" $DEPS \
+        "$SOLEIL_DIR"/src/lassen.lsf
+}
+
 function run_pizdaint {
     export QUEUE="${QUEUE:-debug}"
     DEPS=
@@ -116,7 +128,7 @@ function run_sapling {
     fi
     GPU_OPTS=
     if [[ "$USE_CUDA" == 1 ]]; then
-        GPU_OPTS="-ll:gpu 1 -ll:fsize 5500"
+        GPU_OPTS="-ll:gpu 1 -ll:fsize 5500 -ll:zsize 1024 -ll:ib_zsize 0"
     fi
     mpiexec -H "$NODES" --bind-to none \
         -x LD_LIBRARY_PATH -x SOLEIL_DIR -x REALM_BACKTRACE \
@@ -124,7 +136,7 @@ function run_sapling {
         -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 8 \
         $GPU_OPTS -ll:dma 2 -ll:ahandlers 2 \
 -level image_reduction_mapper=1 -logfile mapper_%.log \
-        -ll:csize 36000 \
+        -ll:csize 35000 -ll:rsize 1024 -ll:ib_rsize 0 -ll:gsize 0 \
         -ll:stacksize 8 -ll:ostack 8 -lg:sched -1
     # Resources:
     # 40230MB RAM per node
@@ -150,6 +162,8 @@ if [[ "$(uname -n)" == *"titan"* ]]; then
     run_titan
 elif [[ "$(hostname -d)" == *"summit"* ]]; then
     run_summit
+elif [[ "$(uname -n)" == *"lassen"* ]]; then
+    run_lassen
 elif [[ "$(uname -n)" == *"daint"* ]]; then
     run_pizdaint
 elif [[ "$(uname -n)" == *"certainty"* ]]; then
