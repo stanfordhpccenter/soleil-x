@@ -404,3 +404,54 @@ USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-versi
 cd "$SOLEIL_DIR"/src
 make
 ```
+
+Setup (Lassen @ LLNL)
+=====================
+
+### Add to shell startup
+
+Install Legion and Soleil-X on the `/usr/workspace` filesystem; your home directory has a low quota.
+
+```
+# Module loads
+module load gcc/7.3.1
+module load cuda/9.2.148
+# Build config
+export CC=gcc
+export CXX=g++
+export CONDUIT=ibv
+# Path setup
+export LEGION_DIR=???
+export HDF_ROOT="$LEGION_DIR"/language/hdf/install
+export SOLEIL_DIR=???
+export SCRATCH=/p/gpfs1/`whoami`
+# CUDA config
+export CUDA_HOME=/usr/tce/packages/cuda/cuda-9.2.148
+export CUDA="$CUDA_HOME"
+export GPU_ARCH=volta
+```
+
+### Download software
+
+```
+git clone https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
+```
+
+### Install Legion
+
+We need to go through the `lalloc` utility script to build on a compute node.
+
+```
+cd "$LEGION_DIR"/language
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 lalloc 1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1-ppc64-koriakin'
+```
+
+### Compile Soleil-X
+
+Soleil-X must similarly be built on a compute node.
+
+```
+cd "$SOLEIL_DIR"/src
+lalloc 1 make
+```

@@ -62,6 +62,18 @@ function run_summit {
         "$SOLEIL_DIR"/src/summit.lsf
 }
 
+function run_lassen {
+    export QUEUE="${QUEUE:-pdebug}"
+    NUM_NODES="$(( NUM_RANKS/2 + NUM_RANKS%2 ))"
+    DEPS=
+    if [[ ! -z "$AFTER" ]]; then
+        DEPS="-w 'done($AFTER)'"
+    fi
+    bsub -J soleil -G guests -alloc_flags smt4 \
+        -nnodes "$NUM_NODES" -W "$MINUTES" -q "$QUEUE" $DEPS \
+        $SOLEIL_DIR"/src/lassen.lsf
+}
+
 function run_pizdaint {
     export QUEUE="${QUEUE:-debug}"
     DEPS=
@@ -149,6 +161,8 @@ if [[ "$(uname -n)" == *"titan"* ]]; then
     run_titan
 elif [[ "$(hostname -d)" == *"summit"* ]]; then
     run_summit
+elif [[ "$(hostname -d)" == *"lassen"* ]]; then
+    run_lassen
 elif [[ "$(uname -n)" == *"daint"* ]]; then
     run_pizdaint
 elif [[ "$(uname -n)" == *"certainty"* ]]; then
