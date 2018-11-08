@@ -8,9 +8,9 @@
     },
 
     "Grid" : {
-        "xNum" : 16,
-        "yNum" : 64,
-        "zNum" : 16,
+        "xNum" : 8,
+        "yNum" : 32,
+        "zNum" : 8,
         "origin" : [0.0, 0.0, 0.0],
         "xWidth" : 1.0,
         "yWidth" : 1.0,
@@ -67,7 +67,7 @@
     "Integrator" : {
         "startIter" : 0,
         "startTime" : 0.0,
-        "maxIter" : 100000,
+        "maxIter" : 1000000,
         "cfl" : 1.0,
         "fixedDeltaTime" : -1.0,
          "rkOrder" : 4
@@ -116,7 +116,7 @@
 
     "IO" : {
         "wrtRestart" : true,
-        "restartEveryTimeSteps" : 1000,
+        "restartEveryTimeSteps" : 10000,
         "probes" : []
     }
 }

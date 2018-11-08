@@ -8,9 +8,9 @@
     },
 
     "Grid" : {
-        "xNum" : 32,
-        "yNum" : 32,
-        "zNum" : 32,
+        "xNum" : 8,
+        "yNum" : 16,
+        "zNum" : 8,
         "origin" : [0.0, 0.0, 0.0],
         "xWidth" : 1.0,
         "yWidth" : 1.0,
