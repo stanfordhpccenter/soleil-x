@@ -105,9 +105,9 @@
     }, 
     "Mapping": {
         "tiles": [
-            1, 
-            2, 
-            2
+            4, 
+            8, 
+            8
         ], 
         "outDir": "", 
         "tilesPerRank": [
@@ -123,7 +123,7 @@
         "feeding": {
             "type": "OFF"
         }, 
-        "maxNum": 15856808, 
+        "maxNum": 1014835712, 
         "heatCapacity": 506.0, 
         "initTemperature": 300.0, 
         "density": 8900.0, 
@@ -139,7 +139,7 @@
         "initCase": "Uniform", 
         "maxSkew": 1.2, 
         "restartDir": "", 
-        "initNum": 15856808, 
+        "initNum": 1014835712, 
         "escapeRatioPerDir": 0.005, 
         "diameterMean": 0.000501174299883
     }, 
@@ -154,12 +154,12 @@
             0.0, 
             0.0
         ], 
-        "yNum": 512, 
-        "yWidth": 3.1415926535, 
-        "zNum": 256, 
-        "zWidth": 1.57079632675, 
-        "xWidth": 1.57079632675, 
-        "xNum": 256
+        "yNum": 2048, 
+        "yWidth": 12.566370614, 
+        "zNum": 1024, 
+        "zWidth": 6.283185307, 
+        "xWidth": 6.283185307, 
+        "xNum": 1024
     }, 
     "IO": {
         "restartEveryTimeSteps": -1, 
