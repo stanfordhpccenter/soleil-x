@@ -72,7 +72,7 @@
         "startIter": 0, 
         "fixedDeltaTime": 1.3238808905546225e-05, 
         "startTime": 0.0, 
-        "maxIter": 3
+        "maxIter": 50
     }, 
     "Flow": {
         "gasConstant": 289.0, 
@@ -137,7 +137,7 @@
         "staggerFactor": 1, 
         "collisions": false, 
         "initCase": "Uniform", 
-        "maxSkew": 1.2, 
+        "maxSkew": 1.1, 
         "restartDir": "", 
         "initNum": 63427232, 
         "escapeRatioPerDir": 0.005, 
