@@ -99,9 +99,12 @@ marchingCubes.o:	marchingCubes.cc
 renderImage.o:	renderImage.cc
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
+renderParticles.o:	renderParticles.cc
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
 render_standalone.o:	render_standalone.cc
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
-render_standalone:  render_standalone.o  marchingCubes.o renderImage.o
+render_standalone:  render_standalone.o  marchingCubes.o renderImage.o renderParticles.o
 	$(CXX) -o $@ $^ -lGLU -lOSMesa
 

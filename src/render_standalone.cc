@@ -82,6 +82,30 @@ void loadFluidData(char* fileName,
       domainMax[j] = std::max(domainMax[j], centerCoordinates[3 * i + j]);
     }
   }
+  fclose(fluidIn);
+}
+
+
+void loadParticlesData(char* filename,
+                       int numParticles,
+                       long int* particlesID,
+                       FieldData* particlesPosition,
+                       FieldData* particlesTemperature,
+                       FieldData* particlesDensity) {
+  FILE* particlesIn = fopen(filename, "r");
+  for(int i = 0; i < numParticles; ++i) {
+    int ret = fscanf(particlesIn, "%ld %lf %lf %lf %lf %lf",
+                     particlesID + i,
+                     particlesPosition + 3 * i,
+                     particlesPosition + 3 * i + 1,
+                     particlesPosition + 3 * i + 2,
+                     particlesTemperature + i,
+                     particlesDensity + i);
+    if(ret == EOF) {
+      std::cerr << "error reading particles file" << std::endl;
+    }
+  }
+  fclose(particlesIn);
 }
 
 
@@ -114,7 +138,20 @@ int main(int argc, char **argv) {
     return -1;
   }
   char* fluidFileName = argv[2];
-
+  
+  if(argc < 4) {
+    std::cerr << "missing number of particles" << std::endl;
+    return -1;
+  }
+  int numParticles = 0;
+  sscanf(argv[3], "%d", &numParticles);
+  
+  if(argc < 5) {
+    std::cerr << "missing name of particles file" << std::endl;
+    return -1;
+  }
+  char* particlesFileName = argv[4];
+  
   OSMesaContext mesaCtx;
   GLubyte* rgbaBuffer;
   GLfloat* depthBuffer;
@@ -129,9 +166,21 @@ int main(int argc, char **argv) {
   FieldData domainMax[3] = { 0 };
   
   loadFluidData(fluidFileName, numFluidLines, rho, pressure, velocity, centerCoordinates,  temperature, domainMin, domainMax);
+  
+  long int* particlesID = new long int[numParticles];
+  FieldData* particlesPosition = new FieldData[numParticles * 3];
+  FieldData* particlesTemperature = new FieldData[numParticles];
+  FieldData* particlesDensity = new FieldData[numParticles];
 
+  loadParticlesData(particlesFileName, numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity);
+  const int numParticlesToDraw = 50;
+  long int particlesToDraw[numParticlesToDraw] = { 0 };
+  for(int i = 0; i < numParticlesToDraw; ++i) particlesToDraw[i] = i;
+  
   renderInitialize(domainMin, domainMax);
-  renderImage(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, temperatureField, 4.88675);
+  renderImage(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, temperatureField, 4.88675,
+              numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity,
+              particlesToDraw, numParticlesToDraw);
 
   saveImageToFile(fluidFileName, rgbaBuffer);
   

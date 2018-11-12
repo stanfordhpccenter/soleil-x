@@ -26,7 +26,14 @@ void renderImage(int numFluidX,
                  FieldData domainMin[3],
                  FieldData domainMax[3],
                  VisualizationField visualizationField,
-                 FieldData targetValue);
+                 FieldData targetValue,
+                 int numParticles,
+                 long int* particlesID,
+                 FieldData* particlesPosition,
+                 FieldData* particlesTemperature,
+                 FieldData* particlesDensity,
+                 long int* particlesToDraw,
+                 int numParticlesToDraw);
 
 
 void write_targa(const char *filename, const GLubyte *rgba, int width, int height);

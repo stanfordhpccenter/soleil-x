@@ -40,6 +40,7 @@ local Config = SCHEMA.Config
 local MultiConfig = SCHEMA.MultiConfig
 
 local struct Particles_columns {
+  id : int64;
   cell : int3d;
   position : double[3];
   velocity : double[3];
@@ -63,6 +64,7 @@ local struct Particles_columns {
 }
 
 local Particles_primitives = terralib.newlist({
+  'id',
   'position',
   'velocity',
   'temperature',
@@ -5613,11 +5615,23 @@ local function mkInstance() local INSTANCE = {}
   -- Visualization
   -----------------------------------------------------------------------------
 
+  function INSTANCE.VisualizeInit(config) return rquote
+
+    var particleID : int64 = 0
+    for p in Particles do
+      p.id = particleID
+      particleID = particleID + 1
+    end
+    -- randomly select which ones to draw
+
+  end end -- VisualizeInit
+
+
   function INSTANCE.Visualize(config) return rquote
 
     var numFluidFields : int = 37
     var fluidFields : C.legion_field_id_t[numFluidFields] = __fields(Fluid)
-    var numParticlesFields : int = 20
+    var numParticlesFields : int = 21
     var particlesFields : C.legion_field_id_t[numParticlesFields] = __fields(Particles)
     render.cxx_render(__runtime(),
                     __context(),
@@ -5660,6 +5674,7 @@ local SIM = mkInstance()
 __forbid(__optimize) 
 task workSingle(config : Config)
   [SIM.DeclSymbols(config)];
+  [SIM.VisualizeInit(config)];
   var frame_number = 0
   var is_FakeCopyQueue = ispace(int1d, 0)
   var [FakeCopyQueue] = region(is_FakeCopyQueue, CopyQueue_columns);
@@ -5691,6 +5706,8 @@ task workDual(mc : MultiConfig)
   -- Declare symbols
   [SIM0.DeclSymbols(rexpr mc.configs[0] end)];
   [SIM1.DeclSymbols(rexpr mc.configs[1] end)];
+  [SIM0.VisualizeInit(rexpr mc.configs[0] end)];
+  [SIM1.VisualizeInit(rexpr mc.configs[1] end)];
   var frame_number = 0
   var is_FakeCopyQueue = ispace(int1d, 0)
   var [FakeCopyQueue] = region(is_FakeCopyQueue, CopyQueue_columns);
