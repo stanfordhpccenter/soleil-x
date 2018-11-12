@@ -8,7 +8,7 @@ source "$SOLEIL_DIR"/src/jobscript_shared.sh
 # Process CUDA configuration
 GPU_OPTS=
 if [[ "$USE_CUDA" == 1 ]]; then
-    GPU_OPTS="-ll:gpu 4 -ll:fsize 15000"
+    GPU_OPTS="-ll:gpu 4 -ll:fsize 15000 -ll:zsize 1024 -ll:ib_zsize 0"
 fi
 
 srun -N "$NUM_RANKS" --ntasks-per-node=1 --cpus-per-task=20 \
@@ -16,7 +16,7 @@ srun -N "$NUM_RANKS" --ntasks-per-node=1 --cpus-per-task=20 \
     "$EXECUTABLE" $ARGS \
     -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 19 \
     $GPU_OPTS -ll:dma 2 -ll:ahandlers 2 \
-    -ll:csize 240000 \
+    -ll:csize 240000 -ll:rsize 1024 -ll:ib_rsize 1024 -ll:gsize 0 \
     -ll:stacksize 8 -ll:ostack 8 -lg:sched -1
 
 # Resources:

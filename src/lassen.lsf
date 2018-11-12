@@ -5,28 +5,26 @@ source "$SOLEIL_DIR"/src/jobscript_shared.sh
 # Process CUDA configuration
 GPU_OPTS=
 if [[ "$USE_CUDA" == 1 ]]; then
-    GPU_OPTS="-ll:gpu 3 -ll:fsize 1024 -ll:zsize 1024 -ll:ib_zsize 0"
+    GPU_OPTS="-ll:gpu 2 -ll:fsize 15000 -ll:zsize 1024 -ll:ib_zsize 0"
 fi
 
 # Make sure the number of requested ranks is divisible by 2.
 NUM_RANKS="$(( NUM_RANKS + NUM_RANKS%2 ))"
 
 # NOTE: We have to run through the pick_hcas.py script, due to a GASNet bug.
-# NOTE: We have to disable MPI's CUDA hijack; it interferes with Realm's.
-jsrun -n "$NUM_RANKS" -r 2 -a 1 -c 21 -g 3 -b rs \
-    -E LD_LIBRARY_PATH -E SOLEIL_DIR -E GASNET_BACKTRACE \
-    --smpiargs="-x PAMI_DISABLE_CUDA_HOOK=1 -disable_gpu_hooks" \
+jsrun -n "$NUM_RANKS" -r 2 -a 1 -c 20 -g 2 -b rs \
+    -E LD_LIBRARY_PATH -E SOLEIL_DIR -E REALM_BACKTRACE \
     "$SOLEIL_DIR"/src/pick_hcas.py \
     "$EXECUTABLE" $ARGS \
-    -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 20 \
+    -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 18 \
     $GPU_OPTS -ll:dma 2 -ll:ahandlers 2 \
     -ll:csize 100000 -ll:rsize 1024 -ll:ib_rsize 1024 -ll:gsize 0 \
     -ll:stacksize 8 -ll:ostack 8 -lg:sched -1
 
 # Resources:
 # 2 NUMA domains per node
-# 21 cores per NUMA domain
+# 20 cores per NUMA domain (2 more reserved for OS)
 # 4-way SMT per core
-# 256GB RAM per NUMA domain
-# 3 Volta V100 GPUs per NUMA domain
+# 128GB RAM per NUMA domain
+# 2 Tesla V100 GPUs per NUMA domain
 # 16GB FB per GPU

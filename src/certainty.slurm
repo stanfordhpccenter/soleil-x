@@ -27,7 +27,7 @@ elif [[ "$QUEUE" == "largemem" ]]; then
 elif [[ "$QUEUE" == "gpu" ]]; then
     NUM_THREADS=11
     if [[ "$USE_CUDA" == 1 ]]; then
-        GPU_OPTS="-ll:gpu 4 -ll:fsize 2500"
+        GPU_OPTS="-ll:gpu 4 -ll:fsize 2500 -ll:zsize 1024 -ll:ib_zsize 0"
     fi
     # 36GB RAM per node
     # 2 NUMA domains per node
@@ -45,5 +45,5 @@ mpiexec -np "$NUM_RANKS" --map-by ppr:1:node --bind-to none \
     "$EXECUTABLE" $ARGS \
     -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr "$NUM_THREADS" \
     $GPU_OPTS -ll:dma 2 -ll:ahandlers 2 \
-    -ll:csize 28000 \
+    -ll:csize 28000 -ll:rsize 1024 -ll:ib_rsize 1024 -ll:gsize 0 \
     -ll:stacksize 8 -ll:ostack 8 -lg:sched -1
