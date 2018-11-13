@@ -2229,41 +2229,42 @@ do
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
 
-    if xNegGhost and not BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow then
+    if xNegGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{1, 0, 0})%Fluid.bounds)
-      var temperature = 0.0
-      var pressure = 0.0
-      pressure = Fluid[c_int].pressure
-      var bnd_temperature  = BC_xNegTemperature
-      var wall_temperature = Fluid[c_int].temperature
-      if (bnd_temperature>0.0) then
-        wall_temperature = bnd_temperature
+
+      if not (BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) then
+        var wall_temperature = Fluid[c_int].temperature
+        if (BC_xNegTemperature>0.0) then
+          wall_temperature = BC_xNegTemperature
+        end
+        var temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
+
+        Fluid[c_bnd].pressure = Fluid[c_int].pressure
+        Fluid[c_bnd].temperature = temperature
       end
-      temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
-      Fluid[c_bnd].pressure = pressure
-      Fluid[c_bnd].temperature = temperature
     end
 
-    if xPosGhost and not BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow then
+    if xPosGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{-1, 0, 0})%Fluid.bounds)
-      var temperature = 0.0
-      var pressure = 0.0
-      pressure = Fluid[c_int].pressure
-      var bnd_temperature = BC_xPosTemperature
-      var wall_temperature = Fluid[c_int].temperature
-      if (bnd_temperature>0.0) then
-        wall_temperature = bnd_temperature
+
+      if not (BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) then
+        var wall_temperature = Fluid[c_int].temperature
+        if (BC_xPosTemperature>0.0) then
+          wall_temperature = BC_xPosTemperature
+        end
+        var temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
+        
+        Fluid[c_bnd].pressure = Fluid[c_int].pressure
+        Fluid[c_bnd].temperature = temperature
       end
-      temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
-      Fluid[c_bnd].pressure = pressure
-      Fluid[c_bnd].temperature = temperature
     end
 
     if yNegGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 1, 0})%Fluid.bounds)
+
       if (BC_yBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
         var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left) - 2.0*(BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left))
         var c_2 = 4.0/(Grid_xWidth)*((BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left) - 1.0/4.0*(BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left))
@@ -2276,14 +2277,12 @@ do
         Fluid[c_bnd].pressure = Fluid[c_int].pressure
         Fluid[c_bnd].temperature = temperature
       else
-        var bnd_temperature = BC_yNegTemperature
-        var temp_wall = 0.0
-        var temperature = 0.0
-        temp_wall = Fluid[c_int].temperature
-        if (bnd_temperature>0.0) then
-          temp_wall = bnd_temperature
+        var wall_temperature = Fluid[c_int].temperature
+        if (BC_yNegTemperature>0.0) then
+          wall_temperature = BC_yNegTemperature
         end
-        temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
+        var temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
+
         Fluid[c_bnd].pressure = Fluid[c_int].pressure
         Fluid[c_bnd].temperature = temperature
       end
@@ -2292,6 +2291,7 @@ do
     if yPosGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, -1, 0})%Fluid.bounds)
+
       if (BC_yBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
         var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left) - 2.0*(BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left))
         var c_2 = 4.0/(Grid_xWidth)*((BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left) - 1.0/4.0*(BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left))
@@ -2304,14 +2304,12 @@ do
         Fluid[c_bnd].pressure = Fluid[c_int].pressure
         Fluid[c_bnd].temperature = temperature
       else
-        var bnd_temperature = BC_yPosTemperature
-        var temp_wall = 0.0
-        var temperature = 0.0
-        temp_wall = Fluid[c_int].temperature
-        if (bnd_temperature>0.0) then
-          temp_wall = bnd_temperature
+        var wall_temperature = Fluid[c_int].temperature
+        if (BC_yPosTemperature>0.0) then
+          wall_temperature = BC_yPosTemperature
         end
-        temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
+        var temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
+
         Fluid[c_bnd].pressure = Fluid[c_int].pressure
         Fluid[c_bnd].temperature = temperature
       end
@@ -2320,6 +2318,7 @@ do
     if zNegGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 0, 1})%Fluid.bounds)
+
       if (BC_zBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
         var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left) - 2.0*(BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left))
         var c_2 = 4.0/(Grid_xWidth)*((BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left) - 1.0/4.0*(BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left))
@@ -2332,14 +2331,12 @@ do
         Fluid[c_bnd].pressure = Fluid[c_int].pressure
         Fluid[c_bnd].temperature = temperature
       else
-        var bnd_temperature = BC_zNegTemperature
-        var temp_wall = 0.0
-        var temperature = 0.0
-        temp_wall = Fluid[c_int].temperature
-        if (bnd_temperature>0.0) then
-          temp_wall = bnd_temperature
+        var wall_temperature = Fluid[c_int].temperature
+        if (BC_zNegTemperature>0.0) then
+          wall_temperature = BC_zNegTemperature
         end
-        temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
+        var temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
+
         Fluid[c_bnd].pressure = Fluid[c_int].pressure
         Fluid[c_bnd].temperature = temperature
       end
@@ -2348,6 +2345,7 @@ do
     if zPosGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 0, -1})%Fluid.bounds)
+
       if (BC_zBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
         var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left) - 2.0*(BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left))
         var c_2 = 4.0/(Grid_xWidth)*((BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left) - 1.0/4.0*(BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left))
@@ -2360,14 +2358,12 @@ do
         Fluid[c_bnd].pressure = Fluid[c_int].pressure
         Fluid[c_bnd].temperature = temperature
       else
-        var bnd_temperature = BC_zPosTemperature
-        var temp_wall = 0.0
-        var temperature = 0.0
-        temp_wall = Fluid[c_int].temperature
-        if (bnd_temperature>0.0) then
-          temp_wall = bnd_temperature
+        var wall_temperature = Fluid[c_int].temperature
+        if (BC_zPosTemperature>0.0) then
+          wall_temperature = BC_zPosTemperature
         end
-        temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
+        var temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
+
         Fluid[c_bnd].pressure = Fluid[c_int].pressure
         Fluid[c_bnd].temperature = temperature
       end
