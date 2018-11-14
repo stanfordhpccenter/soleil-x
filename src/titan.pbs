@@ -25,8 +25,8 @@ fi
 aprun -n "$NUM_RANKS" -N 1 -cc none \
     /lib64/ld-linux-x86-64.so.2 \
     "$EXECUTABLE" $ARGS \
-    -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr "$NUM_THREADS" \
-    $GPU_OPTS -ll:dma 2 -ll:ahandlers 2 \
+    -ll:cpu 1 \
+    -ll:dma 2 -ll:ahandlers 2 \
     -ll:csize 10000 -ll:rsize 1024 -ll:ib_rsize 1024 -ll:gsize 0 \
     -ll:stacksize 8 -ll:ostack 8 -lg:sched -1
 
