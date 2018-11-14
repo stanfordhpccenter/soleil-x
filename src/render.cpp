@@ -35,7 +35,7 @@ extern "C" {
   
   typedef double FieldData;
   
-#define SAVE_RENDER_DATA 1
+#define SAVE_RENDER_DATA 0
   
 #if SAVE_RENDER_DATA
   
@@ -170,6 +170,7 @@ extern "C" {
     gethostname(hostname, sizeof(hostname));
     std::cout << "in render_task " << task->task_id << " " << task->get_unique_id() << " pid " << getpid() << " " << hostname << std::endl;
     
+#if 0
     PhysicalRegion fluid = regions[0];
     PhysicalRegion particles = regions[1];
     PhysicalRegion image = regions[2];
@@ -182,6 +183,7 @@ extern "C" {
     
     std::vector<legion_field_id_t> imageFields;
     image.get_fields(imageFields);
+#endif
     
 #if SAVE_RENDER_DATA
     saveFluidRenderData(ctx, runtime, fluid, fluidFields);
@@ -250,6 +252,7 @@ extern "C" {
     const FieldAccessor<READ_ONLY, float, 1> particles_position_history_acc(*particles, particles_fields[1]);
     
     ArgumentMap argMap;
+std::cout << __FUNCTION__ << " everywhereDomain " << compositor->everywhereDomain() << std::endl;
     IndexTaskLauncher renderLauncher(gRenderTaskID, compositor->everywhereDomain(), TaskArgument(&imageDescriptor, sizeof(imageDescriptor)), argMap, Predicate::TRUE_PRED, false, gImageReductionMapperID);
     
     LogicalPartition fluidPartition = CObjectWrapper::unwrap(fluidPartition_);
@@ -258,11 +261,11 @@ extern "C" {
     for(int i = 0; i < numFluidFields; ++i) req0.add_field(fluidFields[i]);
     renderLauncher.add_region_requirement(req0);
     
+#if 0
     LogicalPartition particlesPartition = CObjectWrapper::unwrap(particlesPartition_);
     RegionRequirement req1(particlesPartition, 0, READ_ONLY, SIMULTANEOUS, particles->get_logical_region(), gImageReductionMapperID);
     for(int i = 0; i < numParticlesFields; ++i) req1.add_field(particlesFields[i]);
     renderLauncher.add_region_requirement(req1);
-    
     
     RegionRequirement req2(fluidPartition, 0, READ_WRITE, EXCLUSIVE, compositor->sourceImage(), gImageReductionMapperID);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_R);
@@ -271,6 +274,7 @@ extern "C" {
     req2.add_field(Visualization::ImageReduction::FID_FIELD_A);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_Z);
     renderLauncher.add_region_requirement(req2);
+#endif
     
     
     ImageReductionMapper::clearPlacement(logicalPartition);
