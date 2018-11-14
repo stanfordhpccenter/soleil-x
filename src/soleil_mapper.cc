@@ -80,23 +80,18 @@ typedef unsigned SplinterID;
 class SampleMapping;
 
 class SplinteringFunctor : public ShardingFunctor {
-private:
-  static ShardingID NEXT_ID;
 public:
-  SplinteringFunctor(Runtime* rt, SampleMapping& parent)
-    : id(NEXT_ID++), parent_(parent) {
+  SplinteringFunctor(Runtime* rt, SampleMapping& parent, ShardingID _id)
+    : id(_id), parent_(parent) {
     rt->register_sharding_functor(id, this, true);
   }
 public:
-  AddressSpace get_rank(const DomainPoint &point);
   virtual SplinterID splinter(const DomainPoint &point) = 0;
 public:
   const ShardingID id;
 protected:
   SampleMapping& parent_;
 };
-
-ShardingID SplinteringFunctor::NEXT_ID = 12345;
 
 class SampleMapping {
 public:
@@ -105,8 +100,9 @@ public:
   class HardcodedFunctor;
 
 public:
-  SampleMapping(Runtime* rt, const Config& config, AddressSpace first_rank)
-    : tiles_per_rank_{static_cast<unsigned>(config.Mapping.tilesPerRank[0]),
+  SampleMapping(Runtime* rt, const Config& config)
+    : next_id(12345),
+      tiles_per_rank_{static_cast<unsigned>(config.Mapping.tilesPerRank[0]),
                       static_cast<unsigned>(config.Mapping.tilesPerRank[1]),
                       static_cast<unsigned>(config.Mapping.tilesPerRank[2])},
       ranks_per_dim_{static_cast<unsigned>(config.Mapping.tiles[0]
@@ -115,19 +111,18 @@ public:
                                            / config.Mapping.tilesPerRank[1]),
                      static_cast<unsigned>(config.Mapping.tiles[2]
                                            / config.Mapping.tilesPerRank[2])},
-      first_rank_(first_rank),
-      tiling_3d_functor_(new Tiling3DFunctor(rt, *this)),
-      tiling_2d_functors_{{new Tiling2DFunctor(rt, *this, 0, false),
-                           new Tiling2DFunctor(rt, *this, 0, true )},
-                          {new Tiling2DFunctor(rt, *this, 1, false),
-                           new Tiling2DFunctor(rt, *this, 1, true )},
-                          {new Tiling2DFunctor(rt, *this, 2, false),
-                           new Tiling2DFunctor(rt, *this, 2, true )}} {
+      tiling_3d_functor_(new Tiling3DFunctor(rt, *this, next_id++)),
+      tiling_2d_functors_{{new Tiling2DFunctor(rt, *this, 0, false, next_id++),
+                           new Tiling2DFunctor(rt, *this, 0, true , next_id++)},
+                          {new Tiling2DFunctor(rt, *this, 1, false, next_id++),
+                           new Tiling2DFunctor(rt, *this, 1, true , next_id++)},
+                          {new Tiling2DFunctor(rt, *this, 2, false, next_id++),
+                           new Tiling2DFunctor(rt, *this, 2, true , next_id++)}} {
     for (unsigned x = 0; x < x_tiles(); ++x) {
       for (unsigned y = 0; y < y_tiles(); ++y) {
         for (unsigned z = 0; z < z_tiles(); ++z) {
           hardcoded_functors_.push_back
-            (new HardcodedFunctor(rt, *this, Point<3>(x,y,z)));
+            (new HardcodedFunctor(rt, *this, Point<3>(x,y,z), next_id++));
         }
       }
     }
@@ -136,9 +131,6 @@ public:
   SampleMapping& operator=(const SampleMapping& rhs) = delete;
 
 public:
-  AddressSpace get_rank(ShardID shard_id) const {
-    return first_rank_ + shard_id;
-  }
   unsigned num_ranks() const {
     return ranks_per_dim_[0] * ranks_per_dim_[1] * ranks_per_dim_[2];
   }
@@ -176,8 +168,8 @@ public:
   // logic (see description above).
   class Tiling3DFunctor : public SplinteringFunctor {
   public:
-    Tiling3DFunctor(Runtime* rt, SampleMapping& parent)
-      : SplinteringFunctor(rt, parent) {}
+    Tiling3DFunctor(Runtime* rt, SampleMapping& parent, ShardingID _id)
+      : SplinteringFunctor(rt, parent, _id) {}
   public:
     virtual ShardID shard(const DomainPoint& point,
                           const Domain& full_space,
@@ -214,8 +206,8 @@ public:
   class Tiling2DFunctor : public SplinteringFunctor {
   public:
     Tiling2DFunctor(Runtime* rt, SampleMapping& parent,
-                    unsigned dim, bool dir)
-      : SplinteringFunctor(rt, parent), dim_(dim), dir_(dir) {}
+                    unsigned dim, bool dir, ShardingID _id)
+      : SplinteringFunctor(rt, parent, _id), dim_(dim), dir_(dir) {}
   public:
     virtual ShardID shard(const DomainPoint& point,
                           const Domain& full_space,
@@ -249,8 +241,8 @@ public:
   public:
     HardcodedFunctor(Runtime* rt,
                      SampleMapping& parent,
-                     const DomainPoint& tile)
-      : SplinteringFunctor(rt, parent), tile_(tile) {}
+                     const DomainPoint& tile, ShardingID _id)
+      : SplinteringFunctor(rt, parent, _id), tile_(tile) {}
   public:
     virtual ShardID shard(const DomainPoint& point,
                           const Domain& full_space,
@@ -265,17 +257,13 @@ public:
   };
 
 private:
+  ShardingID next_id;
   unsigned tiles_per_rank_[3];
   unsigned ranks_per_dim_[3];
-  AddressSpace first_rank_;
   Tiling3DFunctor* tiling_3d_functor_;
   Tiling2DFunctor* tiling_2d_functors_[3][2];
   std::vector<HardcodedFunctor*> hardcoded_functors_;
 };
-
-AddressSpace SplinteringFunctor::get_rank(const DomainPoint &point) {
-  return parent_.get_rank(shard(point, Domain(), 0));
-}
 
 //=============================================================================
 // MAPPER CLASS: CONSTRUCTOR
@@ -283,51 +271,10 @@ AddressSpace SplinteringFunctor::get_rank(const DomainPoint &point) {
 
 class SoleilMapper : public DefaultMapper {
 public:
-  SoleilMapper(Runtime* rt, Machine machine, Processor local)
+  SoleilMapper(Runtime* rt, Machine machine, Processor local, std::deque<SampleMapping>* sample_mappings)
     : DefaultMapper(rt->get_mapper_runtime(), machine, local, "soleil_mapper"),
+      sample_mappings_(*sample_mappings),
       all_procs_(remote_cpus.size()) {
-    // Set the umask of the process to clear S_IWGRP and S_IWOTH.
-    umask(022);
-    // Assign ranks sequentially to samples, each sample getting one rank for
-    // each super-tile.
-    AddressSpace reqd_ranks = 0;
-    auto process_config = [&](const Config& config) {
-      CHECK(config.Mapping.tiles[0] > 0 &&
-            config.Mapping.tiles[1] > 0 &&
-            config.Mapping.tiles[2] > 0 &&
-            config.Mapping.tilesPerRank[0] > 0 &&
-            config.Mapping.tilesPerRank[1] > 0 &&
-            config.Mapping.tilesPerRank[2] > 0 &&
-            config.Mapping.tiles[0] % config.Mapping.tilesPerRank[0] == 0 &&
-            config.Mapping.tiles[1] % config.Mapping.tilesPerRank[1] == 0 &&
-            config.Mapping.tiles[2] % config.Mapping.tilesPerRank[2] == 0,
-            "Invalid tiling for sample %lu", sample_mappings_.size() + 1);
-      sample_mappings_.emplace_back(rt, config, reqd_ranks);
-      reqd_ranks += sample_mappings_.back().num_ranks();
-    };
-    // Locate all config files specified on the command-line arguments.
-    InputArgs args = Runtime::get_input_args();
-    for (int i = 0; i < args.argc; ++i) {
-      if (EQUALS(args.argv[i], "-i") && i < args.argc-1) {
-        Config config;
-        parse_Config(&config, args.argv[i+1]);
-        process_config(config);
-      } else if (EQUALS(args.argv[i], "-m") && i < args.argc-1) {
-        MultiConfig mc;
-        parse_MultiConfig(&mc, args.argv[i+1]);
-        process_config(mc.configs[0]);
-        process_config(mc.configs[1]);
-      }
-    }
-    // Verify that we have enough ranks.
-    unsigned supplied_ranks = remote_cpus.size();
-    CHECK(reqd_ranks <= supplied_ranks,
-          "%d rank(s) required, but %d rank(s) supplied to Legion",
-          reqd_ranks, supplied_ranks);
-    if (reqd_ranks < supplied_ranks) {
-      LOG.warning() << supplied_ranks << " rank(s) supplied to Legion,"
-                    << " but only " << reqd_ranks << " required";
-    }
     // Cache processor information.
     Machine::ProcessorQuery query(machine);
     for (auto it = query.begin(); it != query.end(); it++) {
@@ -526,8 +473,8 @@ public:
     for (unsigned sample_id : sample_ids) {
       const SampleMapping& mapping = sample_mappings_[sample_id];
       for (ShardID shard_id = 0; shard_id < mapping.num_ranks(); ++shard_id) {
-        AddressSpace rank = mapping.get_rank(shard_id);
-        Processor target_proc = get_procs(rank, Processor::LOC_PROC)[0];
+        const std::vector<Processor>& procs = get_procs(node_id, Processor::LOC_PROC);
+        Processor target_proc = procs[shard_id % procs.size()];
         output.task_mappings.push_back(default_output);
         output.task_mappings.back().chosen_variant = info.variant;
         output.task_mappings.back().target_procs.push_back(target_proc);
@@ -621,112 +568,6 @@ public:
       priority = 1;
     }
     return priority;
-  }
-
-  // Send each cross-section explicit copy to the first rank of the first
-  // section, to be mapped further.
-  // NOTE: Will only run if Legion is compiled with dynamic control replication.
-  virtual void select_sharding_functor(const MapperContext ctx,
-                                       const Copy& copy,
-                                       const SelectShardingFunctorInput& input,
-                                       SelectShardingFunctorOutput& output) {
-    CHECK(copy.parent_task != NULL &&
-          EQUALS(copy.parent_task->get_task_name(), "workDual"),
-          "Unsupported: Sharded copy outside of workDual");
-    unsigned sample_id = find_sample_id(ctx, *(copy.parent_task));
-    SampleMapping& mapping = sample_mappings_[sample_id];
-    output.chosen_functor = mapping.hardcoded_functor(Point<3>(0,0,0))->id;
-  }
-
-  virtual void map_copy(const MapperContext ctx,
-                        const Copy& copy,
-                        const MapCopyInput& input,
-                        MapCopyOutput& output) {
-    // For HDF copies, defer to the default mapping policy.
-    if (EQUALS(copy.parent_task->get_task_name(), "dumpTile") ||
-        EQUALS(copy.parent_task->get_task_name(), "loadTile")) {
-      DefaultMapper::map_copy(ctx, copy, input, output);
-      return;
-    }
-    // Sanity checks
-    // TODO: Check that this is on the fluid grid.
-    CHECK(copy.src_indirect_requirements.empty() &&
-          copy.dst_indirect_requirements.empty() &&
-          !copy.is_index_space &&
-          copy.src_requirements.size() == 1 &&
-          copy.dst_requirements.size() == 1 &&
-          copy.parent_task != NULL &&
-          EQUALS(copy.parent_task->get_task_name(), "workDual") &&
-          copy.src_requirements[0].region.exists() &&
-          copy.dst_requirements[0].region.exists() &&
-          !copy.dst_requirements[0].is_restricted() &&
-          copy.src_requirements[0].privilege_fields.size() == 1 &&
-          copy.dst_requirements[0].privilege_fields.size() == 1 &&
-          input.src_instances[0].empty() &&
-          // NOTE: The runtime should be passing the existing fluid instances
-          // on the destination nodes as usable destinations, but doesn't, so
-          // we have to perform an explicit runtime call. If this behavior ever
-          // changes, this check will make sure we find out.
-          input.dst_instances[0].empty(),
-          "Unexpected arguments on explicit copy");
-    // Retrieve copy details.
-    // We map according to the destination of the copy. We expand the
-    // destination domain to the full tile, to make sure we reuse the existing
-    // instances.
-    const RegionRequirement& src_req = copy.src_requirements[0];
-    const RegionRequirement& dst_req = copy.dst_requirements[0];
-    unsigned sample_id = find_sample_ids(ctx, *(copy.parent_task))[1];
-    SampleMapping& mapping = sample_mappings_[sample_id];
-    LogicalRegion src_region = src_req.region;
-    LogicalRegion dst_region = dst_req.region;
-    CHECK(runtime->get_index_space_depth
-            (ctx, src_region.get_index_space()) == 2 &&
-          runtime->get_index_space_depth
-            (ctx, dst_region.get_index_space()) == 4,
-          "Unexpected bounds on explicit copy");
-    dst_region =
-      runtime->get_parent_logical_region(ctx,
-        runtime->get_parent_logical_partition(ctx, dst_region));
-    DomainPoint src_tile =
-      runtime->get_logical_region_color_point(ctx, src_region);
-    DomainPoint dst_tile =
-      runtime->get_logical_region_color_point(ctx, dst_region);
-    CHECK(src_tile.get_dim() == 3 &&
-          dst_tile.get_dim() == 3 &&
-          src_tile[0] == dst_tile[0] &&
-          src_tile[1] == dst_tile[1] &&
-          src_tile[2] == dst_tile[2] &&
-          0 <= dst_tile[0] && dst_tile[0] < mapping.x_tiles() &&
-          0 <= dst_tile[1] && dst_tile[1] < mapping.y_tiles() &&
-          0 <= dst_tile[2] && dst_tile[2] < mapping.z_tiles(),
-          "Unexpected bounds on explicit copy");
-    // Always use a virtual instance for the source.
-    output.src_instances[0].clear();
-    output.src_instances[0].push_back
-      (PhysicalInstance::get_virtual_instance());
-    // Write the data directly on the best memory for the task that will be
-    // using it.
-    // XXX: We assume that if we have GPUs, then the GPU variants will be used.
-    output.dst_instances[0].clear();
-    output.dst_instances[0].emplace_back();
-    Processor::Kind proc_kind =
-      (local_gpus.size() > 0) ? Processor::TOC_PROC :
-      (local_omps.size() > 0) ? Processor::OMP_PROC :
-                                Processor::LOC_PROC ;
-    Processor target_proc =
-      select_proc(dst_tile, proc_kind, mapping.tiling_3d_functor());
-    Memory target_memory =
-      default_policy_select_target_memory(ctx, target_proc, dst_req);
-    LayoutConstraintSet dst_constraints;
-    dst_constraints.add_constraint
-      (FieldConstraint(dst_req.privilege_fields,
-                       false/*contiguous*/, false/*inorder*/));
-    CHECK(runtime->find_physical_instance
-            (ctx, target_memory, dst_constraints,
-             std::vector<LogicalRegion>{dst_region},
-             output.dst_instances[0][0],
-             true/*acquire*/, false/*tight_region_bounds*/),
-          "Could not locate destination instance for explicit copy");
   }
 
 //=============================================================================
@@ -847,10 +688,10 @@ private:
   Processor select_proc(const DomainPoint& tile,
                         Processor::Kind kind,
                         SplinteringFunctor* functor) {
-    AddressSpace rank = functor->get_rank(tile);
-    const std::vector<Processor>& procs = get_procs(rank, kind);
-    SplinterID splinter_id = functor->splinter(tile);
-    return procs[splinter_id % procs.size()];
+    const std::vector<Processor>& procs = get_procs(node_id, kind);
+    SplinterID shard_id = functor->shard(tile, Domain(), 0);
+    assert(functor->splinter(tile) == 0);
+    return procs[shard_id % procs.size()];
   }
 
   std::vector<Processor>& get_procs(AddressSpace rank, Processor::Kind kind) {
@@ -876,7 +717,7 @@ private:
 //=============================================================================
 
 private:
-  std::deque<SampleMapping> sample_mappings_;
+  std::deque<SampleMapping>& sample_mappings_;
   std::vector<std::vector<std::vector<Processor> > > all_procs_;
 };
 
@@ -887,8 +728,42 @@ private:
 static void create_mappers(Machine machine,
                            Runtime* rt,
                            const std::set<Processor>& local_procs) {
+
+  std::deque<SampleMapping>* sample_mappings = new std::deque<SampleMapping>();
+    // Set the umask of the process to clear S_IWGRP and S_IWOTH.
+    umask(022);
+    // Assign ranks sequentially to samples, each sample getting one rank for
+    // each super-tile.
+    auto process_config = [&](const Config& config) {
+      CHECK(config.Mapping.tiles[0] > 0 &&
+            config.Mapping.tiles[1] > 0 &&
+            config.Mapping.tiles[2] > 0 &&
+            config.Mapping.tilesPerRank[0] > 0 &&
+            config.Mapping.tilesPerRank[1] > 0 &&
+            config.Mapping.tilesPerRank[2] > 0 &&
+            config.Mapping.tiles[0] % config.Mapping.tilesPerRank[0] == 0 &&
+            config.Mapping.tiles[1] % config.Mapping.tilesPerRank[1] == 0 &&
+            config.Mapping.tiles[2] % config.Mapping.tilesPerRank[2] == 0,
+            "Invalid tiling for sample %lu", sample_mappings->size() + 1);
+      sample_mappings->emplace_back(rt, config);
+    };
+    // Locate all config files specified on the command-line arguments.
+    InputArgs args = Runtime::get_input_args();
+    for (int i = 0; i < args.argc; ++i) {
+      if (EQUALS(args.argv[i], "-i") && i < args.argc-1) {
+        Config config;
+        parse_Config(&config, args.argv[i+1]);
+        process_config(config);
+      } else if (EQUALS(args.argv[i], "-m") && i < args.argc-1) {
+        MultiConfig mc;
+        parse_MultiConfig(&mc, args.argv[i+1]);
+        process_config(mc.configs[0]);
+        process_config(mc.configs[1]);
+      }
+    }
+
   for (Processor proc : local_procs) {
-    rt->replace_default_mapper(new SoleilMapper(rt, machine, proc), proc);
+    rt->replace_default_mapper(new SoleilMapper(rt, machine, proc, sample_mappings), proc);
   }
 }
 

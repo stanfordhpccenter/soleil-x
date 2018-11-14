@@ -22,10 +22,10 @@ fi
 
 # NOTE: LLVM installs a bad ELF interpreter on the executable, so we run it
 # through ld.so.
-aprun -n "$NUM_RANKS" -N 1 -cc none \
+aprun -n 1 -N 1 -cc none \
     /lib64/ld-linux-x86-64.so.2 \
     "$EXECUTABLE" $ARGS \
-    -ll:cpu 1 \
+    -ll:cpu "$NUM_RANKS" \
     -ll:dma 2 -ll:ahandlers 2 \
     -ll:csize 10000 -ll:rsize 1024 -ll:ib_rsize 1024 -ll:gsize 0 \
     -ll:stacksize 8 -ll:ostack 8 -lg:sched -1
