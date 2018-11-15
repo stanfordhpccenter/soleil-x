@@ -1697,8 +1697,10 @@ do
       var c_bnd = int3d(c)
       var c_int = ((c+{1, 0, 0})%Fluid.bounds)
       var cv = (Flow_gasConstant/(Flow_gamma-1.0))
+
       if NSCBC_inflow_cell then
         var rho = Fluid[c_bnd].rho
+
         var velocity = array(0.0, 0.0, 0.0)
         if BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Constant then
           velocity[0] = BC_xBCLeftInflowProfile_Constant_velocity
@@ -1745,6 +1747,7 @@ do
           velocity = Fluid[c].velocity_inc
           velocity[0] += BC_xBCLeftInflowProfile_Incoming_addedVelocity
         end
+
         var temperature : double
         if BC_xBCLeftHeat_type == SCHEMA.TempProfile_Constant then
           temperature = BC_xBCLeftHeat_Constant_temperature
@@ -1756,6 +1759,7 @@ do
         Fluid[c_bnd].rho = rho
         Fluid[c_bnd].rhoVelocity = vs_mul(velocity, rho)
         Fluid[c_bnd].rhoEnergy = rho*((cv*temperature)+(0.5*dot(velocity, velocity)))
+
       else
         var sign = BC_xNegSign
         var bnd_velocity = BC_xNegVelocity
@@ -1765,12 +1769,15 @@ do
         var velocity = array(0.0, 0.0, 0.0)
         var wall_temperature = 0.0
         velocity = vv_add(vv_mul(vs_div(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
+
         wall_temperature = Fluid[c_int].temperature -- adibatic wall
         if (bnd_temperature>0.0) then -- isothermal wall
           wall_temperature = bnd_temperature
         end
         temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
+
         rho = Fluid[c_int].pressure/(Flow_gasConstant*temperature)
+
         Fluid[c_bnd].rho = rho
         Fluid[c_bnd].rhoVelocity = vs_mul(velocity, rho)
         Fluid[c_bnd].rhoEnergy = rho*((cv*temperature)+(0.5*dot(velocity, velocity)))
@@ -2189,14 +2196,11 @@ task Flow_UpdateGhostThermodynamics(Fluid : region(ispace(int3d), Fluid_columns)
                                     config : Config,
                                     Flow_gamma : double,
                                     Flow_gasConstant : double,
-                                    BC_xNegTemperature : double, BC_xPosTemperature : double,
-                                    BC_yNegTemperature : double, BC_yPosTemperature : double,
-                                    BC_zNegTemperature : double, BC_zPosTemperature : double,
                                     Grid_xBnum : int32, Grid_xNum : int32,
                                     Grid_yBnum : int32, Grid_yNum : int32,
                                     Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.{pressure, temperature, centerCoordinates}),
+  reads( Fluid.{pressure, temperature, centerCoordinates}),
   writes(Fluid.{pressure, temperature})
 do
   var BC_xBCLeft  = config.BC.xBCLeft
@@ -2233,39 +2237,75 @@ do
       var c_bnd = int3d(c)
       var c_int = ((c+{1, 0, 0})%Fluid.bounds)
 
-      if not (BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) then
-        var wall_temperature = Fluid[c_int].temperature
-        if (BC_xNegTemperature>0.0) then
-          wall_temperature = BC_xNegTemperature
-        end
-        var temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
-
-        Fluid[c_bnd].pressure = Fluid[c_int].pressure
-        Fluid[c_bnd].temperature = temperature
+      var temperature : double
+      var pressure : double
+      if (BC_xBCLeft == SCHEMA.FlowBC_Symmetry) then
+        pressure    = Fluid[c_int].pressure
+        temperature = Fluid[c_int].temperature
+      elseif (BC_xBCLeft == SCHEMA.FlowBC_AdiabaticWall) then
+        pressure    = Fluid[c_int].pressure
+        temperature = Fluid[c_int].temperature
+      elseif (BC_xBCLeft == SCHEMA.FlowBC_IsothermalWall) then
+        pressure = Fluid[c_int].pressure
+        var wall_temperature = config.BC.xBCLeftHeat.u.Constant.temperature
+        -- assumes that ghost cell is the same size as interior cell
+        temperature = 2.0*wall_temperature-Fluid[c_int].temperature
+      elseif (BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) then
+          -- Do not change the values since they will be updated with the NSCBC conservation equations
+        pressure    = Fluid[c_bnd].pressure
+        temperature = Fluid[c_bnd].temperature
       end
+
+      Fluid[c_bnd].pressure = pressure
+      Fluid[c_bnd].temperature = temperature
     end
 
     if xPosGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{-1, 0, 0})%Fluid.bounds)
 
-      if not (BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) then
-        var wall_temperature = Fluid[c_int].temperature
-        if (BC_xPosTemperature>0.0) then
-          wall_temperature = BC_xPosTemperature
-        end
-        var temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
-        
-        Fluid[c_bnd].pressure = Fluid[c_int].pressure
-        Fluid[c_bnd].temperature = temperature
+      var temperature : double
+      var pressure : double
+      if (BC_xBCRight == SCHEMA.FlowBC_Symmetry) then
+        pressure    = Fluid[c_int].pressure
+        temperature = Fluid[c_int].temperature
+      elseif (BC_xBCRight == SCHEMA.FlowBC_AdiabaticWall) then
+        pressure    = Fluid[c_int].pressure
+        temperature = Fluid[c_int].temperature
+      elseif (BC_xBCRight == SCHEMA.FlowBC_IsothermalWall) then
+        pressure = Fluid[c_int].pressure
+        var wall_temperature = config.BC.xBCRightHeat.u.Constant.temperature
+        -- assumes that ghost cell is the same size as interior cell
+        temperature = 2.0*wall_temperature-Fluid[c_int].temperature
+      elseif (BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) then
+        -- Do not change the values since they will be updated with the NSCBC conservation equations
+        pressure    = Fluid[c_bnd].pressure
+        temperature = Fluid[c_bnd].temperature
       end
+
+      Fluid[c_bnd].pressure = pressure
+      Fluid[c_bnd].temperature = temperature
     end
 
     if yNegGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 1, 0})%Fluid.bounds)
 
-      if (BC_yBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+      var temperature : double
+      var pressure : double
+      if (BC_yBCLeft == SCHEMA.FlowBC_Symmetry) then
+        pressure    = Fluid[c_int].pressure
+        temperature = Fluid[c_int].temperature
+      elseif (BC_yBCLeft == SCHEMA.FlowBC_AdiabaticWall) then
+        pressure    = Fluid[c_int].pressure
+        temperature = Fluid[c_int].temperature
+      elseif (BC_yBCLeft == SCHEMA.FlowBC_IsothermalWall) then
+        pressure = Fluid[c_int].pressure
+        var wall_temperature = config.BC.yBCLeftHeat.u.Constant.temperature
+        -- assumes that ghost cell is the same size as interior cell
+        temperature = 2.0*wall_temperature-Fluid[c_int].temperature
+      elseif (BC_yBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+        pressure = Fluid[c_int].pressure
         var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left) - 2.0*(BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left))
         var c_2 = 4.0/(Grid_xWidth)*((BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left) - 1.0/4.0*(BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left))
         var c_3 = BC_yBCLeftHeat_T_left
@@ -2273,100 +2313,108 @@ do
         if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
           wall_temperature = 0.0
         end
-        var temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
-        Fluid[c_bnd].pressure = Fluid[c_int].pressure
-        Fluid[c_bnd].temperature = temperature
-      else
-        var wall_temperature = Fluid[c_int].temperature
-        if (BC_yNegTemperature>0.0) then
-          wall_temperature = BC_yNegTemperature
-        end
-        var temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
-
-        Fluid[c_bnd].pressure = Fluid[c_int].pressure
-        Fluid[c_bnd].temperature = temperature
+        temperature = 2.0*wall_temperature-Fluid[c_int].temperature
       end
+
+      Fluid[c_bnd].pressure = pressure
+      Fluid[c_bnd].temperature = temperature
     end
 
     if yPosGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, -1, 0})%Fluid.bounds)
 
-      if (BC_yBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
-        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left) - 2.0*(BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left))
-        var c_2 = 4.0/(Grid_xWidth)*((BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left) - 1.0/4.0*(BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left))
-        var c_3 = BC_yBCLeftHeat_T_left
+      var temperature : double
+      var pressure : double
+      if (BC_yBCRight == SCHEMA.FlowBC_Symmetry) then
+        pressure    = Fluid[c_int].pressure
+        temperature = Fluid[c_int].temperature
+      elseif (BC_yBCRight == SCHEMA.FlowBC_AdiabaticWall) then
+        pressure    = Fluid[c_int].pressure
+        temperature = Fluid[c_int].temperature
+      elseif (BC_yBCRight == SCHEMA.FlowBC_IsothermalWall) then
+        pressure = Fluid[c_int].pressure
+        var wall_temperature = config.BC.yBCRightHeat.u.Constant.temperature
+        -- assumes that ghost cell is the same size as interior cell
+        temperature = 2.0*wall_temperature-Fluid[c_int].temperature
+      elseif (BC_yBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+        pressure = Fluid[c_int].pressure
+        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_yBCRightHeat_T_right - BC_yBCRightHeat_T_left) - 2.0*(BC_yBCRightHeat_T_mid - BC_yBCRightHeat_T_left))
+        var c_2 = 4.0/(Grid_xWidth)*((BC_yBCRightHeat_T_mid - BC_yBCRightHeat_T_left) - 1.0/4.0*(BC_yBCRightHeat_T_right - BC_yBCRightHeat_T_left))
+        var c_3 = BC_yBCRightHeat_T_left
         var wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
         if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
           wall_temperature = 0.0
         end
-        var temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
-        Fluid[c_bnd].pressure = Fluid[c_int].pressure
-        Fluid[c_bnd].temperature = temperature
-      else
-        var wall_temperature = Fluid[c_int].temperature
-        if (BC_yPosTemperature>0.0) then
-          wall_temperature = BC_yPosTemperature
-        end
-        var temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
-
-        Fluid[c_bnd].pressure = Fluid[c_int].pressure
-        Fluid[c_bnd].temperature = temperature
+        temperature = 2.0*wall_temperature-Fluid[c_int].temperature
       end
+      Fluid[c_bnd].pressure = pressure
+      Fluid[c_bnd].temperature = temperature
     end
 
     if zNegGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 0, 1})%Fluid.bounds)
 
-      if (BC_zBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
-        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left) - 2.0*(BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left))
-        var c_2 = 4.0/(Grid_xWidth)*((BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left) - 1.0/4.0*(BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left))
-        var c_3 = BC_yBCLeftHeat_T_left
+      var temperature : double
+      var pressure : double
+      if (BC_zBCLeft == SCHEMA.FlowBC_Symmetry) then
+        pressure    = Fluid[c_int].pressure
+        temperature = Fluid[c_int].temperature
+      elseif (BC_zBCLeft == SCHEMA.FlowBC_AdiabaticWall) then
+        pressure    = Fluid[c_int].pressure
+        temperature = Fluid[c_int].temperature
+      elseif (BC_zBCLeft == SCHEMA.FlowBC_IsothermalWall) then
+        pressure = Fluid[c_int].pressure
+        var wall_temperature = config.BC.zBCLeftHeat.u.Constant.temperature
+        -- assumes that ghost cell is the same size as interior cell
+        temperature = 2.0*wall_temperature-Fluid[c_int].temperature
+      elseif (BC_zBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+        pressure = Fluid[c_int].pressure
+        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_zBCLeftHeat_T_right - BC_zBCLeftHeat_T_left) - 2.0*(BC_zBCLeftHeat_T_mid - BC_zBCLeftHeat_T_left))
+        var c_2 = 4.0/(Grid_xWidth)*((BC_zBCLeftHeat_T_mid - BC_zBCLeftHeat_T_left) - 1.0/4.0*(BC_zBCLeftHeat_T_right - BC_zBCLeftHeat_T_left))
+        var c_3 = BC_zBCLeftHeat_T_left
         var wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
         if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
           wall_temperature = 0.0
         end
-        var temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
-        Fluid[c_bnd].pressure = Fluid[c_int].pressure
-        Fluid[c_bnd].temperature = temperature
-      else
-        var wall_temperature = Fluid[c_int].temperature
-        if (BC_zNegTemperature>0.0) then
-          wall_temperature = BC_zNegTemperature
-        end
-        var temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
-
-        Fluid[c_bnd].pressure = Fluid[c_int].pressure
-        Fluid[c_bnd].temperature = temperature
+        temperature = 2.0*wall_temperature-Fluid[c_int].temperature
       end
+      Fluid[c_bnd].pressure = pressure
+      Fluid[c_bnd].temperature = temperature
+
     end
 
     if zPosGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 0, -1})%Fluid.bounds)
 
-      if (BC_zBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
-        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left) - 2.0*(BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left))
-        var c_2 = 4.0/(Grid_xWidth)*((BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left) - 1.0/4.0*(BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left))
-        var c_3 = BC_yBCLeftHeat_T_left
+      var temperature : double
+      var pressure : double
+      if (BC_zBCRight == SCHEMA.FlowBC_Symmetry) then
+        pressure = Fluid[c_int].pressure
+        temperature = Fluid[c_int].temperature
+      elseif (BC_zBCRight == SCHEMA.FlowBC_AdiabaticWall) then
+        pressure = Fluid[c_int].pressure
+        temperature = Fluid[c_int].temperature
+      elseif (BC_zBCRight == SCHEMA.FlowBC_IsothermalWall) then
+        pressure = Fluid[c_int].pressure
+        var wall_temperature = config.BC.zBCRightHeat.u.Constant.temperature
+        -- assumes that ghost cell is the same size as interior cell
+        temperature = 2.0*wall_temperature-Fluid[c_int].temperature
+      elseif (BC_zBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
+        pressure = Fluid[c_int].pressure
+        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_zBCRightHeat_T_right - BC_zBCRightHeat_T_left) - 2.0*(BC_zBCRightHeat_T_mid - BC_zBCRightHeat_T_left))
+        var c_2 = 4.0/(Grid_xWidth)*((BC_zBCRightHeat_T_mid - BC_zBCRightHeat_T_left) - 1.0/4.0*(BC_zBCRightHeat_T_right - BC_zBCRightHeat_T_left))
+        var c_3 = BC_zBCRightHeat_T_left
         var wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
         if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
           wall_temperature = 0.0
         end
-        var temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
-        Fluid[c_bnd].pressure = Fluid[c_int].pressure
-        Fluid[c_bnd].temperature = temperature
-      else
-        var wall_temperature = Fluid[c_int].temperature
-        if (BC_zPosTemperature>0.0) then
-          wall_temperature = BC_zPosTemperature
-        end
-        var temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
-
-        Fluid[c_bnd].pressure = Fluid[c_int].pressure
-        Fluid[c_bnd].temperature = temperature
+        temperature = 2.0*wall_temperature-Fluid[c_int].temperature
       end
+      Fluid[c_bnd].pressure = pressure
+      Fluid[c_bnd].temperature = temperature
     end
 
   end
@@ -6296,9 +6344,6 @@ local function mkInstance() local INSTANCE = {}
                                      config,
                                      config.Flow.gamma,
                                      config.Flow.gasConstant,
-                                     BC.xNegTemperature, BC.xPosTemperature,
-                                     BC.yNegTemperature, BC.yPosTemperature,
-                                     BC.zNegTemperature, BC.zPosTemperature,
                                      Grid.xBnum, config.Grid.xNum,
                                      Grid.yBnum, config.Grid.yNum,
                                      Grid.zBnum, config.Grid.zNum)
@@ -6781,9 +6826,6 @@ local function mkInstance() local INSTANCE = {}
                                        config,
                                        config.Flow.gamma,
                                        config.Flow.gasConstant,
-                                       BC.xNegTemperature, BC.xPosTemperature,
-                                       BC.yNegTemperature, BC.yPosTemperature,
-                                       BC.zNegTemperature, BC.zPosTemperature,
                                        Grid.xBnum, config.Grid.xNum,
                                        Grid.yBnum, config.Grid.yNum,
                                        Grid.zBnum, config.Grid.zNum)
