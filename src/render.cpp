@@ -254,7 +254,9 @@ extern "C" {
     
     LogicalPartition fluidPartition = CObjectWrapper::unwrap(fluidPartition_);
     std::cout << "fluid partition " << fluidPartition << std::endl;
-    RegionRequirement req0(fluidPartition, 0, READ_ONLY, SIMULTANEOUS, fluid->get_logical_region(), gImageReductionMapperID);
+    ImageReductionProjectionFunctor functor0(compositor->everywhereDomain(), fluidPartition);
+    runtime->register_projection_functor(1, &functor0);
+    RegionRequirement req0(fluidPartition, 1, READ_ONLY, SIMULTANEOUS, fluid->get_logical_region(), gImageReductionMapperID);
     for(int i = 0; i < numFluidFields; ++i) req0.add_field(fluidFields[i]);
     renderLauncher.add_region_requirement(req0);
     
