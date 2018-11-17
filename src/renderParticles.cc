@@ -14,6 +14,8 @@
 #include "GL/glu.h"
 #endif
 
+#include <stdio.h>
+
 typedef double FieldData;
 
 
@@ -73,13 +75,14 @@ static void drawParticle(GLUquadricObj* qobj, FieldData* position, FieldData den
   GLfloat t = particleTemperature;
   GLfloat color[4];
   scaledTemperatureToColor(t, color);
+  color[0] = color[1] = color[2] = color[3] = 1;//debug
   glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, color);
   glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, color);
   glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, color);
   
   glPushMatrix();
   glTranslatef(position[0], position[1], position[2]);
-  const GLfloat densityScale = 5.0e-6;
+  const GLfloat densityScale = 1.0e-5;
   gluSphere(qobj, density * densityScale, 7, 7);
   glPopMatrix();
 }
@@ -109,12 +112,17 @@ void renderParticles(int numParticles,
                      int numParticlesToDraw,
                      long int* particlesToDraw) {
   GLUquadricObj *qobj = gluNewQuadric();
-
+  
+  unsigned drawnCount = 0;
   for(int i = 0; i < numParticles; ++i) {
     if(drawThis(particlesID[i], numParticlesToDraw, particlesToDraw)) {
-      drawParticle(qobj, particlesPosition + 3 * i, particlesDensity[i], particlesTemperature[i]);
+      if(particlesDensity[i] > 0) {
+        drawParticle(qobj, particlesPosition + 3 * i, particlesDensity[i], particlesTemperature[i]);
+        drawnCount++;
+      }
     }
   }
+  printf("drew %d particles\n", drawnCount);
   gluDeleteQuadric(qobj);
-
+  
 }

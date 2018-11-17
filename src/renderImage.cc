@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <iostream>
+#include <math.h>
 
 #include "renderImage.h"
 
@@ -29,24 +30,39 @@ void setCameraPosition(FieldData domainMin[3], FieldData domainMax[3]) {
   glMatrixMode(GL_PROJECTION);
   glPushMatrix();
   glLoadIdentity();
-  glOrtho(domainMin[0], domainMax[0], domainMin[1], domainMax[1], domainMin[2], domainMax[2]);
+  float depthMax = sqrt((domainMax[2] - domainMin[2]) * (domainMax[2] - domainMin[2])
+                        + (domainMax[1] - domainMin[1]) * (domainMax[1] - domainMin[1])
+                        + (domainMax[0] - domainMin[0]) * (domainMax[0] - domainMin[0]));
+  glOrtho(-depthMax * 0.67, depthMax * 0.67, -depthMax * 0.3, depthMax * 1.3, 0, depthMax);
   
   glMatrixMode(GL_MODELVIEW);
   glPushMatrix();
   glLoadIdentity();
   
+#define FIX_CAMERA 0
+
+#if !FIX_CAMERA
   FieldData scale[3];
   for(unsigned i = 0; i < 3; ++i) scale[i] = domainMax[i] - domainMin[i];
-  FieldData scaleOffset = 0.1;
+  FieldData scaleOffset = 0.25;
+#endif
   
   GLfloat from[] =
+#if FIX_CAMERA
+  { 3, .1, -.5 };
+#else
   { (GLfloat)(domainMin[0] - scale[0] * scaleOffset),
-    (GLfloat)(domainMax[1] + scale[1] * scaleOffset),
+    (GLfloat)(domainMin[1] - (scale[1] * scaleOffset)),
     (GLfloat)(domainMin[2] - scale[2] * scaleOffset) };
+#endif
   GLfloat at[] =
-  { (GLfloat)(domainMin[0] + domainMax[0] * 0.5),
-    (GLfloat)(domainMin[1] + domainMax[1] * 0.5),
-    (GLfloat)(domainMin[2] + domainMax[2] * 0.5) };
+#if FIX_CAMERA
+  { 4, .1, .1 };
+#else
+  { (GLfloat)((domainMin[0] + domainMax[0]) * 0.5),
+    (GLfloat)((domainMin[1] + domainMax[1]) * 0.1),
+    (GLfloat)((domainMin[2] + domainMax[2]) * 0.5) };
+#endif
   GLfloat up[] = { 0, 1, 0 };
   std::cout << "camera from " << from[0] << "," << from[1] << "," << from[2] << std::endl;
   std::cout << "camera at   " << at[0] << "," << at[1] << "," << at[2] << std::endl;

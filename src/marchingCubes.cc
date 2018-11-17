@@ -127,8 +127,7 @@ void initializeMarchingCubes(GLfloat lightPosition[4])
   GLfloat afPropertiesDiffuse [] = {0.75, 0.75, 0.75, 1.00};
   GLfloat afPropertiesSpecular[] = {1.00, 1.00, 1.00, 1.00};
   
-  glClearColor( 0.0, 0.0, 0.0, 1.0 );
-  glClearDepth( 1.0 );
+  glClearColor( 0.2, 0.2, 0.3, 1.0 );
   
   glEnable(GL_DEPTH_TEST);
   glEnable(GL_LIGHTING);
@@ -179,7 +178,12 @@ void vDrawScene(int numFluidX,
   gVisualizationField = visualizationField;
   fTargetValue = targetValue;
   
-  
+  float depthMax = sqrt((domainMax[2] - domainMin[2]) * (domainMax[2] - domainMin[2])
+                        + (domainMax[1] - domainMin[1]) * (domainMax[1] - domainMin[1])
+                        + (domainMax[0] - domainMin[0]) * (domainMax[0] - domainMin[0]));
+  glClearDepth(depthMax * 2);
+                        
+
   //  static GLfloat fPitch = 0.0;
   //  static GLfloat fYaw   = 0.0;
   //  static GLfloat fTime = 0.0;

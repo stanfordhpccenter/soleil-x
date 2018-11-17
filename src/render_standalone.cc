@@ -92,6 +92,8 @@ void loadParticlesData(char* filename,
                        FieldData* particlesPosition,
                        FieldData* particlesTemperature,
                        FieldData* particlesDensity) {
+  FieldData particlesMin[3] = { 9999, 9999, 9999 };
+  FieldData particlesMax[3] = { -9999, -9999, -9999 };
   FILE* particlesIn = fopen(filename, "r");
   for(int i = 0; i < numParticles; ++i) {
     int ret = fscanf(particlesIn, "%ld %lf %lf %lf %lf %lf",
@@ -101,11 +103,17 @@ void loadParticlesData(char* filename,
                      particlesPosition + 3 * i + 2,
                      particlesTemperature + i,
                      particlesDensity + i);
+    for(int j = 0; j < 3; ++j) {
+      particlesMin[j] = std::min(particlesMin[j], particlesPosition[3 * i + j]);
+      particlesMax[j] = std::max(particlesMax[j], particlesPosition[3 * i + j]);
+    }
     if(ret == EOF) {
       std::cerr << "error reading particles file" << std::endl;
     }
   }
   fclose(particlesIn);
+  std::cout << "particles min " << particlesMin[0] << " " << particlesMin[1] << " " << particlesMin[2] << std::endl;
+  std::cout << "particles max " << particlesMax[0] << " " << particlesMax[1] << " " << particlesMax[2] << std::endl;
 }
 
 
@@ -152,6 +160,20 @@ int main(int argc, char **argv) {
   }
   char* particlesFileName = argv[4];
   
+  if(argc < 6) {
+    std::cerr << "missing lower bounds eg XxYxZ" << std::endl;
+    return -1;
+  }
+  FieldData lowerBound[3];
+  sscanf(argv[5], "%lfx%lfx%lf", lowerBound, lowerBound + 1, lowerBound + 2);
+  
+  if(argc < 7) {
+    std::cerr << "missing upper bounds eg XxYxZ" << std::endl;
+    return -1;
+  }
+  FieldData upperBound[3];
+  sscanf(argv[6], "%lfx%lfx%lf", upperBound, upperBound + 1, upperBound + 2);
+  
   OSMesaContext mesaCtx;
   GLubyte* rgbaBuffer;
   GLfloat* depthBuffer;
@@ -167,6 +189,9 @@ int main(int argc, char **argv) {
   
   loadFluidData(fluidFileName, numFluidLines, rho, pressure, velocity, centerCoordinates,  temperature, domainMin, domainMax);
   
+  std::cout << "domainMin " << domainMin[0] << " " << domainMin[1] << " " << domainMin[2] << std::endl;
+  std::cout << "domainMax " << domainMax[0] << " " << domainMax[1] << " " << domainMax[2] << std::endl;
+
   long int* particlesID = new long int[numParticles];
   FieldData* particlesPosition = new FieldData[numParticles * 3];
   FieldData* particlesTemperature = new FieldData[numParticles];
@@ -177,13 +202,12 @@ int main(int argc, char **argv) {
   long int particlesToDraw[numParticlesToDraw] = { 0 };
   for(int i = 0; i < numParticlesToDraw; ++i) particlesToDraw[i] = i;
   
-  renderInitialize(domainMin, domainMax);
-  renderImage(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, temperatureField, 4.88675,
+  renderInitialize(lowerBound, upperBound);
+  renderImage(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, lowerBound, upperBound, temperatureField, 4.88675,
               numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity,
               particlesToDraw, numParticlesToDraw);
 
   saveImageToFile(fluidFileName, rgbaBuffer);
-  
   
   destroyGraphicsContext(mesaCtx);
   
