@@ -139,7 +139,7 @@ function run_sapling {
         -ll:csize 35000 -ll:rsize 1024 -ll:ib_rsize 1024 -ll:gsize 0 \
         -ll:stacksize 8 -ll:ostack 8 -lg:sched -1"
     echo $CMD
-    LEGION_FREEZE_ON_ERROR=1 $CMD
+    $CMD
     # Resources:
     # 40230MB RAM per node
     # 2 NUMA domains per node
