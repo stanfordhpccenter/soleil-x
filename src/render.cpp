@@ -23,6 +23,7 @@ using namespace Legion;
 using namespace LegionRuntime::Accessor;
 
 
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -40,42 +41,61 @@ extern "C" {
 #if SAVE_RENDER_DATA
   
   static
-  void create_field_pointer(PhysicalRegion region,
+  void create_field_pointer_3D(PhysicalRegion region,
                             FieldData* &field,
                             int fieldID,
-                            ByteOffset stride[3],
+                            ByteOffset stride[],
                             Runtime* runtime) {
     
+    const int dim = 3;
     Domain indexSpaceDomain = runtime->get_index_space_domain(region.get_logical_region().get_index_space());
-    LegionRuntime::Arrays::Rect<3> bounds = indexSpaceDomain.get_rect<3>();
+    LegionRuntime::Arrays::Rect<dim> bounds = indexSpaceDomain.get_rect<dim>();
     RegionAccessor<AccessorType::Generic, FieldData> acc = region.get_field_accessor(fieldID).typeify<FieldData>();
-    LegionRuntime::Arrays::Rect<3> tempBounds;
-    field = acc.raw_rect_ptr<3>(bounds, tempBounds, stride);
+    LegionRuntime::Arrays::Rect<dim> tempBounds;
+    field = acc.raw_rect_ptr<dim>(bounds, tempBounds, stride);
+    assert(bounds == tempBounds);
+  }
+
+  static
+  void create_field_pointer_1D(PhysicalRegion region,
+                            FieldData* &field,
+                            int fieldID,
+                            ByteOffset stride[],
+                            Runtime* runtime) {
+    
+    const int dim = 1;
+    Domain indexSpaceDomain = runtime->get_index_space_domain(region.get_logical_region().get_index_space());
+    LegionRuntime::Arrays::Rect<dim> bounds = indexSpaceDomain.get_rect<dim>();
+    RegionAccessor<AccessorType::Generic, FieldData> acc = region.get_field_accessor(fieldID).typeify<FieldData>();
+    LegionRuntime::Arrays::Rect<dim> tempBounds;
+    field = acc.raw_rect_ptr<dim>(bounds, tempBounds, stride);
     assert(bounds == tempBounds);
   }
   
   static
-  void create_int_pointer(PhysicalRegion region,
+  void create_int_pointer_1D(PhysicalRegion region,
                           long int* &field,
                           int fieldID,
-                          ByteOffset stride[3],
+                          ByteOffset stride[],
                           Runtime* runtime) {
     
+    const int dim = 1;
     Domain indexSpaceDomain = runtime->get_index_space_domain(region.get_logical_region().get_index_space());
-    LegionRuntime::Arrays::Rect<3> bounds = indexSpaceDomain.get_rect<3>();
+    LegionRuntime::Arrays::Rect<dim> bounds = indexSpaceDomain.get_rect<dim>();
     RegionAccessor<AccessorType::Generic, long int> acc = region.get_field_accessor(fieldID).typeify<long int>();
-    LegionRuntime::Arrays::Rect<3> tempBounds;
-    field = acc.raw_rect_ptr<3>(bounds, tempBounds, stride);
+    LegionRuntime::Arrays::Rect<dim> tempBounds;
+    field = acc.raw_rect_ptr<dim>(bounds, tempBounds, stride);
     assert(bounds == tempBounds);
   }
   
   static void saveFluidRenderData(Context ctx,
                                   HighLevelRuntime *runtime,
+                                  const Task* task,
                                   PhysicalRegion& fluid,
                                   std::vector<legion_field_id_t> fluidFields) {
     
     char filename[256] = "render.fluid.";
-    gethostname(filename + strlen(filename), sizeof(filename) - strlen(filename));
+    sprintf(filename + strlen(filename), "%lld", task->get_unique_id());
     FILE *fluidOut = fopen(filename, "w");
     
     FieldData* rho;
@@ -90,17 +110,15 @@ extern "C" {
     ByteOffset centerCoordinatesStride[3];
     ByteOffset temperatureStride[3];
     
-    create_field_pointer(fluid, rho, fluidFields[0], rhoStride, runtime);
-    create_field_pointer(fluid, pressure, fluidFields[1], pressureStride, runtime);
-    create_field_pointer(fluid, velocity, fluidFields[2], velocityStride, runtime);
-    create_field_pointer(fluid, centerCoordinates, fluidFields[3], centerCoordinatesStride, runtime);
-    create_field_pointer(fluid, temperature, fluidFields[7], temperatureStride, runtime);
+    create_field_pointer_3D(fluid, rho, fluidFields[0], rhoStride, runtime);
+    create_field_pointer_3D(fluid, pressure, fluidFields[1], pressureStride, runtime);
+    create_field_pointer_3D(fluid, velocity, fluidFields[2], velocityStride, runtime);
+    create_field_pointer_3D(fluid, centerCoordinates, fluidFields[3], centerCoordinatesStride, runtime);
+    create_field_pointer_3D(fluid, temperature, fluidFields[7], temperatureStride, runtime);
     
     IndexSpace indexSpace = fluid.get_logical_region().get_index_space();
     Domain domain = runtime->get_index_space_domain(ctx, indexSpace);
     Rect<3> rect = domain;
-    std::cout << "renderTask subdomain " << rect << std::endl;
-    std::cout << "renderTask indexSpace " << indexSpace << std::endl;
     
     for (PointInRectIterator<3> pir(rect); pir(); pir++) {
       fprintf(fluidOut, "%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\n",
@@ -120,11 +138,12 @@ extern "C" {
   
   static void saveParticlesRenderData(Context ctx,
                                       HighLevelRuntime *runtime,
+                                      const Task* task,
                                       PhysicalRegion& particles,
                                       std::vector<legion_field_id_t> particlesFields) {
     
     char filename[256] = "render.particles.";
-    gethostname(filename + strlen(filename), sizeof(filename) - strlen(filename));
+    sprintf(filename + strlen(filename), "%lld", task->get_unique_id());
     FILE *particlesOut = fopen(filename, "w");
     
     long int* id;
@@ -137,16 +156,14 @@ extern "C" {
     ByteOffset temperatureStride[1];
     ByteOffset densityStride[1];
     
-    create_int_pointer(particles, id, particlesFields[0], idStride, runtime);
-    create_field_pointer(particles, position, particlesFields[2], positionStride, runtime);
-    create_field_pointer(particles, temperature, particlesFields[4], temperatureStride, runtime);
-    create_field_pointer(particles, density, particlesFields[6], densityStride, runtime);
+    create_int_pointer_1D(particles, id, particlesFields[0], idStride, runtime);
+    create_field_pointer_1D(particles, position, particlesFields[2], positionStride, runtime);
+    create_field_pointer_1D(particles, temperature, particlesFields[4], temperatureStride, runtime);
+    create_field_pointer_1D(particles, density, particlesFields[6], densityStride, runtime);
     
     IndexSpace indexSpace = particles.get_logical_region().get_index_space();
     Domain domain = runtime->get_index_space_domain(ctx, indexSpace);
     Rect<1> rect = domain;
-    std::cout << "renderTask subdomain " << rect << std::endl;
-    std::cout << "renderTask indexSpace " << indexSpace << std::endl;
     
     for (PointInRectIterator<1> pir(rect); pir(); pir++) {
       fprintf(particlesOut, "%ld\t%g\t%g\t%g\t%g\t%g\n",
@@ -184,8 +201,8 @@ extern "C" {
     image.get_fields(imageFields);
     
 #if SAVE_RENDER_DATA
-    saveFluidRenderData(ctx, runtime, fluid, fluidFields);
-    saveParticlesRenderData(ctx, runtime, particles, particlesFields);
+    saveFluidRenderData(ctx, runtime, task, fluid, fluidFields);
+    saveParticlesRenderData(ctx, runtime, task, particles, particlesFields);
 #else
     
 #endif
