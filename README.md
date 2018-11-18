@@ -434,7 +434,7 @@ export GPU_ARCH=volta
 ### Download software
 
 ```
-git clone https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone -b puc_lua https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
 git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 
@@ -444,7 +444,7 @@ We need to go through the `lalloc` utility script to build on a compute node.
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 lalloc 1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1-ppc64-koriakin'
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 lalloc 1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'puc_lua_master'
 ```
 
 ### Compile Soleil-X
