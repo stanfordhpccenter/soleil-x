@@ -4875,7 +4875,9 @@ local function mkInstance() local INSTANCE = {}
 
   function INSTANCE.InitRegions(config) return rquote
 
-    Particles_initValidField(Particles)
+    if config.Particles.maxNum > 0 then
+      Particles_initValidField(Particles)
+    end
     if config.Radiation.type == SCHEMA.RadiationModel_DOM then
       SetCoarseningField(Fluid,
                          Grid.xBnum, config.Grid.xNum,
@@ -4998,38 +5000,40 @@ local function mkInstance() local INSTANCE = {}
     end
 
     -- Initialize particles
-    if config.Particles.initCase == SCHEMA.ParticlesInitCase_Random then
-      regentlib.assert(false, "Random particle initialization is disabled")
-    elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart then
-      Particles_load(0, tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
-      for c in tiles do
-        Particles_LocateInCells(p_Particles[c],
-                                Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
-                                Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
-                                Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
-      end
-      for c in tiles do
-        Particles_CheckPartitioning(c,
-                                    p_Particles[c],
-                                    Grid.xBnum, config.Grid.xNum, NX,
-                                    Grid.yBnum, config.Grid.yNum, NY,
-                                    Grid.zBnum, config.Grid.zNum, NZ)
-      end
-    elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform then
-      regentlib.assert(config.Particles.initNum % config.Particles.parcelSize == 0,
-                       'Uneven parceling of particles')
-      regentlib.assert((config.Particles.initNum / config.Particles.parcelSize) % numTiles == 0,
-                       'Uneven partitioning of particles')
-      regentlib.assert(config.Particles.initNum <= config.Particles.maxNum,
-                       "Not enough space for initial number of particles")
-      for c in tiles do
-        Particles_InitializeUniform(p_Particles[c],
-                                    p_Fluid[c],
-                                    config,
-                                    Grid.xBnum, Grid.yBnum, Grid.zBnum)
-      end
-    else regentlib.assert(false, 'Unhandled case in switch') end
-    Particles_number += Particles_CalculateNumber(Particles)
+    if config.Particles.maxNum > 0 then
+      if config.Particles.initCase == SCHEMA.ParticlesInitCase_Random then
+        regentlib.assert(false, "Random particle initialization is disabled")
+      elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart then
+        Particles_load(0, tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
+        for c in tiles do
+          Particles_LocateInCells(p_Particles[c],
+                                  Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
+                                  Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
+                                  Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+        end
+        for c in tiles do
+          Particles_CheckPartitioning(c,
+                                      p_Particles[c],
+                                      Grid.xBnum, config.Grid.xNum, NX,
+                                      Grid.yBnum, config.Grid.yNum, NY,
+                                      Grid.zBnum, config.Grid.zNum, NZ)
+        end
+      elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform then
+        regentlib.assert(config.Particles.initNum % config.Particles.parcelSize == 0,
+                         'Uneven parceling of particles')
+        regentlib.assert((config.Particles.initNum / config.Particles.parcelSize) % numTiles == 0,
+                         'Uneven partitioning of particles')
+        regentlib.assert(config.Particles.initNum <= config.Particles.maxNum,
+                         "Not enough space for initial number of particles")
+        for c in tiles do
+          Particles_InitializeUniform(p_Particles[c],
+                                      p_Fluid[c],
+                                      config,
+                                      Grid.xBnum, Grid.yBnum, Grid.zBnum)
+        end
+      else regentlib.assert(false, 'Unhandled case in switch') end
+      Particles_number += Particles_CalculateNumber(Particles)
+    end
 
     -- Initialize radiation
     if config.Radiation.type == SCHEMA.RadiationModel_OFF then
@@ -5100,7 +5104,9 @@ local function mkInstance() local INSTANCE = {}
     Flow_averagePressure += CalculateAveragePressure(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
     Flow_averageTemperature += CalculateAverageTemperature(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
     Flow_averageKineticEnergy += CalculateAverageKineticEnergy(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-    Particles_averageTemperature += Particles_IntegrateQuantities(Particles)
+    if config.Particles.maxNum > 0 then
+      Particles_averageTemperature += Particles_IntegrateQuantities(Particles)
+    end
     Flow_averagePressure = (Flow_averagePressure/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
     Flow_averageTemperature = (Flow_averageTemperature/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
     Flow_averageKineticEnergy = (Flow_averageKineticEnergy/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
@@ -5126,11 +5132,13 @@ local function mkInstance() local INSTANCE = {}
       var avgFluidT = 0.0
       avgFluidT += Probe_AvgFluidT(Fluid, probe, totalCells)
       var totalParticles = 0
-      totalParticles += Probe_CountParticles(Particles, probe)
       var avgParticleT = 0.0
-      avgParticleT += Probe_AvgParticleT(Particles, probe, totalParticles)
       var avgCellOfParticleT = 0.0
-      avgCellOfParticleT += Probe_AvgCellOfParticleT(Fluid, Particles, probe, totalParticles)
+      if config.Particles.maxNum > 0 then
+        totalParticles += Probe_CountParticles(Particles, probe)
+        avgParticleT += Probe_AvgParticleT(Particles, probe, totalParticles)
+        avgCellOfParticleT += Probe_AvgCellOfParticleT(Fluid, Particles, probe, totalParticles)
+      end
       Probe_Write(config, i, Integrator_timeStep, avgFluidT, avgParticleT, avgCellOfParticleT)
     end
 
@@ -5157,7 +5165,7 @@ local function mkInstance() local INSTANCE = {}
   function INSTANCE.MainLoopBody(config, CopyQueue) return rquote
 
     -- Feed particles
-    if Integrator_timeStep % config.Particles.staggerFactor == 0 then
+    if config.Particles.maxNum > 0 and Integrator_timeStep % config.Particles.staggerFactor == 0 then
       if config.Particles.feeding.type == SCHEMA.FeedModel_OFF then
         -- Do nothing
       elseif config.Particles.feeding.type == SCHEMA.FeedModel_Incoming then
@@ -5174,7 +5182,7 @@ local function mkInstance() local INSTANCE = {}
 
     -- Set iteration-specific fields that persist across RK sub-steps
     Flow_InitializeTemporaries(Fluid)
-    if Integrator_timeStep % config.Particles.staggerFactor == 0 then
+    if config.Particles.maxNum > 0 and Integrator_timeStep % config.Particles.staggerFactor == 0 then
       Particles_InitializeTemporaries(Particles)
     end
 
@@ -5321,7 +5329,7 @@ local function mkInstance() local INSTANCE = {}
       end
 
       -- Particles & radiation solve
-      if Integrator_timeStep % config.Particles.staggerFactor == 0 then
+      if config.Particles.maxNum > 0 and Integrator_timeStep % config.Particles.staggerFactor == 0 then
         -- Add fluid forces to particles
         Particles_AddFlowCoupling(Particles,
                                   Fluid,
@@ -5367,7 +5375,9 @@ local function mkInstance() local INSTANCE = {}
       end
 
       -- Add particle forces to fluid
-      Flow_AddParticlesCoupling(Particles, Fluid, config, Grid.cellVolume)
+      if config.Particles.maxNum > 0 then
+        Flow_AddParticlesCoupling(Particles, Fluid, config, Grid.cellVolume)
+      end
 
       -- Use fluxes to update conserved value derivatives
       Flow_UpdateUsingFluxZ(Fluid,
@@ -5414,7 +5424,7 @@ local function mkInstance() local INSTANCE = {}
 
       -- Time step
       Flow_UpdateVars(Fluid, Integrator_deltaTime, Integrator_stage, config)
-      if Integrator_timeStep % config.Particles.staggerFactor == 0 then
+      if config.Particles.maxNum > 0 and Integrator_timeStep % config.Particles.staggerFactor == 0 then
         Particles_UpdateVars(Particles,
                              Integrator_deltaTime * config.Particles.staggerFactor,
                              Integrator_stage,
@@ -5479,7 +5489,7 @@ local function mkInstance() local INSTANCE = {}
       end
 
       -- Particle movement post-processing
-      if Integrator_timeStep % config.Particles.staggerFactor == 0 then
+      if config.Particles.maxNum > 0 and Integrator_timeStep % config.Particles.staggerFactor == 0 then
         -- Handle particle collisions
         -- TODO: Collisions across tiles are not handled.
         if config.Particles.collisions and Integrator_stage == config.Integrator.rkOrder then
@@ -5639,17 +5649,17 @@ task workDual(mc : MultiConfig)
     SIM1.Grid.zRealOrigin + mc.copyTgt.fromCell[2] * SIM1.Grid.zCellWidth)
   var Fluid0_cellWidth = array(SIM0.Grid.xCellWidth, SIM0.Grid.yCellWidth, SIM0.Grid.zCellWidth)
   var Fluid1_cellWidth = array(SIM1.Grid.xCellWidth, SIM1.Grid.yCellWidth, SIM1.Grid.zCellWidth)
-  var CopyQueue_ptr : int64 = 0
+  var CopyQueue_size : int64 = 0
   var coloring_CopyQueue = C.legion_domain_point_coloring_create()
   for c in SIM0.tiles do
     var partSize = CopyQueue_partSize(SIM0.p_Fluid[c].bounds,
                                       mc.configs[0],
                                       mc.copySrc)
     C.legion_domain_point_coloring_color_domain(
-      coloring_CopyQueue, c, rect1d{CopyQueue_ptr,CopyQueue_ptr+partSize-1})
-    CopyQueue_ptr += partSize
+      coloring_CopyQueue, c, rect1d{CopyQueue_size,CopyQueue_size+partSize-1})
+    CopyQueue_size += partSize
   end
-  var is_CopyQueue = ispace(int1d, CopyQueue_ptr)
+  var is_CopyQueue = ispace(int1d, CopyQueue_size)
   var [CopyQueue] = region(is_CopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(CopyQueue, MAPPER.SAMPLE_ID_TAG, rexpr mc.configs[0].Mapping.sampleId end, int)];
   var p_CopyQueue = partition(disjoint, CopyQueue, coloring_CopyQueue, SIM0.tiles)
@@ -5735,17 +5745,19 @@ task workDual(mc : MultiConfig)
         copy(src.temperature, tgt.temperature_inc)
         copy(src.velocity, tgt.velocity_inc)
       end
-      fill(CopyQueue.position, array(-1.0, -1.0, -1.0))
-      fill(CopyQueue.velocity, array(-1.0, -1.0, -1.0))
-      fill(CopyQueue.temperature, -1.0)
-      fill(CopyQueue.diameter, -1.0)
-      fill(CopyQueue.density, -1.0)
-      for c in SIM0.tiles do
-        CopyQueue_push(SIM0.p_Particles[c],
-                       p_CopyQueue[c],
-                       mc.copySrc,
-                       copySrcOrigin, copyTgtOrigin,
-                       Fluid0_cellWidth, Fluid1_cellWidth)
+      if CopyQueue_size > 0 then
+        fill(CopyQueue.position, array(-1.0, -1.0, -1.0))
+        fill(CopyQueue.velocity, array(-1.0, -1.0, -1.0))
+        fill(CopyQueue.temperature, -1.0)
+        fill(CopyQueue.diameter, -1.0)
+        fill(CopyQueue.density, -1.0)
+        for c in SIM0.tiles do
+          CopyQueue_push(SIM0.p_Particles[c],
+                         p_CopyQueue[c],
+                         mc.copySrc,
+                         copySrcOrigin, copyTgtOrigin,
+                         Fluid0_cellWidth, Fluid1_cellWidth)
+        end
       end
     end
     -- Run one iteration of second section
