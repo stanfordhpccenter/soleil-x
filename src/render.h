@@ -44,8 +44,7 @@ extern "C" {
                   int numParticlesToDraw,
                   legion_physical_region_t *particlesToDraw_,
                   double lowerBound[3],
-                  double upperBound[3],
-                  int numX, int numY, int numZ
+                  double upperBound[3]
                   );
   
   void cxx_reduce(legion_runtime_t runtime_,

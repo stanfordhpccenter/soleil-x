@@ -5699,8 +5699,7 @@ local function mkInstance() local INSTANCE = {}
                     numParticlesToDraw,
                     __physical(particlesToDraw),
                     lowerBound,
-                    upperBound,
-                    config.Grid.xNum, config.Grid.yNum, config.Grid.zNum)
+                    upperBound)
 
     render.cxx_reduce(__runtime(),
                       __context(),

@@ -14,6 +14,7 @@
  */
 
 #include "render.h"
+#include "renderImage.h"
 #include "legion_visualization.h"
 #include "legion_c_util.h"
 #include "image_reduction_mapper.h"
@@ -38,14 +39,13 @@ extern "C" {
   
 #define SAVE_RENDER_DATA 0
   
-#if SAVE_RENDER_DATA
   
   static
   void create_field_pointer_3D(PhysicalRegion region,
-                            FieldData* &field,
-                            int fieldID,
-                            ByteOffset stride[],
-                            Runtime* runtime) {
+                               FieldData* &field,
+                               int fieldID,
+                               ByteOffset stride[],
+                               Runtime* runtime) {
     
     const int dim = 3;
     Domain indexSpaceDomain = runtime->get_index_space_domain(region.get_logical_region().get_index_space());
@@ -55,13 +55,13 @@ extern "C" {
     field = acc.raw_rect_ptr<dim>(bounds, tempBounds, stride);
     assert(bounds == tempBounds);
   }
-
+  
   static
   void create_field_pointer_1D(PhysicalRegion region,
-                            FieldData* &field,
-                            int fieldID,
-                            ByteOffset stride[],
-                            Runtime* runtime) {
+                               FieldData* &field,
+                               int fieldID,
+                               ByteOffset stride[],
+                               Runtime* runtime) {
     
     const int dim = 1;
     Domain indexSpaceDomain = runtime->get_index_space_domain(region.get_logical_region().get_index_space());
@@ -74,10 +74,10 @@ extern "C" {
   
   static
   void create_int_pointer_1D(PhysicalRegion region,
-                          long int* &field,
-                          int fieldID,
-                          ByteOffset stride[],
-                          Runtime* runtime) {
+                             long int* &field,
+                             int fieldID,
+                             ByteOffset stride[],
+                             Runtime* runtime) {
     
     const int dim = 1;
     Domain indexSpaceDomain = runtime->get_index_space_domain(region.get_logical_region().get_index_space());
@@ -88,6 +88,8 @@ extern "C" {
     assert(bounds == tempBounds);
   }
   
+#if SAVE_RENDER_DATA
+
   static void saveFluidRenderData(Context ctx,
                                   HighLevelRuntime *runtime,
                                   const Task* task,
@@ -204,11 +206,11 @@ extern "C" {
     saveFluidRenderData(ctx, runtime, task, fluid, fluidFields);
     saveParticlesRenderData(ctx, runtime, task, particles, particlesFields);
 #else
-    FieldData* lowerBound = (FieldData*)(task->args + sizeof(ImageDescriptor));
+    FieldData* lowerBound = (FieldData*)((char*)task->args + sizeof(ImageDescriptor));
     FieldData* upperBound = lowerBound + 3;
-    int numParticlesToDraw = (int*)(upperBound + 3);
-    long int* particlesToDraw = (long int*)(task->args + sizeof(ImageDescriptor) + 6 * sizeof(FieldData) + sizeof(int));
-    int* num = ((char*)particlesToDraw) + numParticlesToDraw * sizeof(long int);
+    int numParticlesToDraw = *((int*)(upperBound + 3));
+    long int* particlesToDraw = (long int*)((char*)task->args + sizeof(ImageDescriptor) + 6 * sizeof(FieldData) + sizeof(int));
+    
     renderInitialize(lowerBound, upperBound);
     
     FieldData* rho;
@@ -228,11 +230,11 @@ extern "C" {
     create_field_pointer_3D(fluid, velocity, fluidFields[2], velocityStride, runtime);
     create_field_pointer_3D(fluid, centerCoordinates, fluidFields[3], centerCoordinatesStride, runtime);
     create_field_pointer_3D(fluid, temperature, fluidFields[7], temperatureStride, runtime);
-
+    
     long int* id;
     FieldData* particlesPosition;
     FieldData* particlesTemperature;
-    FieldData* density;
+    FieldData* particlesDensity;
     
     ByteOffset idStride[1];
     ByteOffset positionStride[1];
@@ -244,8 +246,17 @@ extern "C" {
     create_field_pointer_1D(particles, particlesTemperature, particlesFields[4], particlesTemperatureStride, runtime);
     create_field_pointer_1D(particles, particlesDensity, particlesFields[6], densityStride, runtime);
     
+    IndexSpace indexSpace = fluid.get_logical_region().get_index_space();
+    Rect<3> bounds = runtime->get_index_space_domain(ctx, indexSpace);
+    long int num[3] = {
+      bounds.hi[0] - bounds.lo[0], bounds.hi[1] - bounds.lo[1], bounds.hi[2] - bounds.lo[2]
+    };
+    IndexSpace particlesIndexSpace = particles.get_logical_region().get_index_space();
+    Rect<1> particlesBounds = runtime->get_index_space_domain(ctx, particlesIndexSpace);
+    long int numParticles = particlesBounds.hi[0] - particlesBounds.lo[0];
+    
     renderImage(num[0], num[1], num[2], rho, pressure, velocity, centerCoordinates, temperature, lowerBound, upperBound, temperatureField, 4.88675,
-                numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity,
+                numParticles, id, particlesPosition, particlesTemperature, particlesDensity,
                 particlesToDraw, numParticlesToDraw);
 #endif
     
@@ -280,8 +291,7 @@ extern "C" {
                   int numParticlesToDraw,
                   legion_physical_region_t* particlesToDraw_,
                   FieldData lowerBound[3],
-                  FieldData upperBound[3],
-                  int xNum, int yNum, int zNum
+                  FieldData upperBound[3]
                   )
   {
     std::cout << __FUNCTION__ << " pid " << getpid() << std::endl;
@@ -312,23 +322,20 @@ extern "C" {
     const FieldAccessor<READ_ONLY, float, 1> particles_position_acc(*particles, particles_fields[0]);
     const FieldAccessor<READ_ONLY, float, 1> particles_position_history_acc(*particles, particles_fields[1]);
     
-    PhysicalRegion* particlesToDraw = CObjectWrapper::unwrap(particlesToDraw_);
+    PhysicalRegion* particlesToDraw = CObjectWrapper::unwrap(particlesToDraw_[0]);
     std::vector<legion_field_id_t> particlesToDrawFields;
-    particlesToDraw->get_fields(particlesToDrawFields);
-    const FieldAccessor<READ_ONLY, long int, 1> particles_to_draw_acc(*particlesToDraw, particlesToDrawFields[0]);
+    long int* particlesToDrawInt;
+    ByteOffset particlesToDrawStride[1];
+    create_int_pointer_1D(*particlesToDraw, particlesToDrawInt, particlesToDrawFields[0], particlesToDrawStride, runtime);
     
     ArgumentMap argMap;
-    size_t argSize = sizeof(imageDescriptor) + 6 * sizeof(FieldData) + sizeof(int) + numParticlesToDraw * sizeof(long int) + 3 * sizeof(int);
+    size_t argSize = sizeof(imageDescriptor) + 6 * sizeof(FieldData) + sizeof(int) + numParticlesToDraw * sizeof(long int);
     char args[argSize] = { 0 };
     memcpy(args, &imageDescriptor, sizeof(imageDescriptor));
     memcpy(args + sizeof(imageDescriptor), lowerBound, 3 * sizeof(FieldData));
     memcpy(args + sizeof(imageDescriptor) + 3 * sizeof(FieldData), upperBound, 3 * sizeof(FieldData));
     memcpy(args + sizeof(imageDescriptor) + 6 * sizeof(FieldData), &numParticlesToDraw, sizeof(int));
-    memcpy(args + sizeof(imageDescriptor) + 6 * sizeof(FieldData) + sizeof(int), particles_to_draw_acc, numParticlesToDraw * sizeof(long int));
-    int* num = args + sizeof(imageDescriptor) + 6 * sizeof(FieldData) + sizeof(int) + numParticlesToDraw * sizeof(long int);
-    num[0] = xNum;
-    num[1] = yNum;
-    num[2] = zNum;
+    memcpy(args + sizeof(imageDescriptor) + 6 * sizeof(FieldData) + sizeof(int), particlesToDrawInt, numParticlesToDraw * sizeof(long int));
     
     IndexTaskLauncher renderLauncher(gRenderTaskID, compositor->everywhereDomain(), TaskArgument(args, sizeof(args)), argMap, Predicate::TRUE_PRED, false, gImageReductionMapperID);
     
