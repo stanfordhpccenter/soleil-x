@@ -29,8 +29,18 @@ local USE_HDF = assert(os.getenv('USE_HDF')) ~= '0'
 
 local MAX_ANGLES_PER_QUAD = 44
 
+-- Visualization data
+
 local IMAGE_PARTICLE_HISTORY_LENGTH = 5
 local IMAGE_RENDER_INTERVAL = 1 -- how many frames between renders
+
+local numParticlesToDraw = regentlib.newsymbol(int32, "numParticlesToDraw");
+local struct Draw_columns {
+  id : int64;
+}
+local particlesToDraw = regentlib.newsymbol("particlesToDraw");
+local lowerBound = regentlib.newsymbol(double [3], "lowerBound");
+local upperBound = regentlib.newsymbol(double [3], "upperBound");
 
 -------------------------------------------------------------------------------
 -- DATA STRUCTURES
@@ -171,6 +181,7 @@ struct Radiation_columns {
   acc_d2 : double;
   acc_d2t4 : double;
 }
+
 
 -------------------------------------------------------------------------------
 -- EXTERNAL MODULE IMPORTS
@@ -5617,12 +5628,51 @@ local function mkInstance() local INSTANCE = {}
 
   function INSTANCE.VisualizeInit(config) return rquote
 
+    -- assign particles ids
     var particleID : int64 = 0
     for p in Particles do
       p.id = particleID
       particleID = particleID + 1
     end
-    -- randomly select which ones to draw
+
+    -- select particles to draw
+    var [numParticlesToDraw] = 50
+    var [particlesToDraw] = region(ispace(int1d, numParticlesToDraw), Draw_columns)
+    C.srand(0)
+    for i = 1, numParticlesToDraw + 1, 1 do
+      var r = C.rand() / C.RAND_MAX
+      particlesToDraw[i].id = r * config.Particles.initNum
+    end
+
+    -- bubble sort the array
+    for i = 0, numParticlesToDraw do
+      for j = i, numParticlesToDraw do
+        if particlesToDraw[i].id > particlesToDraw[j].id then
+          var temp = particlesToDraw[i].id
+          particlesToDraw[i].id = particlesToDraw[j].id
+          particlesToDraw[j].id = temp
+        end
+      end
+    end
+
+    -- get the global fluid bounds
+    var [lowerBound]
+    var [upperBound]
+    for i = 0, 3 do
+      lowerBound[i] = 9999
+      upperBound[i] = -9999
+    end
+
+    for f in Fluid do
+      for i = 0, 3 do
+        if Fluid[f].centerCoordinates[i] < lowerBound[i] then
+          lowerBound[i] = Fluid[f].centerCoordinates[i]
+        end
+        if Fluid[f].centerCoordinates[i] > upperBound[i] then
+          upperBound[i] = Fluid[f].centerCoordinates[i]
+        end
+      end
+    end
 
   end end -- VisualizeInit
 
@@ -5633,6 +5683,7 @@ local function mkInstance() local INSTANCE = {}
     var fluidFields : C.legion_field_id_t[numFluidFields] = __fields(Fluid)
     var numParticlesFields : int = 21
     var particlesFields : C.legion_field_id_t[numParticlesFields] = __fields(Particles)
+
     render.cxx_render(__runtime(),
                     __context(),
                     config.Mapping.sampleId,
@@ -5644,7 +5695,13 @@ local function mkInstance() local INSTANCE = {}
                     numParticlesFields,
                     __raw(tiles),
                     __raw(p_Fluid),
-                    __raw(p_Particles))
+                    __raw(p_Particles),
+                    numParticlesToDraw,
+                    __physical(particlesToDraw),
+                    lowerBound,
+                    upperBound,
+                    config.Grid.xNum, config.Grid.yNum, config.Grid.zNum)
+
     render.cxx_reduce(__runtime(),
                       __context(),
                       config.Mapping.sampleId)

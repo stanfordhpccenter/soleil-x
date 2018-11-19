@@ -40,7 +40,12 @@ extern "C" {
                   int numParticlesFields,
                   legion_index_space_t tiles,
                   legion_logical_partition_t p_fluid,
-                  legion_logical_partition_t p_particles
+                  legion_logical_partition_t p_particles,
+                  int numParticlesToDraw,
+                  legion_physical_region_t *particlesToDraw_,
+                  double lowerBound[3],
+                  double upperBound[3],
+                  int numX, int numY, int numZ
                   );
   
   void cxx_reduce(legion_runtime_t runtime_,

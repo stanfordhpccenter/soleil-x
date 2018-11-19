@@ -204,7 +204,49 @@ extern "C" {
     saveFluidRenderData(ctx, runtime, task, fluid, fluidFields);
     saveParticlesRenderData(ctx, runtime, task, particles, particlesFields);
 #else
+    FieldData* lowerBound = (FieldData*)(task->args + sizeof(ImageDescriptor));
+    FieldData* upperBound = lowerBound + 3;
+    int numParticlesToDraw = (int*)(upperBound + 3);
+    long int* particlesToDraw = (long int*)(task->args + sizeof(ImageDescriptor) + 6 * sizeof(FieldData) + sizeof(int));
+    int* num = ((char*)particlesToDraw) + numParticlesToDraw * sizeof(long int);
+    renderInitialize(lowerBound, upperBound);
     
+    FieldData* rho;
+    FieldData* pressure;
+    FieldData* velocity;
+    FieldData* centerCoordinates;
+    FieldData* temperature;
+    
+    ByteOffset rhoStride[3];
+    ByteOffset pressureStride[3];
+    ByteOffset velocityStride[3];
+    ByteOffset centerCoordinatesStride[3];
+    ByteOffset temperatureStride[3];
+    
+    create_field_pointer_3D(fluid, rho, fluidFields[0], rhoStride, runtime);
+    create_field_pointer_3D(fluid, pressure, fluidFields[1], pressureStride, runtime);
+    create_field_pointer_3D(fluid, velocity, fluidFields[2], velocityStride, runtime);
+    create_field_pointer_3D(fluid, centerCoordinates, fluidFields[3], centerCoordinatesStride, runtime);
+    create_field_pointer_3D(fluid, temperature, fluidFields[7], temperatureStride, runtime);
+
+    long int* id;
+    FieldData* particlesPosition;
+    FieldData* particlesTemperature;
+    FieldData* density;
+    
+    ByteOffset idStride[1];
+    ByteOffset positionStride[1];
+    ByteOffset particlesTemperatureStride[1];
+    ByteOffset densityStride[1];
+    
+    create_int_pointer_1D(particles, id, particlesFields[0], idStride, runtime);
+    create_field_pointer_1D(particles, particlesPosition, particlesFields[2], positionStride, runtime);
+    create_field_pointer_1D(particles, particlesTemperature, particlesFields[4], particlesTemperatureStride, runtime);
+    create_field_pointer_1D(particles, particlesDensity, particlesFields[6], densityStride, runtime);
+    
+    renderImage(num[0], num[1], num[2], rho, pressure, velocity, centerCoordinates, temperature, lowerBound, upperBound, temperatureField, 4.88675,
+                numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity,
+                particlesToDraw, numParticlesToDraw);
 #endif
     
   }
@@ -223,7 +265,6 @@ extern "C" {
   }
   
   
-  
   void cxx_render(legion_runtime_t runtime_,
                   legion_context_t ctx_,
                   legion_mapper_id_t sampleId,
@@ -235,7 +276,12 @@ extern "C" {
                   int numParticlesFields,
                   legion_index_space_t tiles_,
                   legion_logical_partition_t fluidPartition_,
-                  legion_logical_partition_t particlesPartition_
+                  legion_logical_partition_t particlesPartition_,
+                  int numParticlesToDraw,
+                  legion_physical_region_t* particlesToDraw_,
+                  FieldData lowerBound[3],
+                  FieldData upperBound[3],
+                  int xNum, int yNum, int zNum
                   )
   {
     std::cout << __FUNCTION__ << " pid " << getpid() << std::endl;
@@ -266,8 +312,25 @@ extern "C" {
     const FieldAccessor<READ_ONLY, float, 1> particles_position_acc(*particles, particles_fields[0]);
     const FieldAccessor<READ_ONLY, float, 1> particles_position_history_acc(*particles, particles_fields[1]);
     
+    PhysicalRegion* particlesToDraw = CObjectWrapper::unwrap(particlesToDraw_);
+    std::vector<legion_field_id_t> particlesToDrawFields;
+    particlesToDraw->get_fields(particlesToDrawFields);
+    const FieldAccessor<READ_ONLY, long int, 1> particles_to_draw_acc(*particlesToDraw, particlesToDrawFields[0]);
+    
     ArgumentMap argMap;
-    IndexTaskLauncher renderLauncher(gRenderTaskID, compositor->everywhereDomain(), TaskArgument(&imageDescriptor, sizeof(imageDescriptor)), argMap, Predicate::TRUE_PRED, false, gImageReductionMapperID);
+    size_t argSize = sizeof(imageDescriptor) + 6 * sizeof(FieldData) + sizeof(int) + numParticlesToDraw * sizeof(long int) + 3 * sizeof(int);
+    char args[argSize] = { 0 };
+    memcpy(args, &imageDescriptor, sizeof(imageDescriptor));
+    memcpy(args + sizeof(imageDescriptor), lowerBound, 3 * sizeof(FieldData));
+    memcpy(args + sizeof(imageDescriptor) + 3 * sizeof(FieldData), upperBound, 3 * sizeof(FieldData));
+    memcpy(args + sizeof(imageDescriptor) + 6 * sizeof(FieldData), &numParticlesToDraw, sizeof(int));
+    memcpy(args + sizeof(imageDescriptor) + 6 * sizeof(FieldData) + sizeof(int), particles_to_draw_acc, numParticlesToDraw * sizeof(long int));
+    int* num = args + sizeof(imageDescriptor) + 6 * sizeof(FieldData) + sizeof(int) + numParticlesToDraw * sizeof(long int);
+    num[0] = xNum;
+    num[1] = yNum;
+    num[2] = zNum;
+    
+    IndexTaskLauncher renderLauncher(gRenderTaskID, compositor->everywhereDomain(), TaskArgument(args, sizeof(args)), argMap, Predicate::TRUE_PRED, false, gImageReductionMapperID);
     
     LogicalPartition fluidPartition = CObjectWrapper::unwrap(fluidPartition_);
     ImageReductionProjectionFunctor functor0(compositor->everywhereDomain(), fluidPartition);
