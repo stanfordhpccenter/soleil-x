@@ -34,13 +34,6 @@ local MAX_ANGLES_PER_QUAD = 44
 local IMAGE_PARTICLE_HISTORY_LENGTH = 5
 local IMAGE_RENDER_INTERVAL = 1 -- how many frames between renders
 
-local numParticlesToDraw = regentlib.newsymbol(int32, "numParticlesToDraw");
-local struct Draw_columns {
-  id : int64;
-}
-local particlesToDraw = regentlib.newsymbol("particlesToDraw");
-local lowerBound = regentlib.newsymbol(double [3], "lowerBound");
-local upperBound = regentlib.newsymbol(double [3], "upperBound");
 
 -------------------------------------------------------------------------------
 -- DATA STRUCTURES
@@ -4502,6 +4495,14 @@ local function mkInstance() local INSTANCE = {}
   local p_TradeQueue = UTIL.generate(26, regentlib.newsymbol)
   local p_Radiation = regentlib.newsymbol()
 
+  local numParticlesToDraw = regentlib.newsymbol(int32, "numParticlesToDraw");
+  local struct Draw_columns {
+    id : int64;
+  }
+  local particlesToDraw = regentlib.newsymbol("particlesToDraw");
+  local lowerBound = regentlib.newsymbol(double [3], "lowerBound");
+  local upperBound = regentlib.newsymbol(double [3], "upperBound");
+
   -----------------------------------------------------------------------------
   -- Exported symbols
   -----------------------------------------------------------------------------
@@ -4580,6 +4581,13 @@ local function mkInstance() local INSTANCE = {}
     var [BC.xBCParticles]
     var [BC.yBCParticles]
     var [BC.zBCParticles]
+
+    -- Visualization
+    var [numParticlesToDraw] = 50
+    var [particlesToDraw] = region(ispace(int1d, numParticlesToDraw), Draw_columns)
+    var [lowerBound]
+    var [upperBound]
+
 
     -- Determine number of ghost cells in each direction
     -- 0 ghost cells if periodic and 1 otherwise
@@ -5636,8 +5644,6 @@ local function mkInstance() local INSTANCE = {}
     end
 
     -- select particles to draw
-    var [numParticlesToDraw] = 50
-    var [particlesToDraw] = region(ispace(int1d, numParticlesToDraw), Draw_columns)
     C.srand(0)
     for i = 1, numParticlesToDraw + 1, 1 do
       var r = C.rand() / C.RAND_MAX
@@ -5656,8 +5662,6 @@ local function mkInstance() local INSTANCE = {}
     end
 
     -- get the global fluid bounds
-    var [lowerBound]
-    var [upperBound]
     for i = 0, 3 do
       lowerBound[i] = 9999
       upperBound[i] = -9999
