@@ -24,6 +24,8 @@ using namespace Legion;
 using namespace LegionRuntime::Accessor;
 
 
+#define _T {std::cout<<__FUNCTION__<<":"<<__LINE__<<std::endl;}
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -258,6 +260,7 @@ extern "C" {
     renderImage(num[0], num[1], num[2], rho, pressure, velocity, centerCoordinates, temperature, lowerBound, upperBound, temperatureField, 4.88675,
                 numParticles, id, particlesPosition, particlesTemperature, particlesDensity,
                 particlesToDraw, numParticlesToDraw);
+    renderTerminate();
 #endif
     
   }
@@ -324,6 +327,7 @@ extern "C" {
     
     PhysicalRegion* particlesToDraw = CObjectWrapper::unwrap(particlesToDraw_[0]);
     std::vector<legion_field_id_t> particlesToDrawFields;
+    particlesToDraw->get_fields(particlesToDrawFields);
     long int* particlesToDrawInt;
     ByteOffset particlesToDrawStride[1];
     create_int_pointer_1D(*particlesToDraw, particlesToDrawInt, particlesToDrawFields[0], particlesToDrawStride, runtime);
@@ -336,7 +340,7 @@ extern "C" {
     memcpy(args + sizeof(imageDescriptor) + 3 * sizeof(FieldData), upperBound, 3 * sizeof(FieldData));
     memcpy(args + sizeof(imageDescriptor) + 6 * sizeof(FieldData), &numParticlesToDraw, sizeof(int));
     memcpy(args + sizeof(imageDescriptor) + 6 * sizeof(FieldData) + sizeof(int), particlesToDrawInt, numParticlesToDraw * sizeof(long int));
-    
+
     IndexTaskLauncher renderLauncher(gRenderTaskID, compositor->everywhereDomain(), TaskArgument(args, sizeof(args)), argMap, Predicate::TRUE_PRED, false, gImageReductionMapperID);
     
     LogicalPartition fluidPartition = CObjectWrapper::unwrap(fluidPartition_);

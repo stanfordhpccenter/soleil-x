@@ -70,9 +70,62 @@ void setCameraPosition(FieldData domainMin[3], FieldData domainMax[3]) {
   gluLookAt(from[0], from[1], from[2], at[0], at[1], at[2], up[0], up[1], up[2]);
 }
 
+void createGraphicsContext(OSMesaContext &mesaCtx,
+                           GLubyte* &rgbaBuffer,
+                           GLfloat* &depthBuffer) {
+#if OSMESA_MAJOR_VERSION * 100 + OSMESA_MINOR_VERSION >= 305
+  /* specify Z, stencil, accum sizes */
+  mesaCtx = OSMesaCreateContextExt(GL_RGBA, 32, 0, 0, NULL);
+#else
+  mesaCtx = OSMesaCreateContext(GL_RGBA, NULL);
+#endif
+  if (!mesaCtx) {
+    printf("OSMesaCreateContext failed!\n");
+    return;
+  }
 
+
+  /* Allocate the image buffer */
+  const int fieldsPerPixel = 4;
+  rgbaBuffer = new GLubyte[WIDTH * HEIGHT * fieldsPerPixel];
+  if (!rgbaBuffer) {
+    printf("Alloc image buffer failed!\n");
+    return;
+  }
+
+  /* Bind the buffer to the context and make it current */
+  if (!OSMesaMakeCurrent(mesaCtx, rgbaBuffer, GL_UNSIGNED_BYTE, WIDTH, HEIGHT)) {
+    printf("OSMesaMakeCurrent failed!\n");
+    return;
+  }
+
+  {
+    int z, s, a;
+    glGetIntegerv(GL_DEPTH_BITS, &z);
+    glGetIntegerv(GL_STENCIL_BITS, &s);
+    glGetIntegerv(GL_ACCUM_RED_BITS, &a);
+    printf("Depth=%d Stencil=%d Accum=%d\n", z, s, a);
+  }
+
+  /* Allocate the depth buffer. */
+  depthBuffer = new GLfloat[WIDTH * HEIGHT];
+  if (!depthBuffer) {
+    printf("Alloc depth buffer failed!\n");
+    return;
+  }
+}
+
+static void destroyGraphicsContext(OSMesaContext mesaCtx) {
+  /* destroy the context */
+  OSMesaDestroyContext(mesaCtx);
+}
+
+static OSMesaContext gMesaCtx;
+GLubyte* gRgbaBuffer;
+GLfloat* gDepthBuffer;
 
 void renderInitialize(FieldData domainMin[3], FieldData domainMax[3]) {
+  createGraphicsContext(gMesaCtx, gRgbaBuffer, gDepthBuffer);
   GLfloat lightPosition[4];
   lightPosition[0] = 0.5 * (domainMax[0] - domainMin[0]);
   lightPosition[1] = domainMax[1] * 1.5;
@@ -111,6 +164,9 @@ void renderImage(int numFluidX,
 }
 
 
+void renderTerminate() {
+  destroyGraphicsContext(gMesaCtx);
+}
 
 
 void

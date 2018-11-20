@@ -5645,8 +5645,8 @@ local function mkInstance() local INSTANCE = {}
 
     -- select particles to draw
     C.srand(0)
-    for i = 1, numParticlesToDraw + 1, 1 do
-      var r = C.rand() / C.RAND_MAX
+    for i = 0, numParticlesToDraw do
+      var r = [double](C.rand()) / C.RAND_MAX
       particlesToDraw[i].id = r * config.Particles.initNum
     end
 
@@ -5734,13 +5734,13 @@ local SIM = mkInstance()
 __forbid(__optimize) 
 task workSingle(config : Config)
   [SIM.DeclSymbols(config)];
-  [SIM.VisualizeInit(config)];
   var frame_number = 0
   var is_FakeCopyQueue = ispace(int1d, 0)
   var [FakeCopyQueue] = region(is_FakeCopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
   [parallelizeFor(SIM, rquote
     [SIM.InitRegions(config)];
+    [SIM.VisualizeInit(config)];
     while true do
       [SIM.MainLoopHeader(config)];
       [SIM.PerformIO(config)];
@@ -5766,8 +5766,6 @@ task workDual(mc : MultiConfig)
   -- Declare symbols
   [SIM0.DeclSymbols(rexpr mc.configs[0] end)];
   [SIM1.DeclSymbols(rexpr mc.configs[1] end)];
-  [SIM0.VisualizeInit(rexpr mc.configs[0] end)];
-  [SIM1.VisualizeInit(rexpr mc.configs[1] end)];
   var frame_number = 0
   var is_FakeCopyQueue = ispace(int1d, 0)
   var [FakeCopyQueue] = region(is_FakeCopyQueue, CopyQueue_columns);
@@ -5834,6 +5832,8 @@ task workDual(mc : MultiConfig)
   -- Initialize regions & partitions
   [parallelizeFor(SIM0, SIM0.InitRegions(rexpr mc.configs[0] end))];
   [parallelizeFor(SIM1, SIM1.InitRegions(rexpr mc.configs[1] end))];
+  [SIM0.VisualizeInit(rexpr mc.configs[0] end)];
+  [SIM1.VisualizeInit(rexpr mc.configs[1] end)];
   var srcOrigin = int3d{mc.copySrc.fromCell[0], mc.copySrc.fromCell[1], mc.copySrc.fromCell[2]}
   var tgtOrigin = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]}
   var srcColoring = C.legion_domain_point_coloring_create()

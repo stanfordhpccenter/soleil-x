@@ -34,6 +34,7 @@ void renderImage(int numFluidX,
                  FieldData* particlesDensity,
                  long int* particlesToDraw,
                  int numParticlesToDraw);
+void renderTerminate();
 
 
 void write_targa(const char *filename, const GLubyte *rgba, int width, int height);
