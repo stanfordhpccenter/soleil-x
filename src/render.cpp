@@ -286,7 +286,7 @@ extern "C" {
     create_field_pointer_3D(image, a, imageFields[3], aStride, runtime);
     create_field_pointer_3D(image, z, imageFields[4], zStride, runtime);
 
-    for(unsigned i = 0; i < imageDescriptor->width * imageDescriptor->height; ++i) {
+    for(int i = 0; i < imageDescriptor->width * imageDescriptor->height; ++i) {
       *r = rgbaBuffer[i * 4];
       *g = rgbaBuffer[i * 4 + 1];
       *b = rgbaBuffer[i * 4 + 2];
