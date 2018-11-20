@@ -14,7 +14,8 @@ typedef enum {
 
 void setCameraPosition(FieldData domainMin[3], FieldData domainMax[3]);
 
-void renderInitialize(FieldData domainMin[3], FieldData domainMax[3]);
+void renderInitialize(FieldData domainMin[3], FieldData domainMax[3],
+                      OSMesaContext& mesaCtx, GLubyte*& rgbaBuffer, GLfloat*& depthBuffer);
 void renderImage(int numFluidX,
                  int numFluidY,
                  int numFluidZ,
@@ -34,7 +35,7 @@ void renderImage(int numFluidX,
                  FieldData* particlesDensity,
                  long int* particlesToDraw,
                  int numParticlesToDraw);
-void renderTerminate();
+void renderTerminate(OSMesaContext mesaCtx, GLubyte*& rgbaBuffer, GLfloat*& depthBuffer);
 
 
 void write_targa(const char *filename, const GLubyte *rgba, int width, int height);

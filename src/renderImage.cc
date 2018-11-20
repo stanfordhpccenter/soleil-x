@@ -120,12 +120,10 @@ static void destroyGraphicsContext(OSMesaContext mesaCtx) {
   OSMesaDestroyContext(mesaCtx);
 }
 
-static OSMesaContext gMesaCtx;
-GLubyte* gRgbaBuffer;
-GLfloat* gDepthBuffer;
 
-void renderInitialize(FieldData domainMin[3], FieldData domainMax[3]) {
-  createGraphicsContext(gMesaCtx, gRgbaBuffer, gDepthBuffer);
+void renderInitialize(FieldData domainMin[3], FieldData domainMax[3],
+                      OSMesaContext& mesaCtx, GLubyte*& rgbaBuffer, GLfloat*& depthBuffer) {
+  createGraphicsContext(mesaCtx, rgbaBuffer, depthBuffer);
   GLfloat lightPosition[4];
   lightPosition[0] = 0.5 * (domainMax[0] - domainMin[0]);
   lightPosition[1] = domainMax[1] * 1.5;
@@ -164,8 +162,10 @@ void renderImage(int numFluidX,
 }
 
 
-void renderTerminate() {
-  destroyGraphicsContext(gMesaCtx);
+void renderTerminate(OSMesaContext mesaCtx, GLubyte*& rgbaBuffer, GLfloat*& depthBuffer) {
+  destroyGraphicsContext(mesaCtx);
+  delete [] rgbaBuffer;
+  delete [] depthBuffer;
 }
 
 

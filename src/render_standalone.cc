@@ -7,55 +7,6 @@
 
 
 
-void createGraphicsContext(OSMesaContext &mesaCtx,
-                           GLubyte* &rgbaBuffer,
-                           GLfloat* &depthBuffer) {
-#if OSMESA_MAJOR_VERSION * 100 + OSMESA_MINOR_VERSION >= 305
-  /* specify Z, stencil, accum sizes */
-  mesaCtx = OSMesaCreateContextExt(GL_RGBA, 32, 0, 0, NULL);
-#else
-  mesaCtx = OSMesaCreateContext(GL_RGBA, NULL);
-#endif
-  if (!mesaCtx) {
-    printf("OSMesaCreateContext failed!\n");
-    return;
-  }
-  
-  
-  /* Allocate the image buffer */
-  const int fieldsPerPixel = 4;
-  rgbaBuffer = new GLubyte[WIDTH * HEIGHT * fieldsPerPixel];
-  if (!rgbaBuffer) {
-    printf("Alloc image buffer failed!\n");
-    return;
-  }
-  
-  /* Bind the buffer to the context and make it current */
-  if (!OSMesaMakeCurrent(mesaCtx, rgbaBuffer, GL_UNSIGNED_BYTE, WIDTH, HEIGHT)) {
-    printf("OSMesaMakeCurrent failed!\n");
-    return;
-  }
-  
-  {
-    int z, s, a;
-    glGetIntegerv(GL_DEPTH_BITS, &z);
-    glGetIntegerv(GL_STENCIL_BITS, &s);
-    glGetIntegerv(GL_ACCUM_RED_BITS, &a);
-    printf("Depth=%d Stencil=%d Accum=%d\n", z, s, a);
-  }
-  
-  /* Allocate the depth buffer. */
-  depthBuffer = new GLfloat[WIDTH * HEIGHT];
-  if (!depthBuffer) {
-    printf("Alloc depth buffer failed!\n");
-    return;
-  }
-}
-
-static void destroyGraphicsContext(OSMesaContext mesaCtx) {
-  /* destroy the context */
-  OSMesaDestroyContext(mesaCtx);
-}
 
 
 void loadFluidData(char* fileName,
@@ -173,11 +124,6 @@ int main(int argc, char **argv) {
   }
   FieldData upperBound[3];
   sscanf(argv[6], "%lfx%lfx%lf", upperBound, upperBound + 1, upperBound + 2);
-  
-  OSMesaContext mesaCtx;
-  GLubyte* rgbaBuffer;
-  GLfloat* depthBuffer;
-  createGraphicsContext(mesaCtx, rgbaBuffer, depthBuffer);
 
   FieldData* rho = new FieldData[numFluidLines];
   FieldData* pressure = new FieldData[numFluidLines];
@@ -202,17 +148,19 @@ int main(int argc, char **argv) {
   long int particlesToDraw[numParticlesToDraw] = { 0 };
   for(int i = 0; i < numParticlesToDraw; ++i) particlesToDraw[i] = i;
   
-  renderInitialize(lowerBound, upperBound);
+  OSMesaContext mesaCtx;
+  GLubyte* rgbaBuffer;
+  GLfloat* depthBuffer;
+
+  renderInitialize(lowerBound, upperBound, mesaCtx, rgbaBuffer, depthBuffer);
   renderImage(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, lowerBound, upperBound, temperatureField, 4.88675,
               numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity,
               particlesToDraw, numParticlesToDraw);
 
   saveImageToFile(fluidFileName, rgbaBuffer);
   
-  destroyGraphicsContext(mesaCtx);
+  renderTerminate(mesaCtx, rgbaBuffer, depthBuffer);
   
-  delete [] rgbaBuffer;
-  delete [] depthBuffer;
   delete [] rho;
   delete [] pressure;
   delete [] velocity;

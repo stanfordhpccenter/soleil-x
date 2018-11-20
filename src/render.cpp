@@ -208,12 +208,17 @@ extern "C" {
     saveFluidRenderData(ctx, runtime, task, fluid, fluidFields);
     saveParticlesRenderData(ctx, runtime, task, particles, particlesFields);
 #else
+    ImageDescriptor* imageDescriptor = (ImageDescriptor*)(task->args);
     FieldData* lowerBound = (FieldData*)((char*)task->args + sizeof(ImageDescriptor));
     FieldData* upperBound = lowerBound + 3;
     int numParticlesToDraw = *((int*)(upperBound + 3));
     long int* particlesToDraw = (long int*)((char*)task->args + sizeof(ImageDescriptor) + 6 * sizeof(FieldData) + sizeof(int));
     
-    renderInitialize(lowerBound, upperBound);
+    OSMesaContext mesaCtx;
+    GLubyte* rgbaBuffer;
+    GLfloat* depthBuffer;
+
+    renderInitialize(lowerBound, upperBound, mesaCtx, rgbaBuffer, depthBuffer);
     
     FieldData* rho;
     FieldData* pressure;
@@ -260,7 +265,41 @@ extern "C" {
     renderImage(num[0], num[1], num[2], rho, pressure, velocity, centerCoordinates, temperature, lowerBound, upperBound, temperatureField, 4.88675,
                 numParticles, id, particlesPosition, particlesTemperature, particlesDensity,
                 particlesToDraw, numParticlesToDraw);
-    renderTerminate();
+    
+    // copy rendered pixels into source image region
+    glReadPixels(0, 0, imageDescriptor->width, imageDescriptor->height, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, depthBuffer);
+    FieldData* r;
+    FieldData* g;
+    FieldData* b;
+    FieldData* a;
+    FieldData* z;
+    
+    ByteOffset rStride[3];
+    ByteOffset gStride[3];
+    ByteOffset bStride[3];
+    ByteOffset aStride[3];
+    ByteOffset zStride[3];
+    
+    create_field_pointer_3D(image, r, imageFields[0], rStride, runtime);
+    create_field_pointer_3D(image, g, imageFields[1], gStride, runtime);
+    create_field_pointer_3D(image, b, imageFields[2], bStride, runtime);
+    create_field_pointer_3D(image, a, imageFields[3], aStride, runtime);
+    create_field_pointer_3D(image, z, imageFields[4], zStride, runtime);
+
+    for(unsigned i = 0; i < imageDescriptor->width * imageDescriptor->height; ++i) {
+      *r = rgbaBuffer[i * 4];
+      *g = rgbaBuffer[i * 4 + 1];
+      *b = rgbaBuffer[i * 4 + 2];
+      *a = rgbaBuffer[i * 4 + 3];
+      *z = depthBuffer[i];
+      r += rStride[0].offset / sizeof(*r);
+      g += gStride[0].offset / sizeof(*g);
+      b += bStride[0].offset / sizeof(*b);
+      a += aStride[0].offset / sizeof(*a);
+      z += zStride[0].offset / sizeof(*z);
+    }
+    
+    renderTerminate(mesaCtx, rgbaBuffer, depthBuffer);
 #endif
     
   }
