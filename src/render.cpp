@@ -360,11 +360,11 @@ extern "C" {
     int x, y;
     for (y=imageDescriptor->height-1; y>=0; y--) {
       for (x=0; x<imageDescriptor->width; x++) {
-        GLubyte b_ = *b * 255;
+        GLubyte b_ = *b;
         fputc(b_, f); /* write blue */
-        GLubyte g_ = *g * 255;
+        GLubyte g_ = *g;
         fputc(g_, f); /* write green */
-        GLubyte r_ = *r * 255;
+        GLubyte r_ = *r;
         fputc(r_, f);   /* write red */
         r += rStride[0].offset / sizeof(*r);
         g += gStride[0].offset / sizeof(*g);
@@ -521,7 +521,7 @@ extern "C" {
     
     // save the image
     ImageDescriptor imageDescriptor = compositor->imageDescriptor();
-    TaskLauncher saveImageLauncher(gSaveImageTaskID, TaskArgument(&imageDescriptor, sizeof(ImageDescriptor)));
+    TaskLauncher saveImageLauncher(gSaveImageTaskID, TaskArgument(&imageDescriptor, sizeof(ImageDescriptor)), Predicate::TRUE_PRED, gImageReductionMapperID);
     DomainPoint slice0 = Point<3>::ZEROES();
     LogicalRegion imageSlice0 = runtime->get_logical_subregion_by_color(compositor->depthPartition(), slice0);
     RegionRequirement req(imageSlice0, READ_ONLY, EXCLUSIVE, compositor->sourceImage());
