@@ -36,7 +36,8 @@ extern "C" {
   static map<int, Visualization::ImageReduction*> gImageCompositors;
   static MapperID gImageReductionMapperID = 0;
   static int gRenderTaskID = 0;
-  
+  static int gSaveImageTaskID = 0;
+
   typedef double FieldData;
   
 #define SAVE_RENDER_DATA 0
@@ -304,11 +305,82 @@ extern "C" {
     
   }
   
+  static int gFrameNumber = 0;
+  
+  static void save_image_task(const Task *task,
+                          const std::vector<PhysicalRegion> &regions,
+                          Context ctx, HighLevelRuntime *runtime) {
+    ImageDescriptor* imageDescriptor = (ImageDescriptor*)(task->args);
+    PhysicalRegion image = regions[0];
+    std::vector<legion_field_id_t> imageFields;
+    image.get_fields(imageFields);
+
+    FieldData* r;
+    FieldData* g;
+    FieldData* b;
+    FieldData* a;
+    FieldData* z;
+    
+    ByteOffset rStride[3];
+    ByteOffset gStride[3];
+    ByteOffset bStride[3];
+    ByteOffset aStride[3];
+    ByteOffset zStride[3];
+    
+    create_field_pointer_3D(image, r, imageFields[0], rStride, runtime);
+    create_field_pointer_3D(image, g, imageFields[1], gStride, runtime);
+    create_field_pointer_3D(image, b, imageFields[2], bStride, runtime);
+    create_field_pointer_3D(image, a, imageFields[3], aStride, runtime);
+    create_field_pointer_3D(image, z, imageFields[4], zStride, runtime);
+
+    char filename[128];
+    sprintf(filename, "image.%05d.tga", gFrameNumber++);
+    FILE* f = fopen(filename, "w");
+    fputc (0x00, f);  /* ID Length, 0 => No ID   */
+    fputc (0x00, f);  /* Color Map Type, 0 => No color map included   */
+    fputc (0x02, f);  /* Image Type, 2 => Uncompressed, True-color Image */
+    fputc (0x00, f);  /* Next five bytes are about the color map entries */
+    fputc (0x00, f);  /* 2 bytes Index, 2 bytes length, 1 byte size */
+    fputc (0x00, f);
+    fputc (0x00, f);
+    fputc (0x00, f);
+    fputc (0x00, f);  /* X-origin of Image */
+    fputc (0x00, f);
+    fputc (0x00, f);  /* Y-origin of Image */
+    fputc (0x00, f);
+    fputc (imageDescriptor->width & 0xff, f);      /* Image Width */
+    fputc ((imageDescriptor->width>>8) & 0xff, f);
+    fputc (imageDescriptor->height & 0xff, f);     /* Image Height   */
+    fputc ((imageDescriptor->height>>8) & 0xff, f);
+    fputc (0x18, f);     /* Pixel Depth, 0x18 => 24 Bits  */
+    fputc (0x20, f);     /* Image Descriptor  */
+    fclose(f);
+    
+    f = fopen(filename, "ab");  /* reopen in binary append mode */
+    int x, y;
+    for (y=imageDescriptor->height-1; y>=0; y--) {
+      for (x=0; x<imageDescriptor->width; x++) {
+        GLubyte b_ = *b * 255;
+        fputc(b_, f); /* write blue */
+        GLubyte g_ = *g * 255;
+        fputc(g_, f); /* write green */
+        GLubyte r_ = *r * 255;
+        fputc(r_, f);   /* write red */
+        r += rStride[0].offset / sizeof(*r);
+        g += gStride[0].offset / sizeof(*g);
+        b += bStride[0].offset / sizeof(*b);
+      }
+    }
+    fclose(f);
+    std::cout << "wrote image " << filename << std::endl;
+  }
+  
   
   // Called from mapper before runtime has started
   void cxx_preinitialize(MapperID mapperID)
   {
     Visualization::ImageReduction::preinitializeBeforeRuntimeStarts();
+    
     // allocate physical regions contiguously in memory
     LayoutConstraintRegistrar layout_registrar(FieldSpace::NO_SPACE, "SOA layout");
     std::vector<DimensionKind> dim_order(2);
@@ -316,6 +388,7 @@ extern "C" {
     dim_order[1] = DIM_F; // fields go last for SOA
     layout_registrar.add_constraint(OrderingConstraint(dim_order, true/*contig*/));
     LayoutConstraintID soa_layout_id = Runtime::preregister_layout(layout_registrar);
+    
     // preregister render task
     gImageReductionMapperID = mapperID;
     gRenderTaskID = Legion::HighLevelRuntime::generate_static_task_id();
@@ -326,6 +399,13 @@ extern "C" {
     .add_layout_constraint_set(2/*index*/, soa_layout_id);
     Runtime::preregister_task_variant<render_task>(registrar, "render_task");
     
+    // preregister save image task
+    gSaveImageTaskID = Legion::HighLevelRuntime::generate_static_task_id();
+    TaskVariantRegistrar registrarSaveImage(gSaveImageTaskID, "save_image_task");
+    registrarSaveImage.add_constraint(ProcessorConstraint(Processor::LOC_PROC))
+    .add_layout_constraint_set(0/*index*/, soa_layout_id);
+    Runtime::preregister_task_variant<save_image_task>(registrarSaveImage, "save_image_task");
+
   }
   
   
@@ -431,10 +511,28 @@ extern "C" {
                   legion_mapper_id_t sampleId
                   )
   {
+    Runtime *runtime = CObjectWrapper::unwrap(runtime_);
+    Context ctx = CObjectWrapper::unwrap(ctx_)->context();
+
     Visualization::ImageReduction* compositor = gImageCompositors[sampleId];
     compositor->set_depth_func(GL_LESS);
     FutureMap futures = compositor->reduce_associative_commutative();
     futures.wait_all_results();
+    
+    // save the image
+    ImageDescriptor imageDescriptor = compositor->imageDescriptor();
+    TaskLauncher saveImageLauncher(gSaveImageTaskID, TaskArgument(&imageDescriptor, sizeof(ImageDescriptor)));
+    DomainPoint slice0 = Point<3>::ZEROES();
+    LogicalRegion imageSlice0 = runtime->get_logical_subregion_by_color(compositor->depthPartition(), slice0);
+    RegionRequirement req(imageSlice0, READ_ONLY, EXCLUSIVE, compositor->sourceImage());
+    saveImageLauncher.add_region_requirement(req);
+    saveImageLauncher.add_field(0/*idx*/, Visualization::ImageReduction::FID_FIELD_R);
+    saveImageLauncher.add_field(0/*idx*/, Visualization::ImageReduction::FID_FIELD_G);
+    saveImageLauncher.add_field(0/*idx*/, Visualization::ImageReduction::FID_FIELD_B);
+    saveImageLauncher.add_field(0/*idx*/, Visualization::ImageReduction::FID_FIELD_A);
+    saveImageLauncher.add_field(0/*idx*/, Visualization::ImageReduction::FID_FIELD_Z);
+    Future result = runtime->execute_task(ctx, saveImageLauncher);
+    result.get_result<int>();
   }
   
 #ifdef __cplusplus
