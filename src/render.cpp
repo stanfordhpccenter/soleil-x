@@ -309,10 +309,21 @@ extern "C" {
   void cxx_preinitialize(MapperID mapperID)
   {
     Visualization::ImageReduction::preinitializeBeforeRuntimeStarts();
+    // allocate physical regions contiguously in memory
+    LayoutConstraintRegistrar layout_registrar(FieldSpace::NO_SPACE, "SOA layout");
+    std::vector<DimensionKind> dim_order(2);
+    dim_order[0] = DIM_X;
+    dim_order[1] = DIM_F; // fields go last for SOA
+    layout_registrar.add_constraint(OrderingConstraint(dim_order, true/*contig*/));
+    LayoutConstraintID soa_layout_id = Runtime::preregister_layout(layout_registrar);
+    // preregister render task
     gImageReductionMapperID = mapperID;
     gRenderTaskID = Legion::HighLevelRuntime::generate_static_task_id();
     TaskVariantRegistrar registrar(gRenderTaskID, "render_task");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC))
+    .add_layout_constraint_set(0/*index*/, soa_layout_id)
+    .add_layout_constraint_set(1/*index*/, soa_layout_id)
+    .add_layout_constraint_set(2/*index*/, soa_layout_id);
     Runtime::preregister_task_variant<render_task>(registrar, "render_task");
     
   }
