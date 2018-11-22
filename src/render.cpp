@@ -268,7 +268,7 @@ extern "C" {
                 particlesToDraw, numParticlesToDraw);
     
     // copy rendered pixels into source image region
-    glReadPixels(0, 0, imageDescriptor->width, imageDescriptor->height, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, depthBuffer);
+    glReadPixels(0, 0, imageDescriptor->width, imageDescriptor->height, GL_DEPTH_COMPONENT, GL_FLOAT, depthBuffer);
     FieldData* r;
     FieldData* g;
     FieldData* b;
@@ -293,11 +293,14 @@ extern "C" {
       *b = rgbaBuffer[i * 4 + 2];
       *a = rgbaBuffer[i * 4 + 3];
       *z = depthBuffer[i];
-      r += rStride[0].offset / sizeof(*r);
-      g += gStride[0].offset / sizeof(*g);
-      b += bStride[0].offset / sizeof(*b);
-      a += aStride[0].offset / sizeof(*a);
-      z += zStride[0].offset / sizeof(*z);
+if(*z != 1)
+std::cout << __FUNCTION__ << " " << *r << " " << *g << " " << *b << " " << *z << "\t" << r << " " << g << " " << b << " " << z << std::endl;
+
+      r += rStride[0];
+      g += gStride[0];
+      b += bStride[0];
+      a += aStride[0];
+      a += zStride[0];
     }
     
     renderTerminate(mesaCtx, rgbaBuffer, depthBuffer);
@@ -307,7 +310,7 @@ extern "C" {
   
   static int gFrameNumber = 0;
   
-  static void save_image_task(const Task *task,
+  static int save_image_task(const Task *task,
                           const std::vector<PhysicalRegion> &regions,
                           Context ctx, HighLevelRuntime *runtime) {
     ImageDescriptor* imageDescriptor = (ImageDescriptor*)(task->args);
@@ -366,13 +369,16 @@ extern "C" {
         fputc(g_, f); /* write green */
         GLubyte r_ = *r;
         fputc(r_, f);   /* write red */
-        r += rStride[0].offset / sizeof(*r);
-        g += gStride[0].offset / sizeof(*g);
-        b += bStride[0].offset / sizeof(*b);
+if(b_!='L' || g_!='3' || r_!='3')
+std::cout << __FUNCTION__ << " " << (int)r_ << " " << (int)g_ << " " << (int)b_ << std::endl;
+        r += rStride[0];
+        g += gStride[0];
+        b += bStride[0];
       }
     }
     fclose(f);
     std::cout << "wrote image " << filename << std::endl;
+    return 0;
   }
   
   
@@ -404,7 +410,7 @@ extern "C" {
     TaskVariantRegistrar registrarSaveImage(gSaveImageTaskID, "save_image_task");
     registrarSaveImage.add_constraint(ProcessorConstraint(Processor::LOC_PROC))
     .add_layout_constraint_set(0/*index*/, soa_layout_id);
-    Runtime::preregister_task_variant<save_image_task>(registrarSaveImage, "save_image_task");
+    Runtime::preregister_task_variant<int, save_image_task>(registrarSaveImage, "save_image_task");
 
   }
   
