@@ -348,7 +348,6 @@ private:
     // Tasks called on regions: read the SAMPLE_ID_TAG from the region
     if (task.is_index_space ||
         STARTS_WITH(task.get_task_name(), "sweep_") ||
-        EQUALS(task.get_task_name(), "TradeQueue_pull") ||
         EQUALS(task.get_task_name(), "cache_grid_translation") ||
         EQUALS(task.get_task_name(), "initialize_angles")) {
       CHECK(!task.regions.empty(),
@@ -408,8 +407,7 @@ private:
   DomainPoint find_tile(const MapperContext ctx,
                         const Task& task) const {
     // 3D index space tasks that are launched individually
-    if (STARTS_WITH(task.get_task_name(), "sweep_") ||
-        EQUALS(task.get_task_name(), "TradeQueue_pull")) {
+    if (STARTS_WITH(task.get_task_name(), "sweep_")) {
       assert(!task.regions.empty() && task.regions[0].region.exists());
       DomainPoint tile =
         runtime->get_logical_region_color_point(ctx, task.regions[0].region);
@@ -465,7 +463,6 @@ private:
     else if (EQUALS(task.get_task_name(), "workSingle") ||
              EQUALS(task.get_task_name(), "workDual") ||
              STARTS_WITH(task.get_task_name(), "sweep_") ||
-             EQUALS(task.get_task_name(), "TradeQueue_pull") ||
              EQUALS(task.get_task_name(), "cache_grid_translation") ||
              EQUALS(task.get_task_name(), "initialize_angles") ||
              STARTS_WITH(task.get_task_name(), "Console_Write") ||

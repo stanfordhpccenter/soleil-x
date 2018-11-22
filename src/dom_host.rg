@@ -79,7 +79,7 @@ task work(config : SCHEMA.Config)
                              config.Mapping.tiles[2]})
   var p_points =
     [UTIL.mkPartitionEqually(int3d, int3d, Point_columns)]
-    (points, tiles, 0, 0, 0);
+    (points, tiles, int3d{0,0,0}, int3d{0,0,0});
   -- Declare DOM-managed regions
   [DOM_INST.DeclSymbols(config, tiles)];
   [DOM_INST.InitRegions(config, tiles, p_points)];

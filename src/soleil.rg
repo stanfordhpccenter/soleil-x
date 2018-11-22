@@ -4455,7 +4455,8 @@ local function mkInstance() local INSTANCE = {}
   local p_Fluid_copy = regentlib.newsymbol()
   local p_Particles = regentlib.newsymbol()
   local p_Particles_copy = regentlib.newsymbol()
-  local p_TradeQueue = UTIL.generate(26, regentlib.newsymbol)
+  local p_TradeQueue_bySrc = UTIL.generate(26, regentlib.newsymbol)
+  local p_TradeQueue_byDst = UTIL.generate(26, regentlib.newsymbol)
   local p_Radiation = regentlib.newsymbol()
 
   -----------------------------------------------------------------------------
@@ -4838,28 +4839,31 @@ local function mkInstance() local INSTANCE = {}
     -- Fluid Partitioning
     var [p_Fluid] =
       [UTIL.mkPartitionEqually(int3d, int3d, Fluid_columns)]
-      (Fluid, tiles, Grid.xBnum, Grid.yBnum, Grid.zBnum)
+      (Fluid, tiles, int3d{Grid.xBnum,Grid.yBnum,Grid.zBnum}, int3d{0,0,0})
     var [p_Fluid_copy] =
       [UTIL.mkPartitionEqually(int3d, int3d, Fluid_columns)]
-      (Fluid_copy, tiles, Grid.xBnum, Grid.yBnum, Grid.zBnum)
+      (Fluid_copy, tiles, int3d{Grid.xBnum,Grid.yBnum,Grid.zBnum}, int3d{0,0,0})
 
     -- Particles Partitioning
     var [p_Particles] =
       [UTIL.mkPartitionEqually(int1d, int3d, Particles_columns)]
-      (Particles, tiles, 0)
+      (Particles, tiles, 0, int3d{0,0,0})
     var [p_Particles_copy] =
       [UTIL.mkPartitionEqually(int1d, int3d, Particles_columns)]
-      (Particles_copy, tiles, 0);
+      (Particles_copy, tiles, 0, int3d{0,0,0});
     @ESCAPE for k = 1,26 do @EMIT
-      var [p_TradeQueue[k]] =
+      var [p_TradeQueue_bySrc[k]] =
         [UTIL.mkPartitionEqually(int1d, int3d, TradeQueue_columns)]
-        ([TradeQueue[k]], tiles, 0)
+        ([TradeQueue[k]], tiles, 0, int3d{0,0,0});
+      var [p_TradeQueue_byDst[k]] =
+        [UTIL.mkPartitionEqually(int1d, int3d, TradeQueue_columns)]
+        ([TradeQueue[k]], tiles, 0, [colorOffsets[k]]);
     @TIME end @EPACSE
 
     -- Radiation Partitioning
     var [p_Radiation] =
       [UTIL.mkPartitionEqually(int3d, int3d, Radiation_columns)]
-      (Radiation, tiles, 0, 0, 0);
+      (Radiation, tiles, int3d{0,0,0}, int3d{0,0,0});
 
     ---------------------------------------------------------------------------
     -- DOM code declarations
@@ -5528,7 +5532,7 @@ local function mkInstance() local INSTANCE = {}
             TradeQueue_push(c,
                             p_Particles[c],
                             [UTIL.range(1,26):map(function(k) return rexpr
-                               [p_TradeQueue[k]][c]
+                               [p_TradeQueue_bySrc[k]][c]
                              end end)],
                             Grid.xBnum, config.Grid.xNum, NX,
                             Grid.yBnum, config.Grid.yNum, NY,
@@ -5537,7 +5541,7 @@ local function mkInstance() local INSTANCE = {}
           for c in tiles do
             TradeQueue_pull(p_Particles[c],
                             [UTIL.range(1,26):map(function(k) return rexpr
-                               [p_TradeQueue[k]][ (c-[colorOffsets[k]]+{NX,NY,NZ}) % {NX,NY,NZ} ]
+                               [p_TradeQueue_byDst[k]][c]
                              end end)])
           end
         end
