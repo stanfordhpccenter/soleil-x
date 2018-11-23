@@ -405,8 +405,8 @@ cd "$SOLEIL_DIR"/src
 make
 ```
 
-Setup (Lassen @ LLNL)
-=====================
+Setup (Lassen/Sierra @ LLNL)
+============================
 
 ### Add to shell startup
 
@@ -444,7 +444,7 @@ We need to go through the `lalloc` utility script to build on a compute node.
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 lalloc 1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'puc_lua_master'
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 lalloc -W 720 1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'puc_lua_master'
 ```
 
 ### Compile Soleil-X
@@ -453,5 +453,5 @@ Soleil-X must similarly be built on a compute node.
 
 ```
 cd "$SOLEIL_DIR"/src
-lalloc 1 make
+lalloc 1 -W 720 make
 ```

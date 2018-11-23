@@ -161,7 +161,7 @@ if [[ "$(uname -n)" == *"titan"* ]]; then
     run_titan
 elif [[ "$(hostname -d)" == *"summit"* ]]; then
     run_summit
-elif [[ "$(uname -n)" == *"lassen"* ]]; then
+elif [[ "$(uname -n)" == *"lassen"* || "$(uname -n)" == *"sierra"* ]]; then
     run_lassen
 elif [[ "$(uname -n)" == *"daint"* ]]; then
     run_pizdaint
