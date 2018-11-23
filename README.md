@@ -434,7 +434,7 @@ export GPU_ARCH=volta
 ### Download software
 
 ```
-git clone -b puc_lua https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone -b sierra https://gitlab.com/manopapad/legion.git "$LEGION_DIR"
 git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 
