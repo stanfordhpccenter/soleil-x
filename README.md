@@ -405,8 +405,8 @@ cd "$SOLEIL_DIR"/src
 make
 ```
 
-Setup (Lassen @ LLNL)
-=====================
+Setup (Lassen/Sierra @ LLNL)
+============================
 
 ### Add to shell startup
 
