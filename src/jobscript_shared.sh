@@ -34,9 +34,6 @@ if [[ -z "$OUT_DIR" ]]; then
 fi
 
 # Add profiling flags
-if [[ "$PROFILED_RANKS" == "ALL" ]]; then
-    PROFILED_RANKS="$NUM_RANKS"
-fi
-if (( "$PROFILED_RANKS" > 0 )); then
-    ARGS="$ARGS -lg:prof $PROFILED_RANKS -lg:prof_logfile $OUT_DIR/prof_%.log"
+if [[ "$PROFILE" == 1 ]]; then
+    ARGS="$ARGS -lg:prof $NUM_RANKS -lg:prof_logfile $OUT_DIR/prof_%.log"
 fi
