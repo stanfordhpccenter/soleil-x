@@ -5111,10 +5111,11 @@ local function mkInstance() local INSTANCE = {}
     if config.Particles.maxNum > 0 then
       Particles_averageTemperature += Particles_IntegrateQuantities(Particles)
     end
-    Flow_averagePressure = (Flow_averagePressure/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
-    Flow_averageTemperature = (Flow_averageTemperature/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
-    Flow_averageKineticEnergy = (Flow_averageKineticEnergy/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
-    Particles_averageTemperature = (Particles_averageTemperature/Particles_number)
+    var gridVolume : double = [double]([int64](config.Grid.xNum) * config.Grid.yNum * config.Grid.zNum) * Grid.cellVolume
+    Flow_averagePressure = Flow_averagePressure / gridVolume
+    Flow_averageTemperature = Flow_averageTemperature / gridVolume
+    Flow_averageKineticEnergy = Flow_averageKineticEnergy / gridVolume
+    Particles_averageTemperature = Particles_averageTemperature / Particles_number
     Console_Write(config,
                   Integrator_timeStep,
                   Integrator_simTime,
