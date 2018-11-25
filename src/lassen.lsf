@@ -5,7 +5,7 @@ source "$SOLEIL_DIR"/src/jobscript_shared.sh
 # Process CUDA configuration
 GPU_OPTS=
 if [[ "$USE_CUDA" == 1 ]]; then
-    GPU_OPTS="-ll:gpu 2 -ll:fsize 15500 -ll:zsize 1024 -ll:ib_zsize 0"
+    GPU_OPTS="-ll:gpu 2 -ll:fsize 15000 -ll:zsize 1024 -ll:ib_zsize 0"
 fi
 
 # Make sure the number of requested ranks is divisible by 2.
