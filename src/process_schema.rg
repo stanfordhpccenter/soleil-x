@@ -138,6 +138,7 @@ function isSchemaT(typ)
   return
     typ == bool or
     typ == int or
+    typ == int64 or
     typ == double or
     isString(typ) or
     isEnum(typ) or
@@ -158,6 +159,8 @@ local function convertSchemaT(typ, cache)
     return bool
   elseif typ == int then
     return int
+  elseif typ == int64 then
+    return int64
   elseif typ == double then
     return double
   elseif isString(typ) then
@@ -221,6 +224,16 @@ local function emitValueParser(name, lval, rval, typ)
         [fldReadErr('Wrong type', name)]
       end
       if [int]([rval].u.integer) ~= [rval].u.integer then
+        [fldReadErr('Integer value overflow', name)]
+      end
+      [lval] = [rval].u.integer
+    end
+  elseif typ == int64 then
+    return quote
+      if [rval].type ~= JSON.json_integer then
+        [fldReadErr('Wrong type', name)]
+      end
+      if [int64]([rval].u.integer) ~= [rval].u.integer then
         [fldReadErr('Integer value overflow', name)]
       end
       [lval] = [rval].u.integer
@@ -376,6 +389,8 @@ for srcN,srcT in pairs(SCHEMA) do
       if tgtT == bool then
         -- Do nothing
       elseif tgtT == int then
+        -- Do nothing
+      elseif tgtT == int64 then
         -- Do nothing
       elseif tgtT == double then
         -- Do nothing
