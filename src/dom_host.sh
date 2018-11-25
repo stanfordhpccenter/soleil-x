@@ -3,7 +3,7 @@
 export QUEUE="${QUEUE:-}"
 export AFTER="${AFTER:-}"
 export USE_CUDA="${USE_CUDA:-1}"
-export PROFILED_RANKS="${PROFILED_RANKS:-0}"
+export PROFILE="${PROFILE:-0}"
 export REALM_BACKTRACE="${REALM_BACKTRACE:-1}"
 
 export EXECUTABLE="$SOLEIL_DIR"/src/dom_host.exec
