@@ -13,24 +13,30 @@ config = json.load(args.base_json)
 x_tiles = int(config['Mapping']['tiles'][0])
 y_tiles = int(config['Mapping']['tiles'][1])
 z_tiles = int(config['Mapping']['tiles'][2])
-tiles = x_tiles * y_tiles * z_tiles
+x_tpr = int(config['Mapping']['tilesPerRank'][0])
+y_tpr = int(config['Mapping']['tilesPerRank'][1])
+z_tpr = int(config['Mapping']['tilesPerRank'][2])
 
 # Scale down to 1 node
-config['Mapping']['tiles'][0] = 1
-config['Mapping']['tiles'][1] = 1
-config['Mapping']['tiles'][2] = 1
-config['Grid']['xNum'] = int(config['Grid']['xNum']) / x_tiles
-config['Grid']['yNum'] = int(config['Grid']['yNum']) / y_tiles
-config['Grid']['zNum'] = int(config['Grid']['zNum']) / z_tiles
-config['Grid']['xWidth'] = float(config['Grid']['xWidth']) / x_tiles
-config['Grid']['yWidth'] = float(config['Grid']['yWidth']) / y_tiles
-config['Grid']['zWidth'] = float(config['Grid']['zWidth']) / z_tiles
-config['Particles']['initNum'] = int(config['Particles']['initNum']) / tiles
-config['Particles']['maxNum'] = int(config['Particles']['maxNum']) / tiles
+config['Mapping']['tiles'][0] = x_tpr
+config['Mapping']['tiles'][1] = y_tpr
+config['Mapping']['tiles'][2] = z_tpr
+config['Grid']['xNum'] = int(config['Grid']['xNum']) / x_tiles * x_tpr
+config['Grid']['yNum'] = int(config['Grid']['yNum']) / y_tiles * y_tpr
+config['Grid']['zNum'] = int(config['Grid']['zNum']) / z_tiles * z_tpr
+config['Grid']['xWidth'] = float(config['Grid']['xWidth']) / x_tiles * x_tpr
+config['Grid']['yWidth'] = float(config['Grid']['yWidth']) / y_tiles * y_tpr
+config['Grid']['zWidth'] = float(config['Grid']['zWidth']) / z_tiles * z_tpr
+config['Particles']['initNum'] = (int(config['Particles']['initNum'])
+                                  / x_tiles / y_tiles / z_tiles
+                                  * x_tpr   * y_tpr   * z_tpr)
+config['Particles']['maxNum'] = (int(config['Particles']['maxNum'])
+                                 / x_tiles / y_tiles / z_tiles
+                                 * x_tpr   * y_tpr   * z_tpr)
 if config['Radiation']['type'] == 'DOM':
-    config['Radiation']['xNum'] = int(config['Radiation']['xNum']) / x_tiles
-    config['Radiation']['yNum'] = int(config['Radiation']['yNum']) / y_tiles
-    config['Radiation']['zNum'] = int(config['Radiation']['zNum']) / z_tiles
+    config['Radiation']['xNum'] = int(config['Radiation']['xNum']) / x_tiles * x_tpr
+    config['Radiation']['yNum'] = int(config['Radiation']['yNum']) / y_tiles * y_tpr
+    config['Radiation']['zNum'] = int(config['Radiation']['zNum']) / z_tiles * z_tpr
 with open('1.json', 'w') as fout:
     json.dump(config, fout, indent=4)
 
