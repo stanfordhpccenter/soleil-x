@@ -55,7 +55,7 @@ local struct Particles_columns {
   temperature_t : double;
   __valid : bool;
   __xfer_dir : int8;
-  __xfer_slot : int;
+  __xfer_slot : int64;
 }
 
 local Particles_primitives = terralib.newlist({
@@ -469,7 +469,7 @@ where
 do
   var fromCell = probe.fromCell
   var uptoCell = probe.uptoCell
-  var acc = 0
+  var acc = int64(0)
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
@@ -487,7 +487,7 @@ end
 __demand(__parallel, __cuda)
 task Probe_AvgParticleT(Particles : region(ispace(int1d), Particles_columns),
                         probe : SCHEMA.Volume,
-                        totalParticles : int)
+                        totalParticles : int64)
 where
   reads(Particles.{cell, temperature, __valid})
 do
@@ -512,7 +512,7 @@ __demand(__parallel, __cuda)
 task Probe_AvgCellOfParticleT(Fluid : region(ispace(int3d), Fluid_columns),
                               Particles : region(ispace(int1d), Particles_columns),
                               probe : SCHEMA.Volume,
-                              totalParticles : int)
+                              totalParticles : int64)
 where
   reads(Particles.{cell, temperature, __valid}),
   reads(Fluid.temperature)
@@ -619,7 +619,7 @@ do
   var Particles_diameterMean = config.Particles.diameterMean
   __demand(__openmp)
   for p in Particles do
-    var relIdx = int(p - pBase)
+    var relIdx = int64(p - pBase)
     if relIdx < particlesPerTask then
       Particles[p].__valid = true
       var c = lo + int3d{relIdx%xSize, relIdx/xSize%ySize, relIdx/xSize/ySize%zSize}
@@ -3217,17 +3217,17 @@ task locate(pos : double[3],
             Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
   var xcw = Grid_xWidth/Grid_xNum
   var xro = Grid_xOrigin-Grid_xBnum*xcw
-  var xpos = floor((pos[0]-xro)/xcw)
+  var xpos = int(floor((pos[0]-xro)/xcw))
   var xrnum = Grid_xNum+2*Grid_xBnum
   var xidx = max(0, min(xrnum-1, xpos))
   var ycw = Grid_yWidth/Grid_yNum
   var yro = Grid_yOrigin-Grid_yBnum*ycw
-  var ypos = floor((pos[1]-yro)/ycw)
+  var ypos = int(floor((pos[1]-yro)/ycw))
   var yrnum = Grid_yNum+2*Grid_yBnum
   var yidx = max(0, min(yrnum-1, ypos))
   var zcw = Grid_zWidth/Grid_zNum
   var zro = Grid_zOrigin-Grid_zBnum*zcw
-  var zpos = floor((pos[2]-zro)/zcw)
+  var zpos = int(floor((pos[2]-zro)/zcw))
   var zrnum = Grid_zNum+2*Grid_zBnum
   var zidx = max(0, min(zrnum-1, zpos))
   return int3d{xidx, yidx, zidx}
@@ -3275,7 +3275,7 @@ task Particles_CheckPartitioning(color : int3d,
 where
   reads(Particles.{cell, __valid})
 do
-  var num_invalid = 0
+  var num_invalid = int64(0)
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid and
@@ -3339,7 +3339,7 @@ where
    end):flatten()]
 do
   -- Fill in movement direction
-  var toTransfer = 0
+  var toTransfer = int64(0)
   __demand(__openmp)
   for i in Particles do
     Particles[i].__xfer_dir = 0
@@ -3369,7 +3369,7 @@ do
       queue[j].__valid = false
     end
     -- Assign slots on the transfer queue for moving particles
-    var transferred = 0
+    var transferred = int64(0)
     __demand(__openmp)
     for i in Particles do
       if Particles[i].__xfer_dir == k then
@@ -3382,7 +3382,7 @@ do
     __parallel_prefix(Particles.__xfer_slot, Particles.__xfer_slot, +, 1)
     -- Check that there's enough space in the transfer queue
     regentlib.assert(
-      transferred <= int(queue.bounds.hi - queue.bounds.lo + 1),
+      transferred <= int64(queue.bounds.hi - queue.bounds.lo + 1),
       'Ran out of space in transfer queue')
     -- Copy moving particles to the transfer queue
     __demand(__openmp)
@@ -3412,9 +3412,9 @@ where
    end):flatten()]
 do
   -- Count number of particles coming in from each transfer queue
-  var xfer_bounds : int[27]
+  var xfer_bounds : int64[27]
   xfer_bounds[0] = 0
-  var total_xfers = 0;
+  var total_xfers = int64(0);
   @ESCAPE for k = 1,26 do local queue = tradeQueues[k] @EMIT
     __demand(__openmp)
     for j in queue do
@@ -3425,7 +3425,7 @@ do
     xfer_bounds[k] = total_xfers
   @TIME end @EPACSE
   -- Number all empty slots on particles sub-region
-  var avail_slots = 0
+  var avail_slots = int64(0)
   __demand(__openmp)
   for i in Particles do
     if Particles[i].__valid then
@@ -3483,12 +3483,12 @@ task CopyQueue_partSize(fluidPartBounds : rect3d,
                         copySrc : SCHEMA.Volume)
   var totalCells = config.Grid.xNum * config.Grid.yNum * config.Grid.zNum
   var copiedCells = rectSize(intersection(fluidPartBounds, copySrc))
-  return ceil(
+  return int64(ceil(
     copiedCells
     / [double](totalCells)
     * (config.Particles.maxNum / config.Particles.parcelSize)
     * config.Particles.maxSkew
-  )
+  ))
 end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
@@ -3539,7 +3539,7 @@ where
   reads(CopyQueue.[Particles_primitives], Particles.__valid),
   writes(Particles.[Particles_primitives], Particles.cell)
 do
-  var acc : int64 = 0
+  var acc = int64(0)
   var addedVelocity = config.Particles.feeding.u.Incoming.addedVelocity
   var p1 = Particles.bounds.lo
   for p2 in CopyQueue do
@@ -4801,7 +4801,7 @@ local function mkInstance() local INSTANCE = {}
     regentlib.assert((config.Particles.maxNum / config.Particles.parcelSize) % numTiles == 0,
                      'Uneven partitioning of particles')
     var maxParticlesPerTile =
-      ceil((config.Particles.maxNum / config.Particles.parcelSize / numTiles) * config.Particles.maxSkew)
+      int64(ceil((config.Particles.maxNum / config.Particles.parcelSize / numTiles) * config.Particles.maxSkew))
     var is_Particles = ispace(int1d, maxParticlesPerTile * numTiles)
     var [Particles] = region(is_Particles, Particles_columns);
     [UTIL.emitRegionTagAttach(Particles, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
@@ -4815,7 +4815,7 @@ local function mkInstance() local INSTANCE = {}
       for i = 0, num_dirs do
         escapeRatio *= config.Particles.escapeRatioPerDir
       end
-      var is_TradeQueue = ispace(int1d, ceil(escapeRatio * maxParticlesPerTile) * numTiles)
+      var is_TradeQueue = ispace(int1d, int64(ceil(escapeRatio * maxParticlesPerTile) * numTiles))
       var [TradeQueue[k]] = region(is_TradeQueue, TradeQueue_columns);
       [UTIL.emitRegionTagAttach(TradeQueue[k], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     @TIME end @EPACSE
@@ -5136,7 +5136,7 @@ local function mkInstance() local INSTANCE = {}
         (probe.uptoCell[2] - probe.fromCell[2] + 1)
       var avgFluidT = 0.0
       avgFluidT += Probe_AvgFluidT(Fluid, probe, totalCells)
-      var totalParticles = 0
+      var totalParticles = int64(0)
       var avgParticleT = 0.0
       var avgCellOfParticleT = 0.0
       if config.Particles.maxNum > 0 then
@@ -5654,7 +5654,7 @@ task workDual(mc : MultiConfig)
     SIM1.Grid.zRealOrigin + mc.copyTgt.fromCell[2] * SIM1.Grid.zCellWidth)
   var Fluid0_cellWidth = array(SIM0.Grid.xCellWidth, SIM0.Grid.yCellWidth, SIM0.Grid.zCellWidth)
   var Fluid1_cellWidth = array(SIM1.Grid.xCellWidth, SIM1.Grid.yCellWidth, SIM1.Grid.zCellWidth)
-  var CopyQueue_size : int64 = 0
+  var CopyQueue_size = int64(0)
   var coloring_CopyQueue = C.legion_domain_point_coloring_create()
   for c in SIM0.tiles do
     var partSize = CopyQueue_partSize(SIM0.p_Fluid[c].bounds,

@@ -130,7 +130,7 @@ end
 
 -------------------------------------------------------------------------------
 
--- SchemaT = 'bool' | 'int' | 'double' | String
+-- SchemaT = 'bool' | 'int' | 'int64' | 'double' | String
 --         | Enum | Array | UpTo | Union | Struct
 
 -- A -> bool
@@ -232,9 +232,6 @@ local function emitValueParser(name, lval, rval, typ)
     return quote
       if [rval].type ~= JSON.json_integer then
         [fldReadErr('Wrong type', name)]
-      end
-      if [int64]([rval].u.integer) ~= [rval].u.integer then
-        [fldReadErr('Integer value overflow', name)]
       end
       [lval] = [rval].u.integer
     end
