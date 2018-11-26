@@ -14,8 +14,8 @@ fi
 srun -N "$NUM_RANKS" --ntasks-per-node=1 --cpus-per-task=20 \
     --export=ALL \
     "$EXECUTABLE" $ARGS \
-    -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 19 \
-    $GPU_OPTS -ll:dma 2 -ll:ahandlers 2 \
+    -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 16 \
+    $GPU_OPTS -ll:util 2 -ll:pin_util -ll:io 1 -ll:dma 2 -ll:ahandlers 2 \
     -ll:csize 240000 -ll:rsize 1024 -ll:ib_rsize 1024 -ll:gsize 0 \
     -ll:stacksize 8 -ll:ostack 8 -lg:sched -1
 
