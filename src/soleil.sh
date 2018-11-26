@@ -10,14 +10,13 @@ export QUEUE="${QUEUE:-}"
 # Which job to wait for before starting (if a scheduler is available)
 export AFTER="${AFTER:-}"
 
-# Whether to use GPUs (if available) [0 or 1]
+# Whether to use GPUs (if available)
 export USE_CUDA="${USE_CUDA:-1}"
 
-# On how many ranks to output Legion profiler logs [number, or "ALL"]
-export PROFILED_RANKS="${PROFILED_RANKS:-0}"
+# Whether to emit Legion profiler logs
+export PROFILE="${PROFILE:-0}"
 
-# Whether to print a backtrace on crash [0 or 1]
-# (careful: interferes with signal handling)
+# Whether to print a backtrace on crash (interferes with signal handling)
 export REALM_BACKTRACE="${REALM_BACKTRACE:-1}"
 
 ###############################################################################
