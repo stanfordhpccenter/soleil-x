@@ -195,6 +195,8 @@ extern "C" {
     PhysicalRegion fluid = regions[0];
     PhysicalRegion particles = regions[1];
     PhysicalRegion image = regions[2];
+
+std::cout << __FUNCTION__ << " image tree id " << (image.get_logical_region().get_tree_id()) << " index space id " << (image.get_logical_region().get_index_space().get_id()) << std::endl;
     
     std::vector<legion_field_id_t> fluidFields;
     fluid.get_fields(fluidFields);
@@ -287,22 +289,26 @@ extern "C" {
     create_field_pointer_3D(image, a, imageFields[3], aStride, runtime);
     create_field_pointer_3D(image, z, imageFields[4], zStride, runtime);
 
+std::cout << __FUNCTION__ << " r " << r << " z " << z << std::endl;
+
+    unsigned index = 0;
     for(int i = 0; i < imageDescriptor->width; ++i) {
       for(int j = 0; j < imageDescriptor->height; ++j) {
-        *r = rgbaBuffer[i * 4];
-        *g = rgbaBuffer[i * 4 + 1];
-        *b = rgbaBuffer[i * 4 + 2];
-        *a = rgbaBuffer[i * 4 + 3];
-        *z = depthBuffer[i];
-*r = i; *g = j; *z = 0.5;
-if(*z != 1)
-std::cout << __FUNCTION__ << " " << *r << " " << *g << " " << *b << " " << *z << "\t" << r << " " << g << " " << b << " " << z << std::endl;
+        *r = rgbaBuffer[index * 4];
+        *g = rgbaBuffer[index * 4 + 1];
+        *b = rgbaBuffer[index * 4 + 2];
+        *a = rgbaBuffer[index * 4 + 3];
+        *z = depthBuffer[index];
+        index = index + 1;
 
-        r += rStride[0];
-        g += gStride[0];
-        b += bStride[0];
-        a += aStride[0];
-        z += zStride[0];
+if(index < 10)
+std::cout << __FUNCTION__ << " r " << (*r) << " g " << (*g) << " b " << (*b) << " a " << (*a) << " z " << (*z) << std::endl;
+
+        r += rStride[0].offset / sizeof(FieldData);
+        g += gStride[0].offset / sizeof(FieldData);
+        b += bStride[0].offset / sizeof(FieldData);
+        a += aStride[0].offset / sizeof(FieldData);
+        z += zStride[0].offset / sizeof(FieldData);
       }
     }
     
@@ -372,7 +378,7 @@ std::cout << __FUNCTION__ << " " << *r << " " << *g << " " << *b << " " << *z <<
         fputc(g_, f); /* write green */
         GLubyte r_ = *r;
         fputc(r_, f);   /* write red */
-if(b_!='L' || g_!='3' || r_!='3')
+if(b_!=0)
 std::cout << __FUNCTION__ << " " << (int)r_ << " " << (int)g_ << " " << (int)b_ << std::endl;
         r += rStride[0];
         g += gStride[0];
@@ -392,9 +398,11 @@ std::cout << __FUNCTION__ << " " << (int)r_ << " " << (int)g_ << " " << (int)b_ 
     
     // allocate physical regions contiguously in memory
     LayoutConstraintRegistrar layout_registrar(FieldSpace::NO_SPACE, "SOA layout");
-    std::vector<DimensionKind> dim_order(2);
+    std::vector<DimensionKind> dim_order(4);
     dim_order[0] = DIM_X;
-    dim_order[1] = DIM_F; // fields go last for SOA
+    dim_order[1] = DIM_Y;
+    dim_order[2] = DIM_Z;
+    dim_order[3] = DIM_F; // fields go last for SOA
     layout_registrar.add_constraint(OrderingConstraint(dim_order, true/*contig*/));
     LayoutConstraintID soa_layout_id = Runtime::preregister_layout(layout_registrar);
     

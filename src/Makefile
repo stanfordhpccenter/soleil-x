@@ -25,6 +25,9 @@ HDF_LIBNAME ?= hdf5
 CFLAGS += -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/runtime/legion -I$(IMAGE_COMPOSITOR_DIR)/include -I$(LEGION_DIR)/runtime/realm
 CXXFLAGS += -std=c++11 -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/runtime/legion -I$(IMAGE_COMPOSITOR_DIR)/include -I$(LEGION_DIR)/runtime/realm
 
+CFLAGS += -DBOUNDS_CHECKS
+CXXFLAGS += -DBOUNDS_CHECKS
+
 # Regent options
 export INCLUDE_PATH := .
 ifdef HDF_ROOT
