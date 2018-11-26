@@ -322,7 +322,7 @@ public:
     // Verify that we have enough ranks.
     unsigned supplied_ranks = remote_cpus.size();
     CHECK(reqd_ranks <= supplied_ranks,
-          "%d rank(s) required, but %d rank(s) supplied to Legion",
+          "%u rank(s) required, but %u rank(s) supplied to Legion",
           reqd_ranks, supplied_ranks);
     if (reqd_ranks < supplied_ranks) {
       LOG.warning() << supplied_ranks << " rank(s) supplied to Legion,"
@@ -334,6 +334,11 @@ public:
       AddressSpace rank = it->address_space();
       Processor::Kind kind = it->kind();
       get_procs(rank, kind).push_back(*it);
+    }
+    // Verify machine configuration.
+    for (AddressSpace rank = 0; rank < remote_cpus.size(); ++rank) {
+      CHECK(get_procs(rank, Processor::IO_PROC).size() > 0,
+            "No IO processor on rank %u", rank);
     }
   }
 
@@ -497,6 +502,21 @@ public:
       EQUALS(task.get_task_name(), "workDual");
   }
 
+  virtual void default_policy_rank_processor_kinds(
+                              MapperContext ctx,
+                              const Task& task,
+                              std::vector<Processor::Kind>& ranking) {
+    // Work tasks: map to IO processors
+    if (EQUALS(task.get_task_name(), "workSingle") ||
+        EQUALS(task.get_task_name(), "workDual")) {
+      ranking.push_back(Processor::IO_PROC);
+    }
+    // Other tasks: defer to the default mapping policy
+    else {
+      DefaultMapper::default_policy_rank_processor_kinds(ctx, task, ranking);
+    }
+  }
+
 #ifndef NO_LEGION_CONTROL_REPLICATION
   // Replicate each work task over all ranks assigned to the corresponding
   // sample(s).
@@ -510,13 +530,8 @@ public:
     assert(EQUALS(task.get_task_name(), "workSingle") ||
            EQUALS(task.get_task_name(), "workDual"));
     VariantInfo info =
-      default_find_preferred_variant(task, ctx,
-                                     true/*needs tight bound*/,
-                                     true/*cache_result*/,
-                                     Processor::LOC_PROC);
-    CHECK(task.regions.empty() &&
-          task.target_proc.kind() == Processor::LOC_PROC &&
-          info.is_replicable,
+      default_find_preferred_variant(task, ctx, false/*needs_tight_bound*/);
+    CHECK(task.regions.empty() && info.is_replicable,
           "Unexpected features on work task");
     std::vector<unsigned> sample_ids = find_sample_ids(ctx, task);
     // Create a replicant on the first CPU processor of each sample's ranks.
@@ -524,7 +539,7 @@ public:
       const SampleMapping& mapping = sample_mappings_[sample_id];
       for (ShardID shard_id = 0; shard_id < mapping.num_ranks(); ++shard_id) {
         AddressSpace rank = mapping.get_rank(shard_id);
-        Processor target_proc = get_procs(rank, Processor::LOC_PROC)[0];
+        Processor target_proc = get_procs(rank, info.proc_kind)[0];
         output.task_mappings.push_back(default_output);
         output.task_mappings.back().chosen_variant = info.variant;
         output.task_mappings.back().target_procs.push_back(target_proc);
@@ -559,7 +574,7 @@ public:
       unsigned sample_id = find_sample_id(ctx, task);
       DomainPoint tile = find_tile(ctx, task);
       VariantInfo info =
-        default_find_preferred_variant(task, ctx, false/*needs tight*/);
+        default_find_preferred_variant(task, ctx, false/*needs_tight_bound*/);
       SplinteringFunctor* functor = pick_functor(ctx, task);
       Processor target_proc = select_proc(tile, info.proc_kind, functor);
       LOG.debug() << "Sample " << sample_id
@@ -578,7 +593,7 @@ public:
     output.verify_correctness = false;
     unsigned sample_id = find_sample_id(ctx, task);
     VariantInfo info =
-      default_find_preferred_variant(task, ctx, false/*needs tight*/);
+      default_find_preferred_variant(task, ctx, false/*needs_tight_bound*/);
     SplinteringFunctor* functor = pick_functor(ctx, task);
     for (Domain::DomainPointIterator it(input.domain); it; it++) {
       Processor target_proc = select_proc(it.p, info.proc_kind, functor);
