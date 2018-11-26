@@ -128,7 +128,7 @@ local angles = UTIL.generate(8, function()
   return regentlib.newsymbol(region(ispace(int1d), Angle_columns))
 end)
 
-local -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+local __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task initialize_angles([angles],
                        config : SCHEMA.Config)
 where
@@ -204,7 +204,7 @@ do
   regentlib.assert(normalExists[5], 'Normal missing for wall zHi')
 end
 
-local __demand(__cuda) -- MANUALLY PARALLELIZED
+local __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task initialize_points(points : region(ispace(int3d), Point_columns))
 where
   writes(points.{G, S})
@@ -228,7 +228,7 @@ end
 -- * Split the 1d index point s into its 4 coordinates m,x,y,z.
 -- * Follow the s3d_to_p field.
 
-local -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+local -- NOT LEAF, MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task cache_grid_translation(grid_map : region(ispace(int3d), GridMap_columns),
                             sub_point_offsets : region(ispace(int1d), bool),
                             diagonals : ispace(int1d))
@@ -305,7 +305,7 @@ do
   return p
 end
 
-local __demand(__cuda) -- MANUALLY PARALLELIZED
+local __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task initialize_sub_points(sub_points : region(ispace(int1d), SubPoint_columns))
 where
   writes(sub_points.I)
@@ -319,7 +319,7 @@ end
 -- 'x'|'y'|'z', 1..8 -> regentlib.task
 local function mkInitializeFaces(dim, q)
 
-  local __demand(__cuda) -- MANUALLY PARALLELIZED
+  local __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
   task initialize_faces(faces : region(ispace(int2d), Face_columns),
                         config : SCHEMA.Config)
   where
@@ -347,7 +347,7 @@ local initialize_faces = {
   z = UTIL.range(1,8):map(function(q) return mkInitializeFaces('z', q) end),
 }
 
-local __demand(__cuda) -- MANUALLY PARALLELIZED
+local __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task source_term(points : region(ispace(int3d), Point_columns),
                  config : SCHEMA.Config)
 where
@@ -366,7 +366,7 @@ end
 -- 'x'|'y'|'z', 1..8 -> regentlib.task
 local function mkCacheIntensity(dim, q)
 
-  local __demand(__cuda) -- MANUALLY PARALLELIZED
+  local __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
   task cache_intensity(faces : region(ispace(int2d), Face_columns),
                        config : SCHEMA.Config)
   where
@@ -433,7 +433,7 @@ local function mkBound(wall)
     return regentlib.newsymbol(region(ispace(int2d), Face_columns))
   end)
 
-  local __demand(__cuda) -- MANUALLY PARALLELIZED
+  local __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
   task bound([faces],
              [angles],
              config : SCHEMA.Config)
@@ -528,7 +528,7 @@ local bound_z_hi = mkBound(6)
 -- 1..8 -> regentlib.task
 local function mkSweep(q)
 
-  local __demand(__cuda) -- MANUALLY PARALLELIZED
+  local __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
   task sweep(points : region(ispace(int3d), Point_columns),
              sub_points : region(ispace(int1d), SubPoint_columns),
              grid_map : region(ispace(int3d), GridMap_columns),
@@ -629,7 +629,7 @@ local sub_points = UTIL.generate(8, function()
   return regentlib.newsymbol(region(ispace(int1d), SubPoint_columns))
 end)
 
-local __demand(__cuda) -- MANUALLY PARALLELIZED
+local __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task reduce_intensity(points : region(ispace(int3d), Point_columns),
                       [sub_points],
                       grid_map : region(ispace(int3d), GridMap_columns),

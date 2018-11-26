@@ -45,7 +45,8 @@ local DOM_INST = DOM.mkInstance()
 -- Proxy tasks
 -------------------------------------------------------------------------------
 
-local task writeIntensity(points : region(ispace(int3d), Point_columns))
+local __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+task writeIntensity(points : region(ispace(int3d), Point_columns))
 where
   reads(points.G)
 do
