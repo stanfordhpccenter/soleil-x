@@ -287,20 +287,23 @@ extern "C" {
     create_field_pointer_3D(image, a, imageFields[3], aStride, runtime);
     create_field_pointer_3D(image, z, imageFields[4], zStride, runtime);
 
-    for(int i = 0; i < imageDescriptor->width * imageDescriptor->height; ++i) {
-      *r = rgbaBuffer[i * 4];
-      *g = rgbaBuffer[i * 4 + 1];
-      *b = rgbaBuffer[i * 4 + 2];
-      *a = rgbaBuffer[i * 4 + 3];
-      *z = depthBuffer[i];
+    for(int i = 0; i < imageDescriptor->width; ++i) {
+      for(int j = 0; j < imageDescriptor->height; ++j) {
+        *r = rgbaBuffer[i * 4];
+        *g = rgbaBuffer[i * 4 + 1];
+        *b = rgbaBuffer[i * 4 + 2];
+        *a = rgbaBuffer[i * 4 + 3];
+        *z = depthBuffer[i];
+*r = i; *g = j; *z = 0.5;
 if(*z != 1)
 std::cout << __FUNCTION__ << " " << *r << " " << *g << " " << *b << " " << *z << "\t" << r << " " << g << " " << b << " " << z << std::endl;
 
-      r += rStride[0];
-      g += gStride[0];
-      b += bStride[0];
-      a += aStride[0];
-      a += zStride[0];
+        r += rStride[0];
+        g += gStride[0];
+        b += bStride[0];
+        a += aStride[0];
+        z += zStride[0];
+      }
     }
     
     renderTerminate(mesaCtx, rgbaBuffer, depthBuffer);
@@ -403,6 +406,7 @@ std::cout << __FUNCTION__ << " " << (int)r_ << " " << (int)g_ << " " << (int)b_ 
     .add_layout_constraint_set(0/*index*/, soa_layout_id)
     .add_layout_constraint_set(1/*index*/, soa_layout_id)
     .add_layout_constraint_set(2/*index*/, soa_layout_id);
+
     Runtime::preregister_task_variant<render_task>(registrar, "render_task");
     
     // preregister save image task
@@ -493,7 +497,7 @@ std::cout << __FUNCTION__ << " " << (int)r_ << " " << (int)g_ << " " << (int)b_ 
     for(int i = 0; i < numParticlesFields; ++i) req1.add_field(particlesFields[i]);
     renderLauncher.add_region_requirement(req1);
     
-    RegionRequirement req2(compositor->depthPartition(), 0, READ_WRITE, EXCLUSIVE, compositor->sourceImage(), gImageReductionMapperID);
+    RegionRequirement req2(compositor->depthPartition(), 3, READ_WRITE, EXCLUSIVE, compositor->sourceImage(), gImageReductionMapperID);
     ImageReductionProjectionFunctor functor2(compositor->everywhereDomain(), compositor->depthPartition());
     runtime->register_projection_functor(3, &functor2);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_R);
