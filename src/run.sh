@@ -64,13 +64,12 @@ function run_summit {
 
 function run_lassen {
     export QUEUE="${QUEUE:-pdebug}"
-    NUM_NODES="$(( NUM_RANKS/2 + NUM_RANKS%2 ))"
     DEPS=
     if [[ ! -z "$AFTER" ]]; then
         DEPS="-w 'done($AFTER)'"
     fi
     bsub -J soleil -G guests -alloc_flags smt4 \
-        -nnodes "$NUM_NODES" -W "$MINUTES" -q "$QUEUE" $DEPS \
+        -nnodes "$NUM_RANKS" -W "$MINUTES" -q "$QUEUE" $DEPS \
         "$SOLEIL_DIR"/src/lassen.lsf
 }
 
