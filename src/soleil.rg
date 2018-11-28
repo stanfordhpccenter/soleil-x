@@ -4800,8 +4800,11 @@ local function mkInstance() local INSTANCE = {}
                      'Uneven parceling of particles')
     regentlib.assert((config.Particles.maxNum / config.Particles.parcelSize) % numTiles == 0,
                      'Uneven partitioning of particles')
-    var maxParticlesPerTile =
-      int64(ceil((config.Particles.maxNum / config.Particles.parcelSize / numTiles) * config.Particles.maxSkew))
+    var maxParticlesPerTile = config.Particles.maxNum / config.Particles.parcelSize / numTiles
+    if numTiles > 1 then
+      maxParticlesPerTile =
+        int64(ceil(maxParticlesPerTile * config.Particles.maxSkew))
+    end
     var is_Particles = ispace(int1d, maxParticlesPerTile * numTiles)
     var [Particles] = region(is_Particles, Particles_columns);
     [UTIL.emitRegionTagAttach(Particles, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
