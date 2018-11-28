@@ -69,7 +69,7 @@ function run_lassen {
         DEPS="-w 'done($AFTER)'"
     fi
     NUM_NODES="$(( NUM_RANKS/4 ))"
-    if (( "$NUM_RANKS" % 4 > 1 )); then
+    if (( "$NUM_RANKS" % 4 > 0 )); then
         NUM_NODES="$(( NUM_NODES + 1 ))"
     fi
     bsub -J soleil -G guests -alloc_flags smt4 \
