@@ -40,7 +40,7 @@ extern "C" {
 
   typedef double FieldData;
   
-#define SAVE_RENDER_DATA 0
+#define SAVE_RENDER_DATA 1
   
   
   static
@@ -98,9 +98,10 @@ extern "C" {
                                   const Task* task,
                                   PhysicalRegion& fluid,
                                   std::vector<legion_field_id_t> fluidFields) {
+    static int frameNumber = 0;
     
     char filename[256] = "render.fluid.";
-    sprintf(filename + strlen(filename), "%lld", task->get_unique_id());
+    sprintf(filename + strlen(filename), "%d.%lld", frameNumber++, task->get_unique_id());
     FILE *fluidOut = fopen(filename, "w");
     
     FieldData* rho;
@@ -147,8 +148,9 @@ extern "C" {
                                       PhysicalRegion& particles,
                                       std::vector<legion_field_id_t> particlesFields) {
     
+    static int frameNumber = 0;
     char filename[256] = "render.particles.";
-    sprintf(filename + strlen(filename), "%lld", task->get_unique_id());
+    sprintf(filename + strlen(filename), "%d.%lld", frameNumber++, task->get_unique_id());
     FILE *particlesOut = fopen(filename, "w");
     
     long int* id;
@@ -211,6 +213,7 @@ std::cout << __FUNCTION__ << " image tree id " << (image.get_logical_region().ge
     saveFluidRenderData(ctx, runtime, task, fluid, fluidFields);
     saveParticlesRenderData(ctx, runtime, task, particles, particlesFields);
 #else
+
     ImageDescriptor* imageDescriptor = (ImageDescriptor*)(task->args);
     FieldData* lowerBound = (FieldData*)((char*)task->args + sizeof(ImageDescriptor));
     FieldData* upperBound = lowerBound + 3;
@@ -265,7 +268,7 @@ std::cout << __FUNCTION__ << " image tree id " << (image.get_logical_region().ge
     Rect<1> particlesBounds = runtime->get_index_space_domain(ctx, particlesIndexSpace);
     long int numParticles = particlesBounds.hi[0] - particlesBounds.lo[0];
     
-    renderImage(num[0], num[1], num[2], rho, pressure, velocity, centerCoordinates, temperature, lowerBound, upperBound, temperatureField, 4.88675,
+    renderImage(num[0], num[1], num[2], rho, pressure, velocity, centerCoordinates, temperature, lowerBound, upperBound, rhoField, 0.999999,
                 numParticles, id, particlesPosition, particlesTemperature, particlesDensity,
                 particlesToDraw, numParticlesToDraw);
     
@@ -290,6 +293,7 @@ std::cout << __FUNCTION__ << " image tree id " << (image.get_logical_region().ge
     create_field_pointer_3D(image, z, imageFields[4], zStride, runtime);
 
 std::cout << __FUNCTION__ << " r " << r << " z " << z << std::endl;
+#if 0
 
     unsigned index = 0;
     for(int i = 0; i < imageDescriptor->width; ++i) {
@@ -311,10 +315,17 @@ std::cout << __FUNCTION__ << " r " << (*r) << " g " << (*g) << " b " << (*b) << 
         z += zStride[0].offset / sizeof(FieldData);
       }
     }
+
+#else
+static int frameNumber = 0;
+char filename[128];
+sprintf(filename, "singleNodeImage.%04d.tga", frameNumber++);
+write_targa(filename, rgbaBuffer, imageDescriptor->width, imageDescriptor->height);
+#endif
     
     renderTerminate(mesaCtx, rgbaBuffer, depthBuffer);
 #endif
-    
+
   }
   
   static int gFrameNumber = 0;
@@ -446,6 +457,7 @@ std::cout << __FUNCTION__ << " " << (int)r_ << " " << (int)g_ << " " << (int)b_ 
                   )
   {
     std::cout << __FUNCTION__ << " pid " << getpid() << std::endl;
+    static bool firstTime = true;
     
     PhysicalRegion* fluid = CObjectWrapper::unwrap(fluid_[0]);
     std::vector<legion_field_id_t> fluid_fields;
@@ -492,22 +504,28 @@ std::cout << __FUNCTION__ << " " << (int)r_ << " " << (int)g_ << " " << (int)b_ 
     IndexTaskLauncher renderLauncher(gRenderTaskID, compositor->everywhereDomain(), TaskArgument(args, sizeof(args)), argMap, Predicate::TRUE_PRED, false, gImageReductionMapperID);
     
     LogicalPartition fluidPartition = CObjectWrapper::unwrap(fluidPartition_);
-    ImageReductionProjectionFunctor functor0(compositor->everywhereDomain(), fluidPartition);
-    runtime->register_projection_functor(1, &functor0);
+    if(firstTime) {
+      static ImageReductionProjectionFunctor functor0(compositor->everywhereDomain(), fluidPartition);
+      runtime->register_projection_functor(1, &functor0);
+    }
     RegionRequirement req0(fluidPartition, 1, READ_ONLY, SIMULTANEOUS, fluid->get_logical_region(), gImageReductionMapperID);
     for(int i = 0; i < numFluidFields; ++i) req0.add_field(fluidFields[i]);
     renderLauncher.add_region_requirement(req0);
     
     LogicalPartition particlesPartition = CObjectWrapper::unwrap(particlesPartition_);
-    ImageReductionProjectionFunctor functor1(compositor->everywhereDomain(), particlesPartition);
-    runtime->register_projection_functor(2, &functor1);
+    if(firstTime) {
+      static ImageReductionProjectionFunctor functor1(compositor->everywhereDomain(), particlesPartition);
+      runtime->register_projection_functor(2, &functor1);
+    }
     RegionRequirement req1(particlesPartition, 2, READ_ONLY, SIMULTANEOUS, particles->get_logical_region(), gImageReductionMapperID);
     for(int i = 0; i < numParticlesFields; ++i) req1.add_field(particlesFields[i]);
     renderLauncher.add_region_requirement(req1);
     
     RegionRequirement req2(compositor->depthPartition(), 3, READ_WRITE, EXCLUSIVE, compositor->sourceImage(), gImageReductionMapperID);
-    ImageReductionProjectionFunctor functor2(compositor->everywhereDomain(), compositor->depthPartition());
-    runtime->register_projection_functor(3, &functor2);
+    if(firstTime) {
+      static ImageReductionProjectionFunctor functor2(compositor->everywhereDomain(), compositor->depthPartition());
+      runtime->register_projection_functor(3, &functor2);
+    }
     req2.add_field(Visualization::ImageReduction::FID_FIELD_R);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_G);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_B);
@@ -518,7 +536,10 @@ std::cout << __FUNCTION__ << " " << (int)r_ << " " << (int)g_ << " " << (int)b_ 
     ImageReductionMapper::clearPlacement(logicalPartition);
     
     FutureMap futures = runtime->execute_index_space(ctx, renderLauncher);
+_T
     futures.wait_all_results();
+_T
+    firstTime = false;
   }
   
   
@@ -529,6 +550,10 @@ std::cout << __FUNCTION__ << " " << (int)r_ << " " << (int)g_ << " " << (int)b_ 
                   legion_mapper_id_t sampleId
                   )
   {
+    std::cout << __FUNCTION__ << std::endl;
+_T
+return;
+
     Runtime *runtime = CObjectWrapper::unwrap(runtime_);
     Context ctx = CObjectWrapper::unwrap(ctx_)->context();
 

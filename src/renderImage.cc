@@ -204,6 +204,7 @@ write_targa(const char *filename, const GLubyte *buffer, int width, int height)
         fputc(ptr[i], f);   /* write red */
       }
     }
+    fclose(f);
     std::cout << "wrote targa file " << filename << std::endl;
   }
 }
