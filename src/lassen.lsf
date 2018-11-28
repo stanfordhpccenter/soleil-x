@@ -8,6 +8,11 @@ if [[ "$USE_CUDA" == 1 ]]; then
     GPU_OPTS="-ll:gpu 1 -ll:fsize 15000 -ll:zsize 1024 -ll:ib_zsize 0"
 fi
 
+# Make sure the number of requested ranks is divisible by 4.
+if (( "$NUM_RANKS" % 4 > 0 )); then
+    NUM_RANKS="$(( NUM_RANKS + 4 - NUM_RANKS%4 ))"
+fi
+
 # NOTE: We have to run through the pick_hcas.py script, due to a GASNet bug.
 jsrun -n "$NUM_RANKS" -r 4 -a 1 -c 10 -g 1 -b rs \
     -E LD_LIBRARY_PATH -E SOLEIL_DIR -E GASNET_BACKTRACE \
