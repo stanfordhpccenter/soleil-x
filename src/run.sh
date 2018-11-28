@@ -68,8 +68,12 @@ function run_lassen {
     if [[ ! -z "$AFTER" ]]; then
         DEPS="-w 'done($AFTER)'"
     fi
+    NUM_NODES="$(( NUM_RANKS/4 ))"
+    if (( "$NUM_RANKS" % 4 > 1 )); then
+        NUM_NODES="$(( NUM_NODES + 1 ))"
+    fi
     bsub -J soleil -G guests -alloc_flags smt4 \
-        -nnodes "$NUM_RANKS" -W "$MINUTES" -q "$QUEUE" $DEPS \
+        -nnodes "$NUM_NODES" -W "$MINUTES" -q "$QUEUE" $DEPS \
         "$SOLEIL_DIR"/src/lassen.lsf
 }
 
