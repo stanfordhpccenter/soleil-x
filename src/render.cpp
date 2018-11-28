@@ -40,7 +40,7 @@ extern "C" {
 
   typedef double FieldData;
   
-#define SAVE_RENDER_DATA 1
+#define SAVE_RENDER_DATA 0
   
   
   static
@@ -293,7 +293,8 @@ std::cout << __FUNCTION__ << " image tree id " << (image.get_logical_region().ge
     create_field_pointer_3D(image, z, imageFields[4], zStride, runtime);
 
 std::cout << __FUNCTION__ << " r " << r << " z " << z << std::endl;
-#if 0
+#define USE_COMPOSITOR 0
+#if USE_COMPOSITOR
 
     unsigned index = 0;
     for(int i = 0; i < imageDescriptor->width; ++i) {
@@ -536,9 +537,7 @@ std::cout << __FUNCTION__ << " " << (int)r_ << " " << (int)g_ << " " << (int)b_ 
     ImageReductionMapper::clearPlacement(logicalPartition);
     
     FutureMap futures = runtime->execute_index_space(ctx, renderLauncher);
-_T
     futures.wait_all_results();
-_T
     firstTime = false;
   }
   
@@ -550,9 +549,10 @@ _T
                   legion_mapper_id_t sampleId
                   )
   {
+#if !USE_COMPOSITOR
+    return;
+#endif
     std::cout << __FUNCTION__ << std::endl;
-_T
-return;
 
     Runtime *runtime = CObjectWrapper::unwrap(runtime_);
     Context ctx = CObjectWrapper::unwrap(ctx_)->context();
