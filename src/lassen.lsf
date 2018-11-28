@@ -13,7 +13,7 @@ jsrun -n "$NUM_RANKS" -r 1 -a 1 -c 40 -g 4 -b rs \
     -E LD_LIBRARY_PATH -E SOLEIL_DIR -E GASNET_BACKTRACE \
     "$SOLEIL_DIR"/src/pick_hcas.py \
     "$EXECUTABLE" $ARGS \
-    -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 36 \
+    -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 2 \
     $GPU_OPTS -ll:util 1 -ll:pin_util -ll:io 1 -ll:dma 2 \
     -ll:csize 100000 -ll:rsize 1024 -ll:ib_rsize 1024 -ll:gsize 0 \
     -ll:stacksize 8 -ll:ostack 8 -lg:sched -1
