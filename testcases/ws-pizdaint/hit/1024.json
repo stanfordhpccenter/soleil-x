@@ -115,7 +115,7 @@
             1, 
             1
         ], 
-        "wallTime": 30, 
+        "wallTime": 120, 
         "sampleId": -1
     }, 
     "Particles": {
@@ -123,7 +123,7 @@
         "feeding": {
             "type": "OFF"
         }, 
-        "maxNum": 8118687744, 
+        "maxNum": 8118686720, 
         "heatCapacity": 506.0, 
         "initTemperature": 300.0, 
         "density": 8900.0, 
@@ -139,7 +139,7 @@
         "initCase": "Uniform", 
         "maxSkew": 1.05, 
         "restartDir": "", 
-        "initNum": 8118687744, 
+        "initNum": 8118686720, 
         "escapeRatioPerDir": 0.005, 
         "diameterMean": 0.000501174299883
     }, 
@@ -155,10 +155,10 @@
             0.0
         ], 
         "yNum": 2048, 
-        "yWidth": 50.265482456, 
+        "yWidth": 12.566370614, 
         "zNum": 4096, 
-        "zWidth": 100.530964912, 
-        "xWidth": 50.265482456, 
+        "zWidth": 25.132741228, 
+        "xWidth": 12.566370614, 
         "xNum": 2048
     }, 
     "IO": {
