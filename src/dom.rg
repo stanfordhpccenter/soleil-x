@@ -874,7 +874,9 @@ function MODULE.mkInstance() local INSTANCE = {}
 
     -- Compute until convergence.
     var res : double = 1.0
-    while res > TOLERANCE do
+    var times = 2
+    while times > 0 do
+      times -= 1
 
       -- Update the source term.
       for c in tiles do
