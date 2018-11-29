@@ -13,9 +13,10 @@ if (( "$NUM_RANKS" % 4 > 0 )); then
     NUM_RANKS="$(( NUM_RANKS + 4 - NUM_RANKS%4 ))"
 fi
 
+export REALM_BACKTRACE=1
 # NOTE: We have to run through the pick_hcas.py script, due to a GASNet bug.
 jsrun -n "$NUM_RANKS" -r 4 -a 1 -c 10 -g 1 -b rs \
-    -E LD_LIBRARY_PATH -E SOLEIL_DIR -E GASNET_BACKTRACE \
+    -E LD_LIBRARY_PATH -E SOLEIL_DIR -E REALM_BACKTRACE \
     "$SOLEIL_DIR"/src/pick_hcas.py \
     "$EXECUTABLE" $ARGS \
     -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 2 \
