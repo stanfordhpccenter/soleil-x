@@ -264,14 +264,20 @@ if args.json_template is not None:
         mc['configs'][1]['Integrator']['fixedDeltaTime'] = delta_t_c
         mc['configs'][1]['Flow']['prandtl'] = Pr
         mc['configs'][1]['Flow']['initParams'][2] = U_0
-        mc['configs'][1]['Particles']['maxNum'] = N_p
+        mc['configs'][1]['Particles']['maxNum'] = int(N_p * 1.2)
         mc['configs'][1]['Particles']['convectiveCoeff'] = h
         mc['configs'][1]['Particles']['heatCapacity'] = C_v_p
         mc['configs'][1]['Particles']['diameterMean'] = d_p
         mc['configs'][1]['Particles']['feeding']['addedVelocity'][0] = U_0
         mc['configs'][1]['Particles']['staggerFactor'] = ratio_delta_t
-        mc['configs'][1]['Radiation']['yHiIntensity'] = I_0/2
-        mc['configs'][1]['Radiation']['yLoIntensity'] = I_0/2
+        if mc['configs'][1]['Radiation']['type'] == 'DOM':
+            mc['configs'][1]['Radiation']['yHiIntensity'] = I_0/2
+            mc['configs'][1]['Radiation']['yLoIntensity'] = I_0/2
+        elif mc['configs'][1]['Radiation']['type'] == 'Algebraic':
+            mc['configs'][1]['Radiation']['absorptivity'] = Q_a
+            mc['configs'][1]['Radiation']['intensity'] = I_0
+        else:
+            assert false
         mc['copyEveryTimeSteps'] = ratio_copy
         # Dump final json config
         json.dump(mc, sys.stdout, indent=4)

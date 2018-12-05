@@ -3,14 +3,16 @@
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
 if [ $# -ne 2 ]; then
-    echo "Usage: $(basename "${BASH_SOURCE[0]}") <dat_file> <json_template>"
+    echo "Usage: $(basename "${BASH_SOURCE[0]}") uncertainties.dat level.json"
     exit 1
 fi
-DAT_FILE="$1"
-JSON_TEMPLATE="$2"
+UNCERTAINTIES_DAT="$1"
+LEVEL_JSON="$2"
 
-I=0
+I=-1
 while read -r LINE; do
-    "$SCRIPT_DIR"/make_config.py $LINE --json_template "$JSON_TEMPLATE" > case"$I".json
+    if (( "$I" >= 0 )); then
+        "$SCRIPT_DIR"/make_case.py $LINE --json_template "$LEVEL_JSON" > case"$I".json
+    fi
     I="$(( I + 1 ))"
-done < "$DAT_FILE"
+done < "$UNCERTAINTIES_DAT"
