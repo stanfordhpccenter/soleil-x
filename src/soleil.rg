@@ -3326,6 +3326,7 @@ __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task TradeQueue_push(partColor : int3d,
                      Particles : region(ispace(int1d), Particles_columns),
                      [tradeQueues],
+                     config : Config,
                      Grid_xBnum : int32, Grid_xNum : int32, NX : int32,
                      Grid_yBnum : int32, Grid_yNum : int32, NY : int32,
                      Grid_zBnum : int32, Grid_zNum : int32, NZ : int32)
@@ -3360,7 +3361,11 @@ do
       end
     end
   end
-  regentlib.assert(toTransfer == 0, 'Particle(s) moved past expected stencil');
+  [UTIL.emitAssert(
+     rexpr toTransfer == 0 end,
+     'Sample %d: %ld particle(s) moved past expected stencil',
+     rexpr config.Mapping.sampleId end,
+     rexpr toTransfer end)];
   -- For each movement direction...
   @ESCAPE for k = 1,26 do local queue = tradeQueues[k] @EMIT
     -- Clear the transfer queue
@@ -3379,11 +3384,12 @@ do
         Particles[i].__xfer_slot = 0
       end
     end
-    __parallel_prefix(Particles.__xfer_slot, Particles.__xfer_slot, +, 1)
+    __parallel_prefix(Particles.__xfer_slot, Particles.__xfer_slot, +, 1);
     -- Check that there's enough space in the transfer queue
-    regentlib.assert(
-      transferred <= int64(queue.bounds.hi - queue.bounds.lo + 1),
-      'Ran out of space in transfer queue')
+    [UTIL.emitAssert(
+       rexpr transferred <= int64(queue.bounds.hi - queue.bounds.lo + 1) end,
+       'Sample %d: Ran out of space in transfer queue',
+       rexpr config.Mapping.sampleId end)];
     -- Copy moving particles to the transfer queue
     __demand(__openmp)
     for i in Particles do
@@ -3400,7 +3406,8 @@ end
 
 __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task TradeQueue_pull(Particles : region(ispace(int1d), Particles_columns),
-                     [tradeQueues])
+                     [tradeQueues],
+                     config : Config)
 where
   reads(Particles.__valid),
   writes(Particles.[Particles_subStepConserved]),
@@ -3435,10 +3442,12 @@ do
       avail_slots += 1
     end
   end
-  __parallel_prefix(Particles.__xfer_slot, Particles.__xfer_slot, +, 1)
+  __parallel_prefix(Particles.__xfer_slot, Particles.__xfer_slot, +, 1);
   -- Check that there's enough space in the particles sub-region
-  regentlib.assert(total_xfers <= avail_slots,
-                   'Not enough space in sub-region for incoming particles');
+  [UTIL.emitAssert(
+     rexpr total_xfers <= avail_slots end,
+     'Sample %d: Not enough space in sub-region for incoming particles',
+     rexpr config.Mapping.sampleId end)];
   -- Copy moving particles from the transfer queues
   -- NOTE: This part assumes that transfer queues are filled contiguously.
   @ESCAPE for k = 1,26 do local queue = tradeQueues[k] @EMIT
@@ -3494,6 +3503,7 @@ end
 __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task CopyQueue_push(Particles : region(ispace(int1d), Particles_columns),
                     CopyQueue : region(ispace(int1d), CopyQueue_columns),
+                    config : Config,
                     copySrc : SCHEMA.Volume,
                     copySrcOrigin : double[3], copyTgtOrigin : double[3],
                     Fluid0_cellWidth : double[3], Fluid1_cellWidth : double[3])
@@ -3508,9 +3518,10 @@ do
       if  copySrc.fromCell[0] <= cell.x and cell.x <= copySrc.uptoCell[0]
       and copySrc.fromCell[1] <= cell.y and cell.y <= copySrc.uptoCell[1]
       and copySrc.fromCell[2] <= cell.z and cell.z <= copySrc.uptoCell[2] then
-        regentlib.assert(
-          p2 <= CopyQueue.bounds.hi,
-          'Ran out of space in cross-section particles copy queue')
+        [UTIL.emitAssert(
+           rexpr p2 <= CopyQueue.bounds.hi end,
+           'Sample %d: Ran out of space in cross-section particles copy queue',
+           rexpr config.Mapping.sampleId end)];
         CopyQueue[p2].position =
           vv_add(copyTgtOrigin, vv_mul(Fluid1_cellWidth,
             vv_div(vv_sub(p1.position, copySrcOrigin), Fluid0_cellWidth)))
@@ -3556,9 +3567,10 @@ do
         while p1 <= Particles.bounds.hi and Particles[p1].__valid do
           p1 += 1
         end
-        regentlib.assert(
-          p1 <= Particles.bounds.hi,
-          'Ran out of space while copying over particles from other section')
+        [UTIL.emitAssert(
+           rexpr p1 <= Particles.bounds.hi end,
+           'Sample %d: Ran out of space while copying particles from other section',
+           rexpr config.Mapping.sampleId end)];
         Particles[p1].cell = cell
         Particles[p1].position = p2.position
         Particles[p1].velocity = vv_add(p2.velocity, addedVelocity)
@@ -5538,6 +5550,7 @@ local function mkInstance() local INSTANCE = {}
                             [UTIL.range(1,26):map(function(k) return rexpr
                                [p_TradeQueue_bySrc[k]][c]
                              end end)],
+                            config,
                             Grid.xBnum, config.Grid.xNum, NX,
                             Grid.yBnum, config.Grid.yNum, NY,
                             Grid.zBnum, config.Grid.zNum, NZ)
@@ -5546,7 +5559,8 @@ local function mkInstance() local INSTANCE = {}
             TradeQueue_pull(p_Particles[c],
                             [UTIL.range(1,26):map(function(k) return rexpr
                                [p_TradeQueue_byDst[k]][c]
-                             end end)])
+                             end end)],
+                            config)
           end
         end
       end
@@ -5762,6 +5776,7 @@ task workDual(mc : MultiConfig)
         for c in SIM0.tiles do
           CopyQueue_push(SIM0.p_Particles[c],
                          p_CopyQueue[c],
+                         mc.configs[0],
                          mc.copySrc,
                          copySrcOrigin, copyTgtOrigin,
                          Fluid0_cellWidth, Fluid1_cellWidth)
