@@ -5757,7 +5757,7 @@ task workDual(mc : MultiConfig)
       for c in SIM0.tiles do
         CopyQueue_push(SIM0.p_Particles[c],
                        p_CopyQueue[c],
-                       mc.configs[0].Mapping.sampleId,
+                       mc.configs[0],
                        mc.copySrc,
                        copySrcOrigin, copyTgtOrigin,
                        Fluid0_cellWidth, Fluid1_cellWidth)
