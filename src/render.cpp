@@ -40,8 +40,6 @@ extern "C" {
   
 #define SAVE_RENDER_DATA 0
   
-  
-  
 #if SAVE_RENDER_DATA
   
   // SAVE_RENDER_DATA is to enable offline debugging
@@ -177,10 +175,21 @@ extern "C" {
       bounds.hi[0] - bounds.lo[0], bounds.hi[1] - bounds.lo[1], bounds.hi[2] - bounds.lo[2]
     };
     
-    Point<1> Z1 = Point<1>::ZEROES();
     Point<3> Z3 = Point<3>::ZEROES();
-    renderImage(num[0], num[1], num[2], rho.ptr(Z3), pressure.ptr(Z3), velocity.ptr(Z3), centerCoordinates.ptr(Z3), temperature.ptr(Z3), lowerBound, upperBound, rhoField, 0.999999,
-                numParticles, id.ptr(Z1), particlesPosition.ptr(Z1), particlesTemperature.ptr(Z1), particlesDensity.ptr(Z1),
+    const FieldData* rhoP = rho.ptr(Z3);
+    const FieldData* pressureP = pressure.ptr(Z3);
+    const FieldData3* velocityP = velocity.ptr(Z3);
+    const FieldData3* centerCoordinatesP = centerCoordinates.ptr(Z3);
+    const FieldData* temperatureP = temperature.ptr(Z3);
+
+    Point<1> Z1 = Point<1>::ZEROES();
+    const long int* idP = id.ptr(Z1);
+    const FieldData3* particlesPositionP = particlesPosition.ptr(Z1);
+    const FieldData* particlesTemperatureP = particlesTemperature.ptr(Z1);
+    const FieldData* particlesDensityP = particlesDensity.ptr(Z1);
+
+    renderImage(num[0], num[1], num[2], rhoP, pressureP, velocityP, centerCoordinatesP, temperatureP, lowerBound, upperBound, rhoField, 0.999999,
+                numParticles, idP, particlesPositionP, particlesTemperatureP, particlesDensityP,
                 particlesToDraw, numParticlesToDraw);
     
     // write rendered pixels into source image region
