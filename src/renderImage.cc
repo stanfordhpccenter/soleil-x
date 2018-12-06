@@ -9,17 +9,17 @@
 void vDrawScene(int numFluidX,
                 int numFluidY,
                 int numFluidZ,
-                FieldData* rho,
-                FieldData* pressure,
-                FieldData* velocity,
-                FieldData* centerCoordinates,
-                FieldData* temperature,
+                const FieldData* rho,
+                const FieldData* pressure,
+                const FieldData3* velocity,
+                const FieldData3* centerCoordinates,
+                const FieldData* temperature,
                 FieldData domainMin[3],
                 FieldData domainMax[3],
                 VisualizationField visualizationField,
                 FieldData targetValue);
 
-void renderParticles(int numParticles, long int* particlesID, FieldData* particlesPosition, FieldData* particlesTemperature, FieldData* particlesDensity, int numParticlesToDraw, long int* particlesToDraw);
+void renderParticles(int numParticles, const long int* particlesID, const FieldData3* particlesPosition, const FieldData* particlesTemperature, const FieldData* particlesDensity, int numParticlesToDraw, long int* particlesToDraw);
 
 void initializeMarchingCubes(GLfloat lightPosition[4]);
 
@@ -136,20 +136,20 @@ void renderInitialize(FieldData domainMin[3], FieldData domainMax[3],
 void renderImage(int numFluidX,
                  int numFluidY,
                  int numFluidZ,
-                 FieldData* rho,
-                 FieldData* pressure,
-                 FieldData* velocity,
-                 FieldData* centerCoordinates,
-                 FieldData* temperature,
+                 const FieldData* rho,
+                 const FieldData* pressure,
+                 const FieldData3* velocity,
+                 const FieldData3* centerCoordinates,
+                 const FieldData* temperature,
                  FieldData domainMin[3],
                  FieldData domainMax[3],
                  VisualizationField visualizationField,
                  FieldData targetValue,
                  int numParticles,
-                 long int* particlesID,
-                 FieldData* particlesPosition,
-                 FieldData* particlesTemperature,
-                 FieldData* particlesDensity,
+                 const long int* particlesID,
+                 const FieldData3* particlesPosition,
+                 const FieldData* particlesTemperature,
+                 const FieldData* particlesDensity,
                  long int* particlesToDraw,
                  int numParticlesToDraw) {
   

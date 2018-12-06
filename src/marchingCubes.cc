@@ -39,7 +39,8 @@
 
 
 int gNumFluidX, gNumFluidY, gNumFluidZ;
-FieldData *gRho, *gPressure, *gVelocity, *gCenterCoordinates, *gTemperature;
+const FieldData *gRho, *gPressure, *gTemperature;
+const FieldData3 *gVelocity, *gCenterCoordinates;
 FieldData *gDomainMin, *gDomainMax;
 VisualizationField gVisualizationField;
 int gDrawnTriangles;
@@ -155,11 +156,11 @@ void initializeMarchingCubes(GLfloat lightPosition[4])
 void vDrawScene(int numFluidX,
                 int numFluidY,
                 int numFluidZ,
-                FieldData* rho,
-                FieldData* pressure,
-                FieldData* velocity,
-                FieldData* centerCoordinates,
-                FieldData* temperature,
+                const FieldData* rho,
+                const FieldData* pressure,
+                const FieldData3* velocity,
+                const FieldData3* centerCoordinates,
+                const FieldData* temperature,
                 FieldData domainMin[3],
                 FieldData domainMax[3],
                 VisualizationField visualizationField,
@@ -312,7 +313,7 @@ GLfloat fSample(GLfloat fX, GLfloat fY, GLfloat fZ)
   int yIndex = index(fY, gNumFluidY, gDomainMin[1], gDomainMax[1]);
   int zIndex = index(fZ, gNumFluidZ, gDomainMin[2], gDomainMax[2]);
   
-  FieldData* data;
+  const FieldData* data;
   switch(gVisualizationField) {
     case rhoField:
       data = gRho;

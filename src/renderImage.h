@@ -4,6 +4,10 @@
 
 #include "render_standalone.h"
 
+typedef double FieldData;
+typedef struct {
+  FieldData x[3];
+} FieldData3;
 
 typedef enum {
   rhoField = 1,
@@ -19,20 +23,20 @@ void renderInitialize(FieldData domainMin[3], FieldData domainMax[3],
 void renderImage(int numFluidX,
                  int numFluidY,
                  int numFluidZ,
-                 FieldData* rho,
-                 FieldData* pressure,
-                 FieldData* velocity,
-                 FieldData* centerCoordinates,
-                 FieldData* temperature,
+                 const FieldData* rho,
+                 const FieldData* pressure,
+                 const FieldData3* velocity,
+                 const FieldData3* centerCoordinates,
+                 const FieldData* temperature,
                  FieldData domainMin[3],
                  FieldData domainMax[3],
                  VisualizationField visualizationField,
                  FieldData targetValue,
                  int numParticles,
-                 long int* particlesID,
-                 FieldData* particlesPosition,
-                 FieldData* particlesTemperature,
-                 FieldData* particlesDensity,
+                 const long int* particlesID,
+                 const FieldData3* particlesPosition,
+                 const FieldData* particlesTemperature,
+                 const FieldData* particlesDensity,
                  long int* particlesToDraw,
                  int numParticlesToDraw);
 void renderTerminate(OSMesaContext mesaCtx, GLubyte*& rgbaBuffer, GLfloat*& depthBuffer);

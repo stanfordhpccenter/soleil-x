@@ -13,8 +13,8 @@ void loadFluidData(char* fileName,
                    int numLines,
                    FieldData* rho,
                    FieldData* pressure,
-                   FieldData* velocity,
-                   FieldData* centerCoordinates,
+                   FieldData3* velocity,
+                   FieldData3* centerCoordinates,
                    FieldData* temperature,
                    FieldData domainMin[3],
                    FieldData domainMax[3]) {
@@ -22,15 +22,15 @@ void loadFluidData(char* fileName,
   for(int i = 0; i < numLines; ++i) {
     int ret = fscanf(fluidIn, "%lf %lf %lf %lf %lf %lf %lf %lf %lf",
                      rho + i, pressure + i,
-                     velocity + 3 * i, velocity + 3 * i + 1, velocity + 3 * i + 2,
-                     centerCoordinates + 3 * i, centerCoordinates + 3 * i + 1, centerCoordinates + 3 * i + 2,
+                     velocity[i].x + 0, velocity[i].x + 1, velocity[i].x + 2,
+                     centerCoordinates[i].x + 0, centerCoordinates[i].x + 1, centerCoordinates[i].x + 2,
                      temperature + i);
     if(ret == EOF) {
       std::cerr << "error reading fluid data file" << std::endl;
     }
     for(int j = 0; j < 3; ++j) {
-      domainMin[j] = std::min(domainMin[j], centerCoordinates[3 * i + j]);
-      domainMax[j] = std::max(domainMax[j], centerCoordinates[3 * i + j]);
+      domainMin[j] = std::min(domainMin[j], centerCoordinates[i].x[j]);
+      domainMax[j] = std::max(domainMax[j], centerCoordinates[i].x[j]);
     }
   }
   fclose(fluidIn);
@@ -40,7 +40,7 @@ void loadFluidData(char* fileName,
 void loadParticlesData(char* filename,
                        int numParticles,
                        long int* particlesID,
-                       FieldData* particlesPosition,
+                       FieldData3* particlesPosition,
                        FieldData* particlesTemperature,
                        FieldData* particlesDensity) {
   FieldData particlesMin[3] = { 9999, 9999, 9999 };
@@ -49,14 +49,14 @@ void loadParticlesData(char* filename,
   for(int i = 0; i < numParticles; ++i) {
     int ret = fscanf(particlesIn, "%ld %lf %lf %lf %lf %lf",
                      particlesID + i,
-                     particlesPosition + 3 * i,
-                     particlesPosition + 3 * i + 1,
-                     particlesPosition + 3 * i + 2,
+                     particlesPosition[i].x + 0,
+                     particlesPosition[i].x + 1,
+                     particlesPosition[i].x + 2,
                      particlesTemperature + i,
                      particlesDensity + i);
     for(int j = 0; j < 3; ++j) {
-      particlesMin[j] = std::min(particlesMin[j], particlesPosition[3 * i + j]);
-      particlesMax[j] = std::max(particlesMax[j], particlesPosition[3 * i + j]);
+      particlesMin[j] = std::min(particlesMin[j], particlesPosition[i].x[j]);
+      particlesMax[j] = std::max(particlesMax[j], particlesPosition[i].x[j]);
     }
     if(ret == EOF) {
       std::cerr << "error reading particles file" << std::endl;
@@ -127,8 +127,8 @@ int main(int argc, char **argv) {
 
   FieldData* rho = new FieldData[numFluidLines];
   FieldData* pressure = new FieldData[numFluidLines];
-  FieldData* velocity = new FieldData[numFluidLines * 3];
-  FieldData* centerCoordinates = new FieldData[numFluidLines * 3];
+  FieldData3* velocity = new FieldData3[numFluidLines];
+  FieldData3* centerCoordinates = new FieldData3[numFluidLines];
   FieldData* temperature = new FieldData[numFluidLines];
   FieldData domainMin[3] = { 99999, 99999, 99999 };
   FieldData domainMax[3] = { 0 };
@@ -139,7 +139,7 @@ int main(int argc, char **argv) {
   std::cout << "domainMax " << domainMax[0] << " " << domainMax[1] << " " << domainMax[2] << std::endl;
 
   long int* particlesID = new long int[numParticles];
-  FieldData* particlesPosition = new FieldData[numParticles * 3];
+  FieldData3* particlesPosition = new FieldData3[numParticles];
   FieldData* particlesTemperature = new FieldData[numParticles];
   FieldData* particlesDensity = new FieldData[numParticles];
 

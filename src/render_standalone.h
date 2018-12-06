@@ -10,7 +10,6 @@
 #include "GL/glu.h"
 #endif
 
-typedef double FieldData;
 
 const int WIDTH = 1280;
 const int HEIGHT = 720;

@@ -37,12 +37,7 @@ extern "C" {
   static MapperID gImageReductionMapperID = 0;
   static int gRenderTaskID = 0;
   static int gSaveImageTaskID = 0;
-  
-  typedef double FieldData;
-  typedef struct {
-    double x[3];
-  } FieldData3;
-  
+    
 #define SAVE_RENDER_DATA 0
   
   
@@ -182,8 +177,10 @@ extern "C" {
       bounds.hi[0] - bounds.lo[0], bounds.hi[1] - bounds.lo[1], bounds.hi[2] - bounds.lo[2]
     };
     
-    renderImage(num[0], num[1], num[2], rho, pressure, velocity, centerCoordinates, temperature, lowerBound, upperBound, rhoField, 0.999999,
-                numParticles, id, particlesPosition, particlesTemperature, particlesDensity,
+    Point<1> Z1 = Point<1>::ZEROES();
+    Point<3> Z3 = Point<3>::ZEROES();
+    renderImage(num[0], num[1], num[2], rho.ptr(Z3), pressure.ptr(Z3), velocity.ptr(Z3), centerCoordinates.ptr(Z3), temperature.ptr(Z3), lowerBound, upperBound, rhoField, 0.999999,
+                numParticles, id.ptr(Z1), particlesPosition.ptr(Z1), particlesTemperature.ptr(Z1), particlesDensity.ptr(Z1),
                 particlesToDraw, numParticlesToDraw);
     
     // write rendered pixels into source image region

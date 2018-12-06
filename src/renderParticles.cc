@@ -14,6 +14,7 @@
 #include "GL/glu.h"
 #endif
 
+#include "renderImage.h"
 #include <stdio.h>
 
 typedef double FieldData;
@@ -70,7 +71,7 @@ static void scaledTemperatureToColor(float temperature,
 }
 
 
-static void drawParticle(GLUquadricObj* qobj, FieldData* position, FieldData density, FieldData particleTemperature) {
+static void drawParticle(GLUquadricObj* qobj, const FieldData3* position, FieldData density, FieldData particleTemperature) {
   
   GLfloat t = particleTemperature;
   GLfloat color[4];
@@ -81,7 +82,7 @@ static void drawParticle(GLUquadricObj* qobj, FieldData* position, FieldData den
   glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, color);
   
   glPushMatrix();
-  glTranslatef(position[0], position[1], position[2]);
+  glTranslatef(position->x[0], position->x[1], position->x[2]);
   const GLfloat densityScale = 1.0e-5;
   gluSphere(qobj, density * densityScale, 7, 7);
   glPopMatrix();
@@ -105,10 +106,10 @@ static bool drawThis(long int id, int numParticlesToDraw, long int* particlesToD
 
 
 void renderParticles(int numParticles,
-                     long int* particlesID,
-                     FieldData* particlesPosition,
-                     FieldData* particlesTemperature,
-                     FieldData* particlesDensity,
+                     const long int* particlesID,
+                     const FieldData3* particlesPosition,
+                     const FieldData* particlesTemperature,
+                     const FieldData* particlesDensity,
                      int numParticlesToDraw,
                      long int* particlesToDraw) {
   GLUquadricObj *qobj = gluNewQuadric();
@@ -117,7 +118,7 @@ void renderParticles(int numParticles,
   for(int i = 0; i < numParticles; ++i) {
     if(drawThis(particlesID[i], numParticlesToDraw, particlesToDraw)) {
       if(particlesDensity[i] > 0) {
-        drawParticle(qobj, particlesPosition + 3 * i, particlesDensity[i], particlesTemperature[i]);
+        drawParticle(qobj, particlesPosition + i, particlesDensity[i], particlesTemperature[i]);
         drawnCount++;
       }
     }
