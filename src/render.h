@@ -57,5 +57,14 @@ extern "C" {
 }
 #endif
 
+#ifdef __cplusplus
+template<typename FT, int N, typename T = long long>
+using AccessorRO = Legion::FieldAccessor<READ_ONLY,FT,N,T,Realm::AffineAccessor<FT,N,T> >;
+template<typename FT, int N, typename T = long long>
+using AccessorWO = Legion::FieldAccessor<WRITE_DISCARD,FT,N,T,Realm::AffineAccessor<FT,N,T> >;
+template<typename FT, int N, typename T = long long>
+using AccessorRW = Legion::FieldAccessor<READ_WRITE,FT,N,T,Realm::AffineAccessor<FT,N,T> >;
+#endif
+
 
 #endif /* render_hpp */

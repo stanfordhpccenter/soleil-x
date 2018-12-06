@@ -152,7 +152,7 @@ function run_local {
     source "$SOLEIL_DIR"/src/jobscript_shared.sh
     "$EXECUTABLE" $ARGS \
         -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 3 \
-        -ll:csize 9000 \
+        -ll:csize 5000 \
         -ll:stacksize 8 -ll:ostack 8 -lg:sched -1
 }
 

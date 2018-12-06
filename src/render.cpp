@@ -37,62 +37,20 @@ extern "C" {
   static MapperID gImageReductionMapperID = 0;
   static int gRenderTaskID = 0;
   static int gSaveImageTaskID = 0;
-
+  
   typedef double FieldData;
+  typedef struct {
+    double x[3];
+  } FieldData3;
   
 #define SAVE_RENDER_DATA 0
   
   
-  static
-  void create_field_pointer_3D(PhysicalRegion region,
-                               FieldData* &field,
-                               int fieldID,
-                               ByteOffset stride[],
-                               Runtime* runtime) {
-    
-    const int dim = 3;
-    Domain indexSpaceDomain = runtime->get_index_space_domain(region.get_logical_region().get_index_space());
-    LegionRuntime::Arrays::Rect<dim> bounds = indexSpaceDomain.get_rect<dim>();
-    RegionAccessor<AccessorType::Generic, FieldData> acc = region.get_field_accessor(fieldID, false).typeify<FieldData>();
-    LegionRuntime::Arrays::Rect<dim> tempBounds;
-    field = acc.raw_rect_ptr<dim>(bounds, tempBounds, stride);
-    assert(bounds == tempBounds);
-  }
-  
-  static
-  void create_field_pointer_1D(PhysicalRegion region,
-                               FieldData* &field,
-                               int fieldID,
-                               ByteOffset stride[],
-                               Runtime* runtime) {
-    
-    const int dim = 1;
-    Domain indexSpaceDomain = runtime->get_index_space_domain(region.get_logical_region().get_index_space());
-    LegionRuntime::Arrays::Rect<dim> bounds = indexSpaceDomain.get_rect<dim>();
-    RegionAccessor<AccessorType::Generic, FieldData> acc = region.get_field_accessor(fieldID, false).typeify<FieldData>();
-    LegionRuntime::Arrays::Rect<dim> tempBounds;
-    field = acc.raw_rect_ptr<dim>(bounds, tempBounds, stride);
-    assert(bounds == tempBounds);
-  }
-  
-  static
-  void create_int_pointer_1D(PhysicalRegion region,
-                             long int* &field,
-                             int fieldID,
-                             ByteOffset stride[],
-                             Runtime* runtime) {
-    
-    const int dim = 1;
-    Domain indexSpaceDomain = runtime->get_index_space_domain(region.get_logical_region().get_index_space());
-    LegionRuntime::Arrays::Rect<dim> bounds = indexSpaceDomain.get_rect<dim>();
-    RegionAccessor<AccessorType::Generic, long int> acc = region.get_field_accessor(fieldID, false).typeify<long int>();
-    LegionRuntime::Arrays::Rect<dim> tempBounds;
-    field = acc.raw_rect_ptr<dim>(bounds, tempBounds, stride);
-    assert(bounds == tempBounds);
-  }
   
 #if SAVE_RENDER_DATA
-
+  
+  // SAVE_RENDER_DATA is to enable offline debugging
+  
   static void saveFluidRenderData(Context ctx,
                                   HighLevelRuntime *runtime,
                                   const Task* task,
@@ -104,23 +62,11 @@ extern "C" {
     sprintf(filename + strlen(filename), "%d.%lld", frameNumber++, task->get_unique_id());
     FILE *fluidOut = fopen(filename, "w");
     
-    FieldData* rho;
-    FieldData* pressure;
-    FieldData* velocity;
-    FieldData* centerCoordinates;
-    FieldData* temperature;
-    
-    ByteOffset rhoStride[3];
-    ByteOffset pressureStride[3];
-    ByteOffset velocityStride[3];
-    ByteOffset centerCoordinatesStride[3];
-    ByteOffset temperatureStride[3];
-    
-    create_field_pointer_3D(fluid, rho, fluidFields[0], rhoStride, runtime);
-    create_field_pointer_3D(fluid, pressure, fluidFields[1], pressureStride, runtime);
-    create_field_pointer_3D(fluid, velocity, fluidFields[2], velocityStride, runtime);
-    create_field_pointer_3D(fluid, centerCoordinates, fluidFields[3], centerCoordinatesStride, runtime);
-    create_field_pointer_3D(fluid, temperature, fluidFields[7], temperatureStride, runtime);
+    AccessorRO<FieldData, 3> rho(fluid, fluidFields[0]);
+    AccessorRO<FieldData, 3> pressure(fluid, fluidFields[1]);
+    AccessorRO<FieldData3, 3> velocity(fluid, fluidFields[2]);
+    AccessorRO<FieldData3, 3> centerCoordinates(fluid, fluidFields[3]);
+    AccessorRO<FieldData, 3> temperature(fluid, fluidFields[7]);
     
     IndexSpace indexSpace = fluid.get_logical_region().get_index_space();
     Domain domain = runtime->get_index_space_domain(ctx, indexSpace);
@@ -128,15 +74,10 @@ extern "C" {
     
     for (PointInRectIterator<3> pir(rect); pir(); pir++) {
       fprintf(fluidOut, "%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\n",
-              *rho, *pressure,
-              velocity[0], velocity[1], velocity[2],
-              centerCoordinates[0], centerCoordinates[1], centerCoordinates[2],
-              *temperature);
-      rho += rhoStride[0].offset / sizeof(*rho);
-      pressure += pressureStride[0].offset / sizeof(*pressure);
-      velocity += velocityStride[0].offset / sizeof(*velocity);
-      centerCoordinates += centerCoordinatesStride[0].offset / sizeof(*centerCoordinates);
-      temperature += temperatureStride[0].offset / sizeof(*temperature);
+              rho[*pir], pressure[*pir],
+              velocity[*pir].x[0], velocity[*pir].x[1], velocity[*pir].x[2],
+              centerCoordinates[*pir].x[0], centerCoordinates[*pir].x[1], centerCoordinates[*pir].x[2],
+              temperature[*pir]);
     }
     
     fclose(fluidOut);
@@ -153,20 +94,10 @@ extern "C" {
     sprintf(filename + strlen(filename), "%d.%lld", frameNumber++, task->get_unique_id());
     FILE *particlesOut = fopen(filename, "w");
     
-    long int* id;
-    FieldData* position;
-    FieldData* temperature;
-    FieldData* density;
-    
-    ByteOffset idStride[1];
-    ByteOffset positionStride[1];
-    ByteOffset temperatureStride[1];
-    ByteOffset densityStride[1];
-    
-    create_int_pointer_1D(particles, id, particlesFields[0], idStride, runtime);
-    create_field_pointer_1D(particles, position, particlesFields[2], positionStride, runtime);
-    create_field_pointer_1D(particles, temperature, particlesFields[4], temperatureStride, runtime);
-    create_field_pointer_1D(particles, density, particlesFields[6], densityStride, runtime);
+    AccessorRO<long int, 1> id(particles, particlesFields[0]);
+    AccessorRO<FieldData3, 1> particlesPosition(particles, particlesFields[2]);
+    AccessorRO<FieldData, 1> particlesTemperature(particles, particlesFields[4]);
+    AccessorRO<FieldData, 1> particlesDensity(particles, particlesFields[6]);
     
     IndexSpace indexSpace = particles.get_logical_region().get_index_space();
     Domain domain = runtime->get_index_space_domain(ctx, indexSpace);
@@ -174,18 +105,16 @@ extern "C" {
     
     for (PointInRectIterator<1> pir(rect); pir(); pir++) {
       fprintf(particlesOut, "%ld\t%g\t%g\t%g\t%g\t%g\n",
-              *id, position[0], position[1], position[2],
-              *temperature, *density);
-      id += idStride[0].offset / sizeof(*id);
-      position += positionStride[0].offset / sizeof(*position);
-      temperature += temperatureStride[0].offset / sizeof(*temperature);
-      density += densityStride[0].offset / sizeof(*density);
+              id[*pir], position[*pir].x[0], position[*pir].x[1], position[*pir].x[2],
+              temperature[*pir], density[*pir]);
     }
     
     fclose(particlesOut);
   }
 #endif
   
+  
+  // Render task
   
   static void render_task(const Task *task,
                           const std::vector<PhysicalRegion> &regions,
@@ -194,11 +123,11 @@ extern "C" {
     gethostname(hostname, sizeof(hostname));
     std::cout << "in render_task " << task->task_id << " " << task->get_unique_id() << " pid " << getpid() << " " << hostname << std::endl;
     
+    // Get physical regions and fields
+    
     PhysicalRegion fluid = regions[0];
     PhysicalRegion particles = regions[1];
     PhysicalRegion image = regions[2];
-
-std::cout << __FUNCTION__ << " image tree id " << (image.get_logical_region().get_tree_id()) << " index space id " << (image.get_logical_region().get_index_space().get_id()) << std::endl;
     
     std::vector<legion_field_id_t> fluidFields;
     fluid.get_fields(fluidFields);
@@ -213,52 +142,36 @@ std::cout << __FUNCTION__ << " image tree id " << (image.get_logical_region().ge
     saveFluidRenderData(ctx, runtime, task, fluid, fluidFields);
     saveParticlesRenderData(ctx, runtime, task, particles, particlesFields);
 #else
-
+    
+    // Get task arguments
+    
     ImageDescriptor* imageDescriptor = (ImageDescriptor*)(task->args);
     FieldData* lowerBound = (FieldData*)((char*)task->args + sizeof(ImageDescriptor));
     FieldData* upperBound = lowerBound + 3;
     int numParticlesToDraw = *((int*)(upperBound + 3));
     long int* particlesToDraw = (long int*)((char*)task->args + sizeof(ImageDescriptor) + 6 * sizeof(FieldData) + sizeof(int));
     
+    // Initialize the renderer and its graphics context
+    
     OSMesaContext mesaCtx;
     GLubyte* rgbaBuffer;
     GLfloat* depthBuffer;
-
+    
     renderInitialize(lowerBound, upperBound, mesaCtx, rgbaBuffer, depthBuffer);
     
-    FieldData* rho;
-    FieldData* pressure;
-    FieldData* velocity;
-    FieldData* centerCoordinates;
-    FieldData* temperature;
+    // Render an image
     
-    ByteOffset rhoStride[3];
-    ByteOffset pressureStride[3];
-    ByteOffset velocityStride[3];
-    ByteOffset centerCoordinatesStride[3];
-    ByteOffset temperatureStride[3];
+    AccessorRO<FieldData, 3> rho(fluid, fluidFields[0]);
+    AccessorRO<FieldData, 3> pressure(fluid, fluidFields[1]);
+    AccessorRO<FieldData3, 3> velocity(fluid, fluidFields[2]);
+    AccessorRO<FieldData3, 3> centerCoordinates(fluid, fluidFields[3]);
+    AccessorRO<FieldData, 3> temperature(fluid, fluidFields[7]);
     
-    create_field_pointer_3D(fluid, rho, fluidFields[0], rhoStride, runtime);
-    create_field_pointer_3D(fluid, pressure, fluidFields[1], pressureStride, runtime);
-    create_field_pointer_3D(fluid, velocity, fluidFields[2], velocityStride, runtime);
-    create_field_pointer_3D(fluid, centerCoordinates, fluidFields[3], centerCoordinatesStride, runtime);
-    create_field_pointer_3D(fluid, temperature, fluidFields[7], temperatureStride, runtime);
+    AccessorRO<long int, 1> id(particles, particlesFields[0]);
+    AccessorRO<FieldData3, 1> particlesPosition(particles, particlesFields[2]);
+    AccessorRO<FieldData, 1> particlesTemperature(particles, particlesFields[4]);
+    AccessorRO<FieldData, 1> particlesDensity(particles, particlesFields[6]);
     
-    long int* id = 0;
-    FieldData* particlesPosition = 0;
-    FieldData* particlesTemperature = 0;
-    FieldData* particlesDensity = 0;
-    
-    ByteOffset idStride[1];
-    ByteOffset positionStride[1];
-    ByteOffset particlesTemperatureStride[1];
-    ByteOffset densityStride[1];
-    
-    create_int_pointer_1D(particles, id, particlesFields[0], idStride, runtime);
-    create_field_pointer_1D(particles, particlesPosition, particlesFields[2], positionStride, runtime);
-    create_field_pointer_1D(particles, particlesTemperature, particlesFields[4], particlesTemperatureStride, runtime);
-    create_field_pointer_1D(particles, particlesDensity, particlesFields[6], densityStride, runtime);
-
     IndexSpace particlesIndexSpace = particles.get_logical_region().get_index_space();
     Rect<1> particlesBounds = runtime->get_index_space_domain(ctx, particlesIndexSpace);
     long int numParticles = particlesBounds.hi[0] - particlesBounds.lo[0];
@@ -273,91 +186,62 @@ std::cout << __FUNCTION__ << " image tree id " << (image.get_logical_region().ge
                 numParticles, id, particlesPosition, particlesTemperature, particlesDensity,
                 particlesToDraw, numParticlesToDraw);
     
-    // copy rendered pixels into source image region
+    // write rendered pixels into source image region
+    
     glReadPixels(0, 0, imageDescriptor->width, imageDescriptor->height, GL_DEPTH_COMPONENT, GL_FLOAT, depthBuffer);
-    FieldData* r;
-    FieldData* g;
-    FieldData* b;
-    FieldData* a;
-    FieldData* z;
     
-    ByteOffset rStride[3];
-    ByteOffset gStride[3];
-    ByteOffset bStride[3];
-    ByteOffset aStride[3];
-    ByteOffset zStride[3];
+    AccessorWO<FieldData, 3> r(image, imageFields[0]);
+    AccessorWO<FieldData, 3> g(image, imageFields[1]);
+    AccessorWO<FieldData, 3> b(image, imageFields[2]);
+    AccessorWO<FieldData, 3> a(image, imageFields[3]);
+    AccessorWO<FieldData, 3> z(image, imageFields[4]);
     
-    create_field_pointer_3D(image, r, imageFields[0], rStride, runtime);
-    create_field_pointer_3D(image, g, imageFields[1], gStride, runtime);
-    create_field_pointer_3D(image, b, imageFields[2], bStride, runtime);
-    create_field_pointer_3D(image, a, imageFields[3], aStride, runtime);
-    create_field_pointer_3D(image, z, imageFields[4], zStride, runtime);
-
-std::cout << __FUNCTION__ << " r " << r << " z " << z << std::endl;
-#define USE_COMPOSITOR 0
+#define USE_COMPOSITOR 1
 #if USE_COMPOSITOR
-
-    unsigned index = 0;
-    for(int i = 0; i < imageDescriptor->width; ++i) {
-      for(int j = 0; j < imageDescriptor->height; ++j) {
-        *r = rgbaBuffer[index * 4];
-        *g = rgbaBuffer[index * 4 + 1];
-        *b = rgbaBuffer[index * 4 + 2];
-        *a = rgbaBuffer[index * 4 + 3];
-        *z = depthBuffer[index];
-        index = index + 1;
-
-if(index < 10)
-std::cout << __FUNCTION__ << " r " << (*r) << " g " << (*g) << " b " << (*b) << " a " << (*a) << " z " << (*z) << std::endl;
-
-        r += rStride[0].offset / sizeof(FieldData);
-        g += gStride[0].offset / sizeof(FieldData);
-        b += bStride[0].offset / sizeof(FieldData);
-        a += aStride[0].offset / sizeof(FieldData);
-        z += zStride[0].offset / sizeof(FieldData);
-      }
+    
+    IndexSpace saveIndexSpace = image.get_logical_region().get_index_space();
+    Rect<3> saveRect = runtime->get_index_space_domain(ctx, saveIndexSpace);
+    
+    int index = 0;
+    for(PointInRectIterator<3> pir(saveRect); pir(); pir++) {
+      r[*pir] = rgbaBuffer[index * 4];
+      g[*pir] = rgbaBuffer[index * 4 + 1];
+      b[*pir] = rgbaBuffer[index * 4 + 2];
+      a[*pir] = rgbaBuffer[index * 4 + 3];
+      z[*pir] = depthBuffer[index];
+      index++;
     }
-
+    
 #else
-static int frameNumber = 0;
-char filename[128];
-sprintf(filename, "singleNodeImage.%04d.tga", frameNumber++);
-write_targa(filename, rgbaBuffer, imageDescriptor->width, imageDescriptor->height);
+    static int frameNumber = 0;
+    char filename[128];
+    sprintf(filename, "singleNodeImage.%04d.tga", frameNumber++);
+    write_targa(filename, rgbaBuffer, imageDescriptor->width, imageDescriptor->height);
 #endif
+    
+    // Release graphics context and render buffers
     
     renderTerminate(mesaCtx, rgbaBuffer, depthBuffer);
 #endif
-
+    
   }
   
   static int gFrameNumber = 0;
   
   static int save_image_task(const Task *task,
-                          const std::vector<PhysicalRegion> &regions,
-                          Context ctx, HighLevelRuntime *runtime) {
+                             const std::vector<PhysicalRegion> &regions,
+                             Context ctx, HighLevelRuntime *runtime) {
     ImageDescriptor* imageDescriptor = (ImageDescriptor*)(task->args);
     PhysicalRegion image = regions[0];
     std::vector<legion_field_id_t> imageFields;
     image.get_fields(imageFields);
-
-    FieldData* r;
-    FieldData* g;
-    FieldData* b;
-    FieldData* a;
-    FieldData* z;
     
-    ByteOffset rStride[3];
-    ByteOffset gStride[3];
-    ByteOffset bStride[3];
-    ByteOffset aStride[3];
-    ByteOffset zStride[3];
+    AccessorRO<FieldData, 3> r(image, imageFields[0]);
+    AccessorRO<FieldData, 3> g(image, imageFields[1]);
+    AccessorRO<FieldData, 3> b(image, imageFields[2]);
+    AccessorRO<FieldData, 3> a(image, imageFields[3]);
+    AccessorRO<FieldData, 3> z(image, imageFields[4]);
     
-    create_field_pointer_3D(image, r, imageFields[0], rStride, runtime);
-    create_field_pointer_3D(image, g, imageFields[1], gStride, runtime);
-    create_field_pointer_3D(image, b, imageFields[2], bStride, runtime);
-    create_field_pointer_3D(image, a, imageFields[3], aStride, runtime);
-    create_field_pointer_3D(image, z, imageFields[4], zStride, runtime);
-
     char filename[128];
     sprintf(filename, "image.%05d.tga", gFrameNumber++);
     FILE* f = fopen(filename, "w");
@@ -382,21 +266,16 @@ write_targa(filename, rgbaBuffer, imageDescriptor->width, imageDescriptor->heigh
     fclose(f);
     
     f = fopen(filename, "ab");  /* reopen in binary append mode */
-    int x, y;
-    for (y=imageDescriptor->height-1; y>=0; y--) {
-      for (x=0; x<imageDescriptor->width; x++) {
-        GLubyte b_ = *b;
-        fputc(b_, f); /* write blue */
-        GLubyte g_ = *g;
-        fputc(g_, f); /* write green */
-        GLubyte r_ = *r;
-        fputc(r_, f);   /* write red */
-if(b_!=0)
-std::cout << __FUNCTION__ << " " << (int)r_ << " " << (int)g_ << " " << (int)b_ << std::endl;
-        r += rStride[0];
-        g += gStride[0];
-        b += bStride[0];
-      }
+    IndexSpace saveIndexSpace = image.get_logical_region().get_index_space();
+    Rect<3> saveRect = runtime->get_index_space_domain(ctx, saveIndexSpace);
+    
+    for(PointInRectIterator<3> pir(saveRect); pir(); pir++) {
+      GLubyte b_ = b[*pir];
+      fputc(b_, f); /* write blue */
+      GLubyte g_ = g[*pir];
+      fputc(g_, f); /* write green */
+      GLubyte r_ = r[*pir];
+      fputc(r_, f);   /* write red */
     }
     fclose(f);
     std::cout << "wrote image " << filename << std::endl;
@@ -427,7 +306,7 @@ std::cout << __FUNCTION__ << " " << (int)r_ << " " << (int)g_ << " " << (int)b_ 
     .add_layout_constraint_set(0/*index*/, soa_layout_id)
     .add_layout_constraint_set(1/*index*/, soa_layout_id)
     .add_layout_constraint_set(2/*index*/, soa_layout_id);
-
+    
     Runtime::preregister_task_variant<render_task>(registrar, "render_task");
     
     // preregister save image task
@@ -436,7 +315,7 @@ std::cout << __FUNCTION__ << " " << (int)r_ << " " << (int)g_ << " " << (int)b_ 
     registrarSaveImage.add_constraint(ProcessorConstraint(Processor::LOC_PROC))
     .add_layout_constraint_set(0/*index*/, soa_layout_id);
     Runtime::preregister_task_variant<int, save_image_task>(registrarSaveImage, "save_image_task");
-
+    
   }
   
   
@@ -461,81 +340,91 @@ std::cout << __FUNCTION__ << " " << (int)r_ << " " << (int)g_ << " " << (int)b_ 
     std::cout << __FUNCTION__ << " pid " << getpid() << std::endl;
     static bool firstTime = true;
     
-    PhysicalRegion* fluid = CObjectWrapper::unwrap(fluid_[0]);
-    std::vector<legion_field_id_t> fluid_fields;
-    fluid->get_fields(fluid_fields);
-    const FieldAccessor<READ_ONLY, float, 3> fluid_temperature_acc(*fluid, fluid_fields[0]);
-    const FieldAccessor<READ_ONLY, float, 3> fluid_pressure_acc(*fluid, fluid_fields[1]);
-    const FieldAccessor<READ_ONLY, float, 3> fluid_velocity_acc(*fluid, fluid_fields[2]);
+    // Unwrap objects
     
     Runtime *runtime = CObjectWrapper::unwrap(runtime_);
     Context ctx = CObjectWrapper::unwrap(ctx_)->context();
-    LogicalPartition logicalPartition = CObjectWrapper::unwrap(fluidPartition_);
+    PhysicalRegion* fluid = CObjectWrapper::unwrap(fluid_[0]);
+    LogicalPartition fluidPartition = CObjectWrapper::unwrap(fluidPartition_);
+    PhysicalRegion* particles = CObjectWrapper::unwrap(particles_[0]);
+    LogicalPartition particlesPartition = CObjectWrapper::unwrap(particlesPartition_);
+    PhysicalRegion* particlesToDraw = CObjectWrapper::unwrap(particlesToDraw_[0]);
+
+    // Initialize an image compositor, or reuse an initialized one
+    
     Visualization::ImageDescriptor imageDescriptor = { imageWidth, imageHeight, 1 };
     
     if(gImageCompositors.find(sampleId) == gImageCompositors.end()) {
-      gImageCompositors[sampleId] = new Visualization::ImageReduction(logicalPartition, imageDescriptor, ctx, runtime, gImageReductionMapperID);
+      gImageCompositors[sampleId] = new Visualization::ImageReduction(fluidPartition, imageDescriptor, ctx, runtime, gImageReductionMapperID);
       ImageReductionMapper::registerRenderTaskName("render_task");
     }
     Visualization::ImageReduction* compositor = gImageCompositors[sampleId];
     imageDescriptor = compositor->imageDescriptor();
-
-    PhysicalRegion* particles = CObjectWrapper::unwrap(particles_[0]);
-    std::vector<legion_field_id_t> particles_fields;
-    particles->get_fields(particles_fields);
-    const FieldAccessor<READ_ONLY, float, 1> particles_position_acc(*particles, particles_fields[0]);
-    const FieldAccessor<READ_ONLY, float, 1> particles_position_history_acc(*particles, particles_fields[1]);
-
-    PhysicalRegion* particlesToDraw = CObjectWrapper::unwrap(particlesToDraw_[0]);
-    std::vector<legion_field_id_t> particlesToDrawFields;
-    particlesToDraw->get_fields(particlesToDrawFields);
-    long int* particlesToDrawInt = 0;
-    ByteOffset particlesToDrawStride[1];
-    create_int_pointer_1D(*particlesToDraw, particlesToDrawInt, particlesToDrawFields[0], particlesToDrawStride, runtime);
-
-    ArgumentMap argMap;
-    size_t argSize = sizeof(imageDescriptor) + 6 * sizeof(FieldData) + sizeof(int) + numParticlesToDraw * sizeof(long int);
-    char args[argSize];
-    memcpy(args, &imageDescriptor, sizeof(imageDescriptor));
-    memcpy(args + sizeof(imageDescriptor), lowerBound, 3 * sizeof(FieldData));
-    memcpy(args + sizeof(imageDescriptor) + 3 * sizeof(FieldData), upperBound, 3 * sizeof(FieldData));
-    memcpy(args + sizeof(imageDescriptor) + 6 * sizeof(FieldData), &numParticlesToDraw, sizeof(int));
-    memcpy(args + sizeof(imageDescriptor) + 6 * sizeof(FieldData) + sizeof(int), particlesToDrawInt, numParticlesToDraw * sizeof(long int));
-
-    IndexTaskLauncher renderLauncher(gRenderTaskID, compositor->everywhereDomain(), TaskArgument(args, sizeof(args)), argMap, Predicate::TRUE_PRED, false, gImageReductionMapperID);
     
-    LogicalPartition fluidPartition = CObjectWrapper::unwrap(fluidPartition_);
+    // Create projection functors
+    
     if(firstTime) {
       static ImageReductionProjectionFunctor functor0(compositor->everywhereDomain(), fluidPartition);
       runtime->register_projection_functor(1, &functor0);
+      static ImageReductionProjectionFunctor functor1(compositor->everywhereDomain(), particlesPartition);
+      runtime->register_projection_functor(2, &functor1);
+      static ImageReductionProjectionFunctor functor2(compositor->everywhereDomain(), compositor->depthPartition());
+      runtime->register_projection_functor(3, &functor2);
     }
+    
+    // Construct arguments to render task
+    
+    ArgumentMap argMap;
+    size_t argSize = sizeof(imageDescriptor) + 6 * sizeof(FieldData) + sizeof(int) + numParticlesToDraw * sizeof(long int);
+    char args[argSize];
+    char* argsPtr = args;
+    memcpy(argsPtr, &imageDescriptor, sizeof(imageDescriptor));
+    argsPtr += sizeof(imageDescriptor);
+    memcpy(argsPtr, lowerBound, 3 * sizeof(FieldData));
+    argsPtr += 3 * sizeof(FieldData);
+    memcpy(argsPtr, upperBound, 3 * sizeof(FieldData));
+    argsPtr += 3 * sizeof(FieldData);
+    memcpy(argsPtr, &numParticlesToDraw, sizeof(int));
+    argsPtr += sizeof(int);
+    
+    // Copy particlesToDraw as a task argument
+    
+    std::vector<legion_field_id_t> particlesToDrawFields;
+    particlesToDraw->get_fields(particlesToDrawFields);
+    AccessorRO<long int, 1> particlesToDrawId(*particlesToDraw, particlesToDrawFields[0]);
+ 
+    long int* longArgsPtr = (long int*)argsPtr;
+    for(int i = 0; i < numParticlesToDraw; ++i) {
+      Point<1> p = i;
+      longArgsPtr[i] = particlesToDrawId[p];
+    }
+
+    // Setup the render task launch with region requirements
+    
+    IndexTaskLauncher renderLauncher(gRenderTaskID, compositor->everywhereDomain(), TaskArgument(args, sizeof(args)), argMap, Predicate::TRUE_PRED, false, gImageReductionMapperID);
+    
     RegionRequirement req0(fluidPartition, 1, READ_ONLY, SIMULTANEOUS, fluid->get_logical_region(), gImageReductionMapperID);
     for(int i = 0; i < numFluidFields; ++i) req0.add_field(fluidFields[i]);
     renderLauncher.add_region_requirement(req0);
     
-    LogicalPartition particlesPartition = CObjectWrapper::unwrap(particlesPartition_);
-    if(firstTime) {
-      static ImageReductionProjectionFunctor functor1(compositor->everywhereDomain(), particlesPartition);
-      runtime->register_projection_functor(2, &functor1);
-    }
     RegionRequirement req1(particlesPartition, 2, READ_ONLY, SIMULTANEOUS, particles->get_logical_region(), gImageReductionMapperID);
     for(int i = 0; i < numParticlesFields; ++i) req1.add_field(particlesFields[i]);
     renderLauncher.add_region_requirement(req1);
     
     RegionRequirement req2(compositor->depthPartition(), 3, READ_WRITE, EXCLUSIVE, compositor->sourceImage(), gImageReductionMapperID);
-    if(firstTime) {
-      static ImageReductionProjectionFunctor functor2(compositor->everywhereDomain(), compositor->depthPartition());
-      runtime->register_projection_functor(3, &functor2);
-    }
     req2.add_field(Visualization::ImageReduction::FID_FIELD_R);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_G);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_B);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_A);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_Z);
     renderLauncher.add_region_requirement(req2);
-
-    ImageReductionMapper::clearPlacement(logicalPartition);
-
+    
+    // Clear the mapping history so render_task will create it anew
+    
+    ImageReductionMapper::clearPlacement(fluidPartition);
+    
+    // Launch the render task
+    
     FutureMap futures = runtime->execute_index_space(ctx, renderLauncher);
     futures.wait_all_results();
     firstTime = false;
@@ -553,10 +442,10 @@ std::cout << __FUNCTION__ << " " << (int)r_ << " " << (int)g_ << " " << (int)b_ 
     return;
 #endif
     std::cout << __FUNCTION__ << std::endl;
-
+    
     Runtime *runtime = CObjectWrapper::unwrap(runtime_);
     Context ctx = CObjectWrapper::unwrap(ctx_)->context();
-
+    
     Visualization::ImageReduction* compositor = gImageCompositors[sampleId];
     compositor->set_depth_func(GL_LESS);
     FutureMap futures = compositor->reduce_associative_commutative();
