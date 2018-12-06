@@ -175,14 +175,16 @@ extern "C" {
       bounds.hi[0] - bounds.lo[0], bounds.hi[1] - bounds.lo[1], bounds.hi[2] - bounds.lo[2]
     };
     
-    Point<3> Z3 = Point<3>::ZEROES();
+    Rect<3> rect3 = runtime->get_index_space_domain(ctx, fluid.get_logical_region().get_index_space());
+    Point<3> Z3 = rect3.lo;
     const FieldData* rhoP = rho.ptr(Z3);
     const FieldData* pressureP = pressure.ptr(Z3);
     const FieldData3* velocityP = velocity.ptr(Z3);
     const FieldData3* centerCoordinatesP = centerCoordinates.ptr(Z3);
     const FieldData* temperatureP = temperature.ptr(Z3);
 
-    Point<1> Z1 = Point<1>::ZEROES();
+    Rect<1> rect1 = runtime->get_index_space_domain(ctx, particles.get_logical_region().get_index_space());
+    Point<1> Z1 = rect1.lo;
     const long int* idP = id.ptr(Z1);
     const FieldData3* particlesPositionP = particlesPosition.ptr(Z1);
     const FieldData* particlesTemperatureP = particlesTemperature.ptr(Z1);
