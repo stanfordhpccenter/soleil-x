@@ -37,7 +37,7 @@ extern "C" {
   static MapperID gImageReductionMapperID = 0;
   static int gRenderTaskID = 0;
   static int gSaveImageTaskID = 0;
-    
+  
 #define SAVE_RENDER_DATA 0
   
   
@@ -100,8 +100,8 @@ extern "C" {
     
     for (PointInRectIterator<1> pir(rect); pir(); pir++) {
       fprintf(particlesOut, "%ld\t%g\t%g\t%g\t%g\t%g\n",
-              id[*pir], position[*pir].x[0], position[*pir].x[1], position[*pir].x[2],
-              temperature[*pir], density[*pir]);
+              id[*pir], particlesPosition[*pir].x[0], particlesPosition[*pir].x[1], particlesPosition[*pir].x[2],
+              particlesTemperature[*pir], particlesDensity[*pir]);
     }
     
     fclose(particlesOut);
@@ -361,12 +361,12 @@ extern "C" {
     // Create projection functors
     
     if(firstTime) {
-      static ImageReductionProjectionFunctor functor0(compositor->everywhereDomain(), fluidPartition);
-      runtime->register_projection_functor(1, &functor0);
-      static ImageReductionProjectionFunctor functor1(compositor->everywhereDomain(), particlesPartition);
-      runtime->register_projection_functor(2, &functor1);
-      static ImageReductionProjectionFunctor functor2(compositor->everywhereDomain(), compositor->depthPartition());
-      runtime->register_projection_functor(3, &functor2);
+      ImageReductionProjectionFunctor* functor0 = new ImageReductionProjectionFunctor(compositor->everywhereDomain(), fluidPartition);
+      runtime->register_projection_functor(1, functor0);
+      ImageReductionProjectionFunctor* functor1 = new ImageReductionProjectionFunctor(compositor->everywhereDomain(), particlesPartition);
+      runtime->register_projection_functor(2, functor1);
+      ImageReductionProjectionFunctor* functor2 = new ImageReductionProjectionFunctor(compositor->everywhereDomain(), compositor->depthPartition());
+      runtime->register_projection_functor(3, functor2);
     }
     
     // Construct arguments to render task
