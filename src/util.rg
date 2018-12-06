@@ -220,30 +220,6 @@ function Exports.setSubList(set, list)
 end
 
 -------------------------------------------------------------------------------
--- Sets
--------------------------------------------------------------------------------
-
--- set(T) -> T*
-function Exports.setToList(set)
-  local list = terralib.newlist()
-  for elem,_ in pairs(set) do
-    list:insert(elem)
-  end
-  return list
-end
-
--- set(T) -> T
-function Exports.setPop(set)
-  local elem
-  for e,_ in pairs(set) do
-    elem = e
-    break
-  end
-  set[elem] = nil
-  return elem
-end
-
--------------------------------------------------------------------------------
 -- Strings
 -------------------------------------------------------------------------------
 
@@ -566,6 +542,23 @@ function Exports.mkPartitionEqually(r_istype, cs_istype, fs)
     end
   else assert(false) end
   return partitionEqually
+end
+
+-------------------------------------------------------------------------------
+-- Error handling
+-------------------------------------------------------------------------------
+
+-- regentlib.rexpr, string, regentlib.rexpr* -> regentlib.rquote
+function Exports.emitAssert(cond, format, ...)
+  local args = terralib.newlist{...}
+  return rquote
+    if not cond then
+      var stderr = C.fdopen(2, 'w')
+      C.fprintf(stderr, format, [args])
+      C.fflush(stderr)
+      C.exit(1)
+    end
+  end
 end
 
 -------------------------------------------------------------------------------
