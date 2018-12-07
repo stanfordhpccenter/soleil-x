@@ -1472,6 +1472,7 @@ end
 
 __demand(__parallel, __cuda)
 task Flow_UpdateConservedFromPrimitive(Fluid : region(ispace(int3d), Fluid_columns),
+                                       config : Config,
                                        Flow_gamma : double,
                                        Flow_gasConstant : double,
                                        Grid_xBnum : int32, Grid_xNum : int32,
@@ -1483,43 +1484,18 @@ where
 do
   __demand(__openmp)
   for c in Fluid do
-    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      Fluid[c].rhoVelocity = vs_mul(Fluid[c].velocity, Fluid[c].rho)
-
-      var tmpTemperature = (Fluid[c].pressure/(Flow_gasConstant*Fluid[c].rho))
-      var cv = (Flow_gasConstant/(Flow_gamma-1.0))
-      Fluid[c].rhoEnergy = Fluid[c].rho*((cv*tmpTemperature)+(0.5*dot(Fluid[c].velocity, Fluid[c].velocity)))
-    end
-  end
-end
-
-__demand(__parallel, __cuda)
-task Flow_UpdateConservedFromPrimitiveGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
-                                                 config : Config,
-                                                 Flow_gamma : double,
-                                                 Flow_gasConstant : double,
-                                                 Grid_xBnum : int32, Grid_xNum : int32,
-                                                 Grid_yBnum : int32, Grid_yNum : int32,
-                                                 Grid_zBnum : int32, Grid_zNum : int32)
-where
-  reads(Fluid.{rho, velocity, pressure}),
-  writes(Fluid.{rhoVelocity, rhoEnergy})
-do
-  var BC_xBCLeft = config.BC.xBCLeft
-  var BC_xBCRight = config.BC.xBCRight
-  __demand(__openmp)
-  for c in Fluid do
     var xNegGhost = is_xNegGhost(c, Grid_xBnum)
     var xPosGhost = is_xPosGhost(c, Grid_xBnum, Grid_xNum)
     var yNegGhost = is_yNegGhost(c, Grid_yBnum)
     var yPosGhost = is_yPosGhost(c, Grid_yBnum, Grid_yNum)
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
+    var interior  = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
 
-    var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
-    if (NSCBC_inflow_cell or NSCBC_outflow_cell) then
+    if (interior or NSCBC_inflow_cell or NSCBC_outflow_cell) then
       Fluid[c].rhoVelocity = vs_mul(Fluid[c].velocity, Fluid[c].rho)
 
       var tmpTemperature = (Fluid[c].pressure/(Flow_gasConstant*Fluid[c].rho))
@@ -1623,7 +1599,7 @@ end
 
 -- NOTE: It is safe to not pass the ghost regions to this task, because we
 -- always group ghost cells with their neighboring interior cells.
-__demand(__cuda) -- MANUALLY PARALLELIZEDp
+__demand(__cuda) -- MANUALLY PARALLELIZED
 task Flow_UpdateGhostConserved(Fluid : region(ispace(int3d), Fluid_columns),
                                config : Config,
                                BC_xNegTemperature : double, BC_xNegVelocity : double[3],
@@ -1756,6 +1732,7 @@ do
         else -- BC_xBCLeftHeat_type == SCHEMA.TempProfile_Incoming
           temperature = Fluid[c].temperature_inc
         end
+
         Fluid[c_bnd].rho = rho
         Fluid[c_bnd].rhoVelocity = vs_mul(velocity, rho)
         Fluid[c_bnd].rhoEnergy = rho*((cv*temperature)+(0.5*dot(velocity, velocity)))
@@ -1955,7 +1932,7 @@ do
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 0, -1})%Fluid.bounds)
       var cv = (Flow_gasConstant/(Flow_gamma-1.0))
-      if (BC_zBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall)then
+      if (BC_zBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
         var sign = BC_zPosSign
         var bnd_velocity = BC_zPosVelocity
         var rho = 0.0
@@ -2237,8 +2214,8 @@ do
       var c_bnd = int3d(c)
       var c_int = ((c+{1, 0, 0})%Fluid.bounds)
 
-      var temperature : double
       var pressure : double
+      var temperature : double
       if (BC_xBCLeft == SCHEMA.FlowBC_Symmetry) then
         pressure    = Fluid[c_int].pressure
         temperature = Fluid[c_int].temperature
@@ -2264,8 +2241,8 @@ do
       var c_bnd = int3d(c)
       var c_int = ((c+{-1, 0, 0})%Fluid.bounds)
 
-      var temperature : double
       var pressure : double
+      var temperature : double
       if (BC_xBCRight == SCHEMA.FlowBC_Symmetry) then
         pressure    = Fluid[c_int].pressure
         temperature = Fluid[c_int].temperature
@@ -2291,8 +2268,8 @@ do
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 1, 0})%Fluid.bounds)
 
-      var temperature : double
       var pressure : double
+      var temperature : double
       if (BC_yBCLeft == SCHEMA.FlowBC_Symmetry) then
         pressure    = Fluid[c_int].pressure
         temperature = Fluid[c_int].temperature
@@ -2324,8 +2301,8 @@ do
       var c_bnd = int3d(c)
       var c_int = ((c+{0, -1, 0})%Fluid.bounds)
 
-      var temperature : double
       var pressure : double
+      var temperature : double
       if (BC_yBCRight == SCHEMA.FlowBC_Symmetry) then
         pressure    = Fluid[c_int].pressure
         temperature = Fluid[c_int].temperature
@@ -2356,8 +2333,8 @@ do
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 0, 1})%Fluid.bounds)
 
-      var temperature : double
       var pressure : double
+      var temperature : double
       if (BC_zBCLeft == SCHEMA.FlowBC_Symmetry) then
         pressure    = Fluid[c_int].pressure
         temperature = Fluid[c_int].temperature
@@ -2389,8 +2366,8 @@ do
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 0, -1})%Fluid.bounds)
 
-      var temperature : double
       var pressure : double
+      var temperature : double
       if (BC_zBCRight == SCHEMA.FlowBC_Symmetry) then
         pressure = Fluid[c_int].pressure
         temperature = Fluid[c_int].temperature
@@ -6298,21 +6275,14 @@ local function mkInstance() local INSTANCE = {}
                                   Grid.zBnum, config.Grid.zNum)
     end
 
-    -- update interior cells from initialized primitive values
     Flow_UpdateConservedFromPrimitive(Fluid,
+                                      config,
                                       config.Flow.gamma,
                                       config.Flow.gasConstant,
                                       Grid.xBnum, config.Grid.xNum,
                                       Grid.yBnum, config.Grid.yNum,
                                       Grid.zBnum, config.Grid.zNum)
-    if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-      Flow_UpdateConservedFromPrimitiveGhostNSCBC(Fluid,
-                                                  config,
-                                                  config.Flow.gamma, config.Flow.gasConstant,
-                                                  Grid.xBnum, config.Grid.xNum,
-                                                  Grid.yBnum, config.Grid.yNum,
-                                                  Grid.zBnum, config.Grid.zNum)
-    end
+
     Flow_UpdateAuxiliaryVelocity(Fluid,
                                  config,
                                  config.Flow.constantVisc,
