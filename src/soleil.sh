@@ -17,7 +17,7 @@ export USE_CUDA="${USE_CUDA:-1}"
 export PROFILE="${PROFILE:-0}"
 
 # Whether to print a backtrace on crash (interferes with signal handling)
-#export GASNET_BACKTRACE="${GASNET_BACKTRACE:-1}"
+export GASNET_BACKTRACE="${GASNET_BACKTRACE:-1}"
 
 ###############################################################################
 # Helper functions

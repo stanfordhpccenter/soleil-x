@@ -8,10 +8,9 @@ if [[ "$USE_CUDA" == 1 ]]; then
     GPU_OPTS="-ll:gpu 4 -ll:fsize 15000 -ll:zsize 1024 -ll:ib_zsize 0"
 fi
 
-export REALM_BACKTRACE=1
 # NOTE: We have to run through the pick_hcas.py script, due to a GASNet bug.
 jsrun -n "$NUM_RANKS" -r 1 -a 1 -c 40 -g 4 -b rs \
-    -E LD_LIBRARY_PATH -E SOLEIL_DIR -E REALM_BACKTRACE \
+    -E LD_LIBRARY_PATH -E SOLEIL_DIR -E GASNET_BACKTRACE \
     "$SOLEIL_DIR"/src/pick_hcas.py \
     "$EXECUTABLE" $ARGS \
     -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 2 \
