@@ -13,8 +13,8 @@ See below for instructions targeting specific systems.
 The following are automatically installed during Legion installation:
 
 * LLVM 3.8 (for CUDA 8.0+) or 3.5 (for CUDA 7.5, and better debug info)
-* GASNET (custom version -- optimized for Legion)
-* Terra (custom version -- we need to use LuaJIT2.1 instead of the default LuaJIT2.0, because the latter exhibits a spurious out-of-memory error when compiling large Regent programs)
+* GASNET (custom Legion-specific version)
+* Terra (custom Legion-specific version)
 * HDF5 (any recent version)
 
 ### Add to shell startup
@@ -50,7 +50,7 @@ Replace the `?` depending on your system's capabilities.
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=? USE_OPENMP=? USE_GASNET=? USE_HDF=? scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+USE_CUDA=? USE_OPENMP=? USE_GASNET=? USE_HDF=? scripts/setup_env.py --llvm-version 38
 ```
 
 See [Elliott's instructions](https://docs.google.com/document/d/1Qkl6r-1ZIb8WyH1f_WZbKgjp3due_Q8UiWKLh_nG1ec/edit) for more help.
@@ -104,7 +104,7 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=0 USE_OPENMP=1 USE_GASNET=0 USE_HDF=1 scripts/setup_env.py --llvm-version 35 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+USE_CUDA=0 USE_OPENMP=1 USE_GASNET=0 USE_HDF=1 scripts/setup_env.py --llvm-version 35
 ```
 
 ### Compile Soleil-X
@@ -149,7 +149,7 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 35 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 35
 ```
 
 ### Compile Soleil-X
@@ -173,7 +173,6 @@ module load openmpi/2.0.2
 export CONDUIT=ibv
 export CC=gcc
 export CXX=g++
-export LD_FLAGS=-lpmi2
 # Path setup
 export LEGION_DIR=???
 export HDF_ROOT="$LEGION_DIR"/language/hdf/install
@@ -197,7 +196,7 @@ We build Legion in a SLURM job, because processes on the login node are restrict
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 srun -N 1 -c 10 -p aaiken --gres=gpu:4 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+LD_FLAGS=-lpmi2 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 srun -N 1 -c 10 -p aaiken --gres=gpu:4 scripts/setup_env.py --llvm-version 38
 ```
 
 ### Compile Soleil-X
@@ -250,7 +249,7 @@ sed -i 's|$(GASNET_VERSION)/configure --prefix=|$(GASNET_VERSION)/configure --di
 make
 # Rest of compilation as normal
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38
 ```
 
 ### Compile Soleil-X
@@ -302,7 +301,7 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38
 ```
 
 ### Compile Soleil-X
@@ -349,7 +348,7 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1-ppc64'
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-branch 'luajit2.1-ppc64'
 ```
 
 ### Compile Soleil-X
@@ -395,7 +394,7 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38
 ```
 
 ### Compile Soleil-X
@@ -444,7 +443,7 @@ We need to go through the `lalloc` utility script to build on a compute node.
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 lalloc 1 -W 720 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'puc_lua_master'
+CC_FLAGS='-DMAX_NUM_NODES=4096' TERRA_USE_PUC_LUA=1 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 lalloc 1 -W 720 scripts/setup_env.py --llvm-version 38 --terra-branch 'puc_lua_master'
 ```
 
 ### Compile Soleil-X
