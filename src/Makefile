@@ -33,9 +33,9 @@ ifdef HDF_ROOT
 endif
 REGENT := $(LEGION_DIR)/language/regent.py -g
 ifeq ($(USE_CUDA), 1)
-  REGENT_FLAGS := -fflow 0 -fopenmp 1 -finner 1 -fcuda 1 -fcuda-offline 1
+  REGENT_FLAGS := -fflow 0 -fopenmp 1 -fopenmp-offline 1 -finner 1 -fcuda 1 -fcuda-offline 1
 else
-  REGENT_FLAGS := -fflow 0 -fopenmp 1 -finner 1 -fcuda 0
+  REGENT_FLAGS := -fflow 0 -fopenmp 1 -fopenmp-offline 1 -finner 1 -fcuda 0
 endif
 
 # Link flags

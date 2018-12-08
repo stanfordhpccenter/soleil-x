@@ -67,14 +67,14 @@
             "startTime" : 0.0,
             "maxIter" : 10000,
             "cfl" : -1.0,
-            "fixedDeltaTime" : 1.7979920025315728e-07,
+            "fixedDeltaTime" : "TBD",
             "rkOrder" : 4
         },
 
         "Flow" : {
             "gasConstant" : 289.0,
             "gamma" : 1.4,
-            "prandtl" : 0.650966628817,
+            "prandtl" : "TBD",
             "viscosityModel" : "Constant",
             "constantVisc" : 1.9E-5,
             "powerlawViscRef" : -1.0,
@@ -89,28 +89,28 @@
             "turbForcing" : {
                 "type" : "HIT",
                 "G" : 67.0,
-                "t_o" : 0.029594375338,
-                "K_o" : 0.0989236400463
+                "t_o" : "TBD",
+                "K_o" : "TBD"
             }
         },
 
         "Particles" : {
             "initCase" : "Uniform",
             "restartDir" : "",
-            "initNum" : 1914140,
-            "maxNum" : 1914140,
+            "initNum" : "TBD",
+            "maxNum" : "TBD",
             "restitutionCoeff" : -1.0,
-            "convectiveCoeff" : 5632.53877113,
-            "heatCapacity" : 453.1343283582089,
+            "convectiveCoeff" : "TBD",
+            "heatCapacity" : "TBD",
             "initTemperature" : 300.0,
             "density" : 8900.0,
-            "diameterMean" : 1.04882056389e-05,
+            "diameterMean" : "TBD",
             "bodyForce" : [0.0, 0.0, 0.0],
-            "maxSkew" : 1.2,
-            "escapeRatioPerDir" : 0.005,
+            "maxSkew" : 1.5,
+            "escapeRatioPerDir" : 0.01,
             "collisions" : false,
             "feeding" : { "type" : "OFF" },
-            "staggerFactor" : 1392,
+            "staggerFactor" : "TBD",
             "parcelSize" : 1
         },
 
@@ -150,7 +150,7 @@
             },
             "xBCLeftInflowProfile" : {
                 "type" : "Incoming",
-                "addedVelocity" : 2.0650625
+                "addedVelocity" : "TBD"
             },
             "xBCRight" : "NSCBC_SubsonicOutflow",
             "xBCRightVel" : [-1.0, -1.0, -1.0],
@@ -190,14 +190,14 @@
             "startTime" : 0.0,
             "maxIter" : 10000,
             "cfl" : -1.0,
-            "fixedDeltaTime" : 1.7979920025315728e-07,
+            "fixedDeltaTime" : "TBD",
             "rkOrder" : 4
         },
 
         "Flow" : {
             "gasConstant" : 289.0,
             "gamma" : 1.4,
-            "prandtl" : 0.650966628817,
+            "prandtl" : "TBD",
             "viscosityModel" : "Constant",
             "constantVisc" : 1.9E-5,
             "powerlawViscRef" : -1.0,
@@ -207,7 +207,7 @@
             "sutherlandSRef" : -1.0,
             "initCase" : "Uniform",
             "restartDir" : "",
-            "initParams" : [1.2, 104040.0, 2.0650625, 0.0, 0.0],
+            "initParams" : [1.2, 104040.0, "TBD", 0.0, 0.0],
             "bodyForce" : [0.0, 0.0, 0.0],
             "turbForcing" : { "type" : "OFF" }
         },
@@ -216,22 +216,22 @@
             "initCase" : "Uniform",
             "restartDir" : "",
             "initNum" : 0,
-            "maxNum" : 7656564,
+            "maxNum" : "TBD",
             "restitutionCoeff" : -1.0,
-            "convectiveCoeff" : 5632.53877113,
-            "heatCapacity" : 453.1343283582089,
+            "convectiveCoeff" : "TBD",
+            "heatCapacity" : "TBD",
             "initTemperature" : 300.0,
             "density" : 8900.0,
-            "diameterMean" : 1.04882056389e-05,
+            "diameterMean" : "TBD",
             "bodyForce" : [0.0, 0.0, 0.0],
-            "maxSkew" : 1.2,
-            "escapeRatioPerDir" : 0.005,
+            "maxSkew" : 1.0,
+            "escapeRatioPerDir" : 0.01,
             "collisions" : false,
             "feeding" : {
                 "type" : "Incoming",
-                "addedVelocity" : [2.0650625,0.0,0.0]
+                "addedVelocity" : ["TBD",0.0,0.0]
             },
-            "staggerFactor" : 1392,
+            "staggerFactor" : "TBD",
             "parcelSize" : 1
         },
 
@@ -257,8 +257,8 @@
             "zLoTemp" : 0.0,
             "xHiIntensity" : 0.0,
             "xLoIntensity" : 0.0,
-            "yHiIntensity" : 3548499.42581,
-            "yLoIntensity" : 3548499.42581,
+            "yHiIntensity" : "TBD",
+            "yLoIntensity" : "TBD",
             "zHiIntensity" : 0.0,
             "zLoIntensity" : 0.0,
             "xHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
@@ -275,6 +275,7 @@
             "probes" : [{"fromCell" : [512,0,0], "uptoCell" : [512,127,127]}]
         }
     }],
+    "flowThroughTimes" : 5,
     "copySrc" : {
         "fromCell" : [0,0,0],
         "uptoCell" : [0,127,127]
@@ -283,5 +284,5 @@
         "fromCell" : [0,0,0],
         "uptoCell" : [0,127,127]
     },
-    "copyEveryTimeSteps" : 841
+    "copyEveryTimeSteps" : "TBD"
 }
