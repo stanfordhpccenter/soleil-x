@@ -303,6 +303,7 @@ public:
             config.Mapping.tiles[2] % config.Mapping.tilesPerRank[2] == 0,
             "Invalid tiling for sample %lu", sample_mappings_.size() + 1);
       sample_mappings_.emplace_back(rt, config, reqd_ranks);
+      reqd_ranks += sample_mappings_.back().num_ranks();
     };
     // Locate all config files specified on the command-line arguments.
     InputArgs args = Runtime::get_input_args();
@@ -311,14 +312,11 @@ public:
         Config config;
         parse_Config(&config, args.argv[i+1]);
         process_config(config);
-        reqd_ranks += sample_mappings_.back().num_ranks();
       } else if (EQUALS(args.argv[i], "-m") && i < args.argc-1) {
         MultiConfig mc;
         parse_MultiConfig(&mc, args.argv[i+1]);
         process_config(mc.configs[0]);
         process_config(mc.configs[1]);
-        reqd_ranks += std::max(sample_mappings_.end()[-1].num_ranks(),
-                               sample_mappings_.end()[-2].num_ranks());
       }
     }
     // Verify that we have enough ranks.
