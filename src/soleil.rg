@@ -3922,21 +3922,20 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Particles_AddFlowCoupling(Particles : region(ispace(int1d), Particles_columns),
-                               Fluid : region(ispace(int3d), Fluid_columns),
-                               Flow_constantVisc : double,
-                               Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                               Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                               Flow_viscosityModel : SCHEMA.ViscosityModel,
-                               Grid_xCellWidth : double, Grid_xRealOrigin : double,
-                               Grid_yCellWidth : double, Grid_yRealOrigin : double,
-                               Grid_zCellWidth : double, Grid_zRealOrigin : double,
-                               Particles_convectiveCoeff : double,
-                               Particles_heatCapacity : double)
+task Particles_CalcDeltaTerms(Particles : region(ispace(int1d), Particles_columns),
+                              Fluid : region(ispace(int3d), Fluid_columns),
+                              Flow_constantVisc : double,
+                              Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                              Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                              Flow_viscosityModel : SCHEMA.ViscosityModel,
+                              Grid_xCellWidth : double, Grid_xRealOrigin : double,
+                              Grid_yCellWidth : double, Grid_yRealOrigin : double,
+                              Grid_zCellWidth : double, Grid_zRealOrigin : double,
+                              Particles_convectiveCoeff : double)
 where
   reads(Fluid.{centerCoordinates, velocity, temperature}),
   reads(Particles.{cell, position, velocity, diameter, density, temperature, __valid}),
-  writes(Particles.{velocity_t, temperature_t, deltaTemperatureTerm, deltaVelocityOverRelaxationTime})
+  writes(Particles.{deltaTemperatureTerm, deltaVelocityOverRelaxationTime})
 do
   __demand(__openmp)
   for p in Particles do
@@ -3959,12 +3958,24 @@ do
                                                      Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
                                                      Flow_viscosityModel)
       var relaxationTime = Particles[p].density * pow(Particles[p].diameter,2.0) / (18.0 * flowDynamicViscosity)
-      var tmp2 = vs_div(vv_sub(flowVelocity, Particles[p].velocity), relaxationTime)
-      Particles[p].deltaVelocityOverRelaxationTime = tmp2
-      Particles[p].velocity_t = tmp2
-      var tmp3 = PI * pow(Particles[p].diameter,2.0) * Particles_convectiveCoeff * (flowTemperature-Particles[p].temperature)
-      Particles[p].deltaTemperatureTerm = tmp3
-      Particles[p].temperature_t = tmp3/(PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density*Particles_heatCapacity)
+      Particles[p].deltaVelocityOverRelaxationTime = vs_div(vv_sub(flowVelocity, Particles[p].velocity), relaxationTime)
+      Particles[p].deltaTemperatureTerm = PI * pow(Particles[p].diameter,2.0) * Particles_convectiveCoeff * (flowTemperature-Particles[p].temperature)
+    end
+  end
+end
+
+__demand(__parallel, __cuda)
+task Particles_AddFlowCoupling(Particles : region(ispace(int1d), Particles_columns),
+                               Particles_heatCapacity : double)
+where
+  reads(Particles.{diameter, density, deltaTemperatureTerm, deltaVelocityOverRelaxationTime, __valid}),
+  writes(Particles.{velocity_t, temperature_t})
+do
+  __demand(__openmp)
+  for p in Particles do
+    if Particles[p].__valid then
+      Particles[p].velocity_t = Particles[p].deltaVelocityOverRelaxationTime
+      Particles[p].temperature_t = Particles[p].deltaTemperatureTerm/(PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density*Particles_heatCapacity)
     end
   end
 end
@@ -5333,19 +5344,22 @@ local function mkInstance() local INSTANCE = {}
       end
 
       -- Particles & radiation solve
+      if Integrator_timeStep % config.Particles.staggerFactor == 0 or Integrator_timeStep == config.Integrator.startIter then
+        Particles_CalcDeltaTerms(Particles,
+                                 Fluid,
+                                 config.Flow.constantVisc,
+                                 config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                 config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                 config.Flow.viscosityModel,
+                                 Grid.xCellWidth, Grid.xRealOrigin,
+                                 Grid.yCellWidth, Grid.yRealOrigin,
+                                 Grid.zCellWidth, Grid.zRealOrigin,
+                                 config.Particles.convectiveCoeff)
+
+      end
       if Integrator_timeStep % config.Particles.staggerFactor == 0 then
-        -- Add fluid forces to particles
-        Particles_AddFlowCoupling(Particles,
-                                  Fluid,
-                                  config.Flow.constantVisc,
-                                  config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                  config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                  config.Flow.viscosityModel,
-                                  Grid.xCellWidth, Grid.xRealOrigin,
-                                  Grid.yCellWidth, Grid.yRealOrigin,
-                                  Grid.zCellWidth, Grid.zRealOrigin,
-                                  config.Particles.convectiveCoeff,
-                                  config.Particles.heatCapacity)
+      -- Add fluid forces to particles
+        Particles_AddFlowCoupling(Particles, config.Particles.heatCapacity)
         Particles_AddBodyForces(Particles, config.Particles.bodyForce)
         -- Add radiation
         if config.Radiation.type == SCHEMA.RadiationModel_OFF then
