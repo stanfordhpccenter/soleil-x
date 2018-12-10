@@ -78,7 +78,7 @@ soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o renderImag
 soleil.o: soleil-desugared.rg soleil_mapper.h config_schema.h hdf_helper.rg dom-desugared.rg util.rg
 	$(REGENT) soleil-desugared.rg $(REGENT_FLAGS)
 
-bug.exec: bug.o config_schema.o json.o soleil_mapper.o bugr.o
+bug.exec: bug.o config_schema.o json.o bugr.o
 	$(CXX) -o $@ $^ $(LINK_FLAGS)
 
 bug.o:	bug-desugared.rg
