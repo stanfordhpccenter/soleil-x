@@ -1,5 +1,6 @@
 #!/bin/bash -eu
 
+# Compute unique job ID
 if [[ ! -z "${PBS_JOBID:-}" ]]; then
     JOBID="$PBS_JOBID"
 elif [[ ! -z "${SLURM_JOBID:-}" ]]; then
@@ -27,11 +28,11 @@ if [[ -z "$OUT_DIR" ]]; then
         OUT_DIR="$SCRATCH"/"$JOBID"
         mkdir "$OUT_DIR"
         ARGS="$ARGS -o $OUT_DIR"
-        echo "Redirecting output to $OUT_DIR"
     else
         OUT_DIR=.
     fi
 fi
+echo "Sending output to $OUT_DIR"
 
 # Add profiling flags
 if [[ "$PROFILE" == 1 ]]; then
