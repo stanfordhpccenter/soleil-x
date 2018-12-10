@@ -133,6 +133,40 @@ void renderInitialize(FieldData domainMin[3], FieldData domainMax[3],
   std::cout << "light position " << lightPosition[0] << "," << lightPosition[1] << "," << lightPosition[2] << "," << lightPosition[3] << std::endl;
 }
 
+#define DRAW_COORDINATES 1
+
+#if DRAW_COORDINATES
+
+static void drawParticle(GLUquadricObj* qobj, const FieldData3* position, FieldData density, FieldData particleTemperature) {
+
+  GLfloat color[4];
+  color[0] = color[1] = color[2] = color[3] = 1;//debug
+  glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, color);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, color);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, color);
+
+  glPushMatrix();
+  GLfloat x = position->x[0];
+  GLfloat y = position->x[1];
+  GLfloat z = position->x[2];
+std::cout << "center\t" << x << "\t" << y << "\t" << z << std::endl;
+  glTranslatef(x, y, z);
+  const GLfloat densityScale = 1.0e-5;
+  gluSphere(qobj, density * densityScale, 7, 7);
+  glPopMatrix();
+}
+
+
+static void drawCoordinates(int nx, int ny, int nz, const FieldData3* coordinates) {
+  GLUquadricObj *qobj = gluNewQuadric();
+   for(int i = 0; i < nx * ny * nz; ++i) {
+     drawParticle(qobj, coordinates + i, 100, 0);
+   }
+  gluDeleteQuadric(qobj);
+}
+
+#endif
+
 void renderImage(int numFluidX,
                  int numFluidY,
                  int numFluidZ,
@@ -159,6 +193,10 @@ void renderImage(int numFluidX,
   setCameraPosition(domainMin, domainMax);
   vDrawScene(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, visualizationField, targetValue);
   renderParticles(numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity, numParticlesToDraw, particlesToDraw);
+
+#if DRAW_COORDINATES
+  drawCoordinates(numFluidX, numFluidY, numFluidZ, centerCoordinates);
+#endif
 }
 
 
