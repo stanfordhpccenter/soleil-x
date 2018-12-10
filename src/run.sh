@@ -35,7 +35,7 @@ fi
 
 function run_titan {
     GROUP="${GROUP:-CSC188}"
-    export QUEUE="${QUEUE:-debug}"
+    export QUEUE="${QUEUE:-batch}"
     DEPS=
     if [[ ! -z "$AFTER" ]]; then
         DEPS="-W depend=afterok:$AFTER"
@@ -66,7 +66,7 @@ function run_summit {
 
 function run_lassen {
     GROUP="${GROUP:-guests}"
-    export QUEUE="${QUEUE:-pdebug}"
+    export QUEUE="${QUEUE:-pbatch}"
     DEPS=
     if [[ ! -z "$AFTER" ]]; then
         DEPS="-w 'done($AFTER)'"
@@ -77,7 +77,7 @@ function run_lassen {
 }
 
 function run_pizdaint {
-    export QUEUE="${QUEUE:-debug}"
+    export QUEUE="${QUEUE:-normal}"
     DEPS=
     if [[ ! -z "$AFTER" ]]; then
         DEPS="-d afterok:$AFTER"
