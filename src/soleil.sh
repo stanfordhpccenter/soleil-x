@@ -4,6 +4,9 @@
 # Inputs
 ###############################################################################
 
+# Which group to submit jobs under (if a scheduler is available)
+export GROUP="${GROUP:-}"
+
 # Which queue/partition to use (if a scheduler is available)
 export QUEUE="${QUEUE:-}"
 

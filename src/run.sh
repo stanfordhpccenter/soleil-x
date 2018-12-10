@@ -34,17 +34,19 @@ fi
 ###############################################################################
 
 function run_titan {
+    GROUP="${GROUP:-CSC188}"
     export QUEUE="${QUEUE:-debug}"
     DEPS=
     if [[ ! -z "$AFTER" ]]; then
         DEPS="-W depend=afterok:$AFTER"
     fi
-    qsub -V \
         -l nodes="$NUM_RANKS" -l walltime="$WALLTIME" -q "$QUEUE" $DEPS \
+    qsub -V -A "$GROUP" \
         "$SOLEIL_DIR"/src/titan.pbs
 }
 
 function run_summit {
+    GROUP="${GROUP:-CSC275IACCARINO}"
     export QUEUE="${QUEUE:-batch}"
     EXCLUDED="$(cat "$SOLEIL_DIR"/src/blacklist/summit.txt |
                 sed 's/^/ \&\& (hname != /'  | sed 's/$/)/' |
@@ -57,18 +59,19 @@ function run_summit {
     if [[ ! -z "$AFTER" ]]; then
         DEPS="-w 'done($AFTER)'"
     fi
-    bsub -csm y -J soleil -P CSC275IACCARINO -alloc_flags smt4 \
+    bsub -csm y -J soleil -P "$GROUP" -alloc_flags smt4 \
         -R "$RESOURCES" -W "$MINUTES" -q "$QUEUE" $DEPS \
         "$SOLEIL_DIR"/src/summit.lsf
 }
 
 function run_lassen {
+    GROUP="${GROUP:-guests}"
     export QUEUE="${QUEUE:-pdebug}"
     DEPS=
     if [[ ! -z "$AFTER" ]]; then
         DEPS="-w 'done($AFTER)'"
     fi
-    bsub -J soleil -G guests -alloc_flags smt4 \
+    bsub -J soleil -G "$GROUP" -alloc_flags smt4 \
         -nnodes "$NUM_RANKS" -W "$MINUTES" -q "$QUEUE" $DEPS \
         "$SOLEIL_DIR"/src/lassen.lsf
 }

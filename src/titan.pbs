@@ -1,5 +1,4 @@
 #!/bin/bash -eu
-#PBS -A CSC188
 #PBS -N soleil
 #PBS -j oe
 

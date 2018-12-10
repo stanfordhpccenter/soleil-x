@@ -1,5 +1,6 @@
 #!/bin/bash -eu
 
+export GROUP="${GROUP:-}"
 export QUEUE="${QUEUE:-}"
 export AFTER="${AFTER:-}"
 export USE_CUDA="${USE_CUDA:-1}"
