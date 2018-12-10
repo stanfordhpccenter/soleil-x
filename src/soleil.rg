@@ -811,6 +811,8 @@ task Flow_InitializeCenterCoordinates(Fluid : region(ispace(int3d), Fluid_column
 where
   writes(Fluid.centerCoordinates)
 do
+C.printf("Grid_xWidth %lg / Grid_xNum %d * c.x %lg - Grid.xBnum %d + 0.5\n",
+Grid_xWidth, Grid_xNum, c.x, Grid_xBnum);
   __demand(__openmp)
   for c in Fluid do
     Fluid[c].centerCoordinates = array(Grid_xOrigin + (Grid_xWidth/Grid_xNum) * (c.x-Grid_xBnum+0.5),
