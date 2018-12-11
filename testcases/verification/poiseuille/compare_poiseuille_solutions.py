@@ -21,10 +21,9 @@ else :
     sys.exit(2)
 
 
-dir_name = os.path.join(os.environ['SOLEIL_DIR'], 'verification/poiseuille')
+dir_name = os.path.join(os.environ['SOLEIL_DIR'], 'testcases/verification/poiseuille')
 
 soleil_input_file = os.path.join(dir_name, 'poiseuille.json')
-#hdf_filename = os.path.join(dir_name, 'sample0/fluid_iter0000008000/0,0,0-31,33,31.hdf')
 hdf_filename = filename
 
 ##############################################################################
@@ -84,10 +83,6 @@ Nz = rho.shape[0]
 # Get simulation data along a line (ignore ghost cells)
 x_slice_idx = 0
 z_slice_idx = 0
-#u_slice = velocity[z_slice_idx,:,x_slice_idx][:,0][1:Ny-1]
-#rho_slice = rho[z_slice_idx,:,x_slice_idx][1:Ny-1]
-#pressure_slice = pressure[z_slice_idx,:,x_slice_idx][1:Ny-1]
-#temperature_slice = temperature[z_slice_idx,:,x_slice_idx][1:Ny-1]
 
 y_slice =     centerCoordinates[z_slice_idx,:,x_slice_idx][:,1]
 u_slice    =           velocity[z_slice_idx,:,x_slice_idx][:,0]
@@ -105,7 +100,7 @@ def u(y):
 u_slice_analytical = u(y_slice)
 
 ##############################################################################
-#                          Read Soleil Output Data                           #
+#                         Plot and Compare the Solutions                     #
 ##############################################################################
 
 L2_error = np.linalg.norm(u_slice-u_slice_analytical)

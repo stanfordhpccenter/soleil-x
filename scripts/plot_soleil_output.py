@@ -1,7 +1,6 @@
 import sys
 import numpy as np
 import h5py
-#from mayavi import mlab
 import matplotlib.pyplot as plt
 
 # list of things to plot
@@ -31,7 +30,7 @@ else :
 
 f = h5py.File(filename, 'r')
 
-# List all groups
+# Print all groups
 print('Data Sets:')
 for k in f.keys() :
   print(k)
@@ -49,6 +48,7 @@ print('Nx = {}'.format(Nx))
 print('Ny = {}'.format(Ny))
 print('Nz = {}'.format(Nz))
 
+# Get cell center values in each direction
 x_slice_idx = 0
 y_slice_idx = 0
 z_slice_idx = 0
@@ -73,7 +73,6 @@ plt.xlabel('y')
 plt.title('z values')
 
 for scalar_feild_name in scalar_data_to_plot: 
-  #scalar_feild_name = 'rho'
   plt.figure()
   plt.plot(f['{}'.format(scalar_feild_name)][z_slice_idx,:,x_slice_idx], y_values, 'ok', label='Soleil-X')
   plt.xlabel('{}'.format(scalar_feild_name), fontsize = 20)
