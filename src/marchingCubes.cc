@@ -139,6 +139,7 @@ void initializeMarchingCubes(GLfloat lightPosition[4])
   glLightfv( GL_LIGHT0, GL_SPECULAR, afPropertiesSpecular);
   glLightfv( GL_LIGHT0, GL_POSITION, lightPosition);
   glLightModelf(GL_LIGHT_MODEL_TWO_SIDE, 1.0);
+  printf("light position %g %g %g\n", lightPosition[0], lightPosition[1], lightPosition[2]);
   
   glEnable( GL_LIGHT0 );
   
@@ -289,26 +290,7 @@ int index(GLfloat x, int numX, FieldData min, FieldData max) {
 //fSample1 finds the distance of (fX, fY, fZ) from three moving points
 GLfloat fSample(GLfloat fX, GLfloat fY, GLfloat fZ)
 {
-#if 0
-  GLdouble fResult = 0.0;
-  GLdouble fDx, fDy, fDz;
-  fDx = fX - sSourcePoint[0].fX;
-  fDy = fY - sSourcePoint[0].fY;
-  fDz = fZ - sSourcePoint[0].fZ;
-  fResult += 0.5/(fDx*fDx + fDy*fDy + fDz*fDz);
-  
-  fDx = fX - sSourcePoint[1].fX;
-  fDy = fY - sSourcePoint[1].fY;
-  fDz = fZ - sSourcePoint[1].fZ;
-  fResult += 1.0/(fDx*fDx + fDy*fDy + fDz*fDz);
-  
-  fDx = fX - sSourcePoint[2].fX;
-  fDy = fY - sSourcePoint[2].fY;
-  fDz = fZ - sSourcePoint[2].fZ;
-  fResult += 1.5/(fDx*fDx + fDy*fDy + fDz*fDz);
-  
-  return fResult;
-#else
+  //printf("fSample %g %g %g\n", fX, fY, fZ);
   int xIndex = index(fX, gNumFluidX, gDomainMin[0], gDomainMax[0]);
   int yIndex = index(fY, gNumFluidY, gDomainMin[1], gDomainMax[1]);
   int zIndex = index(fZ, gNumFluidZ, gDomainMin[2], gDomainMax[2]);
@@ -329,12 +311,8 @@ GLfloat fSample(GLfloat fX, GLfloat fY, GLfloat fZ)
       data = gRho;
       break;
   }
-  int index = xIndex * (gNumFluidY * gNumFluidZ) + yIndex * gNumFluidZ + zIndex;
-  
-  //std::cout << "sample at " << fX << "," << fY << "," << fZ << " = " << data[index] << std::endl;
-  
+  int index = xIndex + gNumFluidX * yIndex + gNumFluidX * gNumFluidY * zIndex;  
   return data[index];
-#endif
 }
 
 
@@ -349,6 +327,26 @@ GLvoid vGetNormal(GLvector &rfNormal, GLfloat fX, GLfloat fY, GLfloat fZ)
   vNormalizeVector(rfNormal, rfNormal);
 }
 
+#define DRAW_SURFACE_AS_PARTICLES 0
+
+#if DRAW_SURFACE_AS_PARTICLES
+static void drawParticle(GLfloat x, GLfloat y, GLfloat z) {
+  static GLUquadricObj *qobj = NULL;
+  if(qobj == NULL) qobj = gluNewQuadric();
+
+  GLfloat color[4];
+  color[0] = color[1] = color[2] = color[3] = 1;//debug
+  glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, color);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, color);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, color);
+  
+  glPushMatrix();
+  glTranslatef(x, y, z);
+  gluSphere(qobj, 0.1, 7, 7);
+  glPopMatrix();
+
+}
+#endif
 
 //vMarchCube1 performs the Marching Cubes algorithm on a single cube
 GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat scaleY, GLfloat scaleZ)
@@ -421,13 +419,12 @@ GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat sc
       
       vGetColor(sColor, asEdgeVertex[iVertex], asEdgeNorm[iVertex]);
       glColor3f(sColor.fX, sColor.fY, sColor.fZ);
-      glNormal3f(asEdgeNorm[iVertex].fX,   asEdgeNorm[iVertex].fY,   asEdgeNorm[iVertex].fZ);
-#if 0
-      glVertex3f(asEdgeVertex[iVertex].fX, asEdgeVertex[iVertex].fY, asEdgeVertex[iVertex].fZ);
+#if DRAW_SURFACE_AS_PARTICLES
+      drawParticle(asEdgeVertex[iVertex].fX, asEdgeVertex[iVertex].fY, asEdgeVertex[iVertex].fZ);
 #else
-      glVertex3f(asEdgeVertex[iVertex].fX * (gDomainMax[0] - gDomainMin[0]),
-                 asEdgeVertex[iVertex].fY * (gDomainMax[1] - gDomainMin[1]),
-                 asEdgeVertex[iVertex].fZ * (gDomainMax[2] - gDomainMin[2]));
+      glNormal3f(asEdgeNorm[iVertex].fX, asEdgeNorm[iVertex].fY,   asEdgeNorm[iVertex].fZ);
+      glVertex3f(asEdgeVertex[iVertex].fX, asEdgeVertex[iVertex].fY, asEdgeVertex[iVertex].fZ);
+      //printf("tri %g %g %g\n", asEdgeVertex[iVertex].fX, asEdgeVertex[iVertex].fY, asEdgeVertex[iVertex].fZ);
 #endif
       gDrawnTriangles++;
       
@@ -443,9 +440,9 @@ GLvoid vMarchingCubes()
 {
   gDrawnTriangles = 0;
   GLint iX, iY, iZ;
-  float stepSizeX = 1.0 / gNumFluidX;
-  float stepSizeY = 1.0 / gNumFluidY;
-  float stepSizeZ = 1.0 / gNumFluidZ;
+  float stepSizeX = (gDomainMax[0] - gDomainMin[0]) / gNumFluidX;
+  float stepSizeY = (gDomainMax[1] - gDomainMin[1]) / gNumFluidY;
+  float stepSizeZ = (gDomainMax[2] - gDomainMin[2]) / gNumFluidZ;
 
   for(iX = 0; iX < gNumFluidX; iX++)
     for(iY = 0; iY < gNumFluidY; iY++)

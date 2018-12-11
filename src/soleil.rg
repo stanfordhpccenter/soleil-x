@@ -817,12 +817,6 @@ do
     Fluid[c].centerCoordinates = array(Grid_xOrigin + (Grid_xWidth/Grid_xNum) * (c.x-Grid_xBnum+0.5),
                                        Grid_yOrigin + (Grid_yWidth/Grid_yNum) * (c.y-Grid_yBnum+0.5),
                                        Grid_zOrigin + (Grid_zWidth/Grid_zNum) * (c.z-Grid_zBnum+0.5))
-    C.printf("center\t%g\t%g\t%g\n", Fluid[c].centerCoordinates[0], Fluid[c].centerCoordinates[1], Fluid[c].centerCoordinates[2])
-    C.printf("Grid_xOrigin %g\n", Grid_xOrigin)
-    C.printf("Grid_xWidth %g\n", Grid_xWidth)
-    C.printf("Grid_xNum %d\n", Grid_xNum)
-    C.printf("c.x %ld\n", c.x)
-    C.printf("Grid_xBnum %d\n", Grid_xBnum)
   end
 end
 

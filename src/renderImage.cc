@@ -64,9 +64,9 @@ void setCameraPosition(FieldData domainMin[3], FieldData domainMax[3]) {
     (GLfloat)((domainMin[2] + domainMax[2]) * 0.5) };
 #endif
   GLfloat up[] = { 0, 1, 0 };
-  std::cout << "camera from " << from[0] << "," << from[1] << "," << from[2] << std::endl;
-  std::cout << "camera at   " << at[0] << "," << at[1] << "," << at[2] << std::endl;
-  std::cout << "camera up   " << up[0] << "," << up[1] << "," << up[2] << std::endl;
+//  std::cout << "camera from " << from[0] << "," << from[1] << "," << from[2] << std::endl;
+//  std::cout << "camera at   " << at[0] << "," << at[1] << "," << at[2] << std::endl;
+//  std::cout << "camera up   " << up[0] << "," << up[1] << "," << up[2] << std::endl;
   gluLookAt(from[0], from[1], from[2], at[0], at[1], at[2], up[0], up[1], up[2]);
 }
 
@@ -104,7 +104,6 @@ void createGraphicsContext(OSMesaContext &mesaCtx,
     glGetIntegerv(GL_DEPTH_BITS, &z);
     glGetIntegerv(GL_STENCIL_BITS, &s);
     glGetIntegerv(GL_ACCUM_RED_BITS, &a);
-    printf("Depth=%d Stencil=%d Accum=%d\n", z, s, a);
   }
 
   /* Allocate the depth buffer. */
@@ -130,10 +129,9 @@ void renderInitialize(FieldData domainMin[3], FieldData domainMax[3],
   lightPosition[2] = 0.5 * (domainMax[2] - domainMin[2]);
   lightPosition[3] = 1.0;
   initializeMarchingCubes(lightPosition);
-  std::cout << "light position " << lightPosition[0] << "," << lightPosition[1] << "," << lightPosition[2] << "," << lightPosition[3] << std::endl;
 }
 
-#define DRAW_COORDINATES 1
+#define DRAW_COORDINATES 0
 
 #if DRAW_COORDINATES
 
@@ -149,7 +147,6 @@ static void drawParticle(GLUquadricObj* qobj, const FieldData3* position, FieldD
   GLfloat x = position->x[0];
   GLfloat y = position->x[1];
   GLfloat z = position->x[2];
-std::cout << "center\t" << x << "\t" << y << "\t" << z << std::endl;
   glTranslatef(x, y, z);
   const GLfloat densityScale = 1.0e-5;
   gluSphere(qobj, density * densityScale, 7, 7);
@@ -160,7 +157,7 @@ std::cout << "center\t" << x << "\t" << y << "\t" << z << std::endl;
 static void drawCoordinates(int nx, int ny, int nz, const FieldData3* coordinates) {
   GLUquadricObj *qobj = gluNewQuadric();
    for(int i = 0; i < nx * ny * nz; ++i) {
-     drawParticle(qobj, coordinates + i, 100, 0);
+     drawParticle(qobj, coordinates + i, 2000, 0);
    }
   gluDeleteQuadric(qobj);
 }
@@ -187,8 +184,8 @@ void renderImage(int numFluidX,
                  long int* particlesToDraw,
                  int numParticlesToDraw) {
   
-  std::cout << "domain min " << domainMin[0] << "," << domainMin[1] << "," << domainMin[2] << std::endl;
-  std::cout << "domain max " << domainMax[0] << "," << domainMax[1] << "," << domainMax[2] << std::endl;
+//  std::cout << "domain min " << domainMin[0] << "," << domainMin[1] << "," << domainMin[2] << std::endl;
+//  std::cout << "domain max " << domainMax[0] << "," << domainMax[1] << "," << domainMax[2] << std::endl;
   
   setCameraPosition(domainMin, domainMax);
   vDrawScene(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, visualizationField, targetValue);

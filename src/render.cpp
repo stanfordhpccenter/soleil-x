@@ -172,7 +172,9 @@ extern "C" {
     IndexSpace indexSpace = fluid.get_logical_region().get_index_space();
     Rect<3> bounds = runtime->get_index_space_domain(ctx, indexSpace);
     long int num[3] = {
-      bounds.hi[0] - bounds.lo[0], bounds.hi[1] - bounds.lo[1], bounds.hi[2] - bounds.lo[2]
+      bounds.hi[0] - bounds.lo[0] + 1,
+      bounds.hi[1] - bounds.lo[1] + 1,
+      bounds.hi[2] - bounds.lo[2] + 1
     };
     
     Rect<3> rect3 = runtime->get_index_space_domain(ctx, fluid.get_logical_region().get_index_space());
@@ -204,7 +206,7 @@ extern "C" {
     AccessorWO<FieldData, 3> a(image, imageFields[3]);
     AccessorWO<FieldData, 3> z(image, imageFields[4]);
     
-#define USE_COMPOSITOR 1
+#define USE_COMPOSITOR 0
 #if USE_COMPOSITOR
     
     IndexSpace saveIndexSpace = image.get_logical_region().get_index_space();
