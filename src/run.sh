@@ -27,8 +27,7 @@ for (( i = 1; i <= $#; i++ )); do
         quit "Cannot handle spaces in command line arguments"
     fi
 done
-# Build initial command line
-export COMMAND="$EXECUTABLE $@"
+export ARGS=$@
 
 export WALLTIME="$(printf "%02d:%02d:00" $((MINUTES/60)) $((MINUTES%60)))"
 

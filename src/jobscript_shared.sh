@@ -28,7 +28,7 @@ fi
 # defined, and the user hasn't specified an output directory explicitly).
 OUT_DIR=
 OUT_DIR_FOLLOWS=false
-for ARG in $@; do
+for ARG in $ARGS; do
     if [[ "$OUT_DIR_FOLLOWS" == true ]]; then
         OUT_DIR="$ARG"
         break
@@ -83,7 +83,7 @@ if [[ "$LOCAL_RUN" == 0 ]]; then
     GASNET_OPTS="-ll:rsize 1024 -ll:ib_rsize 1024 -ll:gsize 0"
 fi
 # Synthesize final command
-COMMAND="$COMMAND \
+COMMAND="$EXECUTABLE $ARGS \
   $PROFILER_OPTS \
   -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr $THREADS_PER_RANK \
   $GPU_OPTS \
