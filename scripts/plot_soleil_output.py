@@ -4,12 +4,13 @@ import h5py
 import matplotlib.pyplot as plt
 
 # list of things to plot
-#scalar_data_to_plot = ['rho','pressure','temperature']
-#vector_data_to_plot = ['cellWidth','velocity','velocityGradientX','velocityGradientY','velocityGradientZ','temperatureGradient']
+scalar_data_to_plot = ['rho','pressure','temperature']
+vector_data_to_plot = ['cellWidth','velocity']
 
-scalar_data_to_plot = ['rho','pressure','temperature', 'debug_scalar']
+#scalar_data_to_plot = ['rho','pressure','temperature', 'debug_scalar']
+#vector_data_to_plot = ['cellWidth','velocity','velocityGradientX','velocityGradientY','velocityGradientZ','temperatureGradient']
 #vector_data_to_plot = ['velocity','velocityGradientX','velocityGradientY','velocityGradientZ', 'debug_vector1', 'debug_vector2', 'debug_vector3']
-vector_data_to_plot = ['cellWidth','velocity','velocityGradientY','debug_vector1','debug_vector2','debug_vector3']
+#vector_data_to_plot = ['cellWidth','velocity','velocityGradientY','debug_vector1','debug_vector2','debug_vector3']
 
 # --------------------------------------------------------------------------- #
 #                            Read Command Line Input                          #
@@ -118,31 +119,3 @@ for vector_feild_name in vector_data_to_plot:
     #plt.savefig('{}.pdf'.format(vector_feild_name), bbox_inches='tight')
 
 plt.show()
-
-###############################################################################
-#for feild_name in data_to_plot:
-#
-#  feild = f[feild_name]
-#  # check to see if the feild is a vector or a scalar
-#
-#  figure = mlab.figure('{} in Plane'.format(feild_name))
-#  mlab.pipeline.image_plane_widget(mlab.pipeline.scalar_field(data_dict[feild_name]),
-#                                   plane_orientation='x_axes',
-#                                   slice_index=0)
-#  mlab.pipeline.image_plane_widget(mlab.pipeline.scalar_field(data_dict[feild_name]),
-#                                   plane_orientation='y_axes',
-#                                   slice_index=0)
-#  mlab.pipeline.image_plane_widget(mlab.pipeline.scalar_field(data_dict[feild_name]),
-#                                   plane_orientation='z_axes',
-#                                   slice_index=0)
-#
-#  mlab.outline()
-#  mlab.axes(ranges=[x_min, x_max, y_min, y_max, z_min, z_max])
-#  mlab.xlabel('x [m]')
-#  mlab.ylabel('y [m]')
-#  mlab.zlabel('z [m]')
-#  mlab.title('{}'.format(feild_name))
-#  mlab.colorbar(orientation='vertical')
-
-#mlab.show()
-###############################################################################
