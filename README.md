@@ -443,7 +443,7 @@ We need to go through the `lalloc` utility script to build on a compute node.
 
 ```
 cd "$LEGION_DIR"/language
-CC_FLAGS='-DMAX_NUM_NODES=4096' TERRA_USE_PUC_LUA=1 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 lalloc 1 -W 720 scripts/setup_env.py --llvm-version 38 --terra-branch 'puc_lua_master'
+CC_FLAGS='-DMAX_NUM_NODES=4096' TERRA_USE_PUC_LUA=1 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 lalloc 1 -G guests -W 720 scripts/setup_env.py --llvm-version 38 --terra-branch 'puc_lua_master'
 ```
 
 ### Compile Soleil-X
@@ -452,5 +452,5 @@ Soleil-X must similarly be built on a compute node.
 
 ```
 cd "$SOLEIL_DIR"/src
-lalloc 1 -W 720 make
+lalloc 1 -G guests -W 720 make
 ```
