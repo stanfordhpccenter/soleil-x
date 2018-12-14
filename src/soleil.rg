@@ -68,6 +68,8 @@ local Particles_primitives = terralib.newlist({
 })
 local Particles_derived = terralib.newlist({
   'cell',
+  'deltaVelocityOverRelaxationTime',
+  'deltaTemperatureTerm',
 })
 local Particles_iterTemp = terralib.newlist({
   'position_old',
@@ -78,8 +80,6 @@ local Particles_iterTemp = terralib.newlist({
   'temperature_new',
 })
 local Particles_subStepTemp = terralib.newlist({
-  'deltaVelocityOverRelaxationTime',
-  'deltaTemperatureTerm',
   'velocity_t',
   'temperature_t',
   '__xfer_dir',
