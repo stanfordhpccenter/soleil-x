@@ -433,7 +433,7 @@ export GPU_ARCH=volta
 ### Download software
 
 ```
-git clone -b puc_lua_merge https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
 git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 ```
 
