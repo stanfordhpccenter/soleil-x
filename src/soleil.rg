@@ -4819,8 +4819,6 @@ local function mkInstance() local INSTANCE = {}
     [UTIL.emitRegionTagAttach(Fluid_copy, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
 
     -- Create Particles Regions
-    regentlib.assert(config.Particles.maxNum % config.Particles.parcelSize == 0,
-                     'Uneven parceling of particles')
     regentlib.assert((config.Particles.maxNum / config.Particles.parcelSize) % numTiles == 0,
                      'Uneven partitioning of particles')
     var maxParticlesPerTile = config.Particles.maxNum / config.Particles.parcelSize / numTiles
@@ -5049,8 +5047,6 @@ local function mkInstance() local INSTANCE = {}
                                       Grid.zBnum, config.Grid.zNum, NZ)
         end
       elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform then
-        regentlib.assert(config.Particles.initNum % config.Particles.parcelSize == 0,
-                         'Uneven parceling of particles')
         regentlib.assert((config.Particles.initNum / config.Particles.parcelSize) % numTiles == 0,
                          'Uneven partitioning of particles')
         regentlib.assert(config.Particles.initNum <= config.Particles.maxNum,
