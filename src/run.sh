@@ -79,7 +79,7 @@ function run_summit {
                $NUM_CORES*{select[CN$EXCLUDED]span[ptile=42]}"
     DEPS=
     if [[ ! -z "$AFTER" ]]; then
-        DEPS="-w 'done($AFTER)'"
+        DEPS="-w done($AFTER)"
     fi
     bsub -csm y -J soleil -P "$GROUP" -alloc_flags smt4 \
         -R "$RESOURCES" -W "$MINUTES" -q "$QUEUE" $DEPS \
@@ -91,7 +91,7 @@ function run_lassen {
     export QUEUE="${QUEUE:-pbatch}"
     DEPS=
     if [[ ! -z "$AFTER" ]]; then
-        DEPS="-w 'done($AFTER)'"
+        DEPS="-w done($AFTER)"
     fi
     bsub -G "$GROUP" \
         -nnodes "$NUM_NODES" -W "$MINUTES" -q "$QUEUE" $DEPS \
