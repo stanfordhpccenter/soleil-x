@@ -271,7 +271,7 @@
 
         "IO" : {
             "wrtRestart" : true,
-            "restartEveryTimeSteps" : 10000,
+            "restartEveryTimeSteps" : 50000,
             "probes" : [{"fromCell" : [512,0,0], "uptoCell" : [512,127,127]}]
         }
     }],
