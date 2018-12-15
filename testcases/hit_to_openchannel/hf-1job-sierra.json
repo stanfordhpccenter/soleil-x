@@ -120,7 +120,7 @@
 
         "IO" : {
             "wrtRestart" : true,
-            "restartEveryTimeSteps" : 10000,
+            "restartEveryTimeSteps" : 50000,
             "probes" : []
         }
     }, {
