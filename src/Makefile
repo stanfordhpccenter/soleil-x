@@ -55,9 +55,9 @@ LINK_FLAGS += -lm
 
 .PHONY: default all clean
 
-default: soleil.exec
+default: soleil.exec reqd_ranks.exec
 
-all: soleil.exec dom_host.exec
+all: soleil.exec reqd_ranks.exec dom_host.exec
 
 clean:
 	$(RM) *.exec *.o *-desugared.rg config_schema.h
@@ -77,11 +77,17 @@ dom_host.exec: dom_host.o config_schema.o json.o
 dom_host.o: dom_host.rg config_schema.h dom-desugared.rg util.rg
 	$(REGENT) dom_host.rg $(REGENT_FLAGS)
 
-soleil_mapper.o: soleil_mapper.cc soleil_mapper.h config_schema.h
+soleil_mapper.o: soleil_mapper.cc soleil_mapper.h base_mapping.h config_schema.h
 	$(CXX) $(CXXFLAGS) -c -o  $@ $<
 
 config_schema.o config_schema.h: process_schema.rg config_schema.lua json.h util.rg
 	$(REGENT) process_schema.rg config_schema.lua $(REGENT_FLAGS)
+
+reqd_ranks.exec: reqd_ranks.o config_schema.o json.o
+	$(CXX) -o $@ $^ $(LINK_FLAGS)
+
+reqd_ranks.o: reqd_ranks.cc base_mapping.h config_schema.h
+	$(CXX) $(CXXFLAGS) -c -o  $@ $<
 
 json.o: json.c json.h
 	$(CC) $(CFLAGS) -c -o $@ $<

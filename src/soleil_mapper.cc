@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <regex>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -11,6 +12,7 @@
 #include "realm/logging.h"
 
 #include "config_schema.h"
+#include "base_mapping.h"
 #include "soleil_mapper.h"
 
 using namespace Legion;
@@ -44,6 +46,8 @@ using namespace Legion::Mapping;
 //        B [3,0,0] ->     1        0 ->   3    0
 //        B [4,0,0] ->     1        1 ->   3    1
 //        B [5,0,0] ->     1        2 ->   3    0
+// If tilesPerRank > tiles, then more than one sample can be mapped onto the
+// same rank (as consecutive splinters).
 
 //=============================================================================
 // HELPER CODE
@@ -77,8 +81,6 @@ static const void* first_arg(const Task& task) {
 
 typedef unsigned SplinterID;
 
-class SampleMapping;
-
 class SplinteringFunctor : public ShardingFunctor {
 private:
   static ShardingID NEXT_ID;
@@ -88,8 +90,13 @@ public:
     rt->register_sharding_functor(id, this, true);
   }
 public:
-  AddressSpace get_rank(const DomainPoint &point);
+  AddressSpace get_rank(const DomainPoint &point) {
+    return parent_.get_rank(shard(point, Domain(), 0));
+  }
   virtual SplinterID splinter(const DomainPoint &point) = 0;
+  unsigned get_proc_id(const DomainPoint &point) {
+    return parent_.get_proc_id(splinter(point));
+  }
 public:
   const ShardingID id;
 protected:
@@ -98,24 +105,19 @@ protected:
 
 ShardingID SplinteringFunctor::NEXT_ID = 12345;
 
-class SampleMapping {
+class SampleMapping : public BaseMapping {
 public:
   class Tiling3DFunctor;
   class Tiling2DFunctor;
   class HardcodedFunctor;
 
 public:
-  SampleMapping(Runtime* rt, const Config& config, AddressSpace first_rank)
-    : tiles_per_rank_{static_cast<unsigned>(config.Mapping.tilesPerRank[0]),
-                      static_cast<unsigned>(config.Mapping.tilesPerRank[1]),
-                      static_cast<unsigned>(config.Mapping.tilesPerRank[2])},
-      ranks_per_dim_{static_cast<unsigned>(config.Mapping.tiles[0]
-                                           / config.Mapping.tilesPerRank[0]),
-                     static_cast<unsigned>(config.Mapping.tiles[1]
-                                           / config.Mapping.tilesPerRank[1]),
-                     static_cast<unsigned>(config.Mapping.tiles[2]
-                                           / config.Mapping.tilesPerRank[2])},
-      first_rank_(first_rank),
+  SampleMapping(Runtime* rt, const Config& config, unsigned sample_id,
+                AddressSpace next_rank, unsigned next_proc_id,
+                unsigned prev_proc_ids_per_rank)
+    : BaseMapping(config, sample_id,
+                  next_rank, next_proc_id,
+                  prev_proc_ids_per_rank),
       tiling_3d_functor_(new Tiling3DFunctor(rt, *this)),
       tiling_2d_functors_{{new Tiling2DFunctor(rt, *this, 0, false),
                            new Tiling2DFunctor(rt, *this, 0, true )},
@@ -132,28 +134,8 @@ public:
       }
     }
   }
-  SampleMapping(const SampleMapping& rhs) = delete;
-  SampleMapping& operator=(const SampleMapping& rhs) = delete;
 
 public:
-  AddressSpace get_rank(ShardID shard_id) const {
-    return first_rank_ + shard_id;
-  }
-  unsigned num_ranks() const {
-    return ranks_per_dim_[0] * ranks_per_dim_[1] * ranks_per_dim_[2];
-  }
-  unsigned x_tiles() const {
-    return tiles_per_rank_[0] * ranks_per_dim_[0];
-  }
-  unsigned y_tiles() const {
-    return tiles_per_rank_[1] * ranks_per_dim_[1];
-  }
-  unsigned z_tiles() const {
-    return tiles_per_rank_[2] * ranks_per_dim_[2];
-  }
-  unsigned num_tiles() const {
-    return x_tiles() * y_tiles() * z_tiles();
-  }
   Tiling3DFunctor* tiling_3d_functor() {
     return tiling_3d_functor_;
   }
@@ -187,11 +169,16 @@ public:
             0 <= point[1] && point[1] < parent_.y_tiles() &&
             0 <= point[2] && point[2] < parent_.z_tiles(),
             "Unexpected point on index space launch");
+      if (parent_.isPartialRank()) {
+        return 0;
+      }
       return
-        (point[0] / parent_.tiles_per_rank_[0]) * parent_.ranks_per_dim_[1]
-                                                * parent_.ranks_per_dim_[2] +
-        (point[1] / parent_.tiles_per_rank_[1]) * parent_.ranks_per_dim_[2] +
-        (point[2] / parent_.tiles_per_rank_[2]);
+        point[0] / parent_.tiles_per_rank_[0]
+                 * parent_.tiles_[1] / parent_.tiles_per_rank_[1]
+                 * parent_.tiles_[2] / parent_.tiles_per_rank_[2] +
+        point[1] / parent_.tiles_per_rank_[1]
+                 * parent_.tiles_[2] / parent_.tiles_per_rank_[2] +
+        point[2] / parent_.tiles_per_rank_[2];
     }
     virtual SplinterID splinter(const DomainPoint &point) {
       assert(point.get_dim() == 3);
@@ -199,11 +186,19 @@ public:
             0 <= point[1] && point[1] < parent_.y_tiles() &&
             0 <= point[2] && point[2] < parent_.z_tiles(),
             "Unexpected point on index space launch");
+      if (parent_.isPartialRank()) {
+        return
+          point[0] % parent_.tiles_[0] * parent_.tiles_[1] * parent_.tiles_[2] +
+          point[1] % parent_.tiles_[1] * parent_.tiles_[2] +
+          point[2] % parent_.tiles_[2];
+      }
       return
-        (point[0] % parent_.tiles_per_rank_[0]) * parent_.tiles_per_rank_[1]
-                                                * parent_.tiles_per_rank_[2] +
-        (point[1] % parent_.tiles_per_rank_[1]) * parent_.tiles_per_rank_[2] +
-        (point[2] % parent_.tiles_per_rank_[2]);
+        point[0] % parent_.tiles_per_rank_[0]
+                 * parent_.tiles_per_rank_[1]
+                 * parent_.tiles_per_rank_[2] +
+        point[1] % parent_.tiles_per_rank_[1]
+                 * parent_.tiles_per_rank_[2] +
+        point[2] % parent_.tiles_per_rank_[2];
     }
   };
 
@@ -265,17 +260,10 @@ public:
   };
 
 private:
-  unsigned tiles_per_rank_[3];
-  unsigned ranks_per_dim_[3];
-  AddressSpace first_rank_;
   Tiling3DFunctor* tiling_3d_functor_;
   Tiling2DFunctor* tiling_2d_functors_[3][2];
   std::vector<HardcodedFunctor*> hardcoded_functors_;
 };
-
-AddressSpace SplinteringFunctor::get_rank(const DomainPoint &point) {
-  return parent_.get_rank(shard(point, Domain(), 0));
-}
 
 //=============================================================================
 // MAPPER CLASS: CONSTRUCTOR
@@ -290,20 +278,16 @@ public:
     umask(022);
     // Assign ranks sequentially to samples, each sample getting one rank for
     // each super-tile.
-    AddressSpace reqd_ranks = 0;
+    AddressSpace next_rank = 0;
+    unsigned next_proc_id = 0;
+    unsigned prev_proc_ids_per_rank = 1;
     auto process_config = [&](const Config& config) {
-      CHECK(config.Mapping.tiles[0] > 0 &&
-            config.Mapping.tiles[1] > 0 &&
-            config.Mapping.tiles[2] > 0 &&
-            config.Mapping.tilesPerRank[0] > 0 &&
-            config.Mapping.tilesPerRank[1] > 0 &&
-            config.Mapping.tilesPerRank[2] > 0 &&
-            config.Mapping.tiles[0] % config.Mapping.tilesPerRank[0] == 0 &&
-            config.Mapping.tiles[1] % config.Mapping.tilesPerRank[1] == 0 &&
-            config.Mapping.tiles[2] % config.Mapping.tilesPerRank[2] == 0,
-            "Invalid tiling for sample %lu", sample_mappings_.size() + 1);
-      sample_mappings_.emplace_back(rt, config, reqd_ranks);
-      reqd_ranks += sample_mappings_.back().num_ranks();
+      sample_mappings_.emplace_back(rt, config, sample_mappings_.size(),
+                                    next_rank, next_proc_id,
+                                    prev_proc_ids_per_rank);
+      next_rank = sample_mappings_.back().next_rank();
+      next_proc_id = sample_mappings_.back().next_proc_id();
+      prev_proc_ids_per_rank = sample_mappings_.back().proc_ids_per_rank();
     };
     // Locate all config files specified on the command-line arguments.
     InputArgs args = Runtime::get_input_args();
@@ -320,7 +304,8 @@ public:
       }
     }
     // Verify that we have enough ranks.
-    unsigned supplied_ranks = remote_cpus.size();
+    AddressSpace reqd_ranks = sample_mappings_.back().reqd_ranks();
+    AddressSpace supplied_ranks = remote_cpus.size();
     CHECK(reqd_ranks <= supplied_ranks,
           "%u rank(s) required, but %u rank(s) supplied to Legion",
           reqd_ranks, supplied_ranks);
@@ -537,7 +522,7 @@ public:
     // Create a replicant on the first CPU processor of each sample's ranks.
     for (unsigned sample_id : sample_ids) {
       const SampleMapping& mapping = sample_mappings_[sample_id];
-      for (ShardID shard_id = 0; shard_id < mapping.num_ranks(); ++shard_id) {
+      for (ShardID shard_id = 0; shard_id < mapping.num_shards(); ++shard_id) {
         AddressSpace rank = mapping.get_rank(shard_id);
         Processor target_proc = get_procs(rank, info.proc_kind)[0];
         output.task_mappings.push_back(default_output);
@@ -861,8 +846,8 @@ private:
                         SplinteringFunctor* functor) {
     AddressSpace rank = functor->get_rank(tile);
     const std::vector<Processor>& procs = get_procs(rank, kind);
-    SplinterID splinter_id = functor->splinter(tile);
-    return procs[splinter_id % procs.size()];
+    unsigned proc_id = functor->get_proc_id(tile);
+    return procs[proc_id % procs.size()];
   }
 
   std::vector<Processor>& get_procs(AddressSpace rank, Processor::Kind kind) {
