@@ -192,7 +192,7 @@ extern "C" {
     const FieldData* particlesTemperatureP = particlesTemperature.ptr(Z1);
     const FieldData* particlesDensityP = particlesDensity.ptr(Z1);
 
-    renderImage(num[0], num[1], num[2], rhoP, pressureP, velocityP, centerCoordinatesP, temperatureP, lowerBound, upperBound, rhoField, 0.999999,
+    renderImage(num[0], num[1], num[2], rhoP, pressureP, velocityP, centerCoordinatesP, temperatureP, lowerBound, upperBound, temperatureField, 4.91,
                 numParticles, idP, particlesPositionP, particlesTemperatureP, particlesDensityP,
                 particlesToDraw, numParticlesToDraw);
     
