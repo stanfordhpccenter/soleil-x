@@ -986,7 +986,7 @@ do
         -- based on the incoming values, so we set a fake incoming value, that
         -- would have produced the fake velocity setting above.
         var velocity_inc = velocity
-        velocity_inc[0] -= BC_xBCLeftInflowProfile_Incoming_addedVelocity
+        velocity_inc[0] += -BC_xBCLeftInflowProfile_Incoming_addedVelocity
         Fluid[c_bnd].velocity_inc = velocity_inc
       end
       Fluid[c_bnd].velocity = velocity
@@ -4079,7 +4079,7 @@ do
       Fluid[Particles[p].cell].rhoVelocity_t[0] += tmp[0]
       Fluid[Particles[p].cell].rhoVelocity_t[1] += tmp[1]
       Fluid[Particles[p].cell].rhoVelocity_t[2] += tmp[2]
-      Fluid[Particles[p].cell].rhoEnergy_t -= Particles_parcelSize*Particles[p].deltaTemperatureTerm/Grid_cellVolume
+      Fluid[Particles[p].cell].rhoEnergy_t += -Particles_parcelSize*Particles[p].deltaTemperatureTerm/Grid_cellVolume
     end
   end
 end
@@ -4305,7 +4305,7 @@ do
       end
       if (Particles[p].position[0]>(Grid_xOrigin+Grid_xWidth)) then
         if BC_xBCParticles == SCHEMA.ParticlesBC_Periodic then
-          Particles[p].position[0] -= Grid_xWidth
+          Particles[p].position[0] += -Grid_xWidth
         elseif BC_xBCParticles == SCHEMA.ParticlesBC_Bounce then
           Particles[p].position[0] = (Grid_xOrigin+Grid_xWidth)
           var impulse = ((-(1.0+Particles_restitutionCoeff))*Particles[p].velocity[0])
@@ -4333,7 +4333,7 @@ do
       end
       if (Particles[p].position[1]>(Grid_yOrigin+Grid_yWidth)) then
         if BC_yBCParticles == SCHEMA.ParticlesBC_Periodic then
-          Particles[p].position[1] -= Grid_yWidth
+          Particles[p].position[1] += -Grid_yWidth
         elseif BC_yBCParticles == SCHEMA.ParticlesBC_Bounce then
           Particles[p].position[1] = (Grid_yOrigin+Grid_yWidth)
           var impulse = ((-(1.0+Particles_restitutionCoeff))*Particles[p].velocity[1])
@@ -4361,7 +4361,7 @@ do
       end
       if (Particles[p].position[2]>(Grid_zOrigin+Grid_zWidth)) then
         if BC_zBCParticles == SCHEMA.ParticlesBC_Periodic then
-          Particles[p].position[2] -= Grid_zWidth
+          Particles[p].position[2] += -Grid_zWidth
         elseif BC_zBCParticles == SCHEMA.ParticlesBC_Bounce then
           Particles[p].position[2] = (Grid_zOrigin+Grid_zWidth)
           var impulse = ((-(1.0+Particles_restitutionCoeff))*Particles[p].velocity[2])
