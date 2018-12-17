@@ -31,8 +31,7 @@ local MAX_ANGLES_PER_QUAD = 44
 
 -- Visualization data
 
-local IMAGE_PARTICLE_HISTORY_LENGTH = 5
-local IMAGE_RENDER_INTERVAL = 1 -- how many frames between renders
+local IMAGE_RENDER_INTERVAL = 10 -- how many frames between renders
 
 
 -------------------------------------------------------------------------------
