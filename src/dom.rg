@@ -570,7 +570,7 @@ local function mkSweep(q)
     var dAz = dx*dy
     var dV = dx*dy*dz
     var num_angles = config.Radiation.u.DOM.angles
-    var res = 0.0
+    var acc = 0.0
     -- Launch in order of intra-tile diagonals
     for d = int64(diagonals.bounds.lo), int64(diagonals.bounds.hi+1) do
       __demand(__openmp)
@@ -603,7 +603,7 @@ local function mkSweep(q)
                       + fabs(angles[m].eta) * dAy/GAMMA
                       + fabs(angles[m].mu)  * dAz/GAMMA)
           if newI > 0.0 then
-            res += pow(newI-oldI,2) / pow(newI,2)
+            acc += pow(newI-oldI,2) / pow(newI,2)
           end
           sub_points[s1d].I = newI
           -- Compute intensities on downwind faces
@@ -613,7 +613,7 @@ local function mkSweep(q)
         end
       end
     end
-    return res
+    return acc
   end
 
   local name = 'sweep_'..tostring(q)
@@ -873,7 +873,7 @@ function MODULE.mkInstance() local INSTANCE = {}
     end
 
     -- Compute until convergence.
-    var res : double = 1.0
+    var res = 1.0
     while res > TOLERANCE do
 
       -- Update the source term.
@@ -929,7 +929,7 @@ function MODULE.mkInstance() local INSTANCE = {}
       end
 
       -- Perform the sweep for computing new intensities.
-      res = 0.0;
+      var acc = 0.0;
       @ESCAPE for q = 1, 8 do @EMIT
         for i = [directions[q][1] and rexpr   0 end or rexpr ntx-1 end],
                 [directions[q][1] and rexpr ntx end or rexpr    -1 end],
@@ -940,7 +940,7 @@ function MODULE.mkInstance() local INSTANCE = {}
             for k = [directions[q][3] and rexpr   0 end or rexpr ntz-1 end],
                     [directions[q][3] and rexpr ntz end or rexpr    -1 end],
                     [directions[q][3] and rexpr   1 end or rexpr    -1 end] do
-              res +=
+              acc +=
                 [sweep[q]](p_points[{i,j,k}],
                            [p_sub_points[q]][{i,j,k}],
                            grid_map,
@@ -957,9 +957,6 @@ function MODULE.mkInstance() local INSTANCE = {}
         end
       @TIME end @EPACSE
 
-      -- Compute the residual.
-      res = sqrt(res/(Nx*Ny*Nz*config.Radiation.u.DOM.angles))
-
       -- Update intensity.
       for c in tiles do
         reduce_intensity(p_points[c],
@@ -968,6 +965,9 @@ function MODULE.mkInstance() local INSTANCE = {}
                          [angles],
                          config)
       end
+
+      -- Compute the residual.
+      res = sqrt(acc/(Nx*Ny*Nz*config.Radiation.u.DOM.angles))
 
     end -- while res > TOLERANCE
 
