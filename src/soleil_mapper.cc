@@ -565,22 +565,10 @@ public:
     if (task.is_index_space) {
       return DefaultMapper::default_policy_select_initial_processor(ctx, task);
     }
-<<<<<<< HEAD
-    // For certain whitelisted tasks, defer to the default mapping policy.
-    else if (EQUALS(task.get_task_name(), "main") ||
-             STARTS_WITH(task.get_task_name(), "Console_Write") ||
-             STARTS_WITH(task.get_task_name(), "Probe_Write") ||
-             EQUALS(task.get_task_name(), "createDir") ||
-             EQUALS(task.get_task_name(), "cache_grid_translation") ||
-             EQUALS(task.get_task_name(), "initialize_angles") ||
-             EQUALS(task.get_task_name(), "__dummy") ||
-             strcmp(task.get_task_name(), "Render") == 0 ||
-             strcmp(task.get_task_name(), "Reduce") == 0 ||
-             STARTS_WITH(task.get_task_name(), "__binary_")) {
-=======
     // Main task: defer to the default mapping policy
-    else if (EQUALS(task.get_task_name(), "main")) {
->>>>>>> master
+    else if (EQUALS(task.get_task_name(), "main") ||
+             EQUALS(task.get_task_name(), "Render") ||
+             EQUALS(task.get_task_name(), "Reduce")) {
       return DefaultMapper::default_policy_select_initial_processor(ctx, task);
     }
     // Other tasks
@@ -649,105 +637,6 @@ public:
     return priority;
   }
 
-<<<<<<< HEAD
-  // TODO: Select appropriate memories for instances that will be communicated,
-  // (e.g. parallelizer-created ghost partitions), such as RDMA memory,
-  // zero-copy memory.
-  virtual Memory default_policy_select_target_memory(
-                              MapperContext ctx,
-                              Processor target_proc,
-                              const RegionRequirement& req) {
-    return DefaultMapper::default_policy_select_target_memory
-      (ctx, target_proc, req);
-  }
-
-  // Disable an optimization done by the default mapper (attempts to reuse an
-  // instance that covers a superset of the requested index space, by searching
-  // higher up the partition tree).
-  virtual LogicalRegion default_policy_select_instance_region(
-                              MapperContext ctx,
-                              Memory target_memory,
-                              const RegionRequirement& req,
-                              const LayoutConstraintSet& constraints,
-                              bool force_new_instances,
-                              bool meets_constraints) {
-    return req.region;
-  }
-
-  // Disable an optimization done by the default mapper (extends the set of
-  // eligible processors to include all the processors of the same type on the
-  // target node).
-  virtual void default_policy_select_target_processors(
-                              MapperContext ctx,
-                              const Task &task,
-                              std::vector<Processor> &target_procs) {
-    target_procs.push_back(task.target_proc);
-  }
-
-  // Farm index space launches made by work tasks across all the ranks
-  // allocated to the corresponding sample.
-  // TODO: Cache the decision.
-  virtual void slice_task(const MapperContext ctx,
-                          const Task& task,
-                          const SliceTaskInput& input,
-                          SliceTaskOutput& output) {
-
-    output.verify_correctness = false;
-    unsigned sample_id = find_sample_id(ctx, task);
-    const SampleMapping& mapping = sample_mappings_[sample_id];
-    Domain domain = input.domain;
-    // Certain tasks are launched on a 2D domain. Extend each domain point to a
-    // 3D tile, by filling in the missing dimension, to decide how to map them.
-    unsigned dim = unsigned(-1);
-    bool dir = false;
-    if (domain.get_dim() == 2) {
-      dim = parse_dimension(task);
-      dir = parse_direction(task)[dim];
-      if (STARTS_WITH(task.get_task_name(), "initialize_faces_") ||
-          STARTS_WITH(task.get_task_name(), "bound_")) {
-        // Do nothing
-      } else if (STARTS_WITH(task.get_task_name(), "cache_intensity_")) {
-        // We want to run these tasks on the opposite end of the domain implied
-        // by their name.
-        dir = !dir;
-      } else {
-        CHECK(false, "Unexpected 2D domain on index space launch of task %s",
-              task.get_task_name());
-      }
-    } else {
-      CHECK(domain.get_dim() == 3 &&
-            0 <= domain.lo()[0] && domain.hi()[0] < mapping.x_tiles() &&
-            0 <= domain.lo()[1] && domain.hi()[1] < mapping.y_tiles() &&
-            0 <= domain.lo()[2] && domain.hi()[2] < mapping.z_tiles(),
-            "Unexpected 3D domain on index space launch of task %s",
-            task.get_task_name());
-    }
-    // Allocate tasks among all the processors of the same kind as the original
-    // target, on each rank allocated to this sample.
-    for (Domain::DomainPointIterator it(domain); it; it++) {
-      DomainPoint tile = it.p;
-      if (domain.get_dim() == 2) {
-        unsigned coord =
-          (dim == 0) ? (dir ? 0 : mapping.x_tiles()-1) :
-          (dim == 1) ? (dir ? 0 : mapping.y_tiles()-1) :
-         /*dim == 2*/  (dir ? 0 : mapping.z_tiles()-1) ;
-        tile =
-          (dim == 0) ? Point<3>(coord, it.p[0], it.p[1]) :
-          (dim == 1) ? Point<3>(it.p[0], coord, it.p[1]) :
-         /*dim == 2*/  Point<3>(it.p[0], it.p[1], coord) ;
-      }
-      Processor target_proc =
-        select_proc(tile, task.target_proc.kind(), mapping);
-      output.slices.emplace_back(Domain(it.p, it.p), target_proc,
-                                 false/*recurse*/, false/*stealable*/);
-      LOG.debug() << "Sample " << sample_id << ":"
-                  << " Index space launch:"
-                  << " Task " << task.get_task_name()
-                  << " on domain point " << it.p
-                  << " tile " << tile
-                  << " mapped to processor " << target_proc;
-    }
-=======
   // Send each cross-section explicit copy to the first rank of the first
   // section, to be mapped further.
   // NOTE: Will only run if Legion is compiled with dynamic control replication.
@@ -761,7 +650,6 @@ public:
     unsigned sample_id = find_sample_id(ctx, *(copy.parent_task));
     SampleMapping& mapping = sample_mappings_[sample_id];
     output.chosen_functor = mapping.hardcoded_functor(Point<3>(0,0,0))->id;
->>>>>>> master
   }
 
   virtual void map_copy(const MapperContext ctx,
@@ -1020,16 +908,10 @@ static void create_mappers(Machine machine,
                            Runtime* rt,
                            const std::set<Processor>& local_procs) {
   for (Processor proc : local_procs) {
-<<<<<<< HEAD
-    SoleilMapper* mapper =
-      new SoleilMapper(runtime->get_mapper_runtime(), machine, proc);
-    runtime->replace_default_mapper(mapper, proc);
-    ImageReductionMapper* irMapper =
-      new ImageReductionMapper(runtime->get_mapper_runtime(), machine, proc);
-    runtime->add_mapper(imageReductionMapperID, (Mapping::Mapper*)irMapper, proc);
-=======
     rt->replace_default_mapper(new SoleilMapper(rt, machine, proc), proc);
->>>>>>> master
+    ImageReductionMapper* irMapper =
+      new ImageReductionMapper(rt, machine, proc);
+    rt->add_mapper(imageReductionMapperID, (Mapping::Mapper*)irMapper, proc);
   }
 }
 
