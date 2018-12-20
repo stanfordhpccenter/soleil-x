@@ -235,10 +235,11 @@ function Exports.mkHDFTasks(indexType, colorType, fSpace, flds)
     indexType == int3d and rexpr {1,1,1} end or
     assert(false)
 
-  local task dumpTile(_ : int,
-                      dirname : regentlib.string,
-                      r : region(ispace(indexType),fSpace),
-                      s : region(ispace(indexType),fSpace))
+  local -- NOT LEAF, MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+  task dumpTile(_ : int,
+                dirname : regentlib.string,
+                r : region(ispace(indexType),fSpace),
+                s : region(ispace(indexType),fSpace))
   where reads(r.[flds]), reads writes(s.[flds]), r * s do
     var filename = tileFilename([&int8](dirname), r.bounds)
     create(filename, r.bounds.hi - r.bounds.lo + one)
@@ -265,10 +266,11 @@ function Exports.mkHDFTasks(indexType, colorType, fSpace, flds)
     end
   end
 
-  local task loadTile(_ : int,
-                      dirname : regentlib.string,
-                      r : region(ispace(indexType),fSpace),
-                      s : region(ispace(indexType),fSpace))
+  local -- NOT LEAF, MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+  task loadTile(_ : int,
+                dirname : regentlib.string,
+                r : region(ispace(indexType),fSpace),
+                s : region(ispace(indexType),fSpace))
   where reads writes(r.[flds]), reads writes(s.[flds]), r * s do
     var filename = tileFilename([&int8](dirname), r.bounds)
     attach(hdf5, s.[flds], filename, regentlib.file_read_only)
