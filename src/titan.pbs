@@ -1,9 +1,6 @@
 #!/bin/bash -eu
-#PBS -A CSC188
 #PBS -N soleil
 #PBS -j oe
-
-source "$SOLEIL_DIR"/src/jobscript_shared.sh
 
 # Set the umask to something reasonable.
 umask 022
@@ -12,23 +9,17 @@ umask 022
 # any relative paths in the arguments are valid.
 cd "$PBS_O_WORKDIR"
 
-# Process CUDA configuration
-NUM_THREADS=8
-GPU_OPTS=
-if [[ "$USE_CUDA" == 1 ]]; then
-    NUM_THREADS=7
-    GPU_OPTS="-ll:gpu 1 -ll:fsize 5500 -ll:zsize 1024 -ll:ib_zsize 0"
-fi
+CORES_PER_NODE=8
+RAM_PER_NODE=20000
+GPUS_PER_NODE=1
+FB_PER_GPU=5000
+source "$SOLEIL_DIR"/src/jobscript_shared.sh
 
 # NOTE: LLVM installs a bad ELF interpreter on the executable, so we run it
 # through ld.so.
-aprun -n "$NUM_RANKS" -N 1 -cc none \
+aprun -n "$NUM_RANKS" -N "$RANKS_PER_NODE" -cc none \
     /lib64/ld-linux-x86-64.so.2 \
-    "$EXECUTABLE" $ARGS \
-    -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr "$NUM_THREADS" \
-    $GPU_OPTS -ll:dma 2 -ll:ahandlers 2 \
-    -ll:csize 25000 -ll:rsize 1024 -ll:ib_rsize 1024 -ll:gsize 0 \
-    -ll:stacksize 8 -ll:ostack 8 -lg:sched -1
+    $COMMAND
 
 # Resources:
 # 32GB RAM per node

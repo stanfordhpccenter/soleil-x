@@ -73,7 +73,7 @@ clean:
 	./desugar.py $< > $@
 
 soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o renderImage.o renderParticles.o marchingCubes.o
-	$(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU -lOSMesa
+	$(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU -lOSMesa  -lLLVM
 
 soleil.o: soleil-desugared.rg soleil_mapper.h config_schema.h hdf_helper.rg dom-desugared.rg util.rg
 	$(REGENT) soleil-desugared.rg $(REGENT_FLAGS)
