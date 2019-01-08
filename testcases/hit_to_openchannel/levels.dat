@@ -1,0 +1,2 @@
+flow_x flow_y flow_z parcel_size dom_x dom_y dom_z quads use_dom rk_order ffts
+256    64     64     10          128   32    32    170   true    4        5

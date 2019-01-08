@@ -4,6 +4,9 @@
 # Inputs
 ###############################################################################
 
+# Which group to submit jobs under (if a scheduler is available)
+export GROUP="${GROUP:-}"
+
 # Which queue/partition to use (if a scheduler is available)
 export QUEUE="${QUEUE:-}"
 
@@ -17,7 +20,13 @@ export USE_CUDA="${USE_CUDA:-1}"
 export PROFILE="${PROFILE:-0}"
 
 # Whether to print a backtrace on crash (interferes with signal handling)
-export REALM_BACKTRACE="${REALM_BACKTRACE:-1}"
+export GASNET_BACKTRACE="${GASNET_BACKTRACE:-1}"
+
+# How many ranks to instantiate per node
+export RANKS_PER_NODE="${RANKS_PER_NODE:-1}"
+
+# How many cores per rank to reserve for the runtime
+export RESERVED_CORES="${RESERVED_CORES:-4}"
 
 ###############################################################################
 # Helper functions

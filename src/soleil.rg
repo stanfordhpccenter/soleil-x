@@ -62,7 +62,7 @@ local struct Particles_columns {
   __renderThis : bool;
   __valid : bool;
   __xfer_dir : int8;
-  __xfer_slot : int;
+  __xfer_slot : int64;
 }
 
 local Particles_primitives = terralib.newlist({
@@ -77,6 +77,8 @@ local Particles_primitives = terralib.newlist({
 })
 local Particles_derived = terralib.newlist({
   'cell',
+  'deltaVelocityOverRelaxationTime',
+  'deltaTemperatureTerm',
 })
 local Particles_iterTemp = terralib.newlist({
   'position_old',
@@ -87,8 +89,6 @@ local Particles_iterTemp = terralib.newlist({
   'temperature_new',
 })
 local Particles_subStepTemp = terralib.newlist({
-  'deltaVelocityOverRelaxationTime',
-  'deltaTemperatureTerm',
   'velocity_t',
   'temperature_t',
   '__xfer_dir',
@@ -379,7 +379,7 @@ local function emitConsoleWrite(config, format, ...)
   end
 end
 
--- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+__demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Console_WriteHeader(config : Config)
   [emitConsoleWrite(config, 'Iter\t'..
                             'Sim Time\t'..
@@ -392,7 +392,7 @@ task Console_WriteHeader(config : Config)
                             'Particle T\n')];
 end
 
--- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+__demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Console_Write(config : Config,
                    Integrator_timeStep : int,
                    Integrator_simTime : double,
@@ -425,7 +425,7 @@ task Console_Write(config : Config,
                     Particles_averageTemperature)];
 end
 
--- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+__demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Console_WriteFooter(config : Config,
                          startTime : uint64)
   var endTime = C.legion_get_current_time_in_micros() / 1000;
@@ -450,7 +450,7 @@ local function emitProbeWrite(config, probeId, format, ...)
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Probe_AvgFluidT(Fluid : region(ispace(int3d), Fluid_columns),
                      probe : SCHEMA.Volume,
                      totalCells : int)
@@ -471,7 +471,7 @@ do
   return acc
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Probe_CountParticles(Particles : region(ispace(int1d), Particles_columns),
                           probe : SCHEMA.Volume)
 where
@@ -479,7 +479,7 @@ where
 do
   var fromCell = probe.fromCell
   var uptoCell = probe.uptoCell
-  var acc = 0
+  var acc = int64(0)
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
@@ -494,10 +494,10 @@ do
   return acc
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Probe_AvgParticleT(Particles : region(ispace(int1d), Particles_columns),
                         probe : SCHEMA.Volume,
-                        totalParticles : int)
+                        totalParticles : int64)
 where
   reads(Particles.{cell, temperature, __valid})
 do
@@ -518,11 +518,11 @@ do
   return acc
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Probe_AvgCellOfParticleT(Fluid : region(ispace(int3d), Fluid_columns),
                               Particles : region(ispace(int1d), Particles_columns),
                               probe : SCHEMA.Volume,
-                              totalParticles : int)
+                              totalParticles : int64)
 where
   reads(Particles.{cell, temperature, __valid}),
   reads(Fluid.temperature)
@@ -544,7 +544,7 @@ do
   return acc
 end
 
--- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+__demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Probe_WriteHeader(config : Config,
                        probeId : int)
   [emitProbeWrite(config, probeId, 'Iter\t'..
@@ -553,7 +553,7 @@ task Probe_WriteHeader(config : Config,
                                    'AvgCellOfParticleT\n')];
 end
 
--- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+__demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Probe_Write(config : Config,
                  probeId : int,
                  Integrator_timeStep : int,
@@ -570,7 +570,7 @@ task Probe_Write(config : Config,
                   avgCellOfParticleT)];
 end
 
--- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+__demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task createDir(dirname : regentlib.string)
   UTIL.createDir(dirname)
   return 0
@@ -627,7 +627,7 @@ task GetDynamicViscosity(temperature : double,
   return viscosity
 end
 
-__demand(__cuda) -- MANUALLY PARALLELIZED
+__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Particles_InitializeUniform(Particles : region(ispace(int1d), Particles_columns),
                                  Fluid : region(ispace(int3d), Fluid_columns),
                                  config : Config,
@@ -655,7 +655,7 @@ do
   var Particles_diameterMean = config.Particles.diameterMean
   __demand(__openmp)
   for p in Particles do
-    var relIdx = int(p - pBase)
+    var relIdx = int64(p - pBase)
     if relIdx < particlesPerTask then
       Particles[p].__valid = true
       var c = lo + int3d{relIdx%xSize, relIdx/xSize%ySize, relIdx/xSize/ySize%zSize}
@@ -669,7 +669,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Particles_AbsorbRadiationAlgebraic(Particles : region(ispace(int1d), Particles_columns),
                                         config : Config)
 where
@@ -690,7 +690,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Particles_initValidField(Particles : region(ispace(int1d), Particles_columns))
 where
   writes(Particles.__valid)
@@ -701,7 +701,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task SetCoarseningField(Fluid : region(ispace(int3d), Fluid_columns),
                         Grid_xBnum : int32, Grid_xNum : int32,
                         Grid_yBnum : int32, Grid_yNum : int32,
@@ -727,7 +727,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_InitializeCell(Fluid : region(ispace(int3d), Fluid_columns))
 where
   writes(Fluid.centerCoordinates),
@@ -802,7 +802,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_InitializeCenterCoordinates(Fluid : region(ispace(int3d), Fluid_columns),
                                       Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
                                       Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
@@ -819,7 +819,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_InitializeUniform(Fluid : region(ispace(int3d), Fluid_columns), Flow_initParams : double[5])
 where
   writes(Fluid.{rho, pressure, velocity})
@@ -832,7 +832,7 @@ do
   end
 end
 
-__demand(__parallel) -- NO CUDA, NO OPENMP
+__demand(__leaf, __parallel) -- NO CUDA, NO OPENMP
 task Flow_InitializeRandom(Fluid : region(ispace(int3d), Fluid_columns),
                            Flow_initParams : double[5])
 where
@@ -852,7 +852,7 @@ do
 end
 
 -- CHANGE do not compute xy instead just pass in cell center since it is computed before this task will be called
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_InitializeTaylorGreen2D(Fluid : region(ispace(int3d), Fluid_columns),
                                   Flow_initParams : double[5],
                                   Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
@@ -877,7 +877,7 @@ do
 end
 
 -- CHANGE do not compute xy instead just pass in cell center since it is computed before this task will be called
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_InitializeTaylorGreen3D(Fluid : region(ispace(int3d), Fluid_columns),
                                   Flow_initParams : double[5],
                                   Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
@@ -900,7 +900,7 @@ do
   end
 end
 
-__demand(__parallel) -- NO CUDA, NO OPENMP
+__demand(__leaf, __parallel) -- NO CUDA, NO OPENMP
 task Flow_InitializePerturbed(Fluid : region(ispace(int3d), Fluid_columns),
                               Flow_initParams : double[5])
 where
@@ -919,7 +919,7 @@ do
 end
 
 -- Modify initial rho, pressure, velocity to be consistent with NSCBC inflow outflow condition, also set up stuff for RHS of inflow
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_InitializeGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
                                config : Config,
                                Flow_gasConstant : double,
@@ -1023,7 +1023,7 @@ do
         -- based on the incoming values, so we set a fake incoming value, that
         -- would have produced the fake velocity setting above.
         var velocity_inc = velocity
-        velocity_inc[0] -= BC_xBCLeftInflowProfile_Incoming_addedVelocity
+        velocity_inc[0] += -BC_xBCLeftInflowProfile_Incoming_addedVelocity
         Fluid[c_bnd].velocity_inc = velocity_inc
       end
       Fluid[c_bnd].velocity = velocity
@@ -1072,7 +1072,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_UpdateConservedFromPrimitive(Fluid : region(ispace(int3d), Fluid_columns),
                                        Flow_gamma : double,
                                        Flow_gasConstant : double,
@@ -1095,7 +1095,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_UpdateConservedFromPrimitiveGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
                                                  config : Config,
                                                  Flow_gamma : double,
@@ -1131,7 +1131,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_UpdateAuxiliaryVelocity(Fluid : region(ispace(int3d), Fluid_columns),
                                   config : Config,
                                   Flow_constantVisc : double,
@@ -1237,7 +1237,7 @@ end
 
 -- NOTE: It is safe to not pass the ghost regions to this task, because we
 -- always group ghost cells with their neighboring interior cells.
-__demand(__cuda) -- MANUALLY PARALLELIZEDp
+__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Flow_UpdateGhostConserved(Fluid : region(ispace(int3d), Fluid_columns),
                                config : Config,
                                BC_xNegTemperature : double, BC_xNegVelocity : double[3],
@@ -1621,7 +1621,7 @@ end
 
 -- NOTE: It is safe to not pass the ghost regions to this task, because we
 -- always group ghost cells with their neighboring interior cells.
-__demand(__cuda) -- MANUALLY PARALLELIZED
+__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Flow_UpdateGhostVelocity(Fluid : region(ispace(int3d), Fluid_columns),
                               config : Config,
                               BC_xNegVelocity : double[3], BC_xPosVelocity : double[3], BC_xNegSign : double[3], BC_xPosSign : double[3],
@@ -1682,7 +1682,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_ComputeVelocityGradient(Fluid : region(ispace(int3d), Fluid_columns),
                                   config : Config,
                                   Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
@@ -1736,7 +1736,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_UpdateAuxiliaryThermodynamics(Fluid : region(ispace(int3d), Fluid_columns),
                                         config : Config,
                                         Flow_gamma : double,
@@ -1788,7 +1788,7 @@ end
 
 -- NOTE: It is safe to not pass the ghost regions to this task, because we
 -- always group ghost cells with their neighboring interior cells.
-__demand(__cuda) -- MANUALLY PARALLELIZED
+__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Flow_UpdateGhostThermodynamics(Fluid : region(ispace(int3d), Fluid_columns),
                                     config : Config,
                                     Flow_gamma : double,
@@ -1980,7 +1980,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Particles_CalculateNumber(Particles : region(ispace(int1d), Particles_columns))
 where
   reads(Particles.__valid)
@@ -1995,7 +1995,7 @@ do
   return acc
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task CalculateAveragePressure(Fluid : region(ispace(int3d), Fluid_columns),
                               Grid_cellVolume : double,
                               Grid_xBnum : int32, Grid_xNum : int32,
@@ -2014,7 +2014,7 @@ do
   return acc
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task CalculateAverageTemperature(Fluid : region(ispace(int3d), Fluid_columns),
                                  Grid_cellVolume : double,
                                  Grid_xBnum : int32, Grid_xNum : int32,
@@ -2033,7 +2033,7 @@ do
   return acc
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task CalculateAverageKineticEnergy(Fluid : region(ispace(int3d), Fluid_columns),
                                    Grid_cellVolume : double,
                                    Grid_xBnum : int32, Grid_xNum : int32,
@@ -2053,7 +2053,7 @@ do
   return acc
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task CalculateMinTemperature(Fluid : region(ispace(int3d), Fluid_columns),
                              Grid_xBnum : int32, Grid_xNum : int32,
                              Grid_yBnum : int32, Grid_yNum : int32,
@@ -2071,7 +2071,7 @@ do
   return acc
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task CalculateMaxTemperature(Fluid : region(ispace(int3d), Fluid_columns),
                              Grid_xBnum : int32, Grid_xNum : int32,
                              Grid_yBnum : int32, Grid_yNum : int32,
@@ -2089,7 +2089,7 @@ do
   return acc
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Particles_IntegrateQuantities(Particles : region(ispace(int1d), Particles_columns))
 where
   reads(Particles.{temperature, __valid})
@@ -2109,7 +2109,7 @@ task GetSoundSpeed(temperature : double, Flow_gamma : double, Flow_gasConstant :
   return sqrt(((Flow_gamma*Flow_gasConstant)*temperature))
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task CalculateMaxMachNumber(Fluid : region(ispace(int3d), Fluid_columns),
                             config : Config,
                             Flow_gamma : double,
@@ -2146,7 +2146,7 @@ do
   return acc
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task CalculateConvectiveSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
                                        Flow_gamma : double,
                                        Flow_gasConstant : double,
@@ -2163,7 +2163,7 @@ do
   return acc
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task CalculateViscousSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
                                     Flow_constantVisc : double,
                                     Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
@@ -2182,7 +2182,7 @@ do
   return acc
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task CalculateHeatConductionSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
                                            Flow_constantVisc : double,
                                            Flow_gamma : double,
@@ -2207,7 +2207,7 @@ do
   return acc
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_InitializeTemporaries(Fluid : region(ispace(int3d), Fluid_columns))
 where
   reads(Fluid.{rho, rhoEnergy, rhoVelocity}),
@@ -2224,7 +2224,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Particles_InitializeTemporaries(Particles : region(ispace(int1d), Particles_columns))
 where
   reads(Particles.{position, velocity, temperature, __valid}),
@@ -2243,7 +2243,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_InitializeTimeDerivatives(Fluid : region(ispace(int3d), Fluid_columns))
 where
   writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
@@ -2258,7 +2258,7 @@ end
 
 -- NOTE: It is safe to not pass the ghost regions to this task, because we
 -- always group ghost cells with their neighboring interior cells.
-__demand(__cuda) -- MANUALLY PARALLELIZED
+__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Flow_UpdateGhostVelocityGradient(Fluid : region(ispace(int3d), Fluid_columns),
                                       config : Config,
                                       BC_xNegSign : double[3], BC_yNegSign : double[3], BC_zNegSign : double[3],
@@ -2312,7 +2312,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_GetFluxX(Fluid : region(ispace(int3d), Fluid_columns),
                    config : Config,
                    Flow_constantVisc : double,
@@ -2414,7 +2414,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_GetFluxY(Fluid : region(ispace(int3d), Fluid_columns),
                    config : Config,
                    Flow_constantVisc : double,
@@ -2516,7 +2516,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_GetFluxZ(Fluid : region(ispace(int3d), Fluid_columns),
                    config : Config,
                    Flow_constantVisc : double,
@@ -2618,7 +2618,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_UpdateUsingFluxX(Fluid : region(ispace(int3d), Fluid_columns),
                            config : Config,
                            Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
@@ -2651,7 +2651,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_UpdateUsingFluxY(Fluid : region(ispace(int3d), Fluid_columns),
                            config : Config,
                            Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
@@ -2684,7 +2684,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_UpdateUsingFluxZ(Fluid : region(ispace(int3d), Fluid_columns),
                            config : Config,
                            Grid_xBnum : int32, Grid_xCellWidth : double, Grid_xNum : int32,
@@ -2719,7 +2719,7 @@ end
 
 -- NOTE: It is safe to not pass the ghost regions to this task, because we
 -- always group ghost cells with their neighboring interior cells.
-__demand(__cuda) -- MANUALLY PARALLELIZED
+__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Flow_UpdateUsingFluxGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
                                     config : Config,
                                     Flow_gamma : double, Flow_gasConstant : double,
@@ -2857,7 +2857,7 @@ do
 end
 
 -- Update the time derivative values needed for subsonic inflow
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_UpdateNSCBCGhostCellTimeDerivatives(Fluid : region(ispace(int3d), Fluid_columns),
                                               config : Config,
                                               Grid_xBnum : int32, Grid_xNum : int32,
@@ -2896,7 +2896,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_AddBodyForces(Fluid : region(ispace(int3d), Fluid_columns),
                         config : Config,
                         Grid_xBnum : int32, Grid_xNum : int32,
@@ -2929,7 +2929,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task CalculateAveragePD(Fluid : region(ispace(int3d), Fluid_columns),
                         Grid_xBnum : int32, Grid_xNum : int32,
                         Grid_yBnum : int32, Grid_yNum : int32,
@@ -2948,7 +2948,7 @@ do
   return acc
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_ResetDissipation(Fluid : region(ispace(int3d), Fluid_columns))
 where
   writes(Fluid.dissipation)
@@ -2959,7 +2959,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_ComputeDissipationX(Fluid : region(ispace(int3d), Fluid_columns),
                               Flow_constantVisc : double,
                               Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
@@ -3008,7 +3008,7 @@ do
 end
 
 -- CHANGE to reduces
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_UpdateDissipationX(Fluid : region(ispace(int3d), Fluid_columns),
                              Grid_xBnum : int32, Grid_xNum : int32, Grid_xCellWidth : double,
                              Grid_yBnum : int32, Grid_yNum : int32,
@@ -3025,7 +3025,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_ComputeDissipationY(Fluid : region(ispace(int3d), Fluid_columns),
                               Flow_constantVisc : double,
                               Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
@@ -3073,7 +3073,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_UpdateDissipationY(Fluid : region(ispace(int3d), Fluid_columns),
                              Grid_xBnum : int32, Grid_xNum : int32,
                              Grid_yBnum : int32, Grid_yNum : int32, Grid_yCellWidth : double,
@@ -3090,7 +3090,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_ComputeDissipationZ(Fluid : region(ispace(int3d), Fluid_columns),
                               Flow_constantVisc : double,
                               Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
@@ -3138,7 +3138,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_UpdateDissipationZ(Fluid : region(ispace(int3d), Fluid_columns),
                              Grid_xBnum : int32, Grid_xNum : int32,
                              Grid_yBnum : int32, Grid_yNum : int32,
@@ -3155,7 +3155,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task CalculateAverageDissipation(Fluid : region(ispace(int3d), Fluid_columns),
                                  Grid_cellVolume : double,
                                  Grid_xBnum : int32, Grid_xNum : int32,
@@ -3174,7 +3174,7 @@ do
   return acc
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task CalculateAverageK(Fluid : region(ispace(int3d), Fluid_columns),
                        Grid_cellVolume : double,
                        Grid_xBnum : int32, Grid_xNum : int32,
@@ -3193,7 +3193,7 @@ do
   return acc
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_AddTurbulentSource(Fluid : region(ispace(int3d), Fluid_columns),
                              Flow_averageDissipation : double,
                              Flow_averageK : double,
@@ -3226,7 +3226,7 @@ do
 end
 
 -- CHANGE to reduces+?
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_AdjustTurbulentSource(Fluid : region(ispace(int3d), Fluid_columns),
                                 Flow_averageFe : double,
                                 Grid_xBnum : int32, Grid_xNum : int32,
@@ -3254,23 +3254,23 @@ task locate(pos : double[3],
             Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
   var xcw = Grid_xWidth/Grid_xNum
   var xro = Grid_xOrigin-Grid_xBnum*xcw
-  var xpos = floor((pos[0]-xro)/xcw)
+  var xpos = int(floor((pos[0]-xro)/xcw))
   var xrnum = Grid_xNum+2*Grid_xBnum
   var xidx = max(0, min(xrnum-1, xpos))
   var ycw = Grid_yWidth/Grid_yNum
   var yro = Grid_yOrigin-Grid_yBnum*ycw
-  var ypos = floor((pos[1]-yro)/ycw)
+  var ypos = int(floor((pos[1]-yro)/ycw))
   var yrnum = Grid_yNum+2*Grid_yBnum
   var yidx = max(0, min(yrnum-1, ypos))
   var zcw = Grid_zWidth/Grid_zNum
   var zro = Grid_zOrigin-Grid_zBnum*zcw
-  var zpos = floor((pos[2]-zro)/zcw)
+  var zpos = int(floor((pos[2]-zro)/zcw))
   var zrnum = Grid_zNum+2*Grid_zBnum
   var zidx = max(0, min(zrnum-1, zpos))
   return int3d{xidx, yidx, zidx}
 end
 
-__demand(__cuda) -- MANUALLY PARALLELIZED
+__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Particles_LocateInCells(Particles : region(ispace(int1d), Particles_columns),
                              Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
                              Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
@@ -3303,7 +3303,7 @@ task Fluid_elemColor(idx : int3d,
                (idx.z-Grid_zBnum)/(Grid_zNum/NZ)}
 end
 
-__demand(__cuda) -- MANUALLY PARALLELIZED
+__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Particles_CheckPartitioning(color : int3d,
                                  Particles : region(ispace(int1d), Particles_columns),
                                  Grid_xBnum : int32, Grid_xNum : int32, NX : int32,
@@ -3312,7 +3312,7 @@ task Particles_CheckPartitioning(color : int3d,
 where
   reads(Particles.{cell, __valid})
 do
-  var num_invalid = 0
+  var num_invalid = int64(0)
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid and
@@ -3359,7 +3359,7 @@ local tradeQueues = UTIL.generate(26, function()
   return regentlib.newsymbol(region(ispace(int1d), TradeQueue_columns))
 end)
 
-__demand(__cuda) -- MANUALLY PARALLELIZED
+__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task TradeQueue_push(partColor : int3d,
                      Particles : region(ispace(int1d), Particles_columns),
                      [tradeQueues],
@@ -3377,7 +3377,7 @@ where
    end):flatten()]
 do
   -- Fill in movement direction
-  var toTransfer = 0
+  var toTransfer = int64(0)
   __demand(__openmp)
   for i in Particles do
     Particles[i].__xfer_dir = 0
@@ -3400,7 +3400,7 @@ do
   end
   [UTIL.emitAssert(
      rexpr toTransfer == 0 end,
-     'Sample %d: %d particle(s) moved past expected stencil',
+     'Sample %d: %ld particle(s) moved past expected stencil',
      rexpr config.Mapping.sampleId end,
      rexpr toTransfer end)];
   -- For each movement direction...
@@ -3411,7 +3411,7 @@ do
       queue[j].__valid = false
     end
     -- Assign slots on the transfer queue for moving particles
-    var transferred = 0
+    var transferred = int64(0)
     __demand(__openmp)
     for i in Particles do
       if Particles[i].__xfer_dir == k then
@@ -3424,7 +3424,7 @@ do
     __parallel_prefix(Particles.__xfer_slot, Particles.__xfer_slot, +, 1);
     -- Check that there's enough space in the transfer queue
     [UTIL.emitAssert(
-       rexpr transferred <= int(queue.bounds.hi - queue.bounds.lo + 1) end,
+       rexpr transferred <= int64(queue.bounds.hi - queue.bounds.lo + 1) end,
        'Sample %d: Ran out of space in transfer queue',
        rexpr config.Mapping.sampleId end)];
     -- Copy moving particles to the transfer queue
@@ -3441,7 +3441,7 @@ do
   @TIME end @EPACSE
 end
 
-__demand(__cuda) -- MANUALLY PARALLELIZED
+__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task TradeQueue_pull(Particles : region(ispace(int1d), Particles_columns),
                      [tradeQueues],
                      config : Config)
@@ -3456,9 +3456,9 @@ where
    end):flatten()]
 do
   -- Count number of particles coming in from each transfer queue
-  var xfer_bounds : int[27]
+  var xfer_bounds : int64[27]
   xfer_bounds[0] = 0
-  var total_xfers = 0;
+  var total_xfers = int64(0);
   @ESCAPE for k = 1,26 do local queue = tradeQueues[k] @EMIT
     __demand(__openmp)
     for j in queue do
@@ -3469,7 +3469,7 @@ do
     xfer_bounds[k] = total_xfers
   @TIME end @EPACSE
   -- Number all empty slots on particles sub-region
-  var avail_slots = 0
+  var avail_slots = int64(0)
   __demand(__openmp)
   for i in Particles do
     if Particles[i].__valid then
@@ -3529,15 +3529,15 @@ task CopyQueue_partSize(fluidPartBounds : rect3d,
                         copySrc : SCHEMA.Volume)
   var totalCells = config.Grid.xNum * config.Grid.yNum * config.Grid.zNum
   var copiedCells = rectSize(intersection(fluidPartBounds, copySrc))
-  return ceil(
+  return int64(ceil(
     copiedCells
     / [double](totalCells)
     * (config.Particles.maxNum / config.Particles.parcelSize)
     * config.Particles.maxSkew
-  )
+  ))
 end
 
--- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+__demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task CopyQueue_push(Particles : region(ispace(int1d), Particles_columns),
                     CopyQueue : region(ispace(int1d), CopyQueue_columns),
                     config : Config,
@@ -3577,7 +3577,7 @@ end
 -- to make sure the mapper will map this task according to the sample the
 -- Particles belong to (the second in a 2-section simulation). The CopyQueue
 -- technically belongs to the first section.
--- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+__demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task CopyQueue_pull(partColor : int3d,
                     Particles : region(ispace(int1d), Particles_columns),
                     CopyQueue : region(ispace(int1d), CopyQueue_columns),
@@ -3587,7 +3587,7 @@ where
   reads(CopyQueue.[Particles_primitives], Particles.__valid),
   writes(Particles.[Particles_primitives], Particles.cell)
 do
-  var acc : int64 = 0
+  var acc = int64(0)
   var addedVelocity = config.Particles.feeding.u.Incoming.addedVelocity
   var p1 = Particles.bounds.lo
   for p2 in CopyQueue do
@@ -3958,22 +3958,21 @@ do
   return TrilinearInterpolateTemp(xyz, v000, v100, v010, v110, v001, v101, v011, v111, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin)
 end
 
-__demand(__parallel, __cuda)
-task Particles_AddFlowCoupling(Particles : region(ispace(int1d), Particles_columns),
-                               Fluid : region(ispace(int3d), Fluid_columns),
-                               Flow_constantVisc : double,
-                               Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                               Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                               Flow_viscosityModel : SCHEMA.ViscosityModel,
-                               Grid_xCellWidth : double, Grid_xRealOrigin : double,
-                               Grid_yCellWidth : double, Grid_yRealOrigin : double,
-                               Grid_zCellWidth : double, Grid_zRealOrigin : double,
-                               Particles_convectiveCoeff : double,
-                               Particles_heatCapacity : double)
+__demand(__leaf, __parallel, __cuda)
+task Particles_CalcDeltaTerms(Particles : region(ispace(int1d), Particles_columns),
+                              Fluid : region(ispace(int3d), Fluid_columns),
+                              Flow_constantVisc : double,
+                              Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                              Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                              Flow_viscosityModel : SCHEMA.ViscosityModel,
+                              Grid_xCellWidth : double, Grid_xRealOrigin : double,
+                              Grid_yCellWidth : double, Grid_yRealOrigin : double,
+                              Grid_zCellWidth : double, Grid_zRealOrigin : double,
+                              Particles_convectiveCoeff : double)
 where
   reads(Fluid.{centerCoordinates, velocity, temperature}),
   reads(Particles.{cell, position, velocity, diameter, density, temperature, __valid}),
-  writes(Particles.{velocity_t, temperature_t, deltaTemperatureTerm, deltaVelocityOverRelaxationTime})
+  writes(Particles.{deltaTemperatureTerm, deltaVelocityOverRelaxationTime})
 do
   __demand(__openmp)
   for p in Particles do
@@ -3996,17 +3995,29 @@ do
                                                      Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
                                                      Flow_viscosityModel)
       var relaxationTime = Particles[p].density * pow(Particles[p].diameter,2.0) / (18.0 * flowDynamicViscosity)
-      var tmp2 = vs_div(vv_sub(flowVelocity, Particles[p].velocity), relaxationTime)
-      Particles[p].deltaVelocityOverRelaxationTime = tmp2
-      Particles[p].velocity_t = tmp2
-      var tmp3 = PI * pow(Particles[p].diameter,2.0) * Particles_convectiveCoeff * (flowTemperature-Particles[p].temperature)
-      Particles[p].deltaTemperatureTerm = tmp3
-      Particles[p].temperature_t = tmp3/(PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density*Particles_heatCapacity)
+      Particles[p].deltaVelocityOverRelaxationTime = vs_div(vv_sub(flowVelocity, Particles[p].velocity), relaxationTime)
+      Particles[p].deltaTemperatureTerm = PI * pow(Particles[p].diameter,2.0) * Particles_convectiveCoeff * (flowTemperature-Particles[p].temperature)
     end
   end
 end
 
 __demand(__parallel, __cuda)
+task Particles_AddFlowCoupling(Particles : region(ispace(int1d), Particles_columns),
+                               Particles_heatCapacity : double)
+where
+  reads(Particles.{diameter, density, deltaTemperatureTerm, deltaVelocityOverRelaxationTime, __valid}),
+  writes(Particles.{velocity_t, temperature_t})
+do
+  __demand(__openmp)
+  for p in Particles do
+    if Particles[p].__valid then
+      Particles[p].velocity_t = Particles[p].deltaVelocityOverRelaxationTime
+      Particles[p].temperature_t = Particles[p].deltaTemperatureTerm/(PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density*Particles_heatCapacity)
+    end
+  end
+end
+
+__demand(__leaf, __parallel, __cuda)
 task Particles_AddBodyForces(Particles : region(ispace(int1d), Particles_columns),
                              Particles_bodyForce : double[3])
 where
@@ -4021,7 +4032,7 @@ do
   end
 end
 
-__demand(__cuda) -- MANUALLY PARALLELIZED
+__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Radiation_AccumulateParticleValues(Particles : region(ispace(int1d), Particles_columns),
                                         Fluid : region(ispace(int3d), Fluid_columns),
                                         Radiation : region(ispace(int3d), Radiation_columns))
@@ -4039,7 +4050,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Radiation_UpdateFieldValues(Radiation : region(ispace(int3d), Radiation_columns),
                                  config : Config,
                                  Radiation_cellVolume : double,
@@ -4061,7 +4072,7 @@ do
   end
 end
 
-__demand(__cuda) -- MANUALLY PARALLELIZED
+__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Particles_AbsorbRadiationDOM(Particles : region(ispace(int1d), Particles_columns),
                                   Fluid : region(ispace(int3d), Fluid_columns),
                                   Radiation : region(ispace(int3d), Radiation_columns),
@@ -4084,7 +4095,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_AddParticlesCoupling(Particles : region(ispace(int1d), Particles_columns),
                                Fluid : region(ispace(int3d), Fluid_columns),
                                config : Config,
@@ -4105,12 +4116,12 @@ do
       Fluid[Particles[p].cell].rhoVelocity_t[0] += tmp[0]
       Fluid[Particles[p].cell].rhoVelocity_t[1] += tmp[1]
       Fluid[Particles[p].cell].rhoVelocity_t[2] += tmp[2]
-      Fluid[Particles[p].cell].rhoEnergy_t -= Particles_parcelSize*Particles[p].deltaTemperatureTerm/Grid_cellVolume
+      Fluid[Particles[p].cell].rhoEnergy_t += -Particles_parcelSize*Particles[p].deltaTemperatureTerm/Grid_cellVolume
     end
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Flow_UpdateVars(Fluid : region(ispace(int3d), Fluid_columns),
                      Integrator_deltaTime : double,
                      Integrator_stage : int32,
@@ -4156,7 +4167,7 @@ do
   @TIME end @EPACSE
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Particles_UpdateVars(Particles : region(ispace(int1d), Particles_columns),
                           Particles_deltaTime : double,
                           Integrator_stage : int32,
@@ -4205,7 +4216,7 @@ do
   @TIME end @EPACSE
 end
 
--- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+__demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Particles_HandleCollisions(Particles : region(ispace(int1d), Particles_columns),
                                 config : Config,
                                 Particles_deltaTime : double,
@@ -4299,7 +4310,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Particles_UpdateAuxiliary(Particles : region(ispace(int1d), Particles_columns),
                                BC_xBCParticles : SCHEMA.ParticlesBC,
                                BC_yBCParticles : SCHEMA.ParticlesBC,
@@ -4331,7 +4342,7 @@ do
       end
       if (Particles[p].position[0]>(Grid_xOrigin+Grid_xWidth)) then
         if BC_xBCParticles == SCHEMA.ParticlesBC_Periodic then
-          Particles[p].position[0] -= Grid_xWidth
+          Particles[p].position[0] += -Grid_xWidth
         elseif BC_xBCParticles == SCHEMA.ParticlesBC_Bounce then
           Particles[p].position[0] = (Grid_xOrigin+Grid_xWidth)
           var impulse = ((-(1.0+Particles_restitutionCoeff))*Particles[p].velocity[0])
@@ -4359,7 +4370,7 @@ do
       end
       if (Particles[p].position[1]>(Grid_yOrigin+Grid_yWidth)) then
         if BC_yBCParticles == SCHEMA.ParticlesBC_Periodic then
-          Particles[p].position[1] -= Grid_yWidth
+          Particles[p].position[1] += -Grid_yWidth
         elseif BC_yBCParticles == SCHEMA.ParticlesBC_Bounce then
           Particles[p].position[1] = (Grid_yOrigin+Grid_yWidth)
           var impulse = ((-(1.0+Particles_restitutionCoeff))*Particles[p].velocity[1])
@@ -4387,7 +4398,7 @@ do
       end
       if (Particles[p].position[2]>(Grid_zOrigin+Grid_zWidth)) then
         if BC_zBCParticles == SCHEMA.ParticlesBC_Periodic then
-          Particles[p].position[2] -= Grid_zWidth
+          Particles[p].position[2] += -Grid_zWidth
         elseif BC_zBCParticles == SCHEMA.ParticlesBC_Bounce then
           Particles[p].position[2] = (Grid_zOrigin+Grid_zWidth)
           var impulse = ((-(1.0+Particles_restitutionCoeff))*Particles[p].velocity[2])
@@ -4403,7 +4414,7 @@ do
   end
 end
 
-__demand(__cuda) -- MANUALLY PARALLELIZED
+__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Particles_DeleteEscapingParticles(Particles : region(ispace(int1d), Particles_columns),
                                        Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
                                        Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
@@ -4504,7 +4515,8 @@ local function mkInstance() local INSTANCE = {}
   local p_Fluid_copy = regentlib.newsymbol()
   local p_Particles = regentlib.newsymbol()
   local p_Particles_copy = regentlib.newsymbol()
-  local p_TradeQueue = UTIL.generate(26, regentlib.newsymbol)
+  local p_TradeQueue_bySrc = UTIL.generate(26, regentlib.newsymbol)
+  local p_TradeQueue_byDst = UTIL.generate(26, regentlib.newsymbol)
   local p_Radiation = regentlib.newsymbol()
 
   local numParticlesToDraw = regentlib.newsymbol(int32, "numParticlesToDraw");
@@ -4859,12 +4871,13 @@ local function mkInstance() local INSTANCE = {}
     [UTIL.emitRegionTagAttach(Fluid_copy, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
 
     -- Create Particles Regions
-    regentlib.assert(config.Particles.maxNum % config.Particles.parcelSize == 0,
-                     'Uneven parceling of particles')
     regentlib.assert((config.Particles.maxNum / config.Particles.parcelSize) % numTiles == 0,
                      'Uneven partitioning of particles')
-    var maxParticlesPerTile =
-      ceil((config.Particles.maxNum / config.Particles.parcelSize / numTiles) * config.Particles.maxSkew)
+    var maxParticlesPerTile = config.Particles.maxNum / config.Particles.parcelSize / numTiles
+    if numTiles > 1 then
+      maxParticlesPerTile =
+        int64(ceil(maxParticlesPerTile * config.Particles.maxSkew))
+    end
     var is_Particles = ispace(int1d, maxParticlesPerTile * numTiles)
     var [Particles] = region(is_Particles, Particles_columns);
     [UTIL.emitRegionTagAttach(Particles, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
@@ -4878,7 +4891,7 @@ local function mkInstance() local INSTANCE = {}
       for i = 0, num_dirs do
         escapeRatio *= config.Particles.escapeRatioPerDir
       end
-      var is_TradeQueue = ispace(int1d, ceil(escapeRatio * maxParticlesPerTile) * numTiles)
+      var is_TradeQueue = ispace(int1d, int64(ceil(escapeRatio * maxParticlesPerTile) * numTiles))
       var [TradeQueue[k]] = region(is_TradeQueue, TradeQueue_columns);
       [UTIL.emitRegionTagAttach(TradeQueue[k], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     @TIME end @EPACSE
@@ -4902,28 +4915,31 @@ local function mkInstance() local INSTANCE = {}
     -- Fluid Partitioning
     var [p_Fluid] =
       [UTIL.mkPartitionEqually(int3d, int3d, Fluid_columns)]
-      (Fluid, tiles, Grid.xBnum, Grid.yBnum, Grid.zBnum)
+      (Fluid, tiles, int3d{Grid.xBnum,Grid.yBnum,Grid.zBnum}, int3d{0,0,0})
     var [p_Fluid_copy] =
       [UTIL.mkPartitionEqually(int3d, int3d, Fluid_columns)]
-      (Fluid_copy, tiles, Grid.xBnum, Grid.yBnum, Grid.zBnum)
+      (Fluid_copy, tiles, int3d{Grid.xBnum,Grid.yBnum,Grid.zBnum}, int3d{0,0,0})
 
     -- Particles Partitioning
     var [p_Particles] =
       [UTIL.mkPartitionEqually(int1d, int3d, Particles_columns)]
-      (Particles, tiles, 0)
+      (Particles, tiles, 0, int3d{0,0,0})
     var [p_Particles_copy] =
       [UTIL.mkPartitionEqually(int1d, int3d, Particles_columns)]
-      (Particles_copy, tiles, 0);
+      (Particles_copy, tiles, 0, int3d{0,0,0});
     @ESCAPE for k = 1,26 do @EMIT
-      var [p_TradeQueue[k]] =
+      var [p_TradeQueue_bySrc[k]] =
         [UTIL.mkPartitionEqually(int1d, int3d, TradeQueue_columns)]
-        ([TradeQueue[k]], tiles, 0)
+        ([TradeQueue[k]], tiles, 0, int3d{0,0,0});
+      var [p_TradeQueue_byDst[k]] =
+        [UTIL.mkPartitionEqually(int1d, int3d, TradeQueue_columns)]
+        ([TradeQueue[k]], tiles, 0, [colorOffsets[k]]);
     @TIME end @EPACSE
 
     -- Radiation Partitioning
     var [p_Radiation] =
       [UTIL.mkPartitionEqually(int3d, int3d, Radiation_columns)]
-      (Radiation, tiles, 0, 0, 0);
+      (Radiation, tiles, int3d{0,0,0}, int3d{0,0,0});
 
     ---------------------------------------------------------------------------
     -- DOM code declarations
@@ -4939,7 +4955,9 @@ local function mkInstance() local INSTANCE = {}
 
   function INSTANCE.InitRegions(config) return rquote
 
-    Particles_initValidField(Particles)
+    if config.Particles.maxNum > 0 then
+      Particles_initValidField(Particles)
+    end
     if config.Radiation.type == SCHEMA.RadiationModel_DOM then
       SetCoarseningField(Fluid,
                          Grid.xBnum, config.Grid.xNum,
@@ -5062,38 +5080,38 @@ local function mkInstance() local INSTANCE = {}
     end
 
     -- Initialize particles
-    if config.Particles.initCase == SCHEMA.ParticlesInitCase_Random then
-      regentlib.assert(false, "Random particle initialization is disabled")
-    elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart then
-      Particles_load(0, tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
-      for c in tiles do
-        Particles_LocateInCells(p_Particles[c],
-                                Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
-                                Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
-                                Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
-      end
-      for c in tiles do
-        Particles_CheckPartitioning(c,
-                                    p_Particles[c],
-                                    Grid.xBnum, config.Grid.xNum, NX,
-                                    Grid.yBnum, config.Grid.yNum, NY,
-                                    Grid.zBnum, config.Grid.zNum, NZ)
-      end
-    elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform then
-      regentlib.assert(config.Particles.initNum % config.Particles.parcelSize == 0,
-                       'Uneven parceling of particles')
-      regentlib.assert((config.Particles.initNum / config.Particles.parcelSize) % numTiles == 0,
-                       'Uneven partitioning of particles')
-      regentlib.assert(config.Particles.initNum <= config.Particles.maxNum,
-                       "Not enough space for initial number of particles")
-      for c in tiles do
-        Particles_InitializeUniform(p_Particles[c],
-                                    p_Fluid[c],
-                                    config,
-                                    Grid.xBnum, Grid.yBnum, Grid.zBnum)
-      end
-    else regentlib.assert(false, 'Unhandled case in switch') end
-    Particles_number += Particles_CalculateNumber(Particles)
+    if config.Particles.maxNum > 0 then
+      if config.Particles.initCase == SCHEMA.ParticlesInitCase_Random then
+        regentlib.assert(false, "Random particle initialization is disabled")
+      elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart then
+        Particles_load(0, tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
+        for c in tiles do
+          Particles_LocateInCells(p_Particles[c],
+                                  Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
+                                  Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
+                                  Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+        end
+        for c in tiles do
+          Particles_CheckPartitioning(c,
+                                      p_Particles[c],
+                                      Grid.xBnum, config.Grid.xNum, NX,
+                                      Grid.yBnum, config.Grid.yNum, NY,
+                                      Grid.zBnum, config.Grid.zNum, NZ)
+        end
+      elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform then
+        regentlib.assert((config.Particles.initNum / config.Particles.parcelSize) % numTiles == 0,
+                         'Uneven partitioning of particles')
+        regentlib.assert(config.Particles.initNum <= config.Particles.maxNum,
+                         "Not enough space for initial number of particles")
+        for c in tiles do
+          Particles_InitializeUniform(p_Particles[c],
+                                      p_Fluid[c],
+                                      config,
+                                      Grid.xBnum, Grid.yBnum, Grid.zBnum)
+        end
+      else regentlib.assert(false, 'Unhandled case in switch') end
+      Particles_number += Particles_CalculateNumber(Particles)
+    end
 
     -- Initialize radiation
     if config.Radiation.type == SCHEMA.RadiationModel_OFF then
@@ -5164,11 +5182,14 @@ local function mkInstance() local INSTANCE = {}
     Flow_averagePressure += CalculateAveragePressure(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
     Flow_averageTemperature += CalculateAverageTemperature(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
     Flow_averageKineticEnergy += CalculateAverageKineticEnergy(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-    Particles_averageTemperature += Particles_IntegrateQuantities(Particles)
-    Flow_averagePressure = (Flow_averagePressure/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
-    Flow_averageTemperature = (Flow_averageTemperature/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
-    Flow_averageKineticEnergy = (Flow_averageKineticEnergy/(((config.Grid.xNum*config.Grid.yNum)*config.Grid.zNum)*Grid.cellVolume))
-    Particles_averageTemperature = (Particles_averageTemperature/Particles_number)
+    if config.Particles.maxNum > 0 then
+      Particles_averageTemperature += Particles_IntegrateQuantities(Particles)
+    end
+    var gridVolume : double = [double]([int64](config.Grid.xNum) * config.Grid.yNum * config.Grid.zNum) * Grid.cellVolume
+    Flow_averagePressure = Flow_averagePressure / gridVolume
+    Flow_averageTemperature = Flow_averageTemperature / gridVolume
+    Flow_averageKineticEnergy = Flow_averageKineticEnergy / gridVolume
+    Particles_averageTemperature = Particles_averageTemperature / Particles_number
     Console_Write(config,
                   Integrator_timeStep,
                   Integrator_simTime,
@@ -5189,12 +5210,14 @@ local function mkInstance() local INSTANCE = {}
         (probe.uptoCell[2] - probe.fromCell[2] + 1)
       var avgFluidT = 0.0
       avgFluidT += Probe_AvgFluidT(Fluid, probe, totalCells)
-      var totalParticles = 0
-      totalParticles += Probe_CountParticles(Particles, probe)
+      var totalParticles = int64(0)
       var avgParticleT = 0.0
-      avgParticleT += Probe_AvgParticleT(Particles, probe, totalParticles)
       var avgCellOfParticleT = 0.0
-      avgCellOfParticleT += Probe_AvgCellOfParticleT(Fluid, Particles, probe, totalParticles)
+      if config.Particles.maxNum > 0 then
+        totalParticles += Probe_CountParticles(Particles, probe)
+        avgParticleT += Probe_AvgParticleT(Particles, probe, totalParticles)
+        avgCellOfParticleT += Probe_AvgCellOfParticleT(Fluid, Particles, probe, totalParticles)
+      end
       Probe_Write(config, i, Integrator_timeStep, avgFluidT, avgParticleT, avgCellOfParticleT)
     end
 
@@ -5221,7 +5244,7 @@ local function mkInstance() local INSTANCE = {}
   function INSTANCE.MainLoopBody(config, CopyQueue) return rquote
 
     -- Feed particles
-    if Integrator_timeStep % config.Particles.staggerFactor == 0 then
+    if config.Particles.maxNum > 0 and Integrator_timeStep % config.Particles.staggerFactor == 0 then
       if config.Particles.feeding.type == SCHEMA.FeedModel_OFF then
         -- Do nothing
       elseif config.Particles.feeding.type == SCHEMA.FeedModel_Incoming then
@@ -5238,7 +5261,7 @@ local function mkInstance() local INSTANCE = {}
 
     -- Set iteration-specific fields that persist across RK sub-steps
     Flow_InitializeTemporaries(Fluid)
-    if Integrator_timeStep % config.Particles.staggerFactor == 0 then
+    if config.Particles.maxNum > 0 and Integrator_timeStep % config.Particles.staggerFactor == 0 then
       Particles_InitializeTemporaries(Particles)
     end
 
@@ -5385,19 +5408,22 @@ local function mkInstance() local INSTANCE = {}
       end
 
       -- Particles & radiation solve
-      if Integrator_timeStep % config.Particles.staggerFactor == 0 then
+      if config.Particles.maxNum > 0 and (Integrator_timeStep % config.Particles.staggerFactor == 0 or Integrator_timeStep == config.Integrator.startIter) then
+        Particles_CalcDeltaTerms(Particles,
+                                 Fluid,
+                                 config.Flow.constantVisc,
+                                 config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                 config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                 config.Flow.viscosityModel,
+                                 Grid.xCellWidth, Grid.xRealOrigin,
+                                 Grid.yCellWidth, Grid.yRealOrigin,
+                                 Grid.zCellWidth, Grid.zRealOrigin,
+                                 config.Particles.convectiveCoeff)
+
+      end
+      if config.Particles.maxNum > 0 and Integrator_timeStep % config.Particles.staggerFactor == 0 then
         -- Add fluid forces to particles
-        Particles_AddFlowCoupling(Particles,
-                                  Fluid,
-                                  config.Flow.constantVisc,
-                                  config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                  config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                  config.Flow.viscosityModel,
-                                  Grid.xCellWidth, Grid.xRealOrigin,
-                                  Grid.yCellWidth, Grid.yRealOrigin,
-                                  Grid.zCellWidth, Grid.zRealOrigin,
-                                  config.Particles.convectiveCoeff,
-                                  config.Particles.heatCapacity)
+        Particles_AddFlowCoupling(Particles, config.Particles.heatCapacity)
         Particles_AddBodyForces(Particles, config.Particles.bodyForce)
         -- Add radiation
         if config.Radiation.type == SCHEMA.RadiationModel_OFF then
@@ -5431,7 +5457,9 @@ local function mkInstance() local INSTANCE = {}
       end
 
       -- Add particle forces to fluid
-      Flow_AddParticlesCoupling(Particles, Fluid, config, Grid.cellVolume)
+      if config.Particles.maxNum > 0 then
+        Flow_AddParticlesCoupling(Particles, Fluid, config, Grid.cellVolume)
+      end
 
       -- Use fluxes to update conserved value derivatives
       Flow_UpdateUsingFluxZ(Fluid,
@@ -5478,7 +5506,7 @@ local function mkInstance() local INSTANCE = {}
 
       -- Time step
       Flow_UpdateVars(Fluid, Integrator_deltaTime, Integrator_stage, config)
-      if Integrator_timeStep % config.Particles.staggerFactor == 0 then
+      if config.Particles.maxNum > 0 and Integrator_timeStep % config.Particles.staggerFactor == 0 then
         Particles_UpdateVars(Particles,
                              Integrator_deltaTime * config.Particles.staggerFactor,
                              Integrator_stage,
@@ -5543,7 +5571,7 @@ local function mkInstance() local INSTANCE = {}
       end
 
       -- Particle movement post-processing
-      if Integrator_timeStep % config.Particles.staggerFactor == 0 then
+      if config.Particles.maxNum > 0 and Integrator_timeStep % config.Particles.staggerFactor == 0 then
         -- Handle particle collisions
         -- TODO: Collisions across tiles are not handled.
         if config.Particles.collisions and Integrator_stage == config.Integrator.rkOrder then
@@ -5582,7 +5610,7 @@ local function mkInstance() local INSTANCE = {}
             TradeQueue_push(c,
                             p_Particles[c],
                             [UTIL.range(1,26):map(function(k) return rexpr
-                               [p_TradeQueue[k]][c]
+                               [p_TradeQueue_bySrc[k]][c]
                              end end)],
                             config,
                             Grid.xBnum, config.Grid.xNum, NX,
@@ -5592,7 +5620,7 @@ local function mkInstance() local INSTANCE = {}
           for c in tiles do
             TradeQueue_pull(p_Particles[c],
                             [UTIL.range(1,26):map(function(k) return rexpr
-                               [p_TradeQueue[k]][ (c-[colorOffsets[k]]+{NX,NY,NZ}) % {NX,NY,NZ} ]
+                               [p_TradeQueue_byDst[k]][c]
                              end end)],
                             config)
           end
@@ -5794,17 +5822,17 @@ task workDual(mc : MultiConfig)
     SIM1.Grid.zRealOrigin + mc.copyTgt.fromCell[2] * SIM1.Grid.zCellWidth)
   var Fluid0_cellWidth = array(SIM0.Grid.xCellWidth, SIM0.Grid.yCellWidth, SIM0.Grid.zCellWidth)
   var Fluid1_cellWidth = array(SIM1.Grid.xCellWidth, SIM1.Grid.yCellWidth, SIM1.Grid.zCellWidth)
-  var CopyQueue_ptr : int64 = 0
+  var CopyQueue_size = int64(0)
   var coloring_CopyQueue = C.legion_domain_point_coloring_create()
   for c in SIM0.tiles do
     var partSize = CopyQueue_partSize(SIM0.p_Fluid[c].bounds,
                                       mc.configs[0],
                                       mc.copySrc)
     C.legion_domain_point_coloring_color_domain(
-      coloring_CopyQueue, c, rect1d{CopyQueue_ptr,CopyQueue_ptr+partSize-1})
-    CopyQueue_ptr += partSize
+      coloring_CopyQueue, c, rect1d{CopyQueue_size,CopyQueue_size+partSize-1})
+    CopyQueue_size += partSize
   end
-  var is_CopyQueue = ispace(int1d, CopyQueue_ptr)
+  var is_CopyQueue = ispace(int1d, CopyQueue_size)
   var [CopyQueue] = region(is_CopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(CopyQueue, MAPPER.SAMPLE_ID_TAG, rexpr mc.configs[0].Mapping.sampleId end, int)];
   var p_CopyQueue = partition(disjoint, CopyQueue, coloring_CopyQueue, SIM0.tiles)
@@ -5892,18 +5920,20 @@ task workDual(mc : MultiConfig)
         copy(src.temperature, tgt.temperature_inc)
         copy(src.velocity, tgt.velocity_inc)
       end
-      fill(CopyQueue.position, array(-1.0, -1.0, -1.0))
-      fill(CopyQueue.velocity, array(-1.0, -1.0, -1.0))
-      fill(CopyQueue.temperature, -1.0)
-      fill(CopyQueue.diameter, -1.0)
-      fill(CopyQueue.density, -1.0)
-      for c in SIM0.tiles do
-        CopyQueue_push(SIM0.p_Particles[c],
-                       p_CopyQueue[c],
-                       mc.configs[0],
-                       mc.copySrc,
-                       copySrcOrigin, copyTgtOrigin,
-                       Fluid0_cellWidth, Fluid1_cellWidth)
+      if CopyQueue_size > 0 then
+        fill(CopyQueue.position, array(-1.0, -1.0, -1.0))
+        fill(CopyQueue.velocity, array(-1.0, -1.0, -1.0))
+        fill(CopyQueue.temperature, -1.0)
+        fill(CopyQueue.diameter, -1.0)
+        fill(CopyQueue.density, -1.0)
+        for c in SIM0.tiles do
+          CopyQueue_push(SIM0.p_Particles[c],
+                         p_CopyQueue[c],
+                         mc.configs[0],
+                         mc.copySrc,
+                         copySrcOrigin, copyTgtOrigin,
+                         Fluid0_cellWidth, Fluid1_cellWidth)
+        end
       end
     end
     -- Run one iteration of second section
