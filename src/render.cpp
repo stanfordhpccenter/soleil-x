@@ -225,7 +225,7 @@ extern "C" {
 #else
     static int frameNumber = 0;
     char filename[128];
-    sprintf(filename, "singleNodeImage.%04d.tga", frameNumber++);
+    sprintf(filename, "/scratch/snx3000/aheirich/singleNodeImage.%04d.tga", frameNumber++);
     write_targa(filename, rgbaBuffer, imageDescriptor->width, imageDescriptor->height);
 #endif
     
