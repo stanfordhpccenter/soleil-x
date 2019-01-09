@@ -83,17 +83,17 @@ PIZDAINT_MESA_DIR := /apps/daint/UES/jenkins/6.0.UP07/mc/easybuild/software/Mesa
 PIZDAINT_MESA_LIB := ${PIZDAINT_MESA_DIR}/lib/libOSMesa.so
 PIZDAINT_MESA_INC := ${PIZDAINT_MESA_DIR}/include
 
-ifeq ($(HOST),$(filter $(HOST),sapling,daint))
+ifeq ($(HOST),$(filter $(HOST),sapling daint))
 LLVM_LIB := $(SOLEIL_LLVM_DIR)/install/lib/libLLVM-4.0.so
 LLVM_SRC := $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src
 LLVM_SRC_XZ := $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src.tar.xz
 LLVM_DOWNLOAD_URL := http://releases.llvm.org/4.0.0/llvm-4.0.0.src.tar.xz
 LLVM_BUILD := $(SOLEIL_LLVM_DIR)/build
 
-${LLVM_SRC_XZ}:	
+${LLVM_SRC_XZ}:	${SOLEIL_LLVM_DIR}
 	cd ${SOLEIL_LLVM_DIR} && wget ${LLVM_DOWNLOAD_URL}
 
-${LLVM_SRC}:	${LLVM_SRC_XZ}
+${LLVM_SRC}:	${LLVM_SRC_XZ} ${SOLEIL_LLVM_DIR}
 	cd ${SOLEIL_LLVM_DIR} && tar xJf ${LLVM_SRC_XZ}
 
 ${LLVM_BUILD}:	
@@ -101,7 +101,6 @@ ${LLVM_BUILD}:
 
 ${SOLEIL_LLVM_DIR}:
 	mkdir -p ${SOLEIL_LLVM_DIR}
-
 
 ${LLVM_LIB}:	${LLVM_SRC} ${LLVM_BUILD}
 	$(shell module load cmake)
