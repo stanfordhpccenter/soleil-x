@@ -73,16 +73,17 @@ clean:
 %-desugared.rg: %.rg
 	./desugar.py $< > $@
 
-HOSTNAME = $(shell hostname)
+HOST = $(shell hostname)
 
-IS_PIZDAINT := $(patsubst daint%,daint,$(HOSTNAME))
-IS_SAPLING := $(patsubst sapling%,sapling,$(HOSTNAME))
+HOST := $(patsubst daint%,daint,$(HOST))
+HOST := $(patsubst nid%,daint,$(HOST))
+HOST := $(patsubst sapling%,sapling,$(HOST))
 
 PIZDAINT_MESA_DIR := /apps/daint/UES/jenkins/6.0.UP07/mc/easybuild/software/Mesa/17.2.8-CrayGNU-18.08/
 PIZDAINT_MESA_LIB := ${PIZDAINT_MESA_DIR}/lib/libOSMesa.so
 PIZDAINT_MESA_INC := ${PIZDAINT_MESA_DIR}/include
 
-ifeq ($(IS_SAPLING),sapling)
+ifeq ($(HOST),$(filter $(HOST),sapling,daint))
 LLVM_LIB := $(SOLEIL_LLVM_DIR)/install/lib/libLLVM-4.0.so
 LLVM_SRC := $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src
 LLVM_SRC_XZ := $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src.tar.xz
@@ -93,7 +94,7 @@ ${LLVM_SRC_XZ}:
 	cd ${SOLEIL_LLVM_DIR} && wget ${LLVM_DOWNLOAD_URL}
 
 ${LLVM_SRC}:	${LLVM_SRC_XZ}
-	cd ${SOLEIL_LLVM_DIR} && tar xJf ${LLVM_SRC}
+	cd ${SOLEIL_LLVM_DIR} && tar xJf ${LLVM_SRC_XZ}
 
 ${LLVM_BUILD}:	
 	mkdir -p ${LLVM_BUILD}
@@ -107,7 +108,7 @@ ${LLVM_LIB}:	${LLVM_SRC} ${LLVM_BUILD}
 
 endif
 
-soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o renderImage.o renderParticles.o marchingCubes.o
+soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o renderImage.o renderParticles.o marchingCubes.o ${LLVM_LIB}
 ifeq ($(IS_PIZDAINT),daint)
 	$(CXX) -o $@ $^ $(LINK_FLAGS) -L$(LEGION_DIR)/language/llvm/install/lib -lGLU -lLLVM $(PIZDAINT_MESA_LIBS)
 else ifeq ($(IS_SAPLING),sapling)
