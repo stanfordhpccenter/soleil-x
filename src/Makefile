@@ -98,6 +98,9 @@ ${LLVM_SRC}:	${LLVM_SRC_XZ}
 ${LLVM_BUILD}:	
 	mkdir -p ${LLVM_BUILD}
 
+${SOLEIL_LLVM_DIR}:
+	mkdir -p ${SOLEIL_LLVM_DIR}
+
 
 ${LLVM_LIB}:	${LLVM_SRC} ${LLVM_BUILD}
 	$(shell module load cmake)
