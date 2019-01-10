@@ -75,15 +75,15 @@ clean:
 
 HOST = $(shell hostname)
 
-HOST := $(patsubst daint%,daint,$(HOST))
-HOST := $(patsubst nid%,daint,$(HOST))
+HOST := $(patsubst daint%,pizdaint,$(HOST))
+HOST := $(patsubst nid%,pizdaint,$(HOST))
 HOST := $(patsubst sapling%,sapling,$(HOST))
 
 PIZDAINT_MESA_DIR := /apps/daint/UES/jenkins/6.0.UP07/mc/easybuild/software/Mesa/17.2.8-CrayGNU-18.08/
 PIZDAINT_MESA_LIB := ${PIZDAINT_MESA_DIR}/lib/libOSMesa.so
 PIZDAINT_MESA_INC := ${PIZDAINT_MESA_DIR}/include
 
-ifeq ($(HOST),$(filter $(HOST),sapling daint))
+ifeq ($(HOST),$(filter $(HOST),sapling pizdaint))
 LLVM_LIB := $(SOLEIL_LLVM_DIR)/install/lib/libLLVM-4.0.so
 LLVM_SRC := $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src
 LLVM_SRC_XZ := $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src.tar.xz
@@ -104,16 +104,19 @@ ${SOLEIL_LLVM_DIR}:
 
 ${LLVM_LIB}:	${LLVM_SRC} ${LLVM_BUILD}
 	$(shell module load cmake)
-	cd ${LLVM_BUILD} && cmake -DLLVM_BUILD_LLVM_DYLIB=1 -DLLVM_TARGETS_TO_BUILD=X86 $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src
+ifeq ($(HOST),sapling)
+else ifeq($(HOST),pizdaint)
+	cd ${LLVM_BUILD} && cmake $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src
+endif
 	cd ${LLVM_BUILD} && make
 	cd ${LLVM_BUILD} && cmake -DCMAKE_INSTALL_PREFIX=$(SOLEIL_LLVM_DIR)/install -P cmake_install.cmake
 
 endif
 
 soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o renderImage.o renderParticles.o marchingCubes.o ${LLVM_LIB}
-ifeq ($(IS_PIZDAINT),daint)
+ifeq ($(HOST),pizdaint)
 	$(CXX) -o $@ $^ $(LINK_FLAGS) -L$(LEGION_DIR)/language/llvm/install/lib -lGLU -lLLVM $(PIZDAINT_MESA_LIBS)
-else ifeq ($(IS_SAPLING),sapling)
+else ifeq ($(HOST),sapling)
 	$(CXX) -o $@ $^ $(LINK_FLAGS) -L$(LEGION_DIR)/language/llvm/install/lib -lGLU -lOSMesa $(LLVM_LIB)
 else
 	$(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU -lOSMesa -lLLVM
@@ -138,35 +141,35 @@ json.o: json.c json.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 render.o: render.cpp
-ifeq ($(IS_PIZDAINT),daint)
+ifeq ($(HOST),pizdaint)
 	$(CXX) $(CXXFLAGS) -c -o $@ -I${PIZDAINT_MESA_INC} $<
 else
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 endif
 
 marchingCubes.o:	marchingCubes.cc
-ifeq ($(IS_PIZDAINT),daint)
+ifeq ($(HOST),pizdaint)
 	$(CXX) $(CXXFLAGS) -DUSE_SOFTWARE_OPENGL -c -o $@ -I${PIZDAINT_MESA_INC} $<
 else
 	$(CXX) $(CXXFLAGS) -DUSE_SOFTWARE_OPENGL -c -o $@ $<
 endif
 
 renderImage.o:	renderImage.cc
-ifeq ($(IS_PIZDAINT),daint)
+ifeq ($(HOST),pizdaint)
 	$(CXX) $(CXXFLAGS) -c -o $@ -I${PIZDAINT_MESA_INC} $<
 else
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 endif
 
 renderParticles.o:	renderParticles.cc
-ifeq ($(IS_PIZDAINT),daint)
+ifeq ($(HOST),pizdaint)
 	$(CXX) $(CXXFLAGS) -c -o $@ -I${PIZDAINT_MESA_INC} $<
 else
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 endif
 
 render_standalone.o:	render_standalone.cc
-ifeq ($(IS_PIZDAINT),daint)
+ifeq ($(HOST),pizdaint)
 	$(CXX) $(CXXFLAGS) -c -o $@ -I${PIZDAINT_MESA_INC} $<
 else
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
