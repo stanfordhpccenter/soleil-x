@@ -105,6 +105,7 @@ ${SOLEIL_LLVM_DIR}:
 ${LLVM_LIB}:	${LLVM_SRC} ${LLVM_BUILD}
 	$(shell module load cmake)
 ifeq ($(HOST),sapling)
+	cd ${LLVM_BUILD} && cmake -DLLVM_BUILD_LLVM_DYLIB=1 -DLLVM_TARGETS_TO_BUILD=X86 ../llvm-4.0.0.src
 else ifeq($(HOST),pizdaint)
 	cd ${LLVM_BUILD} && cmake $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src
 endif
