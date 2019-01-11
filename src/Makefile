@@ -78,17 +78,20 @@ HOST = $(shell hostname)
 HOST := $(patsubst daint%,pizdaint,$(HOST))
 HOST := $(patsubst nid%,pizdaint,$(HOST))
 HOST := $(patsubst sapling%,sapling,$(HOST))
+HOST := $(patsubst sh-%,sherlock,$(HOST))
 
 PIZDAINT_MESA_DIR := /apps/daint/UES/jenkins/6.0.UP07/mc/easybuild/software/Mesa/17.2.8-CrayGNU-18.08/
 PIZDAINT_MESA_LIB := ${PIZDAINT_MESA_DIR}/lib/libOSMesa.so
 PIZDAINT_MESA_INC := ${PIZDAINT_MESA_DIR}/include
 
-ifeq ($(HOST),$(filter $(HOST),sapling pizdaint))
 LLVM_LIB := $(SOLEIL_LLVM_DIR)/install/lib/libLLVM-4.0.so
+LLVM_BUILD_LIB := $(SOLEIL_LLVM_DIR)/build/lib/libLLVM-4.0.so
 LLVM_SRC := $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src
 LLVM_SRC_XZ := $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src.tar.xz
 LLVM_DOWNLOAD_URL := http://releases.llvm.org/4.0.0/llvm-4.0.0.src.tar.xz
 LLVM_BUILD := $(SOLEIL_LLVM_DIR)/build
+LLVM_INSTALL := $(SOLEIL_LLVM_DIR)/install
+LLVM_INCLUDES=-I${LLVM_INSTALL}/include
 
 ${LLVM_SRC_XZ}:	${SOLEIL_LLVM_DIR}
 	cd ${SOLEIL_LLVM_DIR} && wget ${LLVM_DOWNLOAD_URL}
@@ -102,17 +105,22 @@ ${LLVM_BUILD}:
 ${SOLEIL_LLVM_DIR}:
 	mkdir -p ${SOLEIL_LLVM_DIR}
 
-${LLVM_LIB}:	${LLVM_SRC} ${LLVM_BUILD}
-	$(shell module load cmake)
+
+${LLVM_LIB}:	${LLVM_SRC} ${LLVM_BUILD} ${LLVM_INSTALL}
 ifeq ($(HOST),sapling)
 	cd ${LLVM_BUILD} && cmake -DLLVM_BUILD_LLVM_DYLIB=1 -DLLVM_TARGETS_TO_BUILD=X86 ../llvm-4.0.0.src
 else ifeq ($(HOST),pizdaint)
 	cd ${LLVM_BUILD} && cmake $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src
+else ifeq ($(HOST),sherlock)
+	cd ${LLVM_BUILD} && cmake -DLLVM_TARGETS_TO_BUILD=X86 ../llvm-4.0.0.src
+else
+	cd ${LLVM_BUILD} && cmake $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src
 endif
 	cd ${LLVM_BUILD} && make
+
+${LLVM_INSTALL}: ${LLVM_BUILD} ${LLVM_LIB}
 	cd ${LLVM_BUILD} && cmake -DCMAKE_INSTALL_PREFIX=$(SOLEIL_LLVM_DIR)/install -P cmake_install.cmake
 
-endif
 
 soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o renderImage.o renderParticles.o marchingCubes.o ${LLVM_LIB}
 ifeq ($(HOST),pizdaint)
@@ -141,40 +149,21 @@ config_schema.o config_schema.h: process_schema.rg config_schema.lua json.h util
 json.o: json.c json.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-render.o: render.cpp
-ifeq ($(HOST),pizdaint)
-	$(CXX) $(CXXFLAGS) -c -o $@ -I${PIZDAINT_MESA_INC} $<
-else
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
-endif
+render.o: render.cpp ${LLVM_INSTALL}
+	echo llvm_install ${LLVM_INSTALL}
+	$(CXX) $(CXXFLAGS) -c -o $@ ${LLVM_INCLUDES} $<
 
-marchingCubes.o:	marchingCubes.cc
-ifeq ($(HOST),pizdaint)
-	$(CXX) $(CXXFLAGS) -DUSE_SOFTWARE_OPENGL -c -o $@ -I${PIZDAINT_MESA_INC} $<
-else
-	$(CXX) $(CXXFLAGS) -DUSE_SOFTWARE_OPENGL -c -o $@ $<
-endif
+marchingCubes.o:	marchingCubes.cc ${LLVM_INSTALL}
+	$(CXX) $(CXXFLAGS) -DUSE_SOFTWARE_OPENGL -c -o ${LLVM_INCLUDES} $@ $<
 
-renderImage.o:	renderImage.cc
-ifeq ($(HOST),pizdaint)
-	$(CXX) $(CXXFLAGS) -c -o $@ -I${PIZDAINT_MESA_INC} $<
-else
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
-endif
+renderImage.o:	renderImage.cc ${LLVM_INSTALL}
+	$(CXX) $(CXXFLAGS) -c -o ${LLVM_INCLUDES} $@ $<
 
-renderParticles.o:	renderParticles.cc
-ifeq ($(HOST),pizdaint)
-	$(CXX) $(CXXFLAGS) -c -o $@ -I${PIZDAINT_MESA_INC} $<
-else
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
-endif
+renderParticles.o:	renderParticles.cc ${LLVM_INSTALL}
+	$(CXX) $(CXXFLAGS) -c -o ${LLVM_INCLUDES} $@ $<
 
-render_standalone.o:	render_standalone.cc
-ifeq ($(HOST),pizdaint)
-	$(CXX) $(CXXFLAGS) -c -o $@ -I${PIZDAINT_MESA_INC} $<
-else
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
-endif
+render_standalone.o:	render_standalone.cc ${LLVM_INSTALL}
+	$(CXX) $(CXXFLAGS) -c -o ${LLVM_INCLUDES} $@ $<
 
 render_standalone:  render_standalone.o  marchingCubes.o renderImage.o renderParticles.o
 	$(CXX) -o $@ $^ -lGLU -lOSMesa
