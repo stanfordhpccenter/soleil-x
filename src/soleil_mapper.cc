@@ -910,7 +910,7 @@ static void create_mappers(Machine machine,
   for (Processor proc : local_procs) {
     rt->replace_default_mapper(new SoleilMapper(rt, machine, proc), proc);
     ImageReductionMapper* irMapper =
-      new ImageReductionMapper(rt, machine, proc);
+      new ImageReductionMapper(rt->get_mapper_runtime(), machine, proc);
     rt->add_mapper(imageReductionMapperID, (Mapping::Mapper*)irMapper, proc);
   }
 }

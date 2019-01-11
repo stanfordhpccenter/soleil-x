@@ -1,3 +1,4 @@
+SHELL=bash
 # Required paths
 ifndef LEGION_DIR
   $(error LEGION_DIR is not set)
@@ -72,8 +73,55 @@ clean:
 %-desugared.rg: %.rg
 	./desugar.py $< > $@
 
-soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o renderImage.o renderParticles.o marchingCubes.o
-	$(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU -lOSMesa  -lLLVM
+HOST = $(shell hostname)
+
+HOST := $(patsubst daint%,pizdaint,$(HOST))
+HOST := $(patsubst nid%,pizdaint,$(HOST))
+HOST := $(patsubst sapling%,sapling,$(HOST))
+
+PIZDAINT_MESA_DIR := /apps/daint/UES/jenkins/6.0.UP07/mc/easybuild/software/Mesa/17.2.8-CrayGNU-18.08/
+PIZDAINT_MESA_LIB := ${PIZDAINT_MESA_DIR}/lib/libOSMesa.so
+PIZDAINT_MESA_INC := ${PIZDAINT_MESA_DIR}/include
+
+ifeq ($(HOST),$(filter $(HOST),sapling pizdaint))
+LLVM_LIB := $(SOLEIL_LLVM_DIR)/install/lib/libLLVM-4.0.so
+LLVM_SRC := $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src
+LLVM_SRC_XZ := $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src.tar.xz
+LLVM_DOWNLOAD_URL := http://releases.llvm.org/4.0.0/llvm-4.0.0.src.tar.xz
+LLVM_BUILD := $(SOLEIL_LLVM_DIR)/build
+
+${LLVM_SRC_XZ}:	${SOLEIL_LLVM_DIR}
+	cd ${SOLEIL_LLVM_DIR} && wget ${LLVM_DOWNLOAD_URL}
+
+${LLVM_SRC}:	${LLVM_SRC_XZ} ${SOLEIL_LLVM_DIR}
+	cd ${SOLEIL_LLVM_DIR} && tar xJf ${LLVM_SRC_XZ}
+
+${LLVM_BUILD}:	
+	mkdir -p ${LLVM_BUILD}
+
+${SOLEIL_LLVM_DIR}:
+	mkdir -p ${SOLEIL_LLVM_DIR}
+
+${LLVM_LIB}:	${LLVM_SRC} ${LLVM_BUILD}
+	$(shell module load cmake)
+ifeq ($(HOST),sapling)
+	cd ${LLVM_BUILD} && cmake -DLLVM_BUILD_LLVM_DYLIB=1 -DLLVM_TARGETS_TO_BUILD=X86 ../llvm-4.0.0.src
+else ifeq ($(HOST),pizdaint)
+	cd ${LLVM_BUILD} && cmake $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src
+endif
+	cd ${LLVM_BUILD} && make
+	cd ${LLVM_BUILD} && cmake -DCMAKE_INSTALL_PREFIX=$(SOLEIL_LLVM_DIR)/install -P cmake_install.cmake
+
+endif
+
+soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o renderImage.o renderParticles.o marchingCubes.o ${LLVM_LIB}
+ifeq ($(HOST),pizdaint)
+	$(CXX) -o $@ $^ $(LINK_FLAGS) -L$(LEGION_DIR)/language/llvm/install/lib -lGLU -lLLVM $(PIZDAINT_MESA_LIBS)
+else ifeq ($(HOST),sapling)
+	$(CXX) -o $@ $^ $(LINK_FLAGS) -L$(LEGION_DIR)/language/llvm/install/lib -lGLU -lOSMesa $(LLVM_LIB)
+else
+	$(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU -lOSMesa -lLLVM
+endif
 
 soleil.o: soleil-desugared.rg soleil_mapper.h config_schema.h hdf_helper.rg dom-desugared.rg util.rg
 	$(REGENT) soleil-desugared.rg $(REGENT_FLAGS)
@@ -94,19 +142,39 @@ json.o: json.c json.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 render.o: render.cpp
+ifeq ($(HOST),pizdaint)
+	$(CXX) $(CXXFLAGS) -c -o $@ -I${PIZDAINT_MESA_INC} $<
+else
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
+endif
 
 marchingCubes.o:	marchingCubes.cc
+ifeq ($(HOST),pizdaint)
+	$(CXX) $(CXXFLAGS) -DUSE_SOFTWARE_OPENGL -c -o $@ -I${PIZDAINT_MESA_INC} $<
+else
 	$(CXX) $(CXXFLAGS) -DUSE_SOFTWARE_OPENGL -c -o $@ $<
+endif
 
 renderImage.o:	renderImage.cc
+ifeq ($(HOST),pizdaint)
+	$(CXX) $(CXXFLAGS) -c -o $@ -I${PIZDAINT_MESA_INC} $<
+else
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
+endif
 
 renderParticles.o:	renderParticles.cc
+ifeq ($(HOST),pizdaint)
+	$(CXX) $(CXXFLAGS) -c -o $@ -I${PIZDAINT_MESA_INC} $<
+else
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
+endif
 
 render_standalone.o:	render_standalone.cc
+ifeq ($(HOST),pizdaint)
+	$(CXX) $(CXXFLAGS) -c -o $@ -I${PIZDAINT_MESA_INC} $<
+else
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
+endif
 
 render_standalone:  render_standalone.o  marchingCubes.o renderImage.o renderParticles.o
 	$(CXX) -o $@ $^ -lGLU -lOSMesa

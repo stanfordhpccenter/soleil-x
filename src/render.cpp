@@ -206,7 +206,7 @@ extern "C" {
     AccessorWO<FieldData, 3> a(image, imageFields[3]);
     AccessorWO<FieldData, 3> z(image, imageFields[4]);
     
-#define USE_COMPOSITOR 0
+#define USE_COMPOSITOR 1
 #if USE_COMPOSITOR
     
     IndexSpace saveIndexSpace = image.get_logical_region().get_index_space();
@@ -220,12 +220,20 @@ extern "C" {
       a[*pir] = rgbaBuffer[index * 4 + 3];
       z[*pir] = depthBuffer[index];
       index++;
+#if 1
+if(index < 10) {
+  char hostname[128];
+  gethostname(hostname, sizeof(hostname));
+  const FieldData* rr = r.ptr(*pir);
+  printf("%s %s r %g %p\n", __FUNCTION__, hostname, *rr, rr);
+}
+#endif
     }
     
 #else
     static int frameNumber = 0;
     char filename[128];
-    sprintf(filename, "singleNodeImage.%04d.tga", frameNumber++);
+    sprintf(filename, "/scratch/snx3000/aheirich/singleNodeImage.%04d.tga", frameNumber++);
     write_targa(filename, rgbaBuffer, imageDescriptor->width, imageDescriptor->height);
 #endif
     
@@ -413,15 +421,15 @@ extern "C" {
     
     IndexTaskLauncher renderLauncher(gRenderTaskID, compositor->everywhereDomain(), TaskArgument(args, sizeof(args)), argMap, Predicate::TRUE_PRED, false, gImageReductionMapperID);
     
-    RegionRequirement req0(fluidPartition, 1, READ_ONLY, SIMULTANEOUS, fluid->get_logical_region(), gImageReductionMapperID);
+    RegionRequirement req0(fluidPartition, 1, READ_ONLY, EXCLUSIVE, fluid->get_logical_region(), gImageReductionMapperID);
     for(int i = 0; i < numFluidFields; ++i) req0.add_field(fluidFields[i]);
     renderLauncher.add_region_requirement(req0);
     
-    RegionRequirement req1(particlesPartition, 2, READ_ONLY, SIMULTANEOUS, particles->get_logical_region(), gImageReductionMapperID);
+    RegionRequirement req1(particlesPartition, 2, READ_ONLY, EXCLUSIVE, particles->get_logical_region(), gImageReductionMapperID);
     for(int i = 0; i < numParticlesFields; ++i) req1.add_field(particlesFields[i]);
     renderLauncher.add_region_requirement(req1);
     
-    RegionRequirement req2(compositor->depthPartition(), 3, READ_WRITE, EXCLUSIVE, compositor->sourceImage(), gImageReductionMapperID);
+    RegionRequirement req2(compositor->depthPartition(), 3, WRITE_DISCARD, EXCLUSIVE, compositor->sourceImage(), gImageReductionMapperID);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_R);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_G);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_B);
