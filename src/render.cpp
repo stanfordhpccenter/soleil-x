@@ -208,24 +208,51 @@ extern "C" {
     
 #define USE_COMPOSITOR 1
 #if USE_COMPOSITOR
+
+#if 1
+//block here to batch it in the debugger
+bool runLoop = true;
+while(runLoop) {
+  if(!runLoop)
+    break;
+}
+#endif
+static FieldData* watchPoint = 0;
+#define GG {if(watchPoint!=0) std::cout << __LINE__ << " " << watchPoint << " " << (*watchPoint) << std::endl;}
     
     IndexSpace saveIndexSpace = image.get_logical_region().get_index_space();
     Rect<3> saveRect = runtime->get_index_space_domain(ctx, saveIndexSpace);
     
     int index = 0;
     for(PointInRectIterator<3> pir(saveRect); pir(); pir++) {
+GG
       r[*pir] = rgbaBuffer[index * 4];
+GG
+if(g.ptr(*pir) == watchPoint) {
+  std::cout << "smashed watchpoint at index " << index << std::endl;
+}
+std::cout << "g.ptr(*pir) " << g.ptr(*pir) << " " << (g.ptr(*pir) == watchPoint) << std::endl;
+GG
       g[*pir] = rgbaBuffer[index * 4 + 1];
+GG
       b[*pir] = rgbaBuffer[index * 4 + 2];
+GG
       a[*pir] = rgbaBuffer[index * 4 + 3];
+GG
       z[*pir] = depthBuffer[index];
+GG
       index++;
 #if 1
 if(index < 10) {
   char hostname[128];
   gethostname(hostname, sizeof(hostname));
   const FieldData* rr = r.ptr(*pir);
-  printf("%s %s r %g %p\n", __FUNCTION__, hostname, *rr, rr);
+  printf("%s %s r %g %p %g\n", __FUNCTION__, hostname, *rr, rr, r.ptr(*pir)[0]);
+  if(index == 1) {
+    watchPoint = (FieldData*)rr;
+    std::cout << "watching location " << watchPoint << std::endl;
+GG
+  }
 }
 #endif
     }

@@ -85,18 +85,18 @@ HOST := $(patsubst sh-%,sherlock,$(HOST))
 
 
 
-ifeq ($(HOST),sapling)
-LLVM_LIB := $(SOLEIL_LLVM_DIR)/install/lib/libLLVM-4.0.so
+LLVM_INSTALL := $(SOLEIL_LLVM_DIR)/install
+LLVM_LIB := $(LLVM_INSTALL)/lib/libLLVM-4.0.so
 LLVM_BUILD_LIB := $(SOLEIL_LLVM_DIR)/build/lib/libLLVM-4.0.so
 LLVM_SRC := $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src
 LLVM_SRC_XZ := $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src.tar.xz
 LLVM_DOWNLOAD_URL := http://releases.llvm.org/4.0.0/llvm-4.0.0.src.tar.xz
 LLVM_BUILD := $(SOLEIL_LLVM_DIR)/build
-LLVM_INSTALL := $(SOLEIL_LLVM_DIR)/install
-LLVM_INCLUDES=-I${LLVM_INSTALL}/include
 LLVM_STATIC_LINKAGE := -lLLVMLTO -lLLVMPasses -lLLVMObjCARCOpts -lLLVMSymbolize -lLLVMDebugInfoPDB -lLLVMDebugInfoDWARF -lLLVMCoverage -lLLVMTableGen -lLLVMLineEditor -lLLVMOrcJIT -lLLVMMIRParser -lLLVMObjectYAML -lLLVMLibDriver -lLLVMOption -lLLVMX86Disassembler -lLLVMX86AsmParser -lLLVMX86CodeGen -lLLVMGlobalISel -lLLVMSelectionDAG -lLLVMAsmPrinter -lLLVMDebugInfoCodeView -lLLVMDebugInfoMSF -lLLVMX86Desc -lLLVMMCDisassembler -lLLVMX86Info -lLLVMX86AsmPrinter -lLLVMX86Utils -lLLVMMCJIT -lLLVMInterpreter -lLLVMExecutionEngine -lLLVMRuntimeDyld -lLLVMCodeGen -lLLVMTarget -lLLVMCoroutines -lLLVMipo -lLLVMInstrumentation -lLLVMVectorize -lLLVMScalarOpts -lLLVMLinker -lLLVMIRReader -lLLVMAsmParser -lLLVMInstCombine -lLLVMTransformUtils -lLLVMBitWriter -lLLVMAnalysis -lLLVMObject -lLLVMMCParser -lLLVMMC -lLLVMBitReader -lLLVMProfileData -lLLVMCore -lLLVMSupport -lLLVMDemangle
 
 ${LLVM_SRC_XZ}:	${SOLEIL_LLVM_DIR}
+	echo why are we downloading ${LLVM_SRC_XZ} again?
+	ls -l ${LLVM_SRC_XZ}
 	cd ${SOLEIL_LLVM_DIR} && wget ${LLVM_DOWNLOAD_URL}
 
 ${LLVM_SRC}:	${LLVM_SRC_XZ} ${SOLEIL_LLVM_DIR}
@@ -105,28 +105,23 @@ ${LLVM_SRC}:	${LLVM_SRC_XZ} ${SOLEIL_LLVM_DIR}
 ${LLVM_BUILD}:	
 	mkdir -p ${LLVM_BUILD}
 
+${LLVM_INSTALL}:
+	mkdir -p ${LLVM_INSTALL}
+
 ${SOLEIL_LLVM_DIR}:
 	mkdir -p ${SOLEIL_LLVM_DIR}
 
 
-${LLVM_LIB}:	${LLVM_SRC} ${LLVM_BUILD} ${LLVM_INSTALL}
+${LLVM_BUILD_LIB}:	${LLVM_SRC} ${LLVM_BUILD} 
 ifeq ($(HOST),sapling)
-	cd ${LLVM_BUILD} && cmake -DLLVM_BUILD_LLVM_DYLIB=1 -DLLVM_TARGETS_TO_BUILD=X86 ../llvm-4.0.0.src
+	cd ${LLVM_BUILD} && cmake -DLLVM_BUILD_LLVM_DYLIB=1 -DLLVM_TARGETS_TO_BUILD=X86 ${LLVM_SRC}
 else ifeq ($(HOST),pizdaint)
-	cd ${LLVM_BUILD} && cmake $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src
-else ifeq ($(HOST),sherlock)
-	cd ${LLVM_BUILD} && cmake -DLLVM_TARGETS_TO_BUILD=X86 ../llvm-4.0.0.src
-else
-	cd ${LLVM_BUILD} && cmake $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src
+	cd ${LLVM_BUILD} && cmake ${LLVM_SRC}
 endif
-
-${LLVM_LIB}:	${LLVM_SRC} ${LLVM_BUILD}
-	cd ${LLVM_BUILD} && cmake $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src
 	cd ${LLVM_BUILD} && make
 
-${LLVM_INSTALL}: ${LLVM_BUILD} ${LLVM_LIB}
+${LLVM_LIB}: ${LLVM_BUILD} ${LLVM_BUILD_LIB}
 	cd ${LLVM_BUILD} && cmake -DCMAKE_INSTALL_PREFIX=$(SOLEIL_LLVM_DIR)/install -P cmake_install.cmake
-endif
 
 
 ifeq ($(HOST),pizdaint)
@@ -135,6 +130,9 @@ MESA_LIB := ${PIZDAINT_MESA_DIR}/lib/libOSMesa.so
 MESA_INC := -I${PIZDAINT_MESA_DIR}/include
 
 else ifeq ($(HOST),sapling)
+SAPLING_MESA_DIR := /usr/lib/x86_64-linux-gnu/
+MESA_LIB := $(SAPLING_MESA_DIR)/libOSMesa.so
+MESA_INC := /usr/include/GL/
 endif
 
 
@@ -143,7 +141,7 @@ soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o renderImag
 ifeq ($(HOST),pizdaint)
 	$(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU ${MESA_LIB} ${LLVM_LIB}
 else ifeq ($(HOST),sapling)
-        $(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU -lOSMesa ${LLVM_LIB}
+	$(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU -lOSMesa ${LLVM_LIB}
 endif
 
 soleil.o: soleil-desugared.rg soleil_mapper.h config_schema.h hdf_helper.rg dom-desugared.rg util.rg
