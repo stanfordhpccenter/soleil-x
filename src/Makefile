@@ -80,10 +80,12 @@ HOST := $(patsubst nid%,pizdaint,$(HOST))
 HOST := $(patsubst sapling%,sapling,$(HOST))
 HOST := $(patsubst sh-%,sherlock,$(HOST))
 
-PIZDAINT_MESA_DIR := /apps/daint/UES/jenkins/6.0.UP07/mc/easybuild/software/Mesa/17.2.8-CrayGNU-18.08/
-PIZDAINT_MESA_LIB := ${PIZDAINT_MESA_DIR}/lib/libOSMesa.so
-PIZDAINT_MESA_INC := ${PIZDAINT_MESA_DIR}/include
 
+
+
+
+
+ifeq ($(HOST),sapling)
 LLVM_LIB := $(SOLEIL_LLVM_DIR)/install/lib/libLLVM-4.0.so
 LLVM_BUILD_LIB := $(SOLEIL_LLVM_DIR)/build/lib/libLLVM-4.0.so
 LLVM_SRC := $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src
@@ -124,10 +126,25 @@ ${LLVM_LIB}:	${LLVM_SRC} ${LLVM_BUILD}
 
 ${LLVM_INSTALL}: ${LLVM_BUILD} ${LLVM_LIB}
 	cd ${LLVM_BUILD} && cmake -DCMAKE_INSTALL_PREFIX=$(SOLEIL_LLVM_DIR)/install -P cmake_install.cmake
+endif
 
 
-soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o renderImage.o renderParticles.o marchingCubes.o ${LLVM_INSTALL}
-	$(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU -lOSMesa ${LLVM_STATIC_LINKAGE}
+ifeq ($(HOST),pizdaint)
+PIZDAINT_MESA_DIR := /apps/daint/UES/jenkins/6.0.UP07/mc/easybuild/software/Mesa/17.2.8-CrayGNU-18.08/
+MESA_LIB := ${PIZDAINT_MESA_DIR}/lib/libOSMesa.so
+MESA_INC := -I${PIZDAINT_MESA_DIR}/include
+
+else ifeq ($(HOST),sapling)
+endif
+
+
+
+soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o renderImage.o renderParticles.o marchingCubes.o ${LLVM_LIB}
+ifeq ($(HOST),pizdaint)
+	$(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU ${MESA_LIB} ${LLVM_LIB}
+else ifeq ($(HOST),sapling)
+        $(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU -lOSMesa ${LLVM_LIB}
+endif
 
 soleil.o: soleil-desugared.rg soleil_mapper.h config_schema.h hdf_helper.rg dom-desugared.rg util.rg
 	$(REGENT) soleil-desugared.rg $(REGENT_FLAGS)
@@ -147,22 +164,21 @@ config_schema.o config_schema.h: process_schema.rg config_schema.lua json.h util
 json.o: json.c json.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-render.o: render.cpp ${LLVM_INSTALL}
-	echo llvm_install ${LLVM_INSTALL}
-	$(CXX) $(CXXFLAGS) -c -o $@ ${LLVM_INCLUDES} $<
+render.o: render.cpp 
+	$(CXX) $(CXXFLAGS) -c -o $@ ${MESA_INC} $<
 
-marchingCubes.o:	marchingCubes.cc ${LLVM_INSTALL}
-	$(CXX) $(CXXFLAGS) -DUSE_SOFTWARE_OPENGL -c -o ${LLVM_INCLUDES} $@ $<
+marchingCubes.o:	marchingCubes.cc 
+	$(CXX) $(CXXFLAGS) -DUSE_SOFTWARE_OPENGL -c -o $@ ${MESA_INC} $<
 
-renderImage.o:	renderImage.cc ${LLVM_INSTALL}
-	$(CXX) $(CXXFLAGS) -c -o ${LLVM_INCLUDES} $@ $<
+renderImage.o:	renderImage.cc 
+	$(CXX) $(CXXFLAGS) -c -o $@ ${MESA_INC} $<
 
-renderParticles.o:	renderParticles.cc ${LLVM_INSTALL}
-	$(CXX) $(CXXFLAGS) -c -o ${LLVM_INCLUDES} $@ $<
+renderParticles.o:	renderParticles.cc 
+	$(CXX) $(CXXFLAGS) -c -o $@ ${MESA_INC} $<
 
-render_standalone.o:	render_standalone.cc ${LLVM_INSTALL}
-	$(CXX) $(CXXFLAGS) -c -o ${LLVM_INCLUDES} $@ $<
+render_standalone.o:	render_standalone.cc 
+	$(CXX) $(CXXFLAGS) -c -o $@ ${MESA_INC}  $<
 
 render_standalone:  render_standalone.o  marchingCubes.o renderImage.o renderParticles.o
-	$(CXX) -o $@ $^ -lGLU -lOSMesa
+	$(CXX) -o $@ $^ -lGLU ${MESA_INC}
 
