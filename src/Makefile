@@ -85,8 +85,9 @@ HOST := $(patsubst sh-%,sherlock,$(HOST))
 
 
 
-ifeq ($(HOST),$(filter $(HOST),sapling pizdaint))
 
+
+ifeq ($(HOST),sapling)
 LLVM_LIB := $(SOLEIL_LLVM_DIR)/install/lib/libLLVM-4.0.so
 LLVM_BUILD_LIB := $(SOLEIL_LLVM_DIR)/build/lib/libLLVM-4.0.so
 LLVM_SRC := $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src
@@ -95,7 +96,6 @@ LLVM_DOWNLOAD_URL := http://releases.llvm.org/4.0.0/llvm-4.0.0.src.tar.xz
 LLVM_BUILD := $(SOLEIL_LLVM_DIR)/build
 LLVM_INSTALL := $(SOLEIL_LLVM_DIR)/install
 LLVM_INCLUDES=-I${LLVM_INSTALL}/include
-LLVM_STATIC_LINKAGE := -lLLVMLTO -lLLVMPasses -lLLVMObjCARCOpts -lLLVMSymbolize -lLLVMDebugInfoPDB -lLLVMDebugInfoDWARF -lLLVMCoverage -lLLVMTableGen -lLLVMLineEditor -lLLVMOrcJIT -lLLVMMIRParser -lLLVMObjectYAML -lLLVMLibDriver -lLLVMOption -lLLVMX86Disassembler -lLLVMX86AsmParser -lLLVMX86CodeGen -lLLVMGlobalISel -lLLVMSelectionDAG -lLLVMAsmPrinter -lLLVMDebugInfoCodeView -lLLVMDebugInfoMSF -lLLVMX86Desc -lLLVMMCDisassembler -lLLVMX86Info -lLLVMX86AsmPrinter -lLLVMX86Utils -lLLVMMCJIT -lLLVMInterpreter -lLLVMExecutionEngine -lLLVMRuntimeDyld -lLLVMCodeGen -lLLVMTarget -lLLVMCoroutines -lLLVMipo -lLLVMInstrumentation -lLLVMVectorize -lLLVMScalarOpts -lLLVMLinker -lLLVMIRReader -lLLVMAsmParser -lLLVMInstCombine -lLLVMTransformUtils -lLLVMBitWriter -lLLVMAnalysis -lLLVMObject -lLLVMMCParser -lLLVMMC -lLLVMBitReader -lLLVMProfileData -lLLVMCore -lLLVMSupport -lLLVMDemangle
 
 ${LLVM_SRC_XZ}:	${SOLEIL_LLVM_DIR}
 	cd ${SOLEIL_LLVM_DIR} && wget ${LLVM_DOWNLOAD_URL}
@@ -111,15 +111,7 @@ ${SOLEIL_LLVM_DIR}:
 
 
 ${LLVM_LIB}:	${LLVM_SRC} ${LLVM_BUILD} ${LLVM_INSTALL}
-ifeq ($(HOST),sapling)
 	cd ${LLVM_BUILD} && cmake -DLLVM_BUILD_LLVM_DYLIB=1 -DLLVM_TARGETS_TO_BUILD=X86 ../llvm-4.0.0.src
-else ifeq ($(HOST),pizdaint)
-	cd ${LLVM_BUILD} && cmake $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src
-else ifeq ($(HOST),sherlock)
-	cd ${LLVM_BUILD} && cmake -DLLVM_TARGETS_TO_BUILD=X86 ../llvm-4.0.0.src
-else
-	cd ${LLVM_BUILD} && cmake $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src
-endif
 
 ${LLVM_LIB}:	${LLVM_SRC} ${LLVM_BUILD}
 	cd ${LLVM_BUILD} && cmake $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src
@@ -127,22 +119,39 @@ ${LLVM_LIB}:	${LLVM_SRC} ${LLVM_BUILD}
 
 ${LLVM_INSTALL}: ${LLVM_BUILD} ${LLVM_LIB}
 	cd ${LLVM_BUILD} && cmake -DCMAKE_INSTALL_PREFIX=$(SOLEIL_LLVM_DIR)/install -P cmake_install.cmake
-endif
+
+LLVM_PREREQ := ${LLVM_LIB}
 
 
-ifeq ($(HOST),pizdaint)
+else ifeq ($(HOST),pizdaint)
+
+LLVM_STATIC_LINKAGE := -lLLVMLTO -lLLVMPasses -lLLVMObjCARCOpts -lLLVMSymbolize -lLLVMDebugInfoPDB -lLLVMDebugInfoDWARF -lLLVMCoverage -lLLVMTableGen -lLLVMLineEditor -lLLVMOrcJIT -lLLVMMIRParser -lLLVMObjectYAML -lLLVMLibDriver -lLLVMOption -lLLVMX86Disassembler -lLLVMX86AsmParser -lLLVMX86CodeGen -lLLVMGlobalISel -lLLVMSelectionDAG -lLLVMAsmPrinter -lLLVMDebugInfoCodeView -lLLVMDebugInfoMSF -lLLVMX86Desc -lLLVMMCDisassembler -lLLVMX86Info -lLLVMX86AsmPrinter -lLLVMX86Utils -lLLVMMCJIT -lLLVMInterpreter -lLLVMExecutionEngine -lLLVMRuntimeDyld -lLLVMCodeGen -lLLVMTarget -lLLVMCoroutines -lLLVMipo -lLLVMInstrumentation -lLLVMVectorize -lLLVMScalarOpts -lLLVMLinker -lLLVMIRReader -lLLVMAsmParser -lLLVMInstCombine -lLLVMTransformUtils -lLLVMBitWriter -lLLVMAnalysis -lLLVMObject -lLLVMMCParser -lLLVMMC -lLLVMBitReader -lLLVMProfileData -lLLVMCore -lLLVMSupport -lLLVMDemangle
 PIZDAINT_MESA_DIR := /apps/daint/UES/jenkins/6.0.UP07/mc/easybuild/software/Mesa/17.2.8-CrayGNU-18.08/
 MESA_LIB := ${PIZDAINT_MESA_DIR}/lib/libOSMesa.so
 MESA_INC := -I${PIZDAINT_MESA_DIR}/include
-LLVM_LIBS := ${LLVM_STATIC_LINKAGE}
-else ifeq ($(HOST),sapling)
+
+PIZDAINT_EASYBUILD_LLVM_DIR := $(HOME)/easybuild/daint/broadwell/modules/all/LLVM/
+${PIZDAINT_EASYBUILD_LLVM_DIR}:
+	@echo ========================================================
+	@echo ========================================================
+	@echo Did not detect a local esybuild of LLVM 4.0.0
+	@echo Please issue these commands and then try to make again:
+	@echo module load daint-mc
+	@echo module load EasyBuild-custom/cscs
+	@echo eb ../scripts/LLVM-4.0.0-CrayGNU-18.08.eb 
+	@echo module load LLVM-4.0.0-CrayGNU-18.08
+	@echo ========================================================
+	@echo ========================================================
+	@exit -1
+LLVM_PREREQ := ${PIZDAINT_EASYBUILD_LLVM_DIR}
+
 endif
 
 
 
-soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o renderImage.o renderParticles.o marchingCubes.o ${LLVM_LIB}
+soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o renderImage.o renderParticles.o marchingCubes.o ${LLVM_PREREQ}
 ifeq ($(HOST),pizdaint)
-	$(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU ${MESA_LIB} ${LLVM_LIB}
+	$(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU ${MESA_LIB} ${LLVM_STATIC_LINKAGE}
 else ifeq ($(HOST),sapling)
         $(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU -lOSMesa ${LLVM_LIB}
 endif
