@@ -85,7 +85,8 @@ HOST := $(patsubst sh-%,sherlock,$(HOST))
 
 
 
-ifeq ($(HOST),sapling)
+ifeq ($(HOST),$(filter $(HOST),sapling pizdaint))
+
 LLVM_LIB := $(SOLEIL_LLVM_DIR)/install/lib/libLLVM-4.0.so
 LLVM_BUILD_LIB := $(SOLEIL_LLVM_DIR)/build/lib/libLLVM-4.0.so
 LLVM_SRC := $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src
@@ -133,7 +134,7 @@ ifeq ($(HOST),pizdaint)
 PIZDAINT_MESA_DIR := /apps/daint/UES/jenkins/6.0.UP07/mc/easybuild/software/Mesa/17.2.8-CrayGNU-18.08/
 MESA_LIB := ${PIZDAINT_MESA_DIR}/lib/libOSMesa.so
 MESA_INC := -I${PIZDAINT_MESA_DIR}/include
-
+LLVM_LIBS := ${LLVM_STATIC_LINKAGE}
 else ifeq ($(HOST),sapling)
 endif
 
