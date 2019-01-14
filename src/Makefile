@@ -98,6 +98,8 @@ LLVM_INSTALL := $(SOLEIL_LLVM_DIR)/install
 LLVM_INCLUDES=-I${LLVM_INSTALL}/include
 
 ${LLVM_SRC_XZ}:	${SOLEIL_LLVM_DIR}
+	echo why are we downloading ${LLVM_SRC_XZ} again?
+	ls -l ${LLVM_SRC_XZ}
 	cd ${SOLEIL_LLVM_DIR} && wget ${LLVM_DOWNLOAD_URL}
 
 ${LLVM_SRC}:	${LLVM_SRC_XZ} ${SOLEIL_LLVM_DIR}
@@ -106,18 +108,22 @@ ${LLVM_SRC}:	${LLVM_SRC_XZ} ${SOLEIL_LLVM_DIR}
 ${LLVM_BUILD}:	
 	mkdir -p ${LLVM_BUILD}
 
+${LLVM_INSTALL}:
+	mkdir -p ${LLVM_INSTALL}
+
 ${SOLEIL_LLVM_DIR}:
 	mkdir -p ${SOLEIL_LLVM_DIR}
 
 
-${LLVM_LIB}:	${LLVM_SRC} ${LLVM_BUILD} ${LLVM_INSTALL}
-	cd ${LLVM_BUILD} && cmake -DLLVM_BUILD_LLVM_DYLIB=1 -DLLVM_TARGETS_TO_BUILD=X86 ../llvm-4.0.0.src
-
-${LLVM_LIB}:	${LLVM_SRC} ${LLVM_BUILD}
-	cd ${LLVM_BUILD} && cmake $(SOLEIL_LLVM_DIR)/llvm-4.0.0.src
+${LLVM_BUILD_LIB}:	${LLVM_SRC} ${LLVM_BUILD} 
+ifeq ($(HOST),sapling)
+	cd ${LLVM_BUILD} && cmake -DLLVM_BUILD_LLVM_DYLIB=1 -DLLVM_TARGETS_TO_BUILD=X86 ${LLVM_SRC}
+else ifeq ($(HOST),pizdaint)
+	cd ${LLVM_BUILD} && cmake ${LLVM_SRC}
+endif
 	cd ${LLVM_BUILD} && make
 
-${LLVM_INSTALL}: ${LLVM_BUILD} ${LLVM_LIB}
+${LLVM_LIB}: ${LLVM_BUILD} ${LLVM_BUILD_LIB}
 	cd ${LLVM_BUILD} && cmake -DCMAKE_INSTALL_PREFIX=$(SOLEIL_LLVM_DIR)/install -P cmake_install.cmake
 
 LLVM_PREREQ := ${LLVM_LIB}
@@ -149,11 +155,13 @@ endif
 
 
 
-soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o renderImage.o renderParticles.o marchingCubes.o ${LLVM_PREREQ}
+soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o renderImage.o renderParticles.o marchingCubes.o 
 ifeq ($(HOST),pizdaint)
-	$(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU ${MESA_LIB} ${LLVM_STATIC_LINKAGE}
+	@make ${LLVM_PREREQ}
+	$(CXX) -o $@ $^ $(LINK_FLAGS) -L${LLVM_PREREQ} -lGLU ${MESA_LIB} ${LLVM_STATIC_LINKAGE}
 else ifeq ($(HOST),sapling)
-        $(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU -lOSMesa ${LLVM_LIB}
+	@make ${LLVM_PREREQ}
+	$(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU -lOSMesa ${LLVM_LIB}
 endif
 
 soleil.o: soleil-desugared.rg soleil_mapper.h config_schema.h hdf_helper.rg dom-desugared.rg util.rg
