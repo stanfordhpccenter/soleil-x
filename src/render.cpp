@@ -210,50 +210,34 @@ extern "C" {
 #if USE_COMPOSITOR
 
 #if 1
-//block here to batch it in the debugger
-bool runLoop = true;
-while(runLoop) {
-  if(!runLoop)
+//block here to catch it in the debugger
+bool waitForAttach = true;
+while(waitForAttach) { // set waitForAttach=false to exit
+  if(!waitForAttach) // set waitForAttach=false to exit
     break;
 }
 #endif
 static FieldData* watchPoint = 0;
-#define GG {if(watchPoint!=0) std::cout << __LINE__ << " " << watchPoint << " " << (*watchPoint) << std::endl;}
     
     IndexSpace saveIndexSpace = image.get_logical_region().get_index_space();
     Rect<3> saveRect = runtime->get_index_space_domain(ctx, saveIndexSpace);
     
     int index = 0;
     for(PointInRectIterator<3> pir(saveRect); pir(); pir++) {
-GG
+if(index > 0) std::cout << "index " << index << " before write *watchpoint (*" << watchPoint << ") = " << (*watchPoint) << std::endl;
       r[*pir] = rgbaBuffer[index * 4];
-GG
-if(g.ptr(*pir) == watchPoint) {
-  std::cout << "smashed watchpoint at index " << index << std::endl;
-}
-std::cout << "g.ptr(*pir) " << g.ptr(*pir) << " " << (g.ptr(*pir) == watchPoint) << std::endl;
-GG
+std::cout << "r[*pir] = r(" << (*pir) << ") = *" << (r.ptr(*pir)) << " = " << r[*pir] << std::endl;
+if(index > 0) std::cout << "index " << index << " after write *watchpoint (*" << watchPoint << ") = " << (*watchPoint) << std::endl;
       g[*pir] = rgbaBuffer[index * 4 + 1];
-GG
       b[*pir] = rgbaBuffer[index * 4 + 2];
-GG
       a[*pir] = rgbaBuffer[index * 4 + 3];
-GG
       z[*pir] = depthBuffer[index];
-GG
       index++;
 #if 1
-if(index < 10) {
-  char hostname[128];
-  gethostname(hostname, sizeof(hostname));
-  const FieldData* rr = r.ptr(*pir);
-  printf("%s %s r %g %p %g\n", __FUNCTION__, hostname, *rr, rr, r.ptr(*pir)[0]);
   if(index == 1) {
-    watchPoint = (FieldData*)rr;
-    std::cout << "watching location " << watchPoint << std::endl;
-GG
+    watchPoint = (FieldData*)r.ptr(*pir);
+    std::cout << "watching location " << watchPoint << " = " << (*watchPoint) << std::endl;
   }
-}
 #endif
     }
     
