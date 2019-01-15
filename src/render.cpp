@@ -200,45 +200,26 @@ extern "C" {
     
     glReadPixels(0, 0, imageDescriptor->width, imageDescriptor->height, GL_DEPTH_COMPONENT, GL_FLOAT, depthBuffer);
     
-    AccessorWO<FieldData, 3> r(image, imageFields[0]);
-    AccessorWO<FieldData, 3> g(image, imageFields[1]);
-    AccessorWO<FieldData, 3> b(image, imageFields[2]);
-    AccessorWO<FieldData, 3> a(image, imageFields[3]);
-    AccessorWO<FieldData, 3> z(image, imageFields[4]);
+    AccessorWO<ImageReduction::PixelField, 3> r(image, imageFields[0]);
+    AccessorWO<ImageReduction::PixelField, 3> g(image, imageFields[1]);
+    AccessorWO<ImageReduction::PixelField, 3> b(image, imageFields[2]);
+    AccessorWO<ImageReduction::PixelField, 3> a(image, imageFields[3]);
+    AccessorWO<ImageReduction::PixelField, 3> z(image, imageFields[4]);
     
 #define USE_COMPOSITOR 1
 #if USE_COMPOSITOR
-
-#if 1
-//block here to catch it in the debugger
-bool waitForAttach = true;
-while(waitForAttach) { // set waitForAttach=false to exit
-  if(!waitForAttach) // set waitForAttach=false to exit
-    break;
-}
-#endif
-static FieldData* watchPoint = 0;
     
     IndexSpace saveIndexSpace = image.get_logical_region().get_index_space();
     Rect<3> saveRect = runtime->get_index_space_domain(ctx, saveIndexSpace);
     
     int index = 0;
     for(PointInRectIterator<3> pir(saveRect); pir(); pir++) {
-if(index > 0) std::cout << "index " << index << " before write *watchpoint (*" << watchPoint << ") = " << (*watchPoint) << std::endl;
       r[*pir] = rgbaBuffer[index * 4];
-std::cout << "r[*pir] = r(" << (*pir) << ") = *" << (r.ptr(*pir)) << " = " << r[*pir] << std::endl;
-if(index > 0) std::cout << "index " << index << " after write *watchpoint (*" << watchPoint << ") = " << (*watchPoint) << std::endl;
       g[*pir] = rgbaBuffer[index * 4 + 1];
       b[*pir] = rgbaBuffer[index * 4 + 2];
       a[*pir] = rgbaBuffer[index * 4 + 3];
       z[*pir] = depthBuffer[index];
       index++;
-#if 1
-  if(index == 1) {
-    watchPoint = (FieldData*)r.ptr(*pir);
-    std::cout << "watching location " << watchPoint << " = " << (*watchPoint) << std::endl;
-  }
-#endif
     }
     
 #else
@@ -265,11 +246,11 @@ if(index > 0) std::cout << "index " << index << " after write *watchpoint (*" <<
     std::vector<legion_field_id_t> imageFields;
     image.get_fields(imageFields);
     
-    AccessorRO<FieldData, 3> r(image, imageFields[0]);
-    AccessorRO<FieldData, 3> g(image, imageFields[1]);
-    AccessorRO<FieldData, 3> b(image, imageFields[2]);
-    AccessorRO<FieldData, 3> a(image, imageFields[3]);
-    AccessorRO<FieldData, 3> z(image, imageFields[4]);
+    AccessorRO<ImageReduction::PixelField, 3> r(image, imageFields[0]);
+    AccessorRO<ImageReduction::PixelField, 3> g(image, imageFields[1]);
+    AccessorRO<ImageReduction::PixelField, 3> b(image, imageFields[2]);
+    AccessorRO<ImageReduction::PixelField, 3> a(image, imageFields[3]);
+    AccessorRO<ImageReduction::PixelField, 3> z(image, imageFields[4]);
     
     char filename[128];
     sprintf(filename, "image.%05d.tga", gFrameNumber++);
