@@ -214,10 +214,10 @@ extern "C" {
     
     int index = 0;
     for(PointInRectIterator<3> pir(saveRect); pir(); pir++) {
-      r[*pir] = rgbaBuffer[index * 4];
-      g[*pir] = rgbaBuffer[index * 4 + 1];
-      b[*pir] = rgbaBuffer[index * 4 + 2];
-      a[*pir] = rgbaBuffer[index * 4 + 3];
+      r[*pir] = rgbaBuffer[index * 4] / 255.0;
+      g[*pir] = rgbaBuffer[index * 4 + 1] / 255.0;
+      b[*pir] = rgbaBuffer[index * 4 + 2] / 255.0;
+      a[*pir] = rgbaBuffer[index * 4 + 3] / 255.0;
       z[*pir] = depthBuffer[index];
       index++;
     }
@@ -280,11 +280,11 @@ extern "C" {
     Rect<3> saveRect = runtime->get_index_space_domain(ctx, saveIndexSpace);
     
     for(PointInRectIterator<3> pir(saveRect); pir(); pir++) {
-      GLubyte b_ = b[*pir];
+      GLubyte b_ = b[*pir] * 255;
       fputc(b_, f); /* write blue */
-      GLubyte g_ = g[*pir];
+      GLubyte g_ = g[*pir] * 255;
       fputc(g_, f); /* write green */
-      GLubyte r_ = r[*pir];
+      GLubyte r_ = r[*pir] * 255;
       fputc(r_, f);   /* write red */
     }
     fclose(f);
