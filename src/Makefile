@@ -24,7 +24,7 @@ HDF_LIBNAME ?= hdf5
 
 #C compiler options
 CFLAGS += -ggdb -O0 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/runtime/legion -I$(IMAGE_COMPOSITOR_DIR)/include -I$(LEGION_DIR)/runtime/realm -march=native
-CXXFLAGS += -std=c++11 -ggdb -O0 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/runtime/legion -I$(IMAGE_COMPOSITOR_DIR)/include -I$(LEGION_DIR)/runtime/realm -march=native 
+CXXFLAGS += -std=c++11 -ggdb -O0 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/runtime/legion -I$(IMAGE_COMPOSITOR_DIR)/include -I$(LEGION_DIR)/runtime/realm -march=native -DDEBUG_LEGION
 
 CFLAGS += -DBOUNDS_CHECKS
 CXXFLAGS += -DBOUNDS_CHECKS
@@ -79,12 +79,6 @@ HOST := $(patsubst daint%,pizdaint,$(HOST))
 HOST := $(patsubst nid%,pizdaint,$(HOST))
 HOST := $(patsubst sapling%,sapling,$(HOST))
 HOST := $(patsubst sh-%,sherlock,$(HOST))
-
-
-
-
-
-
 
 
 ifeq ($(HOST),sapling)

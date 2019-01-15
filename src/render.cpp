@@ -200,61 +200,26 @@ extern "C" {
     
     glReadPixels(0, 0, imageDescriptor->width, imageDescriptor->height, GL_DEPTH_COMPONENT, GL_FLOAT, depthBuffer);
     
-    AccessorWO<FieldData, 3> r(image, imageFields[0]);
-    AccessorWO<FieldData, 3> g(image, imageFields[1]);
-    AccessorWO<FieldData, 3> b(image, imageFields[2]);
-    AccessorWO<FieldData, 3> a(image, imageFields[3]);
-    AccessorWO<FieldData, 3> z(image, imageFields[4]);
+    AccessorWO<ImageReduction::PixelField, 3> r(image, imageFields[0]);
+    AccessorWO<ImageReduction::PixelField, 3> g(image, imageFields[1]);
+    AccessorWO<ImageReduction::PixelField, 3> b(image, imageFields[2]);
+    AccessorWO<ImageReduction::PixelField, 3> a(image, imageFields[3]);
+    AccessorWO<ImageReduction::PixelField, 3> z(image, imageFields[4]);
     
 #define USE_COMPOSITOR 1
 #if USE_COMPOSITOR
-
-#if 1
-//block here to batch it in the debugger
-bool runLoop = true;
-while(runLoop) {
-  if(!runLoop)
-    break;
-}
-#endif
-static FieldData* watchPoint = 0;
-#define GG {if(watchPoint!=0) std::cout << __LINE__ << " " << watchPoint << " " << (*watchPoint) << std::endl;}
     
     IndexSpace saveIndexSpace = image.get_logical_region().get_index_space();
     Rect<3> saveRect = runtime->get_index_space_domain(ctx, saveIndexSpace);
     
     int index = 0;
     for(PointInRectIterator<3> pir(saveRect); pir(); pir++) {
-GG
-      r[*pir] = rgbaBuffer[index * 4];
-GG
-if(g.ptr(*pir) == watchPoint) {
-  std::cout << "smashed watchpoint at index " << index << std::endl;
-}
-std::cout << "g.ptr(*pir) " << g.ptr(*pir) << " " << (g.ptr(*pir) == watchPoint) << std::endl;
-GG
-      g[*pir] = rgbaBuffer[index * 4 + 1];
-GG
-      b[*pir] = rgbaBuffer[index * 4 + 2];
-GG
-      a[*pir] = rgbaBuffer[index * 4 + 3];
-GG
+      r[*pir] = rgbaBuffer[index * 4] / 255.0;
+      g[*pir] = rgbaBuffer[index * 4 + 1] / 255.0;
+      b[*pir] = rgbaBuffer[index * 4 + 2] / 255.0;
+      a[*pir] = rgbaBuffer[index * 4 + 3] / 255.0;
       z[*pir] = depthBuffer[index];
-GG
       index++;
-#if 1
-if(index < 10) {
-  char hostname[128];
-  gethostname(hostname, sizeof(hostname));
-  const FieldData* rr = r.ptr(*pir);
-  printf("%s %s r %g %p %g\n", __FUNCTION__, hostname, *rr, rr, r.ptr(*pir)[0]);
-  if(index == 1) {
-    watchPoint = (FieldData*)rr;
-    std::cout << "watching location " << watchPoint << std::endl;
-GG
-  }
-}
-#endif
     }
     
 #else
@@ -281,11 +246,11 @@ GG
     std::vector<legion_field_id_t> imageFields;
     image.get_fields(imageFields);
     
-    AccessorRO<FieldData, 3> r(image, imageFields[0]);
-    AccessorRO<FieldData, 3> g(image, imageFields[1]);
-    AccessorRO<FieldData, 3> b(image, imageFields[2]);
-    AccessorRO<FieldData, 3> a(image, imageFields[3]);
-    AccessorRO<FieldData, 3> z(image, imageFields[4]);
+    AccessorRO<ImageReduction::PixelField, 3> r(image, imageFields[0]);
+    AccessorRO<ImageReduction::PixelField, 3> g(image, imageFields[1]);
+    AccessorRO<ImageReduction::PixelField, 3> b(image, imageFields[2]);
+    AccessorRO<ImageReduction::PixelField, 3> a(image, imageFields[3]);
+    AccessorRO<ImageReduction::PixelField, 3> z(image, imageFields[4]);
     
     char filename[128];
     sprintf(filename, "image.%05d.tga", gFrameNumber++);
@@ -315,11 +280,11 @@ GG
     Rect<3> saveRect = runtime->get_index_space_domain(ctx, saveIndexSpace);
     
     for(PointInRectIterator<3> pir(saveRect); pir(); pir++) {
-      GLubyte b_ = b[*pir];
+      GLubyte b_ = b[*pir] * 255;
       fputc(b_, f); /* write blue */
-      GLubyte g_ = g[*pir];
+      GLubyte g_ = g[*pir] * 255;
       fputc(g_, f); /* write green */
-      GLubyte r_ = r[*pir];
+      GLubyte r_ = r[*pir] * 255;
       fputc(r_, f);   /* write red */
     }
     fclose(f);
