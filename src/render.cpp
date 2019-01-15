@@ -192,7 +192,7 @@ extern "C" {
     const FieldData* particlesTemperatureP = particlesTemperature.ptr(Z1);
     const FieldData* particlesDensityP = particlesDensity.ptr(Z1);
 
-    renderImage(num[0], num[1], num[2], rhoP, pressureP, velocityP, centerCoordinatesP, temperatureP, lowerBound, upperBound, temperatureField, 4.91,
+    renderImage(num[0], num[1], num[2], rhoP, pressureP, velocityP, centerCoordinatesP, temperatureP, lowerBound, upperBound, temperatureField, 300.0,
                 numParticles, idP, particlesPositionP, particlesTemperatureP, particlesDensityP,
                 particlesToDraw, numParticlesToDraw);
     
@@ -206,7 +206,7 @@ extern "C" {
     AccessorWO<ImageReduction::PixelField, 3> a(image, imageFields[3]);
     AccessorWO<ImageReduction::PixelField, 3> z(image, imageFields[4]);
     
-#define USE_COMPOSITOR 1
+#define USE_COMPOSITOR 0
 #if USE_COMPOSITOR
     
     IndexSpace saveIndexSpace = image.get_logical_region().get_index_space();
@@ -227,6 +227,7 @@ extern "C" {
     char filename[128];
     sprintf(filename, "/scratch/snx3000/aheirich/singleNodeImage.%04d.tga", frameNumber++);
     write_targa(filename, rgbaBuffer, imageDescriptor->width, imageDescriptor->height);
+    std::cout << "wrote image to " << filename << std::endl;
 #endif
     
     // Release graphics context and render buffers
@@ -253,7 +254,7 @@ extern "C" {
     AccessorRO<ImageReduction::PixelField, 3> z(image, imageFields[4]);
     
     char filename[128];
-    sprintf(filename, "image.%05d.tga", gFrameNumber++);
+    sprintf(filename, "%s/PSAAP/image.%05d.tga", getenv("SCRATCH"), gFrameNumber++);
     FILE* f = fopen(filename, "w");
     fputc (0x00, f);  /* ID Length, 0 => No ID   */
     fputc (0x00, f);  /* Color Map Type, 0 => No color map included   */

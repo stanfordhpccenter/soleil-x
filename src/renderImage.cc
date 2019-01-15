@@ -19,21 +19,21 @@ void vDrawScene(int numFluidX,
                 VisualizationField visualizationField,
                 FieldData targetValue);
 
-void renderParticles(int numParticles, const long int* particlesID, const FieldData3* particlesPosition, const FieldData* particlesTemperature, const FieldData* particlesDensity, int numParticlesToDraw, long int* particlesToDraw);
+void renderParticles(int numParticles, const long int* particlesID, const FieldData3* particlesPosition, const FieldData* particlesTemperature, const FieldData* particlesDensity, int numParticlesToDraw, long int* particlesToDraw, float systemScale);
 
 void initializeMarchingCubes(GLfloat lightPosition[4]);
 
 
-void setCameraPosition(FieldData domainMin[3], FieldData domainMax[3]) {
+void setCameraPosition(FieldData domainMin[3], FieldData domainMax[3], float* depthMax) {
   // TODO add camera motion
   glViewport( 0, 0, WIDTH, HEIGHT );
   glMatrixMode(GL_PROJECTION);
   glPushMatrix();
   glLoadIdentity();
-  float depthMax = sqrt((domainMax[2] - domainMin[2]) * (domainMax[2] - domainMin[2])
+  *depthMax = 1.0 / 3.0 * sqrt((domainMax[2] - domainMin[2]) * (domainMax[2] - domainMin[2])
                         + (domainMax[1] - domainMin[1]) * (domainMax[1] - domainMin[1])
                         + (domainMax[0] - domainMin[0]) * (domainMax[0] - domainMin[0]));
-  glOrtho(-depthMax * 0.67, depthMax * 0.67, -depthMax * 0.3, depthMax * 1.3, 0, depthMax);
+  glOrtho(-*depthMax * 0.67, *depthMax * 0.67, -*depthMax * 0.3, *depthMax * 1.3, 0, *depthMax);
   
   glMatrixMode(GL_MODELVIEW);
   glPushMatrix();
@@ -64,9 +64,12 @@ void setCameraPosition(FieldData domainMin[3], FieldData domainMax[3]) {
     (GLfloat)((domainMin[2] + domainMax[2]) * 0.5) };
 #endif
   GLfloat up[] = { 0, 1, 0 };
-//  std::cout << "camera from " << from[0] << "," << from[1] << "," << from[2] << std::endl;
-//  std::cout << "camera at   " << at[0] << "," << at[1] << "," << at[2] << std::endl;
-//  std::cout << "camera up   " << up[0] << "," << up[1] << "," << up[2] << std::endl;
+  std::cout << "camera from " << from[0] << "," << from[1] << "," << from[2] << std::endl;
+  std::cout << "camera at   " << at[0] << "," << at[1] << "," << at[2] << std::endl;
+  std::cout << "camera up   " << up[0] << "," << up[1] << "," << up[2] << std::endl;
+  std::cout << "domainMin   " << domainMin[0] << "," << domainMin[1] << "," << domainMin[2] << std::endl;
+  std::cout << "domainMax   " << domainMax[0] << "," << domainMax[1] << "," << domainMax[2] << std::endl;
+  std::cout << "systemScale " << *depthMax << std::endl;
   gluLookAt(from[0], from[1], from[2], at[0], at[1], at[2], up[0], up[1], up[2]);
 }
 
@@ -187,9 +190,10 @@ void renderImage(int numFluidX,
 //  std::cout << "domain min " << domainMin[0] << "," << domainMin[1] << "," << domainMin[2] << std::endl;
 //  std::cout << "domain max " << domainMax[0] << "," << domainMax[1] << "," << domainMax[2] << std::endl;
   
-  setCameraPosition(domainMin, domainMax);
+  float systemScale;
+  setCameraPosition(domainMin, domainMax, &systemScale);
   vDrawScene(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, visualizationField, targetValue);
-  renderParticles(numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity, numParticlesToDraw, particlesToDraw);
+  renderParticles(numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity, numParticlesToDraw, particlesToDraw, systemScale);
 
 #if DRAW_COORDINATES
   drawCoordinates(numFluidX, numFluidY, numFluidZ, centerCoordinates);
