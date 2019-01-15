@@ -158,7 +158,7 @@ endif
 soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o renderImage.o renderParticles.o marchingCubes.o 
 ifeq ($(HOST),pizdaint)
 	@make ${LLVM_PREREQ}
-	$(CXX) -o $@ $^ $(LINK_FLAGS) -L${LLVM_PREREQ} -lGLU ${MESA_LIB} ${LLVM_STATIC_LINKAGE}
+	$(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU ${MESA_LIB} ${LLVM_STATIC_LINKAGE}
 else ifeq ($(HOST),sapling)
 	@make ${LLVM_PREREQ}
 	$(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU -lOSMesa ${LLVM_LIB}
