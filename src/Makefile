@@ -125,21 +125,24 @@ LLVM_PREREQ := ${LLVM_LIB}
 
 else ifeq ($(HOST),pizdaint)
 
+EASYBUILD_PREFIX ?= ${SCRATCH}/PSAAP/
+
 LLVM_STATIC_LINKAGE := -lLLVMLTO -lLLVMPasses -lLLVMObjCARCOpts -lLLVMSymbolize -lLLVMDebugInfoPDB -lLLVMDebugInfoDWARF -lLLVMCoverage -lLLVMTableGen -lLLVMLineEditor -lLLVMOrcJIT -lLLVMMIRParser -lLLVMObjectYAML -lLLVMLibDriver -lLLVMOption -lLLVMX86Disassembler -lLLVMX86AsmParser -lLLVMX86CodeGen -lLLVMGlobalISel -lLLVMSelectionDAG -lLLVMAsmPrinter -lLLVMDebugInfoCodeView -lLLVMDebugInfoMSF -lLLVMX86Desc -lLLVMMCDisassembler -lLLVMX86Info -lLLVMX86AsmPrinter -lLLVMX86Utils -lLLVMMCJIT -lLLVMInterpreter -lLLVMExecutionEngine -lLLVMRuntimeDyld -lLLVMCodeGen -lLLVMTarget -lLLVMCoroutines -lLLVMipo -lLLVMInstrumentation -lLLVMVectorize -lLLVMScalarOpts -lLLVMLinker -lLLVMIRReader -lLLVMAsmParser -lLLVMInstCombine -lLLVMTransformUtils -lLLVMBitWriter -lLLVMAnalysis -lLLVMObject -lLLVMMCParser -lLLVMMC -lLLVMBitReader -lLLVMProfileData -lLLVMCore -lLLVMSupport -lLLVMDemangle
 PIZDAINT_MESA_DIR := /apps/daint/UES/jenkins/6.0.UP07/mc/easybuild/software/Mesa/17.2.8-CrayGNU-18.08/
 MESA_LIB := ${PIZDAINT_MESA_DIR}/lib/libOSMesa.so
 MESA_INC := -I${PIZDAINT_MESA_DIR}/include
 
-PIZDAINT_EASYBUILD_LLVM_DIR := $(HOME)/easybuild/daint/broadwell/modules/all/LLVM/
+PIZDAINT_EASYBUILD_LLVM_DIR := ${EASYBUILD_PREFIX}/software/LLVM/5.0.0-CrayGNU-18.08/
 ${PIZDAINT_EASYBUILD_LLVM_DIR}:
 	@echo ========================================================
 	@echo ========================================================
-	@echo Did not detect a local esybuild of LLVM 4.0.0
+	@echo Did not detect a local easybuild of LLVM 5.0.0
 	@echo Please issue these commands and then try to make again:
-	@echo module load daint-mc
+	@echo module load daint-gpu
+	@echo export EASYBUILD_PREFIX=${EASYBUILD_PREFIX}
 	@echo module load EasyBuild-custom/cscs
-	@echo eb ../scripts/LLVM-4.0.0-CrayGNU-18.08.eb 
-	@echo module load LLVM-4.0.0-CrayGNU-18.08
+	@echo eb ../scripts/LLVM-5.0.0-CrayGNU-18.08.eb 
+	@echo module load LLVM/5.0.0-CrayGNU-18.08
 	@echo ========================================================
 	@echo ========================================================
 	@exit -1
@@ -152,7 +155,7 @@ endif
 soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o renderImage.o renderParticles.o marchingCubes.o 
 ifeq ($(HOST),pizdaint)
 	@make ${LLVM_PREREQ}
-	$(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU ${MESA_LIB} ${LLVM_STATIC_LINKAGE}
+	$(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU ${MESA_LIB} -L${PIZDAINT_EASYBUILD_LLVM_DIR}/lib -lLLVM-5.0.0
 else ifeq ($(HOST),sapling)
 	@make ${LLVM_PREREQ}
 	$(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU -lOSMesa ${LLVM_LIB}
