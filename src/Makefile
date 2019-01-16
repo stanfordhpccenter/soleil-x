@@ -195,5 +195,5 @@ render_standalone.o:	render_standalone.cc
 	$(CXX) $(CXXFLAGS) -c -o $@ ${MESA_INC}  $<
 
 render_standalone:  render_standalone.o  marchingCubes.o renderImage.o renderParticles.o
-	$(CXX) -o $@ $^ -lGLU ${MESA_INC}
+	$(CXX) -o $@ $^ -lGLU ${MESA_INC} -lOSMesa
 

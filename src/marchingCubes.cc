@@ -128,7 +128,7 @@ void initializeMarchingCubes(GLfloat lightPosition[4])
   GLfloat afPropertiesDiffuse [] = {0.75, 0.75, 0.75, 1.00};
   GLfloat afPropertiesSpecular[] = {1.00, 1.00, 1.00, 1.00};
   
-  glClearColor( 0.2, 0.2, 0.3, 1.0 );
+  glClearColor( 0, 0, 0, 1 );
   
   glEnable(GL_DEPTH_TEST);
   glEnable(GL_LIGHTING);
@@ -327,26 +327,6 @@ GLvoid vGetNormal(GLvector &rfNormal, GLfloat fX, GLfloat fY, GLfloat fZ)
   vNormalizeVector(rfNormal, rfNormal);
 }
 
-#define DRAW_SURFACE_AS_PARTICLES 0
-
-#if DRAW_SURFACE_AS_PARTICLES
-static void drawParticle(GLfloat x, GLfloat y, GLfloat z) {
-  static GLUquadricObj *qobj = NULL;
-  if(qobj == NULL) qobj = gluNewQuadric();
-
-  GLfloat color[4];
-  color[0] = color[1] = color[2] = color[3] = 1;//debug
-  glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, color);
-  glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, color);
-  glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, color);
-  
-  glPushMatrix();
-  glTranslatef(x, y, z);
-  gluSphere(qobj, 0.1, 7, 7);
-  glPopMatrix();
-
-}
-#endif
 
 //vMarchCube1 performs the Marching Cubes algorithm on a single cube
 GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat scaleY, GLfloat scaleZ)
@@ -419,15 +399,12 @@ GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat sc
       
       vGetColor(sColor, asEdgeVertex[iVertex], asEdgeNorm[iVertex]);
       glColor3f(sColor.fX, sColor.fY, sColor.fZ);
-#if DRAW_SURFACE_AS_PARTICLES
-      drawParticle(asEdgeVertex[iVertex].fX, asEdgeVertex[iVertex].fY, asEdgeVertex[iVertex].fZ);
-#else
       glNormal3f(asEdgeNorm[iVertex].fX, asEdgeNorm[iVertex].fY,   asEdgeNorm[iVertex].fZ);
       glVertex3f(asEdgeVertex[iVertex].fX, asEdgeVertex[iVertex].fY, asEdgeVertex[iVertex].fZ);
-      //printf("tri %g %g %g\n", asEdgeVertex[iVertex].fX, asEdgeVertex[iVertex].fY, asEdgeVertex[iVertex].fZ);
+#if 0
+      printf("tri %g %g %g\n", asEdgeVertex[iVertex].fX, asEdgeVertex[iVertex].fY, asEdgeVertex[iVertex].fZ);
 #endif
       gDrawnTriangles++;
-      
     }
   }  
 }
@@ -443,6 +420,10 @@ GLvoid vMarchingCubes()
   float stepSizeX = (gDomainMax[0] - gDomainMin[0]) / gNumFluidX;
   float stepSizeY = (gDomainMax[1] - gDomainMin[1]) / gNumFluidY;
   float stepSizeZ = (gDomainMax[2] - gDomainMin[2]) / gNumFluidZ;
+
+#if 1
+  printf("scale %g %g %g\n", stepSizeX, stepSizeY, stepSizeZ);
+#endif
 
   for(iX = 0; iX < gNumFluidX; iX++)
     for(iY = 0; iY < gNumFluidY; iY++)

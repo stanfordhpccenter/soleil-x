@@ -153,7 +153,7 @@ int main(int argc, char **argv) {
   GLfloat* depthBuffer;
 
   renderInitialize(lowerBound, upperBound, mesaCtx, rgbaBuffer, depthBuffer);
-  renderImage(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, lowerBound, upperBound, temperatureField, 4.94,
+  renderImage(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, lowerBound, upperBound, temperatureField, 300.0,
               numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity,
               particlesToDraw, numParticlesToDraw);
 

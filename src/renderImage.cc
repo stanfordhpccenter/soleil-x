@@ -24,45 +24,47 @@ void renderParticles(int numParticles, const long int* particlesID, const FieldD
 void initializeMarchingCubes(GLfloat lightPosition[4]);
 
 
-void setCameraPosition(FieldData domainMin[3], FieldData domainMax[3], float* depthMax) {
+void setupRender(FieldData domainMin[3], FieldData domainMax[3], float* depthMax) {
   // TODO add camera motion
   glViewport( 0, 0, WIDTH, HEIGHT );
+  std::cout << "viewport width, height " << WIDTH << "," << HEIGHT << std::endl;
+
   glMatrixMode(GL_PROJECTION);
   glPushMatrix();
   glLoadIdentity();
   *depthMax = 1.0 / 3.0 * sqrt((domainMax[2] - domainMin[2]) * (domainMax[2] - domainMin[2])
                         + (domainMax[1] - domainMin[1]) * (domainMax[1] - domainMin[1])
                         + (domainMax[0] - domainMin[0]) * (domainMax[0] - domainMin[0]));
-  glOrtho(-*depthMax * 0.67, *depthMax * 0.67, -*depthMax * 0.3, *depthMax * 1.3, 0, *depthMax);
+  GLfloat left = (0.5 * (domainMin[0] + domainMax[0])) - *depthMax;
+  GLfloat right = (0.5 * (domainMin[0] + domainMax[0])) + *depthMax;
+  GLfloat bottom = (0.5 * (domainMin[1] + domainMax[1])) - *depthMax;
+  GLfloat top = (0.5 * (domainMin[1] + domainMax[1])) + *depthMax;
+  GLfloat near = 0.0;
+  GLfloat far = *depthMax * 3.0;
+#if 1
+//glOrtho -0.00309401,0.043094  -0.00309401,0.043094  0,0.069282
+  left = -0.02; right = 0.02; bottom = 0.0; top = 0.04; near = 0.0; far = 0.2;
+#endif
+  glOrtho(left, right, bottom, top, near, far);
+  std::cout << "glOrtho " << left << "," << right << "  " << bottom << "," << top << "  " << near << "," << far << std::endl;
   
   glMatrixMode(GL_MODELVIEW);
   glPushMatrix();
   glLoadIdentity();
   
-#define FIX_CAMERA 0
 
-#if !FIX_CAMERA
   FieldData scale[3];
   for(unsigned i = 0; i < 3; ++i) scale[i] = domainMax[i] - domainMin[i];
   FieldData scaleOffset = 0.25;
-#endif
   
   GLfloat from[] =
-#if FIX_CAMERA
-  { 3, .1, -.5 };
-#else
   { (GLfloat)(domainMin[0] - scale[0] * scaleOffset),
     (GLfloat)(domainMin[1] - (scale[1] * scaleOffset)),
     (GLfloat)(domainMin[2] - scale[2] * scaleOffset) };
-#endif
   GLfloat at[] =
-#if FIX_CAMERA
-  { 4, .1, .1 };
-#else
   { (GLfloat)((domainMin[0] + domainMax[0]) * 0.5),
     (GLfloat)((domainMin[1] + domainMax[1]) * 0.1),
     (GLfloat)((domainMin[2] + domainMax[2]) * 0.5) };
-#endif
   GLfloat up[] = { 0, 1, 0 };
   std::cout << "camera from " << from[0] << "," << from[1] << "," << from[2] << std::endl;
   std::cout << "camera at   " << at[0] << "," << at[1] << "," << at[2] << std::endl;
@@ -191,7 +193,7 @@ void renderImage(int numFluidX,
 //  std::cout << "domain max " << domainMax[0] << "," << domainMax[1] << "," << domainMax[2] << std::endl;
   
   float systemScale;
-  setCameraPosition(domainMin, domainMax, &systemScale);
+  setupRender(domainMin, domainMax, &systemScale);
   vDrawScene(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, visualizationField, targetValue);
   renderParticles(numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity, numParticlesToDraw, particlesToDraw, systemScale);
 
@@ -241,6 +243,10 @@ write_targa(const char *filename, const GLubyte *buffer, int width, int height)
         fputc(ptr[i+2], f); /* write blue */
         fputc(ptr[i+1], f); /* write green */
         fputc(ptr[i], f);   /* write red */
+#if 0
+        if(ptr[i] != 0 || ptr[i + 1] != 0 || ptr[i + 2] != 0)
+          printf("(%d,%d)\t%d %d %d\n", x, y, ptr[i], ptr[i + 1], ptr[i + 2]);
+#endif
       }
     }
     fclose(f);
