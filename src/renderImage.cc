@@ -35,43 +35,60 @@ void setupRender(FieldData domainMin[3], FieldData domainMax[3], float* depthMax
   *depthMax = 1.0 / 3.0 * sqrt((domainMax[2] - domainMin[2]) * (domainMax[2] - domainMin[2])
                         + (domainMax[1] - domainMin[1]) * (domainMax[1] - domainMin[1])
                         + (domainMax[0] - domainMin[0]) * (domainMax[0] - domainMin[0]));
-  GLfloat left = (0.5 * (domainMin[0] + domainMax[0])) - *depthMax;
-  GLfloat right = (0.5 * (domainMin[0] + domainMax[0])) + *depthMax;
-  GLfloat bottom = (0.5 * (domainMin[1] + domainMax[1])) - *depthMax;
-  GLfloat top = (0.5 * (domainMin[1] + domainMax[1])) + *depthMax;
+  
+#define ORTHO 0
+#if ORTHO
+  GLfloat left = - *depthMax;
+  GLfloat right = *depthMax;
+  GLfloat bottom = -*depthMax * 0.5;
+  GLfloat top = *depthMax * 2.0;
   GLfloat near = 0.0;
-  GLfloat far = *depthMax * 3.0;
-#if 1
-//glOrtho -0.00309401,0.043094  -0.00309401,0.043094  0,0.069282
-  left = -0.02; right = 0.02; bottom = 0.0; top = 0.04; near = 0.0; far = 0.2;
-#endif
+  GLfloat far = *depthMax * 100.0;
   glOrtho(left, right, bottom, top, near, far);
-  std::cout << "glOrtho " << left << "," << right << "  " << bottom << "," << top << "  " << near << "," << far << std::endl;
+#else
+  GLfloat fovy = 45;
+  GLfloat aspect = (GLfloat)WIDTH / (GLfloat)HEIGHT;
+  GLfloat near = 0.0;
+  GLfloat far = *depthMax * 100.0;
+  gluPerspective(fovy, aspect, near, far);
+#endif
+  
+  /*
+   gluPersepctive 45 1.77778 0 2.3094
+   camera from 0.0192,-0.01,-0.03
+   camera at   0.02,0.004,0.02
+   */
   
   glMatrixMode(GL_MODELVIEW);
   glPushMatrix();
   glLoadIdentity();
   
-
   FieldData scale[3];
   for(unsigned i = 0; i < 3; ++i) scale[i] = domainMax[i] - domainMin[i];
   FieldData scaleOffset = 0.25;
   
   GLfloat from[] =
-  { (GLfloat)(domainMin[0] - scale[0] * scaleOffset),
-    (GLfloat)(domainMin[1] - (scale[1] * scaleOffset)),
-    (GLfloat)(domainMin[2] - scale[2] * scaleOffset) };
+  { (GLfloat)((domainMin[0] + domainMax[0]) * 0.48),
+    (GLfloat)(domainMax[1] + scale[1] * scaleOffset),
+    (GLfloat)(domainMin[2] - scale[2] * 2.0) };
   GLfloat at[] =
   { (GLfloat)((domainMin[0] + domainMax[0]) * 0.5),
-    (GLfloat)((domainMin[1] + domainMax[1]) * 0.1),
-    (GLfloat)((domainMin[2] + domainMax[2]) * 0.5) };
+    (GLfloat)((domainMin[1] + domainMax[1]) * 0.5),
+    (GLfloat)domainMax[2] };
   GLfloat up[] = { 0, 1, 0 };
+#if 1
+#if ORTHO
+  std::cout << "glOrtho " << left << "," << right << "  " << bottom << "," << top << "  " << near << "," << far << std::endl;
+#else
+  std::cout << "gluPersepctive " << fovy << " " << aspect << " " << near << " " << far << std::endl;
+#endif
   std::cout << "camera from " << from[0] << "," << from[1] << "," << from[2] << std::endl;
   std::cout << "camera at   " << at[0] << "," << at[1] << "," << at[2] << std::endl;
   std::cout << "camera up   " << up[0] << "," << up[1] << "," << up[2] << std::endl;
   std::cout << "domainMin   " << domainMin[0] << "," << domainMin[1] << "," << domainMin[2] << std::endl;
   std::cout << "domainMax   " << domainMax[0] << "," << domainMax[1] << "," << domainMax[2] << std::endl;
   std::cout << "systemScale " << *depthMax << std::endl;
+#endif
   gluLookAt(from[0], from[1], from[2], at[0], at[1], at[2], up[0], up[1], up[2]);
 }
 
@@ -243,10 +260,6 @@ write_targa(const char *filename, const GLubyte *buffer, int width, int height)
         fputc(ptr[i+2], f); /* write blue */
         fputc(ptr[i+1], f); /* write green */
         fputc(ptr[i], f);   /* write red */
-#if 0
-        if(ptr[i] != 0 || ptr[i + 1] != 0 || ptr[i + 2] != 0)
-          printf("(%d,%d)\t%d %d %d\n", x, y, ptr[i], ptr[i + 1], ptr[i + 2]);
-#endif
       }
     }
     fclose(f);

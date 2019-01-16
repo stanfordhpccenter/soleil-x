@@ -4607,7 +4607,7 @@ local function mkInstance() local INSTANCE = {}
     var [BC.zBCParticles]
 
     -- Visualization
-    var [numParticlesToDraw] = 50
+    var [numParticlesToDraw] = 500
     var [particlesToDraw] = region(ispace(int1d, numParticlesToDraw), Draw_columns)
     var [lowerBound]
     var [upperBound]

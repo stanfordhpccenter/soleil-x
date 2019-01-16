@@ -144,7 +144,7 @@ int main(int argc, char **argv) {
   FieldData* particlesDensity = new FieldData[numParticles];
 
   loadParticlesData(particlesFileName, numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity);
-  const int numParticlesToDraw = 50;
+  const int numParticlesToDraw = 500;
   long int particlesToDraw[numParticlesToDraw] = { 0 };
   for(int i = 0; i < numParticlesToDraw; ++i) particlesToDraw[i] = i;
   

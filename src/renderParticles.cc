@@ -72,7 +72,7 @@ static void scaledTemperatureToColor(float temperature,
 }
 
 
-static void drawParticle(GLUquadricObj* qobj, const FieldData3* position, FieldData density, FieldData particleTemperature, float systemScale) {
+static void drawParticle(GLUquadricObj* qobj, const FieldData3* position, FieldData density, FieldData particleTemperature, float particleSize) {
   
   GLfloat t = particleTemperature;
   GLfloat color[4];
@@ -87,8 +87,7 @@ static void drawParticle(GLUquadricObj* qobj, const FieldData3* position, FieldD
 #endif
   glPushMatrix();
   glTranslatef(position->x[0], position->x[1], position->x[2]);
-  GLfloat size = 0.0002;
-  gluSphere(qobj, size, 7, 7);
+  gluSphere(qobj, particleSize, 7, 7);
   glPopMatrix();
 }
 
@@ -109,6 +108,13 @@ static bool drawThis(long int id, int numParticlesToDraw, long int* particlesToD
 }
 
 
+static float particleSize(float systemScale, FieldData density) {
+  // 0.0002 at density 8900 systemscale .023 numParticles 50 should be 500
+  // systemScale*100/density
+  return systemScale * 100.0 / density;
+}
+
+
 void renderParticles(int numParticles,
                      const long int* particlesID,
                      const FieldData3* particlesPosition,
@@ -123,7 +129,7 @@ void renderParticles(int numParticles,
   for(int i = 0; i < numParticles; ++i) {
     if(drawThis(particlesID[i], numParticlesToDraw, particlesToDraw)) {
       if(particlesDensity[i] > 0) {
-        drawParticle(qobj, particlesPosition + i, particlesDensity[i], particlesTemperature[i], systemScale);
+        drawParticle(qobj, particlesPosition + i, particlesDensity[i], particlesTemperature[i], particleSize(systemScale, particlesDensity[i]));
         drawnCount++;
       }
     }
