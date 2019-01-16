@@ -75,12 +75,12 @@ fi
 # Add CUDA options
 GPU_OPTS=
 if [[ "$USE_CUDA" == 1 ]]; then
-    GPU_OPTS="-ll:gpu $GPUS_PER_RANK -ll:fsize $FB_PER_GPU -ll:zsize 1024 -ll:ib_zsize 0"
+    GPU_OPTS="-ll:gpu $GPUS_PER_RANK -ll:fsize $FB_PER_GPU -ll:zsize 1024 -ll:ib_zsize 1024"
 fi
 # Add GASNET options
 GASNET_OPTS=
 if [[ "$LOCAL_RUN" == 0 ]]; then
-    GASNET_OPTS="-ll:rsize 1024 -ll:ib_rsize 1024 -ll:gsize 0"
+    GASNET_OPTS="-ll:rsize 0 -ll:ib_rsize 1024 -ll:gsize 0"
 fi
 # Synthesize final command
 COMMAND="$EXECUTABLE $ARGS \
