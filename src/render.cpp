@@ -206,7 +206,7 @@ extern "C" {
     AccessorWO<ImageReduction::PixelField, 3> a(image, imageFields[3]);
     AccessorWO<ImageReduction::PixelField, 3> z(image, imageFields[4]);
     
-#define USE_COMPOSITOR 0
+#define USE_COMPOSITOR 1
 #if USE_COMPOSITOR
     
     IndexSpace saveIndexSpace = image.get_logical_region().get_index_space();
@@ -279,14 +279,21 @@ extern "C" {
     f = fopen(filename, "ab");  /* reopen in binary append mode */
     IndexSpace saveIndexSpace = image.get_logical_region().get_index_space();
     Rect<3> saveRect = runtime->get_index_space_domain(ctx, saveIndexSpace);
+    PointInRectIterator<3> pir(saveRect);
+    ImageReduction::PixelField* BB = (ImageReduction::PixelField*)b.ptr(*pir);
+    ImageReduction::PixelField* GG = (ImageReduction::PixelField*)g.ptr(*pir);
+    ImageReduction::PixelField* RR = (ImageReduction::PixelField*)r.ptr(*pir);
     
-    for(PointInRectIterator<3> pir(saveRect); pir(); pir++) {
-      GLubyte b_ = b[*pir] * 255;
-      fputc(b_, f); /* write blue */
-      GLubyte g_ = g[*pir] * 255;
-      fputc(g_, f); /* write green */
-      GLubyte r_ = r[*pir] * 255;
-      fputc(r_, f);   /* write red */
+    for(int y = imageDescriptor->height - 1; y >= 0; y--) {
+      for(int x = 0; x < imageDescriptor->width; ++x) {
+        int index = x + y * imageDescriptor->width;
+        GLubyte b_ = BB[index] * 255;
+        fputc(b_, f); /* write blue */
+        GLubyte g_ = GG[index] * 255;
+        fputc(g_, f); /* write green */
+        GLubyte r_ = RR[index] * 255;
+        fputc(r_, f);   /* write red */
+      }
     }
     fclose(f);
     std::cout << "wrote image " << filename << std::endl;

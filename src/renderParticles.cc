@@ -82,7 +82,7 @@ static void drawParticle(GLUquadricObj* qobj, const FieldData3* position, FieldD
   glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, color);
   glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, color);
   
-#if 1
+#if 0
   std::cout << "particle at " << position->x[0] << " " << position->x[1] << " " << position->x[2] << std::endl;
 #endif
   glPushMatrix();
