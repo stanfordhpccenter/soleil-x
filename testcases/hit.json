@@ -121,5 +121,13 @@
         "wrtRestart" : true,
         "restartEveryTimeSteps" : 100,
         "probes" : []
+    },
+
+    "Visualization" : {
+      "numParticlesToDraw" : 500,
+      "isosurfaceField" : "temperature",
+      "isosurfaceValue" : 300.0,
+      "stepsPerRender" : 1
     }
+
 }
