@@ -307,7 +307,8 @@ GLfloat fSample(GLfloat fX, GLfloat fY, GLfloat fZ)
       data = gTemperature;
       break;
     default:
-      std::cerr << "invalid visualization field" << std::endl;
+      std::cerr << "invalid visualization field " << gVisualizationField << std::endl;
+      std::cerr << "fields " << rhoField << " " << pressureField << " " << temperatureField << std::endl;
       data = gRho;
       break;
   }

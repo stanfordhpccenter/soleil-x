@@ -37,6 +37,7 @@ extern "C" {
   static MapperID gImageReductionMapperID = 0;
   static int gRenderTaskID = 0;
   static int gSaveImageTaskID = 0;
+
   
 #define SAVE_RENDER_DATA 0
   
@@ -138,11 +139,20 @@ extern "C" {
     
     // Get task arguments
     
-    ImageDescriptor* imageDescriptor = (ImageDescriptor*)(task->args);
-    FieldData* lowerBound = (FieldData*)((char*)task->args + sizeof(ImageDescriptor));
-    FieldData* upperBound = lowerBound + 3;
-    int numParticlesToDraw = *((int*)(upperBound + 3));
-    long int* particlesToDraw = (long int*)((char*)task->args + sizeof(ImageDescriptor) + 6 * sizeof(FieldData) + sizeof(int));
+    char* argsPtr = (char*)task->args;
+    ImageDescriptor* imageDescriptor = (ImageDescriptor*)(argsPtr);
+    argsPtr += sizeof(ImageDescriptor);
+    FieldData* lowerBound = (FieldData*)argsPtr;
+    argsPtr += sizeof(FieldData) * 3;
+    FieldData* upperBound = (FieldData*)argsPtr;
+    argsPtr += sizeof(FieldData) * 3;
+    int numParticlesToDraw = *((int*)argsPtr);
+    argsPtr += sizeof(int);
+    VisualizationField isosurfaceField = *(VisualizationField*)argsPtr;
+    argsPtr += sizeof(VisualizationField);
+    double isosurfaceValue = *(double*)argsPtr;
+    argsPtr += sizeof(double);
+    long int* particlesToDraw = (long int*)argsPtr;
     
     // Initialize the renderer and its graphics context
     
@@ -191,8 +201,8 @@ extern "C" {
     const FieldData3* particlesPositionP = particlesPosition.ptr(Z1);
     const FieldData* particlesTemperatureP = particlesTemperature.ptr(Z1);
     const FieldData* particlesDensityP = particlesDensity.ptr(Z1);
-
-    renderImage(num[0], num[1], num[2], rhoP, pressureP, velocityP, centerCoordinatesP, temperatureP, lowerBound, upperBound, temperatureField, 300.0,
+    
+    renderImage(num[0], num[1], num[2], rhoP, pressureP, velocityP, centerCoordinatesP, temperatureP, lowerBound, upperBound, isosurfaceField, isosurfaceValue,
                 numParticles, idP, particlesPositionP, particlesTemperatureP, particlesDensityP,
                 particlesToDraw, numParticlesToDraw);
     
@@ -254,8 +264,16 @@ extern "C" {
     AccessorRO<ImageReduction::PixelField, 3> z(image, imageFields[4]);
     
     char filename[128];
-    sprintf(filename, "%s/PSAAP/image.%05d.tga", getenv("SCRATCH"), gFrameNumber++);
+    if(getenv("SCRATCH") != nullptr) {
+      sprintf(filename, "%s/image.%05d.tga", getenv("SCRATCH"), gFrameNumber++);
+    } else {
+      sprintf(filename, "image.%05d.tga", gFrameNumber++);
+    }
     FILE* f = fopen(filename, "w");
+    if(f == nullptr) {
+      std::cerr << "could not create file " << filename << std::endl;
+      return -1;
+    }
     fputc (0x00, f);  /* ID Length, 0 => No ID   */
     fputc (0x00, f);  /* Color Map Type, 0 => No color map included   */
     fputc (0x02, f);  /* Image Type, 2 => Uncompressed, True-color Image */
@@ -350,6 +368,8 @@ extern "C" {
                   legion_logical_partition_t fluidPartition_,
                   legion_logical_partition_t particlesPartition_,
                   int numParticlesToDraw,
+                  int isosurfaceField,
+                  double isosurfaceValue,
                   legion_physical_region_t* particlesToDraw_,
                   FieldData lowerBound[3],
                   FieldData upperBound[3]
@@ -393,7 +413,7 @@ extern "C" {
     // Construct arguments to render task
     
     ArgumentMap argMap;
-    size_t argSize = sizeof(imageDescriptor) + 6 * sizeof(FieldData) + sizeof(int) + numParticlesToDraw * sizeof(long int);
+    size_t argSize = sizeof(imageDescriptor) + 6 * sizeof(FieldData) + sizeof(int) + sizeof(int) + sizeof(double) + numParticlesToDraw * sizeof(long int);
     char args[argSize];
     char* argsPtr = args;
     memcpy(argsPtr, &imageDescriptor, sizeof(imageDescriptor));
@@ -404,6 +424,11 @@ extern "C" {
     argsPtr += 3 * sizeof(FieldData);
     memcpy(argsPtr, &numParticlesToDraw, sizeof(int));
     argsPtr += sizeof(int);
+    memcpy(argsPtr, &isosurfaceField, sizeof(VisualizationField));
+    argsPtr += sizeof(VisualizationField);
+    assert(sizeof(VisualizationField) == sizeof(int));
+    memcpy(argsPtr, &isosurfaceValue, sizeof(double));
+    argsPtr += sizeof(double);
     
     // Copy particlesToDraw as a task argument
     

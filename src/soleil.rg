@@ -29,10 +29,6 @@ local USE_HDF = assert(os.getenv('USE_HDF')) ~= '0'
 
 local MAX_ANGLES_PER_QUAD = 44
 
--- Visualization data
-
-local IMAGE_RENDER_INTERVAL = 1 -- how many frames between renders
-
 
 -------------------------------------------------------------------------------
 -- DATA STRUCTURES
@@ -4519,7 +4515,7 @@ local function mkInstance() local INSTANCE = {}
   local p_TradeQueue_byDst = UTIL.generate(26, regentlib.newsymbol)
   local p_Radiation = regentlib.newsymbol()
 
-  local numParticlesToDraw = regentlib.newsymbol(int32, "numParticlesToDraw");
+  local maxParticlesToDraw = regentlib.newsymbol(int32, "maxParticlesToDraw");
   local struct Draw_columns {
     id : int64;
   }
@@ -4607,8 +4603,8 @@ local function mkInstance() local INSTANCE = {}
     var [BC.zBCParticles]
 
     -- Visualization
-    var [numParticlesToDraw] = 500
-    var [particlesToDraw] = region(ispace(int1d, numParticlesToDraw), Draw_columns)
+    var [maxParticlesToDraw] = 100000
+    var [particlesToDraw] = region(ispace(int1d, maxParticlesToDraw), Draw_columns)
     var [lowerBound]
     var [upperBound]
 
@@ -5687,14 +5683,14 @@ local function mkInstance() local INSTANCE = {}
 
     -- select particles to draw
     C.srand(0)
-    for i = 0, numParticlesToDraw do
+    for i = 0, config.Visualization.numParticlesToDraw do
       var r = [double](C.rand()) / C.RAND_MAX
       particlesToDraw[i].id = r * config.Particles.initNum
     end
 
     -- bubble sort the array
-    for i = 0, numParticlesToDraw do
-      for j = i, numParticlesToDraw do
+    for i = 0, config.Visualization.numParticlesToDraw do
+      for j = i, config.Visualization.numParticlesToDraw do
         if particlesToDraw[i].id > particlesToDraw[j].id then
           var temp = particlesToDraw[i].id
           particlesToDraw[i].id = particlesToDraw[j].id
@@ -5742,7 +5738,9 @@ local function mkInstance() local INSTANCE = {}
                     __raw(tiles),
                     __raw(p_Fluid),
                     __raw(p_Particles),
-                    numParticlesToDraw,
+                    config.Visualization.numParticlesToDraw,
+                    config.Visualization.isosurfaceField,
+                    config.Visualization.isosurfaceValue,
                     __physical(particlesToDraw),
                     lowerBound,
                     upperBound)
@@ -5791,7 +5789,7 @@ task workSingle(config : Config)
       end
       [SIM.MainLoopBody(config, FakeCopyQueue)];
       -- Visualize
-      if frame_number % IMAGE_RENDER_INTERVAL == 0 then
+      if frame_number % config.Visualization.stepsPerRender == 0 then
         [SIM.Visualize(config)];
       end
       frame_number = frame_number + 1
@@ -5939,7 +5937,7 @@ task workDual(mc : MultiConfig)
     -- Run one iteration of second section
     [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, CopyQueue))];
     -- Visualize
-    if frame_number % IMAGE_RENDER_INTERVAL == 0 then
+    if frame_number % mc.configs[0].Visualization.stepsPerRender == 0 then
       [SIM0.Visualize(rexpr mc.configs[0] end)];
       [SIM1.Visualize(rexpr mc.configs[1] end)];
     end

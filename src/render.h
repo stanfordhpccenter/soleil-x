@@ -29,6 +29,7 @@ extern "C" {
 
   void cxx_preinitialize(legion_mapper_id_t mapperID);
   
+  
   void cxx_render(legion_runtime_t runtime_,
                   legion_context_t ctx_,
                   legion_mapper_id_t sampleId,
@@ -42,6 +43,8 @@ extern "C" {
                   legion_logical_partition_t p_fluid,
                   legion_logical_partition_t p_particles,
                   int numParticlesToDraw,
+                  int isosurfaceField,
+                  double isosurfaceValue,
                   legion_physical_region_t *particlesToDraw_,
                   double lowerBound[3],
                   double upperBound[3]

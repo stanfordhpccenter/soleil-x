@@ -16,6 +16,7 @@ Exports.ParticlesBC = Enum('Periodic','Bounce','Disappear')
 Exports.ViscosityModel = Enum('Constant','PowerLaw','Sutherland')
 Exports.FlowInitCase = Enum('Uniform','Random','Restart','Perturbed','TaylorGreen2DVortex','TaylorGreen3DVortex')
 Exports.ParticlesInitCase = Enum('Random','Restart','Uniform')
+Exports.VisualizationIsosurfaceField = Enum('rho', 'pressure', 'velocity', 'temperature')
 Exports.TempProfile = Union{
   Constant = {
     temperature = double,
@@ -100,6 +101,7 @@ Exports.RadiationModel = Union{
     zLoWindow = Exports.Window,
   },
 }
+
 
 -- Main config struct
 Exports.Config = {
@@ -208,6 +210,12 @@ Exports.Config = {
     -- temperature probes
     probes = UpTo(5, Exports.Volume),
   },
+  Visualization = {
+    numParticlesToDraw = int,
+    isosurfaceField = Exports.VisualizationIsosurfaceField,
+    isosurfaceValue = double,
+    stepsPerRender = int,
+  }
 }
 
 -- Dual-section simulation config

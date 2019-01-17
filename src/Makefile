@@ -159,6 +159,8 @@ ifeq ($(HOST),pizdaint)
 else ifeq ($(HOST),sapling)
 	@make ${LLVM_PREREQ}
 	$(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU -lOSMesa ${LLVM_LIB}
+else
+	$(CXX) -o $@ $^ $(LINK_FLAGS) -lGLU -lOSMesa
 endif
 
 soleil.o: soleil-desugared.rg soleil_mapper.h config_schema.h hdf_helper.rg dom-desugared.rg util.rg

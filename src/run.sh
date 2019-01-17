@@ -177,12 +177,12 @@ function run_local {
     USE_CUDA=0
     RESERVED_CORES=2
     # Synthesize final command
-    CORES_PER_NODE="$(grep ^cpu\\scores /proc/cpuinfo | uniq |  awk '{print $4}')"
+    CORES_PER_NODE=4
     RAM_PER_NODE="$(free -m | head -2 | tail -1 | awk '{print $2}')"
     RAM_PER_NODE=$(( RAM_PER_NODE / 2 ))
     source "$SOLEIL_DIR"/src/jobscript_shared.sh
     # Emit final command
-    $COMMAND
+    LEGION_FREEZE_ON_ERROR=1 $COMMAND
 }
 
 ###############################################################################
