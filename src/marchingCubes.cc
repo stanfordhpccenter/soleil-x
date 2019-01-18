@@ -180,16 +180,6 @@ void vDrawScene(int numFluidX,
   gVisualizationField = visualizationField;
   fTargetValue = targetValue;
   
-  float depthMax = sqrt((domainMax[2] - domainMin[2]) * (domainMax[2] - domainMin[2])
-                        + (domainMax[1] - domainMin[1]) * (domainMax[1] - domainMin[1])
-                        + (domainMax[0] - domainMin[0]) * (domainMax[0] - domainMin[0]));
-  glClearDepth(depthMax * 2);
-                        
-
-  //  static GLfloat fPitch = 0.0;
-  //  static GLfloat fYaw   = 0.0;
-  //  static GLfloat fTime = 0.0;
-  
   glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
   
   // glPushMatrix();

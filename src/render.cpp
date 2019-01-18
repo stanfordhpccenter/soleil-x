@@ -19,6 +19,7 @@
 #include "legion_c_util.h"
 #include "image_reduction_mapper.h"
 #include <unistd.h>
+#include <math.h>
 
 using namespace Legion;
 using namespace LegionRuntime::Accessor;
@@ -209,7 +210,7 @@ extern "C" {
     // write rendered pixels into source image region
     
     glReadPixels(0, 0, imageDescriptor->width, imageDescriptor->height, GL_DEPTH_COMPONENT, GL_FLOAT, depthBuffer);
-    
+
     AccessorWO<ImageReduction::PixelField, 3> r(image, imageFields[0]);
     AccessorWO<ImageReduction::PixelField, 3> g(image, imageFields[1]);
     AccessorWO<ImageReduction::PixelField, 3> b(image, imageFields[2]);
@@ -248,7 +249,7 @@ extern "C" {
       PointInRectIterator<3> pir(saveRect);
       char filename[256];
       static int frameNumber = 0;
-      sprintf(filename, "intermediateRGBA.%lld-%lld-%lld.%05d.tga", pir[0], pir[1], pir[2], frameNumber++);
+      sprintf(filename, "intermediateRGBA.%lld-%lld-%lld.%05d.tga", pir[0], pir[1], pir[2], frameNumber);
       FILE* f = fopen(filename, "w");
       if(f == nullptr) {
         std::cerr << "could not create file " << filename << std::endl;
@@ -295,7 +296,7 @@ extern "C" {
       }
       fclose(f);
       std::cout << "wrote image " << filename << std::endl;
-      sprintf(filename, "intermediateZ.%lld-%lld-%lld.%05d.tga", pir[0], pir[1], pir[2], frameNumber++);
+      sprintf(filename, "intermediateZ.%lld-%lld-%lld.%05d.txt", pir[0], pir[1], pir[2], frameNumber);
       f = fopen(filename, "w");
       for(int y = imageDescriptor->height - 1; y >= 0; y--) {
         for(int x = 0; x < imageDescriptor->width; ++x) {
@@ -305,6 +306,7 @@ extern "C" {
       }
       fclose(f);
       std::cout << "wrote depth " << filename << std::endl;
+      frameNumber++;
     }
 #endif
     
