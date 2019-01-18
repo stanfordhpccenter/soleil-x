@@ -180,51 +180,14 @@ void vDrawScene(int numFluidX,
   gVisualizationField = visualizationField;
   fTargetValue = targetValue;
   
-  float depthMax = sqrt((domainMax[2] - domainMin[2]) * (domainMax[2] - domainMin[2])
-                        + (domainMax[1] - domainMin[1]) * (domainMax[1] - domainMin[1])
-                        + (domainMax[0] - domainMin[0]) * (domainMax[0] - domainMin[0]));
-  glClearDepth(depthMax * 2);
-                        
-
-  //  static GLfloat fPitch = 0.0;
-  //  static GLfloat fYaw   = 0.0;
-  //  static GLfloat fTime = 0.0;
-  
   glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
   
-  // glPushMatrix();
-  
-  //  if(bSpin)
-  //  {
-  //    fPitch += 4.0;
-  //    fYaw   += 2.5;
-  //  }
-  //  if(bMove)
-  //  {
-  //    fTime  += 0.025;
-  //  }
-  
-  
-  //  glTranslatef(0.0, 0.0, -1.0);
-  //  glRotatef( -fPitch, 1.0, 0.0, 0.0);
-  //  glRotatef(     0.0, 0.0, 1.0, 0.0);
-  //  glRotatef(    fYaw, 0.0, 0.0, 1.0);
-  
-//  glPushAttrib(GL_LIGHTING_BIT);
-//  glDisable(GL_LIGHTING);
-//  glColor3f(1.0, 1.0, 1.0);
-//  glutWireCube(1.0);
-//  glPopAttrib();
-  
-  
   glPushMatrix();
-  //glTranslatef(-0.5, -0.5, -0.5);
+
   glBegin(GL_TRIANGLES);
   vMarchingCubes();
   glEnd();
   glPopMatrix();
-  
-  // glPopMatrix();
   
   glFinish();
   

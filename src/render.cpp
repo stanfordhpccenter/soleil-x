@@ -295,7 +295,7 @@ extern "C" {
       }
       fclose(f);
       std::cout << "wrote image " << filename << std::endl;
-      sprintf(filename, "intermediateZ.%lld-%lld-%lld.%05d.tga", pir[0], pir[1], pir[2], frameNumber++);
+      sprintf(filename, "intermediateZ.%lld-%lld-%lld.%05d.txt", pir[0], pir[1], pir[2], frameNumber++);
       f = fopen(filename, "w");
       for(int y = imageDescriptor->height - 1; y >= 0; y--) {
         for(int x = 0; x < imageDescriptor->width; ++x) {
