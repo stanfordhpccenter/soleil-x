@@ -5821,7 +5821,7 @@ task initDual(mc : &MultiConfig, launched : int, outDirBase : &int8)
     'Invalid stagger factor configuration')
 end
 
-__demand(__inner)
+__forbid(__optimize) __demand(__inner)
 task main()
   var args = regentlib.c.legion_runtime_get_input_args()
   var outDirBase = '.'
