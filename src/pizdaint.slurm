@@ -8,6 +8,9 @@ GPUS_PER_NODE=1
 FB_PER_GPU=15000
 source "$SOLEIL_DIR"/src/jobscript_shared.sh
 
+EASYBUILD_PREFIX=$SCRATCH/PSAAP
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$EASYBUILD_PREFIX/software/LLVM/5.0.0-CrayGNU-18.08/lib/
+
 srun -n "$NUM_RANKS" --ntasks-per-node="$RANKS_PER_NODE" --cpus-per-task="$CORES_PER_RANK" \
     --export=ALL \
     $COMMAND
