@@ -240,6 +240,64 @@ extern "C" {
     std::cout << "wrote image to " << filename << std::endl;
 #endif
     
+#define SAVE_INTERMEDIATE_IMAGES 1
+#if SAVE_INTERMEDIATE_IMAGES
+    {
+      IndexSpace saveIndexSpace = image.get_logical_region().get_index_space();
+      Rect<3> saveRect = runtime->get_index_space_domain(ctx, saveIndexSpace);
+      PointInRectIterator<3> pir(saveRect);
+      char filename[256];
+      static int frameNumber = 0;
+      sprintf(filename, "intermediate.%lld-%lld-%lld.%05d.tga", pir[0], pir[1], pir[2], frameNumber++);
+      FILE* f = fopen(filename, "w");
+      if(f == nullptr) {
+        std::cerr << "could not create file " << filename << std::endl;
+        return;
+      }
+      fputc (0x00, f);  /* ID Length, 0 => No ID   */
+      fputc (0x00, f);  /* Color Map Type, 0 => No color map included   */
+      fputc (0x02, f);  /* Image Type, 2 => Uncompressed, True-color Image */
+      fputc (0x00, f);  /* Next five bytes are about the color map entries */
+      fputc (0x00, f);  /* 2 bytes Index, 2 bytes length, 1 byte size */
+      fputc (0x00, f);
+      fputc (0x00, f);
+      fputc (0x00, f);
+      fputc (0x00, f);  /* X-origin of Image */
+      fputc (0x00, f);
+      fputc (0x00, f);  /* Y-origin of Image */
+      fputc (0x00, f);
+      fputc (imageDescriptor->width & 0xff, f);      /* Image Width */
+      fputc ((imageDescriptor->width>>8) & 0xff, f);
+      fputc (imageDescriptor->height & 0xff, f);     /* Image Height   */
+      fputc ((imageDescriptor->height>>8) & 0xff, f);
+      fputc (0x18, f);     /* Pixel Depth, 0x18 => 24 Bits  */
+      fputc (0x20, f);     /* Image Descriptor  */
+      fclose(f);
+      
+      f = fopen(filename, "ab");  /* reopen in binary append mode */
+//      IndexSpace saveIndexSpace = image.get_logical_region().get_index_space();
+//      Rect<3> saveRect = runtime->get_index_space_domain(ctx, saveIndexSpace);
+//      PointInRectIterator<3> pir(saveRect);
+      ImageReduction::PixelField* BB = (ImageReduction::PixelField*)b.ptr(*pir);
+      ImageReduction::PixelField* GG = (ImageReduction::PixelField*)g.ptr(*pir);
+      ImageReduction::PixelField* RR = (ImageReduction::PixelField*)r.ptr(*pir);
+      
+      for(int y = imageDescriptor->height - 1; y >= 0; y--) {
+        for(int x = 0; x < imageDescriptor->width; ++x) {
+          int index = x + y * imageDescriptor->width;
+          GLubyte b_ = BB[index] * 255;
+          fputc(b_, f); /* write blue */
+          GLubyte g_ = GG[index] * 255;
+          fputc(g_, f); /* write green */
+          GLubyte r_ = RR[index] * 255;
+          fputc(r_, f);   /* write red */
+        }
+      }
+      fclose(f);
+      std::cout << "wrote image " << filename << std::endl;
+    }
+#endif
+    
     // Release graphics context and render buffers
     
     renderTerminate(mesaCtx, rgbaBuffer, depthBuffer);

@@ -127,7 +127,7 @@
       "numParticlesToDraw" : 500,
       "isosurfaceField" : "temperature",
       "isosurfaceValue" : 300.0,
-      "stepsPerRender" : 1
+      "stepsPerRender" : 100
     }
 
 }
