@@ -248,7 +248,7 @@ extern "C" {
       PointInRectIterator<3> pir(saveRect);
       char filename[256];
       static int frameNumber = 0;
-      sprintf(filename, "intermediate.%lld-%lld-%lld.%05d.tga", pir[0], pir[1], pir[2], frameNumber++);
+      sprintf(filename, "intermediateRGBA.%lld-%lld-%lld.%05d.tga", pir[0], pir[1], pir[2], frameNumber++);
       FILE* f = fopen(filename, "w");
       if(f == nullptr) {
         std::cerr << "could not create file " << filename << std::endl;
@@ -295,6 +295,16 @@ extern "C" {
       }
       fclose(f);
       std::cout << "wrote image " << filename << std::endl;
+      sprintf(filename, "intermediateZ.%lld-%lld-%lld.%05d.tga", pir[0], pir[1], pir[2], frameNumber++);
+      f = fopen(filename, "w");
+      for(int y = imageDescriptor->height - 1; y >= 0; y--) {
+        for(int x = 0; x < imageDescriptor->width; ++x) {
+          int index = x + y * imageDescriptor->width;
+          fprintf(f, "%g\n", depthBuffer[index]);
+        }
+      }
+      fclose(f);
+      std::cout << "wrote depth " << filename << std::endl;
     }
 #endif
     
