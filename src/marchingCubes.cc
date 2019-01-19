@@ -243,21 +243,58 @@ GLvoid vNormalizeVector(GLvector &rfVectorResult, GLvector &rfVectorSource)
 }
 
 
-int index(GLfloat x, int numX, FieldData min, FieldData max) {
-  FieldData increment = (max - min) / (numX - 1);
-  int result = (x - min) / increment;
-  return result;
+
+int findNearestCoordinate(GLfloat fx, GLfloat fy, GLfloat fz)
+{
+  int x_ = 0;
+  int y_ = 0;
+  int z_ = 0;
+  FieldData best;
+  int bestX = -99;
+  int bestY = -99;
+  int bestZ = -99;
+  
+  for(int i = 0; i < gNumFluidX; i++) {
+    int index = x_ + gNumFluidX * y_ + gNumFluidX * gNumFluidY * z_;
+    const FieldData3* coordinate = gCenterCoordinates + index;
+    float distance = fabs(fx - coordinate->x[0]) + fabs(fy - coordinate->x[1]) + fabs(fz - coordinate->x[2]);
+    if(bestX < 0 || best > distance) {
+      bestX = x_;
+      best = distance;
+    }
+    x_++;
+  }
+  
+  for(int i = 0; i < gNumFluidY; i++) {
+    int index = x_ + gNumFluidX * y_ + gNumFluidX * gNumFluidY * z_;
+    const FieldData3* coordinate = gCenterCoordinates + index;
+    float distance = fabs(fx - coordinate->x[0]) + fabs(fy - coordinate->x[1]) + fabs(fz - coordinate->x[2]);
+    if(bestY < 0 || best > distance) {
+      bestY = y_;
+      best = distance;
+    }
+    y_++;
+  }
+  
+  for(int i = 0; i < gNumFluidZ; i++) {
+    int index = x_ + gNumFluidX * y_ + gNumFluidX * gNumFluidY * z_;
+    const FieldData3* coordinate = gCenterCoordinates + index;
+    float distance = fabs(fx - coordinate->x[0]) + fabs(fy - coordinate->x[1]) + fabs(fz - coordinate->x[2]);
+    if(bestZ < 0 || best > distance) {
+      bestZ = z_;
+      best = distance;
+    }
+    z_++;
+  }
+  int bestIndex = bestX + gNumFluidX * bestY + gNumFluidX * gNumFluidY * bestZ;
+  return bestIndex;
 }
 
 
-//fSample1 finds the distance of (fX, fY, fZ) from three moving points
+
 GLfloat fSample(GLfloat fX, GLfloat fY, GLfloat fZ)
 {
-  //printf("fSample %g %g %g\n", fX, fY, fZ);
-  int xIndex = index(fX, gNumFluidX, gDomainMin[0], gDomainMax[0]);
-  int yIndex = index(fY, gNumFluidY, gDomainMin[1], gDomainMax[1]);
-  int zIndex = index(fZ, gNumFluidZ, gDomainMin[2], gDomainMax[2]);
-  
+  int index = findNearestCoordinate(fX, fY, fZ);
   const FieldData* data;
   switch(gVisualizationField) {
     case rhoField:
@@ -275,7 +312,6 @@ GLfloat fSample(GLfloat fX, GLfloat fY, GLfloat fZ)
       data = gRho;
       break;
   }
-  int index = xIndex + gNumFluidX * yIndex + gNumFluidX * gNumFluidY * zIndex;  
   return data[index];
 }
 
