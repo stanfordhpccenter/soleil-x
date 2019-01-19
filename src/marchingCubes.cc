@@ -429,7 +429,9 @@ GLvoid vMarchingCubes()
     for(iY = 0; iY < gNumFluidY; iY++)
       for(iZ = 0; iZ < gNumFluidZ; iZ++)
       {
-        vMarchCube(iX*stepSizeX, iY*stepSizeY, iZ*stepSizeZ, stepSizeX, stepSizeY, stepSizeZ);
+        int index = iX + gNumFluidX * iY + gNumFluidX * gNumFluidY * iZ;
+        const FieldData3* coordinate = gCenterCoordinates + index;
+        vMarchCube(coordinate->x[0], coordinate->x[1], coordinate->x[2], stepSizeX, stepSizeY, stepSizeZ);
       }
   std::cout << "drew " << gDrawnTriangles << " triangles" << std::endl;
 }
