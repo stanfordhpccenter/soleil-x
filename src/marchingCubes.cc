@@ -409,6 +409,21 @@ GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat sc
   }  
 }
 
+#if 1
+void printBoundingBox()
+{
+  FieldData min[3] = { 9999, 9999, 9999 };
+  FieldData max[3] = { -9999, -9999, -9999 };
+  for(int i = 0; i < gNumFluidX * gNumFluidY * gNumFluidZ; ++i) {
+    const FieldData3* coordinate = gCenterCoordinates + i;
+    for(unsigned j = 0; j < 3; ++j) {
+      min[j] = fmin(min[j], coordinate->x[j]);
+      max[j] = fmax(max[j], coordinate->x[j]);
+    }
+  }
+  std::cout << "Bounding box cell centers: (" << min[0] << "," << min[1] << "," << min[2] << ") ... (" << max[0] << "," << max[1] << "," << max[2] << ")" << std::endl;
+}
+#endif
 
 #if 1
 void drawParticle(GLUquadricObj* qobj, const FieldData3* position, FieldData density, FieldData particleTemperature, float particleSize);
@@ -424,6 +439,7 @@ GLvoid vMarchingCubes()
   float stepSizeZ = (gDomainMax[2] - gDomainMin[2]) / gNumFluidZ;
 
 #if 1
+  printBoundingBox();
   printf("scale %g %g %g\n", stepSizeX, stepSizeY, stepSizeZ);
 #endif
 
