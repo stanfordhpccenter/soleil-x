@@ -452,7 +452,7 @@ GLvoid vMarchingCubes()
 #define RENDER_CELL_CENTERS 1
 #if RENDER_CELL_CENTERS
         GLUquadricObj *qobj = gluNewQuadric();
-        drawParticle(qobj, coordinate, 500, 300, 1.0e-3);
+        drawParticle(qobj, coordinate, 500, 300, 5.0e-5);
         gluDeleteQuadric(qobj);
 #else
         vMarchCube(coordinate->x[0] - stepSizeX / 2.0,
