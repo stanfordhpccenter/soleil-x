@@ -72,7 +72,7 @@ static void scaledTemperatureToColor(float temperature,
 }
 
 
-static void drawParticle(GLUquadricObj* qobj, const FieldData3* position, FieldData density, FieldData particleTemperature, float particleSize) {
+void drawParticle(GLUquadricObj* qobj, const FieldData3* position, FieldData density, FieldData particleTemperature, float particleSize) {
   
   GLfloat t = particleTemperature;
   GLfloat color[4];

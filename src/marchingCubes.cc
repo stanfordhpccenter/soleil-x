@@ -410,7 +410,9 @@ GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat sc
 }
 
 
-
+#if 1
+void drawParticle(GLUquadricObj* qobj, const FieldData3* position, FieldData density, FieldData particleTemperature, float particleSize);
+#endif
 
 //vMarchingCubes iterates over the entire dataset, calling vMarchCube on each cube
 GLvoid vMarchingCubes()
@@ -431,7 +433,19 @@ GLvoid vMarchingCubes()
       {
         int index = iX + gNumFluidX * iY + gNumFluidX * gNumFluidY * iZ;
         const FieldData3* coordinate = gCenterCoordinates + index;
-        vMarchCube(coordinate->x[0], coordinate->x[1], coordinate->x[2], stepSizeX, stepSizeY, stepSizeZ);
+#define RENDER_CELL_CENTERS 1
+#if RENDER_CELL_CENTERS
+        GLUquadricObj *qobj = gluNewQuadric();
+        drawParticle(qobj, coordinate, 500, 300, 1.0e-3);
+        gluDeleteQuadric(qobj);
+#else
+        vMarchCube(coordinate->x[0] - stepSizeX / 2.0,
+                   coordinate->x[1] - stepSizeY / 2.0,
+                   coordinate->x[2] - stepSizeZ / 2.0,
+                   stepSizeX,
+                   stepSizeY,
+                   stepSizeZ);
+#endif
       }
   std::cout << "drew " << gDrawnTriangles << " triangles" << std::endl;
 }
