@@ -16,13 +16,14 @@ parser.add_argument('dom_z', type=int)
 parser.add_argument('quads', type=int)
 parser.add_argument('use_dom', type=bool)
 parser.add_argument('rk_order', type=int)
-parser.add_argument('ffts', type=int)
+parser.add_argument('ftts', type=int)
 args = parser.parse_args()
 
 assert(args.flow_x % 4 == 0)
 assert(args.flow_x >= args.dom_x and args.flow_x % args.dom_x == 0)
 assert(args.flow_y >= args.dom_y and args.flow_y % args.dom_y == 0)
 assert(args.flow_z >= args.dom_z and args.flow_z % args.dom_z == 0)
+assert(args.ftts >= 2, 'At least one transient and one averaging FTT required')
 
 # Parse json template
 mc = json.load(args.hf_json)
@@ -48,7 +49,9 @@ if args.use_dom:
 else:
     mc['configs'][1]['Radiation'] = {}
     mc['configs'][1]['Radiation']['type'] = 'Algebraic'
-mc['flowThroughTimes'] = args.ffts
+    mc['configs'][1]['Radiation']['intensity'] = 'TBD'
+    mc['configs'][1]['Radiation']['absorptivity'] = 'TBD'
+mc['flowThroughTimes'] = args.ftts
 
 # Update grid-related values
 mc['configs'][1]['IO']['probes'][0]['fromCell'][0] = args.flow_x

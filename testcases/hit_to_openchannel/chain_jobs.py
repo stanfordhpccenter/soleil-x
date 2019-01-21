@@ -57,4 +57,4 @@ print "Testcases created; when you're ready, run:"
 for i in range(0, num_jobs):
     after_str = 'AFTER=$JOBID ' if i > 0 else ''
     cases_str = ' '.join(['-m job%04d/case%04d.json' % (i,j) for j in range(0,len(cases))])
-    print 'JOBID=`%sQUEUE=batch $SOLEIL_DIR/src/soleil.sh %s -o %s/job%04d`; echo $JOBID' % (after_str, cases_str, args.out_dir, i)
+    print 'JOBOUT=`%s$SOLEIL_DIR/src/soleil.sh %s -o %s/job%04d`; JOBID="${JOBOUT//[!0-9]/}"; echo $JOBID' % (after_str, cases_str, args.out_dir, i)
