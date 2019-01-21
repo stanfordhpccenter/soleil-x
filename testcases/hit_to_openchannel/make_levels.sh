@@ -17,3 +17,5 @@ while read -r LINE; do
     fi
     I="$(( I + 1 ))"
 done < "$LEVELS_DAT"
+
+echo "LF cases created in lf0/ to lf$((I-1))/. You may wish to update the mapping config for the smaller sample size."

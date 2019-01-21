@@ -19,11 +19,11 @@ parser.add_argument('rk_order', type=int)
 parser.add_argument('ftts', type=int)
 args = parser.parse_args()
 
-assert(args.flow_x % 4 == 0)
-assert(args.flow_x >= args.dom_x and args.flow_x % args.dom_x == 0)
-assert(args.flow_y >= args.dom_y and args.flow_y % args.dom_y == 0)
-assert(args.flow_z >= args.dom_z and args.flow_z % args.dom_z == 0)
-assert(args.ftts >= 2, 'At least one transient and one averaging FTT required')
+assert args.flow_x % 4 == 0
+assert args.flow_x >= args.dom_x and args.flow_x % args.dom_x == 0
+assert args.flow_y >= args.dom_y and args.flow_y % args.dom_y == 0
+assert args.flow_z >= args.dom_z and args.flow_z % args.dom_z == 0
+assert args.ftts >= 2, 'At least one transient and one averaging FTT required'
 
 # Parse json template
 mc = json.load(args.hf_json)
