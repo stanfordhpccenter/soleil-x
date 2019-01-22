@@ -177,6 +177,8 @@ local DOM = (require 'dom-desugared')(MAX_ANGLES_PER_QUAD, Radiation_columns, SC
 
 local PI = 3.1415926535898
 local SB = 5.67e-08
+local DBL_DECIMAL_DIG = 17 -- HACK: normally defined in float.h
+local DBL_FORMAT = '%.'..tostring(DBL_DECIMAL_DIG)..'e'
 
 local RK_MIN_ORDER = 2
 local RK_MAX_ORDER = 4
@@ -371,15 +373,15 @@ end
 
 __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Console_WriteHeader(config : Config)
-  [emitConsoleWrite(config, 'Iter\t'..
+  [emitConsoleWrite(config, 'Iteration\t'..
                             'Sim Time\t'..
-                            'Wall t\t'..
+                            'Wall Time\t'..
                             'Delta Time\t'..
                             'Avg Press\t'..
                             'Avg Temp\t'..
-                            'Average KE\t'..
-                            '#Part\t'..
-                            'Particle T\n')];
+                            'Avg KE\t'..
+                            'Particle Num\t'..
+                            'Avg Particle T\n')];
 end
 
 __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
@@ -395,14 +397,14 @@ task Console_Write(config : Config,
                    Particles_averageTemperature : double)
   var currTime = C.legion_get_current_time_in_micros() / 1000;
   [emitConsoleWrite(config, '%d\t'..
-                            '%e\t'..
+                            DBL_FORMAT..'\t'..
                             '%llu.%03llu\t'..
-                            '%e\t'..
-                            '%e\t'..
-                            '%e\t'..
-                            '%e\t'..
+                            DBL_FORMAT..'\t'..
+                            DBL_FORMAT..'\t'..
+                            DBL_FORMAT..'\t'..
+                            DBL_FORMAT..'\t'..
                             '%lld\t'..
-                            '%e\n',
+                            DBL_FORMAT..'\n',
                     Integrator_timeStep,
                     Integrator_simTime,
                     rexpr (currTime - startTime) / 1000 end,
@@ -551,9 +553,9 @@ task Probe_Write(config : Config,
                  avgParticleT : double,
                  avgCellOfParticleT : double)
   [emitProbeWrite(config, probeId, '%d\t'..
-                                   '%e\t'..
-                                   '%e\t'..
-                                   '%e\n',
+                                   DBL_FORMAT..'\t'..
+                                   DBL_FORMAT..'\t'..
+                                   DBL_FORMAT..'\n',
                   Integrator_timeStep,
                   avgFluidT,
                   avgParticleT,
