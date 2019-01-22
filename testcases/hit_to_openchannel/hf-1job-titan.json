@@ -275,7 +275,7 @@
             "probes" : [{"fromCell" : [512,0,0], "uptoCell" : [512,127,127]}]
         }
     }],
-    "flowThroughTimes" : 5,
+    "flowThroughTimes" : 3,
     "copySrc" : {
         "fromCell" : [0,0,0],
         "uptoCell" : [0,127,127]

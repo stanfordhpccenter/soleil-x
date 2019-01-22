@@ -36,8 +36,8 @@ for fin in args.json_file:
 
 num_jobs = int(math.ceil(float(target_iter) / iters_per_job))
 for i in range(0, num_jobs):
-    os.mkdir('job%04d' % i)
-    os.mkdir('%s/job%04d' % (args.out_dir, i))
+    os.mkdir('job%d' % i)
+    os.mkdir('%s/job%d' % (args.out_dir, i))
     for j in range(0, len(cases)):
         if i > 0:
             for k in range(0, 2):
@@ -47,14 +47,13 @@ for i in range(0, num_jobs):
                 config['Integrator']['startTime'] = i * iters_per_job * dt
                 config['Integrator']['maxIter'] = (i+1) * iters_per_job
                 config['Flow']['initCase'] = 'Restart'
-                config['Flow']['restartDir'] = '%s/job%04d/sample%s/fluid_iter%010d' % (args.out_dir, i-1, 2*j+k, i*iters_per_job)
+                config['Flow']['restartDir'] = '%s/job%d/sample%s/fluid_iter%010d' % (args.out_dir, i-1, 2*j+k, i*iters_per_job)
                 config['Particles']['initCase'] = 'Restart'
-                config['Particles']['restartDir'] = '%s/job%04d/sample%s/particles_iter%010d' % (args.out_dir, i-1, 2*j+k, i*iters_per_job)
-        with open('job%04d/case%04d.json' % (i, j), 'w') as fout:
+                config['Particles']['restartDir'] = '%s/job%d/sample%s/particles_iter%010d' % (args.out_dir, i-1, 2*j+k, i*iters_per_job)
+        with open('job%d/case%d.json' % (i, j), 'w') as fout:
             json.dump(cases[j], fout, indent=4)
 
 print "Testcases created; when you're ready, run:"
 for i in range(0, num_jobs):
     after_str = 'AFTER=$JOBID ' if i > 0 else ''
-    cases_str = ' '.join(['-m job%04d/case%04d.json' % (i,j) for j in range(0,len(cases))])
-    print 'JOBID=`%sQUEUE=batch $SOLEIL_DIR/src/soleil.sh %s -o %s/job%04d`; echo $JOBID' % (after_str, cases_str, args.out_dir, i)
+    print 'JOBOUT=`%s$SOLEIL_DIR/src/soleil.sh $(echo -m\ job%d/case{0..%d}.json) -o %s/job%d`; JOBID="${JOBOUT//[!0-9]/}"; echo $JOBID' % (after_str, i, len(cases) - 1, args.out_dir, i)

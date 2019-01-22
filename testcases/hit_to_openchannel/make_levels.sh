@@ -17,3 +17,5 @@ while read -r LINE; do
     fi
     I="$(( I + 1 ))"
 done < "$LEVELS_DAT"
+
+echo "LF cases created in lf0/ to lf$((I-1))/."
