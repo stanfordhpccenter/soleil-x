@@ -303,7 +303,6 @@ public:
             config.Mapping.tiles[2] % config.Mapping.tilesPerRank[2] == 0,
             "Invalid tiling for sample %lu", sample_mappings_.size() + 1);
       sample_mappings_.emplace_back(rt, config, reqd_ranks);
-      reqd_ranks += sample_mappings_.back().num_ranks();
     };
     // Locate all config files specified on the command-line arguments.
     InputArgs args = Runtime::get_input_args();
@@ -312,11 +311,22 @@ public:
         Config config;
         parse_Config(&config, args.argv[i+1]);
         process_config(config);
+        reqd_ranks += sample_mappings_.back().num_ranks();
       } else if (EQUALS(args.argv[i], "-m") && i < args.argc-1) {
         MultiConfig mc;
         parse_MultiConfig(&mc, args.argv[i+1]);
         process_config(mc.configs[0]);
+        unsigned num_ranks_0 = sample_mappings_.back().num_ranks();
+        if (!mc.collocateSections) {
+          reqd_ranks += num_ranks_0;
+        }
         process_config(mc.configs[1]);
+        unsigned num_ranks_1 = sample_mappings_.back().num_ranks();
+        if (mc.collocateSections) {
+          reqd_ranks += std::max(num_ranks_0, num_ranks_1);
+        } else {
+          reqd_ranks += num_ranks_1;
+        }
       }
     }
     // Verify that we have enough ranks.
@@ -506,7 +516,8 @@ public:
                               MapperContext ctx,
                               const Task& task,
                               std::vector<Processor::Kind>& ranking) {
-    // Work tasks: map to IO processors
+    // Work tasks: map to IO processors, so they don't get blocked by tiny
+    // CPU tasks.
     if (EQUALS(task.get_task_name(), "workSingle") ||
         EQUALS(task.get_task_name(), "workDual")) {
       ranking.push_back(Processor::IO_PROC);

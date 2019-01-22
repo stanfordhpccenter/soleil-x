@@ -284,5 +284,6 @@
         "fromCell" : [0,0,0],
         "uptoCell" : [0,127,127]
     },
+    "collocateSections" : false,
     "copyEveryTimeSteps" : "TBD"
 }

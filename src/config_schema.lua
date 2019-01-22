@@ -218,6 +218,8 @@ Exports.MultiConfig = {
   copySrc = Exports.Volume,
   -- volume to copy into every timestep (in the 2nd section)
   copyTgt = Exports.Volume,
+  -- whether to place the tiles of the two sections on the same set of ranks
+  collocateSections = bool,
   -- How often to copy values from one section to the other
   copyEveryTimeSteps = int,
 }

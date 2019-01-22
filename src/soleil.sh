@@ -54,6 +54,8 @@ if '$2' == 'single':
   print wallTime(f), numRanks(f)
 elif '$2' == 'dual':
   print max(wallTime(f['configs'][0]), wallTime(f['configs'][1])), \
+        max(numRanks(f['configs'][0]), numRanks(f['configs'][1]))  \
+        if f['collocateSections'] else                             \
         numRanks(f['configs'][0]) + numRanks(f['configs'][1])
 else:
   assert(false)"
