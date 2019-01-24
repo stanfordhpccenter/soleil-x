@@ -434,7 +434,6 @@ extern "C" {
                   legion_physical_region_t* particles_,
                   FieldID particlesFields[],
                   int numParticlesFields,
-                  legion_index_space_t tiles_,
                   legion_logical_partition_t fluidPartition_,
                   legion_logical_partition_t particlesPartition_,
                   int numParticlesToDraw,

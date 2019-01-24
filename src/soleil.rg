@@ -29,7 +29,6 @@ local USE_HDF = assert(os.getenv('USE_HDF')) ~= '0'
 
 local MAX_ANGLES_PER_QUAD = 44
 
-
 -------------------------------------------------------------------------------
 -- DATA STRUCTURES
 -------------------------------------------------------------------------------
@@ -55,7 +54,6 @@ local struct Particles_columns {
   temperature_new : double;
   velocity_t : double[3];
   temperature_t : double;
-  __renderThis : bool;
   __valid : bool;
   __xfer_dir : int8;
   __xfer_slot : int64;
@@ -68,7 +66,6 @@ local Particles_primitives = terralib.newlist({
   'temperature',
   'diameter',
   'density',
-  '__renderThis',
   '__valid',
 })
 local Particles_derived = terralib.newlist({
@@ -169,7 +166,6 @@ struct Radiation_columns {
   acc_d2 : double;
   acc_d2t4 : double;
 }
-
 
 -------------------------------------------------------------------------------
 -- EXTERNAL MODULE IMPORTS
@@ -285,6 +281,128 @@ end
 __demand(__inline)
 task vv_div(a : double[3], b : double[3])
   return array(a[0] / b[0], a[1] / b[1], a[2] / b[2])
+end
+
+
+-------------------------------------------------------------------------------
+-- visualization
+-------------------------------------------------------------------------------
+
+local root_dir = arg[0]:match(".*/") or "./"
+assert(os.getenv('LG_RT_DIR'), "LG_RT_DIR should be set!")
+local runtime_dir = os.getenv('LG_RT_DIR') .. "/"
+local legion_dir = runtime_dir .. "legion/"
+local mapper_dir = runtime_dir .. "mappers/"
+local realm_dir = runtime_dir .. "realm/"
+
+render = terralib.includec("render.h",
+{"-I", root_dir,
+"-I", runtime_dir,
+"-I", mapper_dir,
+"-I", legion_dir,
+"-I", realm_dir,
+})
+
+local struct Draw_columns {
+id : int64;
+}
+
+task VisualizeInit(config : Config,
+                  Fluid : region(ispace(int3d), Fluid_columns),
+                  Particles : region(ispace(int3d), Particles_columns),
+                  particlesToDraw : region(ispace(int1d), Draw_columns),
+                  lowerBound : double[3],
+                  upperBound : double[3]
+)
+where
+  writes(Particles.{id}, particlesToDraw),
+  reads(Fluid, particlesToDraw)
+do
+  -- assign particles ids
+  var particleID : int64 = 0
+  for p in Particles do
+    p.id = particleID
+    particleID = particleID + 1
+  end
+
+  -- select particles to draw
+  C.srand(0)
+  for i = 0, config.Visualization.numParticlesToDraw do
+    var r = [double](C.rand()) / C.RAND_MAX
+    particlesToDraw[i].id = r * config.Particles.initNum
+  end
+
+  -- bubble sort the array
+  for i = 0, config.Visualization.numParticlesToDraw do
+    for j = i, config.Visualization.numParticlesToDraw do
+      if particlesToDraw[i].id > particlesToDraw[j].id then
+        var temp = particlesToDraw[i].id
+        particlesToDraw[i].id = particlesToDraw[j].id
+        particlesToDraw[j].id = temp
+      end
+    end
+  end
+
+  -- get the global fluid bounds
+  for i = 0, 3 do
+    lowerBound[i] = 9999
+    upperBound[i] = -9999
+  end
+
+  for f in Fluid do
+    for i = 0, 3 do
+      if Fluid[f].centerCoordinates[i] < lowerBound[i] then
+        lowerBound[i] = Fluid[f].centerCoordinates[i]
+      end
+      if Fluid[f].centerCoordinates[i] > upperBound[i] then
+        upperBound[i] = Fluid[f].centerCoordinates[i]
+      end
+    end
+  end
+
+end
+
+
+task render_tile(FluidSubregion : region(ispace(int3d), Fluid_columns),
+              ParticlesSubregion : region(ispace(int1d), Particles_columns),
+              Fluid : region(ispace(int3d), Fluid_columns),
+              Particles : region(ispace(int1d), Particles_columns),
+              p_Fluid : partition(disjoint, Fluid, ispace(int3d)),
+              p_Particles : partition(disjoint, Particles, ispace(int3d)),
+              particlesToDraw : region(ispace(int1d), Draw_columns),
+              lowerBound : double[3],
+              upperBound : double[3],
+              config : Config
+)
+where
+  reads(Fluid, Particles, particlesToDraw)
+do
+  var numFluidFields : int = 37
+  var fluidFields : C.legion_field_id_t[numFluidFields] = __fields(Fluid)
+  var numParticlesFields : int = 21
+  var particlesFields : C.legion_field_id_t[numParticlesFields] = __fields(Particles)
+
+  render.cxx_render(__runtime(),
+                    __context(),
+                    config.Mapping.sampleId,
+                    __physical(Fluid),
+                    fluidFields,
+                    numFluidFields,
+                    __physical(Particles),
+                    particlesFields,
+                    numParticlesFields,
+                    __raw(p_Fluid),
+                    __raw(p_Particles),
+                    config.Visualization.numParticlesToDraw,
+                    config.Visualization.isosurfaceField,
+                    config.Visualization.isosurfaceValue,
+                    __physical(particlesToDraw),
+                    lowerBound,
+                    upperBound)
+
+  render.cxx_reduce(__runtime(),
+                    __context(),
+                    config.Mapping.sampleId)
 end
 
 -------------------------------------------------------------------------------
@@ -575,26 +693,8 @@ task createDir(dirname : regentlib.string)
 end
 
 
--------------------------------------------------------------------------------
--- Render
--------------------------------------------------------------------------------
 
-local root_dir = arg[0]:match(".*/") or "./"
-assert(os.getenv('LG_RT_DIR'), "LG_RT_DIR should be set!")
-local runtime_dir = os.getenv('LG_RT_DIR') .. "/"
-local legion_dir = runtime_dir .. "legion/"
-local mapper_dir = runtime_dir .. "mappers/"
-local realm_dir = runtime_dir .. "realm/"
-local glew_dir = nil --  = os.getenv("EBROOTVTK") .. "/include/vtk-8.0/"
 
-render = terralib.includec("render.h",
-{"-I", root_dir,
- "-I", runtime_dir,
- "-I", mapper_dir,
- "-I", legion_dir,
- "-I", realm_dir,
- -- "-I", glew_dir
-})
 
 
 
@@ -806,7 +906,6 @@ task Flow_InitializeCenterCoordinates(Fluid : region(ispace(int3d), Fluid_column
                                       Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
                                       Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
 where
-  reads(Fluid.centerCoordinates),
   writes(Fluid.centerCoordinates)
 do
   __demand(__openmp)
@@ -4518,9 +4617,6 @@ local function mkInstance() local INSTANCE = {}
   local p_Radiation = regentlib.newsymbol()
 
   local maxParticlesToDraw = regentlib.newsymbol(int32, "maxParticlesToDraw");
-  local struct Draw_columns {
-    id : int64;
-  }
   local particlesToDraw = regentlib.newsymbol("particlesToDraw");
   local lowerBound = regentlib.newsymbol(double [3], "lowerBound");
   local upperBound = regentlib.newsymbol(double [3], "upperBound");
@@ -4609,7 +4705,6 @@ local function mkInstance() local INSTANCE = {}
     var [particlesToDraw] = region(ispace(int1d, maxParticlesToDraw), Draw_columns)
     var [lowerBound]
     var [upperBound]
-
 
     -- Determine number of ghost cells in each direction
     -- 0 ghost cells if periodic and 1 otherwise
@@ -5670,90 +5765,20 @@ local function mkInstance() local INSTANCE = {}
 
   end end -- Cleanup
 
-  -----------------------------------------------------------------------------
-  -- Visualization
-  -----------------------------------------------------------------------------
-
-  function INSTANCE.VisualizeInit(config) return rquote
-
-    -- assign particles ids
-    var particleID : int64 = 0
-    for p in Particles do
-      p.id = particleID
-      particleID = particleID + 1
-    end
-
-    -- select particles to draw
-    C.srand(0)
-    for i = 0, config.Visualization.numParticlesToDraw do
-      var r = [double](C.rand()) / C.RAND_MAX
-      particlesToDraw[i].id = r * config.Particles.initNum
-    end
-
-    -- bubble sort the array
-    for i = 0, config.Visualization.numParticlesToDraw do
-      for j = i, config.Visualization.numParticlesToDraw do
-        if particlesToDraw[i].id > particlesToDraw[j].id then
-          var temp = particlesToDraw[i].id
-          particlesToDraw[i].id = particlesToDraw[j].id
-          particlesToDraw[j].id = temp
-        end
-      end
-    end
-
-    -- get the global fluid bounds
-    for i = 0, 3 do
-      lowerBound[i] = 9999
-      upperBound[i] = -9999
-    end
-
-    for f in Fluid do
-      for i = 0, 3 do
-        if Fluid[f].centerCoordinates[i] < lowerBound[i] then
-          lowerBound[i] = Fluid[f].centerCoordinates[i]
-        end
-        if Fluid[f].centerCoordinates[i] > upperBound[i] then
-          upperBound[i] = Fluid[f].centerCoordinates[i]
-        end
-      end
-    end
-
-  end end -- VisualizeInit
-
+-----------------------------------------------------------------------------
+-- Visualization
+-----------------------------------------------------------------------------
 
   function INSTANCE.Visualize(config) return rquote
-
-    var numFluidFields : int = 37
-    var fluidFields : C.legion_field_id_t[numFluidFields] = __fields(Fluid)
-    var numParticlesFields : int = 21
-    var particlesFields : C.legion_field_id_t[numParticlesFields] = __fields(Particles)
-
-    render.cxx_render(__runtime(),
-                    __context(),
-                    config.Mapping.sampleId,
-                    __physical(Fluid),
-                    fluidFields,
-                    numFluidFields,
-                    __physical(Particles),
-                    particlesFields,
-                    numParticlesFields,
-                    __raw(tiles),
-                    __raw(p_Fluid),
-                    __raw(p_Particles),
-                    config.Visualization.numParticlesToDraw,
-                    config.Visualization.isosurfaceField,
-                    config.Visualization.isosurfaceValue,
-                    __physical(particlesToDraw),
-                    lowerBound,
-                    upperBound)
-
-    render.cxx_reduce(__runtime(),
-                      __context(),
-                      config.Mapping.sampleId)
-  end end -- Visualize
-
+    if Integrator_timeStep % config.Visualization.stepsPerRender == 0 and config.Visualization.stepsPerRender > 0 then
+      for c in tiles do
+        render_tile(p_Fluid[c], p_Particles[c], Fluid, Particles, p_Fluid, p_Particles, particlesToDraw, lowerBound, upperBound, config)
+      end
+    end
+  end end -- Visualization
 
 return INSTANCE end -- mkInstance
+
 
 -------------------------------------------------------------------------------
 -- TOP-LEVEL INTERFACE
@@ -5773,16 +5798,15 @@ end
 
 local SIM = mkInstance()
 
-__forbid(__optimize) 
+__forbid(__optimize) __demand(__inner, __replicable)
 task workSingle(config : Config)
   [SIM.DeclSymbols(config)];
-  var frame_number = 0
+  VisualizeInit(config, SIM.Fluid, SIM.Particles, SIM.particlesToDraw, SIM.lowerBound, SIM.upperBound)
   var is_FakeCopyQueue = ispace(int1d, 0)
   var [FakeCopyQueue] = region(is_FakeCopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
   [parallelizeFor(SIM, rquote
     [SIM.InitRegions(config)];
-    [SIM.VisualizeInit(config)];
     while true do
       [SIM.MainLoopHeader(config)];
       [SIM.PerformIO(config)];
@@ -5790,11 +5814,7 @@ task workSingle(config : Config)
         break
       end
       [SIM.MainLoopBody(config, FakeCopyQueue)];
-      -- Visualize
-      if frame_number % config.Visualization.stepsPerRender == 0 then
-        [SIM.Visualize(config)];
-      end
-      frame_number = frame_number + 1
+      [SIM.Visualize(config)]
     end
   end)];
   [SIM.Cleanup(config)];
@@ -5803,12 +5823,11 @@ end
 local SIM0 = mkInstance()
 local SIM1 = mkInstance()
 
-__forbid(__optimize) 
+__forbid(__optimize) __demand(__inner, __replicable)
 task workDual(mc : MultiConfig)
   -- Declare symbols
   [SIM0.DeclSymbols(rexpr mc.configs[0] end)];
   [SIM1.DeclSymbols(rexpr mc.configs[1] end)];
-  var frame_number = 0
   var is_FakeCopyQueue = ispace(int1d, 0)
   var [FakeCopyQueue] = region(is_FakeCopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
@@ -5874,8 +5893,6 @@ task workDual(mc : MultiConfig)
   -- Initialize regions & partitions
   [parallelizeFor(SIM0, SIM0.InitRegions(rexpr mc.configs[0] end))];
   [parallelizeFor(SIM1, SIM1.InitRegions(rexpr mc.configs[1] end))];
-  [SIM0.VisualizeInit(rexpr mc.configs[0] end)];
-  [SIM1.VisualizeInit(rexpr mc.configs[1] end)];
   var srcOrigin = int3d{mc.copySrc.fromCell[0], mc.copySrc.fromCell[1], mc.copySrc.fromCell[2]}
   var tgtOrigin = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]}
   var srcColoring = C.legion_domain_point_coloring_create()
@@ -5938,12 +5955,6 @@ task workDual(mc : MultiConfig)
     end
     -- Run one iteration of second section
     [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, CopyQueue))];
-    -- Visualize
-    if frame_number % mc.configs[0].Visualization.stepsPerRender == 0 then
-      [SIM0.Visualize(rexpr mc.configs[0] end)];
-      [SIM1.Visualize(rexpr mc.configs[1] end)];
-    end
-    frame_number = frame_number + 1
   end
   -- Cleanups
   [SIM0.Cleanup(rexpr mc.configs[0] end)];
