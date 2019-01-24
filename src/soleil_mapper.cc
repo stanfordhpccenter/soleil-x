@@ -431,6 +431,8 @@ private:
              EQUALS(task.get_task_name(), "initialize_angles") ||
              STARTS_WITH(task.get_task_name(), "Console_Write") ||
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
+             STARTS_WITH(task.get_task_name(), "Visualize") ||
+             EQUALS(task.get_task_name(), "render_tile") ||
              EQUALS(task.get_task_name(), "createDir") ||
              EQUALS(task.get_task_name(), "__dummy") ||
              STARTS_WITH(task.get_task_name(), "__binary_")) {
@@ -479,6 +481,8 @@ private:
              STARTS_WITH(task.get_task_name(), "Console_Write") ||
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
              EQUALS(task.get_task_name(), "createDir") ||
+             STARTS_WITH(task.get_task_name(), "Visualize") ||
+             EQUALS(task.get_task_name(), "render_tile") ||
              EQUALS(task.get_task_name(), "__dummy") ||
              STARTS_WITH(task.get_task_name(), "__binary_")) {
       unsigned sample_id = find_sample_id(ctx, task);
