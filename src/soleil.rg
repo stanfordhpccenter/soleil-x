@@ -285,7 +285,7 @@ end
 
 
 -------------------------------------------------------------------------------
--- visualization
+-- Visualization
 -------------------------------------------------------------------------------
 
 local root_dir = arg[0]:match(".*/") or "./"
@@ -309,7 +309,7 @@ id : int64;
 
 task VisualizeInit(config : Config,
                   Fluid : region(ispace(int3d), Fluid_columns),
-                  Particles : region(ispace(int3d), Particles_columns),
+                  Particles : region(ispace(int1d), Particles_columns),
                   particlesToDraw : region(ispace(int1d), Draw_columns),
                   lowerBound : double[3],
                   upperBound : double[3]
@@ -404,6 +404,29 @@ do
                     __context(),
                     config.Mapping.sampleId)
 end
+
+
+task Visualize(config : Config,
+              Integrator_timeStep : int32,
+              Fluid : region(ispace(int3d), Fluid_columns),
+              Particles : region(ispace(int1d), Particles_columns),
+              p_Fluid : partition(disjoint, Fluid, ispace(int3d)),
+              p_Particles : partition(disjoint, Particles, ispace(int3d)),
+              particlesToDraw : region(ispace(int1d), Draw_columns),
+              lowerBound : double[3],
+              upperBound : double[3],
+              tiles : ispace(int3d)
+)
+where
+  reads(Fluid, Particles, particlesToDraw)
+do
+  if Integrator_timeStep % config.Visualization.stepsPerRender == 0 and config.Visualization.stepsPerRender > 0 then
+    for c in tiles do
+      render_tile(p_Fluid[c], p_Particles[c], Fluid, Particles, p_Fluid, p_Particles, particlesToDraw, lowerBound, upperBound, config)
+    end
+  end
+end
+
 
 -------------------------------------------------------------------------------
 -- I/O ROUTINES
@@ -4641,6 +4664,9 @@ local function mkInstance() local INSTANCE = {}
   INSTANCE.p_Particles = p_Particles
   INSTANCE.p_Particles_copy = p_Particles_copy
   INSTANCE.p_Radiation = p_Radiation
+  INSTANCE.particlesToDraw = particlesToDraw
+  INSTANCE.lowerBound = lowerBound
+  INSTANCE.upperBound = upperBound
 
   -----------------------------------------------------------------------------
   -- Symbol declaration & initialization
@@ -5765,17 +5791,6 @@ local function mkInstance() local INSTANCE = {}
 
   end end -- Cleanup
 
------------------------------------------------------------------------------
--- Visualization
------------------------------------------------------------------------------
-
-  function INSTANCE.Visualize(config) return rquote
-    if Integrator_timeStep % config.Visualization.stepsPerRender == 0 and config.Visualization.stepsPerRender > 0 then
-      for c in tiles do
-        render_tile(p_Fluid[c], p_Particles[c], Fluid, Particles, p_Fluid, p_Particles, particlesToDraw, lowerBound, upperBound, config)
-      end
-    end
-  end end -- Visualization
 
 return INSTANCE end -- mkInstance
 
@@ -5814,7 +5829,7 @@ task workSingle(config : Config)
         break
       end
       [SIM.MainLoopBody(config, FakeCopyQueue)];
-      [SIM.Visualize(config)]
+      Visualize(config, SIM.Integrator_timeStep, SIM.Fluid, SIM.Particles, SIM.p_Fluid, SIM.p_Particles, SIM.particlesToDraw, SIM.lowerBound, SIM.upperBound, SIM.tiles)
     end
   end)];
   [SIM.Cleanup(config)];
