@@ -392,6 +392,12 @@ private:
       assert(task.parent_task != NULL);
       sample_ids = find_sample_ids(ctx, *(task.parent_task));
     }
+    // Visualization
+    else if(STARTS_WITH(task.get_task_name(), "Visualize") ||
+            EQUALS(task.get_task_name(), "render_tile")) {
+      assert(task.parent_task != NULL);
+      sample_ids = find_sample_ids(ctx, *(task.parent_task));
+    }
     // Other tasks: fail and notify the user
     else {
       CHECK(false, "Unhandled task in find_sample_ids: %s",
