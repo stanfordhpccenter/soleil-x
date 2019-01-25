@@ -72,7 +72,7 @@
         "startIter": 0, 
         "fixedDeltaTime": 1.3238808905546225e-05, 
         "startTime": 0.0, 
-        "maxIter": 50
+        "maxIter": 5
     }, 
     "Flow": {
         "gasConstant": 289.0, 
@@ -105,8 +105,8 @@
     }, 
     "Mapping": {
         "tiles": [
-            2, 
-            2, 
+            4, 
+            4, 
             4
         ], 
         "outDir": "", 
@@ -123,7 +123,7 @@
         "feeding": {
             "type": "OFF"
         }, 
-        "maxNum": 126854480, 
+        "maxNum": 507417920, 
         "heatCapacity": 506.0, 
         "initTemperature": 300.0, 
         "density": 8900.0, 
@@ -139,7 +139,7 @@
         "initCase": "Uniform", 
         "maxSkew": 1.05, 
         "restartDir": "", 
-        "initNum": 126854480, 
+        "initNum": 507417920, 
         "escapeRatioPerDir": 0.005, 
         "diameterMean": 0.000501174299883
     }, 
@@ -154,12 +154,12 @@
             0.0, 
             0.0
         ], 
-        "yNum": 512, 
-        "yWidth": 3.1415926535, 
+        "yNum": 1024, 
+        "yWidth": 6.283185307, 
         "zNum": 1024, 
         "zWidth": 6.283185307, 
-        "xWidth": 3.1415926535, 
-        "xNum": 512
+        "xWidth": 6.283185307, 
+        "xNum": 1024
     }, 
     "IO": {
         "restartEveryTimeSteps": -1, 

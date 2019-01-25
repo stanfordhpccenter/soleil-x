@@ -72,7 +72,7 @@
         "startIter": 0, 
         "fixedDeltaTime": 1.3238808905546225e-05, 
         "startTime": 0.0, 
-        "maxIter": 50
+        "maxIter": 5
     }, 
     "Flow": {
         "gasConstant": 289.0, 
