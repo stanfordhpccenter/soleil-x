@@ -7,7 +7,8 @@ import numpy as np
 import sys
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--json_template')
+parser.add_argument('--debug', action='store_true')
+parser.add_argument('base_json', type=argparse.FileType('r'))
 parser.add_argument('Re_W', type=float)
 parser.add_argument('St_eta', type=float)
 parser.add_argument('MLR', type=float)
@@ -16,8 +17,10 @@ parser.add_argument('chi', type=float)
 parser.add_argument('C', type=float)
 args = parser.parse_args()
 
+mc = json.load(args.base_json)
+
 def output(*strings):
-    if args.json_template is None:
+    if args.debug:
         print(*strings)
 
 #### Fixed values #################################################################################
@@ -66,9 +69,9 @@ u_rms_U_0 = 0.12			# [-]
 Re_W_Re_lambda = ( 43.0**2.0 )/5217.0	# [-]
 
 ## Number of grid points
-N_x = 512
-N_y = 128
-N_z = 128
+N_x = mc['configs'][1]['Grid']['xNum']
+N_y = mc['configs'][1]['Grid']['yNum']
+N_z = mc['configs'][1]['Grid']['zNum']
 
 ## CFL limit
 CFL = 0.25
@@ -234,50 +237,47 @@ output()
 
 #### Fill in json config ##########################################################################
 
-if args.json_template is not None:
-    # Parse json template
-    with open(args.json_template, 'r') as fin:
-        mc = json.load(fin)
-        # Round up number of particles to fit tiling
-        tiles_0 = (mc['configs'][0]['Mapping']['tiles'][0] *
-                   mc['configs'][0]['Mapping']['tiles'][1] *
-                   mc['configs'][0]['Mapping']['tiles'][2])
-        if N_p_HIT % tiles_0 > 0:
-            N_p_HIT += tiles_0 - (N_p_HIT % tiles_0)
-        tiles_1 = (mc['configs'][1]['Mapping']['tiles'][0] *
-                   mc['configs'][1]['Mapping']['tiles'][1] *
-                   mc['configs'][1]['Mapping']['tiles'][2])
-        if N_p % tiles_1 > 0:
-            N_p += tiles_1 - (N_p % tiles_1)
-        # Fill in variable parameters
-        mc['configs'][0]['Integrator']['fixedDeltaTime'] = delta_t_c
-        mc['configs'][0]['Flow']['prandtl'] = Pr
-        mc['configs'][0]['Flow']['turbForcing']['t_o'] = t_0
-        mc['configs'][0]['Flow']['turbForcing']['K_o'] = k_0
-        mc['configs'][0]['Particles']['initNum'] = N_p_HIT
-        mc['configs'][0]['Particles']['maxNum'] = N_p_HIT
-        mc['configs'][0]['Particles']['convectiveCoeff'] = h
-        mc['configs'][0]['Particles']['heatCapacity'] = C_v_p
-        mc['configs'][0]['Particles']['diameterMean'] = d_p
-        mc['configs'][0]['Particles']['staggerFactor'] = ratio_delta_t
-        mc['configs'][1]['BC']['xBCLeftInflowProfile']['addedVelocity'] = U_0
-        mc['configs'][1]['Integrator']['fixedDeltaTime'] = delta_t_c
-        mc['configs'][1]['Flow']['prandtl'] = Pr
-        mc['configs'][1]['Flow']['initParams'][2] = U_0
-        mc['configs'][1]['Particles']['maxNum'] = int(N_p * 1.2)
-        mc['configs'][1]['Particles']['convectiveCoeff'] = h
-        mc['configs'][1]['Particles']['heatCapacity'] = C_v_p
-        mc['configs'][1]['Particles']['diameterMean'] = d_p
-        mc['configs'][1]['Particles']['feeding']['addedVelocity'][0] = U_0
-        mc['configs'][1]['Particles']['staggerFactor'] = ratio_delta_t
-        if mc['configs'][1]['Radiation']['type'] == 'DOM':
-            mc['configs'][1]['Radiation']['yHiIntensity'] = I_0/2
-            mc['configs'][1]['Radiation']['yLoIntensity'] = I_0/2
-        elif mc['configs'][1]['Radiation']['type'] == 'Algebraic':
-            mc['configs'][1]['Radiation']['absorptivity'] = Q_a
-            mc['configs'][1]['Radiation']['intensity'] = I_0
-        else:
-            assert false
-        mc['copyEveryTimeSteps'] = ratio_copy
-        # Dump final json config
-        json.dump(mc, sys.stdout, indent=4)
+if not args.debug:
+    # Round up number of particles to fit tiling
+    tiles_0 = (mc['configs'][0]['Mapping']['tiles'][0] *
+               mc['configs'][0]['Mapping']['tiles'][1] *
+               mc['configs'][0]['Mapping']['tiles'][2])
+    if N_p_HIT % tiles_0 > 0:
+        N_p_HIT += tiles_0 - (N_p_HIT % tiles_0)
+    tiles_1 = (mc['configs'][1]['Mapping']['tiles'][0] *
+               mc['configs'][1]['Mapping']['tiles'][1] *
+               mc['configs'][1]['Mapping']['tiles'][2])
+    if N_p % tiles_1 > 0:
+        N_p += tiles_1 - (N_p % tiles_1)
+    # Fill in variable parameters
+    mc['configs'][0]['Integrator']['fixedDeltaTime'] = delta_t_c
+    mc['configs'][0]['Flow']['prandtl'] = Pr
+    mc['configs'][0]['Flow']['turbForcing']['t_o'] = t_0
+    mc['configs'][0]['Flow']['turbForcing']['K_o'] = k_0
+    mc['configs'][0]['Particles']['initNum'] = N_p_HIT
+    mc['configs'][0]['Particles']['maxNum'] = N_p_HIT
+    mc['configs'][0]['Particles']['convectiveCoeff'] = h
+    mc['configs'][0]['Particles']['heatCapacity'] = C_v_p
+    mc['configs'][0]['Particles']['diameterMean'] = d_p
+    mc['configs'][0]['Particles']['staggerFactor'] = ratio_delta_t
+    mc['configs'][1]['BC']['xBCLeftInflowProfile']['addedVelocity'] = U_0
+    mc['configs'][1]['Integrator']['fixedDeltaTime'] = delta_t_c
+    mc['configs'][1]['Flow']['prandtl'] = Pr
+    mc['configs'][1]['Flow']['initParams'][2] = U_0
+    mc['configs'][1]['Particles']['maxNum'] = int(N_p * 1.2)
+    mc['configs'][1]['Particles']['convectiveCoeff'] = h
+    mc['configs'][1]['Particles']['heatCapacity'] = C_v_p
+    mc['configs'][1]['Particles']['diameterMean'] = d_p
+    mc['configs'][1]['Particles']['feeding']['addedVelocity'][0] = U_0
+    mc['configs'][1]['Particles']['staggerFactor'] = ratio_delta_t
+    if mc['configs'][1]['Radiation']['type'] == 'DOM':
+        mc['configs'][1]['Radiation']['yHiIntensity'] = I_0/2
+        mc['configs'][1]['Radiation']['yLoIntensity'] = I_0/2
+    elif mc['configs'][1]['Radiation']['type'] == 'Algebraic':
+        mc['configs'][1]['Radiation']['absorptivity'] = Q_a
+        mc['configs'][1]['Radiation']['intensity'] = I_0
+    else:
+        assert false
+    mc['copyEveryTimeSteps'] = ratio_copy
+    # Dump final json config
+    json.dump(mc, sys.stdout, indent=4)

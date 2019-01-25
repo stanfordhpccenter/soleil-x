@@ -12,7 +12,7 @@ LEVEL_JSON="$2"
 I=-1
 while read -r LINE; do
     if (( "$I" >= 0 )); then
-        "$SCRIPT_DIR"/make_case.py $LINE --json_template "$LEVEL_JSON" > case"$I".json
+        "$SCRIPT_DIR"/make_case.py "$LEVEL_JSON" $LINE > case"$I".json
     fi
     I="$(( I + 1 ))"
 done < "$UNCERTAINTIES_DAT"
