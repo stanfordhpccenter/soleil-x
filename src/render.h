@@ -24,10 +24,19 @@
 extern "C" {
 #endif
   
-  const unsigned imageWidth = 1280;
-  const unsigned imageHeight = 720;
 
   void cxx_preinitialize(legion_mapper_id_t mapperID);
+  
+  typedef struct {
+    legion_logical_region_t image;
+    legion_logical_partition_t imagePartition;
+  } CxxInitializeResult;
+  
+  legion_logical_partition_t cxx_initialize(
+                  legion_runtime_t runtime_,
+                  legion_context_t ctx_,
+                  legion_mapper_id_t sampleId,
+                  legion_logical_partition_t fluidPartition_);
   
   void cxx_render(legion_runtime_t runtime_,
                   legion_context_t ctx_,
@@ -38,6 +47,9 @@ extern "C" {
                   legion_physical_region_t *particles_,
                   legion_field_id_t* particlesFields_,
                   int numParticlesFields,
+                  legion_physical_region_t* image_,
+                  legion_field_id_t* imageFields[],
+                  int numImageFields,
                   legion_logical_partition_t fluidPartition_,
                   legion_logical_partition_t particlesPartition_,
                   int numParticlesToDraw,

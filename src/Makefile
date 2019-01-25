@@ -199,3 +199,8 @@ render_standalone.o:	render_standalone.cc
 render_standalone:  render_standalone.o  marchingCubes.o renderImage.o renderParticles.o
 	$(CXX) -o $@ $^ -lGLU ${MESA_INC} -lOSMesa
 
+
+
+x.o: x-desugared.rg 
+	$(REGENT) x-desugared.rg $(REGENT_FLAGS)
+

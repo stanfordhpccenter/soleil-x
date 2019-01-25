@@ -38,6 +38,9 @@ extern "C" {
   static MapperID gImageReductionMapperID = 0;
   static int gRenderTaskID = 0;
   static int gSaveImageTaskID = 0;
+  static bool gIsMasterNode = false;
+  static const unsigned gImageWidth = 1280;
+  static const unsigned gImageHeight = 720;
 
   
 #define SAVE_RENDER_DATA 0
@@ -109,7 +112,7 @@ extern "C" {
 #endif
   
   
-  // Render task
+  // Render task is a single task launched from every cxx_render entry point
   
   static void render_task(const Task *task,
                           const std::vector<PhysicalRegion> &regions,
@@ -317,6 +320,8 @@ extern "C" {
     
   }
   
+  // save_image_task is a single task launched on the master node only
+  
   static int gFrameNumber = 0;
   
   static int save_image_task(const Task *task,
@@ -393,6 +398,7 @@ extern "C" {
   void cxx_preinitialize(MapperID mapperID)
   {
     Visualization::ImageReduction::preinitializeBeforeRuntimeStarts();
+    gIsMasterNode = true;
     
     // allocate physical regions contiguously in memory
     LayoutConstraintRegistrar layout_registrar(FieldSpace::NO_SPACE, "SOA layout");
@@ -425,15 +431,47 @@ extern "C" {
   }
   
   
+  
+  // this entry point is called once from the main task
+  legion_logical_partition_t cxx_initialize(
+                                    legion_runtime_t runtime_,
+                                    legion_context_t ctx_,
+                                    legion_mapper_id_t sampleId,
+                                    legion_logical_partition_t fluidPartition_
+                                    )
+  {
+    Runtime *runtime = CObjectWrapper::unwrap(runtime_);
+    Context ctx = CObjectWrapper::unwrap(ctx_)->context();
+    LogicalPartition fluidPartition = CObjectWrapper::unwrap(fluidPartition_);
+
+    // Initialize an image compositor, or reuse an initialized one
+    
+    Visualization::ImageDescriptor imageDescriptor = { gImageWidth, gImageHeight, 1 };
+    
+    if(gImageCompositors.find(sampleId) == gImageCompositors.end()) {
+      gImageCompositors[sampleId] = new Visualization::ImageReduction(fluidPartition, imageDescriptor, ctx, runtime, gImageReductionMapperID);
+      ImageReductionMapper::registerRenderTaskName("render_task");
+    }
+    
+    Visualization::ImageReduction* compositor = gImageCompositors[sampleId];
+    return compositor->depthPartition();
+  }
+  
+  
+  
+  // this entry point is called from an index task for each tile
   void cxx_render(legion_runtime_t runtime_,
                   legion_context_t ctx_,
                   legion_mapper_id_t sampleId,
                   legion_physical_region_t* fluid_,
-                  FieldID fluidFields[],
+                  legion_field_id_t fluidFields[],
                   int numFluidFields,
                   legion_physical_region_t* particles_,
-                  FieldID particlesFields[],
+                  legion_field_id_t particlesFields[],
                   int numParticlesFields,
+                  legion_physical_region_t* image_,
+                  legion_field_id_t imageFields[],
+                  int numImageFields,
                   legion_logical_partition_t fluidPartition_,
                   legion_logical_partition_t particlesPartition_,
                   int numParticlesToDraw,
@@ -456,17 +494,8 @@ extern "C" {
     PhysicalRegion* particles = CObjectWrapper::unwrap(particles_[0]);
     LogicalPartition particlesPartition = CObjectWrapper::unwrap(particlesPartition_);
     PhysicalRegion* particlesToDraw = CObjectWrapper::unwrap(particlesToDraw_[0]);
+    PhysicalRegion* image = CObjectWrapper::unwrap(image_[0]);
 
-    // Initialize an image compositor, or reuse an initialized one
-    
-    Visualization::ImageDescriptor imageDescriptor = { imageWidth, imageHeight, 1 };
-    
-    if(gImageCompositors.find(sampleId) == gImageCompositors.end()) {
-      gImageCompositors[sampleId] = new Visualization::ImageReduction(fluidPartition, imageDescriptor, ctx, runtime, gImageReductionMapperID);
-      ImageReductionMapper::registerRenderTaskName("render_task");
-    }
-    Visualization::ImageReduction* compositor = gImageCompositors[sampleId];
-    imageDescriptor = compositor->imageDescriptor();
     
     // Create projection functors
     
@@ -523,7 +552,7 @@ extern "C" {
     for(int i = 0; i < numParticlesFields; ++i) req1.add_field(particlesFields[i]);
     renderLauncher.add_region_requirement(req1);
     
-    RegionRequirement req2(compositor->depthPartition(), 3, WRITE_DISCARD, EXCLUSIVE, compositor->sourceImage(), gImageReductionMapperID);
+    RegionRequirement req2(image->get_logical_region(), 3, WRITE_DISCARD, EXCLUSIVE, image->get_logical_region(), gImageReductionMapperID);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_R);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_G);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_B);
