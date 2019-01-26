@@ -5815,9 +5815,9 @@ task initDual(mc : &MultiConfig, launched : int, outDirBase : &int8)
   initSingle([&Config](mc.configs), launched, outDirBase)
   initSingle([&Config](mc.configs) + 1, launched + 1, outDirBase)
   -- Check 2-section configuration
-  mc.configs[0].Particles.staggerFactor min= mc.copyEveryTimeSteps
-  mc.configs[1].Particles.staggerFactor min= mc.copyEveryTimeSteps
   regentlib.assert(
+    mc.configs[0].Particles.staggerFactor <= mc.copyEveryTimeSteps and
+    mc.configs[1].Particles.staggerFactor <= mc.copyEveryTimeSteps and
     mc.copyEveryTimeSteps % mc.configs[0].Particles.staggerFactor == 0 and
     mc.copyEveryTimeSteps % mc.configs[1].Particles.staggerFactor == 0,
     'Invalid stagger factor configuration')

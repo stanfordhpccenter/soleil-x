@@ -249,6 +249,12 @@ if not args.debug:
                mc['configs'][1]['Mapping']['tiles'][2])
     if N_p % tiles_1 > 0:
         N_p += tiles_1 - (N_p % tiles_1)
+    # Adjust stagger factor to be compatible with copy frequency
+    ratio_delta_t = min(ratio_delta_t, ratio_copy)
+    factor = 1
+    while ratio_copy % factor != 0 or ratio_copy // factor > ratio_delta_t:
+        factor += 1
+    ratio_delta_t = ratio_copy // factor
     # Fill in variable parameters
     mc['configs'][0]['Integrator']['fixedDeltaTime'] = delta_t_c
     mc['configs'][0]['Flow']['prandtl'] = Pr
