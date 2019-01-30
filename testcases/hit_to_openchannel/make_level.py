@@ -14,7 +14,7 @@ parser.add_argument('dom_x', type=int)
 parser.add_argument('dom_y', type=int)
 parser.add_argument('dom_z', type=int)
 parser.add_argument('quads', type=int)
-parser.add_argument('use_dom', type=bool)
+parser.add_argument('use_dom')
 parser.add_argument('rk_order', type=int)
 parser.add_argument('ftts', type=int)
 args = parser.parse_args()
@@ -41,16 +41,18 @@ mc['configs'][1]['Grid']['yNum'] = args.flow_y
 mc['configs'][1]['Grid']['zNum'] = args.flow_z
 mc['configs'][1]['Integrator']['rkOrder'] = args.rk_order
 mc['configs'][1]['Particles']['parcelSize'] = args.parcel_size
-if args.use_dom:
+if args.use_dom == 'true':
     mc['configs'][1]['Radiation']['xNum'] = args.dom_x
     mc['configs'][1]['Radiation']['yNum'] = args.dom_y
     mc['configs'][1]['Radiation']['zNum'] = args.dom_z
     mc['configs'][1]['Radiation']['angles'] = args.quads
-else:
+elif args.use_dom == 'false':
     mc['configs'][1]['Radiation'] = {}
     mc['configs'][1]['Radiation']['type'] = 'Algebraic'
     mc['configs'][1]['Radiation']['intensity'] = 'TBD'
     mc['configs'][1]['Radiation']['absorptivity'] = 'TBD'
+else:
+    assert False, 'Unrecognized boolean value: %s' % args.use_dom
 mc['flowThroughTimes'] = args.ftts
 
 # Update grid-related values
