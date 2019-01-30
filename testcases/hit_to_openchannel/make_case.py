@@ -3,6 +3,7 @@
 import argparse
 import csv
 import json
+import math
 import numpy as np
 import sys
 
@@ -226,11 +227,11 @@ tau_rad = ( rho_0*C_p*T_0*W )/( I_0*SF*( 1 - omega ) )					# [s]
 #output( 'Radiation time scale: \t \t  tau_rad   =', tau_rad, '\t     [s]' )
 
 ## Ratio between minimal tau scales and acoustic time step
-ratio_delta_t = int( FoS*( min( tau_eta, tau_p, tau_th, tau_rad )/delta_t_c ) )		# [-]
+ratio_delta_t = FoS*( min( tau_eta, tau_p, tau_th, tau_rad )/delta_t_c )		# [-]
 output( 'Ratio scales to c time step: \t  ratio     =', ratio_delta_t, '\t \t     [-]' )
 
 ## Frequency copy between domains in number of flow time step
-ratio_copy = int( ( ( L/N_x )/U_0 )/delta_t_c )						# [-]
+ratio_copy = ( ( L/N_x )/U_0 )/delta_t_c						# [-]
 output( 'Frequency copy between domains:   # delta_t =', ratio_copy, '\t \t     [-]' )
 
 output()
@@ -250,11 +251,13 @@ if not args.debug:
     if N_p % tiles_1 > 0:
         N_p += tiles_1 - (N_p % tiles_1)
     # Adjust stagger factor to be compatible with copy frequency
-    ratio_delta_t = min(ratio_delta_t, ratio_copy)
-    factor = 1
-    while ratio_copy % factor != 0 or ratio_copy // factor > ratio_delta_t:
-        factor += 1
-    ratio_delta_t = ratio_copy // factor
+    if ratio_delta_t > ratio_copy:
+        ratio_copy = int(ratio_copy)
+        ratio_delta_t = ratio_copy
+    else:
+        factor = math.ceil(ratio_copy / ratio_delta_t)
+        ratio_delta_t = math.ceil(ratio_copy / factor)
+        ratio_copy = ratio_delta_t * factor
     # Fill in variable parameters
     mc['configs'][0]['Integrator']['fixedDeltaTime'] = delta_t_c
     mc['configs'][0]['Flow']['prandtl'] = Pr
