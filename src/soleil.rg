@@ -5582,10 +5582,7 @@ local function mkInstance() local INSTANCE = {}
                                end end)],
                               config)
           end
-          [UTIL.emitAssert(
-             rexpr totalPushed == totalPulled end,
-             'Sample %d: Internal error in particle trading',
-             rexpr config.Mapping.sampleId end)];
+          regentlib.assert(totalPushed == totalPulled, 'Internal error in particle trading')
         end
       end
 
