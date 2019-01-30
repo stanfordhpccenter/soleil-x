@@ -398,6 +398,7 @@ private:
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
              EQUALS(task.get_task_name(), "createDir") ||
              EQUALS(task.get_task_name(), "__dummy") ||
+             STARTS_WITH(task.get_task_name(), "__unary_") ||
              STARTS_WITH(task.get_task_name(), "__binary_")) {
       assert(task.parent_task != NULL);
       sample_ids = find_sample_ids(ctx, *(task.parent_task));
@@ -437,6 +438,7 @@ private:
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
              EQUALS(task.get_task_name(), "createDir") ||
              EQUALS(task.get_task_name(), "__dummy") ||
+             STARTS_WITH(task.get_task_name(), "__unary_") ||
              STARTS_WITH(task.get_task_name(), "__binary_")) {
       return Point<3>(0,0,0);
     }
@@ -484,6 +486,7 @@ private:
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
              EQUALS(task.get_task_name(), "createDir") ||
              EQUALS(task.get_task_name(), "__dummy") ||
+             STARTS_WITH(task.get_task_name(), "__unary_") ||
              STARTS_WITH(task.get_task_name(), "__binary_")) {
       unsigned sample_id = find_sample_id(ctx, task);
       SampleMapping& mapping = sample_mappings_[sample_id];

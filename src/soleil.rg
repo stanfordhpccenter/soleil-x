@@ -3368,6 +3368,7 @@ do
      'Sample %d: %ld particle(s) moved past expected stencil',
      rexpr config.Mapping.sampleId end,
      rexpr toTransfer end)];
+  var total_xfers = int64(0);
   -- For each movement direction...
   @ESCAPE for k = 1,26 do local queue = tradeQueues[k] @EMIT
     -- Clear the transfer queue
@@ -3386,6 +3387,7 @@ do
         Particles[i].__xfer_slot = 0
       end
     end
+    total_xfers += transferred
     __parallel_prefix(Particles.__xfer_slot, Particles.__xfer_slot, +, 1);
     -- Check that there's enough space in the transfer queue
     [UTIL.emitAssert(
@@ -3404,6 +3406,7 @@ do
       end
     end
   @TIME end @EPACSE
+  return total_xfers
 end
 
 __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
@@ -3468,6 +3471,7 @@ do
       end
     end
   @TIME end @EPACSE
+  return total_xfers
 end
 
 __demand(__inline)
@@ -5556,24 +5560,32 @@ local function mkInstance() local INSTANCE = {}
                                   Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
         end
         if numTiles > 1 then
+          var totalPushed = int64(0)
           for c in tiles do
-            TradeQueue_push(c,
-                            p_Particles[c],
-                            [UTIL.range(1,26):map(function(k) return rexpr
-                               [p_TradeQueue_bySrc[k]][c]
-                             end end)],
-                            config,
-                            Grid.xBnum, config.Grid.xNum, NX,
-                            Grid.yBnum, config.Grid.yNum, NY,
-                            Grid.zBnum, config.Grid.zNum, NZ)
+            totalPushed +=
+              TradeQueue_push(c,
+                              p_Particles[c],
+                              [UTIL.range(1,26):map(function(k) return rexpr
+                                 [p_TradeQueue_bySrc[k]][c]
+                               end end)],
+                              config,
+                              Grid.xBnum, config.Grid.xNum, NX,
+                              Grid.yBnum, config.Grid.yNum, NY,
+                              Grid.zBnum, config.Grid.zNum, NZ)
           end
+          var totalPulled = int64(0)
           for c in tiles do
-            TradeQueue_pull(p_Particles[c],
-                            [UTIL.range(1,26):map(function(k) return rexpr
-                               [p_TradeQueue_byDst[k]][c]
-                             end end)],
-                            config)
+            totalPulled +=
+              TradeQueue_pull(p_Particles[c],
+                              [UTIL.range(1,26):map(function(k) return rexpr
+                                 [p_TradeQueue_byDst[k]][c]
+                               end end)],
+                              config)
           end
+          [UTIL.emitAssert(
+             rexpr totalPushed == totalPulled end,
+             'Sample %d: Internal error in particle trading',
+             rexpr config.Mapping.sampleId end)];
         end
       end
 
