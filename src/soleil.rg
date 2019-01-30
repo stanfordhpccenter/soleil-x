@@ -787,7 +787,7 @@ do
   end
 end
 
-__demand(__leaf, __parallel) -- NO CUDA, NO OPENMP
+__demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Flow_InitializeRandom(Fluid : region(ispace(int3d), Fluid_columns),
                            Flow_initParams : double[5])
 where
@@ -855,7 +855,7 @@ do
   end
 end
 
-__demand(__leaf, __parallel) -- NO CUDA, NO OPENMP
+__demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Flow_InitializePerturbed(Fluid : region(ispace(int3d), Fluid_columns),
                               Flow_initParams : double[5])
 where
@@ -4927,7 +4927,9 @@ local function mkInstance() local INSTANCE = {}
     if config.Flow.initCase == SCHEMA.FlowInitCase_Uniform then
       Flow_InitializeUniform(Fluid, config.Flow.initParams)
     elseif config.Flow.initCase == SCHEMA.FlowInitCase_Random then
-      Flow_InitializeRandom(Fluid, config.Flow.initParams)
+      for c in tiles do
+        Flow_InitializeRandom(p_Fluid[c], config.Flow.initParams)
+      end
     elseif config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen2DVortex then
       Flow_InitializeTaylorGreen2D(Fluid,
                                    config.Flow.initParams,
@@ -4941,7 +4943,9 @@ local function mkInstance() local INSTANCE = {}
                                    Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
                                    Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
     elseif config.Flow.initCase == SCHEMA.FlowInitCase_Perturbed then
-      Flow_InitializePerturbed(Fluid, config.Flow.initParams)
+      for c in tiles do
+        Flow_InitializePerturbed(p_Fluid[c], config.Flow.initParams)
+      end
     elseif config.Flow.initCase == SCHEMA.FlowInitCase_Restart then
       Fluid_load(0, tiles, config.Flow.restartDir, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
     else regentlib.assert(false, 'Unhandled case in switch') end
