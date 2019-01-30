@@ -12,7 +12,7 @@ return function(MAX_ANGLES_PER_QUAD, Point_columns, SCHEMA) local MODULE = {}
 
 local C = regentlib.c
 local MAPPER = terralib.includec("soleil_mapper.h")
-local UTIL = require 'util'
+local UTIL = require 'util-desugared'
 
 local fabs = regentlib.fabs(double)
 local max = regentlib.fmax

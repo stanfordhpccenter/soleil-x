@@ -10,7 +10,7 @@ import 'regent'
 
 local C = regentlib.c
 local SCHEMA = terralib.includec("config_schema.h")
-local UTIL = require 'util'
+local UTIL = require 'util-desugared'
 
 local pow = regentlib.pow(double)
 

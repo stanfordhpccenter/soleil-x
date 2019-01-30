@@ -14,7 +14,7 @@ local Exports = {}
 
 local C = regentlib.c
 local HDF5 = terralib.includec(assert(os.getenv('HDF_HEADER')))
-local UTIL = require 'util'
+local UTIL = require 'util-desugared'
 
 -- HACK: Hardcoding missing #define's
 HDF5.H5F_ACC_TRUNC = 2

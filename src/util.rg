@@ -558,6 +558,25 @@ function Exports.mkPartitionEqually(r_istype, cs_istype, fs)
   return partitionEqually
 end
 
+-- int, string, regentlib.rexpr, regentlib.rexpr -> regentlib.rquote
+function Exports.emitArrayReduce(dims, op, lhs, rhs)
+  -- We decompose each array-type reduction into a sequence of primitive
+  -- reductions over the array's elements, to make sure the code generator can
+  -- emit them as atomic operations if needed.
+  return rquote
+    var tmp = [rhs];
+    @ESCAPE for i = 0,dims-1 do
+      if     op == '+'   then @EMIT lhs[i] +=   tmp[i] @TIME
+      elseif op == '-'   then @EMIT lhs[i] -=   tmp[i] @TIME
+      elseif op == '*'   then @EMIT lhs[i] *=   tmp[i] @TIME
+      elseif op == '/'   then @EMIT lhs[i] /=   tmp[i] @TIME
+      elseif op == 'max' then @EMIT lhs[i] max= tmp[i] @TIME
+      elseif op == 'min' then @EMIT lhs[i] min= tmp[i] @TIME
+      else assert(false) end
+    end @EPACSE
+  end
+end
+
 -------------------------------------------------------------------------------
 -- Error handling
 -------------------------------------------------------------------------------

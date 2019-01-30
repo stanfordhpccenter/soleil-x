@@ -68,19 +68,19 @@ clean:
 soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o
 	$(CXX) -o $@ $^ $(LINK_FLAGS)
 
-soleil.o: soleil-desugared.rg soleil_mapper.h config_schema.h hdf_helper.rg dom-desugared.rg util.rg
+soleil.o: soleil-desugared.rg soleil_mapper.h config_schema.h hdf_helper.rg dom-desugared.rg util-desugared.rg
 	$(REGENT) soleil-desugared.rg $(REGENT_FLAGS)
 
 dom_host.exec: dom_host.o config_schema.o json.o
 	$(CXX) -o $@ $^ $(LINK_FLAGS)
 
-dom_host.o: dom_host.rg config_schema.h dom-desugared.rg util.rg
+dom_host.o: dom_host.rg config_schema.h dom-desugared.rg util-desugared.rg
 	$(REGENT) dom_host.rg $(REGENT_FLAGS)
 
 soleil_mapper.o: soleil_mapper.cc soleil_mapper.h config_schema.h
 	$(CXX) $(CXXFLAGS) -c -o  $@ $<
 
-config_schema.o config_schema.h: process_schema.rg config_schema.lua json.h util.rg
+config_schema.o config_schema.h: process_schema.rg config_schema.lua json.h util-desugared.rg
 	$(REGENT) process_schema.rg config_schema.lua $(REGENT_FLAGS)
 
 json.o: json.c json.h
