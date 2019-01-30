@@ -874,7 +874,9 @@ do
 end
 
 -- Modify initial rho, pressure, velocity to be consistent with NSCBC inflow outflow condition, also set up stuff for RHS of inflow
-__demand(__leaf, __parallel, __cuda)
+-- NOTE: It is safe to not pass the ghost regions to this task, because we
+-- always group ghost cells with their neighboring interior cells.
+__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Flow_InitializeGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
                                config : Config,
                                Flow_gasConstant : double,
@@ -989,10 +991,8 @@ do
       var temperature : double
       if BC_xBCLeftHeat_type == SCHEMA.TempProfile_Constant then
         temperature = BC_xBCLeftHeat_Constant_temperature
-
         -- Use the specified temperature to find the correct pressure for current density from EOS
         Fluid[c_bnd].pressure = temperature*Flow_gasConstant*Fluid[c_bnd].rho
-
       -- elseif BC_xBCLeftHeat_type == SCHEMA.TempProfile_Parabola then
       --   regentlib.assert(false, 'Parabola heat model not supported')
       else -- BC_xBCLeftHeat_type == SCHEMA.TempProfile_Incoming
@@ -4952,7 +4952,8 @@ local function mkInstance() local INSTANCE = {}
 
     -- initialize ghost cells to their specified values in NSCBC case
     if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-        Flow_InitializeGhostNSCBC(Fluid,
+      for c in tiles do
+        Flow_InitializeGhostNSCBC(p_Fluid[c],
                                   config,
                                   config.Flow.gasConstant,
                                   config.Flow.constantVisc,
@@ -4962,6 +4963,7 @@ local function mkInstance() local INSTANCE = {}
                                   Grid.xBnum, config.Grid.xNum,
                                   Grid.yBnum, config.Grid.yNum,
                                   Grid.zBnum, config.Grid.zNum)
+      end
     end
 
     -- update interior cells from initialized primitive values
