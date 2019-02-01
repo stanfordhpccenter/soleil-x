@@ -5,7 +5,8 @@ from mayavi import mlab
 
 # list of things to plot
 scalar_data_to_plot = ['rho','pressure','temperature']
-vector_data_to_plot = ['cellWidth','velocity']
+vector_data_to_plot = ['velocity']
+#vector_data_to_plot = ['cellWidth','velocity']
 #vector_data_to_plot = ['cellWidth','velocity','velocityGradientX']
 
 #vector_data_to_plot = ['cellWidth','velocity','velocityGradientX','velocityGradientY','velocityGradientZ','temperatureGradient']
@@ -47,20 +48,20 @@ print('Nx = {}'.format(Nx))
 print('Ny = {}'.format(Ny))
 print('Nz = {}'.format(Nz))
 
-# Get cell center values in each direction
-x_slice_idx = 0
-y_slice_idx = 0
-z_slice_idx = 0
-x_values = f['centerCoordinates'][z_slice_idx,y_slice_idx,   :      ][:,0]
-y_values = f['centerCoordinates'][z_slice_idx,    :     ,x_slice_idx][:,1]
-z_values = f['centerCoordinates'][    :     ,y_slice_idx,x_slice_idx][:,2]
-
-x_min = min(x_values) - 0.5*f['cellWidth'][0,0,0][0]
-y_min = min(y_values) - 0.5*f['cellWidth'][0,0,0][1]
-z_min = min(z_values) - 0.5*f['cellWidth'][0,0,0][2]
-x_max = max(x_values) + 0.5*f['cellWidth'][Nz-1,Ny-1,Nx-1][0]
-y_max = max(y_values) + 0.5*f['cellWidth'][Nz-1,Ny-1,Nx-1][1]
-z_max = max(z_values) + 0.5*f['cellWidth'][Nz-1,Ny-1,Nx-1][2]
+## Get cell center values in each direction
+#x_slice_idx = 0
+#y_slice_idx = 0
+#z_slice_idx = 0
+#x_values = f['centerCoordinates'][z_slice_idx,y_slice_idx,   :      ][:,0]
+#y_values = f['centerCoordinates'][z_slice_idx,    :     ,x_slice_idx][:,1]
+#z_values = f['centerCoordinates'][    :     ,y_slice_idx,x_slice_idx][:,2]
+#
+#x_min = min(x_values) - 0.5*f['cellWidth'][0,0,0][0]
+#y_min = min(y_values) - 0.5*f['cellWidth'][0,0,0][1]
+#z_min = min(z_values) - 0.5*f['cellWidth'][0,0,0][2]
+#x_max = max(x_values) + 0.5*f['cellWidth'][Nz-1,Ny-1,Nx-1][0]
+#y_max = max(y_values) + 0.5*f['cellWidth'][Nz-1,Ny-1,Nx-1][1]
+#z_max = max(z_values) + 0.5*f['cellWidth'][Nz-1,Ny-1,Nx-1][2]
 
 # --------------------------------------------------------------------------- #
 #                              Plot Slices of Results                         #
@@ -81,7 +82,7 @@ for scalar_feild_name in scalar_data_to_plot:
                                    slice_index=0)
 
   mlab.outline()
-  mlab.axes(ranges=[z_min, z_max, y_min, y_max, x_min, x_max])
+#  mlab.axes(ranges=[z_min, z_max, y_min, y_max, x_min, x_max])
   mlab.xlabel('z [m]')
   mlab.ylabel('y [m]')
   mlab.zlabel('x [m]')
@@ -105,7 +106,7 @@ for vector_feild_name in vector_data_to_plot:
                                      slice_index=0)
 
     mlab.outline()
-    mlab.axes(ranges=[z_min, z_max, y_min, y_max, x_min, x_max])
+#    mlab.axes(ranges=[z_min, z_max, y_min, y_max, x_min, x_max])
     mlab.xlabel('z [m]')
     mlab.ylabel('y [m]')
     mlab.zlabel('x [m]')
