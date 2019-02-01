@@ -417,16 +417,6 @@ task Console_Write(config : Config,
                     Particles_averageTemperature)];
 end
 
-__demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task Console_WriteFooter(config : Config,
-                         startTime : uint64)
-  var endTime = C.legion_get_current_time_in_micros() / 1000;
-  [emitConsoleWrite(config,
-                    'Total time: %llu.%03llu seconds\n',
-                    rexpr (endTime - startTime) / 1000 end,
-                    rexpr (endTime - startTime) % 1000 end)];
-end
-
 -- regentlib.rexpr, regentlib.rexpr, regentlib.rexpr, regentlib.rexpr*
 --   -> regentlib.rquote
 local function emitProbeWrite(config, probeId, format, ...)
@@ -5625,9 +5615,6 @@ local function mkInstance() local INSTANCE = {}
 
     -- Wait for everything above to finish
     __fence(__execution, __block)
-
-    -- Report final time
-    Console_WriteFooter(config, startTime)
 
   end end -- Cleanup
 
