@@ -4865,31 +4865,31 @@ local function mkInstance() local INSTANCE = {}
 
     -- Fluid Partitioning
     var [p_Fluid] =
-      [UTIL.mkPartitionEqually(int3d, int3d, Fluid_columns)]
+      [UTIL.mkPartitionByTile(int3d, int3d, Fluid_columns)]
       (Fluid, tiles, int3d{Grid.xBnum,Grid.yBnum,Grid.zBnum}, int3d{0,0,0})
     var [p_Fluid_copy] =
-      [UTIL.mkPartitionEqually(int3d, int3d, Fluid_columns)]
+      [UTIL.mkPartitionByTile(int3d, int3d, Fluid_columns)]
       (Fluid_copy, tiles, int3d{Grid.xBnum,Grid.yBnum,Grid.zBnum}, int3d{0,0,0})
 
     -- Particles Partitioning
     var [p_Particles] =
-      [UTIL.mkPartitionEqually(int1d, int3d, Particles_columns)]
+      [UTIL.mkPartitionByTile(int1d, int3d, Particles_columns)]
       (Particles, tiles, 0, int3d{0,0,0})
     var [p_Particles_copy] =
-      [UTIL.mkPartitionEqually(int1d, int3d, Particles_columns)]
+      [UTIL.mkPartitionByTile(int1d, int3d, Particles_columns)]
       (Particles_copy, tiles, 0, int3d{0,0,0});
     @ESCAPE for k = 1,26 do @EMIT
       var [p_TradeQueue_bySrc[k]] =
-        [UTIL.mkPartitionEqually(int1d, int3d, TradeQueue_columns)]
+        [UTIL.mkPartitionByTile(int1d, int3d, TradeQueue_columns)]
         ([TradeQueue[k]], tiles, 0, int3d{0,0,0});
       var [p_TradeQueue_byDst[k]] =
-        [UTIL.mkPartitionEqually(int1d, int3d, TradeQueue_columns)]
+        [UTIL.mkPartitionByTile(int1d, int3d, TradeQueue_columns)]
         ([TradeQueue[k]], tiles, 0, [colorOffsets[k]]);
     @TIME end @EPACSE
 
     -- Radiation Partitioning
     var [p_Radiation] =
-      [UTIL.mkPartitionEqually(int3d, int3d, Radiation_columns)]
+      [UTIL.mkPartitionByTile(int3d, int3d, Radiation_columns)]
       (Radiation, tiles, int3d{0,0,0}, int3d{0,0,0});
 
     ---------------------------------------------------------------------------

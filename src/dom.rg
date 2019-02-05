@@ -802,7 +802,7 @@ function MODULE.mkInstance() local INSTANCE = {}
     -- Partition sub-points
     @ESCAPE for q = 1, 8 do @EMIT
       var [p_sub_points[q]] =
-        [UTIL.mkPartitionEqually(int1d, int3d, SubPoint_columns)]
+        [UTIL.mkPartitionByTile(int1d, int3d, SubPoint_columns)]
         ([sub_points[q]], tiles, 0, int3d{0,0,0})
     @TIME end @EPACSE
 
@@ -812,13 +812,13 @@ function MODULE.mkInstance() local INSTANCE = {}
     var [z_tiles] = ispace(int2d, {ntx,nty    });
     @ESCAPE for q = 1, 8 do @EMIT
       var [p_x_faces[q]] =
-        [UTIL.mkPartitionEqually(int2d, int2d, Face_columns)]
+        [UTIL.mkPartitionByTile(int2d, int2d, Face_columns)]
         ([x_faces[q]], x_tiles, int2d{0,0}, int2d{0,0})
       var [p_y_faces[q]] =
-        [UTIL.mkPartitionEqually(int2d, int2d, Face_columns)]
+        [UTIL.mkPartitionByTile(int2d, int2d, Face_columns)]
         ([y_faces[q]], y_tiles, int2d{0,0}, int2d{0,0})
       var [p_z_faces[q]] =
-        [UTIL.mkPartitionEqually(int2d, int2d, Face_columns)]
+        [UTIL.mkPartitionByTile(int2d, int2d, Face_columns)]
         ([z_faces[q]], z_tiles, int2d{0,0}, int2d{0,0})
     @TIME end @EPACSE
 
