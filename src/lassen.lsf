@@ -1,6 +1,6 @@
 #!/bin/bash -eu
 #BSUB -J soleil
-#BSUB -alloc_flags smt4
+#BSUB -alloc_flags smt1
 
 CORES_PER_NODE=40
 RAM_PER_NODE=100000

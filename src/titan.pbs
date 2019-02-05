@@ -9,7 +9,7 @@ umask 022
 # any relative paths in the arguments are valid.
 cd "$PBS_O_WORKDIR"
 
-CORES_PER_NODE=8
+CORES_PER_NODE=16
 RAM_PER_NODE=20000
 GPUS_PER_NODE=1
 FB_PER_GPU=5000

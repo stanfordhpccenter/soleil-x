@@ -87,9 +87,9 @@ COMMAND="$EXECUTABLE $ARGS \
   $PROFILER_OPTS \
   -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr $THREADS_PER_RANK \
   $GPU_OPTS \
-  -ll:util 1 -ll:pin_util -ll:io 1 -ll:dma 2 \
+  -ll:util 4 -ll:ahandlers 4 -ll:io 1 -ll:dma 2 \
   -ll:csize $RAM_PER_RANK \
   $GASNET_OPTS \
-  -ll:stacksize 8 -ll:ostack 8 -lg:sched -1"
+  -ll:stacksize 8 -ll:ostack 8 -lg:sched -1 -lg:hysteresis 0"
 echo "Invoking Legion on $NUM_RANKS rank(s), $NUM_NODES node(s) ($RANKS_PER_NODE rank(s) per node), as follows:"
 echo $COMMAND
