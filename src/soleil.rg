@@ -2807,7 +2807,7 @@ do
                                      Flow_viscosityModel)
         var tau_12 =  mu*( Fluid_bnd[c_bnd].velocityGradientY[0] + Fluid_bnd[c_bnd].velocityGradientX[1] )
         var tau_13 =  mu*( Fluid_bnd[c_bnd].velocityGradientZ[0] + Fluid_bnd[c_bnd].velocityGradientX[2] )
-        var energy_term_x = (Fluid_bnd[c_bnd].velocity[0]*tau11_pos - Fluid_int[c_int].velocity[0]*tau11_neg) / (Grid_xCellWidth) + c.velocityGradientX[1]*tau_12 + c.velocityGradientX[2]*tau_13
+        var energy_term_x = (Fluid_bnd[c_bnd].velocity[0]*tau11_pos - Fluid_int[c_int].velocity[0]*tau11_neg) / (Grid_xCellWidth) + Fluid_bnd[c_bnd].velocityGradientX[1]*tau_12 + Fluid_bnd[c_bnd].velocityGradientX[2]*tau_13
 
         -- Update the RHS of conservation equations with x fluxes
         Fluid_bnd[c_bnd].rho_t += - d1
@@ -3521,8 +3521,8 @@ where
 do
   var p2 = CopyQueue.bounds.lo
   for p1 in Particles do
-    if p1.__valid then
-      var cell = p1.cell
+    if Particles[p1].__valid then
+      var cell = Particles[p1].cell
       if  copySrc.fromCell[0] <= cell.x and cell.x <= copySrc.uptoCell[0]
       and copySrc.fromCell[1] <= cell.y and cell.y <= copySrc.uptoCell[1]
       and copySrc.fromCell[2] <= cell.z and cell.z <= copySrc.uptoCell[2] then
@@ -3532,11 +3532,11 @@ do
            rexpr config.Mapping.sampleId end)];
         CopyQueue[p2].position =
           vv_add(copyTgtOrigin, vv_mul(Fluid1_cellWidth,
-            vv_div(vv_sub(p1.position, copySrcOrigin), Fluid0_cellWidth)))
-        CopyQueue[p2].velocity = p1.velocity
-        CopyQueue[p2].temperature = p1.temperature
-        CopyQueue[p2].diameter = p1.diameter
-        CopyQueue[p2].density = p1.density
+            vv_div(vv_sub(Particles[p1].position, copySrcOrigin), Fluid0_cellWidth)))
+        CopyQueue[p2].velocity = Particles[p1].velocity
+        CopyQueue[p2].temperature = Particles[p1].temperature
+        CopyQueue[p2].diameter = Particles[p1].diameter
+        CopyQueue[p2].density = Particles[p1].density
         CopyQueue[p2].__valid = true
         p2 += 1
       end
@@ -3562,8 +3562,8 @@ do
   var addedVelocity = config.Particles.feeding.u.Incoming.addedVelocity
   var p1 = Particles.bounds.lo
   for p2 in CopyQueue do
-    if p2.__valid then
-      var cell = locate(p2.position,
+    if CopyQueue[p2].__valid then
+      var cell = locate(CopyQueue[p2].position,
                         Grid_xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
                         Grid_yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
                         Grid_zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
@@ -3580,11 +3580,11 @@ do
            'Sample %d: Ran out of space while copying particles from other section',
            rexpr config.Mapping.sampleId end)];
         Particles[p1].cell = cell
-        Particles[p1].position = p2.position
-        Particles[p1].velocity = vv_add(p2.velocity, addedVelocity)
-        Particles[p1].temperature = p2.temperature
-        Particles[p1].diameter = p2.diameter
-        Particles[p1].density = p2.density
+        Particles[p1].position = CopyQueue[p2].position
+        Particles[p1].velocity = vv_add(CopyQueue[p2].velocity, addedVelocity)
+        Particles[p1].temperature = CopyQueue[p2].temperature
+        Particles[p1].diameter = CopyQueue[p2].diameter
+        Particles[p1].density = CopyQueue[p2].density
         Particles[p1].__valid = true
         acc += 1
       end
@@ -4036,11 +4036,11 @@ do
   var Particles_parcelSize = config.Particles.parcelSize
   __demand(__openmp)
   for c in Radiation do
-    c.sigma = c.acc_d2*PI*Particles_parcelSize*(Radiation_qa+Radiation_qs)/(4.0*Radiation_cellVolume)
-    if c.acc_d2 == 0.0 then
-      c.Ib = 0.0
+    Radiation[c].sigma = Radiation[c].acc_d2*PI*Particles_parcelSize*(Radiation_qa+Radiation_qs)/(4.0*Radiation_cellVolume)
+    if Radiation[c].acc_d2 == 0.0 then
+      Radiation[c].Ib = 0.0
     else
-      c.Ib = (SB*c.acc_d2t4)/(PI*c.acc_d2)
+      Radiation[c].Ib = (SB*Radiation[c].acc_d2t4)/(PI*Radiation[c].acc_d2)
     end
   end
 end
@@ -4201,19 +4201,19 @@ where
 do
   var Particles_parcelSize = config.Particles.parcelSize
   for p1 in Particles do
-    if p1.__valid then
+    if Particles[p1].__valid then
       for p2 in Particles do
-        if p2.__valid and p1 < p2 then
+        if Particles[p2].__valid and p1 < p2 then
 
           -- Relative position of particles
-          var x = p2.position[0] - p1.position[0]
-          var y = p2.position[1] - p1.position[1]
-          var z = p2.position[2] - p1.position[2]
+          var x = Particles[p2].position[0] - Particles[p1].position[0]
+          var y = Particles[p2].position[1] - Particles[p1].position[1]
+          var z = Particles[p2].position[2] - Particles[p1].position[2]
 
           -- Old relative position of particles
-          var xold = p2.position_old[0] - p1.position_old[0]
-          var yold = p2.position_old[1] - p1.position_old[1]
-          var zold = p2.position_old[2] - p1.position_old[2]
+          var xold = Particles[p2].position_old[0] - Particles[p1].position_old[0]
+          var yold = Particles[p2].position_old[1] - Particles[p1].position_old[1]
+          var zold = Particles[p2].position_old[2] - Particles[p1].position_old[2]
 
 
           -- Relative velocity
@@ -4227,7 +4227,7 @@ do
           var u_scal_u = ux*ux + uy*uy + uz*uz
 
           -- Critical distance
-          var dcrit = 0.5 * sqrt(Particles_parcelSize) * ( p1.diameter + p2.diameter )
+          var dcrit = 0.5 * sqrt(Particles_parcelSize) * ( Particles[p1].diameter + Particles[p2].diameter )
 
           -- Checking if particles are getting away from each other
           if x_scal_u<0.0 then
@@ -4244,8 +4244,8 @@ do
 
 
                 -- Mass ratio of particles
-                var mr = (p2.density * p2.diameter * p2.diameter * p2.diameter)
-                mr = mr/ (p1.density * p1.diameter * p1.diameter * p1.diameter)
+                var mr = (Particles[p2].density * Particles[p2].diameter * Particles[p2].diameter * Particles[p2].diameter)
+                mr = mr/ (Particles[p1].density * Particles[p1].diameter * Particles[p1].diameter * Particles[p1].diameter)
 
                 -- Change of velocity and particle location after impact
                 -- Note: for now particle restitution coeff is the same for all particles ?
@@ -4254,22 +4254,22 @@ do
 
                 -- Update velocities
 
-                p1.velocity[0] = p1.velocity[0] + du*xold*mr
-                p1.velocity[1] = p1.velocity[1] + du*yold*mr
-                p1.velocity[2] = p1.velocity[2] + du*zold*mr
+                Particles[p1].velocity[0] = Particles[p1].velocity[0] + du*xold*mr
+                Particles[p1].velocity[1] = Particles[p1].velocity[1] + du*yold*mr
+                Particles[p1].velocity[2] = Particles[p1].velocity[2] + du*zold*mr
 
-                p2.velocity[0] = p2.velocity[0] - du*xold
-                p2.velocity[1] = p2.velocity[1] - du*yold
-                p2.velocity[2] = p2.velocity[2] - du*zold
+                Particles[p2].velocity[0] = Particles[p2].velocity[0] - du*xold
+                Particles[p2].velocity[1] = Particles[p2].velocity[1] - du*yold
+                Particles[p2].velocity[2] = Particles[p2].velocity[2] - du*zold
 
                 -- Update positions
-                p1.position[0] = p1.position[0] + dx*xold*mr
-                p1.position[1] = p1.position[1] + dx*yold*mr
-                p1.position[2] = p1.position[2] + dx*zold*mr
+                Particles[p1].position[0] = Particles[p1].position[0] + dx*xold*mr
+                Particles[p1].position[1] = Particles[p1].position[1] + dx*yold*mr
+                Particles[p1].position[2] = Particles[p1].position[2] + dx*zold*mr
 
-                p2.position[0] = p2.position[0] - dx*xold
-                p2.position[1] = p2.position[1] - dx*yold
-                p2.position[2] = p2.position[2] - dx*zold
+                Particles[p2].position[0] = Particles[p2].position[0] - dx*xold
+                Particles[p2].position[1] = Particles[p2].position[1] - dx*yold
+                Particles[p2].position[2] = Particles[p2].position[2] - dx*zold
 
               end
 
