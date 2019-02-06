@@ -66,7 +66,7 @@ local struct Angle_columns {
 
 local struct Face_columns {
   I      : double[MAX_ANGLES_PER_QUAD];
-  I_prev : double[MAX_ANGLES_PER_QUAD];
+  I_temp : double[MAX_ANGLES_PER_QUAD];
 }
 
 local struct GridMap_columns {
@@ -371,13 +371,13 @@ local function mkCacheIntensity(dim, q)
                        config : SCHEMA.Config)
   where
     reads(faces.I),
-    reads writes(faces.I_prev)
+    reads writes(faces.I_temp)
   do
     var num_angles = config.Radiation.u.DOM.angles
     __demand(__openmp)
     for f in faces do
       for m = 0, quadrantSize(q, num_angles) do
-        f.I_prev[m] = f.I[m]
+        f.I_temp[m] = f.I[m]
       end
     end
   end
@@ -439,7 +439,7 @@ local function mkBound(wall)
              config : SCHEMA.Config)
   where
     [incomingQuadrants:map(function(q)
-       return regentlib.privilege(regentlib.reads, faces[q], 'I_prev')
+       return regentlib.privilege(regentlib.reads, faces[q], 'I_temp')
      end)],
     [outgoingQuadrants:map(function(q) return terralib.newlist{
        regentlib.privilege(regentlib.reads, faces[q], 'I'),
@@ -468,7 +468,7 @@ local function mkBound(wall)
         @ESCAPE for _,q in ipairs(incomingQuadrants) do @EMIT
           for m = 0, quadrantSize(q, num_angles) do
             value +=
-              (1.0-epsw)/PI * [angles[q]][m].w * [faces[q]][idx].I_prev[m]
+              (1.0-epsw)/PI * [angles[q]][m].w * [faces[q]][idx].I_temp[m]
               * fabs([terralib.newlist{
                         rexpr [angles[q]][m].xi  end,
                         rexpr [angles[q]][m].xi  end,
@@ -542,7 +542,8 @@ local function mkSweep(q)
              config : SCHEMA.Config)
   where
     reads(angles.{xi, eta, mu}, points.{S, sigma}, grid_map.s3d_to_p),
-    reads writes(sub_points.I, x_faces.I, y_faces.I, z_faces.I)
+    reads writes(x_faces.{I, I_temp}, y_faces.{I, I_temp}, z_faces.{I, I_temp},
+                 sub_points.I)
   do
     var Tx = points.bounds.hi.x - points.bounds.lo.x + 1
     var Ty = points.bounds.hi.y - points.bounds.lo.y + 1
@@ -573,6 +574,16 @@ local function mkSweep(q)
     var acc = 0.0
     -- Launch in order of intra-tile diagonals
     for d = int64(diagonals.bounds.lo), int64(diagonals.bounds.hi+1) do
+      -- Clear a temporary array to hold the next set of downwind face values.
+      @ESCAPE for _,faces in ipairs({x_faces, y_faces, z_faces}) do @EMIT
+        __demand(__openmp)
+        for f in faces do
+          for m = 0, quadrantSize(q, num_angles) do
+            f.I_temp[m] = 0.0
+          end
+        end
+      @TIME end @EPACSE
+      -- Main sweep loop
       __demand(__openmp)
       for s1d_off in p_sub_point_offsets[d] do
         -- Compute sub-point index, translate to point index
@@ -606,12 +617,25 @@ local function mkSweep(q)
             acc += pow(newI-oldI,2) / pow(newI,2)
           end
           sub_points[s1d].I = newI
-          -- Compute intensities on downwind faces
-          x_faces[{    p.y,p.z}].I[m] = max(0.0, (newI-(1-GAMMA)*x_value)/GAMMA)
-          y_faces[{p.x,    p.z}].I[m] = max(0.0, (newI-(1-GAMMA)*y_value)/GAMMA)
-          z_faces[{p.x,p.y    }].I[m] = max(0.0, (newI-(1-GAMMA)*z_value)/GAMMA)
+          -- Compute intensities on downwind faces (each reduction should occur
+          -- exactly once, so this is equivalent to setting values directly).
+          x_faces[{    p.y,p.z}].I_temp[m] += max(0.0, (newI-(1-GAMMA)*x_value)/GAMMA)
+          y_faces[{p.x,    p.z}].I_temp[m] += max(0.0, (newI-(1-GAMMA)*y_value)/GAMMA)
+          z_faces[{p.x,p.y    }].I_temp[m] += max(0.0, (newI-(1-GAMMA)*z_value)/GAMMA)
         end
       end
+      -- Update faces arrays with the frontier of downwind values set in the
+      -- last iteration.
+      @ESCAPE for _,faces in ipairs({x_faces, y_faces, z_faces}) do @EMIT
+        __demand(__openmp)
+        for f in faces do
+          for m = 0, quadrantSize(q, num_angles) do
+            if f.I_temp[m] ~= 0.0 then
+              f.I[m] = f.I_temp[m]
+            end
+          end
+        end
+      @TIME end @EPACSE
     end
     return acc
   end
