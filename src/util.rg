@@ -155,6 +155,11 @@ function Exports.generate(n, generator)
   return res
 end
 
+-- int, T -> T*
+function Exports.duplicate(n, val)
+  return Exports.generate(n, function() return val end)
+end
+
 -- () -> T*
 function TerraList:flatten(res)
   res = res or terralib.newlist()
@@ -643,23 +648,42 @@ function Exports.mkPartitionIsInterior(r_istype, fs)
   return partitionIsInterior
 end
 
--- int, string, regentlib.rexpr, regentlib.rexpr -> regentlib.rquote
-function Exports.emitArrayReduce(dims, op, lhs, rhs)
-  -- We decompose each array-type reduction into a sequence of primitive
-  -- reductions over the array's elements, to make sure the code generator can
-  -- emit them as atomic operations if needed.
-  return rquote
-    var tmp = [rhs];
-    @ESCAPE for i = 0,dims-1 do
-      if     op == '+'   then @EMIT lhs[i] +=   tmp[i] @TIME
-      elseif op == '-'   then @EMIT lhs[i] -=   tmp[i] @TIME
-      elseif op == '*'   then @EMIT lhs[i] *=   tmp[i] @TIME
-      elseif op == '/'   then @EMIT lhs[i] /=   tmp[i] @TIME
-      elseif op == 'max' then @EMIT lhs[i] max= tmp[i] @TIME
-      elseif op == 'min' then @EMIT lhs[i] min= tmp[i] @TIME
-      else assert(false) end
-    end @EPACSE
-  end
+-- terralib.type -> regentlib.rexpr
+function Exports.emitZeroValue(typ)
+  if typ:isintegral() then
+    return rexpr 0 end
+  elseif typ:isfloat() then
+    return rexpr 0.0 end
+  elseif typ:islogical() then
+    return rexpr false end
+  elseif typ:isarray() then
+    local elemZero = Exports.emitZeroValue(typ.type)
+    return rexpr array([Exports.duplicate(typ.N, elemZero)]) end
+  else assert(false) end
+end
+
+-- terralib.type, string, regentlib.rexpr, regentlib.rexpr -> regentlib.rquote
+function Exports.emitReduce(typ, op, lhs, rhs)
+  if typ:isprimitive() then
+    return
+      (op == '+')   and rquote lhs +=   rhs end or
+      (op == '-')   and rquote lhs -=   rhs end or
+      (op == '*')   and rquote lhs *=   rhs end or
+      (op == '/')   and rquote lhs /=   rhs end or
+      (op == 'max') and rquote lhs max= rhs end or
+      (op == 'min') and rquote lhs min= rhs end or
+      assert(false)
+  elseif typ:isarray() and typ.type:isprimitive() then
+    -- We decompose each primitive array reduction into a sequence of primitive
+    -- reductions over the array's elements, to make sure the code generator
+    -- can emit them as atomic operations if needed.
+    return rquote
+      var tmp = [rhs];
+      @ESCAPE for i = 0,typ.N-1 do @EMIT
+        [Exports.emitReduce(typ.type, op, rexpr lhs[i] end, rexpr tmp[i] end)];
+      @TIME end @EPACSE
+    end
+  else assert(false) end
 end
 
 -------------------------------------------------------------------------------

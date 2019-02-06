@@ -2605,7 +2605,7 @@ do
 
     if interior then
       Fluid[c].rho_t += ((-(Fluid[c].rhoFluxX-Fluid[(c+{-1, 0, 0})%Fluid.bounds].rhoFluxX))/Grid_xCellWidth);
-      [UTIL.emitArrayReduce(3, '+',
+      [UTIL.emitReduce(double[3], '+',
          rexpr Fluid[c].rhoVelocity_t end,
          rexpr vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxX, Fluid[(c+{-1, 0, 0})%Fluid.bounds].rhoVelocityFluxX), double((-1))), Grid_xCellWidth) end)];
       Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxX-Fluid[(c+{-1, 0, 0})%Fluid.bounds].rhoEnergyFluxX))/Grid_xCellWidth)
@@ -2639,7 +2639,7 @@ do
 
     if interior or NSCBC_inflow_cell or NSCBC_outflow_cell then
       Fluid[c].rho_t += ((-(Fluid[c].rhoFluxY-Fluid[(c+{0, -1, 0})%Fluid.bounds].rhoFluxY))/Grid_yCellWidth);
-      [UTIL.emitArrayReduce(3, '+',
+      [UTIL.emitReduce(double[3], '+',
          rexpr Fluid[c].rhoVelocity_t end,
          rexpr vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxY, Fluid[(c+{0, -1, 0})%Fluid.bounds].rhoVelocityFluxY), double((-1))), Grid_yCellWidth) end)];
       Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxY-Fluid[(c+{0, -1, 0})%Fluid.bounds].rhoEnergyFluxY))/Grid_yCellWidth)
@@ -2673,7 +2673,7 @@ do
 
     if interior or NSCBC_inflow_cell or NSCBC_outflow_cell then
       Fluid[c].rho_t += ((-(Fluid[c].rhoFluxZ-Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoFluxZ))/Grid_zCellWidth);
-      [UTIL.emitArrayReduce(3, '+',
+      [UTIL.emitReduce(double[3], '+',
          rexpr Fluid[c].rhoVelocity_t end,
          rexpr vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxZ, Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoVelocityFluxZ), double((-1))), Grid_zCellWidth) end)];
       Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxZ-Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoEnergyFluxZ))/Grid_zCellWidth)
@@ -2886,7 +2886,7 @@ do
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if interior or NSCBC_inflow_cell or NSCBC_outflow_cell then
-      [UTIL.emitArrayReduce(3, '+',
+      [UTIL.emitReduce(double[3], '+',
          rexpr Fluid[c].rhoVelocity_t end,
          rexpr vs_mul(Flow_bodyForce, Fluid[c].rho) end)];
       Fluid[c].rhoEnergy_t += (Fluid[c].rho*dot(Flow_bodyForce, Fluid[c].velocity))
@@ -3182,7 +3182,7 @@ do
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
       var force = vs_mul(Fluid[c].velocity, Fluid[c].rho*A);
-      [UTIL.emitArrayReduce(3, '+',
+      [UTIL.emitReduce(double[3], '+',
          rexpr Fluid[c].rhoVelocity_t end,
          rexpr force end)];
       Fluid[c].rhoEnergy_t += dot(force, Fluid[c].velocity)
@@ -3376,7 +3376,9 @@ do
     -- Clear the transfer queue
     __demand(__openmp)
     for j in queue do
-      queue[j].__valid = false
+      @ESCAPE for _,fld in ipairs(Particles_subStepConserved) do @EMIT
+        queue[j].[fld] = [UTIL.emitZeroValue(TradeQueue_columns:getfield(fld).type)]
+      @TIME end @EPACSE
     end
     -- Assign slots on the transfer queue for moving particles
     var transferred = int64(0)
@@ -3396,13 +3398,17 @@ do
        rexpr transferred <= int64(queue.bounds.hi - queue.bounds.lo + 1) end,
        'Sample %d: Ran out of space in transfer queue',
        rexpr config.Mapping.sampleId end)];
-    -- Copy moving particles to the transfer queue
+    -- Copy moving particles to the transfer queue (each queue element should
+    -- get reduced into at most once, so this is equivalent to setting the
+    -- fields directly).
     __demand(__openmp)
     for i in Particles do
       if Particles[i].__xfer_dir == k then
         var j = Particles[i].__xfer_slot - 1 + queue.bounds.lo;
         @ESCAPE for _,fld in ipairs(Particles_subStepConserved) do @EMIT
-          queue[j].[fld] = Particles[i].[fld]
+          [UTIL.emitReduce(TradeQueue_columns:getfield(fld).type, '+',
+                           rexpr queue[j].[fld] end,
+                           rexpr Particles[i].[fld] end)];
         @TIME end @EPACSE
         Particles[i].__valid = false
       end
@@ -3998,7 +4004,7 @@ do
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
-      [UTIL.emitArrayReduce(3, '+',
+      [UTIL.emitReduce(double[3], '+',
          rexpr Particles[p].velocity_t end,
          rexpr Particles_bodyForce end)];
     end
@@ -4082,7 +4088,7 @@ do
   for p in Particles do
     if Particles[p].__valid then
       var mass = PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density;
-      [UTIL.emitArrayReduce(3, '+',
+      [UTIL.emitReduce(double[3], '+',
          rexpr Fluid[Particles[p].cell].rhoVelocity_t end,
          rexpr vs_mul(Particles[p].deltaVelocityOverRelaxationTime, -mass*Particles_parcelSize/Grid_cellVolume) end)];
       Fluid[Particles[p].cell].rhoEnergy_t += -Particles_parcelSize*Particles[p].deltaTemperatureTerm/Grid_cellVolume
@@ -4111,7 +4117,7 @@ do
             -- Accumulate intermediate values into final values
             Fluid[c].rho_new +=
               Fluid[c].rho_t * [RK_B[ORDER][STAGE]] * dt;
-            [UTIL.emitArrayReduce(3, '+',
+            [UTIL.emitReduce(double[3], '+',
                rexpr Fluid[c].rhoVelocity_new end,
                rexpr vs_mul(Fluid[c].rhoVelocity_t, [RK_B[ORDER][STAGE]] * dt) end)];
             Fluid[c].rhoEnergy_new +=
@@ -4158,10 +4164,10 @@ do
           for p in Particles do
             if Particles[p].__valid then
               -- Accumulate intermediate values into final values
-              [UTIL.emitArrayReduce(3, '+',
+              [UTIL.emitReduce(double[3], '+',
                  rexpr Particles[p].position_new end,
                  rexpr vs_mul(Particles[p].velocity, [RK_B[ORDER][STAGE]] * dt) end)];
-              [UTIL.emitArrayReduce(3, '+',
+              [UTIL.emitReduce(double[3], '+',
                  rexpr Particles[p].velocity_new end,
                  rexpr vs_mul(Particles[p].velocity_t, [RK_B[ORDER][STAGE]] * dt) end)];
               Particles[p].temperature_new +=
