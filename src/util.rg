@@ -659,12 +659,18 @@ function Exports.emitZeroValue(typ)
   elseif typ:isarray() then
     local elemZero = Exports.emitZeroValue(typ.type)
     return rexpr array([Exports.duplicate(typ.N, elemZero)]) end
+  elseif typ == int1d then
+    return rexpr 0 end
+  elseif typ == int2d then
+    return rexpr int2d{0,0} end
+  elseif typ == int3d then
+    return rexpr int3d{0,0,0} end
   else assert(false) end
 end
 
 -- terralib.type, string, regentlib.rexpr, regentlib.rexpr -> regentlib.rquote
 function Exports.emitReduce(typ, op, lhs, rhs)
-  if typ:isprimitive() then
+  if typ:isprimitive() or typ == int1d or typ == int2d or typ == int3d then
     return
       (op == '+')   and rquote lhs +=   rhs end or
       (op == '-')   and rquote lhs -=   rhs end or

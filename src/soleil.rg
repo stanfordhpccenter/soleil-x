@@ -3337,10 +3337,11 @@ task TradeQueue_push(partColor : int3d,
 where
   reads(Particles.[Particles_subStepConserved]),
   reads writes(Particles.{__valid, __xfer_dir, __xfer_slot}),
-  [tradeQueues:map(function(queue)
-     return Particles_subStepConserved:map(function(fld)
-       return regentlib.privilege(regentlib.writes, queue, fld)
-     end)
+  [tradeQueues:map(function(queue) return
+     Particles_subStepConserved:map(function(fld) return terralib.newlist{
+       regentlib.privilege(regentlib.reads, queue, fld),
+       regentlib.privilege(regentlib.writes, queue, fld),
+     } end):flatten()
    end):flatten()]
 do
   -- Fill in movement direction
