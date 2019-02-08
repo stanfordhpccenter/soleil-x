@@ -534,7 +534,7 @@ function Exports.mkPartitionByTile(r_istype, cs_istype, fs)
       var ntx = cs.bounds.hi.x + 1
       var nty = cs.bounds.hi.y + 1
       var ntz = cs.bounds.hi.z + 1
-      regentlib.assert(int64(r.bounds.lo) == 0, "Can only partition root region")
+      regentlib.assert(r.bounds.lo == 0, "Can only partition root region")
       regentlib.assert(N % (ntx*nty*ntz) == 0, "Uneven partitioning")
       regentlib.assert(-ntx <= offset.x and offset.x <= ntx, "offset.x too large")
       regentlib.assert(-nty <= offset.y and offset.y <= nty, "offset.y too large")

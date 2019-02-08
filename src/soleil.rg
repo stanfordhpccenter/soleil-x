@@ -5499,8 +5499,7 @@ local function mkInstance() local INSTANCE = {}
                                    Grid.yBnum, config.Grid.yNum,
                                    Grid.zBnum, config.Grid.zNum)
       for c in tiles do
-        Flow_UpdateGhostVelocity(p_Fluid_product[1][c],
-                                 p_Fluid_product[0][c],
+        Flow_UpdateGhostVelocity(p_Fluid[c],
                                  config,
                                  BC.xNegVelocity, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
                                  BC.yNegVelocity, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
