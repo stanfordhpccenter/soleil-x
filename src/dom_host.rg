@@ -61,7 +61,51 @@ do
     C.fprintf(f,'\n')
   end
   C.fclose(f)
+
 end
+
+local task writeOutput(points : region(ispace(int3d), Point_columns),
+                       Grid_xWidth : double,
+                       Grid_yWidth : double,
+                       Grid_zWidth : double,
+                       Grid_xNum   : double,
+                       Grid_yNum   : double,
+                       Grid_zNum   : double)
+where
+  reads(points.{G})
+do
+
+  var dx = Grid_xWidth/Grid_xNum
+  var dy = Grid_yWidth/Grid_yNum
+  var dz = Grid_zWidth/Grid_zNum
+
+  var fp = C.fopen ("volume_solution.txt", "w+");
+  var limits = points.bounds
+  C.fprintf(fp, "%d \t %d \t %d\n", limits.hi.x+1, limits.hi.y+1, limits.hi.z+1)
+  C.fprintf(fp, "i \t j \t k \t x \t\t y \t\t z \t\t G\n")
+
+  for ind in points.ispace do
+    C.fprintf(fp, "%d \t %d \t %d \t %f \t %f \t %f \t %f\n",
+                   ind.x, ind.y, ind.z,
+                   (ind.x+0.5)*dx, (ind.y+0.5)*dy, (ind.z+0.5)*dz,
+                   points[ind].G)
+  end
+
+  --for i = limits.lo.x, limits.hi.x+1 do
+  --  for j = limits.lo.y, limits.hi.y+1 do
+  --    for k = limits.lo.z, limits.hi.z+1 do
+  --      C.fprintf(fp, "%d \t %d \t %d \t %f \t %f \t %f \t %f\n",
+  --                     i, j, k,
+  --                     (i+0.5)*dx, (j+0.5)*dy, (k+0.5)*dz,
+  --                     points[{i,j,k}].G)
+  --    end
+  --  end
+  --end
+
+  C.fclose(fp);
+
+end
+
 
 -------------------------------------------------------------------------------
 -- Proxy main
@@ -90,6 +134,9 @@ task work(config : SCHEMA.Config)
   [DOM_INST.ComputeRadiationField(config, tiles, p_points)];
   -- Output results
   writeIntensity(points)
+  writeOutput(points, 
+              config.Grid.xWidth, config.Grid.yWidth, config.Grid.zWidth,
+              config.Radiation.u.DOM.xNum, config.Radiation.u.DOM.yNum, config.Radiation.u.DOM.zNum)
 end
 
 local __demand(__inner)

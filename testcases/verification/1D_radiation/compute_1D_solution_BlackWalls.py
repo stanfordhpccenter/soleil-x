@@ -91,11 +91,13 @@ def sigma_s_gas(x):
 # Name of output file
 output_file_name = '1D_analytical_solution'     
 
+
+
 ##############################################################################
 #                 Use user input to finish setting up the probem             #
 ##############################################################################
 
-# Discritize spacial domain (x axis)
+# Discritize spatial domain (x axis)
 x = np.linspace(0.0, X_max, Nx_analytical)
 
 # Discritize the input participating media properties on x
@@ -243,19 +245,55 @@ while res > np.power(10.0,-6) :
     # Make the current guess the old guess
     G_old = copy.deepcopy(G)
 
-plt.figure(2)
+# save the x, G, and q arrays to a compressed numpy data file ( .npz file)
+np.savez(output_file_name, x_analytical=x, G_analytical=G, q_analytical=q)
+
+plt.figure()
+plt.plot(x, T, '-k', label=r'Analytical')
+plt.xlabel(r'$x$', fontsize = 20)
+plt.ylabel(r'$T \ \left[ K \right]$', fontsize = 20)
+plt.legend(loc = 'best')
+
+plt.figure()
+plt.plot(x, sigma_a, '-k', label=r'Analytical')
+plt.xlabel(r'$x$', fontsize = 20)
+plt.ylabel(r'$\sigma_a \ \left[ \frac{1}{m} \right]$', fontsize = 20)
+plt.legend(loc = 'best')
+
+plt.figure()
+plt.plot(x, sigma_s, '-k', label=r'Analytical')
+plt.xlabel(r'$x$', fontsize = 20)
+plt.ylabel(r'$\sigma_s \ \left[ \frac{1}{m} \right]$', fontsize = 20)
+plt.legend(loc = 'best')
+
+plt.figure()
+plt.plot(x, sigma_e, '-k', label=r'Analytical')
+plt.xlabel(r'$x$', fontsize = 20)
+plt.ylabel(r'$\sigma_e \ \left[ \frac{1}{m} \right]$', fontsize = 20)
+plt.legend(loc = 'best')
+
+plt.figure()
+plt.plot(x, omega, '-k', label=r'Analytical')
+plt.xlabel(r'$x$', fontsize = 20)
+plt.ylabel(r'$\omega$', fontsize = 20)
+plt.legend(loc = 'best')
+
+plt.figure()
+plt.plot(x, tau, '-k', label=r'Analytical')
+plt.xlabel(r'$x$', fontsize = 20)
+plt.ylabel(r'$\tau$', fontsize = 20)
+plt.legend(loc = 'best')
+
+plt.figure()
 plt.plot(x, G , '-k', label=r'Analytical')
 plt.xlabel(r'$x$', fontsize = 20)
 plt.ylabel(r'$G \ \left[ \frac{W}{m^2 \cdot Sr} \right]$', fontsize = 20)
 plt.legend(loc = 'best')
 
-plt.figure(3)
+plt.figure()
 plt.plot(x, q , '-k', label=r'Analytical')
 plt.xlabel(r'$x$', fontsize = 20)
 plt.ylabel(r'$q \ \left[ \frac{W}{m^2} \right]$', fontsize = 20)
 plt.legend(loc = 'best')
-
-# save the x, G, and q arrays to a compressed numpy data file (a .npz file)
-np.savez(output_file_name, x_analytical=x, G_analytical=G, q_analytical=q)
 
 plt.show()
