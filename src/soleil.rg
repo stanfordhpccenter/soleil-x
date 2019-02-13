@@ -2581,7 +2581,7 @@ task Flow_UpdateUsingFluxX(Fluid : region(ispace(int3d), Fluid_columns),
                            Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
   reads(Fluid.{rhoFluxX, rhoVelocityFluxX, rhoEnergyFluxX}),
-  reads writes atomic(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
+  reads writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
@@ -2615,7 +2615,7 @@ task Flow_UpdateUsingFluxY(Fluid : region(ispace(int3d), Fluid_columns),
                            Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
   reads(Fluid.{rhoFluxY, rhoVelocityFluxY, rhoEnergyFluxY}),
-  reads writes atomic(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
+  reads writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
@@ -2649,7 +2649,7 @@ task Flow_UpdateUsingFluxZ(Fluid : region(ispace(int3d), Fluid_columns),
                            Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
   reads(Fluid.{rhoFluxZ, rhoVelocityFluxZ, rhoEnergyFluxZ}),
-  reads writes atomic(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
+  reads writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
@@ -2695,7 +2695,7 @@ task Flow_UpdateUsingFluxGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns)
 where
   reads(Fluid.{rho, velocity, pressure, temperature, rhoVelocity, dudtBoundary, dTdtBoundary}),
   reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ}),
-  reads writes atomic(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
+  reads writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
@@ -2862,7 +2862,7 @@ task Flow_AddBodyForces(Fluid : region(ispace(int3d), Fluid_columns),
                         Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{rho, velocity}),
-  reads writes atomic(Fluid.{rhoEnergy_t, rhoVelocity_t})
+  reads writes(Fluid.{rhoEnergy_t, rhoVelocity_t})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
@@ -3164,7 +3164,7 @@ task Flow_AddTurbulentSource(Fluid : region(ispace(int3d), Fluid_columns),
                              config : Config)
 where
   reads(Fluid.{rho, velocity}),
-  reads writes atomic(Fluid.{rhoVelocity_t, rhoEnergy_t})
+  reads writes(Fluid.{rhoVelocity_t, rhoEnergy_t})
 do
   var W = Flow_averagePD + Flow_averageDissipation
   var G = config.Flow.turbForcing.u.HIT.G
@@ -3194,7 +3194,7 @@ task Flow_AdjustTurbulentSource(Fluid : region(ispace(int3d), Fluid_columns),
                                 Grid_yBnum : int32, Grid_yNum : int32,
                                 Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads writes atomic(Fluid.rhoEnergy_t)
+  reads writes(Fluid.rhoEnergy_t)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -4069,7 +4069,7 @@ task Flow_AddParticlesCoupling(Particles : region(ispace(int1d), Particles_colum
                                Grid_cellVolume : double)
 where
   reads(Particles.{cell, diameter, density, deltaTemperatureTerm, deltaVelocityOverRelaxationTime, __valid}),
-  reads writes atomic(Fluid.{rhoVelocity_t, rhoEnergy_t})
+  reads writes(Fluid.{rhoVelocity_t, rhoEnergy_t})
 do
   var Particles_parcelSize = config.Particles.parcelSize
   __demand(__openmp)
