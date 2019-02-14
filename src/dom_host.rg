@@ -128,8 +128,10 @@ task work(config : SCHEMA.Config)
   [DOM_INST.DeclSymbols(config, tiles)];
   [DOM_INST.InitRegions(config, tiles, p_points)];
   -- Prepare fake inputs
-  fill(points.Ib, (SB/PI) * pow(1000.0,4.0))
-  fill(points.sigma, 5.0);
+  --fill(points.Ib, (SB/PI) * pow(1000.0,4.0))
+  --fill(points.sigma, 5.0);
+  fill(points.Ib, 0.0)
+  fill(points.sigma, config.Radiation.u.DOM.qa + config.Radiation.u.DOM.qs);
   -- Invoke DOM solver
   [DOM_INST.ComputeRadiationField(config, tiles, p_points)];
   -- Output results

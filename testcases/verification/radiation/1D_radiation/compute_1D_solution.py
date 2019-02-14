@@ -32,7 +32,6 @@ import copy
 # Stefan Boltzmann Constant - [W/(m^2*K^4)] 
 sigma =  5.67036713*np.power(10.0,-8.0)
 
-
 ##############################################################################
 #                                User Input                                  #
 ##############################################################################
@@ -44,16 +43,22 @@ X_max = 1.0 # [m]
 Nx_analytical = 1001 # [points] 
 
 # Wall temperatures
-T_left_wall  = 1.0 # [K]
-T_right_wall = 1.0 # [K]
+#T_left_wall  = 1.0 # [K]
+#T_right_wall = 1.0 # [K]
+
+#T_left_wall   = np.power(1/sigma, (1.0/4.0)) # [K]
+T_left_wall   = 64.8 # [K]
+#T_right_wall  = np.power(1/sigma, (1.0/4.0)) # [K]
+T_right_wall  = 0.0 # [K]
 
 # Wall Emsivities
-epsilon_left_wall  = 0.5 # [unitless]
-epsilon_right_wall = 0.5 # [unitless]
+epsilon_left_wall  = 1.0 # [unitless]
+epsilon_right_wall = 1.0 # [unitless]
 
 # Temperature of participating media - [K]
 def T_gas(x):
-    T_max = np.power(1/sigma, (1.0/4.0)) # [K]
+    T_max = 0.0 # [K]
+    #T_max = np.power(1/sigma, (1.0/4.0)) # [K]
 
     # Constant
     T =  T_max*np.ones([len(x)])
@@ -81,7 +86,7 @@ def sigma_a_gas(x):
 
 # Scattering coefficent of participating media - [1/m]
 def sigma_s_gas(x):
-     sigma_a_max = 0.10  # [1/m]
+     sigma_a_max = 0.0  # [1/m]
 
      # Constant
      sigma_a = sigma_a_max *np.ones([len(x)])
