@@ -4470,6 +4470,11 @@ local function mkInstance() local INSTANCE = {}
   local Integrator_exitCond = regentlib.newsymbol()
   local Particles_number = regentlib.newsymbol()
 
+  local Flow_averagePressure = regentlib.newsymbol()
+  local Flow_averageTemperature = regentlib.newsymbol()
+  local Flow_averageKineticEnergy = regentlib.newsymbol()
+  local Particles_averageTemperature = regentlib.newsymbol()
+
   local Fluid = regentlib.newsymbol()
   local Fluid_copy = regentlib.newsymbol()
   local Particles = regentlib.newsymbol()
@@ -4494,6 +4499,7 @@ local function mkInstance() local INSTANCE = {}
   INSTANCE.Integrator_simTime = Integrator_simTime
   INSTANCE.Integrator_timeStep = Integrator_timeStep
   INSTANCE.Integrator_exitCond = Integrator_exitCond
+  INSTANCE.Flow_averagePressure = Flow_averagePressure
   INSTANCE.Fluid = Fluid
   INSTANCE.Fluid_copy = Fluid_copy
   INSTANCE.Particles = Particles
@@ -4593,6 +4599,11 @@ local function mkInstance() local INSTANCE = {}
       'Unsupported RK integration scheme')
 
     var [Particles_number] = int64(0)
+
+    var [Flow_averagePressure] = 0.0
+    var [Flow_averageTemperature] = 0.0
+    var [Flow_averageKineticEnergy] = 0.0
+    var [Particles_averageTemperature] = 0.0
 
     if config.Radiation.type == SCHEMA.RadiationModel_DOM then
       regentlib.assert(config.Grid.xNum >= config.Radiation.u.DOM.xNum and
@@ -5132,10 +5143,10 @@ local function mkInstance() local INSTANCE = {}
   function INSTANCE.PerformIO(config) return rquote
 
     -- Write to console
-    var Flow_averagePressure = 0.0
-    var Flow_averageTemperature = 0.0
-    var Flow_averageKineticEnergy = 0.0
-    var Particles_averageTemperature = 0.0
+    Flow_averagePressure = 0.0
+    Flow_averageTemperature = 0.0
+    Flow_averageKineticEnergy = 0.0
+    Particles_averageTemperature = 0.0
     Flow_averagePressure += CalculateAveragePressure(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
     Flow_averageTemperature += CalculateAverageTemperature(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
     Flow_averageKineticEnergy += CalculateAverageKineticEnergy(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
@@ -5788,7 +5799,7 @@ task workDual(mc : MultiConfig)
         copy(src.temperature, tgt.temperature_inc)
         copy(src.velocity, tgt.velocity_inc)
       end
-      if CopyQueue_size > 0 then
+      if CopyQueue_size > 0 and C.finite(SIM1.Flow_averagePressure) == 1 then
         fill(CopyQueue.position, array(-1.0, -1.0, -1.0))
         fill(CopyQueue.velocity, array(-1.0, -1.0, -1.0))
         fill(CopyQueue.temperature, -1.0)
