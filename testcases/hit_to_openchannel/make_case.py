@@ -239,6 +239,7 @@ output()
 #### Fill in json config ##########################################################################
 
 if not args.debug:
+    max_iter = int(math.ceil(int(mc['flowThroughTimes']) * L / U_0 / delta_t_c))
     # Round up number of particles to fit tiling
     tiles_0 = (mc['configs'][0]['Mapping']['tiles'][0] *
                mc['configs'][0]['Mapping']['tiles'][1] *
@@ -259,6 +260,7 @@ if not args.debug:
         ratio_delta_t = math.ceil(ratio_copy / factor)
         ratio_copy = ratio_delta_t * factor
     # Fill in variable parameters
+    mc['configs'][0]['Integrator']['maxIter'] = max_iter
     mc['configs'][0]['Integrator']['fixedDeltaTime'] = delta_t_c
     mc['configs'][0]['Flow']['prandtl'] = Pr
     mc['configs'][0]['Flow']['turbForcing']['t_o'] = t_0
@@ -270,6 +272,7 @@ if not args.debug:
     mc['configs'][0]['Particles']['diameterMean'] = d_p
     mc['configs'][0]['Particles']['staggerFactor'] = ratio_delta_t
     mc['configs'][1]['BC']['xBCLeftInflowProfile']['addedVelocity'] = U_0
+    mc['configs'][1]['Integrator']['maxIter'] = max_iter
     mc['configs'][1]['Integrator']['fixedDeltaTime'] = delta_t_c
     mc['configs'][1]['Flow']['prandtl'] = Pr
     mc['configs'][1]['Flow']['initParams'][2] = U_0

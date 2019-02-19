@@ -65,7 +65,7 @@
         "Integrator" : {
             "startIter" : 0,
             "startTime" : 0.0,
-            "maxIter" : 10000,
+            "maxIter" : "TBD",
             "cfl" : -1.0,
             "fixedDeltaTime" : "TBD",
             "rkOrder" : 4
@@ -188,7 +188,7 @@
         "Integrator" : {
             "startIter" : 0,
             "startTime" : 0.0,
-            "maxIter" : 10000,
+            "maxIter" : "TBD",
             "cfl" : -1.0,
             "fixedDeltaTime" : "TBD",
             "rkOrder" : 4
