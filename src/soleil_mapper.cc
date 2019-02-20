@@ -106,15 +106,10 @@ public:
 
 public:
   SampleMapping(Runtime* rt, const Config& config, AddressSpace first_rank)
-    : tiles_per_rank_{static_cast<unsigned>(config.Mapping.tilesPerRank[0]),
-                      static_cast<unsigned>(config.Mapping.tilesPerRank[1]),
-                      static_cast<unsigned>(config.Mapping.tilesPerRank[2])},
-      ranks_per_dim_{static_cast<unsigned>(config.Mapping.tiles[0]
-                                           / config.Mapping.tilesPerRank[0]),
-                     static_cast<unsigned>(config.Mapping.tiles[1]
-                                           / config.Mapping.tilesPerRank[1]),
-                     static_cast<unsigned>(config.Mapping.tiles[2]
-                                           / config.Mapping.tilesPerRank[2])},
+    : tiles_per_rank_{static_cast<unsigned>(config.Mapping.tiles[0]),
+                      static_cast<unsigned>(config.Mapping.tiles[1]),
+                      static_cast<unsigned>(config.Mapping.tiles[2])},
+      ranks_per_dim_{1, 1, 1},
       first_rank_(first_rank),
       tiling_3d_functor_(new Tiling3DFunctor(rt, *this)),
       tiling_2d_functors_{{new Tiling2DFunctor(rt, *this, 0, false),
@@ -290,7 +285,7 @@ public:
     umask(022);
     // Assign ranks sequentially to samples, each sample getting one rank for
     // each super-tile.
-    AddressSpace reqd_ranks = 0;
+    unsigned num_samples = 0;
     auto process_config = [&](const Config& config) {
       CHECK(config.Mapping.tiles[0] > 0 &&
             config.Mapping.tiles[1] > 0 &&
@@ -302,7 +297,7 @@ public:
             config.Mapping.tiles[1] % config.Mapping.tilesPerRank[1] == 0 &&
             config.Mapping.tiles[2] % config.Mapping.tilesPerRank[2] == 0,
             "Invalid tiling for sample %lu", sample_mappings_.size() + 1);
-      sample_mappings_.emplace_back(rt, config, reqd_ranks);
+      sample_mappings_.emplace_back(rt, config, num_samples / 128);
     };
     // Locate all config files specified on the command-line arguments.
     InputArgs args = Runtime::get_input_args();
@@ -311,25 +306,18 @@ public:
         Config config;
         parse_Config(&config, args.argv[i+1]);
         process_config(config);
-        reqd_ranks += sample_mappings_.back().num_ranks();
+        num_samples++;
       } else if (EQUALS(args.argv[i], "-m") && i < args.argc-1) {
         MultiConfig mc;
         parse_MultiConfig(&mc, args.argv[i+1]);
         process_config(mc.configs[0]);
-        unsigned num_ranks_0 = sample_mappings_.back().num_ranks();
-        if (!mc.collocateSections) {
-          reqd_ranks += num_ranks_0;
-        }
+        num_samples++;
         process_config(mc.configs[1]);
-        unsigned num_ranks_1 = sample_mappings_.back().num_ranks();
-        if (mc.collocateSections) {
-          reqd_ranks += std::max(num_ranks_0, num_ranks_1);
-        } else {
-          reqd_ranks += num_ranks_1;
-        }
+        num_samples++;
       }
     }
     // Verify that we have enough ranks.
+    unsigned reqd_ranks = num_samples / 128 + (num_samples % 128 > 0 ? 1 : 0);
     unsigned supplied_ranks = remote_cpus.size();
     CHECK(reqd_ranks <= supplied_ranks,
           "%u rank(s) required, but %u rank(s) supplied to Legion",
