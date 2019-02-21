@@ -563,6 +563,361 @@ end
 -------------------------------------------------------------------------------
 
 __demand(__inline)
+task locate(pos : double[3],
+            Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
+            Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
+            Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
+  var xcw = Grid_xWidth/Grid_xNum
+  var xro = Grid_xOrigin-Grid_xBnum*xcw
+  var xpos = int(floor((pos[0]-xro)/xcw))
+  var xrnum = Grid_xNum+2*Grid_xBnum
+  var xidx = max(0, min(xrnum-1, xpos))
+  var ycw = Grid_yWidth/Grid_yNum
+  var yro = Grid_yOrigin-Grid_yBnum*ycw
+  var ypos = int(floor((pos[1]-yro)/ycw))
+  var yrnum = Grid_yNum+2*Grid_yBnum
+  var yidx = max(0, min(yrnum-1, ypos))
+  var zcw = Grid_zWidth/Grid_zNum
+  var zro = Grid_zOrigin-Grid_zBnum*zcw
+  var zpos = int(floor((pos[2]-zro)/zcw))
+  var zrnum = Grid_zNum+2*Grid_zBnum
+  var zidx = max(0, min(zrnum-1, zpos))
+  return int3d{xidx, yidx, zidx}
+end
+
+__demand(__inline)
+task TrilinearInterpolateVelocity(xyz : double[3],
+                                  c000 : double[3],
+                                  c100 : double[3],
+                                  c010 : double[3],
+                                  c110 : double[3],
+                                  c001 : double[3],
+                                  c101 : double[3],
+                                  c011 : double[3],
+                                  c111 : double[3],
+                                  Grid_xCellWidth : double, Grid_xRealOrigin : double,
+                                  Grid_yCellWidth : double, Grid_yRealOrigin : double,
+                                  Grid_zCellWidth : double, Grid_zRealOrigin : double)
+  var dX = fmod((((xyz[0]-Grid_xRealOrigin)/Grid_xCellWidth)+0.5), 1.0)
+  var dY = fmod((((xyz[1]-Grid_yRealOrigin)/Grid_yCellWidth)+0.5), 1.0)
+  var dZ = fmod((((xyz[2]-Grid_zRealOrigin)/Grid_zCellWidth)+0.5), 1.0)
+  var oneMinusdX = (1.0-dX)
+  var oneMinusdY = (1.0-dY)
+  var oneMinusdZ = (1.0-dZ)
+  var weight00 = vv_add(vs_mul(c000, oneMinusdX), vs_mul(c100, dX))
+  var weight10 = vv_add(vs_mul(c010, oneMinusdX), vs_mul(c110, dX))
+  var weight01 = vv_add(vs_mul(c001, oneMinusdX), vs_mul(c101, dX))
+  var weight11 = vv_add(vs_mul(c011, oneMinusdX), vs_mul(c111, dX))
+  var weight0 = vv_add(vs_mul(weight00, oneMinusdY), vs_mul(weight10, dY))
+  var weight1 = vv_add(vs_mul(weight01, oneMinusdY), vs_mul(weight11, dY))
+  return vv_add(vs_mul(weight0, oneMinusdZ), vs_mul(weight1, dZ))
+end
+
+__demand(__inline)
+task InterpolateTriVelocity(c : int3d,
+                            xyz : double[3],
+                            Fluid : region(ispace(int3d), Fluid_columns),
+                            Grid_xCellWidth : double, Grid_xRealOrigin : double,
+                            Grid_yCellWidth : double, Grid_yRealOrigin : double,
+                            Grid_zCellWidth : double, Grid_zRealOrigin : double)
+where
+  reads(Fluid.{centerCoordinates, velocity})
+do
+  var i000 = Fluid[c].velocity
+  var i001 = Fluid[((c+{ 0, 0, 1})%Fluid.bounds)].velocity
+  var i00_ = Fluid[((c+{ 0, 0,-1})%Fluid.bounds)].velocity
+  var i010 = Fluid[((c+{ 0, 1, 0})%Fluid.bounds)].velocity
+  var i011 = Fluid[((c+{ 0, 1, 1})%Fluid.bounds)].velocity
+  var i01_ = Fluid[((c+{ 0, 1,-1})%Fluid.bounds)].velocity
+  var i0_0 = Fluid[((c+{ 0,-1, 0})%Fluid.bounds)].velocity
+  var i0_1 = Fluid[((c+{ 0,-1, 1})%Fluid.bounds)].velocity
+  var i0__ = Fluid[((c+{ 0,-1,-1})%Fluid.bounds)].velocity
+
+  var i100 = Fluid[((c+{ 1, 0, 0})%Fluid.bounds)].velocity
+  var i101 = Fluid[((c+{ 1, 0, 1})%Fluid.bounds)].velocity
+  var i10_ = Fluid[((c+{ 1, 0,-1})%Fluid.bounds)].velocity
+  var i110 = Fluid[((c+{ 1, 1, 0})%Fluid.bounds)].velocity
+  var i111 = Fluid[((c+{ 1, 1, 1})%Fluid.bounds)].velocity
+  var i11_ = Fluid[((c+{ 1, 1,-1})%Fluid.bounds)].velocity
+  var i1_0 = Fluid[((c+{ 1,-1, 0})%Fluid.bounds)].velocity
+  var i1_1 = Fluid[((c+{ 1,-1, 1})%Fluid.bounds)].velocity
+  var i1__ = Fluid[((c+{ 1,-1,-1})%Fluid.bounds)].velocity
+
+  var i_00 = Fluid[((c+{-1, 0, 0})%Fluid.bounds)].velocity
+  var i_01 = Fluid[((c+{-1, 0, 1})%Fluid.bounds)].velocity
+  var i_0_ = Fluid[((c+{-1, 0,-1})%Fluid.bounds)].velocity
+  var i_10 = Fluid[((c+{-1, 1, 0})%Fluid.bounds)].velocity
+  var i_11 = Fluid[((c+{-1, 1, 1})%Fluid.bounds)].velocity
+  var i_1_ = Fluid[((c+{-1, 1,-1})%Fluid.bounds)].velocity
+  var i__0 = Fluid[((c+{-1,-1, 0})%Fluid.bounds)].velocity
+  var i__1 = Fluid[((c+{-1,-1, 1})%Fluid.bounds)].velocity
+  var i___ = Fluid[((c+{-1,-1,-1})%Fluid.bounds)].velocity
+
+  var v000 = array(0.0, 0.0, 0.0)
+  var v001 = array(0.0, 0.0, 0.0)
+  var v010 = array(0.0, 0.0, 0.0)
+  var v011 = array(0.0, 0.0, 0.0)
+  var v100 = array(0.0, 0.0, 0.0)
+  var v101 = array(0.0, 0.0, 0.0)
+  var v110 = array(0.0, 0.0, 0.0)
+  var v111 = array(0.0, 0.0, 0.0)
+
+  if (xyz[0]>Fluid[c].centerCoordinates[0]) then
+    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = i000
+        v001 = i001
+        v010 = i010
+        v011 = i011
+        v100 = i100
+        v101 = i101
+        v110 = i110
+        v111 = i111
+      else
+        v000 = i00_
+        v001 = i000
+        v010 = i01_
+        v011 = i010
+        v100 = i10_
+        v101 = i100
+        v110 = i11_
+        v111 = i110
+      end
+    else
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = i0_0
+        v001 = i0_1
+        v010 = i000
+        v011 = i001
+        v100 = i1_0
+        v101 = i1_1
+        v110 = i100
+        v111 = i101
+      else
+        v000 = i0__
+        v001 = i0_0
+        v010 = i00_
+        v011 = i000
+        v100 = i1__
+        v101 = i1_0
+        v110 = i10_
+        v111 = i100
+      end
+    end
+  else
+    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = i_00
+        v001 = i_01
+        v010 = i_10
+        v011 = i_11
+        v100 = i000
+        v101 = i001
+        v110 = i010
+        v111 = i011
+      else
+        v000 = i_0_
+        v001 = i_00
+        v010 = i_1_
+        v011 = i_10
+        v100 = i00_
+        v101 = i000
+        v110 = i01_
+        v111 = i010
+      end
+    else
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = i__0
+        v001 = i__1
+        v010 = i_00
+        v011 = i_01
+        v100 = i0_0
+        v101 = i0_1
+        v110 = i000
+        v111 = i001
+      else
+        v000 = i___
+        v001 = i__0
+        v010 = i_0_
+        v011 = i_00
+        v100 = i0__
+        v101 = i0_0
+        v110 = i00_
+        v111 = i000
+      end
+    end
+  end
+
+  return TrilinearInterpolateVelocity(xyz, v000, v100, v010, v110, v001, v101, v011, v111, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin)
+end
+
+__demand(__inline)
+task TrilinearInterpolateTemp(xyz : double[3],
+                              c000 : double,
+                              c100 : double,
+                              c010 : double,
+                              c110 : double,
+                              c001 : double,
+                              c101 : double,
+                              c011 : double,
+                              c111 : double,
+                              Grid_xCellWidth : double, Grid_xRealOrigin : double,
+                              Grid_yCellWidth : double, Grid_yRealOrigin : double,
+                              Grid_zCellWidth : double, Grid_zRealOrigin : double)
+  var dX = fmod((((xyz[0]-Grid_xRealOrigin)/Grid_xCellWidth)+0.5), 1.0)
+  var dY = fmod((((xyz[1]-Grid_yRealOrigin)/Grid_yCellWidth)+0.5), 1.0)
+  var dZ = fmod((((xyz[2]-Grid_zRealOrigin)/Grid_zCellWidth)+0.5), 1.0)
+  var oneMinusdX = (1.0-dX)
+  var oneMinusdY = (1.0-dY)
+  var oneMinusdZ = (1.0-dZ)
+  var weight00 = ((c000*oneMinusdX)+(c100*dX))
+  var weight10 = ((c010*oneMinusdX)+(c110*dX))
+  var weight01 = ((c001*oneMinusdX)+(c101*dX))
+  var weight11 = ((c011*oneMinusdX)+(c111*dX))
+  var weight0 = ((weight00*oneMinusdY)+(weight10*dY))
+  var weight1 = ((weight01*oneMinusdY)+(weight11*dY))
+  return ((weight0*oneMinusdZ)+(weight1*dZ))
+end
+
+__demand(__inline)
+task InterpolateTriTemp(c : int3d,
+                        xyz : double[3],
+                        Fluid : region(ispace(int3d), Fluid_columns),
+                        Grid_xCellWidth : double, Grid_xRealOrigin : double,
+                        Grid_yCellWidth : double, Grid_yRealOrigin : double,
+                        Grid_zCellWidth : double, Grid_zRealOrigin : double)
+where
+  reads(Fluid.{centerCoordinates, temperature})
+do
+  var i000 = Fluid[c].temperature
+  var i001 = Fluid[((c+{ 0, 0, 1})%Fluid.bounds)].temperature
+  var i00_ = Fluid[((c+{ 0, 0,-1})%Fluid.bounds)].temperature
+  var i010 = Fluid[((c+{ 0, 1, 0})%Fluid.bounds)].temperature
+  var i011 = Fluid[((c+{ 0, 1, 1})%Fluid.bounds)].temperature
+  var i01_ = Fluid[((c+{ 0, 1,-1})%Fluid.bounds)].temperature
+  var i0_0 = Fluid[((c+{ 0,-1, 0})%Fluid.bounds)].temperature
+  var i0_1 = Fluid[((c+{ 0,-1, 1})%Fluid.bounds)].temperature
+  var i0__ = Fluid[((c+{ 0,-1,-1})%Fluid.bounds)].temperature
+
+  var i100 = Fluid[((c+{ 1, 0, 0})%Fluid.bounds)].temperature
+  var i101 = Fluid[((c+{ 1, 0, 1})%Fluid.bounds)].temperature
+  var i10_ = Fluid[((c+{ 1, 0,-1})%Fluid.bounds)].temperature
+  var i110 = Fluid[((c+{ 1, 1, 0})%Fluid.bounds)].temperature
+  var i111 = Fluid[((c+{ 1, 1, 1})%Fluid.bounds)].temperature
+  var i11_ = Fluid[((c+{ 1, 1,-1})%Fluid.bounds)].temperature
+  var i1_0 = Fluid[((c+{ 1,-1, 0})%Fluid.bounds)].temperature
+  var i1_1 = Fluid[((c+{ 1,-1, 1})%Fluid.bounds)].temperature
+  var i1__ = Fluid[((c+{ 1,-1,-1})%Fluid.bounds)].temperature
+
+  var i_00 = Fluid[((c+{-1, 0, 0})%Fluid.bounds)].temperature
+  var i_01 = Fluid[((c+{-1, 0, 1})%Fluid.bounds)].temperature
+  var i_0_ = Fluid[((c+{-1, 0,-1})%Fluid.bounds)].temperature
+  var i_10 = Fluid[((c+{-1, 1, 0})%Fluid.bounds)].temperature
+  var i_11 = Fluid[((c+{-1, 1, 1})%Fluid.bounds)].temperature
+  var i_1_ = Fluid[((c+{-1, 1,-1})%Fluid.bounds)].temperature
+  var i__0 = Fluid[((c+{-1,-1, 0})%Fluid.bounds)].temperature
+  var i__1 = Fluid[((c+{-1,-1, 1})%Fluid.bounds)].temperature
+  var i___ = Fluid[((c+{-1,-1,-1})%Fluid.bounds)].temperature
+
+  var v000 = 0.0
+  var v001 = 0.0
+  var v010 = 0.0
+  var v011 = 0.0
+  var v100 = 0.0
+  var v101 = 0.0
+  var v110 = 0.0
+  var v111 = 0.0
+
+  if (xyz[0]>Fluid[c].centerCoordinates[0]) then
+    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = i000
+        v001 = i001
+        v010 = i010
+        v011 = i011
+        v100 = i100
+        v101 = i101
+        v110 = i110
+        v111 = i111
+      else
+        v000 = i00_
+        v001 = i000
+        v010 = i01_
+        v011 = i010
+        v100 = i10_
+        v101 = i100
+        v110 = i11_
+        v111 = i110
+      end
+    else
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = i0_0
+        v001 = i0_1
+        v010 = i000
+        v011 = i001
+        v100 = i1_0
+        v101 = i1_1
+        v110 = i100
+        v111 = i101
+      else
+        v000 = i0__
+        v001 = i0_0
+        v010 = i00_
+        v011 = i000
+        v100 = i1__
+        v101 = i1_0
+        v110 = i10_
+        v111 = i100
+      end
+    end
+  else
+    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = i_00
+        v001 = i_01
+        v010 = i_10
+        v011 = i_11
+        v100 = i000
+        v101 = i001
+        v110 = i010
+        v111 = i011
+      else
+        v000 = i_0_
+        v001 = i_00
+        v010 = i_1_
+        v011 = i_10
+        v100 = i00_
+        v101 = i000
+        v110 = i01_
+        v111 = i010
+      end
+    else
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = i__0
+        v001 = i__1
+        v010 = i_00
+        v011 = i_01
+        v100 = i0_0
+        v101 = i0_1
+        v110 = i000
+        v111 = i001
+      else
+        v000 = i___
+        v001 = i__0
+        v010 = i_0_
+        v011 = i_00
+        v100 = i0__
+        v101 = i0_0
+        v110 = i00_
+        v111 = i000
+      end
+    end
+  end
+
+  return TrilinearInterpolateTemp(xyz, v000, v100, v010, v110, v001, v101, v011, v111, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin)
+end
+
+__demand(__inline)
 task GetDynamicViscosity(temperature : double,
                          Flow_constantVisc : double,
                          Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
@@ -581,6 +936,82 @@ task GetDynamicViscosity(temperature : double,
       / (temperature + Flow_sutherlandSRef)
   end
   return viscosity
+end
+
+__demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+task Particles_InitializeRandom(color : int3d,
+                                Particles : region(ispace(int1d), Particles_columns),
+                                Fluid : region(ispace(int3d), Fluid_columns),
+                                config : Config,
+                                Grid_xBnum : int, Grid_yBnum : int, Grid_zBnum : int)
+where
+  reads(Fluid.{centerCoordinates, velocity}),
+  writes(Particles.{__valid, cell, position, velocity, density, temperature, diameter})
+do
+  -- Grid geometry
+  var Grid_xNum = config.Grid.xNum
+  var Grid_yNum = config.Grid.yNum
+  var Grid_zNum = config.Grid.zNum
+  var Grid_xWidth = config.Grid.xWidth
+  var Grid_yWidth = config.Grid.yWidth
+  var Grid_zWidth = config.Grid.zWidth
+  var Grid_xOrigin = config.Grid.origin[0]
+  var Grid_yOrigin = config.Grid.origin[1]
+  var Grid_zOrigin = config.Grid.origin[2]
+  var Grid_xCellWidth = Grid_xWidth / Grid_xNum
+  var Grid_yCellWidth = Grid_yWidth / Grid_yNum
+  var Grid_zCellWidth = Grid_zWidth / Grid_zNum
+  var Grid_xRealOrigin = Grid_xOrigin - Grid_xCellWidth * Grid_xBnum
+  var Grid_yRealOrigin = Grid_yOrigin - Grid_yCellWidth * Grid_yBnum
+  var Grid_zRealOrigin = Grid_zOrigin - Grid_zCellWidth * Grid_zBnum
+  -- Tile geometry
+  var Tile_xWidth = Grid_xWidth / config.Mapping.tiles[0]
+  var Tile_yWidth = Grid_yWidth / config.Mapping.tiles[1]
+  var Tile_zWidth = Grid_zWidth / config.Mapping.tiles[2]
+  var Tile_xOrigin = Grid_xOrigin + color.x * Tile_xWidth
+  var Tile_yOrigin = Grid_yOrigin + color.y * Tile_yWidth
+  var Tile_zOrigin = Grid_zOrigin + color.z * Tile_zWidth
+  -- Particle values
+  var pBase = Particles.bounds.lo
+  var numTiles = config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2]
+  var particlesPerTile = config.Particles.initNum / config.Particles.parcelSize / numTiles
+  var Particles_density = config.Particles.density
+  var Particles_initTemperature = config.Particles.initTemperature
+  var Particles_diameterMean = config.Particles.diameterMean
+  -- RNG state
+  var rngState : C.drand48_data[1]
+  var rngStatePtr = [&C.drand48_data](rngState)
+  C.srand48_r(C.legion_get_current_time_in_nanos(), rngStatePtr)
+  -- Fill loop
+  for p in Particles do
+    var relIdx = int64(p - pBase)
+    if relIdx < particlesPerTile then
+      -- Pick a random position within the current tile, ignoring boundary cells
+      var rx = 0.0; repeat rx = drand48_r(rngStatePtr) until rx ~= 0.0
+      var ry = 0.0; repeat ry = drand48_r(rngStatePtr) until ry ~= 0.0
+      var rz = 0.0; repeat rz = drand48_r(rngStatePtr) until rz ~= 0.0
+      var pos = array( Tile_xOrigin + Tile_xWidth * rx,
+                       Tile_yOrigin + Tile_yWidth * ry,
+                       Tile_zOrigin + Tile_zWidth * rz )
+      var c = locate(pos,
+                     Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth,
+                     Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth,
+                     Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
+      var flowVelocity = InterpolateTriVelocity(c,
+                                                pos,
+                                                Fluid,
+                                                Grid_xCellWidth, Grid_xRealOrigin,
+                                                Grid_yCellWidth, Grid_yRealOrigin,
+                                                Grid_zCellWidth, Grid_zRealOrigin)
+      Particles[p].__valid = true
+      Particles[p].cell = c
+      Particles[p].position = pos
+      Particles[p].velocity = flowVelocity
+      Particles[p].density = Particles_density
+      Particles[p].temperature = Particles_initTemperature
+      Particles[p].diameter = Particles_diameterMean
+    end
+  end
 end
 
 __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
@@ -605,14 +1036,14 @@ do
   var ySize = hi.y-lo.y+1
   var zSize = hi.z-lo.z+1
   var numTiles = config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2]
-  var particlesPerTask = config.Particles.initNum / config.Particles.parcelSize / numTiles
+  var particlesPerTile = config.Particles.initNum / config.Particles.parcelSize / numTiles
   var Particles_density = config.Particles.density
   var Particles_initTemperature = config.Particles.initTemperature
   var Particles_diameterMean = config.Particles.diameterMean
   __demand(__openmp)
   for p in Particles do
     var relIdx = int64(p - pBase)
-    if relIdx < particlesPerTask then
+    if relIdx < particlesPerTile then
       Particles[p].__valid = true
       var c = lo + int3d{relIdx%xSize, relIdx/xSize%ySize, relIdx/xSize/ySize%zSize}
       Particles[p].cell = c
@@ -3208,29 +3639,6 @@ end
 -- PARTICLE MOVEMENT
 -------------------------------------------------------------------------------
 
-__demand(__inline)
-task locate(pos : double[3],
-            Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
-            Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
-            Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
-  var xcw = Grid_xWidth/Grid_xNum
-  var xro = Grid_xOrigin-Grid_xBnum*xcw
-  var xpos = int(floor((pos[0]-xro)/xcw))
-  var xrnum = Grid_xNum+2*Grid_xBnum
-  var xidx = max(0, min(xrnum-1, xpos))
-  var ycw = Grid_yWidth/Grid_yNum
-  var yro = Grid_yOrigin-Grid_yBnum*ycw
-  var ypos = int(floor((pos[1]-yro)/ycw))
-  var yrnum = Grid_yNum+2*Grid_yBnum
-  var yidx = max(0, min(yrnum-1, ypos))
-  var zcw = Grid_zWidth/Grid_zNum
-  var zro = Grid_zOrigin-Grid_zBnum*zcw
-  var zpos = int(floor((pos[2]-zro)/zcw))
-  var zrnum = Grid_zNum+2*Grid_zBnum
-  var zidx = max(0, min(zrnum-1, zpos))
-  return int3d{xidx, yidx, zidx}
-end
-
 __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Particles_LocateInCells(Particles : region(ispace(int1d), Particles_columns),
                              Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
@@ -3590,338 +3998,6 @@ end
 -------------------------------------------------------------------------------
 -- OTHER ROUTINES
 -------------------------------------------------------------------------------
-
-__demand(__inline)
-task TrilinearInterpolateVelocity(xyz : double[3],
-                                  c000 : double[3],
-                                  c100 : double[3],
-                                  c010 : double[3],
-                                  c110 : double[3],
-                                  c001 : double[3],
-                                  c101 : double[3],
-                                  c011 : double[3],
-                                  c111 : double[3],
-                                  Grid_xCellWidth : double, Grid_xRealOrigin : double,
-                                  Grid_yCellWidth : double, Grid_yRealOrigin : double,
-                                  Grid_zCellWidth : double, Grid_zRealOrigin : double)
-  var dX = fmod((((xyz[0]-Grid_xRealOrigin)/Grid_xCellWidth)+0.5), 1.0)
-  var dY = fmod((((xyz[1]-Grid_yRealOrigin)/Grid_yCellWidth)+0.5), 1.0)
-  var dZ = fmod((((xyz[2]-Grid_zRealOrigin)/Grid_zCellWidth)+0.5), 1.0)
-  var oneMinusdX = (1.0-dX)
-  var oneMinusdY = (1.0-dY)
-  var oneMinusdZ = (1.0-dZ)
-  var weight00 = vv_add(vs_mul(c000, oneMinusdX), vs_mul(c100, dX))
-  var weight10 = vv_add(vs_mul(c010, oneMinusdX), vs_mul(c110, dX))
-  var weight01 = vv_add(vs_mul(c001, oneMinusdX), vs_mul(c101, dX))
-  var weight11 = vv_add(vs_mul(c011, oneMinusdX), vs_mul(c111, dX))
-  var weight0 = vv_add(vs_mul(weight00, oneMinusdY), vs_mul(weight10, dY))
-  var weight1 = vv_add(vs_mul(weight01, oneMinusdY), vs_mul(weight11, dY))
-  return vv_add(vs_mul(weight0, oneMinusdZ), vs_mul(weight1, dZ))
-end
-
-__demand(__inline)
-task InterpolateTriVelocity(c : int3d,
-                            xyz : double[3],
-                            Fluid : region(ispace(int3d), Fluid_columns),
-                            Grid_xCellWidth : double, Grid_xRealOrigin : double,
-                            Grid_yCellWidth : double, Grid_yRealOrigin : double,
-                            Grid_zCellWidth : double, Grid_zRealOrigin : double)
-where
-  reads(Fluid.{centerCoordinates, velocity})
-do
-  var i000 = Fluid[c].velocity
-  var i001 = Fluid[((c+{ 0, 0, 1})%Fluid.bounds)].velocity
-  var i00_ = Fluid[((c+{ 0, 0,-1})%Fluid.bounds)].velocity
-  var i010 = Fluid[((c+{ 0, 1, 0})%Fluid.bounds)].velocity
-  var i011 = Fluid[((c+{ 0, 1, 1})%Fluid.bounds)].velocity
-  var i01_ = Fluid[((c+{ 0, 1,-1})%Fluid.bounds)].velocity
-  var i0_0 = Fluid[((c+{ 0,-1, 0})%Fluid.bounds)].velocity
-  var i0_1 = Fluid[((c+{ 0,-1, 1})%Fluid.bounds)].velocity
-  var i0__ = Fluid[((c+{ 0,-1,-1})%Fluid.bounds)].velocity
-
-  var i100 = Fluid[((c+{ 1, 0, 0})%Fluid.bounds)].velocity
-  var i101 = Fluid[((c+{ 1, 0, 1})%Fluid.bounds)].velocity
-  var i10_ = Fluid[((c+{ 1, 0,-1})%Fluid.bounds)].velocity
-  var i110 = Fluid[((c+{ 1, 1, 0})%Fluid.bounds)].velocity
-  var i111 = Fluid[((c+{ 1, 1, 1})%Fluid.bounds)].velocity
-  var i11_ = Fluid[((c+{ 1, 1,-1})%Fluid.bounds)].velocity
-  var i1_0 = Fluid[((c+{ 1,-1, 0})%Fluid.bounds)].velocity
-  var i1_1 = Fluid[((c+{ 1,-1, 1})%Fluid.bounds)].velocity
-  var i1__ = Fluid[((c+{ 1,-1,-1})%Fluid.bounds)].velocity
-
-  var i_00 = Fluid[((c+{-1, 0, 0})%Fluid.bounds)].velocity
-  var i_01 = Fluid[((c+{-1, 0, 1})%Fluid.bounds)].velocity
-  var i_0_ = Fluid[((c+{-1, 0,-1})%Fluid.bounds)].velocity
-  var i_10 = Fluid[((c+{-1, 1, 0})%Fluid.bounds)].velocity
-  var i_11 = Fluid[((c+{-1, 1, 1})%Fluid.bounds)].velocity
-  var i_1_ = Fluid[((c+{-1, 1,-1})%Fluid.bounds)].velocity
-  var i__0 = Fluid[((c+{-1,-1, 0})%Fluid.bounds)].velocity
-  var i__1 = Fluid[((c+{-1,-1, 1})%Fluid.bounds)].velocity
-  var i___ = Fluid[((c+{-1,-1,-1})%Fluid.bounds)].velocity
-
-  var v000 = array(0.0, 0.0, 0.0)
-  var v001 = array(0.0, 0.0, 0.0)
-  var v010 = array(0.0, 0.0, 0.0)
-  var v011 = array(0.0, 0.0, 0.0)
-  var v100 = array(0.0, 0.0, 0.0)
-  var v101 = array(0.0, 0.0, 0.0)
-  var v110 = array(0.0, 0.0, 0.0)
-  var v111 = array(0.0, 0.0, 0.0)
-
-  if (xyz[0]>Fluid[c].centerCoordinates[0]) then
-    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = i000
-        v001 = i001
-        v010 = i010
-        v011 = i011
-        v100 = i100
-        v101 = i101
-        v110 = i110
-        v111 = i111
-      else
-        v000 = i00_
-        v001 = i000
-        v010 = i01_
-        v011 = i010
-        v100 = i10_
-        v101 = i100
-        v110 = i11_
-        v111 = i110
-      end
-    else
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = i0_0
-        v001 = i0_1
-        v010 = i000
-        v011 = i001
-        v100 = i1_0
-        v101 = i1_1
-        v110 = i100
-        v111 = i101
-      else
-        v000 = i0__
-        v001 = i0_0
-        v010 = i00_
-        v011 = i000
-        v100 = i1__
-        v101 = i1_0
-        v110 = i10_
-        v111 = i100
-      end
-    end
-  else
-    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = i_00
-        v001 = i_01
-        v010 = i_10
-        v011 = i_11
-        v100 = i000
-        v101 = i001
-        v110 = i010
-        v111 = i011
-      else
-        v000 = i_0_
-        v001 = i_00
-        v010 = i_1_
-        v011 = i_10
-        v100 = i00_
-        v101 = i000
-        v110 = i01_
-        v111 = i010
-      end
-    else
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = i__0
-        v001 = i__1
-        v010 = i_00
-        v011 = i_01
-        v100 = i0_0
-        v101 = i0_1
-        v110 = i000
-        v111 = i001
-      else
-        v000 = i___
-        v001 = i__0
-        v010 = i_0_
-        v011 = i_00
-        v100 = i0__
-        v101 = i0_0
-        v110 = i00_
-        v111 = i000
-      end
-    end
-  end
-
-  return TrilinearInterpolateVelocity(xyz, v000, v100, v010, v110, v001, v101, v011, v111, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin)
-end
-
-__demand(__inline)
-task TrilinearInterpolateTemp(xyz : double[3],
-                              c000 : double,
-                              c100 : double,
-                              c010 : double,
-                              c110 : double,
-                              c001 : double,
-                              c101 : double,
-                              c011 : double,
-                              c111 : double,
-                              Grid_xCellWidth : double, Grid_xRealOrigin : double,
-                              Grid_yCellWidth : double, Grid_yRealOrigin : double,
-                              Grid_zCellWidth : double, Grid_zRealOrigin : double)
-  var dX = fmod((((xyz[0]-Grid_xRealOrigin)/Grid_xCellWidth)+0.5), 1.0)
-  var dY = fmod((((xyz[1]-Grid_yRealOrigin)/Grid_yCellWidth)+0.5), 1.0)
-  var dZ = fmod((((xyz[2]-Grid_zRealOrigin)/Grid_zCellWidth)+0.5), 1.0)
-  var oneMinusdX = (1.0-dX)
-  var oneMinusdY = (1.0-dY)
-  var oneMinusdZ = (1.0-dZ)
-  var weight00 = ((c000*oneMinusdX)+(c100*dX))
-  var weight10 = ((c010*oneMinusdX)+(c110*dX))
-  var weight01 = ((c001*oneMinusdX)+(c101*dX))
-  var weight11 = ((c011*oneMinusdX)+(c111*dX))
-  var weight0 = ((weight00*oneMinusdY)+(weight10*dY))
-  var weight1 = ((weight01*oneMinusdY)+(weight11*dY))
-  return ((weight0*oneMinusdZ)+(weight1*dZ))
-end
-
-__demand(__inline)
-task InterpolateTriTemp(c : int3d,
-                        xyz : double[3],
-                        Fluid : region(ispace(int3d), Fluid_columns),
-                        Grid_xCellWidth : double, Grid_xRealOrigin : double,
-                        Grid_yCellWidth : double, Grid_yRealOrigin : double,
-                        Grid_zCellWidth : double, Grid_zRealOrigin : double)
-where
-  reads(Fluid.{centerCoordinates, temperature})
-do
-  var i000 = Fluid[c].temperature
-  var i001 = Fluid[((c+{ 0, 0, 1})%Fluid.bounds)].temperature
-  var i00_ = Fluid[((c+{ 0, 0,-1})%Fluid.bounds)].temperature
-  var i010 = Fluid[((c+{ 0, 1, 0})%Fluid.bounds)].temperature
-  var i011 = Fluid[((c+{ 0, 1, 1})%Fluid.bounds)].temperature
-  var i01_ = Fluid[((c+{ 0, 1,-1})%Fluid.bounds)].temperature
-  var i0_0 = Fluid[((c+{ 0,-1, 0})%Fluid.bounds)].temperature
-  var i0_1 = Fluid[((c+{ 0,-1, 1})%Fluid.bounds)].temperature
-  var i0__ = Fluid[((c+{ 0,-1,-1})%Fluid.bounds)].temperature
-
-  var i100 = Fluid[((c+{ 1, 0, 0})%Fluid.bounds)].temperature
-  var i101 = Fluid[((c+{ 1, 0, 1})%Fluid.bounds)].temperature
-  var i10_ = Fluid[((c+{ 1, 0,-1})%Fluid.bounds)].temperature
-  var i110 = Fluid[((c+{ 1, 1, 0})%Fluid.bounds)].temperature
-  var i111 = Fluid[((c+{ 1, 1, 1})%Fluid.bounds)].temperature
-  var i11_ = Fluid[((c+{ 1, 1,-1})%Fluid.bounds)].temperature
-  var i1_0 = Fluid[((c+{ 1,-1, 0})%Fluid.bounds)].temperature
-  var i1_1 = Fluid[((c+{ 1,-1, 1})%Fluid.bounds)].temperature
-  var i1__ = Fluid[((c+{ 1,-1,-1})%Fluid.bounds)].temperature
-
-  var i_00 = Fluid[((c+{-1, 0, 0})%Fluid.bounds)].temperature
-  var i_01 = Fluid[((c+{-1, 0, 1})%Fluid.bounds)].temperature
-  var i_0_ = Fluid[((c+{-1, 0,-1})%Fluid.bounds)].temperature
-  var i_10 = Fluid[((c+{-1, 1, 0})%Fluid.bounds)].temperature
-  var i_11 = Fluid[((c+{-1, 1, 1})%Fluid.bounds)].temperature
-  var i_1_ = Fluid[((c+{-1, 1,-1})%Fluid.bounds)].temperature
-  var i__0 = Fluid[((c+{-1,-1, 0})%Fluid.bounds)].temperature
-  var i__1 = Fluid[((c+{-1,-1, 1})%Fluid.bounds)].temperature
-  var i___ = Fluid[((c+{-1,-1,-1})%Fluid.bounds)].temperature
-
-  var v000 = 0.0
-  var v001 = 0.0
-  var v010 = 0.0
-  var v011 = 0.0
-  var v100 = 0.0
-  var v101 = 0.0
-  var v110 = 0.0
-  var v111 = 0.0
-
-  if (xyz[0]>Fluid[c].centerCoordinates[0]) then
-    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = i000
-        v001 = i001
-        v010 = i010
-        v011 = i011
-        v100 = i100
-        v101 = i101
-        v110 = i110
-        v111 = i111
-      else
-        v000 = i00_
-        v001 = i000
-        v010 = i01_
-        v011 = i010
-        v100 = i10_
-        v101 = i100
-        v110 = i11_
-        v111 = i110
-      end
-    else
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = i0_0
-        v001 = i0_1
-        v010 = i000
-        v011 = i001
-        v100 = i1_0
-        v101 = i1_1
-        v110 = i100
-        v111 = i101
-      else
-        v000 = i0__
-        v001 = i0_0
-        v010 = i00_
-        v011 = i000
-        v100 = i1__
-        v101 = i1_0
-        v110 = i10_
-        v111 = i100
-      end
-    end
-  else
-    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = i_00
-        v001 = i_01
-        v010 = i_10
-        v011 = i_11
-        v100 = i000
-        v101 = i001
-        v110 = i010
-        v111 = i011
-      else
-        v000 = i_0_
-        v001 = i_00
-        v010 = i_1_
-        v011 = i_10
-        v100 = i00_
-        v101 = i000
-        v110 = i01_
-        v111 = i010
-      end
-    else
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = i__0
-        v001 = i__1
-        v010 = i_00
-        v011 = i_01
-        v100 = i0_0
-        v101 = i0_1
-        v110 = i000
-        v111 = i001
-      else
-        v000 = i___
-        v001 = i__0
-        v010 = i_0_
-        v011 = i_00
-        v100 = i0__
-        v101 = i0_0
-        v110 = i00_
-        v111 = i000
-      end
-    end
-  end
-
-  return TrilinearInterpolateTemp(xyz, v000, v100, v010, v110, v001, v101, v011, v111, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin)
-end
 
 __demand(__leaf, __parallel, __cuda)
 task Particles_CalcDeltaTerms(Particles : region(ispace(int1d), Particles_columns),
@@ -5039,7 +5115,17 @@ local function mkInstance() local INSTANCE = {}
     -- Initialize particles
     if config.Particles.maxNum > 0 then
       if config.Particles.initCase == SCHEMA.ParticlesInitCase_Random then
-        regentlib.assert(false, "Random particle initialization is disabled")
+        regentlib.assert((config.Particles.initNum / config.Particles.parcelSize) % numTiles == 0,
+                         'Uneven partitioning of particles')
+        regentlib.assert(config.Particles.initNum <= config.Particles.maxNum,
+                         'Not enough space for initial number of particles')
+        for c in tiles do
+          Particles_InitializeRandom(c,
+                                     p_Particles[c],
+                                     p_Fluid[c],
+                                     config,
+                                     Grid.xBnum, Grid.yBnum, Grid.zBnum)
+        end
       elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart then
         Particles_load(0, tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
         for c in tiles do
@@ -5048,18 +5134,11 @@ local function mkInstance() local INSTANCE = {}
                                   Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
                                   Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
         end
-        for c in tiles do
-          Particles_CheckPartitioning(c,
-                                      p_Particles[c],
-                                      Grid.xBnum, config.Grid.xNum, NX,
-                                      Grid.yBnum, config.Grid.yNum, NY,
-                                      Grid.zBnum, config.Grid.zNum, NZ)
-        end
       elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform then
         regentlib.assert((config.Particles.initNum / config.Particles.parcelSize) % numTiles == 0,
                          'Uneven partitioning of particles')
         regentlib.assert(config.Particles.initNum <= config.Particles.maxNum,
-                         "Not enough space for initial number of particles")
+                         'Not enough space for initial number of particles')
         for c in tiles do
           Particles_InitializeUniform(p_Particles[c],
                                       p_Fluid[c],
@@ -5067,6 +5146,13 @@ local function mkInstance() local INSTANCE = {}
                                       Grid.xBnum, Grid.yBnum, Grid.zBnum)
         end
       else regentlib.assert(false, 'Unhandled case in switch') end
+      for c in tiles do
+        Particles_CheckPartitioning(c,
+                                    p_Particles[c],
+                                    Grid.xBnum, config.Grid.xNum, NX,
+                                    Grid.yBnum, config.Grid.yNum, NY,
+                                    Grid.zBnum, config.Grid.zNum, NZ)
+      end
       Particles_number += Particles_CalculateNumber(Particles)
     end
 
