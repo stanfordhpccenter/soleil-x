@@ -68,6 +68,7 @@ for (f, i) in zip(args.hdf_file, itertools.count()):
         assert ny == hdf_in['pressure'].shape[1]
         assert nz == hdf_in['pressure'].shape[2]
     hdf_out = h5py.File('out%010d.hdf' % i, 'w')
+    #hdf_out = h5py.File('out_fluid.hdf', 'w')
     # Copy pressure over.
     hdf_out['pressure'] = hdf_in['pressure'][:]
     # Copy rho over.
@@ -103,7 +104,7 @@ with open(args.json_file) as json_in:
 
 # NOTE: The XMF format expects grid dimensions in points, not cells, so we have
 # to add 1 on each dimension.
-with open('out.xmf', 'w') as xmf_out:
+with open('out_fluid.xmf', 'w') as xmf_out:
     xmf_out.write(XMF_HEADER)
     for i in range(len(args.hdf_file)):
         xmf_out.write(XMF_BODY

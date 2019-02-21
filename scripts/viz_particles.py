@@ -13,16 +13,16 @@ XMF_TEMPLATE = """<?xml version="1.0" ?>
       <Topology TopologyType="Polyvertex" NumberOfElements="NUM_PARTICLES"></Topology>
       <!-- Geometry: Position of every node (particle) given explicitly -->
       <Geometry GeometryType="XYZ">
-        <DataItem Dimensions="NUM_PARTICLES 3" NumberType="Float" Precision="8" Format="HDF">out.hdf:/position</DataItem>
+        <DataItem Dimensions="NUM_PARTICLES 3" NumberType="Float" Precision="8" Format="HDF">out_particles.hdf:/position</DataItem>
       </Geometry>
       <Attribute Name="temperature" AttributeType="Scalar" Center="Node">
-        <DataItem Dimensions="NUM_PARTICLES" NumberType="Float" Precision="8" Format="HDF">out.hdf:/temperature</DataItem>
+        <DataItem Dimensions="NUM_PARTICLES" NumberType="Float" Precision="8" Format="HDF">out_particles.hdf:/temperature</DataItem>
       </Attribute>
       <Attribute Name="diameter" AttributeType="Scalar" Center="Node">
-        <DataItem Dimensions="NUM_PARTICLES" NumberType="Float" Precision="8" Format="HDF">out.hdf:/diameter</DataItem>
+        <DataItem Dimensions="NUM_PARTICLES" NumberType="Float" Precision="8" Format="HDF">out_particles.hdf:/diameter</DataItem>
       </Attribute>
       <Attribute Name="velocity" AttributeType="Vector" Center="Node">
-        <DataItem Dimensions="NUM_PARTICLES 3" NumberType="Float" Precision="8" Format="HDF">out.hdf:/velocity</DataItem>
+        <DataItem Dimensions="NUM_PARTICLES 3" NumberType="Float" Precision="8" Format="HDF">out_particles.hdf:/velocity</DataItem>
       </Attribute>
     </Grid>
   </Domain>
@@ -34,7 +34,7 @@ parser.add_argument('hdf_file', help='simulation results to visualize')
 args = parser.parse_args()
 
 hdf_in = h5py.File(args.hdf_file, 'r')
-hdf_out = h5py.File('out.hdf', 'w')
+hdf_out = h5py.File('out_particles.hdf', 'w')
 # Create a validity field, use it to filter the rest of the datasets.
 valids = numpy.array(hdf_in['__valid'][:]) > 0
 # Convert position from an array of N triples to an Nx3 matrix.
@@ -48,5 +48,5 @@ hdf_out['velocity'] = hdf_in['velocity'][valids][:]
 hdf_out.close()
 hdf_in.close()
 
-with open('out.xmf', 'w') as xmf_out:
+with open('out_particles.xmf', 'w') as xmf_out:
     xmf_out.write(XMF_TEMPLATE.replace('NUM_PARTICLES', str(sum(valids))))
