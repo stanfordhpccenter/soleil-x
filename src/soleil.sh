@@ -70,25 +70,20 @@ export EXECUTABLE="$SOLEIL_DIR"/src/soleil.exec
 # Total wall-clock time is the maximum across all samples.
 # Total number of ranks is the sum of all sample rank requirements.
 MINUTES=0
-NUM_SAMPLES=0
+NUM_RANKS=0
 function parse_config {
     read -r _MINUTES _NUM_RANKS <<<"$(read_json "$@")"
     MINUTES=$(( MINUTES > _MINUTES ? MINUTES : _MINUTES ))
+    NUM_RANKS=$(( NUM_RANKS + _NUM_RANKS ))
 }
 for (( i = 1; i <= $#; i++ )); do
     j=$((i+1))
     if [[ "${!i}" == "-i" ]] && (( $i < $# )); then
         parse_config "${!j}" "single"
-        NUM_SAMPLES=$(( NUM_SAMPLES + 1 ))
     elif [[ "${!i}" == "-m" ]] && (( $i < $# )); then
         parse_config "${!j}" "dual"
-        NUM_SAMPLES=$(( NUM_SAMPLES + 2 ))
     fi
 done
-NUM_RANKS=$(( NUM_SAMPLES / 128 ))
-if (( $NUM_SAMPLES % 128 > 0 )); then
-    NUM_RANKS=$(( NUM_RANKS + 1 ))
-fi
 if (( NUM_RANKS < 1 )); then
     quit "No configuration files provided"
 fi
