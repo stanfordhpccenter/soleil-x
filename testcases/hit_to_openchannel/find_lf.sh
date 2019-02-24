@@ -1,5 +1,9 @@
 #!/bin/bash -eu
 
+if [ $# -ne 2 ]; then
+    echo "Usage: $(basename "${BASH_SOURCE[0]}") levels.dat jobid"
+    exit 1
+fi
 LEVELS_DAT="$1"
 JOBID="$2"
 
