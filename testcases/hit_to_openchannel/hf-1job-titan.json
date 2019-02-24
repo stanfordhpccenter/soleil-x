@@ -82,9 +82,9 @@
             "sutherlandViscRef" : -1.0,
             "sutherlandTempRef" : -1.0,
             "sutherlandSRef" : -1.0,
-            "initCase" : "Perturbed",
+            "initCase" : "Random",
             "restartDir" : "",
-            "initParams" : [1.2, 104040.0, "TBD", 0.0, 0.0],
+            "initParams" : [1.2, 104040.0, 0.001, -1.0, -1.0],
             "bodyForce" : [0.0, 0.0, 0.0],
             "turbForcing" : {
                 "type" : "HIT",
@@ -150,7 +150,7 @@
             },
             "xBCLeftInflowProfile" : {
                 "type" : "Incoming",
-                "addedVelocity" : 0.0
+                "addedVelocity" : "TBD"
             },
             "xBCRight" : "NSCBC_SubsonicOutflow",
             "xBCRightVel" : [-1.0, -1.0, -1.0],
@@ -229,7 +229,7 @@
             "collisions" : false,
             "feeding" : {
                 "type" : "Incoming",
-                "addedVelocity" : [0.0,0.0,0.0]
+                "addedVelocity" : ["TBD",0.0,0.0]
             },
             "staggerFactor" : "TBD",
             "parcelSize" : 1
