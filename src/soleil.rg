@@ -1298,9 +1298,9 @@ do
   for c in Fluid do
     Fluid[c].rho = Flow_initParams[0]
     Fluid[c].pressure = Flow_initParams[1]
-    Fluid[c].velocity = array(Flow_initParams[2] + (drand48_r(rngStatePtr)-0.5)*10.0,
-                              Flow_initParams[3] + (drand48_r(rngStatePtr)-0.5)*10.0,
-                              Flow_initParams[4] + (drand48_r(rngStatePtr)-0.5)*10.0)
+    Fluid[c].velocity = array(Flow_initParams[2] + 2 * (drand48_r(rngStatePtr) - 0.5) * 0.001,
+                              Flow_initParams[3] + 2 * (drand48_r(rngStatePtr) - 0.5) * 0.001,
+                              Flow_initParams[4] + 2 * (drand48_r(rngStatePtr) - 0.5) * 0.001)
   end
 end
 
