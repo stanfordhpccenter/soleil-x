@@ -1206,7 +1206,7 @@ do
 end
 
 __demand(__leaf, __parallel, __cuda)
-task Flow_InitializeUniform(Fluid : region(ispace(int3d), Fluid_columns), Flow_initParams : double[5])
+task Flow_InitializeUniform(Fluid : region(ispace(int3d), Fluid_columns), Flow_initParams : double[6])
 where
   writes(Fluid.{rho, pressure, velocity})
 do
@@ -1220,7 +1220,7 @@ end
 
 __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Flow_InitializeRandom(Fluid : region(ispace(int3d), Fluid_columns),
-                           Flow_initParams : double[5])
+                           Flow_initParams : double[6])
 where
   writes(Fluid.{rho, pressure, velocity})
 do
@@ -1240,7 +1240,7 @@ end
 -- CHANGE do not compute xy instead just pass in cell center since it is computed before this task will be called
 __demand(__leaf, __parallel, __cuda)
 task Flow_InitializeTaylorGreen2D(Fluid : region(ispace(int3d), Fluid_columns),
-                                  Flow_initParams : double[5],
+                                  Flow_initParams : double[6],
                                   Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
                                   Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
                                   Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
@@ -1265,7 +1265,7 @@ end
 -- CHANGE do not compute xy instead just pass in cell center since it is computed before this task will be called
 __demand(__leaf, __parallel, __cuda)
 task Flow_InitializeTaylorGreen3D(Fluid : region(ispace(int3d), Fluid_columns),
-                                  Flow_initParams : double[5],
+                                  Flow_initParams : double[6],
                                   Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
                                   Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
                                   Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
@@ -1288,19 +1288,20 @@ end
 
 __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Flow_InitializePerturbed(Fluid : region(ispace(int3d), Fluid_columns),
-                              Flow_initParams : double[5])
+                              Flow_initParams : double[6])
 where
   writes(Fluid.{rho, pressure, velocity})
 do
+  var magnitude = Flow_initParams[5]
   var rngState : C.drand48_data[1]
   var rngStatePtr = [&C.drand48_data](rngState)
   C.srand48_r(C.legion_get_current_time_in_nanos(), rngStatePtr)
   for c in Fluid do
     Fluid[c].rho = Flow_initParams[0]
     Fluid[c].pressure = Flow_initParams[1]
-    Fluid[c].velocity = array(Flow_initParams[2] + 2 * (drand48_r(rngStatePtr) - 0.5) * 0.001,
-                              Flow_initParams[3] + 2 * (drand48_r(rngStatePtr) - 0.5) * 0.001,
-                              Flow_initParams[4] + 2 * (drand48_r(rngStatePtr) - 0.5) * 0.001)
+    Fluid[c].velocity = array(Flow_initParams[2] + 2 * (drand48_r(rngStatePtr) - 0.5) * magnitude,
+                              Flow_initParams[3] + 2 * (drand48_r(rngStatePtr) - 0.5) * magnitude,
+                              Flow_initParams[4] + 2 * (drand48_r(rngStatePtr) - 0.5) * magnitude)
   end
 end
 

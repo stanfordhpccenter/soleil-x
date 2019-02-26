@@ -84,7 +84,7 @@
             "sutherlandSRef" : -1.0,
             "initCase" : "Random",
             "restartDir" : "",
-            "initParams" : [1.2, 104040.0, 0.001, -1.0, -1.0],
+            "initParams" : [1.2, 104040.0, 0.001, -1.0, -1.0, -1.0],
             "bodyForce" : [0.0, 0.0, 0.0],
             "turbForcing" : {
                 "type" : "HIT",
@@ -207,7 +207,7 @@
             "sutherlandSRef" : -1.0,
             "initCase" : "Uniform",
             "restartDir" : "",
-            "initParams" : [1.2, 104040.0, "TBD", 0.0, 0.0],
+            "initParams" : [1.2, 104040.0, "TBD", 0.0, 0.0, -1.0],
             "bodyForce" : [0.0, 0.0, 0.0],
             "turbForcing" : { "type" : "OFF" }
         },

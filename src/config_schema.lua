@@ -175,7 +175,7 @@ Exports.Config = {
     sutherlandSRef = double,
     initCase = Exports.FlowInitCase,
     restartDir = String(256),
-    initParams = Array(5,double),
+    initParams = Array(6,double),
     bodyForce = Array(3,double),
     turbForcing = Exports.TurbForcingModel,
   },
