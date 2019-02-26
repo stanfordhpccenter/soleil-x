@@ -5,7 +5,7 @@
 CORES_PER_NODE=40
 RAM_PER_NODE=100000
 GPUS_PER_NODE=4
-FB_PER_GPU=14000
+FB_PER_GPU=14500
 source "$SOLEIL_DIR"/src/jobscript_shared.sh
 
 # NOTE: We have to run through the pick_hcas.py script, due to a GASNet bug.
