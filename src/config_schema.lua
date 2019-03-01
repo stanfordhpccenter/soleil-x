@@ -41,6 +41,7 @@ Exports.InflowProfile = Union{
 Exports.TurbForcingModel = Union{
   OFF = {},
   HIT = {
+    meanVelocity = Array(3,double),
     G = double,
     t_o = double,
     K_o = double,

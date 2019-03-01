@@ -3321,10 +3321,29 @@ do
 end
 
 __demand(__leaf, __parallel, __cuda)
-task CalculateAveragePD(Fluid : region(ispace(int3d), Fluid_columns),
-                        Grid_xBnum : int32, Grid_xNum : int32,
-                        Grid_yBnum : int32, Grid_yNum : int32,
-                        Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_AddVelocity(Fluid : region(ispace(int3d), Fluid_columns),
+                      velocity : double[3],
+                      Grid_xBnum : int32, Grid_xNum : int32,
+                      Grid_yBnum : int32, Grid_yNum : int32,
+                      Grid_zBnum : int32, Grid_zNum : int32)
+where
+  reads writes(Fluid.velocity)
+do
+  __demand(__openmp)
+  for c in Fluid do
+    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
+      [UTIL.emitArrayReduce(3, '+',
+         rexpr Fluid[c].velocity end,
+         rexpr velocity end)];
+    end
+  end
+end
+
+__demand(__leaf, __parallel, __cuda)
+task Flow_CalculateAveragePD(Fluid : region(ispace(int3d), Fluid_columns),
+                             Grid_xBnum : int32, Grid_xNum : int32,
+                             Grid_yBnum : int32, Grid_yNum : int32,
+                             Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{pressure, velocityGradientX, velocityGradientY, velocityGradientZ})
 do
@@ -5387,14 +5406,19 @@ local function mkInstance() local INSTANCE = {}
 
       -- Add turbulent forcing
       if config.Flow.turbForcing.type == SCHEMA.TurbForcingModel_HIT then
+        Flow_AddVelocity(Fluid,
+                         vs_mul(config.Flow.turbForcing.u.HIT.meanVelocity, -1.0),
+                         Grid.xBnum, config.Grid.xNum,
+                         Grid.yBnum, config.Grid.yNum,
+                         Grid.zBnum, config.Grid.zNum)
         var Flow_averageDissipation = 0.0
         var Flow_averageFe = 0.0
         var Flow_averageK = 0.0
         var Flow_averagePD = 0.0
-        Flow_averagePD += CalculateAveragePD(Fluid,
-                                             Grid.xBnum, config.Grid.xNum,
-                                             Grid.yBnum, config.Grid.yNum,
-                                             Grid.zBnum, config.Grid.zNum)
+        Flow_averagePD += Flow_CalculateAveragePD(Fluid,
+                                                  Grid.xBnum, config.Grid.xNum,
+                                                  Grid.yBnum, config.Grid.yNum,
+                                                  Grid.zBnum, config.Grid.zNum)
         Flow_averagePD /= config.Grid.xNum * config.Grid.yNum * config.Grid.zNum
         Flow_ResetDissipation(Fluid)
         Flow_ComputeDissipationX(Fluid,
@@ -5460,6 +5484,11 @@ local function mkInstance() local INSTANCE = {}
                                    Grid.xBnum, config.Grid.xNum,
                                    Grid.yBnum, config.Grid.yNum,
                                    Grid.zBnum, config.Grid.zNum)
+        Flow_AddVelocity(Fluid,
+                         config.Flow.turbForcing.u.HIT.meanVelocity,
+                         Grid.xBnum, config.Grid.xNum,
+                         Grid.yBnum, config.Grid.yNum,
+                         Grid.zBnum, config.Grid.zNum)
       end
 
       -- Particles & radiation solve
