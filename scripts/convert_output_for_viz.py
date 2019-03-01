@@ -14,31 +14,13 @@ parser.add_argument('--sampledir', nargs='?', const='.', default='.',
 args = parser.parse_args()
 
 sample_dir = args.sampledir
-out_dir    = os.path.join(sample_dir,'viz_ready_output')
+out_dir    = os.path.join(sample_dir,'viz_ready_data')
 
 print('##############################################################################')
-print('                       Set up directory for viz files')
+print('                     Set up directory for viz ready data files')
 print('##############################################################################')
-
-# Delete old output directory if it exists
-if os.path.isdir(out_dir):
-  try:  
-      shutil.rmtree(out_dir)
-  except OSError:  
-      print("Failed to delete directory: {}".format(out_dir))
-      sys.exit()
-  else:  
-      print("Successfully deleted directory: {}".format(out_dir))
-
-# Create a new directory for the output
-try:  
-    os.mkdir(out_dir)
-except OSError:  
-    print("Failed to create directory: {}".format(out_dir))
-    sys.exit()
-else:  
-    print("Successfully created directory: {}".format(out_dir))
-print('')
+if not os.path.exists(out_dir):
+    os.makedirs(out_dir)
 
 print('##############################################################################')
 print('                          Generate fluid viz files ')
