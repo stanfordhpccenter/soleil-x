@@ -69,7 +69,7 @@ function run_titan {
 }
 
 function run_summit {
-    GROUP="${GROUP:-CSC275IACCARINO}"
+    GROUP="${GROUP:-CSC335}"
     export QUEUE="${QUEUE:-batch}"
     EXCLUDED="$(cat "$SOLEIL_DIR"/src/blacklist/summit.txt |
                 sed 's/^/ \&\& (hname != /'  | sed 's/$/)/' |
@@ -81,7 +81,7 @@ function run_summit {
     if [[ ! -z "$AFTER" ]]; then
         DEPS="-w done($AFTER)"
     fi
-    bsub -csm y -J soleil -P "$GROUP" -alloc_flags smt4 \
+    bsub -csm y -J soleil -P "$GROUP" -alloc_flags smt1 \
         -R "$RESOURCES" -W "$MINUTES" -q "$QUEUE" $DEPS \
         "$SOLEIL_DIR"/src/summit.lsf
 }

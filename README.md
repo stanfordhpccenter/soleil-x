@@ -330,7 +330,7 @@ export CONDUIT=ibv
 export LEGION_DIR=???
 export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
-export SCRATCH=/gpfs/alpinetds/proj-shared/csc275/stanford
+export SCRATCH=/gpfs/alpine/proj-shared/csc335/stanford
 # CUDA config
 export CUDA_HOME=/sw/summit/cuda/9.0.184
 export CUDA="$CUDA_HOME"
@@ -348,7 +348,7 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-branch 'luajit2.1-ppc64'
+TERRA_USE_PUC_LUA=1 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-branch 'puc_lua_master'
 ```
 
 ### Compile Soleil-X
