@@ -67,6 +67,11 @@ if [[ "$USE_CUDA" == 1 ]]; then
     fi
 fi
 
+# Add debugging flags
+DEBUG_OPTS=
+if [[ "$DEBUG" == 1 ]]; then
+    DEBUG_OPTS="-ll:force_kthreads"
+fi
 # Add profiling flags
 PROFILER_OPTS=
 if [[ "$PROFILE" == 1 ]]; then
@@ -84,7 +89,7 @@ if [[ "$LOCAL_RUN" == 0 ]]; then
 fi
 # Synthesize final command
 COMMAND="$EXECUTABLE $ARGS \
-  $PROFILER_OPTS \
+  $DEBUG_OPTS $PROFILER_OPTS \
   -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr $THREADS_PER_RANK \
   $GPU_OPTS \
   -ll:util 4 -ll:ahandlers 4 -ll:io 1 -ll:dma 2 \

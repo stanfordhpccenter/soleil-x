@@ -19,8 +19,8 @@ export USE_CUDA="${USE_CUDA:-1}"
 # Whether to emit Legion profiler logs
 export PROFILE="${PROFILE:-0}"
 
-# Whether to print a backtrace on crash (interferes with signal handling)
-export GASNET_BACKTRACE="${GASNET_BACKTRACE:-1}"
+# Whether to freeze Legion execution on crash
+export DEBUG="${DEBUG:-0}"
 
 # How many ranks to instantiate per node
 export RANKS_PER_NODE="${RANKS_PER_NODE:-1}"
