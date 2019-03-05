@@ -316,7 +316,6 @@ id : int64;
 }
 
 
-
 task VisualizeInit(config : Config,
                   Fluid : region(ispace(int3d), Fluid_columns),
                   p_Fluid : partition(disjoint, Fluid, ispace(int3d)),
@@ -371,6 +370,7 @@ do
     end
   end
 
+  -- return the image partition
   var result = render.cxx_initialize(__runtime(),
                                     __context(),
                                     config.Mapping.sampleId,
@@ -382,8 +382,8 @@ end
 
 task render_tile(FluidSubregion : region(ispace(int3d), Fluid_columns),
               ParticlesSubregion : region(ispace(int1d), Particles_columns),
+              ImageSubregion : region(ispace(int3d), Image_columns),
               Fluid : region(ispace(int3d), Fluid_columns),
-              Image : region(ispace(int3d), Image_columns),
               Particles : region(ispace(int1d), Particles_columns),
               p_Fluid : partition(disjoint, Fluid, ispace(int3d)),
               p_Particles : partition(disjoint, Particles, ispace(int3d)),
@@ -393,18 +393,15 @@ task render_tile(FluidSubregion : region(ispace(int3d), Fluid_columns),
               config : Config
 )
 where
-  reads(Fluid, Particles, particlesToDraw)
+  reads(Fluid, Particles, particlesToDraw),
+  writes(ImageSubregion)
 do
   var numFluidFields : int = 37
   var fluidFields : C.legion_field_id_t[numFluidFields] = __fields(Fluid)
   var numParticlesFields : int = 21
   var particlesFields : C.legion_field_id_t[numParticlesFields] = __fields(Particles)
   var numImageFields : int = 5
-  var imageFields : C.legion_field_id_t[numImageFields] = __fields(Image)
-
-/*
-legion_runtime_t, legion_context_t, int32, legion_physical_region_t[37], uint32[37], int32, legion_physical_region_t[20], uint32[20], int32, legion_physical_region_t[0], uint32[0], int32, legion_logical_partition_t, legion_logical_partition_t, int32, int32, double, legion_physical_region_t[1], double[3], double[3]
-*/
+  var imageFields : C.legion_field_id_t[numImageFields] = __fields(ImageSubregion)
 
   render.cxx_render(__runtime(),
                     __context(),
@@ -415,7 +412,7 @@ legion_runtime_t, legion_context_t, int32, legion_physical_region_t[37], uint32[
                     __physical(Particles),
                     particlesFields,
                     numParticlesFields,
-                    __physical(Image),
+                    __physical(ImageSubregion),
                     imageFields,
                     numImageFields,
                     __raw(p_Fluid),
@@ -442,15 +439,18 @@ task Visualize(config : Config,
               particlesToDraw : region(ispace(int1d), Draw_columns),
               lowerBound : double[3],
               upperBound : double[3],
-              tiles : ispace(int3d,
-              p_Image : partition(disjoint, Image, ispace(int3d)))
+              tiles : ispace(int3d),
+              Image : region(ispace(int3d), Image_columns),
+              p_Image : partition(disjoint, Image, ispace(int3d))
 )
 where
-  reads(Fluid, Particles, particlesToDraw)
+  reads(Fluid, Particles, particlesToDraw),
+  writes(Image)
 do
   if Integrator_timeStep % config.Visualization.stepsPerRender == 0 and config.Visualization.stepsPerRender > 0 then
+-- TODO change this for i in linear index space do, compute c from i
     for c in tiles do
-      var index = c.x + c.y * config.Mapping.tiles[0] + c.z * config.Mapping.tiles[0] * config.Mapping.tiles[1]
+      var index : int3d = { 0, 0, c.x + c.y * config.Mapping.tiles[0] + c.z * config.Mapping.tiles[0] * config.Mapping.tiles[1] }
       render_tile(p_Fluid[c], p_Particles[c], p_Image[index], Fluid, Particles, p_Fluid, p_Particles, particlesToDraw, lowerBound, upperBound, config)
     end
   end
@@ -4673,8 +4673,8 @@ local function mkInstance() local INSTANCE = {}
   local lowerBound = regentlib.newsymbol(double [3], "lowerBound");
   local upperBound = regentlib.newsymbol(double [3], "upperBound");
 
-  local Image = regentlib.newsymbol()
-  local p_Image = regentlib.newsymbol()
+  local Image = regentlib.newsymbol(region(ispace(int3d), Image_columns))
+  local p_Image = regentlib.newsymbol(partition(disjoint, Image, ispace(int3d)))
 
   -----------------------------------------------------------------------------
   -- Exported symbols
@@ -5848,7 +5848,7 @@ local SIM = mkInstance()
 __forbid(__optimize) __demand(__inner, __replicable)
 task workSingle(config : Config)
   [SIM.DeclSymbols(config)];
-  var p_Image = VisualizeInit(config, SIM.Fluid, SIM.p_Fluid, SIM.Particles, SIM.particlesToDraw, SIM.lowerBound, SIM.upperBound)
+  var ImageResult = VisualizeInit(config, SIM.Fluid, SIM.p_Fluid, SIM.Particles, SIM.particlesToDraw, SIM.lowerBound, SIM.upperBound)
   var is_FakeCopyQueue = ispace(int1d, 0)
   var [FakeCopyQueue] = region(is_FakeCopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
@@ -5861,7 +5861,10 @@ task workSingle(config : Config)
         break
       end
       [SIM.MainLoopBody(config, FakeCopyQueue)];
-      Visualize(config, SIM.Integrator_timeStep, SIM.Fluid, SIM.Particles, SIM.p_Fluid, SIM.p_Particles, SIM.particlesToDraw, SIM.lowerBound, SIM.upperBound, SIM.tiles, p_Image)
+      var indexSpace = __import_ispace(int3d, ImageResult.indexSpace)
+      var imageX = __import_region(indexSpace, Image_columns, ImageResult.imageX, ImageResult.imageFields)
+      var p_Image = __import_partition(disjoint, imageX, ImageResult.colorSpace, ImageResult.p_Image)
+      Visualize(config, SIM.Integrator_timeStep, SIM.Fluid, SIM.Particles, SIM.p_Fluid, SIM.p_Particles, SIM.particlesToDraw, SIM.lowerBound, SIM.upperBound, SIM.tiles, imageX, p_Image)
     end
   end)];
   [SIM.Cleanup(config)];

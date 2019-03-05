@@ -433,7 +433,7 @@ extern "C" {
   
   
   // this entry point is called once from the main task
-  legion_logical_partition_t cxx_initialize(
+  RegionPartition cxx_initialize(
                                     legion_runtime_t runtime_,
                                     legion_context_t ctx_,
                                     legion_mapper_id_t sampleId,
@@ -454,7 +454,11 @@ extern "C" {
     }
     
     Visualization::ImageReduction* compositor = gImageCompositors[sampleId];
-    return compositor->depthPartition();
+    RegionPartition result;
+    result.indexSpace = compositor->sourceIndexSpace();
+    result.imageX = compositor->sourceImage();
+    result.p_Image = compositor->depthPartition();
+    return result;
   }
   
   

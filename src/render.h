@@ -28,15 +28,19 @@ extern "C" {
   void cxx_preinitialize(legion_mapper_id_t mapperID);
   
   typedef struct {
-    legion_logical_region_t image;
-    legion_logical_partition_t imagePartition;
-  } CxxInitializeResult;
+    legion_index_space_t indexSpace;
+    legion_logical_region_t imageX;
+    legion_field_id_t imageFields[5];
+    legion_color_space_t colorSpace;
+    legion_logical_partition_t p_Image;
+  } RegionPartition;
   
-  legion_logical_partition_t cxx_initialize(
+  RegionPartition cxx_initialize(
                   legion_runtime_t runtime_,
                   legion_context_t ctx_,
                   legion_mapper_id_t sampleId,
                   legion_logical_partition_t fluidPartition_);
+  
   
   void cxx_render(legion_runtime_t runtime_,
                   legion_context_t ctx_,
@@ -48,7 +52,7 @@ extern "C" {
                   legion_field_id_t* particlesFields_,
                   int numParticlesFields,
                   legion_physical_region_t* image_,
-                  legion_field_id_t* imageFields[],
+                  legion_field_id_t* imageFields_,
                   int numImageFields,
                   legion_logical_partition_t fluidPartition_,
                   legion_logical_partition_t particlesPartition_,
