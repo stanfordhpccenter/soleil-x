@@ -354,11 +354,14 @@ do
 end
 
 if USE_HDF then
-  local HDF = require "hdf_helper"
-  Fluid_dump, Fluid_load = HDF.mkHDFTasks(
-    int3d, int3d, Fluid_columns, Fluid_primitives)
-  Particles_dump, Particles_load = HDF.mkHDFTasks(
-    int1d, int3d, Particles_columns, Particles_primitives)
+  local HDF_FLUID = (require "hdf_helper")
+    (int3d, int3d, Fluid_columns, Fluid_primitives)
+  Fluid_dump = HDF_FLUID.dump
+  Fluid_load = HDF_FLUID.load
+  local HDF_PARTICLES = (require "hdf_helper")
+    (int1d, int3d, Particles_columns, Particles_primitives)
+  Particles_dump = HDF_PARTICLES.dump
+  Particles_load = HDF_PARTICLES.load
 end
 
 -- regentlib.rexpr, regentlib.rexpr, regentlib.rexpr* -> regentlib.rquote
