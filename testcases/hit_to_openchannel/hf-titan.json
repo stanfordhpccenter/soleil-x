@@ -92,6 +92,12 @@
                 "G" : 67.0,
                 "t_o" : "TBD",
                 "K_o" : "TBD"
+            },
+            "massFluxForcing" : {
+                "type" : "ON",
+                "direction" : "X",
+                "plane" : [0,0],
+                "targetValue" : "TBD"
             }
         },
 
@@ -210,7 +216,8 @@
             "restartDir" : "",
             "initParams" : [1.2, 104040.0, "TBD", 0.0, 0.0, -1.0],
             "bodyForce" : [0.0, 0.0, 0.0],
-            "turbForcing" : { "type" : "OFF" }
+            "turbForcing" : { "type" : "OFF" },
+            "massFluxForcing" : { "type" : "OFF" }
         },
 
         "Particles" : {
