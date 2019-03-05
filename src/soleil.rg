@@ -1149,6 +1149,49 @@ do
 
 end
 
+
+__demand(__parallel, __cuda)
+task Radiation_InitializeGeometry(Radiation : region(ispace(int3d), Radiation_columns),
+                                  Fluid : region(ispace(int3d), Fluid_columns),
+                                  Grid_xNum : int32,
+                                  Grid_yNum : int32,
+                                  Grid_zNum : int32,
+                                  Radiation_xNum : int32,
+                                  Radiation_yNum : int32,
+                                  Radiation_zNum : int32)
+where
+  reads writes(Radiation.{centerCoordinates, cellWidth}),
+  reads (Fluid.{centerCoordinates, cellWidth, to_Radiation})
+do
+  -- How many radiation cells per fluid cells
+  var xFactor = (Grid_xNum/Radiation_xNum)
+  var yFactor = (Grid_yNum/Radiation_yNum)
+  var zFactor = (Grid_zNum/Radiation_zNum)
+
+  __demand(__openmp)
+  for rad_index in Radiation.ispace do
+    var fluid_index_x_neg = (rad_index.x  )*xFactor 
+    var fluid_index_x_pos = (rad_index.x+1)*xFactor - 1
+
+    var fluid_index_y_neg = (rad_index.y  )*yFactor 
+    var fluid_index_y_pos = (rad_index.y+1)*yFactor - 1
+
+    var fluid_index_z_neg = (rad_index.z  )*zFactor 
+    var fluid_index_z_pos = (rad_index.z+1)*zFactor - 1
+    
+    Radiation[rad_index].cellWidth[0] = (Fluid[fluid_index_x_pos].centerCoordinates[0]+Fluid[fluid_index_x_pos].cellWidth[0]) - 
+                                        (Fluid[fluid_index_x_neg].centerCoordinates[0]-Fluid[fluid_index_x_neg].cellWidth[0])
+
+    Radiation[rad_index].cellWidth[1] = (Fluid[fluid_index_y_pos].centerCoordinates[1]+Fluid[fluid_index_y_pos].cellWidth[1]) - 
+                                        (Fluid[fluid_index_y_neg].centerCoordinates[1]-Fluid[fluid_index_y_neg].cellWidth[1])
+
+    Radiation[rad_index].cellWidth[2] = (Fluid[fluid_index_z_pos].centerCoordinates[2]+Fluid[fluid_index_z_pos].cellWidth[2]) - 
+                                        (Fluid[fluid_index_z_neg].centerCoordinates[2]-Fluid[fluid_index_z_neg].cellWidth[2])
+  end
+
+end
+
+
 __demand(__parallel, __cuda)
 task Flow_FindRealOriginX(Fluid : region(ispace(int3d), Fluid_columns),
                           Grid_xOrigin : double)
@@ -6360,6 +6403,15 @@ local function mkInstance() local INSTANCE = {}
     Grid.xRealMax max= Flow_FindRealMaxX(Fluid, config.Grid.origin[0] + config.Grid.xWidth)
     Grid.yRealMax max= Flow_FindRealMaxY(Fluid, config.Grid.origin[1] + config.Grid.yWidth)
     Grid.zRealMax max= Flow_FindRealMaxZ(Fluid, config.Grid.origin[2] + config.Grid.zWidth)
+
+    Radiation_InitializeGeometry(Radiation,
+                                 Fluid,
+                                 config.Grid.xNum,
+                                 config.Grid.yNum,
+                                 config.Grid.zNum,
+                                 config.Radiation.u.DOM.xNum,
+                                 config.Radiation.u.DOM.yNum,
+                                 config.Radiation.u.DOM.zNum)
 
     if config.Flow.initCase == SCHEMA.FlowInitCase_Uniform then
       Flow_InitializeUniform(Fluid, config.Flow.initParams)

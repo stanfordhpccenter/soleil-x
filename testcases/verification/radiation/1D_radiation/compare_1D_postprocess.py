@@ -96,9 +96,9 @@ G_error  = np.empty([len(x_compare), len(y_compare), len(z_compare)])
 qx_error = np.empty([len(x_compare), len(y_compare), len(z_compare)])
 
 # Find the same 
-for x_idx in xrange(len(x_compare)):
-  for y_idx in xrange(len(y_compare)):
-    for z_idx in xrange(len(z_compare)):
+for x_idx in range(len(x_compare)):
+  for y_idx in range(len(y_compare)):
+    for z_idx in range(len(z_compare)):
 
         # Find what cell the compare point is in
         if x_compare[x_idx] >= Nx*dx:

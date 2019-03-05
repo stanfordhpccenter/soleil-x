@@ -114,7 +114,7 @@ omega = np.divide(sigma_s,sigma_e)   # [unitless]
 
 # Optical Depth Units (Normal to Wall)
 tau = np.zeros([len(x)])       # [unitless]
-for i in xrange(0,len(x)):
+for i in range(0,len(x)):
     tau[i] = np.trapz(sigma_e[0:i+1],x[0:i+1])
 
 # Print a summary of the input to the terminal
@@ -190,7 +190,7 @@ q     = np.zeros([Nx_analytical])
 res = 1.0
 while res > np.power(10.0,-6) :
 
-    for i in xrange(0,len(tau)):
+    for i in range(0,len(tau)):
 
 #        #######################################################################
 #        # Evaluate the integrals in the G equation using the quad function
