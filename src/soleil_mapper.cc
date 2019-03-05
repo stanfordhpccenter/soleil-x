@@ -364,7 +364,8 @@ private:
     if (task.is_index_space ||
         STARTS_WITH(task.get_task_name(), "sweep_") ||
         EQUALS(task.get_task_name(), "cache_grid_translation") ||
-        EQUALS(task.get_task_name(), "initialize_angles")) {
+        EQUALS(task.get_task_name(), "initialize_angles") ||
+        STARTS_WITH(task.get_task_name(), "readTileAttr")) {
       CHECK(!task.regions.empty(),
             "Expected region argument in call to %s", task.get_task_name());
       const RegionRequirement& req = task.regions[0];
@@ -423,7 +424,8 @@ private:
   DomainPoint find_tile(const MapperContext ctx,
                         const Task& task) const {
     // 3D index space tasks that are launched individually
-    if (STARTS_WITH(task.get_task_name(), "sweep_")) {
+    if (STARTS_WITH(task.get_task_name(), "sweep_") ||
+        STARTS_WITH(task.get_task_name(), "readTileAttr")) {
       assert(!task.regions.empty() && task.regions[0].region.exists());
       DomainPoint tile =
         runtime->get_logical_region_color_point(ctx, task.regions[0].region);
@@ -487,7 +489,8 @@ private:
              EQUALS(task.get_task_name(), "createDir") ||
              EQUALS(task.get_task_name(), "__dummy") ||
              STARTS_WITH(task.get_task_name(), "__unary_") ||
-             STARTS_WITH(task.get_task_name(), "__binary_")) {
+             STARTS_WITH(task.get_task_name(), "__binary_") ||
+             STARTS_WITH(task.get_task_name(), "readTileAttr")) {
       unsigned sample_id = find_sample_id(ctx, task);
       SampleMapping& mapping = sample_mappings_[sample_id];
       DomainPoint tile = find_tile(ctx, task);
