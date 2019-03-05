@@ -299,6 +299,7 @@ where
   Fluid * Fluid_copy
 do
   regentlib.assert(false, 'Recompile with USE_HDF=1')
+  return _
 end
 
 local __demand(__inline)
@@ -315,6 +316,7 @@ where
   Fluid * Fluid_copy
 do
   regentlib.assert(false, 'Recompile with USE_HDF=1')
+  return _
 end
 
 local __demand(__inline)
@@ -331,6 +333,7 @@ where
   Particles * Particles_copy
 do
   regentlib.assert(false, 'Recompile with USE_HDF=1')
+  return _
 end
 
 local __demand(__inline)
@@ -345,6 +348,7 @@ where
   reads writes(Particles.[Particles_primitives]),
   reads writes(Particles_copy.[Particles_primitives]),
   Particles * Particles_copy
+  return _
 do
   regentlib.assert(false, 'Recompile with USE_HDF=1')
 end
@@ -372,7 +376,8 @@ local function emitConsoleWrite(config, format, ...)
 end
 
 __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task Console_WriteHeader(config : Config)
+task Console_WriteHeader(_ : int,
+                         config : Config)
   [emitConsoleWrite(config, 'Iteration\t'..
                             'Sim Time\t'..
                             'Wall Time\t'..
@@ -382,6 +387,7 @@ task Console_WriteHeader(config : Config)
                             'Avg KE\t'..
                             'Particle Num\t'..
                             'Avg Particle T\n')];
+  return _
 end
 
 __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
@@ -527,16 +533,19 @@ do
 end
 
 __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task Probe_WriteHeader(config : Config,
+task Probe_WriteHeader(_ : int,
+                       config : Config,
                        probeId : int)
   [emitProbeWrite(config, probeId, 'Iter\t'..
                                    'AvgFluidT\t'..
                                    'AvgParticleT\t'..
                                    'AvgCellOfParticleT\n')];
+  return _
 end
 
 __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task Probe_Write(config : Config,
+task Probe_Write(_ : int,
+                 config : Config,
                  probeId : int,
                  Integrator_timeStep : int,
                  avgFluidT : double,
@@ -550,12 +559,14 @@ task Probe_Write(config : Config,
                   avgFluidT,
                   avgParticleT,
                   avgCellOfParticleT)];
+  return _
 end
 
 __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task createDir(dirname : regentlib.string)
+task createDir(_ : int,
+               dirname : regentlib.string)
   UTIL.createDir(dirname)
-  return 0
+  return _
 end
 
 -------------------------------------------------------------------------------
@@ -4596,12 +4607,12 @@ local function mkInstance() local INSTANCE = {}
     var [startTime] = C.legion_get_current_time_in_micros() / 1000;
 
     -- Write console header
-    Console_WriteHeader(config)
+    Console_WriteHeader(0, config)
 
     -- Write probe file headers
     var probeId = 0
     while probeId < config.IO.probes.length do
-      Probe_WriteHeader(config, probeId)
+      Probe_WriteHeader(0, config, probeId)
       probeId += 1
     end
 
@@ -5261,7 +5272,7 @@ local function mkInstance() local INSTANCE = {}
         avgParticleT += Probe_AvgParticleT(Particles, probe, totalParticles)
         avgCellOfParticleT += Probe_AvgCellOfParticleT(Fluid, Particles, probe, totalParticles)
       end
-      Probe_Write(config, i, Integrator_timeStep, avgFluidT, avgParticleT, avgCellOfParticleT)
+      Probe_Write(0, config, i, Integrator_timeStep, avgFluidT, avgParticleT, avgCellOfParticleT)
     end
 
     -- Dump restart files
@@ -5269,10 +5280,10 @@ local function mkInstance() local INSTANCE = {}
       if Integrator_exitCond or Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 then
         var dirname = [&int8](C.malloc(256))
         C.snprintf(dirname, 256, '%s/fluid_iter%010d', config.Mapping.outDir, Integrator_timeStep)
-        var _1 = createDir(dirname)
+        var _1 = createDir(0, dirname)
         Fluid_dump(_1, tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
         C.snprintf(dirname, 256, '%s/particles_iter%010d', config.Mapping.outDir, Integrator_timeStep)
-        var _2 = createDir(dirname)
+        var _2 = createDir(0, dirname)
         Particles_dump(_2, tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
         C.free(dirname)
       end

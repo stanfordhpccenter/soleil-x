@@ -249,6 +249,7 @@ function Exports.mkHDFTasks(indexType, colorType, fSpace, flds)
     release(s.[flds])
     detach(hdf5, s.[flds])
     C.free(filename)
+    return _
   end
 
   local __demand(__inline)
@@ -261,9 +262,11 @@ function Exports.mkHDFTasks(indexType, colorType, fSpace, flds)
             p_s : partition(disjoint, s, colors))
   where reads(r.[flds]), reads writes(s.[flds]), r * s do
     -- TODO: Sanity checks: bounds.lo == 0, same size, compatible partitions
+    var __ = 0
     for c in colors do
-      dumpTile(_, [regentlib.string](dirname), p_r[c], p_s[c])
+      __ += dumpTile(_, [regentlib.string](dirname), p_r[c], p_s[c])
     end
+    return __
   end
 
   local -- NOT LEAF, MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
@@ -279,6 +282,7 @@ function Exports.mkHDFTasks(indexType, colorType, fSpace, flds)
     release(s.[flds])
     detach(hdf5, s.[flds])
     C.free(filename)
+    return _
   end
 
   local __demand(__inline)
@@ -292,9 +296,11 @@ function Exports.mkHDFTasks(indexType, colorType, fSpace, flds)
   where reads writes(r.[flds]), reads writes(s.[flds]), r * s do
     -- TODO: Sanity checks: bounds.lo == 0, same size, compatible partitions
     -- TODO: Check that the file has the correct size etc.
+    var __ = 0
     for c in colors do
-      loadTile(_, [regentlib.string](dirname), p_r[c], p_s[c])
+      __ += loadTile(_, [regentlib.string](dirname), p_r[c], p_s[c])
     end
+    return __
   end
 
   return dump, load
