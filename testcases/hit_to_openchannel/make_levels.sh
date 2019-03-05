@@ -19,11 +19,10 @@ while read -r LINE; do
 done < "$LEVELS_DAT"
 
 echo "LF cases created in lf0/ to lf$((I-1))/."
-echo "You may wish to update each lf*/case.json with more appropriate settings for:"
+echo "You may wish to update each lf*/base.json with more appropriate settings for:"
 echo "- configs[*].Mapping.tiles"
 echo "- configs[*].Mapping.tilesPerRank"
 echo "- configs[*].Mapping.wallTime"
-echo "- configs[*].Integrator.maxIter"
 echo "- configs[*].IO.restartEveryTimeSteps"
 echo "- collocateSections"
 echo "before continuing."
