@@ -25,8 +25,6 @@ local log = regentlib.log(double)
 -- COMPILE-TIME CONFIGURATION
 -------------------------------------------------------------------------------
 
-local USE_HDF = assert(os.getenv('USE_HDF')) ~= '0'
-
 local MAX_ANGLES_PER_QUAD = 44
 
 -------------------------------------------------------------------------------
@@ -171,6 +169,12 @@ struct Radiation_columns {
 
 local DOM = (require 'dom-desugared')(MAX_ANGLES_PER_QUAD, Radiation_columns, SCHEMA)
 
+local HDF_FLUID = (require "hdf_helper")
+  (int3d, int3d, Fluid_columns, Fluid_primitives)
+
+local HDF_PARTICLES = (require "hdf_helper")
+  (int1d, int3d, Particles_columns, Particles_primitives)
+
 -------------------------------------------------------------------------------
 -- CONSTANTS
 -------------------------------------------------------------------------------
@@ -284,85 +288,6 @@ end
 -------------------------------------------------------------------------------
 -- I/O ROUTINES
 -------------------------------------------------------------------------------
-
-local __demand(__inline)
-task Fluid_dump(_ : int,
-                colors : ispace(int3d),
-                dirname : &int8,
-                Fluid : region(ispace(int3d),Fluid_columns),
-                Fluid_copy : region(ispace(int3d),Fluid_columns),
-                p_Fluid : partition(disjoint, Fluid, colors),
-                p_Fluid_copy : partition(disjoint, Fluid_copy, colors))
-where
-  reads(Fluid.[Fluid_primitives]),
-  reads writes(Fluid_copy.[Fluid_primitives]),
-  Fluid * Fluid_copy
-do
-  regentlib.assert(false, 'Recompile with USE_HDF=1')
-  return _
-end
-
-local __demand(__inline)
-task Fluid_load(_ : int,
-                colors : ispace(int3d),
-                dirname : &int8,
-                Fluid : region(ispace(int3d),Fluid_columns),
-                Fluid_copy : region(ispace(int3d),Fluid_columns),
-                p_Fluid : partition(disjoint, Fluid, colors),
-                p_Fluid_copy : partition(disjoint, Fluid_copy, colors))
-where
-  reads writes(Fluid.[Fluid_primitives]),
-  reads writes(Fluid_copy.[Fluid_primitives]),
-  Fluid * Fluid_copy
-do
-  regentlib.assert(false, 'Recompile with USE_HDF=1')
-  return _
-end
-
-local __demand(__inline)
-task Particles_dump(_ : int,
-                    colors : ispace(int3d),
-                    dirname : &int8,
-                    Particles : region(ispace(int1d),Particles_columns),
-                    Particles_copy : region(ispace(int1d),Particles_columns),
-                    p_Particles : partition(disjoint, Particles, colors),
-                    p_Particles_copy : partition(disjoint, Particles_copy, colors))
-where
-  reads(Particles.[Particles_primitives]),
-  reads writes(Particles_copy.[Particles_primitives]),
-  Particles * Particles_copy
-do
-  regentlib.assert(false, 'Recompile with USE_HDF=1')
-  return _
-end
-
-local __demand(__inline)
-task Particles_load(_ : int,
-                    colors : ispace(int3d),
-                    dirname : &int8,
-                    Particles : region(ispace(int1d),Particles_columns),
-                    Particles_copy : region(ispace(int1d),Particles_columns),
-                    p_Particles : partition(disjoint, Particles, colors),
-                    p_Particles_copy : partition(disjoint, Particles_copy, colors))
-where
-  reads writes(Particles.[Particles_primitives]),
-  reads writes(Particles_copy.[Particles_primitives]),
-  Particles * Particles_copy
-  return _
-do
-  regentlib.assert(false, 'Recompile with USE_HDF=1')
-end
-
-if USE_HDF then
-  local HDF_FLUID = (require "hdf_helper")
-    (int3d, int3d, Fluid_columns, Fluid_primitives)
-  Fluid_dump = HDF_FLUID.dump
-  Fluid_load = HDF_FLUID.load
-  local HDF_PARTICLES = (require "hdf_helper")
-    (int1d, int3d, Particles_columns, Particles_primitives)
-  Particles_dump = HDF_PARTICLES.dump
-  Particles_load = HDF_PARTICLES.load
-end
 
 -- regentlib.rexpr, regentlib.rexpr, regentlib.rexpr* -> regentlib.rquote
 local function emitConsoleWrite(config, format, ...)
@@ -5037,7 +4962,7 @@ local function mkInstance() local INSTANCE = {}
         Flow_InitializePerturbed(p_Fluid[c], config.Flow.initParams)
       end
     elseif config.Flow.initCase == SCHEMA.FlowInitCase_Restart then
-      Fluid_load(0, tiles, config.Flow.restartDir, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
+      HDF_FLUID.load(0, tiles, config.Flow.restartDir, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
     else regentlib.assert(false, 'Unhandled case in switch') end
 
     -- initialize ghost cells to their specified values in NSCBC case
@@ -5141,7 +5066,7 @@ local function mkInstance() local INSTANCE = {}
                                      Grid.xBnum, Grid.yBnum, Grid.zBnum)
         end
       elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart then
-        Particles_load(0, tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
+        HDF_PARTICLES.load(0, tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
         for c in tiles do
           Particles_LocateInCells(p_Particles[c],
                                   Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
@@ -5284,10 +5209,10 @@ local function mkInstance() local INSTANCE = {}
         var dirname = [&int8](C.malloc(256))
         C.snprintf(dirname, 256, '%s/fluid_iter%010d', config.Mapping.outDir, Integrator_timeStep)
         var _1 = createDir(0, dirname)
-        Fluid_dump(_1, tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
+        _1 = HDF_FLUID.dump(_1, tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
         C.snprintf(dirname, 256, '%s/particles_iter%010d', config.Mapping.outDir, Integrator_timeStep)
         var _2 = createDir(0, dirname)
-        Particles_dump(_2, tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
+        _2 = HDF_PARTICLES.dump(_2, tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
         C.free(dirname)
       end
     end

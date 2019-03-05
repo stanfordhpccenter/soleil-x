@@ -19,6 +19,43 @@ return function(indexType, -- regentlib.index_type
                ) local MODULE = {}
 
 -------------------------------------------------------------------------------
+-- FALLBACK MODE
+-------------------------------------------------------------------------------
+
+local USE_HDF = assert(os.getenv('USE_HDF')) ~= '0'
+
+if not USE_HDF then
+
+  __demand(__inline)
+  task MODULE.dump(_ : int,
+                   colors : ispace(colorType),
+                   dirname : &int8,
+                   r : region(ispace(indexType), fSpace),
+                   s : region(ispace(indexType), fSpace),
+                   p_r : partition(disjoint, r, colors),
+                   p_s : partition(disjoint, s, colors))
+  where reads(r.[flds]), reads writes(s.[flds]), r * s do
+    regentlib.assert(false, 'Recompile with USE_HDF=1')
+    return _
+  end
+
+  __demand(__inline)
+  task MODULE.load(_ : int,
+                   colors : ispace(colorType),
+                   dirname : &int8,
+                   r : region(ispace(indexType), fSpace),
+                   s : region(ispace(indexType), fSpace),
+                   p_r : partition(disjoint, r, colors),
+                   p_s : partition(disjoint, s, colors))
+  where reads writes(r.[flds]), reads writes(s.[flds]), r * s do
+    regentlib.assert(false, 'Recompile with USE_HDF=1')
+    return _
+  end
+
+  return MODULE
+end
+
+-------------------------------------------------------------------------------
 -- IMPORTS
 -------------------------------------------------------------------------------
 
@@ -266,8 +303,8 @@ local one =
 local -- NOT LEAF, MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task dumpTile(_ : int,
               dirname : regentlib.string,
-              r : region(ispace(indexType),fSpace),
-              s : region(ispace(indexType),fSpace))
+              r : region(ispace(indexType), fSpace),
+              s : region(ispace(indexType), fSpace))
 where reads(r.[flds]), reads writes(s.[flds]), r * s do
   var filename = tileFilename([&int8](dirname), r.bounds)
   create(filename, r.bounds.hi - r.bounds.lo + one)
@@ -284,8 +321,8 @@ __demand(__inline)
 task MODULE.dump(_ : int,
                  colors : ispace(colorType),
                  dirname : &int8,
-                 r : region(ispace(indexType),fSpace),
-                 s : region(ispace(indexType),fSpace),
+                 r : region(ispace(indexType), fSpace),
+                 s : region(ispace(indexType), fSpace),
                  p_r : partition(disjoint, r, colors),
                  p_s : partition(disjoint, s, colors))
 where reads(r.[flds]), reads writes(s.[flds]), r * s do
@@ -300,8 +337,8 @@ end
 local -- NOT LEAF, MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task loadTile(_ : int,
               dirname : regentlib.string,
-              r : region(ispace(indexType),fSpace),
-              s : region(ispace(indexType),fSpace))
+              r : region(ispace(indexType), fSpace),
+              s : region(ispace(indexType), fSpace))
 where reads writes(r.[flds]), reads writes(s.[flds]), r * s do
   var filename = tileFilename([&int8](dirname), r.bounds)
   attach(hdf5, s.[flds], filename, regentlib.file_read_only)
@@ -317,8 +354,8 @@ __demand(__inline)
 task MODULE.load(_ : int,
                  colors : ispace(colorType),
                  dirname : &int8,
-                 r : region(ispace(indexType),fSpace),
-                 s : region(ispace(indexType),fSpace),
+                 r : region(ispace(indexType), fSpace),
+                 s : region(ispace(indexType), fSpace),
                  p_r : partition(disjoint, r, colors),
                  p_s : partition(disjoint, s, colors))
 where reads writes(r.[flds]), reads writes(s.[flds]), r * s do
