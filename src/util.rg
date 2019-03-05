@@ -453,17 +453,18 @@ function Exports.emitRegionTagAttach(r, tag, value, typ)
 end
 
 -- intXd, intXd, terralib.struct -> regentlib.task
-function Exports.mkPartitionEqually(r_istype, cs_istype, fs)
-  local partitionEqually
+function Exports.mkPartitionByTile(r_istype, cs_istype, fs)
+  local partitionByTile
   if r_istype == int3d and cs_istype == int3d then
     __demand(__inline)
-    task partitionEqually(r : region(ispace(int3d), fs),
-                          cs : ispace(int3d),
-                          halo : int3d,
-                          offset : int3d)
+    task partitionByTile(r : region(ispace(int3d), fs),
+                         cs : ispace(int3d),
+                         halo : int3d,
+                         offset : int3d)
       var Nx = r.bounds.hi.x - 2*halo.x + 1; var ntx = cs.bounds.hi.x + 1
       var Ny = r.bounds.hi.y - 2*halo.y + 1; var nty = cs.bounds.hi.y + 1
       var Nz = r.bounds.hi.z - 2*halo.z + 1; var ntz = cs.bounds.hi.z + 1
+      regentlib.assert(r.bounds.lo == int3d{0,0,0}, "Can only partition root region")
       regentlib.assert(Nx % ntx == 0, "Uneven partitioning on x")
       regentlib.assert(Ny % nty == 0, "Uneven partitioning on y")
       regentlib.assert(Nz % ntz == 0, "Uneven partitioning on z")
@@ -494,12 +495,13 @@ function Exports.mkPartitionEqually(r_istype, cs_istype, fs)
     end
   elseif r_istype == int2d and cs_istype == int2d then
     __demand(__inline)
-    task partitionEqually(r : region(ispace(int2d), fs),
-                          cs : ispace(int2d),
-                          halo : int2d,
-                          offset : int2d)
+    task partitionByTile(r : region(ispace(int2d), fs),
+                         cs : ispace(int2d),
+                         halo : int2d,
+                         offset : int2d)
       var Nx = r.bounds.hi.x - 2*halo.x + 1; var ntx = cs.bounds.hi.x + 1
       var Ny = r.bounds.hi.y - 2*halo.y + 1; var nty = cs.bounds.hi.y + 1
+      regentlib.assert(r.bounds.lo == int2d{0,0}, "Can only partition root region")
       regentlib.assert(Nx % ntx == 0, "Uneven partitioning on x")
       regentlib.assert(Ny % nty == 0, "Uneven partitioning on y")
       regentlib.assert(-ntx <= offset.x and offset.x <= ntx, "offset.x too large")
@@ -524,14 +526,15 @@ function Exports.mkPartitionEqually(r_istype, cs_istype, fs)
     end
   elseif r_istype == int1d and cs_istype == int3d then
     __demand(__inline)
-    task partitionEqually(r : region(ispace(int1d), fs),
-                          cs : ispace(int3d),
-                          halo : int64,
-                          offset : int3d)
+    task partitionByTile(r : region(ispace(int1d), fs),
+                         cs : ispace(int3d),
+                         halo : int64,
+                         offset : int3d)
       var N = int64(r.bounds.hi - 2*halo + 1)
       var ntx = cs.bounds.hi.x + 1
       var nty = cs.bounds.hi.y + 1
       var ntz = cs.bounds.hi.z + 1
+      regentlib.assert(int64(r.bounds.lo) == 0, "Can only partition root region")
       regentlib.assert(N % (ntx*nty*ntz) == 0, "Uneven partitioning")
       regentlib.assert(-ntx <= offset.x and offset.x <= ntx, "offset.x too large")
       regentlib.assert(-nty <= offset.y and offset.y <= nty, "offset.y too large")
@@ -555,7 +558,26 @@ function Exports.mkPartitionEqually(r_istype, cs_istype, fs)
       return p
     end
   else assert(false) end
-  return partitionEqually
+  return partitionByTile
+end
+
+-- int, string, regentlib.rexpr, regentlib.rexpr -> regentlib.rquote
+function Exports.emitArrayReduce(dims, op, lhs, rhs)
+  -- We decompose each array-type reduction into a sequence of primitive
+  -- reductions over the array's elements, to make sure the code generator can
+  -- emit them as atomic operations if needed.
+  return rquote
+    var tmp = [rhs];
+    @ESCAPE for i = 0,dims-1 do
+      if     op == '+'   then @EMIT lhs[i] +=   tmp[i] @TIME
+      elseif op == '-'   then @EMIT lhs[i] -=   tmp[i] @TIME
+      elseif op == '*'   then @EMIT lhs[i] *=   tmp[i] @TIME
+      elseif op == '/'   then @EMIT lhs[i] /=   tmp[i] @TIME
+      elseif op == 'max' then @EMIT lhs[i] max= tmp[i] @TIME
+      elseif op == 'min' then @EMIT lhs[i] min= tmp[i] @TIME
+      else assert(false) end
+    end @EPACSE
+  end
 end
 
 -------------------------------------------------------------------------------

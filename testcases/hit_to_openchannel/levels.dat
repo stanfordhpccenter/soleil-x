@@ -1,6 +1,6 @@
-flow_x flow_y flow_z parcel_size dom_x dom_y dom_z quads use_dom rk_order ftts tiles_x tiles_y tiles_z
-256    64     64     10          128   32    32    170   true    4        3    1       1       1
-128    32     32     100         64    16    16    86    true    4        3    1       1       1
-64     16     16     1000        32    8     8     50    true    4        3    1       1       1
-32     8      8      10000       16    4     4     38    true    4        3    1       1       1
-16     4      4      100000      8     2     2     14    true    4        3    1       1       1
+flow_x flow_y flow_z parcel_size dom_x dom_y dom_z quads use_dom rk_order ftts
+256    64     64     10          128   32    32    170   true    4        3
+128    32     32     100         64    16    16    86    true    4        3
+64     16     16     1000        32    8     8     50    true    4        3
+32     8      8      10000       16    4     4     38    true    4        3
+16     4      4      100000      8     2     2     14    true    4        3

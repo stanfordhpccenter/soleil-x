@@ -14,12 +14,9 @@ parser.add_argument('dom_x', type=int)
 parser.add_argument('dom_y', type=int)
 parser.add_argument('dom_z', type=int)
 parser.add_argument('quads', type=int)
-parser.add_argument('use_dom', type=bool)
+parser.add_argument('use_dom')
 parser.add_argument('rk_order', type=int)
 parser.add_argument('ftts', type=int)
-parser.add_argument('tiles_x', type=int)
-parser.add_argument('tiles_y', type=int)
-parser.add_argument('tiles_z', type=int)
 args = parser.parse_args()
 
 assert args.flow_x % 4 == 0
@@ -27,9 +24,6 @@ assert args.flow_x >= args.dom_x and args.flow_x % args.dom_x == 0
 assert args.flow_y >= args.dom_y and args.flow_y % args.dom_y == 0
 assert args.flow_z >= args.dom_z and args.flow_z % args.dom_z == 0
 assert args.ftts >= 2, 'At least one transient and one averaging FTT required'
-assert args.dom_x % args.tiles_x == 0
-assert args.dom_y % args.tiles_y == 0
-assert args.dom_z % args.tiles_z == 0
 
 # Parse json template
 mc = json.load(args.hf_json)
@@ -38,9 +32,6 @@ mc = json.load(args.hf_json)
 mc['configs'][0]['Grid']['xNum'] = args.flow_x / 4
 mc['configs'][0]['Grid']['yNum'] = args.flow_y
 mc['configs'][0]['Grid']['zNum'] = args.flow_z
-mc['configs'][0]['Mapping']['tiles'][0] = args.tiles_x / 4 + (0 if args.tiles_x % 4 == 0 else 1)
-mc['configs'][0]['Mapping']['tiles'][1] = args.tiles_y
-mc['configs'][0]['Mapping']['tiles'][2] = args.tiles_z
 mc['configs'][0]['Integrator']['rkOrder'] = args.rk_order
 mc['configs'][0]['Particles']['parcelSize'] = args.parcel_size
 
@@ -48,21 +39,20 @@ mc['configs'][0]['Particles']['parcelSize'] = args.parcel_size
 mc['configs'][1]['Grid']['xNum'] = args.flow_x
 mc['configs'][1]['Grid']['yNum'] = args.flow_y
 mc['configs'][1]['Grid']['zNum'] = args.flow_z
-mc['configs'][1]['Mapping']['tiles'][0] = args.tiles_x
-mc['configs'][1]['Mapping']['tiles'][1] = args.tiles_y
-mc['configs'][1]['Mapping']['tiles'][2] = args.tiles_z
 mc['configs'][1]['Integrator']['rkOrder'] = args.rk_order
 mc['configs'][1]['Particles']['parcelSize'] = args.parcel_size
-if args.use_dom:
+if args.use_dom == 'true':
     mc['configs'][1]['Radiation']['xNum'] = args.dom_x
     mc['configs'][1]['Radiation']['yNum'] = args.dom_y
     mc['configs'][1]['Radiation']['zNum'] = args.dom_z
     mc['configs'][1]['Radiation']['angles'] = args.quads
-else:
+elif args.use_dom == 'false':
     mc['configs'][1]['Radiation'] = {}
     mc['configs'][1]['Radiation']['type'] = 'Algebraic'
     mc['configs'][1]['Radiation']['intensity'] = 'TBD'
     mc['configs'][1]['Radiation']['absorptivity'] = 'TBD'
+else:
+    assert False, 'Unrecognized boolean value: %s' % args.use_dom
 mc['flowThroughTimes'] = args.ftts
 
 # Update grid-related values

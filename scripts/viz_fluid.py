@@ -14,7 +14,7 @@ XMF_HEADER = """<?xml version="1.0" ?>
 
 XMF_BODY = """
       <Grid Name="Fluid" GridType="Uniform">
-        <Time Value="@TIMESTEP"/>
+        <Time Value="@TIME"/>
         <!-- Topology: orthonormal 3D grid -->
         <Topology TopologyType="3DCoRectMesh" Dimensions="@POINTS"></Topology>
         <!-- Geometry: Node positions derived implicitly, based on grid origin and cell size -->
@@ -56,8 +56,11 @@ nx = None
 ny = None
 nz = None
 
+time = {}
 for (f, i) in zip(args.hdf_file, itertools.count()):
     hdf_in = h5py.File(f, 'r')
+    # Read simulation time at timestep
+    time[i] = hdf_in.attrs['simTime']
     # Extract domain size.
     if nx is None:
         nx = hdf_in['pressure'].shape[0]
@@ -67,7 +70,7 @@ for (f, i) in zip(args.hdf_file, itertools.count()):
         assert nx == hdf_in['pressure'].shape[0]
         assert ny == hdf_in['pressure'].shape[1]
         assert nz == hdf_in['pressure'].shape[2]
-    hdf_out = h5py.File('out%010d.hdf' % i, 'w')
+    hdf_out = h5py.File('fluid%010d.hdf' % i, 'w')
     # Copy pressure over.
     hdf_out['pressure'] = hdf_in['pressure'][:]
     # Copy rho over.
@@ -103,14 +106,14 @@ with open(args.json_file) as json_in:
 
 # NOTE: The XMF format expects grid dimensions in points, not cells, so we have
 # to add 1 on each dimension.
-with open('out.xmf', 'w') as xmf_out:
+with open('fluid.xmf', 'w') as xmf_out:
     xmf_out.write(XMF_HEADER)
     for i in range(len(args.hdf_file)):
         xmf_out.write(XMF_BODY
-                      .replace('@TIMESTEP', str(i))
+                      .replace('@TIME', str(time[i]))
                       .replace('@POINTS', '%s %s %s' % (nx+1,ny+1,nz+1))
                       .replace('@CELLS', '%s %s %s' % (nx,ny,nz))
                       .replace('@GRID_ORIGIN', '%s %s %s' % (ox,oy,oz))
                       .replace('@GRID_SPACING', '%s %s %s' % (dx,dy,dz))
-                      .replace('@HDF_FILE', 'out%010d.hdf' % i))
+                      .replace('@HDF_FILE', 'fluid%010d.hdf' % i))
     xmf_out.write(XMF_FOOTER)

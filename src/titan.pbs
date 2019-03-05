@@ -9,7 +9,9 @@ umask 022
 # any relative paths in the arguments are valid.
 cd "$PBS_O_WORKDIR"
 
-CORES_PER_NODE=8
+# HACK: Each of the 8 CPU pairs can accomodate 1 OpenMP thread and 1 runtime
+# processor, as long as there's at least 1 full pair allocated to the runtime.
+CORES_PER_NODE=15
 RAM_PER_NODE=20000
 GPUS_PER_NODE=1
 FB_PER_GPU=5000

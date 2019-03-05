@@ -19,14 +19,14 @@ export USE_CUDA="${USE_CUDA:-1}"
 # Whether to emit Legion profiler logs
 export PROFILE="${PROFILE:-0}"
 
-# Whether to print a backtrace on crash (interferes with signal handling)
-export GASNET_BACKTRACE="${GASNET_BACKTRACE:-1}"
+# Whether to freeze Legion execution on crash
+export DEBUG="${DEBUG:-0}"
 
 # How many ranks to instantiate per node
 export RANKS_PER_NODE="${RANKS_PER_NODE:-1}"
 
 # How many cores per rank to reserve for the runtime
-export RESERVED_CORES="${RESERVED_CORES:-4}"
+export RESERVED_CORES="${RESERVED_CORES:-8}"
 
 ###############################################################################
 # Helper functions
@@ -54,6 +54,8 @@ if '$2' == 'single':
   print wallTime(f), numRanks(f)
 elif '$2' == 'dual':
   print max(wallTime(f['configs'][0]), wallTime(f['configs'][1])), \
+        max(numRanks(f['configs'][0]), numRanks(f['configs'][1]))  \
+        if f['collocateSections'] else                             \
         numRanks(f['configs'][0]) + numRanks(f['configs'][1])
 else:
   assert(false)"

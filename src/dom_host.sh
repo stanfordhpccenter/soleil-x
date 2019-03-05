@@ -5,7 +5,7 @@ export QUEUE="${QUEUE:-}"
 export AFTER="${AFTER:-}"
 export USE_CUDA="${USE_CUDA:-1}"
 export PROFILE="${PROFILE:-0}"
-export GASNET_BACKTRACE="${GASNET_BACKTRACE:-1}"
+export DEBUG="${DEBUG:-0}"
 export RANKS_PER_NODE=1
 export RESERVED_CORES="${RESERVED_CORES:-4}"
 

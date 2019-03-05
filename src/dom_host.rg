@@ -10,7 +10,7 @@ import 'regent'
 
 local C = regentlib.c
 local SCHEMA = terralib.includec("config_schema.h")
-local UTIL = require 'util'
+local UTIL = require 'util-desugared'
 
 local pow = regentlib.pow(double)
 
@@ -79,7 +79,7 @@ task work(config : SCHEMA.Config)
                              config.Mapping.tiles[1],
                              config.Mapping.tiles[2]})
   var p_points =
-    [UTIL.mkPartitionEqually(int3d, int3d, Point_columns)]
+    [UTIL.mkPartitionByTile(int3d, int3d, Point_columns)]
     (points, tiles, int3d{0,0,0}, int3d{0,0,0});
   -- Declare DOM-managed regions
   [DOM_INST.DeclSymbols(config, tiles)];

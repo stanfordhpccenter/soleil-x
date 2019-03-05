@@ -7,7 +7,7 @@ import "regent"
 local C = regentlib.c
 local MAPPER = terralib.includec("soleil_mapper.h")
 local SCHEMA = terralib.includec("config_schema.h")
-local UTIL = require 'util'
+local UTIL = require 'util-desugared'
 
 local acos = regentlib.acos(double)
 local ceil = regentlib.ceil(double)
@@ -24,8 +24,6 @@ local log = regentlib.log(double)
 -------------------------------------------------------------------------------
 -- COMPILE-TIME CONFIGURATION
 -------------------------------------------------------------------------------
-
-local USE_HDF = assert(os.getenv('USE_HDF')) ~= '0'
 
 local MAX_ANGLES_PER_QUAD = 44
 
@@ -180,6 +178,14 @@ struct Image_columns {
 -------------------------------------------------------------------------------
 
 local DOM = (require 'dom-desugared')(MAX_ANGLES_PER_QUAD, Radiation_columns, SCHEMA)
+
+local HDF_FLUID = (require 'hdf_helper')(int3d, int3d, Fluid_columns,
+                                         Fluid_primitives,
+                                         {timeStep=int,simTime=double})
+
+local HDF_PARTICLES = (require 'hdf_helper')(int1d, int3d, Particles_columns,
+                                             Particles_primitives,
+                                             {timeStep=int,simTime=double})
 
 -------------------------------------------------------------------------------
 -- CONSTANTS
@@ -461,78 +467,6 @@ end
 -- I/O ROUTINES
 -------------------------------------------------------------------------------
 
-local __demand(__inline)
-task Fluid_dump(_ : int,
-                colors : ispace(int3d),
-                dirname : &int8,
-                Fluid : region(ispace(int3d),Fluid_columns),
-                Fluid_copy : region(ispace(int3d),Fluid_columns),
-                p_Fluid : partition(disjoint, Fluid, colors),
-                p_Fluid_copy : partition(disjoint, Fluid_copy, colors))
-where
-  reads(Fluid.[Fluid_primitives]),
-  reads writes(Fluid_copy.[Fluid_primitives]),
-  Fluid * Fluid_copy
-do
-  regentlib.assert(false, 'Recompile with USE_HDF=1')
-end
-
-local __demand(__inline)
-task Fluid_load(_ : int,
-                colors : ispace(int3d),
-                dirname : &int8,
-                Fluid : region(ispace(int3d),Fluid_columns),
-                Fluid_copy : region(ispace(int3d),Fluid_columns),
-                p_Fluid : partition(disjoint, Fluid, colors),
-                p_Fluid_copy : partition(disjoint, Fluid_copy, colors))
-where
-  reads writes(Fluid.[Fluid_primitives]),
-  reads writes(Fluid_copy.[Fluid_primitives]),
-  Fluid * Fluid_copy
-do
-  regentlib.assert(false, 'Recompile with USE_HDF=1')
-end
-
-local __demand(__inline)
-task Particles_dump(_ : int,
-                    colors : ispace(int3d),
-                    dirname : &int8,
-                    Particles : region(ispace(int1d),Particles_columns),
-                    Particles_copy : region(ispace(int1d),Particles_columns),
-                    p_Particles : partition(disjoint, Particles, colors),
-                    p_Particles_copy : partition(disjoint, Particles_copy, colors))
-where
-  reads(Particles.[Particles_primitives]),
-  reads writes(Particles_copy.[Particles_primitives]),
-  Particles * Particles_copy
-do
-  regentlib.assert(false, 'Recompile with USE_HDF=1')
-end
-
-local __demand(__inline)
-task Particles_load(_ : int,
-                    colors : ispace(int3d),
-                    dirname : &int8,
-                    Particles : region(ispace(int1d),Particles_columns),
-                    Particles_copy : region(ispace(int1d),Particles_columns),
-                    p_Particles : partition(disjoint, Particles, colors),
-                    p_Particles_copy : partition(disjoint, Particles_copy, colors))
-where
-  reads writes(Particles.[Particles_primitives]),
-  reads writes(Particles_copy.[Particles_primitives]),
-  Particles * Particles_copy
-do
-  regentlib.assert(false, 'Recompile with USE_HDF=1')
-end
-
-if USE_HDF then
-  local HDF = require "hdf_helper"
-  Fluid_dump, Fluid_load = HDF.mkHDFTasks(
-    int3d, int3d, Fluid_columns, Fluid_primitives)
-  Particles_dump, Particles_load = HDF.mkHDFTasks(
-    int1d, int3d, Particles_columns, Particles_primitives)
-end
-
 -- regentlib.rexpr, regentlib.rexpr, regentlib.rexpr* -> regentlib.rquote
 local function emitConsoleWrite(config, format, ...)
   local args = terralib.newlist{...}
@@ -548,7 +482,8 @@ local function emitConsoleWrite(config, format, ...)
 end
 
 __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task Console_WriteHeader(config : Config)
+task Console_WriteHeader(_ : int,
+                         config : Config)
   [emitConsoleWrite(config, 'Iteration\t'..
                             'Sim Time\t'..
                             'Wall Time\t'..
@@ -558,6 +493,7 @@ task Console_WriteHeader(config : Config)
                             'Avg KE\t'..
                             'Particle Num\t'..
                             'Avg Particle T\n')];
+  return _
 end
 
 __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
@@ -591,16 +527,6 @@ task Console_Write(config : Config,
                     Flow_averageKineticEnergy,
                     Particles_number,
                     Particles_averageTemperature)];
-end
-
-__demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task Console_WriteFooter(config : Config,
-                         startTime : uint64)
-  var endTime = C.legion_get_current_time_in_micros() / 1000;
-  [emitConsoleWrite(config,
-                    'Total time: %llu.%03llu seconds\n',
-                    rexpr (endTime - startTime) / 1000 end,
-                    rexpr (endTime - startTime) % 1000 end)];
 end
 
 -- regentlib.rexpr, regentlib.rexpr, regentlib.rexpr, regentlib.rexpr*
@@ -713,16 +639,19 @@ do
 end
 
 __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task Probe_WriteHeader(config : Config,
+task Probe_WriteHeader(_ : int,
+                       config : Config,
                        probeId : int)
   [emitProbeWrite(config, probeId, 'Iter\t'..
                                    'AvgFluidT\t'..
                                    'AvgParticleT\t'..
                                    'AvgCellOfParticleT\n')];
+  return _
 end
 
 __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task Probe_Write(config : Config,
+task Probe_Write(_ : int,
+                 config : Config,
                  probeId : int,
                  Integrator_timeStep : int,
                  avgFluidT : double,
@@ -736,12 +665,14 @@ task Probe_Write(config : Config,
                   avgFluidT,
                   avgParticleT,
                   avgCellOfParticleT)];
+  return _
 end
 
 __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task createDir(dirname : regentlib.string)
+task createDir(_ : int,
+               dirname : regentlib.string)
   UTIL.createDir(dirname)
-  return 0
+  return _
 end
 
 
@@ -755,6 +686,361 @@ end
 -------------------------------------------------------------------------------
 -- OTHER ROUTINES
 -------------------------------------------------------------------------------
+
+__demand(__inline)
+task locate(pos : double[3],
+            Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
+            Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
+            Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
+  var xcw = Grid_xWidth/Grid_xNum
+  var xro = Grid_xOrigin-Grid_xBnum*xcw
+  var xpos = int(floor((pos[0]-xro)/xcw))
+  var xrnum = Grid_xNum+2*Grid_xBnum
+  var xidx = max(0, min(xrnum-1, xpos))
+  var ycw = Grid_yWidth/Grid_yNum
+  var yro = Grid_yOrigin-Grid_yBnum*ycw
+  var ypos = int(floor((pos[1]-yro)/ycw))
+  var yrnum = Grid_yNum+2*Grid_yBnum
+  var yidx = max(0, min(yrnum-1, ypos))
+  var zcw = Grid_zWidth/Grid_zNum
+  var zro = Grid_zOrigin-Grid_zBnum*zcw
+  var zpos = int(floor((pos[2]-zro)/zcw))
+  var zrnum = Grid_zNum+2*Grid_zBnum
+  var zidx = max(0, min(zrnum-1, zpos))
+  return int3d{xidx, yidx, zidx}
+end
+
+__demand(__inline)
+task TrilinearInterpolateVelocity(xyz : double[3],
+                                  c000 : double[3],
+                                  c100 : double[3],
+                                  c010 : double[3],
+                                  c110 : double[3],
+                                  c001 : double[3],
+                                  c101 : double[3],
+                                  c011 : double[3],
+                                  c111 : double[3],
+                                  Grid_xCellWidth : double, Grid_xRealOrigin : double,
+                                  Grid_yCellWidth : double, Grid_yRealOrigin : double,
+                                  Grid_zCellWidth : double, Grid_zRealOrigin : double)
+  var dX = fmod((((xyz[0]-Grid_xRealOrigin)/Grid_xCellWidth)+0.5), 1.0)
+  var dY = fmod((((xyz[1]-Grid_yRealOrigin)/Grid_yCellWidth)+0.5), 1.0)
+  var dZ = fmod((((xyz[2]-Grid_zRealOrigin)/Grid_zCellWidth)+0.5), 1.0)
+  var oneMinusdX = (1.0-dX)
+  var oneMinusdY = (1.0-dY)
+  var oneMinusdZ = (1.0-dZ)
+  var weight00 = vv_add(vs_mul(c000, oneMinusdX), vs_mul(c100, dX))
+  var weight10 = vv_add(vs_mul(c010, oneMinusdX), vs_mul(c110, dX))
+  var weight01 = vv_add(vs_mul(c001, oneMinusdX), vs_mul(c101, dX))
+  var weight11 = vv_add(vs_mul(c011, oneMinusdX), vs_mul(c111, dX))
+  var weight0 = vv_add(vs_mul(weight00, oneMinusdY), vs_mul(weight10, dY))
+  var weight1 = vv_add(vs_mul(weight01, oneMinusdY), vs_mul(weight11, dY))
+  return vv_add(vs_mul(weight0, oneMinusdZ), vs_mul(weight1, dZ))
+end
+
+__demand(__inline)
+task InterpolateTriVelocity(c : int3d,
+                            xyz : double[3],
+                            Fluid : region(ispace(int3d), Fluid_columns),
+                            Grid_xCellWidth : double, Grid_xRealOrigin : double,
+                            Grid_yCellWidth : double, Grid_yRealOrigin : double,
+                            Grid_zCellWidth : double, Grid_zRealOrigin : double)
+where
+  reads(Fluid.{centerCoordinates, velocity})
+do
+  var i000 = Fluid[c].velocity
+  var i001 = Fluid[((c+{ 0, 0, 1})%Fluid.bounds)].velocity
+  var i00_ = Fluid[((c+{ 0, 0,-1})%Fluid.bounds)].velocity
+  var i010 = Fluid[((c+{ 0, 1, 0})%Fluid.bounds)].velocity
+  var i011 = Fluid[((c+{ 0, 1, 1})%Fluid.bounds)].velocity
+  var i01_ = Fluid[((c+{ 0, 1,-1})%Fluid.bounds)].velocity
+  var i0_0 = Fluid[((c+{ 0,-1, 0})%Fluid.bounds)].velocity
+  var i0_1 = Fluid[((c+{ 0,-1, 1})%Fluid.bounds)].velocity
+  var i0__ = Fluid[((c+{ 0,-1,-1})%Fluid.bounds)].velocity
+
+  var i100 = Fluid[((c+{ 1, 0, 0})%Fluid.bounds)].velocity
+  var i101 = Fluid[((c+{ 1, 0, 1})%Fluid.bounds)].velocity
+  var i10_ = Fluid[((c+{ 1, 0,-1})%Fluid.bounds)].velocity
+  var i110 = Fluid[((c+{ 1, 1, 0})%Fluid.bounds)].velocity
+  var i111 = Fluid[((c+{ 1, 1, 1})%Fluid.bounds)].velocity
+  var i11_ = Fluid[((c+{ 1, 1,-1})%Fluid.bounds)].velocity
+  var i1_0 = Fluid[((c+{ 1,-1, 0})%Fluid.bounds)].velocity
+  var i1_1 = Fluid[((c+{ 1,-1, 1})%Fluid.bounds)].velocity
+  var i1__ = Fluid[((c+{ 1,-1,-1})%Fluid.bounds)].velocity
+
+  var i_00 = Fluid[((c+{-1, 0, 0})%Fluid.bounds)].velocity
+  var i_01 = Fluid[((c+{-1, 0, 1})%Fluid.bounds)].velocity
+  var i_0_ = Fluid[((c+{-1, 0,-1})%Fluid.bounds)].velocity
+  var i_10 = Fluid[((c+{-1, 1, 0})%Fluid.bounds)].velocity
+  var i_11 = Fluid[((c+{-1, 1, 1})%Fluid.bounds)].velocity
+  var i_1_ = Fluid[((c+{-1, 1,-1})%Fluid.bounds)].velocity
+  var i__0 = Fluid[((c+{-1,-1, 0})%Fluid.bounds)].velocity
+  var i__1 = Fluid[((c+{-1,-1, 1})%Fluid.bounds)].velocity
+  var i___ = Fluid[((c+{-1,-1,-1})%Fluid.bounds)].velocity
+
+  var v000 = array(0.0, 0.0, 0.0)
+  var v001 = array(0.0, 0.0, 0.0)
+  var v010 = array(0.0, 0.0, 0.0)
+  var v011 = array(0.0, 0.0, 0.0)
+  var v100 = array(0.0, 0.0, 0.0)
+  var v101 = array(0.0, 0.0, 0.0)
+  var v110 = array(0.0, 0.0, 0.0)
+  var v111 = array(0.0, 0.0, 0.0)
+
+  if (xyz[0]>Fluid[c].centerCoordinates[0]) then
+    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = i000
+        v001 = i001
+        v010 = i010
+        v011 = i011
+        v100 = i100
+        v101 = i101
+        v110 = i110
+        v111 = i111
+      else
+        v000 = i00_
+        v001 = i000
+        v010 = i01_
+        v011 = i010
+        v100 = i10_
+        v101 = i100
+        v110 = i11_
+        v111 = i110
+      end
+    else
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = i0_0
+        v001 = i0_1
+        v010 = i000
+        v011 = i001
+        v100 = i1_0
+        v101 = i1_1
+        v110 = i100
+        v111 = i101
+      else
+        v000 = i0__
+        v001 = i0_0
+        v010 = i00_
+        v011 = i000
+        v100 = i1__
+        v101 = i1_0
+        v110 = i10_
+        v111 = i100
+      end
+    end
+  else
+    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = i_00
+        v001 = i_01
+        v010 = i_10
+        v011 = i_11
+        v100 = i000
+        v101 = i001
+        v110 = i010
+        v111 = i011
+      else
+        v000 = i_0_
+        v001 = i_00
+        v010 = i_1_
+        v011 = i_10
+        v100 = i00_
+        v101 = i000
+        v110 = i01_
+        v111 = i010
+      end
+    else
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = i__0
+        v001 = i__1
+        v010 = i_00
+        v011 = i_01
+        v100 = i0_0
+        v101 = i0_1
+        v110 = i000
+        v111 = i001
+      else
+        v000 = i___
+        v001 = i__0
+        v010 = i_0_
+        v011 = i_00
+        v100 = i0__
+        v101 = i0_0
+        v110 = i00_
+        v111 = i000
+      end
+    end
+  end
+
+  return TrilinearInterpolateVelocity(xyz, v000, v100, v010, v110, v001, v101, v011, v111, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin)
+end
+
+__demand(__inline)
+task TrilinearInterpolateTemp(xyz : double[3],
+                              c000 : double,
+                              c100 : double,
+                              c010 : double,
+                              c110 : double,
+                              c001 : double,
+                              c101 : double,
+                              c011 : double,
+                              c111 : double,
+                              Grid_xCellWidth : double, Grid_xRealOrigin : double,
+                              Grid_yCellWidth : double, Grid_yRealOrigin : double,
+                              Grid_zCellWidth : double, Grid_zRealOrigin : double)
+  var dX = fmod((((xyz[0]-Grid_xRealOrigin)/Grid_xCellWidth)+0.5), 1.0)
+  var dY = fmod((((xyz[1]-Grid_yRealOrigin)/Grid_yCellWidth)+0.5), 1.0)
+  var dZ = fmod((((xyz[2]-Grid_zRealOrigin)/Grid_zCellWidth)+0.5), 1.0)
+  var oneMinusdX = (1.0-dX)
+  var oneMinusdY = (1.0-dY)
+  var oneMinusdZ = (1.0-dZ)
+  var weight00 = ((c000*oneMinusdX)+(c100*dX))
+  var weight10 = ((c010*oneMinusdX)+(c110*dX))
+  var weight01 = ((c001*oneMinusdX)+(c101*dX))
+  var weight11 = ((c011*oneMinusdX)+(c111*dX))
+  var weight0 = ((weight00*oneMinusdY)+(weight10*dY))
+  var weight1 = ((weight01*oneMinusdY)+(weight11*dY))
+  return ((weight0*oneMinusdZ)+(weight1*dZ))
+end
+
+__demand(__inline)
+task InterpolateTriTemp(c : int3d,
+                        xyz : double[3],
+                        Fluid : region(ispace(int3d), Fluid_columns),
+                        Grid_xCellWidth : double, Grid_xRealOrigin : double,
+                        Grid_yCellWidth : double, Grid_yRealOrigin : double,
+                        Grid_zCellWidth : double, Grid_zRealOrigin : double)
+where
+  reads(Fluid.{centerCoordinates, temperature})
+do
+  var i000 = Fluid[c].temperature
+  var i001 = Fluid[((c+{ 0, 0, 1})%Fluid.bounds)].temperature
+  var i00_ = Fluid[((c+{ 0, 0,-1})%Fluid.bounds)].temperature
+  var i010 = Fluid[((c+{ 0, 1, 0})%Fluid.bounds)].temperature
+  var i011 = Fluid[((c+{ 0, 1, 1})%Fluid.bounds)].temperature
+  var i01_ = Fluid[((c+{ 0, 1,-1})%Fluid.bounds)].temperature
+  var i0_0 = Fluid[((c+{ 0,-1, 0})%Fluid.bounds)].temperature
+  var i0_1 = Fluid[((c+{ 0,-1, 1})%Fluid.bounds)].temperature
+  var i0__ = Fluid[((c+{ 0,-1,-1})%Fluid.bounds)].temperature
+
+  var i100 = Fluid[((c+{ 1, 0, 0})%Fluid.bounds)].temperature
+  var i101 = Fluid[((c+{ 1, 0, 1})%Fluid.bounds)].temperature
+  var i10_ = Fluid[((c+{ 1, 0,-1})%Fluid.bounds)].temperature
+  var i110 = Fluid[((c+{ 1, 1, 0})%Fluid.bounds)].temperature
+  var i111 = Fluid[((c+{ 1, 1, 1})%Fluid.bounds)].temperature
+  var i11_ = Fluid[((c+{ 1, 1,-1})%Fluid.bounds)].temperature
+  var i1_0 = Fluid[((c+{ 1,-1, 0})%Fluid.bounds)].temperature
+  var i1_1 = Fluid[((c+{ 1,-1, 1})%Fluid.bounds)].temperature
+  var i1__ = Fluid[((c+{ 1,-1,-1})%Fluid.bounds)].temperature
+
+  var i_00 = Fluid[((c+{-1, 0, 0})%Fluid.bounds)].temperature
+  var i_01 = Fluid[((c+{-1, 0, 1})%Fluid.bounds)].temperature
+  var i_0_ = Fluid[((c+{-1, 0,-1})%Fluid.bounds)].temperature
+  var i_10 = Fluid[((c+{-1, 1, 0})%Fluid.bounds)].temperature
+  var i_11 = Fluid[((c+{-1, 1, 1})%Fluid.bounds)].temperature
+  var i_1_ = Fluid[((c+{-1, 1,-1})%Fluid.bounds)].temperature
+  var i__0 = Fluid[((c+{-1,-1, 0})%Fluid.bounds)].temperature
+  var i__1 = Fluid[((c+{-1,-1, 1})%Fluid.bounds)].temperature
+  var i___ = Fluid[((c+{-1,-1,-1})%Fluid.bounds)].temperature
+
+  var v000 = 0.0
+  var v001 = 0.0
+  var v010 = 0.0
+  var v011 = 0.0
+  var v100 = 0.0
+  var v101 = 0.0
+  var v110 = 0.0
+  var v111 = 0.0
+
+  if (xyz[0]>Fluid[c].centerCoordinates[0]) then
+    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = i000
+        v001 = i001
+        v010 = i010
+        v011 = i011
+        v100 = i100
+        v101 = i101
+        v110 = i110
+        v111 = i111
+      else
+        v000 = i00_
+        v001 = i000
+        v010 = i01_
+        v011 = i010
+        v100 = i10_
+        v101 = i100
+        v110 = i11_
+        v111 = i110
+      end
+    else
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = i0_0
+        v001 = i0_1
+        v010 = i000
+        v011 = i001
+        v100 = i1_0
+        v101 = i1_1
+        v110 = i100
+        v111 = i101
+      else
+        v000 = i0__
+        v001 = i0_0
+        v010 = i00_
+        v011 = i000
+        v100 = i1__
+        v101 = i1_0
+        v110 = i10_
+        v111 = i100
+      end
+    end
+  else
+    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = i_00
+        v001 = i_01
+        v010 = i_10
+        v011 = i_11
+        v100 = i000
+        v101 = i001
+        v110 = i010
+        v111 = i011
+      else
+        v000 = i_0_
+        v001 = i_00
+        v010 = i_1_
+        v011 = i_10
+        v100 = i00_
+        v101 = i000
+        v110 = i01_
+        v111 = i010
+      end
+    else
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = i__0
+        v001 = i__1
+        v010 = i_00
+        v011 = i_01
+        v100 = i0_0
+        v101 = i0_1
+        v110 = i000
+        v111 = i001
+      else
+        v000 = i___
+        v001 = i__0
+        v010 = i_0_
+        v011 = i_00
+        v100 = i0__
+        v101 = i0_0
+        v110 = i00_
+        v111 = i000
+      end
+    end
+  end
+
+  return TrilinearInterpolateTemp(xyz, v000, v100, v010, v110, v001, v101, v011, v111, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin)
+end
 
 __demand(__inline)
 task GetDynamicViscosity(temperature : double,
@@ -775,6 +1061,82 @@ task GetDynamicViscosity(temperature : double,
       / (temperature + Flow_sutherlandSRef)
   end
   return viscosity
+end
+
+__demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+task Particles_InitializeRandom(color : int3d,
+                                Particles : region(ispace(int1d), Particles_columns),
+                                Fluid : region(ispace(int3d), Fluid_columns),
+                                config : Config,
+                                Grid_xBnum : int, Grid_yBnum : int, Grid_zBnum : int)
+where
+  reads(Fluid.{centerCoordinates, velocity}),
+  writes(Particles.{__valid, cell, position, velocity, density, temperature, diameter})
+do
+  -- Grid geometry
+  var Grid_xNum = config.Grid.xNum
+  var Grid_yNum = config.Grid.yNum
+  var Grid_zNum = config.Grid.zNum
+  var Grid_xWidth = config.Grid.xWidth
+  var Grid_yWidth = config.Grid.yWidth
+  var Grid_zWidth = config.Grid.zWidth
+  var Grid_xOrigin = config.Grid.origin[0]
+  var Grid_yOrigin = config.Grid.origin[1]
+  var Grid_zOrigin = config.Grid.origin[2]
+  var Grid_xCellWidth = Grid_xWidth / Grid_xNum
+  var Grid_yCellWidth = Grid_yWidth / Grid_yNum
+  var Grid_zCellWidth = Grid_zWidth / Grid_zNum
+  var Grid_xRealOrigin = Grid_xOrigin - Grid_xCellWidth * Grid_xBnum
+  var Grid_yRealOrigin = Grid_yOrigin - Grid_yCellWidth * Grid_yBnum
+  var Grid_zRealOrigin = Grid_zOrigin - Grid_zCellWidth * Grid_zBnum
+  -- Tile geometry
+  var Tile_xWidth = Grid_xWidth / config.Mapping.tiles[0]
+  var Tile_yWidth = Grid_yWidth / config.Mapping.tiles[1]
+  var Tile_zWidth = Grid_zWidth / config.Mapping.tiles[2]
+  var Tile_xOrigin = Grid_xOrigin + color.x * Tile_xWidth
+  var Tile_yOrigin = Grid_yOrigin + color.y * Tile_yWidth
+  var Tile_zOrigin = Grid_zOrigin + color.z * Tile_zWidth
+  -- Particle values
+  var pBase = Particles.bounds.lo
+  var numTiles = config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2]
+  var particlesPerTile = config.Particles.initNum / config.Particles.parcelSize / numTiles
+  var Particles_density = config.Particles.density
+  var Particles_initTemperature = config.Particles.initTemperature
+  var Particles_diameterMean = config.Particles.diameterMean
+  -- RNG state
+  var rngState : C.drand48_data[1]
+  var rngStatePtr = [&C.drand48_data](rngState)
+  C.srand48_r(C.legion_get_current_time_in_nanos(), rngStatePtr)
+  -- Fill loop
+  for p in Particles do
+    var relIdx = int64(p - pBase)
+    if relIdx < particlesPerTile then
+      -- Pick a random position within the current tile, ignoring boundary cells
+      var rx = 0.0; repeat rx = drand48_r(rngStatePtr) until rx ~= 0.0
+      var ry = 0.0; repeat ry = drand48_r(rngStatePtr) until ry ~= 0.0
+      var rz = 0.0; repeat rz = drand48_r(rngStatePtr) until rz ~= 0.0
+      var pos = array( Tile_xOrigin + Tile_xWidth * rx,
+                       Tile_yOrigin + Tile_yWidth * ry,
+                       Tile_zOrigin + Tile_zWidth * rz )
+      var c = locate(pos,
+                     Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth,
+                     Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth,
+                     Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
+      var flowVelocity = InterpolateTriVelocity(c,
+                                                pos,
+                                                Fluid,
+                                                Grid_xCellWidth, Grid_xRealOrigin,
+                                                Grid_yCellWidth, Grid_yRealOrigin,
+                                                Grid_zCellWidth, Grid_zRealOrigin)
+      Particles[p].__valid = true
+      Particles[p].cell = c
+      Particles[p].position = pos
+      Particles[p].velocity = flowVelocity
+      Particles[p].density = Particles_density
+      Particles[p].temperature = Particles_initTemperature
+      Particles[p].diameter = Particles_diameterMean
+    end
+  end
 end
 
 __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
@@ -799,14 +1161,14 @@ do
   var ySize = hi.y-lo.y+1
   var zSize = hi.z-lo.z+1
   var numTiles = config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2]
-  var particlesPerTask = config.Particles.initNum / config.Particles.parcelSize / numTiles
+  var particlesPerTile = config.Particles.initNum / config.Particles.parcelSize / numTiles
   var Particles_density = config.Particles.density
   var Particles_initTemperature = config.Particles.initTemperature
   var Particles_diameterMean = config.Particles.diameterMean
   __demand(__openmp)
   for p in Particles do
     var relIdx = int64(p - pBase)
-    if relIdx < particlesPerTask then
+    if relIdx < particlesPerTile then
       Particles[p].__valid = true
       var c = lo + int3d{relIdx%xSize, relIdx/xSize%ySize, relIdx/xSize/ySize%zSize}
       Particles[p].cell = c
@@ -981,7 +1343,7 @@ do
   end
 end
 
-__demand(__leaf, __parallel) -- NO CUDA, NO OPENMP
+__demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Flow_InitializeRandom(Fluid : region(ispace(int3d), Fluid_columns),
                            Flow_initParams : double[5])
 where
@@ -1049,7 +1411,7 @@ do
   end
 end
 
-__demand(__leaf, __parallel) -- NO CUDA, NO OPENMP
+__demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Flow_InitializePerturbed(Fluid : region(ispace(int3d), Fluid_columns),
                               Flow_initParams : double[5])
 where
@@ -1068,7 +1430,9 @@ do
 end
 
 -- Modify initial rho, pressure, velocity to be consistent with NSCBC inflow outflow condition, also set up stuff for RHS of inflow
-__demand(__leaf, __parallel, __cuda)
+-- NOTE: It is safe to not pass the ghost regions to this task, because we
+-- always group ghost cells with their neighboring interior cells.
+__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Flow_InitializeGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
                                config : Config,
                                Flow_gasConstant : double,
@@ -1183,10 +1547,8 @@ do
       var temperature : double
       if BC_xBCLeftHeat_type == SCHEMA.TempProfile_Constant then
         temperature = BC_xBCLeftHeat_Constant_temperature
-
         -- Use the specified temperature to find the correct pressure for current density from EOS
         Fluid[c_bnd].pressure = temperature*Flow_gasConstant*Fluid[c_bnd].rho
-
       -- elseif BC_xBCLeftHeat_type == SCHEMA.TempProfile_Parabola then
       --   regentlib.assert(false, 'Parabola heat model not supported')
       else -- BC_xBCLeftHeat_type == SCHEMA.TempProfile_Incoming
@@ -2775,7 +3137,7 @@ task Flow_UpdateUsingFluxX(Fluid : region(ispace(int3d), Fluid_columns),
                            Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
   reads(Fluid.{rhoFluxX, rhoVelocityFluxX, rhoEnergyFluxX}),
-  reads writes atomic(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
+  reads writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
@@ -2792,9 +3154,10 @@ do
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if interior then
-      Fluid[c].rho_t += ((-(Fluid[c].rhoFluxX-Fluid[(c+{-1, 0, 0})%Fluid.bounds].rhoFluxX))/Grid_xCellWidth)
-      var tmp1 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxX, Fluid[(c+{-1, 0, 0})%Fluid.bounds].rhoVelocityFluxX), double((-1))), Grid_xCellWidth)
-      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp1)
+      Fluid[c].rho_t += ((-(Fluid[c].rhoFluxX-Fluid[(c+{-1, 0, 0})%Fluid.bounds].rhoFluxX))/Grid_xCellWidth);
+      [UTIL.emitArrayReduce(3, '+',
+         rexpr Fluid[c].rhoVelocity_t end,
+         rexpr vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxX, Fluid[(c+{-1, 0, 0})%Fluid.bounds].rhoVelocityFluxX), double((-1))), Grid_xCellWidth) end)];
       Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxX-Fluid[(c+{-1, 0, 0})%Fluid.bounds].rhoEnergyFluxX))/Grid_xCellWidth)
     end
   end
@@ -2808,7 +3171,7 @@ task Flow_UpdateUsingFluxY(Fluid : region(ispace(int3d), Fluid_columns),
                            Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
   reads(Fluid.{rhoFluxY, rhoVelocityFluxY, rhoEnergyFluxY}),
-  reads writes atomic(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
+  reads writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
@@ -2825,9 +3188,10 @@ do
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if interior or NSCBC_inflow_cell or NSCBC_outflow_cell then
-      Fluid[c].rho_t += ((-(Fluid[c].rhoFluxY-Fluid[(c+{0, -1, 0})%Fluid.bounds].rhoFluxY))/Grid_yCellWidth)
-      var tmp2 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxY, Fluid[(c+{0, -1, 0})%Fluid.bounds].rhoVelocityFluxY), double((-1))), Grid_yCellWidth)
-      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp2)
+      Fluid[c].rho_t += ((-(Fluid[c].rhoFluxY-Fluid[(c+{0, -1, 0})%Fluid.bounds].rhoFluxY))/Grid_yCellWidth);
+      [UTIL.emitArrayReduce(3, '+',
+         rexpr Fluid[c].rhoVelocity_t end,
+         rexpr vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxY, Fluid[(c+{0, -1, 0})%Fluid.bounds].rhoVelocityFluxY), double((-1))), Grid_yCellWidth) end)];
       Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxY-Fluid[(c+{0, -1, 0})%Fluid.bounds].rhoEnergyFluxY))/Grid_yCellWidth)
     end
   end
@@ -2841,7 +3205,7 @@ task Flow_UpdateUsingFluxZ(Fluid : region(ispace(int3d), Fluid_columns),
                            Grid_zBnum : int32, Grid_zCellWidth : double, Grid_zNum : int32)
 where
   reads(Fluid.{rhoFluxZ, rhoVelocityFluxZ, rhoEnergyFluxZ}),
-  reads writes atomic(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
+  reads writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
@@ -2858,9 +3222,10 @@ do
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if interior or NSCBC_inflow_cell or NSCBC_outflow_cell then
-      Fluid[c].rho_t += ((-(Fluid[c].rhoFluxZ-Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoFluxZ))/Grid_zCellWidth)
-      var tmp3 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxZ, Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoVelocityFluxZ), double((-1))), Grid_zCellWidth)
-      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp3)
+      Fluid[c].rho_t += ((-(Fluid[c].rhoFluxZ-Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoFluxZ))/Grid_zCellWidth);
+      [UTIL.emitArrayReduce(3, '+',
+         rexpr Fluid[c].rhoVelocity_t end,
+         rexpr vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxZ, Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoVelocityFluxZ), double((-1))), Grid_zCellWidth) end)];
       Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxZ-Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoEnergyFluxZ))/Grid_zCellWidth)
     end
   end
@@ -2886,7 +3251,7 @@ task Flow_UpdateUsingFluxGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns)
 where
   reads(Fluid.{rho, velocity, pressure, temperature, rhoVelocity, dudtBoundary, dTdtBoundary}),
   reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ}),
-  reads writes atomic(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
+  reads writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
@@ -2992,7 +3357,7 @@ do
                                      Flow_viscosityModel)
         var tau_12 =  mu*( Fluid[c_bnd].velocityGradientY[0] + Fluid[c_bnd].velocityGradientX[1] )
         var tau_13 =  mu*( Fluid[c_bnd].velocityGradientZ[0] + Fluid[c_bnd].velocityGradientX[2] )
-        var energy_term_x = (Fluid[c_bnd].velocity[0]*tau11_pos - Fluid[c_int].velocity[0]*tau11_neg) / (Grid_xCellWidth) + c.velocityGradientX[1]*tau_12 + c.velocityGradientX[2]*tau_13
+        var energy_term_x = (Fluid[c_bnd].velocity[0]*tau11_pos - Fluid[c_int].velocity[0]*tau11_neg) / (Grid_xCellWidth) + Fluid[c_bnd].velocityGradientX[1]*tau_12 + Fluid[c_bnd].velocityGradientX[2]*tau_13
 
         -- Update the RHS of conservation equations with x fluxes
         Fluid[c_bnd].rho_t += - d1
@@ -3053,7 +3418,7 @@ task Flow_AddBodyForces(Fluid : region(ispace(int3d), Fluid_columns),
                         Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{rho, velocity}),
-  reads writes atomic(Fluid.{rhoEnergy_t, rhoVelocity_t})
+  reads writes(Fluid.{rhoEnergy_t, rhoVelocity_t})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
@@ -3071,8 +3436,9 @@ do
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if interior or NSCBC_inflow_cell or NSCBC_outflow_cell then
-      var tmp = vs_mul(Flow_bodyForce, Fluid[c].rho)
-      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp)
+      [UTIL.emitArrayReduce(3, '+',
+         rexpr Fluid[c].rhoVelocity_t end,
+         rexpr vs_mul(Flow_bodyForce, Fluid[c].rho) end)];
       Fluid[c].rhoEnergy_t += (Fluid[c].rho*dot(Flow_bodyForce, Fluid[c].velocity))
     end
   end
@@ -3354,7 +3720,7 @@ task Flow_AddTurbulentSource(Fluid : region(ispace(int3d), Fluid_columns),
                              config : Config)
 where
   reads(Fluid.{rho, velocity}),
-  reads writes atomic(Fluid.{rhoVelocity_t, rhoEnergy_t})
+  reads writes(Fluid.{rhoVelocity_t, rhoEnergy_t})
 do
   var W = Flow_averagePD + Flow_averageDissipation
   var G = config.Flow.turbForcing.u.HIT.G
@@ -3365,8 +3731,10 @@ do
   __demand(__openmp)
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      var force = vs_mul(Fluid[c].velocity, Fluid[c].rho*A)
-      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, force)
+      var force = vs_mul(Fluid[c].velocity, Fluid[c].rho*A);
+      [UTIL.emitArrayReduce(3, '+',
+         rexpr Fluid[c].rhoVelocity_t end,
+         rexpr force end)];
       Fluid[c].rhoEnergy_t += dot(force, Fluid[c].velocity)
       acc += dot(force, Fluid[c].velocity) * Grid_cellVolume
     end
@@ -3382,7 +3750,7 @@ task Flow_AdjustTurbulentSource(Fluid : region(ispace(int3d), Fluid_columns),
                                 Grid_yBnum : int32, Grid_yNum : int32,
                                 Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads writes atomic(Fluid.rhoEnergy_t)
+  reads writes(Fluid.rhoEnergy_t)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -3395,29 +3763,6 @@ end
 -------------------------------------------------------------------------------
 -- PARTICLE MOVEMENT
 -------------------------------------------------------------------------------
-
-__demand(__inline)
-task locate(pos : double[3],
-            Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
-            Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
-            Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
-  var xcw = Grid_xWidth/Grid_xNum
-  var xro = Grid_xOrigin-Grid_xBnum*xcw
-  var xpos = int(floor((pos[0]-xro)/xcw))
-  var xrnum = Grid_xNum+2*Grid_xBnum
-  var xidx = max(0, min(xrnum-1, xpos))
-  var ycw = Grid_yWidth/Grid_yNum
-  var yro = Grid_yOrigin-Grid_yBnum*ycw
-  var ypos = int(floor((pos[1]-yro)/ycw))
-  var yrnum = Grid_yNum+2*Grid_yBnum
-  var yidx = max(0, min(yrnum-1, ypos))
-  var zcw = Grid_zWidth/Grid_zNum
-  var zro = Grid_zOrigin-Grid_zBnum*zcw
-  var zpos = int(floor((pos[2]-zro)/zcw))
-  var zrnum = Grid_zNum+2*Grid_zBnum
-  var zidx = max(0, min(zrnum-1, zpos))
-  return int3d{xidx, yidx, zidx}
-end
 
 __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Particles_LocateInCells(Particles : region(ispace(int1d), Particles_columns),
@@ -3552,6 +3897,7 @@ do
      'Sample %d: %ld particle(s) moved past expected stencil',
      rexpr config.Mapping.sampleId end,
      rexpr toTransfer end)];
+  var total_xfers = int64(0);
   -- For each movement direction...
   @ESCAPE for k = 1,26 do local queue = tradeQueues[k] @EMIT
     -- Clear the transfer queue
@@ -3570,6 +3916,7 @@ do
         Particles[i].__xfer_slot = 0
       end
     end
+    total_xfers += transferred
     __parallel_prefix(Particles.__xfer_slot, Particles.__xfer_slot, +, 1);
     -- Check that there's enough space in the transfer queue
     [UTIL.emitAssert(
@@ -3588,6 +3935,7 @@ do
       end
     end
   @TIME end @EPACSE
+  return total_xfers
 end
 
 __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
@@ -3652,6 +4000,7 @@ do
       end
     end
   @TIME end @EPACSE
+  return total_xfers
 end
 
 __demand(__inline)
@@ -3699,8 +4048,8 @@ where
 do
   var p2 = CopyQueue.bounds.lo
   for p1 in Particles do
-    if p1.__valid then
-      var cell = p1.cell
+    if Particles[p1].__valid then
+      var cell = Particles[p1].cell
       if  copySrc.fromCell[0] <= cell.x and cell.x <= copySrc.uptoCell[0]
       and copySrc.fromCell[1] <= cell.y and cell.y <= copySrc.uptoCell[1]
       and copySrc.fromCell[2] <= cell.z and cell.z <= copySrc.uptoCell[2] then
@@ -3710,11 +4059,11 @@ do
            rexpr config.Mapping.sampleId end)];
         CopyQueue[p2].position =
           vv_add(copyTgtOrigin, vv_mul(Fluid1_cellWidth,
-            vv_div(vv_sub(p1.position, copySrcOrigin), Fluid0_cellWidth)))
-        CopyQueue[p2].velocity = p1.velocity
-        CopyQueue[p2].temperature = p1.temperature
-        CopyQueue[p2].diameter = p1.diameter
-        CopyQueue[p2].density = p1.density
+            vv_div(vv_sub(Particles[p1].position, copySrcOrigin), Fluid0_cellWidth)))
+        CopyQueue[p2].velocity = Particles[p1].velocity
+        CopyQueue[p2].temperature = Particles[p1].temperature
+        CopyQueue[p2].diameter = Particles[p1].diameter
+        CopyQueue[p2].density = Particles[p1].density
         CopyQueue[p2].__valid = true
         p2 += 1
       end
@@ -3740,8 +4089,8 @@ do
   var addedVelocity = config.Particles.feeding.u.Incoming.addedVelocity
   var p1 = Particles.bounds.lo
   for p2 in CopyQueue do
-    if p2.__valid then
-      var cell = locate(p2.position,
+    if CopyQueue[p2].__valid then
+      var cell = locate(CopyQueue[p2].position,
                         Grid_xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
                         Grid_yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
                         Grid_zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
@@ -3758,11 +4107,11 @@ do
            'Sample %d: Ran out of space while copying particles from other section',
            rexpr config.Mapping.sampleId end)];
         Particles[p1].cell = cell
-        Particles[p1].position = p2.position
-        Particles[p1].velocity = vv_add(p2.velocity, addedVelocity)
-        Particles[p1].temperature = p2.temperature
-        Particles[p1].diameter = p2.diameter
-        Particles[p1].density = p2.density
+        Particles[p1].position = CopyQueue[p2].position
+        Particles[p1].velocity = vv_add(CopyQueue[p2].velocity, addedVelocity)
+        Particles[p1].temperature = CopyQueue[p2].temperature
+        Particles[p1].diameter = CopyQueue[p2].diameter
+        Particles[p1].density = CopyQueue[p2].density
         Particles[p1].__valid = true
         acc += 1
       end
@@ -3774,338 +4123,6 @@ end
 -------------------------------------------------------------------------------
 -- OTHER ROUTINES
 -------------------------------------------------------------------------------
-
-__demand(__inline)
-task TrilinearInterpolateVelocity(xyz : double[3],
-                                  c000 : double[3],
-                                  c100 : double[3],
-                                  c010 : double[3],
-                                  c110 : double[3],
-                                  c001 : double[3],
-                                  c101 : double[3],
-                                  c011 : double[3],
-                                  c111 : double[3],
-                                  Grid_xCellWidth : double, Grid_xRealOrigin : double,
-                                  Grid_yCellWidth : double, Grid_yRealOrigin : double,
-                                  Grid_zCellWidth : double, Grid_zRealOrigin : double)
-  var dX = fmod((((xyz[0]-Grid_xRealOrigin)/Grid_xCellWidth)+0.5), 1.0)
-  var dY = fmod((((xyz[1]-Grid_yRealOrigin)/Grid_yCellWidth)+0.5), 1.0)
-  var dZ = fmod((((xyz[2]-Grid_zRealOrigin)/Grid_zCellWidth)+0.5), 1.0)
-  var oneMinusdX = (1.0-dX)
-  var oneMinusdY = (1.0-dY)
-  var oneMinusdZ = (1.0-dZ)
-  var weight00 = vv_add(vs_mul(c000, oneMinusdX), vs_mul(c100, dX))
-  var weight10 = vv_add(vs_mul(c010, oneMinusdX), vs_mul(c110, dX))
-  var weight01 = vv_add(vs_mul(c001, oneMinusdX), vs_mul(c101, dX))
-  var weight11 = vv_add(vs_mul(c011, oneMinusdX), vs_mul(c111, dX))
-  var weight0 = vv_add(vs_mul(weight00, oneMinusdY), vs_mul(weight10, dY))
-  var weight1 = vv_add(vs_mul(weight01, oneMinusdY), vs_mul(weight11, dY))
-  return vv_add(vs_mul(weight0, oneMinusdZ), vs_mul(weight1, dZ))
-end
-
-__demand(__inline)
-task InterpolateTriVelocity(c : int3d,
-                            xyz : double[3],
-                            Fluid : region(ispace(int3d), Fluid_columns),
-                            Grid_xCellWidth : double, Grid_xRealOrigin : double,
-                            Grid_yCellWidth : double, Grid_yRealOrigin : double,
-                            Grid_zCellWidth : double, Grid_zRealOrigin : double)
-where
-  reads(Fluid.{centerCoordinates, velocity})
-do
-  var i000 = Fluid[c].velocity
-  var i001 = Fluid[((c+{ 0, 0, 1})%Fluid.bounds)].velocity
-  var i00_ = Fluid[((c+{ 0, 0,-1})%Fluid.bounds)].velocity
-  var i010 = Fluid[((c+{ 0, 1, 0})%Fluid.bounds)].velocity
-  var i011 = Fluid[((c+{ 0, 1, 1})%Fluid.bounds)].velocity
-  var i01_ = Fluid[((c+{ 0, 1,-1})%Fluid.bounds)].velocity
-  var i0_0 = Fluid[((c+{ 0,-1, 0})%Fluid.bounds)].velocity
-  var i0_1 = Fluid[((c+{ 0,-1, 1})%Fluid.bounds)].velocity
-  var i0__ = Fluid[((c+{ 0,-1,-1})%Fluid.bounds)].velocity
-
-  var i100 = Fluid[((c+{ 1, 0, 0})%Fluid.bounds)].velocity
-  var i101 = Fluid[((c+{ 1, 0, 1})%Fluid.bounds)].velocity
-  var i10_ = Fluid[((c+{ 1, 0,-1})%Fluid.bounds)].velocity
-  var i110 = Fluid[((c+{ 1, 1, 0})%Fluid.bounds)].velocity
-  var i111 = Fluid[((c+{ 1, 1, 1})%Fluid.bounds)].velocity
-  var i11_ = Fluid[((c+{ 1, 1,-1})%Fluid.bounds)].velocity
-  var i1_0 = Fluid[((c+{ 1,-1, 0})%Fluid.bounds)].velocity
-  var i1_1 = Fluid[((c+{ 1,-1, 1})%Fluid.bounds)].velocity
-  var i1__ = Fluid[((c+{ 1,-1,-1})%Fluid.bounds)].velocity
-
-  var i_00 = Fluid[((c+{-1, 0, 0})%Fluid.bounds)].velocity
-  var i_01 = Fluid[((c+{-1, 0, 1})%Fluid.bounds)].velocity
-  var i_0_ = Fluid[((c+{-1, 0,-1})%Fluid.bounds)].velocity
-  var i_10 = Fluid[((c+{-1, 1, 0})%Fluid.bounds)].velocity
-  var i_11 = Fluid[((c+{-1, 1, 1})%Fluid.bounds)].velocity
-  var i_1_ = Fluid[((c+{-1, 1,-1})%Fluid.bounds)].velocity
-  var i__0 = Fluid[((c+{-1,-1, 0})%Fluid.bounds)].velocity
-  var i__1 = Fluid[((c+{-1,-1, 1})%Fluid.bounds)].velocity
-  var i___ = Fluid[((c+{-1,-1,-1})%Fluid.bounds)].velocity
-
-  var v000 = array(0.0, 0.0, 0.0)
-  var v001 = array(0.0, 0.0, 0.0)
-  var v010 = array(0.0, 0.0, 0.0)
-  var v011 = array(0.0, 0.0, 0.0)
-  var v100 = array(0.0, 0.0, 0.0)
-  var v101 = array(0.0, 0.0, 0.0)
-  var v110 = array(0.0, 0.0, 0.0)
-  var v111 = array(0.0, 0.0, 0.0)
-
-  if (xyz[0]>Fluid[c].centerCoordinates[0]) then
-    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = i000
-        v001 = i001
-        v010 = i010
-        v011 = i011
-        v100 = i100
-        v101 = i101
-        v110 = i110
-        v111 = i111
-      else
-        v000 = i00_
-        v001 = i000
-        v010 = i01_
-        v011 = i010
-        v100 = i10_
-        v101 = i100
-        v110 = i11_
-        v111 = i110
-      end
-    else
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = i0_0
-        v001 = i0_1
-        v010 = i000
-        v011 = i001
-        v100 = i1_0
-        v101 = i1_1
-        v110 = i100
-        v111 = i101
-      else
-        v000 = i0__
-        v001 = i0_0
-        v010 = i00_
-        v011 = i000
-        v100 = i1__
-        v101 = i1_0
-        v110 = i10_
-        v111 = i100
-      end
-    end
-  else
-    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = i_00
-        v001 = i_01
-        v010 = i_10
-        v011 = i_11
-        v100 = i000
-        v101 = i001
-        v110 = i010
-        v111 = i011
-      else
-        v000 = i_0_
-        v001 = i_00
-        v010 = i_1_
-        v011 = i_10
-        v100 = i00_
-        v101 = i000
-        v110 = i01_
-        v111 = i010
-      end
-    else
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = i__0
-        v001 = i__1
-        v010 = i_00
-        v011 = i_01
-        v100 = i0_0
-        v101 = i0_1
-        v110 = i000
-        v111 = i001
-      else
-        v000 = i___
-        v001 = i__0
-        v010 = i_0_
-        v011 = i_00
-        v100 = i0__
-        v101 = i0_0
-        v110 = i00_
-        v111 = i000
-      end
-    end
-  end
-
-  return TrilinearInterpolateVelocity(xyz, v000, v100, v010, v110, v001, v101, v011, v111, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin)
-end
-
-__demand(__inline)
-task TrilinearInterpolateTemp(xyz : double[3],
-                              c000 : double,
-                              c100 : double,
-                              c010 : double,
-                              c110 : double,
-                              c001 : double,
-                              c101 : double,
-                              c011 : double,
-                              c111 : double,
-                              Grid_xCellWidth : double, Grid_xRealOrigin : double,
-                              Grid_yCellWidth : double, Grid_yRealOrigin : double,
-                              Grid_zCellWidth : double, Grid_zRealOrigin : double)
-  var dX = fmod((((xyz[0]-Grid_xRealOrigin)/Grid_xCellWidth)+0.5), 1.0)
-  var dY = fmod((((xyz[1]-Grid_yRealOrigin)/Grid_yCellWidth)+0.5), 1.0)
-  var dZ = fmod((((xyz[2]-Grid_zRealOrigin)/Grid_zCellWidth)+0.5), 1.0)
-  var oneMinusdX = (1.0-dX)
-  var oneMinusdY = (1.0-dY)
-  var oneMinusdZ = (1.0-dZ)
-  var weight00 = ((c000*oneMinusdX)+(c100*dX))
-  var weight10 = ((c010*oneMinusdX)+(c110*dX))
-  var weight01 = ((c001*oneMinusdX)+(c101*dX))
-  var weight11 = ((c011*oneMinusdX)+(c111*dX))
-  var weight0 = ((weight00*oneMinusdY)+(weight10*dY))
-  var weight1 = ((weight01*oneMinusdY)+(weight11*dY))
-  return ((weight0*oneMinusdZ)+(weight1*dZ))
-end
-
-__demand(__inline)
-task InterpolateTriTemp(c : int3d,
-                        xyz : double[3],
-                        Fluid : region(ispace(int3d), Fluid_columns),
-                        Grid_xCellWidth : double, Grid_xRealOrigin : double,
-                        Grid_yCellWidth : double, Grid_yRealOrigin : double,
-                        Grid_zCellWidth : double, Grid_zRealOrigin : double)
-where
-  reads(Fluid.{centerCoordinates, temperature})
-do
-  var i000 = Fluid[c].temperature
-  var i001 = Fluid[((c+{ 0, 0, 1})%Fluid.bounds)].temperature
-  var i00_ = Fluid[((c+{ 0, 0,-1})%Fluid.bounds)].temperature
-  var i010 = Fluid[((c+{ 0, 1, 0})%Fluid.bounds)].temperature
-  var i011 = Fluid[((c+{ 0, 1, 1})%Fluid.bounds)].temperature
-  var i01_ = Fluid[((c+{ 0, 1,-1})%Fluid.bounds)].temperature
-  var i0_0 = Fluid[((c+{ 0,-1, 0})%Fluid.bounds)].temperature
-  var i0_1 = Fluid[((c+{ 0,-1, 1})%Fluid.bounds)].temperature
-  var i0__ = Fluid[((c+{ 0,-1,-1})%Fluid.bounds)].temperature
-
-  var i100 = Fluid[((c+{ 1, 0, 0})%Fluid.bounds)].temperature
-  var i101 = Fluid[((c+{ 1, 0, 1})%Fluid.bounds)].temperature
-  var i10_ = Fluid[((c+{ 1, 0,-1})%Fluid.bounds)].temperature
-  var i110 = Fluid[((c+{ 1, 1, 0})%Fluid.bounds)].temperature
-  var i111 = Fluid[((c+{ 1, 1, 1})%Fluid.bounds)].temperature
-  var i11_ = Fluid[((c+{ 1, 1,-1})%Fluid.bounds)].temperature
-  var i1_0 = Fluid[((c+{ 1,-1, 0})%Fluid.bounds)].temperature
-  var i1_1 = Fluid[((c+{ 1,-1, 1})%Fluid.bounds)].temperature
-  var i1__ = Fluid[((c+{ 1,-1,-1})%Fluid.bounds)].temperature
-
-  var i_00 = Fluid[((c+{-1, 0, 0})%Fluid.bounds)].temperature
-  var i_01 = Fluid[((c+{-1, 0, 1})%Fluid.bounds)].temperature
-  var i_0_ = Fluid[((c+{-1, 0,-1})%Fluid.bounds)].temperature
-  var i_10 = Fluid[((c+{-1, 1, 0})%Fluid.bounds)].temperature
-  var i_11 = Fluid[((c+{-1, 1, 1})%Fluid.bounds)].temperature
-  var i_1_ = Fluid[((c+{-1, 1,-1})%Fluid.bounds)].temperature
-  var i__0 = Fluid[((c+{-1,-1, 0})%Fluid.bounds)].temperature
-  var i__1 = Fluid[((c+{-1,-1, 1})%Fluid.bounds)].temperature
-  var i___ = Fluid[((c+{-1,-1,-1})%Fluid.bounds)].temperature
-
-  var v000 = 0.0
-  var v001 = 0.0
-  var v010 = 0.0
-  var v011 = 0.0
-  var v100 = 0.0
-  var v101 = 0.0
-  var v110 = 0.0
-  var v111 = 0.0
-
-  if (xyz[0]>Fluid[c].centerCoordinates[0]) then
-    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = i000
-        v001 = i001
-        v010 = i010
-        v011 = i011
-        v100 = i100
-        v101 = i101
-        v110 = i110
-        v111 = i111
-      else
-        v000 = i00_
-        v001 = i000
-        v010 = i01_
-        v011 = i010
-        v100 = i10_
-        v101 = i100
-        v110 = i11_
-        v111 = i110
-      end
-    else
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = i0_0
-        v001 = i0_1
-        v010 = i000
-        v011 = i001
-        v100 = i1_0
-        v101 = i1_1
-        v110 = i100
-        v111 = i101
-      else
-        v000 = i0__
-        v001 = i0_0
-        v010 = i00_
-        v011 = i000
-        v100 = i1__
-        v101 = i1_0
-        v110 = i10_
-        v111 = i100
-      end
-    end
-  else
-    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = i_00
-        v001 = i_01
-        v010 = i_10
-        v011 = i_11
-        v100 = i000
-        v101 = i001
-        v110 = i010
-        v111 = i011
-      else
-        v000 = i_0_
-        v001 = i_00
-        v010 = i_1_
-        v011 = i_10
-        v100 = i00_
-        v101 = i000
-        v110 = i01_
-        v111 = i010
-      end
-    else
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = i__0
-        v001 = i__1
-        v010 = i_00
-        v011 = i_01
-        v100 = i0_0
-        v101 = i0_1
-        v110 = i000
-        v111 = i001
-      else
-        v000 = i___
-        v001 = i__0
-        v010 = i_0_
-        v011 = i_00
-        v100 = i0__
-        v101 = i0_0
-        v110 = i00_
-        v111 = i000
-      end
-    end
-  end
-
-  return TrilinearInterpolateTemp(xyz, v000, v100, v010, v110, v001, v101, v011, v111, Grid_xCellWidth, Grid_xRealOrigin, Grid_yCellWidth, Grid_yRealOrigin, Grid_zCellWidth, Grid_zRealOrigin)
-end
 
 __demand(__leaf, __parallel, __cuda)
 task Particles_CalcDeltaTerms(Particles : region(ispace(int1d), Particles_columns),
@@ -4176,7 +4193,9 @@ do
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
-      Particles[p].velocity_t = vv_add(Particles[p].velocity_t, Particles_bodyForce)
+      [UTIL.emitArrayReduce(3, '+',
+         rexpr Particles[p].velocity_t end,
+         rexpr Particles_bodyForce end)];
     end
   end
 end
@@ -4212,11 +4231,11 @@ do
   var Particles_parcelSize = config.Particles.parcelSize
   __demand(__openmp)
   for c in Radiation do
-    c.sigma = c.acc_d2*PI*Particles_parcelSize*(Radiation_qa+Radiation_qs)/(4.0*Radiation_cellVolume)
-    if c.acc_d2 == 0.0 then
-      c.Ib = 0.0
+    Radiation[c].sigma = Radiation[c].acc_d2*PI*Particles_parcelSize*(Radiation_qa+Radiation_qs)/(4.0*Radiation_cellVolume)
+    if Radiation[c].acc_d2 == 0.0 then
+      Radiation[c].Ib = 0.0
     else
-      c.Ib = (SB*c.acc_d2t4)/(PI*c.acc_d2)
+      Radiation[c].Ib = (SB*Radiation[c].acc_d2t4)/(PI*Radiation[c].acc_d2)
     end
   end
 end
@@ -4251,20 +4270,16 @@ task Flow_AddParticlesCoupling(Particles : region(ispace(int1d), Particles_colum
                                Grid_cellVolume : double)
 where
   reads(Particles.{cell, diameter, density, deltaTemperatureTerm, deltaVelocityOverRelaxationTime, __valid}),
-  reads writes atomic(Fluid.{rhoVelocity_t, rhoEnergy_t})
+  reads writes(Fluid.{rhoVelocity_t, rhoEnergy_t})
 do
   var Particles_parcelSize = config.Particles.parcelSize
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
-      -- NOTE: We separate the array-type reduction into 3 separate reductions
-      -- over the 3 indices, to make sure the code generator emits them as
-      -- atomic operations.
-      var mass = PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density
-      var tmp = vs_mul(Particles[p].deltaVelocityOverRelaxationTime, -mass*Particles_parcelSize/Grid_cellVolume)
-      Fluid[Particles[p].cell].rhoVelocity_t[0] += tmp[0]
-      Fluid[Particles[p].cell].rhoVelocity_t[1] += tmp[1]
-      Fluid[Particles[p].cell].rhoVelocity_t[2] += tmp[2]
+      var mass = PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density;
+      [UTIL.emitArrayReduce(3, '+',
+         rexpr Fluid[Particles[p].cell].rhoVelocity_t end,
+         rexpr vs_mul(Particles[p].deltaVelocityOverRelaxationTime, -mass*Particles_parcelSize/Grid_cellVolume) end)];
       Fluid[Particles[p].cell].rhoEnergy_t += -Particles_parcelSize*Particles[p].deltaTemperatureTerm/Grid_cellVolume
     end
   end
@@ -4290,9 +4305,10 @@ do
           for c in Fluid do
             -- Accumulate intermediate values into final values
             Fluid[c].rho_new +=
-              Fluid[c].rho_t * [RK_B[ORDER][STAGE]] * dt
-            Fluid[c].rhoVelocity_new = vv_add(Fluid[c].rhoVelocity_new,
-              vs_mul(Fluid[c].rhoVelocity_t, [RK_B[ORDER][STAGE]] * dt))
+              Fluid[c].rho_t * [RK_B[ORDER][STAGE]] * dt;
+            [UTIL.emitArrayReduce(3, '+',
+               rexpr Fluid[c].rhoVelocity_new end,
+               rexpr vs_mul(Fluid[c].rhoVelocity_t, [RK_B[ORDER][STAGE]] * dt) end)];
             Fluid[c].rhoEnergy_new +=
               Fluid[c].rhoEnergy_t * [RK_B[ORDER][STAGE]] * dt;
             @ESCAPE if STAGE == ORDER then @EMIT
@@ -4337,10 +4353,12 @@ do
           for p in Particles do
             if Particles[p].__valid then
               -- Accumulate intermediate values into final values
-              Particles[p].position_new = vv_add(Particles[p].position_new,
-                vs_mul(Particles[p].velocity, [RK_B[ORDER][STAGE]] * dt))
-              Particles[p].velocity_new = vv_add(Particles[p].velocity_new,
-                vs_mul(Particles[p].velocity_t, [RK_B[ORDER][STAGE]] * dt))
+              [UTIL.emitArrayReduce(3, '+',
+                 rexpr Particles[p].position_new end,
+                 rexpr vs_mul(Particles[p].velocity, [RK_B[ORDER][STAGE]] * dt) end)];
+              [UTIL.emitArrayReduce(3, '+',
+                 rexpr Particles[p].velocity_new end,
+                 rexpr vs_mul(Particles[p].velocity_t, [RK_B[ORDER][STAGE]] * dt) end)];
               Particles[p].temperature_new +=
                 Particles[p].temperature_t * [RK_B[ORDER][STAGE]] * dt;
               @ESCAPE if STAGE == ORDER then @EMIT
@@ -4378,19 +4396,19 @@ where
 do
   var Particles_parcelSize = config.Particles.parcelSize
   for p1 in Particles do
-    if p1.__valid then
+    if Particles[p1].__valid then
       for p2 in Particles do
-        if p2.__valid and p1 < p2 then
+        if Particles[p2].__valid and p1 < p2 then
 
           -- Relative position of particles
-          var x = p2.position[0] - p1.position[0]
-          var y = p2.position[1] - p1.position[1]
-          var z = p2.position[2] - p1.position[2]
+          var x = Particles[p2].position[0] - Particles[p1].position[0]
+          var y = Particles[p2].position[1] - Particles[p1].position[1]
+          var z = Particles[p2].position[2] - Particles[p1].position[2]
 
           -- Old relative position of particles
-          var xold = p2.position_old[0] - p1.position_old[0]
-          var yold = p2.position_old[1] - p1.position_old[1]
-          var zold = p2.position_old[2] - p1.position_old[2]
+          var xold = Particles[p2].position_old[0] - Particles[p1].position_old[0]
+          var yold = Particles[p2].position_old[1] - Particles[p1].position_old[1]
+          var zold = Particles[p2].position_old[2] - Particles[p1].position_old[2]
 
 
           -- Relative velocity
@@ -4404,7 +4422,7 @@ do
           var u_scal_u = ux*ux + uy*uy + uz*uz
 
           -- Critical distance
-          var dcrit = 0.5 * sqrt(Particles_parcelSize) * ( p1.diameter + p2.diameter )
+          var dcrit = 0.5 * sqrt(Particles_parcelSize) * ( Particles[p1].diameter + Particles[p2].diameter )
 
           -- Checking if particles are getting away from each other
           if x_scal_u<0.0 then
@@ -4421,8 +4439,8 @@ do
 
 
                 -- Mass ratio of particles
-                var mr = (p2.density * p2.diameter * p2.diameter * p2.diameter)
-                mr = mr/ (p1.density * p1.diameter * p1.diameter * p1.diameter)
+                var mr = (Particles[p2].density * Particles[p2].diameter * Particles[p2].diameter * Particles[p2].diameter)
+                mr = mr/ (Particles[p1].density * Particles[p1].diameter * Particles[p1].diameter * Particles[p1].diameter)
 
                 -- Change of velocity and particle location after impact
                 -- Note: for now particle restitution coeff is the same for all particles ?
@@ -4431,22 +4449,22 @@ do
 
                 -- Update velocities
 
-                p1.velocity[0] = p1.velocity[0] + du*xold*mr
-                p1.velocity[1] = p1.velocity[1] + du*yold*mr
-                p1.velocity[2] = p1.velocity[2] + du*zold*mr
+                Particles[p1].velocity[0] = Particles[p1].velocity[0] + du*xold*mr
+                Particles[p1].velocity[1] = Particles[p1].velocity[1] + du*yold*mr
+                Particles[p1].velocity[2] = Particles[p1].velocity[2] + du*zold*mr
 
-                p2.velocity[0] = p2.velocity[0] - du*xold
-                p2.velocity[1] = p2.velocity[1] - du*yold
-                p2.velocity[2] = p2.velocity[2] - du*zold
+                Particles[p2].velocity[0] = Particles[p2].velocity[0] - du*xold
+                Particles[p2].velocity[1] = Particles[p2].velocity[1] - du*yold
+                Particles[p2].velocity[2] = Particles[p2].velocity[2] - du*zold
 
                 -- Update positions
-                p1.position[0] = p1.position[0] + dx*xold*mr
-                p1.position[1] = p1.position[1] + dx*yold*mr
-                p1.position[2] = p1.position[2] + dx*zold*mr
+                Particles[p1].position[0] = Particles[p1].position[0] + dx*xold*mr
+                Particles[p1].position[1] = Particles[p1].position[1] + dx*yold*mr
+                Particles[p1].position[2] = Particles[p1].position[2] + dx*zold*mr
 
-                p2.position[0] = p2.position[0] - dx*xold
-                p2.position[1] = p2.position[1] - dx*yold
-                p2.position[2] = p2.position[2] - dx*zold
+                Particles[p2].position[0] = Particles[p2].position[0] - dx*xold
+                Particles[p2].position[1] = Particles[p2].position[1] - dx*yold
+                Particles[p2].position[2] = Particles[p2].position[2] - dx*zold
 
               end
 
@@ -4714,12 +4732,12 @@ local function mkInstance() local INSTANCE = {}
     var [startTime] = C.legion_get_current_time_in_micros() / 1000;
 
     -- Write console header
-    Console_WriteHeader(config)
+    Console_WriteHeader(0, config)
 
     -- Write probe file headers
     var probeId = 0
     while probeId < config.IO.probes.length do
-      Probe_WriteHeader(config, probeId)
+      Probe_WriteHeader(0, config, probeId)
       probeId += 1
     end
 
@@ -5065,31 +5083,31 @@ local function mkInstance() local INSTANCE = {}
 
     -- Fluid Partitioning
     var [p_Fluid] =
-      [UTIL.mkPartitionEqually(int3d, int3d, Fluid_columns)]
+      [UTIL.mkPartitionByTile(int3d, int3d, Fluid_columns)]
       (Fluid, tiles, int3d{Grid.xBnum,Grid.yBnum,Grid.zBnum}, int3d{0,0,0})
     var [p_Fluid_copy] =
-      [UTIL.mkPartitionEqually(int3d, int3d, Fluid_columns)]
+      [UTIL.mkPartitionByTile(int3d, int3d, Fluid_columns)]
       (Fluid_copy, tiles, int3d{Grid.xBnum,Grid.yBnum,Grid.zBnum}, int3d{0,0,0})
 
     -- Particles Partitioning
     var [p_Particles] =
-      [UTIL.mkPartitionEqually(int1d, int3d, Particles_columns)]
+      [UTIL.mkPartitionByTile(int1d, int3d, Particles_columns)]
       (Particles, tiles, 0, int3d{0,0,0})
     var [p_Particles_copy] =
-      [UTIL.mkPartitionEqually(int1d, int3d, Particles_columns)]
+      [UTIL.mkPartitionByTile(int1d, int3d, Particles_columns)]
       (Particles_copy, tiles, 0, int3d{0,0,0});
     @ESCAPE for k = 1,26 do @EMIT
       var [p_TradeQueue_bySrc[k]] =
-        [UTIL.mkPartitionEqually(int1d, int3d, TradeQueue_columns)]
+        [UTIL.mkPartitionByTile(int1d, int3d, TradeQueue_columns)]
         ([TradeQueue[k]], tiles, 0, int3d{0,0,0});
       var [p_TradeQueue_byDst[k]] =
-        [UTIL.mkPartitionEqually(int1d, int3d, TradeQueue_columns)]
+        [UTIL.mkPartitionByTile(int1d, int3d, TradeQueue_columns)]
         ([TradeQueue[k]], tiles, 0, [colorOffsets[k]]);
     @TIME end @EPACSE
 
     -- Radiation Partitioning
     var [p_Radiation] =
-      [UTIL.mkPartitionEqually(int3d, int3d, Radiation_columns)]
+      [UTIL.mkPartitionByTile(int3d, int3d, Radiation_columns)]
       (Radiation, tiles, int3d{0,0,0}, int3d{0,0,0});
 
     ---------------------------------------------------------------------------
@@ -5127,7 +5145,9 @@ local function mkInstance() local INSTANCE = {}
     if config.Flow.initCase == SCHEMA.FlowInitCase_Uniform then
       Flow_InitializeUniform(Fluid, config.Flow.initParams)
     elseif config.Flow.initCase == SCHEMA.FlowInitCase_Random then
-      Flow_InitializeRandom(Fluid, config.Flow.initParams)
+      for c in tiles do
+        Flow_InitializeRandom(p_Fluid[c], config.Flow.initParams)
+      end
     elseif config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen2DVortex then
       Flow_InitializeTaylorGreen2D(Fluid,
                                    config.Flow.initParams,
@@ -5141,14 +5161,17 @@ local function mkInstance() local INSTANCE = {}
                                    Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
                                    Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
     elseif config.Flow.initCase == SCHEMA.FlowInitCase_Perturbed then
-      Flow_InitializePerturbed(Fluid, config.Flow.initParams)
+      for c in tiles do
+        Flow_InitializePerturbed(p_Fluid[c], config.Flow.initParams)
+      end
     elseif config.Flow.initCase == SCHEMA.FlowInitCase_Restart then
-      Fluid_load(0, tiles, config.Flow.restartDir, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
+      HDF_FLUID.load(0, tiles, config.Flow.restartDir, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
     else regentlib.assert(false, 'Unhandled case in switch') end
 
     -- initialize ghost cells to their specified values in NSCBC case
     if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-        Flow_InitializeGhostNSCBC(Fluid,
+      for c in tiles do
+        Flow_InitializeGhostNSCBC(p_Fluid[c],
                                   config,
                                   config.Flow.gasConstant,
                                   config.Flow.constantVisc,
@@ -5158,6 +5181,7 @@ local function mkInstance() local INSTANCE = {}
                                   Grid.xBnum, config.Grid.xNum,
                                   Grid.yBnum, config.Grid.yNum,
                                   Grid.zBnum, config.Grid.zNum)
+      end
     end
 
     -- update interior cells from initialized primitive values
@@ -5233,27 +5257,30 @@ local function mkInstance() local INSTANCE = {}
     -- Initialize particles
     if config.Particles.maxNum > 0 then
       if config.Particles.initCase == SCHEMA.ParticlesInitCase_Random then
-        regentlib.assert(false, "Random particle initialization is disabled")
+        regentlib.assert((config.Particles.initNum / config.Particles.parcelSize) % numTiles == 0,
+                         'Uneven partitioning of particles')
+        regentlib.assert(config.Particles.initNum <= config.Particles.maxNum,
+                         'Not enough space for initial number of particles')
+        for c in tiles do
+          Particles_InitializeRandom(c,
+                                     p_Particles[c],
+                                     p_Fluid[c],
+                                     config,
+                                     Grid.xBnum, Grid.yBnum, Grid.zBnum)
+        end
       elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart then
-        Particles_load(0, tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
+        HDF_PARTICLES.load(0, tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
         for c in tiles do
           Particles_LocateInCells(p_Particles[c],
                                   Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
                                   Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
                                   Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
         end
-        for c in tiles do
-          Particles_CheckPartitioning(c,
-                                      p_Particles[c],
-                                      Grid.xBnum, config.Grid.xNum, NX,
-                                      Grid.yBnum, config.Grid.yNum, NY,
-                                      Grid.zBnum, config.Grid.zNum, NZ)
-        end
       elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform then
         regentlib.assert((config.Particles.initNum / config.Particles.parcelSize) % numTiles == 0,
                          'Uneven partitioning of particles')
         regentlib.assert(config.Particles.initNum <= config.Particles.maxNum,
-                         "Not enough space for initial number of particles")
+                         'Not enough space for initial number of particles')
         for c in tiles do
           Particles_InitializeUniform(p_Particles[c],
                                       p_Fluid[c],
@@ -5261,6 +5288,13 @@ local function mkInstance() local INSTANCE = {}
                                       Grid.xBnum, Grid.yBnum, Grid.zBnum)
         end
       else regentlib.assert(false, 'Unhandled case in switch') end
+      for c in tiles do
+        Particles_CheckPartitioning(c,
+                                    p_Particles[c],
+                                    Grid.xBnum, config.Grid.xNum, NX,
+                                    Grid.yBnum, config.Grid.yNum, NY,
+                                    Grid.zBnum, config.Grid.zNum, NZ)
+      end
       Particles_number += Particles_CalculateNumber(Particles)
     end
 
@@ -5369,7 +5403,7 @@ local function mkInstance() local INSTANCE = {}
         avgParticleT += Probe_AvgParticleT(Particles, probe, totalParticles)
         avgCellOfParticleT += Probe_AvgCellOfParticleT(Fluid, Particles, probe, totalParticles)
       end
-      Probe_Write(config, i, Integrator_timeStep, avgFluidT, avgParticleT, avgCellOfParticleT)
+      Probe_Write(0, config, i, Integrator_timeStep, avgFluidT, avgParticleT, avgCellOfParticleT)
     end
 
     -- Dump restart files
@@ -5377,11 +5411,15 @@ local function mkInstance() local INSTANCE = {}
       if Integrator_exitCond or Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 then
         var dirname = [&int8](C.malloc(256))
         C.snprintf(dirname, 256, '%s/fluid_iter%010d', config.Mapping.outDir, Integrator_timeStep)
-        var _1 = createDir(dirname)
-        Fluid_dump(_1, tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
+        var _1 = createDir(0, dirname)
+        _1 = HDF_FLUID.dump(_1, tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
+        _1 = HDF_FLUID.write.timeStep(_1, tiles, dirname, Fluid, p_Fluid, Integrator_timeStep)
+        _1 = HDF_FLUID.write.simTime(_1, tiles, dirname, Fluid, p_Fluid, Integrator_simTime)
         C.snprintf(dirname, 256, '%s/particles_iter%010d', config.Mapping.outDir, Integrator_timeStep)
-        var _2 = createDir(dirname)
-        Particles_dump(_2, tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
+        var _2 = createDir(0, dirname)
+        _2 = HDF_PARTICLES.dump(_2, tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
+        _2 = HDF_PARTICLES.write.timeStep(_2, tiles, dirname, Particles, p_Particles, Integrator_timeStep)
+        _2 = HDF_PARTICLES.write.simTime(_2, tiles, dirname, Particles, p_Particles, Integrator_simTime)
         C.free(dirname)
       end
     end
@@ -5757,24 +5795,29 @@ local function mkInstance() local INSTANCE = {}
                                   Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
         end
         if numTiles > 1 then
+          var totalPushed = int64(0)
           for c in tiles do
-            TradeQueue_push(c,
-                            p_Particles[c],
-                            [UTIL.range(1,26):map(function(k) return rexpr
-                               [p_TradeQueue_bySrc[k]][c]
-                             end end)],
-                            config,
-                            Grid.xBnum, config.Grid.xNum, NX,
-                            Grid.yBnum, config.Grid.yNum, NY,
-                            Grid.zBnum, config.Grid.zNum, NZ)
+            totalPushed +=
+              TradeQueue_push(c,
+                              p_Particles[c],
+                              [UTIL.range(1,26):map(function(k) return rexpr
+                                 [p_TradeQueue_bySrc[k]][c]
+                               end end)],
+                              config,
+                              Grid.xBnum, config.Grid.xNum, NX,
+                              Grid.yBnum, config.Grid.yNum, NY,
+                              Grid.zBnum, config.Grid.zNum, NZ)
           end
+          var totalPulled = int64(0)
           for c in tiles do
-            TradeQueue_pull(p_Particles[c],
-                            [UTIL.range(1,26):map(function(k) return rexpr
-                               [p_TradeQueue_byDst[k]][c]
-                             end end)],
-                            config)
+            totalPulled +=
+              TradeQueue_pull(p_Particles[c],
+                              [UTIL.range(1,26):map(function(k) return rexpr
+                                 [p_TradeQueue_byDst[k]][c]
+                               end end)],
+                              config)
           end
+          regentlib.assert(totalPushed == totalPulled, 'Internal error in particle trading')
         end
       end
 
@@ -5817,9 +5860,6 @@ local function mkInstance() local INSTANCE = {}
 
     -- Wait for everything above to finish
     __fence(__execution, __block)
-
-    -- Report final time
-    Console_WriteFooter(config, startTime)
 
   end end -- Cleanup
 
@@ -6023,9 +6063,9 @@ task initDual(mc : &MultiConfig, launched : int, outDirBase : &int8)
   initSingle([&Config](mc.configs), launched, outDirBase)
   initSingle([&Config](mc.configs) + 1, launched + 1, outDirBase)
   -- Check 2-section configuration
-  mc.configs[0].Particles.staggerFactor min= mc.copyEveryTimeSteps
-  mc.configs[1].Particles.staggerFactor min= mc.copyEveryTimeSteps
   regentlib.assert(
+    mc.configs[0].Particles.staggerFactor <= mc.copyEveryTimeSteps and
+    mc.configs[1].Particles.staggerFactor <= mc.copyEveryTimeSteps and
     mc.copyEveryTimeSteps % mc.configs[0].Particles.staggerFactor == 0 and
     mc.copyEveryTimeSteps % mc.configs[1].Particles.staggerFactor == 0,
     'Invalid stagger factor configuration')

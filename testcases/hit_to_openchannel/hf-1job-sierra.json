@@ -120,7 +120,7 @@
 
         "IO" : {
             "wrtRestart" : true,
-            "restartEveryTimeSteps" : 50000,
+            "restartEveryTimeSteps" : 10000,
             "probes" : []
         }
     }, {
@@ -271,7 +271,7 @@
 
         "IO" : {
             "wrtRestart" : true,
-            "restartEveryTimeSteps" : 50000,
+            "restartEveryTimeSteps" : 10000,
             "probes" : [{"fromCell" : [512,0,0], "uptoCell" : [512,127,127]}]
         }
     }],
@@ -284,5 +284,6 @@
         "fromCell" : [0,0,0],
         "uptoCell" : [0,127,127]
     },
+    "collocateSections" : true,
     "copyEveryTimeSteps" : "TBD"
 }
