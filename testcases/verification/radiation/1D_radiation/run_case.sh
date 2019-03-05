@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # save current working directory
 CWD=$(pwd)
 

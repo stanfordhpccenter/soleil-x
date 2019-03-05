@@ -168,6 +168,8 @@ local Fluid_primitives = terralib.newlist({
 })
 
 struct Radiation_columns {
+  centerCoordinates : double[3];
+  cellWidth : double[3];
   G : double;
   S : double;
   Ib : double;
@@ -804,39 +806,39 @@ task nonuniform_cell_width(x_min : double,
 end
 
 
--- Description:
---     Find 1st derivative using central difference scheme
--- Input:
---     y_minus = y in neighbor cell in the negative direction
---     y_plus = y in neighbor cell in the positive direction 
---     dx_minus = cell width of neighbor cell in the negative direction
---     dx = cell width of current cell 
---     dx_plus = cell width of neighbor cell in the positive direction
--- Output:
---     1st derivative using central difference scheme
-terra central_difference(y_minus  : double,
-                         y_plus   : double,
-                         dx_minus : double,
-                         dx       : double,
-                         dx_plus  : double) : double
-  return (y_plus - y_minus)/(0.5*dx_minus + dx + 0.5*dx_plus)
-end
-
--- Description:
---     Find 1st derivative using one sided difference scheme
--- Input:
---     y_minus = y in neighbor cell in the negative direction
---     y_plus = y in neighbor cell in the positive direction 
---     dx_minus = cell width of neighbor cell in the negative direction
---     dx_plus = cell width of neighbor cell in the positive direction
--- Output:
---     1st derivative using one sided difference scheme
-terra one_sided_difference(y_minus  : double,
-                           y_plus   : double,
-                           dx_minus : double,
-                           dx_plus  : double) : double
-  return (y_plus - y_minus)/(0.5*dx_minus + 0.5*dx_plus)
-end
+---- Description:
+----     Find 1st derivative using central difference scheme
+---- Input:
+----     y_minus = y in neighbor cell in the negative direction
+----     y_plus = y in neighbor cell in the positive direction 
+----     dx_minus = cell width of neighbor cell in the negative direction
+----     dx = cell width of current cell 
+----     dx_plus = cell width of neighbor cell in the positive direction
+---- Output:
+----     1st derivative using central difference scheme
+--terra central_difference(y_minus  : double,
+--                         y_plus   : double,
+--                         dx_minus : double,
+--                         dx       : double,
+--                         dx_plus  : double) : double
+--  return (y_plus - y_minus)/(0.5*dx_minus + dx + 0.5*dx_plus)
+--end
+--
+---- Description:
+----     Find 1st derivative using one sided difference scheme
+---- Input:
+----     y_minus = y in neighbor cell in the negative direction
+----     y_plus = y in neighbor cell in the positive direction 
+----     dx_minus = cell width of neighbor cell in the negative direction
+----     dx_plus = cell width of neighbor cell in the positive direction
+---- Output:
+----     1st derivative using one sided difference scheme
+--terra one_sided_difference(y_minus  : double,
+--                           y_plus   : double,
+--                           dx_minus : double,
+--                           dx_plus  : double) : double
+--  return (y_plus - y_minus)/(0.5*dx_minus + 0.5*dx_plus)
+--end
 
 -------------------------------------------------------------------------------
 -- OTHER ROUTINES
@@ -1109,7 +1111,7 @@ do
 
   end
 
-  -- Find cell center coordinates and cell with in ghost cells
+  -- Find cell center coordinates and cell width in ghost cells using the interior cells geometry
   for cell in Fluid do
 
     var xNegGhost = is_xNegGhost(cell, Grid_xBnum)

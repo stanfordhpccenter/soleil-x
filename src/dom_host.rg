@@ -28,6 +28,8 @@ local MAX_ANGLES_PER_QUAD = 44
 -------------------------------------------------------------------------------
 
 struct Point_columns {
+  centerCoordinates : double[3];
+  cellWidth : double[3];
   G : double;
   S : double;
   Ib : double;
@@ -132,6 +134,7 @@ task work(config : SCHEMA.Config)
   --fill(points.sigma, 5.0);
   fill(points.Ib, 0.0)
   fill(points.sigma, config.Radiation.u.DOM.qa + config.Radiation.u.DOM.qs);
+
   -- Invoke DOM solver
   [DOM_INST.ComputeRadiationField(config, tiles, p_points)];
   -- Output results

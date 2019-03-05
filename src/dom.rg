@@ -216,6 +216,20 @@ do
   end
 end
 
+local __demand(__cuda) -- MANUALLY PARALLELIZED
+task initialize_geometry(points : region(ispace(int3d), Point_columns),
+                         config : SCHEMA.Config)
+where
+  reads writes(points.{cellWidth})
+do
+  __demand(__openmp)
+  for p in points do
+    p.cellWidth[0] = config.Grid.xWidth / config.Radiation.u.DOM.xNum
+    p.cellWidth[1] = config.Grid.yWidth / config.Radiation.u.DOM.yNum
+    p.cellWidth[2] = config.Grid.zWidth / config.Radiation.u.DOM.zNum
+  end
+end
+
 -- Sub-points within a tile are laid out in the order that the sweep code will
 -- process them: (x,y,z) point coordinates are grouped by diagonal, and angle
 -- values are contiguous per point. E.g. on a 2x2 grid with 2 angles, subpoints
@@ -541,7 +555,7 @@ local function mkSweep(q)
              angles : region(ispace(int1d), Angle_columns),
              config : SCHEMA.Config)
   where
-    reads(angles.{xi, eta, mu}, points.{S, sigma}, grid_map.s3d_to_p),
+    reads(angles.{xi, eta, mu}, points.{cellWidth, S, sigma}, grid_map.s3d_to_p),
     reads writes(sub_points.I, x_faces.I, y_faces.I, z_faces.I)
   do
     var Tx = points.bounds.hi.x - points.bounds.lo.x + 1
@@ -562,13 +576,6 @@ local function mkSweep(q)
       z_faces.bounds.hi.x - z_faces.bounds.lo.x + 1 == Tx and
       z_faces.bounds.hi.y - z_faces.bounds.lo.y + 1 == Ty,
       'Internal error')
-    var dx = config.Grid.xWidth / config.Radiation.u.DOM.xNum
-    var dy = config.Grid.yWidth / config.Radiation.u.DOM.yNum
-    var dz = config.Grid.zWidth / config.Radiation.u.DOM.zNum
-    var dAx = dy*dz
-    var dAy = dx*dz
-    var dAz = dx*dy
-    var dV = dx*dy*dz
     var num_angles = config.Radiation.u.DOM.angles
     var res = 0.0
     -- Launch in order of intra-tile diagonals
@@ -594,6 +601,14 @@ local function mkSweep(q)
           var z_value = z_faces[{p.x,p.y    }].I[m]
           -- Integrate to compute cell-centered value of I
           var oldI = sub_points[s1d].I
+          -- TODO update for non uniform mesh
+          var dx = points[p].cellWidth[0]
+          var dy = points[p].cellWidth[1]
+          var dz = points[p].cellWidth[2]
+          var dAx = dy*dz
+          var dAy = dx*dz
+          var dAz = dx*dy
+          var dV  = dx*dy*dz
           var newI = (points[p].S * dV
                       + fabs(angles[m].xi)  * dAx * x_value/GAMMA
                       + fabs(angles[m].eta) * dAy * y_value/GAMMA
@@ -603,7 +618,8 @@ local function mkSweep(q)
                       + fabs(angles[m].eta) * dAy/GAMMA
                       + fabs(angles[m].mu)  * dAz/GAMMA)
           if newI > 0.0 then
-            res += pow(newI-oldI,2) / pow(newI,2)
+            -- TODO update for non uniform mesh
+            res += ( pow(newI-oldI,2) / pow(newI,2) ) * dV
           end
           sub_points[s1d].I = newI
           -- Compute intensities on downwind faces
@@ -836,6 +852,11 @@ function MODULE.mkInstance() local INSTANCE = {}
       initialize_points(p_points[c])
     end
 
+    -- TEST Initialize geometry
+    for c in tiles do
+      initialize_geometry(p_points[c], config)
+    end
+
     -- Initialize sub-points
     @ESCAPE for q = 1, 8 do @EMIT
       for c in tiles do
@@ -958,7 +979,7 @@ function MODULE.mkInstance() local INSTANCE = {}
       @TIME end @EPACSE
 
       -- Compute the residual.
-      res = sqrt(res/(Nx*Ny*Nz*config.Radiation.u.DOM.angles))
+      res = sqrt(res/(config.Grid.xWidth*config.Grid.yWidth*config.Grid.zWidth*config.Radiation.u.DOM.angles))
 
       -- Update intensity.
       for c in tiles do
