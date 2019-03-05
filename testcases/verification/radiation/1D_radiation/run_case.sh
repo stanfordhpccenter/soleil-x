@@ -25,7 +25,7 @@ echo ""
 
 # Convert the output to numpy format
 echo "########################   convert output to numpy   #########################"
-python txt_to_numpy.py .
+python dom_txt_output_to_numpy.py .
 echo ""
 
 # view the output 
