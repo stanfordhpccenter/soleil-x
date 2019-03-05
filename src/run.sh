@@ -52,6 +52,10 @@ export NUM_RANKS=$(( NUM_NODES * RANKS_PER_NODE ))
 
 export LOCAL_RUN=0
 
+export GASNET_BACKTRACE=1
+
+export LEGION_FREEZE_ON_ERROR="$DEBUG"
+
 ###############################################################################
 # Machine-specific handling
 ###############################################################################
@@ -69,7 +73,7 @@ function run_titan {
 }
 
 function run_summit {
-    GROUP="${GROUP:-CSC275IACCARINO}"
+    GROUP="${GROUP:-CSC335}"
     export QUEUE="${QUEUE:-batch}"
     EXCLUDED="$(cat "$SOLEIL_DIR"/src/blacklist/summit.txt |
                 sed 's/^/ \&\& (hname != /'  | sed 's/$/)/' |
@@ -81,7 +85,7 @@ function run_summit {
     if [[ ! -z "$AFTER" ]]; then
         DEPS="-w done($AFTER)"
     fi
-    bsub -csm y -J soleil -P "$GROUP" -alloc_flags smt4 \
+    bsub -csm y -J soleil -P "$GROUP" -alloc_flags smt1 \
         -R "$RESOURCES" -W "$MINUTES" -q "$QUEUE" $DEPS \
         "$SOLEIL_DIR"/src/summit.lsf
 }
@@ -157,7 +161,7 @@ function run_sapling {
     source "$SOLEIL_DIR"/src/jobscript_shared.sh
     # Emit final command
     mpiexec -H "$NODES" --bind-to none \
-        -x LD_LIBRARY_PATH -x SOLEIL_DIR -x GASNET_BACKTRACE \
+        -x LD_LIBRARY_PATH -x SOLEIL_DIR -x GASNET_BACKTRACE -x LEGION_FREEZE_ON_ERROR \
         $COMMAND
     # Resources:
     # 40230MB RAM per node
