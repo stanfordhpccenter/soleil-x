@@ -3,7 +3,9 @@
 VERBOSE="${VERBOSE:-0}"
 
 for JOBOUT in "$@"; do
+    COUNT_FAILURES=0
     JOBID="${JOBOUT%.out}"
+    OUTDIR="$( head -n 1 "$JOBOUT" | awk '{print $4'} )"
     if [[ ! -e "$JOBOUT" ]]; then
         echo "$JOBID: not started"
     elif grep -q 'CUDA_ERROR_OUT_OF_MEMORY' "$JOBOUT"; then
@@ -28,21 +30,17 @@ for JOBOUT in "$@"; do
         echo "$JOBID: channel section overflow"
     elif grep -q Successfully "$JOBOUT"; then
         echo -n "$JOBID: done"
-	if [[ "$VERBOSE" == 1 ]]; then
-  	    FAILURES=`tail -q -n 1 "$SCRATCH"/"$JOBID"/sample*/console.txt | grep 'nan' | wc -l`
-	    echo " ($FAILURES/32 cases diverged)"
-	else
-	    echo
-	fi
+	COUNT_FAILURES=1
     elif grep -q summary "$JOBOUT"; then
         echo "$JOBID: OTHER ERROR"
     else
         echo -n "$JOBID: running"
-	if [[ "$VERBOSE" == 1 ]]; then
-	    FAILURES=`tail -q -n 1 "$SCRATCH"/"$JOBID"/sample*/console.txt | grep 'nan' | wc -l`
-	    echo " ($FAILURES/32 cases diverged)"
-	else
-	    echo
-	fi
+	COUNT_FAILURES=1
+    fi
+    if [[ "$VERBOSE" == 1 && "$COUNT_FAILURES" == 1 ]]; then
+        FAILURES=`tail -q -n 1 "$OUTDIR"/sample*/console.txt | grep 'nan' | wc -l`
+        echo " ($FAILURES cases diverged)"
+    else
+        echo
     fi
 done
