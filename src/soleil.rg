@@ -170,10 +170,10 @@ struct Radiation_columns {
 local DOM = (require 'dom-desugared')(MAX_ANGLES_PER_QUAD, Radiation_columns, SCHEMA)
 
 local HDF_FLUID = (require "hdf_helper")
-  (int3d, int3d, Fluid_columns, Fluid_primitives)
+  (int3d, int3d, Fluid_columns, Fluid_primitives, {timeStep=int,simTime=double})
 
 local HDF_PARTICLES = (require "hdf_helper")
-  (int1d, int3d, Particles_columns, Particles_primitives)
+  (int1d, int3d, Particles_columns, Particles_primitives, {timeStep=int,simTime=double})
 
 -------------------------------------------------------------------------------
 -- CONSTANTS
@@ -5210,9 +5210,13 @@ local function mkInstance() local INSTANCE = {}
         C.snprintf(dirname, 256, '%s/fluid_iter%010d', config.Mapping.outDir, Integrator_timeStep)
         var _1 = createDir(0, dirname)
         _1 = HDF_FLUID.dump(_1, tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
+        _1 = HDF_FLUID.write.timeStep(_1, tiles, dirname, Fluid, p_Fluid, Integrator_timeStep)
+        _1 = HDF_FLUID.write.simTime(_1, tiles, dirname, Fluid, p_Fluid, Integrator_simTime)
         C.snprintf(dirname, 256, '%s/particles_iter%010d', config.Mapping.outDir, Integrator_timeStep)
         var _2 = createDir(0, dirname)
         _2 = HDF_PARTICLES.dump(_2, tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
+        _2 = HDF_PARTICLES.write.timeStep(_2, tiles, dirname, Particles, p_Particles, Integrator_timeStep)
+        _2 = HDF_PARTICLES.write.simTime(_2, tiles, dirname, Particles, p_Particles, Integrator_simTime)
         C.free(dirname)
       end
     end

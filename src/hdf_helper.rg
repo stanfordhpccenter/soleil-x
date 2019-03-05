@@ -15,8 +15,13 @@ import 'regent'
 return function(indexType, -- regentlib.index_type
                 colorType, -- regentlib.index_type
                 fSpace, -- terralib.struct
-                flds -- string*
-               ) local MODULE = {}
+                flds, -- string*
+                attrs -- map(string,terralib.type)
+               )
+
+local MODULE = {}
+MODULE.read = {}
+MODULE.write = {}
 
 -------------------------------------------------------------------------------
 -- FALLBACK MODE
@@ -50,6 +55,33 @@ if not USE_HDF then
   where reads writes(r.[flds]), reads writes(s.[flds]), r * s do
     regentlib.assert(false, 'Recompile with USE_HDF=1')
     return _
+  end
+
+  for aName,aType in pairs(attrs) do
+
+    local __demand(__inline)
+    task writeAttr(_ : int,
+                   colors : ispace(colorType),
+                   dirname : &int8,
+                   r : region(ispace(indexType), fSpace),
+                   p_r : partition(disjoint, r, colors),
+                   aVal : aType)
+      regentlib.assert(false, 'Recompile with USE_HDF=1')
+      return _
+    end
+    MODULE.write[aName] = writeAttr
+
+    local __demand(__inline)
+    task readAttr(_ : int,
+                  colors : ispace(colorType),
+                  dirname : &int8,
+                  r : region(ispace(indexType), fSpace),
+                  p_r : partition(disjoint, r, colors))
+      regentlib.assert(false, 'Recompile with USE_HDF=1')
+      return [aType](0)
+    end
+    MODULE.read[aName] = readAttr
+
   end
 
   return MODULE
@@ -366,6 +398,75 @@ where reads writes(r.[flds]), reads writes(s.[flds]), r * s do
     __ += loadTile(_, dirname, p_r[c], p_s[c])
   end
   return __
+end
+
+for aName,aType in pairs(attrs) do
+
+  local __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+  task writeTileAttr(_ : int,
+                     dirname : regentlib.string,
+                     r : region(ispace(indexType), fSpace),
+                     aVal : aType)
+    var filename = tileFilename([&int8](dirname), r.bounds)
+    var fid = HDF5.H5Fopen(filename, HDF5.H5F_ACC_RDWR, HDF5.H5P_DEFAULT)
+    if fid < 0 then [err('open file for attribute writing')] end
+    var sid = HDF5.H5Screate(HDF5.H5S_SCALAR)
+    if sid < 0 then [err('create attribute dataspace')] end
+    var aid = HDF5.H5Acreate2(fid, aName, toPrimHType(aType), sid,
+                              HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT)
+    if aid < 0 then [err('create attribute')] end
+    var aVals : aType[1] = array(aVal)
+    var res = HDF5.H5Awrite(aid, toPrimHType(aType), [&aType](aVals))
+    if res < 0 then [err('write attribute')] end
+    HDF5.H5Aclose(aid)
+    HDF5.H5Sclose(sid)
+    HDF5.H5Fclose(fid)
+    return _
+  end
+
+  local __demand(__inline)
+  task writeAttr(_ : int,
+                 colors : ispace(colorType),
+                 dirname : &int8,
+                 r : region(ispace(indexType), fSpace),
+                 p_r : partition(disjoint, r, colors),
+                 aVal : aType)
+    var __ = 0
+    for c in colors do
+      __ += writeTileAttr(_, dirname, p_r[c], aVal)
+    end
+    return __
+  end
+  MODULE.write[aName] = writeAttr
+
+  local __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+  task readTileAttr(_ : int,
+                    dirname : regentlib.string,
+                    r : region(ispace(indexType), fSpace))
+    var filename = tileFilename([&int8](dirname), r.bounds)
+    var fid = HDF5.H5Fopen(filename, HDF5.H5F_ACC_RDONLY, HDF5.H5P_DEFAULT)
+    if fid < 0 then [err('open file for attribute writing')] end
+    var aid = HDF5.H5Aopen(fid, aName, HDF5.H5P_DEFAULT)
+    if aid < 0 then [err('open attribute')] end
+    var aVals : aType[1]
+    var res = HDF5.H5Aread(aid, toPrimHType(aType), [&aType](aVals)))
+    if res < 0 then [err('read attribute')] end
+    HDF5.H5Aclose(aid)
+    HDF5.H5Fclose(fid)
+    return aVals[0]
+  end
+
+  local __demand(__inline)
+  task readAttr(_ : int,
+                colors : ispace(colorType),
+                dirname : &int8,
+                r : region(ispace(indexType), fSpace),
+                p_r : partition(disjoint, r, colors))
+    -- TODO: Sanity checks: all files should have the same attribute value
+    return readTileAttr(_, dirname, p_r[zero])
+  end
+  MODULE.read[aName] = readAttr
+
 end
 
 -------------------------------------------------------------------------------
