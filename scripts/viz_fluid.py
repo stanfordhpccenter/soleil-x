@@ -14,7 +14,7 @@ XMF_HEADER = """<?xml version="1.0" ?>
 
 XMF_BODY = """
       <Grid Name="Fluid" GridType="Uniform">
-        <Time Value="@TIMESTEP"/>
+        <Time Value="@TIME"/>
         <!-- Topology: orthonormal 3D grid -->
         <Topology TopologyType="3DCoRectMesh" Dimensions="@POINTS"></Topology>
         <!-- Geometry: Node positions derived implicitly, based on grid origin and cell size -->
@@ -56,8 +56,11 @@ nx = None
 ny = None
 nz = None
 
+time = {}
 for (f, i) in zip(args.hdf_file, itertools.count()):
     hdf_in = h5py.File(f, 'r')
+    # Read simulation time at timestep
+    time[i] = hdf_in.attrs['simTime']
     # Extract domain size.
     if nx is None:
         nx = hdf_in['pressure'].shape[0]
@@ -107,7 +110,7 @@ with open('fluid.xmf', 'w') as xmf_out:
     xmf_out.write(XMF_HEADER)
     for i in range(len(args.hdf_file)):
         xmf_out.write(XMF_BODY
-                      .replace('@TIMESTEP', str(i))
+                      .replace('@TIME', str(time[i]))
                       .replace('@POINTS', '%s %s %s' % (nx+1,ny+1,nz+1))
                       .replace('@CELLS', '%s %s %s' % (nx,ny,nz))
                       .replace('@GRID_ORIGIN', '%s %s %s' % (ox,oy,oz))
