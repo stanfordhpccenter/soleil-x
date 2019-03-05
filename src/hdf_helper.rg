@@ -316,10 +316,10 @@ elseif indexType == int3d then
   end
 else assert(false) end
 
-local zero =
-  indexType == int1d and rexpr 0 end or
-  indexType == int2d and rexpr {0,0} end or
-  indexType == int3d and rexpr {0,0,0} end or
+local firstColor =
+  colorType == int1d and rexpr 0 end or
+  colorType == int2d and rexpr {0,0} end or
+  colorType == int3d and rexpr {0,0,0} end or
   assert(false)
 
 local one =
@@ -402,25 +402,28 @@ end
 
 for aName,aType in pairs(attrs) do
 
+  local terra write(fname : &int8, aVal : aType)
+    var fid = HDF5.H5Fopen(fname, HDF5.H5F_ACC_RDWR, HDF5.H5P_DEFAULT)
+    if fid < 0 then [err('open file for attribute writing')] end
+    var sid = HDF5.H5Screate(HDF5.H5S_SCALAR)
+    if sid < 0 then [err('create attribute dataspace')] end
+    var aid = HDF5.H5Acreate2(fid, aName, [toPrimHType(aType)], sid,
+                              HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT)
+    if aid < 0 then [err('create attribute')] end
+    var res = HDF5.H5Awrite(aid, [toPrimHType(aType)], &aVal)
+    if res < 0 then [err('write attribute')] end
+    HDF5.H5Aclose(aid)
+    HDF5.H5Sclose(sid)
+    HDF5.H5Fclose(fid)
+  end
+
   local __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
   task writeTileAttr(_ : int,
                      dirname : regentlib.string,
                      r : region(ispace(indexType), fSpace),
                      aVal : aType)
     var filename = tileFilename([&int8](dirname), r.bounds)
-    var fid = HDF5.H5Fopen(filename, HDF5.H5F_ACC_RDWR, HDF5.H5P_DEFAULT)
-    if fid < 0 then [err('open file for attribute writing')] end
-    var sid = HDF5.H5Screate(HDF5.H5S_SCALAR)
-    if sid < 0 then [err('create attribute dataspace')] end
-    var aid = HDF5.H5Acreate2(fid, aName, toPrimHType(aType), sid,
-                              HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT)
-    if aid < 0 then [err('create attribute')] end
-    var aVals : aType[1] = array(aVal)
-    var res = HDF5.H5Awrite(aid, toPrimHType(aType), [&aType](aVals))
-    if res < 0 then [err('write attribute')] end
-    HDF5.H5Aclose(aid)
-    HDF5.H5Sclose(sid)
-    HDF5.H5Fclose(fid)
+    write(filename, aVal)
     return _
   end
 
@@ -439,21 +442,25 @@ for aName,aType in pairs(attrs) do
   end
   MODULE.write[aName] = writeAttr
 
+  local terra read(fname : &int8) : aType
+    var fid = HDF5.H5Fopen(fname, HDF5.H5F_ACC_RDONLY, HDF5.H5P_DEFAULT)
+    if fid < 0 then [err('open file for attribute writing')] end
+    var aid = HDF5.H5Aopen(fid, aName, HDF5.H5P_DEFAULT)
+    if aid < 0 then [err('open attribute')] end
+    var aVal : aType
+    var res = HDF5.H5Aread(aid, [toPrimHType(aType)], &aVal)
+    if res < 0 then [err('read attribute')] end
+    HDF5.H5Aclose(aid)
+    HDF5.H5Fclose(fid)
+    return aVal
+  end
+
   local __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
   task readTileAttr(_ : int,
                     dirname : regentlib.string,
                     r : region(ispace(indexType), fSpace))
     var filename = tileFilename([&int8](dirname), r.bounds)
-    var fid = HDF5.H5Fopen(filename, HDF5.H5F_ACC_RDONLY, HDF5.H5P_DEFAULT)
-    if fid < 0 then [err('open file for attribute writing')] end
-    var aid = HDF5.H5Aopen(fid, aName, HDF5.H5P_DEFAULT)
-    if aid < 0 then [err('open attribute')] end
-    var aVals : aType[1]
-    var res = HDF5.H5Aread(aid, toPrimHType(aType), [&aType](aVals)))
-    if res < 0 then [err('read attribute')] end
-    HDF5.H5Aclose(aid)
-    HDF5.H5Fclose(fid)
-    return aVals[0]
+    return read(filename)
   end
 
   local __demand(__inline)
@@ -463,7 +470,7 @@ for aName,aType in pairs(attrs) do
                 r : region(ispace(indexType), fSpace),
                 p_r : partition(disjoint, r, colors))
     -- TODO: Sanity checks: all files should have the same attribute value
-    return readTileAttr(_, dirname, p_r[zero])
+    return readTileAttr(_, dirname, p_r[firstColor])
   end
   MODULE.read[aName] = readAttr
 

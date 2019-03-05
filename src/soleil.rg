@@ -169,11 +169,13 @@ struct Radiation_columns {
 
 local DOM = (require 'dom-desugared')(MAX_ANGLES_PER_QUAD, Radiation_columns, SCHEMA)
 
-local HDF_FLUID = (require "hdf_helper")
-  (int3d, int3d, Fluid_columns, Fluid_primitives, {timeStep=int,simTime=double})
+local HDF_FLUID = (require 'hdf_helper')(int3d, int3d, Fluid_columns,
+                                         Fluid_primitives,
+                                         {timeStep=int,simTime=double})
 
-local HDF_PARTICLES = (require "hdf_helper")
-  (int1d, int3d, Particles_columns, Particles_primitives, {timeStep=int,simTime=double})
+local HDF_PARTICLES = (require 'hdf_helper')(int1d, int3d, Particles_columns,
+                                             Particles_primitives,
+                                             {timeStep=int,simTime=double})
 
 -------------------------------------------------------------------------------
 -- CONSTANTS
