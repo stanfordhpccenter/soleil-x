@@ -267,7 +267,6 @@ if not args.debug:
     mc['configs'][0]['Flow']['turbForcing']['meanVelocity'][0] = U_0
     mc['configs'][0]['Flow']['turbForcing']['t_o'] = t_0
     mc['configs'][0]['Flow']['turbForcing']['K_o'] = k_0
-    mc['configs'][0]['Flow']['massFluxForcing']['targetValue'] = rho_0 * U_0
     mc['configs'][0]['Particles']['initNum'] = N_p_HIT
     mc['configs'][0]['Particles']['maxNum'] = N_p_HIT
     mc['configs'][0]['Particles']['convectiveCoeff'] = h

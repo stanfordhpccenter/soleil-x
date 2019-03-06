@@ -16,7 +16,6 @@ Exports.ParticlesBC = Enum('Periodic','Bounce','Disappear')
 Exports.ViscosityModel = Enum('Constant','PowerLaw','Sutherland')
 Exports.FlowInitCase = Enum('Uniform','Random','Restart','Perturbed','TaylorGreen2DVortex','TaylorGreen3DVortex')
 Exports.ParticlesInitCase = Enum('Random','Restart','Uniform')
-Exports.Direction = Enum('X','Y','Z')
 Exports.TempProfile = Union{
   Constant = {
     temperature = double,
@@ -46,14 +45,6 @@ Exports.TurbForcingModel = Union{
     G = double,
     t_o = double,
     K_o = double,
-  },
-}
-Exports.MassFluxForcingModel = Union{
-  OFF = {},
-  ON = {
-    direction = Exports.Direction,
-    plane = Array(2,int),
-    targetValue = double,
   },
 }
 Exports.FeedModel = Union{
@@ -188,7 +179,6 @@ Exports.Config = {
     initParams = Array(6,double),
     bodyForce = Array(3,double),
     turbForcing = Exports.TurbForcingModel,
-    massFluxForcing = Exports.MassFluxForcingModel,
   },
   Particles = {
     initCase = Exports.ParticlesInitCase,

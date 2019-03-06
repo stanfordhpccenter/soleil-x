@@ -1460,74 +1460,6 @@ do
 end
 
 __demand(__leaf, __parallel, __cuda)
-task Flow_ComputeMassFlux(Fluid : region(ispace(int3d), Fluid_columns),
-                          config : Config,
-                          Grid_xBnum : int32, Grid_xNum : int32,
-                          Grid_yBnum : int32, Grid_yNum : int32,
-                          Grid_zBnum : int32, Grid_zNum : int32)
-where
-  reads(Fluid.rhoVelocity)
-do
-  var direction = config.Flow.massFluxForcing.u.ON.direction
-  var plane = config.Flow.massFluxForcing.u.ON.plane
-  var cellsOnPlane : int
-  if direction == SCHEMA.Direction_X then
-    cellsOnPlane = (Grid_yNum-2*Grid_yBnum) * (Grid_zNum-2*Grid_zBnum)
-  elseif direction == SCHEMA.Direction_Y then
-    cellsOnPlane = (Grid_xNum-2*Grid_xBnum) * (Grid_zNum-2*Grid_zBnum)
-  else -- direction == SCHEMA.Direction_Z
-    cellsOnPlane = (Grid_xNum-2*Grid_xBnum) * (Grid_yNum-2*Grid_yBnum)
-  end
-  var acc = 0.0
-  __demand(__openmp)
-  for c in Fluid do
-    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      if direction == SCHEMA.Direction_X then
-        if c.y == plane[0] and c.z == plane[1] then
-          acc += Fluid[c].rhoVelocity[0] / cellsOnPlane
-        end
-      elseif direction == SCHEMA.Direction_Y then
-        if c.x == plane[0] and c.z == plane[1] then
-          acc += Fluid[c].rhoVelocity[1] / cellsOnPlane
-        end
-      else -- direction == SCHEMA.Direction_Z
-        if c.x == plane[0] and c.y == plane[1] then
-          acc += Fluid[c].rhoVelocity[2] / cellsOnPlane
-        end
-      end
-    end
-  end
-  return acc
-end
-
-__demand(__leaf, __parallel, __cuda)
-task Flow_AdjustMassFlux(Fluid : region(ispace(int3d), Fluid_columns),
-                         config : Config,
-                         massFlux : double,
-                         Grid_xBnum : int32, Grid_xNum : int32,
-                         Grid_yBnum : int32, Grid_yNum : int32,
-                         Grid_zBnum : int32, Grid_zNum : int32)
-where
-  reads writes(Fluid.rhoVelocity)
-do
-  var direction = config.Flow.massFluxForcing.u.ON.direction
-  var targetValue = config.Flow.massFluxForcing.u.ON.targetValue
-  var adjustment = targetValue - massFlux
-  __demand(__openmp)
-  for c in Fluid do
-    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      if direction == SCHEMA.Direction_X then
-        Fluid[c].rhoVelocity[0] += adjustment
-      elseif direction == SCHEMA.Direction_Y then
-        Fluid[c].rhoVelocity[1] += adjustment
-      else -- direction == SCHEMA.Direction_Z
-        Fluid[c].rhoVelocity[2] += adjustment
-      end
-    end
-  end
-end
-
-__demand(__leaf, __parallel, __cuda)
 task Flow_UpdateAuxiliaryVelocity(Fluid : region(ispace(int3d), Fluid_columns),
                                   config : Config,
                                   Flow_constantVisc : double,
@@ -5608,22 +5540,6 @@ local function mkInstance() local INSTANCE = {}
                              Integrator_deltaTime * config.Particles.staggerFactor,
                              Integrator_stage,
                              config)
-      end
-
-      -- Force desired mass flux through a plane
-      if config.Flow.massFluxForcing.type == SCHEMA.MassFluxForcingModel_ON then
-        var massFlux = 0.0
-        massFlux += Flow_ComputeMassFlux(Fluid,
-                                         config,
-                                         Grid.xBnum, config.Grid.xNum,
-                                         Grid.yBnum, config.Grid.yNum,
-                                         Grid.zBnum, config.Grid.zNum)
-        Flow_AdjustMassFlux(Fluid,
-                            config,
-                            massFlux,
-                            Grid.xBnum, config.Grid.xNum,
-                            Grid.yBnum, config.Grid.yNum,
-                            Grid.zBnum, config.Grid.zNum)
       end
 
       -- Use the new conserved values to update primitive values
