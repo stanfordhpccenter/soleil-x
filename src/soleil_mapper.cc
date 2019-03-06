@@ -397,7 +397,7 @@ private:
     // Helper & I/O tasks: go up one level to the work task
     else if (STARTS_WITH(task.get_task_name(), "Console_Write") ||
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
-             EQUALS(task.get_task_name(), "createDir") ||
+             EQUALS(task.get_task_name(), "IO_CreateDir") ||
              EQUALS(task.get_task_name(), "__dummy") ||
              STARTS_WITH(task.get_task_name(), "__unary_") ||
              STARTS_WITH(task.get_task_name(), "__binary_")) {
@@ -438,7 +438,7 @@ private:
              EQUALS(task.get_task_name(), "initialize_angles") ||
              STARTS_WITH(task.get_task_name(), "Console_Write") ||
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
-             EQUALS(task.get_task_name(), "createDir") ||
+             EQUALS(task.get_task_name(), "IO_CreateDir") ||
              EQUALS(task.get_task_name(), "__dummy") ||
              STARTS_WITH(task.get_task_name(), "__unary_") ||
              STARTS_WITH(task.get_task_name(), "__binary_")) {
@@ -486,7 +486,7 @@ private:
              EQUALS(task.get_task_name(), "initialize_angles") ||
              STARTS_WITH(task.get_task_name(), "Console_Write") ||
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
-             EQUALS(task.get_task_name(), "createDir") ||
+             EQUALS(task.get_task_name(), "IO_CreateDir") ||
              EQUALS(task.get_task_name(), "__dummy") ||
              STARTS_WITH(task.get_task_name(), "__unary_") ||
              STARTS_WITH(task.get_task_name(), "__binary_") ||
