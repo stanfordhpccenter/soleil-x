@@ -493,8 +493,8 @@ task Probe_Write(_ : int,
 end
 
 __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task createDir(_ : int,
-               dirname : regentlib.string)
+task IO_CreateDir(_ : int,
+                  dirname : regentlib.string)
   UTIL.createDir(dirname)
   return _
 end
@@ -1030,13 +1030,13 @@ do
 end
 
 __demand(__leaf, __parallel, __cuda)
-task SetCoarseningField(Fluid : region(ispace(int3d), Fluid_columns),
-                        Grid_xBnum : int32, Grid_xNum : int32,
-                        Grid_yBnum : int32, Grid_yNum : int32,
-                        Grid_zBnum : int32, Grid_zNum : int32,
-                        Radiation_xNum : int32,
-                        Radiation_yNum : int32,
-                        Radiation_zNum : int32)
+task Flow_SetCoarseningField(Fluid : region(ispace(int3d), Fluid_columns),
+                             Grid_xBnum : int32, Grid_xNum : int32,
+                             Grid_yBnum : int32, Grid_yNum : int32,
+                             Grid_zBnum : int32, Grid_zNum : int32,
+                             Radiation_xNum : int32,
+                             Radiation_yNum : int32,
+                             Radiation_zNum : int32)
 where
   writes(Fluid.to_Radiation)
 do
@@ -2323,11 +2323,11 @@ do
 end
 
 __demand(__leaf, __parallel, __cuda)
-task CalculateAveragePressure(Fluid : region(ispace(int3d), Fluid_columns),
-                              Grid_cellVolume : double,
-                              Grid_xBnum : int32, Grid_xNum : int32,
-                              Grid_yBnum : int32, Grid_yNum : int32,
-                              Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_CalculateAveragePressure(Fluid : region(ispace(int3d), Fluid_columns),
+                                   Grid_cellVolume : double,
+                                   Grid_xBnum : int32, Grid_xNum : int32,
+                                   Grid_yBnum : int32, Grid_yNum : int32,
+                                   Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.pressure)
 do
@@ -2342,11 +2342,11 @@ do
 end
 
 __demand(__leaf, __parallel, __cuda)
-task CalculateAverageTemperature(Fluid : region(ispace(int3d), Fluid_columns),
-                                 Grid_cellVolume : double,
-                                 Grid_xBnum : int32, Grid_xNum : int32,
-                                 Grid_yBnum : int32, Grid_yNum : int32,
-                                 Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_CalculateAverageTemperature(Fluid : region(ispace(int3d), Fluid_columns),
+                                      Grid_cellVolume : double,
+                                      Grid_xBnum : int32, Grid_xNum : int32,
+                                      Grid_yBnum : int32, Grid_yNum : int32,
+                                      Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.temperature)
 do
@@ -2361,11 +2361,11 @@ do
 end
 
 __demand(__leaf, __parallel, __cuda)
-task CalculateAverageKineticEnergy(Fluid : region(ispace(int3d), Fluid_columns),
-                                   Grid_cellVolume : double,
-                                   Grid_xBnum : int32, Grid_xNum : int32,
-                                   Grid_yBnum : int32, Grid_yNum : int32,
-                                   Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_CalculateAverageKineticEnergy(Fluid : region(ispace(int3d), Fluid_columns),
+                                        Grid_cellVolume : double,
+                                        Grid_xBnum : int32, Grid_xNum : int32,
+                                        Grid_yBnum : int32, Grid_yNum : int32,
+                                        Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{rho, velocity})
 do
@@ -2375,42 +2375,6 @@ do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
       var kineticEnergy = ((0.5*Fluid[c].rho)*dot(Fluid[c].velocity, Fluid[c].velocity))
       acc += (kineticEnergy*Grid_cellVolume)
-    end
-  end
-  return acc
-end
-
-__demand(__leaf, __parallel, __cuda)
-task CalculateMinTemperature(Fluid : region(ispace(int3d), Fluid_columns),
-                             Grid_xBnum : int32, Grid_xNum : int32,
-                             Grid_yBnum : int32, Grid_yNum : int32,
-                             Grid_zBnum : int32, Grid_zNum : int32)
-where
-  reads(Fluid.temperature)
-do
-  var acc = math.huge
-  __demand(__openmp)
-  for c in Fluid do
-    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      acc min= Fluid[c].temperature
-    end
-  end
-  return acc
-end
-
-__demand(__leaf, __parallel, __cuda)
-task CalculateMaxTemperature(Fluid : region(ispace(int3d), Fluid_columns),
-                             Grid_xBnum : int32, Grid_xNum : int32,
-                             Grid_yBnum : int32, Grid_yNum : int32,
-                             Grid_zBnum : int32, Grid_zNum : int32)
-where
-  reads(Fluid.temperature)
-do
-  var acc = -math.huge
-  __demand(__openmp)
-  for c in Fluid do
-    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      acc max= Fluid[c].temperature
     end
   end
   return acc
@@ -2437,13 +2401,13 @@ task GetSoundSpeed(temperature : double, Flow_gamma : double, Flow_gasConstant :
 end
 
 __demand(__leaf, __parallel, __cuda)
-task CalculateMaxMachNumber(Fluid : region(ispace(int3d), Fluid_columns),
-                            config : Config,
-                            Flow_gamma : double,
-                            Flow_gasConstant : double,
-                            Grid_xBnum : int32, Grid_xNum : int32,
-                            Grid_yBnum : int32, Grid_yNum : int32,
-                            Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_CalculateMaxMachNumber(Fluid : region(ispace(int3d), Fluid_columns),
+                                 config : Config,
+                                 Flow_gamma : double,
+                                 Flow_gasConstant : double,
+                                 Grid_xBnum : int32, Grid_xNum : int32,
+                                 Grid_yBnum : int32, Grid_yNum : int32,
+                                 Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{velocity, temperature})
 do
@@ -2474,11 +2438,11 @@ do
 end
 
 __demand(__leaf, __parallel, __cuda)
-task CalculateConvectiveSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
-                                       Flow_gamma : double,
-                                       Flow_gasConstant : double,
-                                       Grid_dXYZInverseSquare : double,
-                                       Grid_xCellWidth : double, Grid_yCellWidth : double, Grid_zCellWidth : double)
+task Flow_CalculateConvectiveSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
+                                            Flow_gamma : double,
+                                            Flow_gasConstant : double,
+                                            Grid_dXYZInverseSquare : double,
+                                            Grid_xCellWidth : double, Grid_yCellWidth : double, Grid_zCellWidth : double)
 where
   reads(Fluid.{velocity, temperature})
 do
@@ -2491,12 +2455,12 @@ do
 end
 
 __demand(__leaf, __parallel, __cuda)
-task CalculateViscousSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
-                                    Flow_constantVisc : double,
-                                    Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                                    Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                                    Flow_viscosityModel : SCHEMA.ViscosityModel,
-                                    Grid_dXYZInverseSquare : double)
+task Flow_CalculateViscousSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
+                                         Flow_constantVisc : double,
+                                         Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                                         Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                                         Flow_viscosityModel : SCHEMA.ViscosityModel,
+                                         Grid_dXYZInverseSquare : double)
 where
   reads(Fluid.{rho, temperature})
 do
@@ -2510,15 +2474,15 @@ do
 end
 
 __demand(__leaf, __parallel, __cuda)
-task CalculateHeatConductionSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
-                                           Flow_constantVisc : double,
-                                           Flow_gamma : double,
-                                           Flow_gasConstant : double,
-                                           Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                                           Flow_prandtl : double,
-                                           Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                                           Flow_viscosityModel : SCHEMA.ViscosityModel,
-                                           Grid_dXYZInverseSquare : double)
+task Flow_CalculateHeatConductionSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
+                                                Flow_constantVisc : double,
+                                                Flow_gamma : double,
+                                                Flow_gasConstant : double,
+                                                Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                                                Flow_prandtl : double,
+                                                Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                                                Flow_viscosityModel : SCHEMA.ViscosityModel,
+                                                Grid_dXYZInverseSquare : double)
 where
   reads(Fluid.{rho, temperature})
 do
@@ -3487,11 +3451,11 @@ do
 end
 
 __demand(__leaf, __parallel, __cuda)
-task CalculateAverageDissipation(Fluid : region(ispace(int3d), Fluid_columns),
-                                 Grid_cellVolume : double,
-                                 Grid_xBnum : int32, Grid_xNum : int32,
-                                 Grid_yBnum : int32, Grid_yNum : int32,
-                                 Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_CalculateAverageDissipation(Fluid : region(ispace(int3d), Fluid_columns),
+                                      Grid_cellVolume : double,
+                                      Grid_xBnum : int32, Grid_xNum : int32,
+                                      Grid_yBnum : int32, Grid_yNum : int32,
+                                      Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.dissipation)
 do
@@ -3506,11 +3470,11 @@ do
 end
 
 __demand(__leaf, __parallel, __cuda)
-task CalculateAverageK(Fluid : region(ispace(int3d), Fluid_columns),
-                       Grid_cellVolume : double,
-                       Grid_xBnum : int32, Grid_xNum : int32,
-                       Grid_yBnum : int32, Grid_yNum : int32,
-                       Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_CalculateAverageK(Fluid : region(ispace(int3d), Fluid_columns),
+                            Grid_cellVolume : double,
+                            Grid_xBnum : int32, Grid_xNum : int32,
+                            Grid_yBnum : int32, Grid_yNum : int32,
+                            Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{rho, velocity})
 do
@@ -4927,13 +4891,13 @@ local function mkInstance() local INSTANCE = {}
       Particles_initValidField(Particles)
     end
     if config.Radiation.type == SCHEMA.RadiationModel_DOM then
-      SetCoarseningField(Fluid,
-                         Grid.xBnum, config.Grid.xNum,
-                         Grid.yBnum, config.Grid.yNum,
-                         Grid.zBnum, config.Grid.zNum,
-                         config.Radiation.u.DOM.xNum,
-                         config.Radiation.u.DOM.yNum,
-                         config.Radiation.u.DOM.zNum)
+      Flow_SetCoarseningField(Fluid,
+                              Grid.xBnum, config.Grid.xNum,
+                              Grid.yBnum, config.Grid.yNum,
+                              Grid.zBnum, config.Grid.zNum,
+                              config.Radiation.u.DOM.xNum,
+                              config.Radiation.u.DOM.yNum,
+                              config.Radiation.u.DOM.zNum)
     end
     Flow_InitializeCell(Fluid)
     Flow_InitializeCenterCoordinates(Fluid,
@@ -5128,25 +5092,27 @@ local function mkInstance() local INSTANCE = {}
         1.0/Grid.yCellWidth/Grid.yCellWidth +
         1.0/Grid.zCellWidth/Grid.zCellWidth
       Integrator_maxConvectiveSpectralRadius max=
-        CalculateConvectiveSpectralRadius(Fluid,
-                                          config.Flow.gamma, config.Flow.gasConstant,
-                                          Grid_dXYZInverseSquare, Grid.xCellWidth, Grid.yCellWidth, Grid.zCellWidth)
+        Flow_CalculateConvectiveSpectralRadius(Fluid,
+                                               config.Flow.gamma,
+                                               config.Flow.gasConstant,
+                                               Grid_dXYZInverseSquare,
+                                               Grid.xCellWidth, Grid.yCellWidth, Grid.zCellWidth)
       Integrator_maxViscousSpectralRadius max=
-        CalculateViscousSpectralRadius(Fluid,
-                                       config.Flow.constantVisc,
-                                       config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                       config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                       config.Flow.viscosityModel,
-                                       Grid_dXYZInverseSquare)
+        Flow_CalculateViscousSpectralRadius(Fluid,
+                                            config.Flow.constantVisc,
+                                            config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                            config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                            config.Flow.viscosityModel,
+                                            Grid_dXYZInverseSquare)
       Integrator_maxHeatConductionSpectralRadius max=
-        CalculateHeatConductionSpectralRadius(Fluid,
-                                              config.Flow.constantVisc,
-                                              config.Flow.gamma, config.Flow.gasConstant,
-                                              config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                              config.Flow.prandtl,
-                                              config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                              config.Flow.viscosityModel,
-                                              Grid_dXYZInverseSquare)
+        Flow_CalculateHeatConductionSpectralRadius(Fluid,
+                                                   config.Flow.constantVisc,
+                                                   config.Flow.gamma, config.Flow.gasConstant,
+                                                   config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                                   config.Flow.prandtl,
+                                                   config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                                   config.Flow.viscosityModel,
+                                                   Grid_dXYZInverseSquare)
       Integrator_deltaTime = (config.Integrator.cfl/max(Integrator_maxConvectiveSpectralRadius, max(Integrator_maxViscousSpectralRadius, Integrator_maxHeatConductionSpectralRadius)))
     end
 
@@ -5163,9 +5129,21 @@ local function mkInstance() local INSTANCE = {}
     var Flow_averageTemperature = 0.0
     var Flow_averageKineticEnergy = 0.0
     var Particles_averageTemperature = 0.0
-    Flow_averagePressure += CalculateAveragePressure(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-    Flow_averageTemperature += CalculateAverageTemperature(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-    Flow_averageKineticEnergy += CalculateAverageKineticEnergy(Fluid, Grid.cellVolume, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+    Flow_averagePressure += Flow_CalculateAveragePressure(Fluid,
+                                                          Grid.cellVolume,
+                                                          Grid.xBnum, config.Grid.xNum,
+                                                          Grid.yBnum, config.Grid.yNum,
+                                                          Grid.zBnum, config.Grid.zNum)
+    Flow_averageTemperature += Flow_CalculateAverageTemperature(Fluid,
+                                                                Grid.cellVolume,
+                                                                Grid.xBnum, config.Grid.xNum,
+                                                                Grid.yBnum, config.Grid.yNum,
+                                                                Grid.zBnum, config.Grid.zNum)
+    Flow_averageKineticEnergy += Flow_CalculateAverageKineticEnergy(Fluid,
+                                                                    Grid.cellVolume,
+                                                                    Grid.xBnum, config.Grid.xNum,
+                                                                    Grid.yBnum, config.Grid.yNum,
+                                                                    Grid.zBnum, config.Grid.zNum)
     if config.Particles.maxNum > 0 then
       Particles_averageTemperature += Particles_IntegrateQuantities(Particles)
     end
@@ -5210,12 +5188,12 @@ local function mkInstance() local INSTANCE = {}
       if Integrator_exitCond or Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 then
         var dirname = [&int8](C.malloc(256))
         C.snprintf(dirname, 256, '%s/fluid_iter%010d', config.Mapping.outDir, Integrator_timeStep)
-        var _1 = createDir(0, dirname)
+        var _1 = IO_CreateDir(0, dirname)
         _1 = HDF_FLUID.dump(_1, tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
         _1 = HDF_FLUID.write.timeStep(_1, tiles, dirname, Fluid, p_Fluid, Integrator_timeStep)
         _1 = HDF_FLUID.write.simTime(_1, tiles, dirname, Fluid, p_Fluid, Integrator_simTime)
         C.snprintf(dirname, 256, '%s/particles_iter%010d', config.Mapping.outDir, Integrator_timeStep)
-        var _2 = createDir(0, dirname)
+        var _2 = IO_CreateDir(0, dirname)
         _2 = HDF_PARTICLES.dump(_2, tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
         _2 = HDF_PARTICLES.write.timeStep(_2, tiles, dirname, Particles, p_Particles, Integrator_timeStep)
         _2 = HDF_PARTICLES.write.simTime(_2, tiles, dirname, Particles, p_Particles, Integrator_simTime)
@@ -5366,17 +5344,17 @@ local function mkInstance() local INSTANCE = {}
                                 Grid.xBnum, config.Grid.xNum,
                                 Grid.yBnum, config.Grid.yNum,
                                 Grid.zBnum, config.Grid.zNum, Grid.zCellWidth)
-        Flow_averageDissipation += CalculateAverageDissipation(Fluid,
-                                                               Grid.cellVolume,
-                                                               Grid.xBnum, config.Grid.xNum,
-                                                               Grid.yBnum, config.Grid.yNum,
-                                                               Grid.zBnum, config.Grid.zNum)
+        Flow_averageDissipation += Flow_CalculateAverageDissipation(Fluid,
+                                                                    Grid.cellVolume,
+                                                                    Grid.xBnum, config.Grid.xNum,
+                                                                    Grid.yBnum, config.Grid.yNum,
+                                                                    Grid.zBnum, config.Grid.zNum)
         Flow_averageDissipation /= config.Grid.xNum*config.Grid.yNum*config.Grid.zNum*Grid.cellVolume
-        Flow_averageK += CalculateAverageK(Fluid,
-                                           Grid.cellVolume,
-                                           Grid.xBnum, config.Grid.xNum,
-                                           Grid.yBnum, config.Grid.yNum,
-                                           Grid.zBnum, config.Grid.zNum)
+        Flow_averageK += Flow_CalculateAverageK(Fluid,
+                                                Grid.cellVolume,
+                                                Grid.xBnum, config.Grid.xNum,
+                                                Grid.yBnum, config.Grid.yNum,
+                                                Grid.zBnum, config.Grid.zNum)
         Flow_averageK /= config.Grid.xNum*config.Grid.yNum*config.Grid.zNum*Grid.cellVolume
         Flow_averageFe += Flow_AddTurbulentSource(Fluid,
                                                   Flow_averageDissipation,
@@ -5467,12 +5445,12 @@ local function mkInstance() local INSTANCE = {}
                             Grid.zBnum, Grid.zCellWidth, config.Grid.zNum)
       if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
         var Flow_maxMach = -math.huge
-        Flow_maxMach max= CalculateMaxMachNumber(Fluid,
-                                                 config,
-                                                 config.Flow.gamma, config.Flow.gasConstant,
-                                                 Grid.xBnum, config.Grid.xNum,
-                                                 Grid.yBnum, config.Grid.yNum,
-                                                 Grid.zBnum, config.Grid.zNum)
+        Flow_maxMach max= Flow_CalculateMaxMachNumber(Fluid,
+                                                      config,
+                                                      config.Flow.gamma, config.Flow.gasConstant,
+                                                      Grid.xBnum, config.Grid.xNum,
+                                                      Grid.yBnum, config.Grid.yNum,
+                                                      Grid.zBnum, config.Grid.zNum)
         var Flow_lengthScale = config.Grid.xWidth
         for c in tiles do
           Flow_UpdateUsingFluxGhostNSCBC(p_Fluid[c],
