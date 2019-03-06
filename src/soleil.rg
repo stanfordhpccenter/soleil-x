@@ -1459,6 +1459,64 @@ do
   end
 end
 
+local function mkFlow_CalculateAverageVelocity(dim)
+  local I = dim == 'X' and 0 or
+            dim == 'Y' and 1 or
+            dim == 'Z' and 2 or
+            assert(false)
+  local __demand(__leaf, __parallel, __cuda)
+  task Flow_CalculateAverageVelocity(Fluid : region(ispace(int3d), Fluid_columns),
+                                     Grid_cellVolume : double,
+                                     Grid_xBnum : int32, Grid_xNum : int32,
+                                     Grid_yBnum : int32, Grid_yNum : int32,
+                                     Grid_zBnum : int32, Grid_zNum : int32)
+  where
+    reads(Fluid.{rho, rhoVelocity})
+  do
+    var acc = 0.0
+    __demand(__openmp)
+    for c in Fluid do
+      if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
+        acc += (Fluid[c].rhoVelocity[I]/Fluid[c].rho)*Grid_cellVolume
+      end
+    end
+    return acc
+  end
+  local name = 'Flow_CalculateAverageVelocity'..dim
+  Flow_CalculateAverageVelocity:set_name(name)
+  Flow_CalculateAverageVelocity:get_primary_variant():get_ast().name[1] = name
+  return Flow_CalculateAverageVelocity
+end
+local Flow_CalculateAverageVelocityX = mkFlow_CalculateAverageVelocity('X')
+local Flow_CalculateAverageVelocityY = mkFlow_CalculateAverageVelocity('Y')
+local Flow_CalculateAverageVelocityZ = mkFlow_CalculateAverageVelocity('Z')
+
+__demand(__leaf, __parallel, __cuda)
+task Flow_AdjustAverageVelocity(Fluid : region(ispace(int3d), Fluid_columns),
+                                config : Config,
+                                Flow_averageVelocityX : double,
+                                Flow_averageVelocityY : double,
+                                Flow_averageVelocityZ : double,
+                                Grid_xBnum : int32, Grid_xNum : int32,
+                                Grid_yBnum : int32, Grid_yNum : int32,
+                                Grid_zBnum : int32, Grid_zNum : int32)
+where
+  reads(Fluid.rho),
+  reads writes(Fluid.rhoVelocity)
+do
+  var adjustmentX = config.Flow.turbForcing.u.HIT.meanVelocity[0] - Flow_averageVelocityX
+  var adjustmentY = config.Flow.turbForcing.u.HIT.meanVelocity[1] - Flow_averageVelocityY
+  var adjustmentZ = config.Flow.turbForcing.u.HIT.meanVelocity[2] - Flow_averageVelocityZ
+  __demand(__openmp)
+  for c in Fluid do
+    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
+      Fluid[c].rhoVelocity[0] += adjustmentX*Fluid[c].rho
+      Fluid[c].rhoVelocity[1] += adjustmentY*Fluid[c].rho
+      Fluid[c].rhoVelocity[2] += adjustmentZ*Fluid[c].rho
+    end
+  end
+end
+
 __demand(__leaf, __parallel, __cuda)
 task Flow_UpdateAuxiliaryVelocity(Fluid : region(ispace(int3d), Fluid_columns),
                                   config : Config,
@@ -4430,6 +4488,7 @@ local function mkInstance() local INSTANCE = {}
     yCellWidth = regentlib.newsymbol(),
     zCellWidth = regentlib.newsymbol(),
     cellVolume = regentlib.newsymbol(),
+    volume = regentlib.newsymbol(),
     xBnum = regentlib.newsymbol(),
     yBnum = regentlib.newsymbol(),
     zBnum = regentlib.newsymbol(),
@@ -4545,6 +4604,7 @@ local function mkInstance() local INSTANCE = {}
     var [Grid.yCellWidth] = config.Grid.yWidth / config.Grid.yNum
     var [Grid.zCellWidth] = config.Grid.zWidth / config.Grid.zNum
     var [Grid.cellVolume] = Grid.xCellWidth * Grid.yCellWidth * Grid.zCellWidth
+    var [Grid.volume] = [int64](config.Grid.xNum) * config.Grid.yNum * config.Grid.zNum * Grid.cellVolume
 
     var [BC.xPosSign]
     var [BC.xNegSign]
@@ -5178,10 +5238,9 @@ local function mkInstance() local INSTANCE = {}
     if config.Particles.maxNum > 0 then
       Particles_averageTemperature += Particles_IntegrateQuantities(Particles)
     end
-    var gridVolume : double = [double]([int64](config.Grid.xNum) * config.Grid.yNum * config.Grid.zNum) * Grid.cellVolume
-    Flow_averagePressure = Flow_averagePressure / gridVolume
-    Flow_averageTemperature = Flow_averageTemperature / gridVolume
-    Flow_averageKineticEnergy = Flow_averageKineticEnergy / gridVolume
+    Flow_averagePressure = Flow_averagePressure / Grid.volume
+    Flow_averageTemperature = Flow_averageTemperature / Grid.volume
+    Flow_averageKineticEnergy = Flow_averageKineticEnergy / Grid.volume
     Particles_averageTemperature = Particles_averageTemperature / Particles_number
     Console_Write(config,
                   Integrator_timeStep,
@@ -5518,6 +5577,39 @@ local function mkInstance() local INSTANCE = {}
                              Integrator_deltaTime * config.Particles.staggerFactor,
                              Integrator_stage,
                              config)
+      end
+
+      -- Impose desired mean velocity
+      if config.Flow.turbForcing.type == SCHEMA.TurbForcingModel_HIT then
+        var Flow_averageVelocityX = 0.0
+        var Flow_averageVelocityY = 0.0
+        var Flow_averageVelocityZ = 0.0
+        Flow_averageVelocityX += Flow_CalculateAverageVelocityX(Fluid,
+                                                                Grid.cellVolume,
+                                                                Grid.xBnum, config.Grid.xNum,
+                                                                Grid.yBnum, config.Grid.yNum,
+                                                                Grid.zBnum, config.Grid.zNum)
+        Flow_averageVelocityY += Flow_CalculateAverageVelocityY(Fluid,
+                                                                Grid.cellVolume,
+                                                                Grid.xBnum, config.Grid.xNum,
+                                                                Grid.yBnum, config.Grid.yNum,
+                                                                Grid.zBnum, config.Grid.zNum)
+        Flow_averageVelocityZ += Flow_CalculateAverageVelocityZ(Fluid,
+                                                                Grid.cellVolume,
+                                                                Grid.xBnum, config.Grid.xNum,
+                                                                Grid.yBnum, config.Grid.yNum,
+                                                                Grid.zBnum, config.Grid.zNum)
+        Flow_averageVelocityX /= Grid.volume
+        Flow_averageVelocityY /= Grid.volume
+        Flow_averageVelocityZ /= Grid.volume
+        Flow_AdjustAverageVelocity(Fluid,
+                                   config,
+                                   Flow_averageVelocityX,
+                                   Flow_averageVelocityY,
+                                   Flow_averageVelocityZ,
+                                   Grid.xBnum, config.Grid.xNum,
+                                   Grid.yBnum, config.Grid.yNum,
+                                   Grid.zBnum, config.Grid.zNum)
       end
 
       -- Use the new conserved values to update primitive values
