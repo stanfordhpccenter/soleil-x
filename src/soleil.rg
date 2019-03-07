@@ -1182,20 +1182,29 @@ do
     var fluid_index_neg = int3d({fluid_index_x_neg, fluid_index_y_neg, fluid_index_z_neg})
     var fluid_index_pos = int3d({fluid_index_x_pos, fluid_index_y_pos, fluid_index_z_pos})
 
-    var x_neg_face = Fluid[fluid_index_neg].centerCoordinates[0]-Fluid[fluid_index_neg].cellWidth[0]
-    var x_pos_face = Fluid[fluid_index_pos].centerCoordinates[0]+Fluid[fluid_index_pos].cellWidth[0]
-    var y_neg_face = Fluid[fluid_index_neg].centerCoordinates[1]-Fluid[fluid_index_neg].cellWidth[1]
-    var y_pos_face = Fluid[fluid_index_pos].centerCoordinates[1]+Fluid[fluid_index_pos].cellWidth[1]
-    var z_neg_face = Fluid[fluid_index_neg].centerCoordinates[2]-Fluid[fluid_index_neg].cellWidth[2]
-    var z_pos_face = Fluid[fluid_index_pos].centerCoordinates[2]+Fluid[fluid_index_pos].cellWidth[2]
-    
-    rad_cell.cellWidth = array(x_pos_face - x_neg_face,
-                               y_pos_face - y_neg_face,
-                               z_pos_face - z_neg_face)
+    --var x_neg_face = Fluid[fluid_index_neg].centerCoordinates[0]-Fluid[fluid_index_neg].cellWidth[0]
+    --var x_pos_face = Fluid[fluid_index_pos].centerCoordinates[0]+Fluid[fluid_index_pos].cellWidth[0]
+    --var y_neg_face = Fluid[fluid_index_neg].centerCoordinates[1]-Fluid[fluid_index_neg].cellWidth[1]
+    --var y_pos_face = Fluid[fluid_index_pos].centerCoordinates[1]+Fluid[fluid_index_pos].cellWidth[1]
+    --var z_neg_face = Fluid[fluid_index_neg].centerCoordinates[2]-Fluid[fluid_index_neg].cellWidth[2]
+    --var z_pos_face = Fluid[fluid_index_pos].centerCoordinates[2]+Fluid[fluid_index_pos].cellWidth[2]
+    --
+    --rad_cell.cellWidth = array(x_pos_face - x_neg_face,
+    --                           y_pos_face - y_neg_face,
+    --                           z_pos_face - z_neg_face)
 
-    rad_cell.centerCoordinates =  array((x_neg_face + x_pos_face)/2.0,
-                                        (y_neg_face + y_pos_face)/2.0,
-                                        (z_neg_face + z_pos_face)/2.0)
+    --rad_cell.centerCoordinates =  array((x_neg_face + x_pos_face)/2.0,
+    --                                    (y_neg_face + y_pos_face)/2.0,
+    --                                    (z_neg_face + z_pos_face)/2.0)
+
+    rad_cell.cellWidth = array(double(fluid_index_neg.x),
+                               double(fluid_index_neg.y),
+                               double(fluid_index_neg.z))
+
+    rad_cell.centerCoordinates =  array(double(fluid_index_pos.x),
+                                        double(fluid_index_pos.y),
+                                        double(fluid_index_pos.z))
+
 
   end
 
@@ -6413,17 +6422,6 @@ local function mkInstance() local INSTANCE = {}
     Grid.yRealMax max= Flow_FindRealMaxY(Fluid, config.Grid.origin[1] + config.Grid.yWidth)
     Grid.zRealMax max= Flow_FindRealMaxZ(Fluid, config.Grid.origin[2] + config.Grid.zWidth)
 
-    --for c in tiles do
-    --  Radiation_InitializeGeometry(p_Radiation[c],
-    --                               p_Fluid[c],
-    --                               config.Grid.xNum,
-    --                               config.Grid.yNum,
-    --                               config.Grid.zNum,
-    --                               config.Radiation.u.DOM.xNum,
-    --                               config.Radiation.u.DOM.yNum,
-    --                               config.Radiation.u.DOM.zNum)
-    --end
-
     if config.Flow.initCase == SCHEMA.FlowInitCase_Uniform then
       Flow_InitializeUniform(Fluid, config.Flow.initParams)
     elseif config.Flow.initCase == SCHEMA.FlowInitCase_Random then
@@ -6633,6 +6631,16 @@ local function mkInstance() local INSTANCE = {}
       -- Do nothing
     elseif config.Radiation.type == SCHEMA.RadiationModel_DOM then
       [DOM_INST.InitRegions(config, tiles, p_Radiation)];
+      for c in tiles do
+        Radiation_InitializeGeometry(p_Radiation[c],
+                                     p_Fluid[c],
+                                     config.Grid.xNum,
+                                     config.Grid.yNum,
+                                     config.Grid.zNum,
+                                     config.Radiation.u.DOM.xNum,
+                                     config.Radiation.u.DOM.yNum,
+                                     config.Radiation.u.DOM.zNum)
+      end
     else regentlib.assert(false, 'Unhandled case in switch') end
 
   end end -- InitRegions

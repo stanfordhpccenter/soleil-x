@@ -22,19 +22,19 @@ z_hat = [0.0, 0.0, 1.0]
 ###############################################################################
 # Read in the data
 ###############################################################################
-## Fluid data
-out_fluidxmf = XDMFReader(FileNames=[fluid_xmf_filename])
-out_fluidxmf.CellArrayStatus = ['pressure', 'rho', 'temperature', 'velocity']
-out_fluidxmf.GridStatus = out_fluidxmf.GetPropertyValue('GridInfo').GetData()
+### Fluid data
+#out_fluidxmf = XDMFReader(FileNames=[fluid_xmf_filename])
+#out_fluidxmf.CellArrayStatus = ['pressure', 'rho', 'temperature', 'velocity']
+#out_fluidxmf.GridStatus = out_fluidxmf.GetPropertyValue('GridInfo').GetData()
+#
+## Partilces data
+#out_particlesxmf = XDMFReader(FileNames=[particles_xmf_filename])
+#out_particlesxmf.PointArrayStatus = ['diameter', 'temperature', 'velocity']
+#out_particlesxmf.GridStatus = out_particlesxmf.GetPropertyValue('GridInfo').GetData()
 
-# Partilces data
-out_particlesxmf = XDMFReader(FileNames=[particles_xmf_filename])
-out_particlesxmf.PointArrayStatus = ['diameter', 'temperature', 'velocity']
-out_particlesxmf.GridStatus = out_particlesxmf.GetPropertyValue('GridInfo').GetData()
-
-## Find and name the sources if the files were read before this scrit was run
-#out_fluidxmf     = FindSource('out_fluid.xmf')
-#out_particlesxmf = FindSource('out_particles.xmf')
+# Find and name the sources if the files were read before this scrit was run
+out_fluidxmf     = FindSource('out_fluid.xmf')
+out_particlesxmf = FindSource('out_particles.xmf')
 
 
 RenameSource('fluid', out_fluidxmf)
