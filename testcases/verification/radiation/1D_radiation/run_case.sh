@@ -19,8 +19,8 @@ echo ""
 
 # Run the DOM code
 echo "########################     run the dom code     ############################"
-#$SOLEIL_DIR/src/my_dom_host.sh $SOLEIL_DIR/testcases/verification/radiation/1D_radiation/dom_test.json
-$SOLEIL_DIR/src/dom_host.sh $SOLEIL_DIR/testcases/verification/radiation/1D_radiation/dom_test.json
+$SOLEIL_DIR/src/my_dom_host.sh $SOLEIL_DIR/testcases/verification/radiation/1D_radiation/dom_test.json
+#$SOLEIL_DIR/src/dom_host.sh $SOLEIL_DIR/testcases/verification/radiation/1D_radiation/dom_test.json
 echo ""
 
 # Convert the output to numpy format

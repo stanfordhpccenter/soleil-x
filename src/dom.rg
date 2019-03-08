@@ -207,26 +207,14 @@ end
 local __demand(__cuda) -- MANUALLY PARALLELIZED
 task initialize_points(points : region(ispace(int3d), Point_columns))
 where
-  writes(points.{G, S})
+  writes(points.{centerCoordinates, cellWidth, G, S})
 do
   __demand(__openmp)
   for p in points do
+    p.centerCoordinates = array(0.0, 0.0, 0.0)
+    p.cellWidth = array(0.0, 0.0, 0.0)
     p.G = 0.0
     p.S = 0.0
-  end
-end
-
-local __demand(__cuda) -- MANUALLY PARALLELIZED
-task initialize_geometry(points : region(ispace(int3d), Point_columns),
-                         config : SCHEMA.Config)
-where
-  reads writes(points.{cellWidth})
-do
-  __demand(__openmp)
-  for p in points do
-    p.cellWidth[0] = config.Grid.xWidth / config.Radiation.u.DOM.xNum
-    p.cellWidth[1] = config.Grid.yWidth / config.Radiation.u.DOM.yNum
-    p.cellWidth[2] = config.Grid.zWidth / config.Radiation.u.DOM.zNum
   end
 end
 
@@ -619,7 +607,7 @@ local function mkSweep(q)
                       + fabs(angles[m].mu)  * dAz/GAMMA)
           if newI > 0.0 then
             -- TODO update for non uniform mesh
-            res += ( pow(newI-oldI,2) / pow(newI,2) ) * dV
+            res += pow(newI-oldI,2) / pow(newI,2)
           end
           sub_points[s1d].I = newI
           -- Compute intensities on downwind faces
@@ -852,11 +840,6 @@ function MODULE.mkInstance() local INSTANCE = {}
       initialize_points(p_points[c])
     end
 
-    -- TEST Initialize geometry
-    for c in tiles do
-      initialize_geometry(p_points[c], config)
-    end
-
     -- Initialize sub-points
     @ESCAPE for q = 1, 8 do @EMIT
       for c in tiles do
@@ -979,7 +962,7 @@ function MODULE.mkInstance() local INSTANCE = {}
       @TIME end @EPACSE
 
       -- Compute the residual.
-      res = sqrt(res/(config.Grid.xWidth*config.Grid.yWidth*config.Grid.zWidth*config.Radiation.u.DOM.angles))
+      res = sqrt(res/(Nx*Ny*Nz*config.Radiation.u.DOM.angles))
 
       -- Update intensity.
       for c in tiles do

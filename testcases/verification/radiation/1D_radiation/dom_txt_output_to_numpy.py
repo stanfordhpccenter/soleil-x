@@ -50,6 +50,9 @@ print('Nz = {}'.format(Nz))
 x   = np.zeros([Nx, Ny, Nz])
 y   = np.zeros([Nx, Ny, Nz])
 z   = np.zeros([Nx, Ny, Nz])
+dx   = np.zeros([Nx, Ny, Nz])
+dy   = np.zeros([Nx, Ny, Nz])
+dz   = np.zeros([Nx, Ny, Nz])
 G   = np.zeros([Nx, Ny, Nz])
 
 # Skip the header line
@@ -66,10 +69,13 @@ for line in f:
     k = int(c[2])
 
     # Fill in the data
-    x[i,j,k] = c[3]
-    y[i,j,k] = c[4]
-    z[i,j,k] = c[5]
-    G[i,j,k] = c[6]
+    x[i,j,k]  = c[3]
+    y[i,j,k]  = c[4]
+    z[i,j,k]  = c[5]
+    dx[i,j,k] = c[6]
+    dy[i,j,k] = c[7]
+    dz[i,j,k] = c[8]
+    G[i,j,k]  = c[9]
 
 # Close the file
 f.close()
@@ -78,5 +84,6 @@ f.close()
 output_filename = volume_data_filename[:-4]
 np.savez(output_filename,
          x=x, y=y, z=z,
+         dx=dx, dy=dy, dz=dz,
          G=G)
 

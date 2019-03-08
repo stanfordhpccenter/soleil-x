@@ -8,16 +8,16 @@
     },
 
     "Grid" : {
-        "xNum" : 1,
-        "yNum" : 1,
-        "zNum" : 1,
+        "xNum" : 100,
+        "yNum" : 50,
+        "zNum" : 50,
         "origin" : [0.0, 0.0, 0.0],
         "xWidth" : 1.0,
         "yWidth" : 50.0,
         "zWidth" : 50.0,
         "xType" : "Uniform",
-        "yType" : "Uniform",
-        "zType" : "Uniform"
+        "yType" : "Stretched",
+        "zType" : "Stretched"
     },
 
     "Radiation" : {
@@ -72,14 +72,14 @@
             "temperature" : -1.0
         },
         "xBCRightP_inf" : -1.0,
-        "yBCLeft" : "AdiabaticWall",
-        "yBCLeftVel" : [0.0, 0.0, 0.0],
+        "yBCLeft" : "Periodic",
+        "yBCLeftVel" : [-1.0, -1.0, -1.0],
         "yBCLeftHeat" : {
             "type" : "Constant",
             "temperature" : -1.0
         },
-        "yBCRight" : "AdiabaticWall",
-        "yBCRightVel" : [1.0, 0.0, 0.0],
+        "yBCRight" : "Periodic",
+        "yBCRightVel" : [-1.0, -1.0, -1.0],
         "yBCRightHeat" : {
             "type" : "Constant",
             "temperature" : -1.0
@@ -101,7 +101,7 @@
     "Integrator" : {
         "startIter" : 0,
         "startTime" : 0.0,
-        "maxIter" : 100000,
+        "maxIter" : 10,
         "cfl" : 1.0,
         "fixedDeltaTime" : -1.0,
         "rkOrder" : 4
@@ -129,7 +129,7 @@
          "initCase" : "Uniform",
          "restartDir" : "",
          "initNum" : 0,
-         "maxNum" : 10,
+         "maxNum" : 1,
          "restitutionCoeff" : -1.0,
          "convectiveCoeff" : 0.7,
          "heatCapacity" : 0.7,
@@ -146,7 +146,7 @@
  
      "IO" : {
          "wrtRestart" : true,
-         "restartEveryTimeSteps" : 1000,
+         "restartEveryTimeSteps" : 1,
          "probes" : []
      }
 }

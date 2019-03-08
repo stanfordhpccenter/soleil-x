@@ -1182,28 +1182,28 @@ do
     var fluid_index_neg = int3d({fluid_index_x_neg, fluid_index_y_neg, fluid_index_z_neg})
     var fluid_index_pos = int3d({fluid_index_x_pos, fluid_index_y_pos, fluid_index_z_pos})
 
-    --var x_neg_face = Fluid[fluid_index_neg].centerCoordinates[0]-Fluid[fluid_index_neg].cellWidth[0]
-    --var x_pos_face = Fluid[fluid_index_pos].centerCoordinates[0]+Fluid[fluid_index_pos].cellWidth[0]
-    --var y_neg_face = Fluid[fluid_index_neg].centerCoordinates[1]-Fluid[fluid_index_neg].cellWidth[1]
-    --var y_pos_face = Fluid[fluid_index_pos].centerCoordinates[1]+Fluid[fluid_index_pos].cellWidth[1]
-    --var z_neg_face = Fluid[fluid_index_neg].centerCoordinates[2]-Fluid[fluid_index_neg].cellWidth[2]
-    --var z_pos_face = Fluid[fluid_index_pos].centerCoordinates[2]+Fluid[fluid_index_pos].cellWidth[2]
-    --
-    --rad_cell.cellWidth = array(x_pos_face - x_neg_face,
-    --                           y_pos_face - y_neg_face,
-    --                           z_pos_face - z_neg_face)
+    var x_neg_face = Fluid[fluid_index_neg].centerCoordinates[0]-Fluid[fluid_index_neg].cellWidth[0]
+    var x_pos_face = Fluid[fluid_index_pos].centerCoordinates[0]+Fluid[fluid_index_pos].cellWidth[0]
+    var y_neg_face = Fluid[fluid_index_neg].centerCoordinates[1]-Fluid[fluid_index_neg].cellWidth[1]
+    var y_pos_face = Fluid[fluid_index_pos].centerCoordinates[1]+Fluid[fluid_index_pos].cellWidth[1]
+    var z_neg_face = Fluid[fluid_index_neg].centerCoordinates[2]-Fluid[fluid_index_neg].cellWidth[2]
+    var z_pos_face = Fluid[fluid_index_pos].centerCoordinates[2]+Fluid[fluid_index_pos].cellWidth[2]
+    
+    rad_cell.cellWidth = array(x_pos_face - x_neg_face,
+                               y_pos_face - y_neg_face,
+                               z_pos_face - z_neg_face)
 
-    --rad_cell.centerCoordinates =  array((x_neg_face + x_pos_face)/2.0,
-    --                                    (y_neg_face + y_pos_face)/2.0,
-    --                                    (z_neg_face + z_pos_face)/2.0)
+    rad_cell.centerCoordinates =  array((x_neg_face + x_pos_face)/2.0,
+                                        (y_neg_face + y_pos_face)/2.0,
+                                        (z_neg_face + z_pos_face)/2.0)
 
-    rad_cell.cellWidth = array(double(fluid_index_neg.x),
-                               double(fluid_index_neg.y),
-                               double(fluid_index_neg.z))
+    --rad_cell.cellWidth = array(double(fluid_index_neg.x),
+    --                           double(fluid_index_neg.y),
+    --                           double(fluid_index_neg.z))
 
-    rad_cell.centerCoordinates =  array(double(fluid_index_pos.x),
-                                        double(fluid_index_pos.y),
-                                        double(fluid_index_pos.z))
+    --rad_cell.centerCoordinates =  array(double(fluid_index_pos.x),
+    --                                    double(fluid_index_pos.y),
+    --                                    double(fluid_index_pos.z))
 
 
   end
@@ -5530,16 +5530,15 @@ end
 
 __demand(__parallel, __cuda)
 task Radiation_UpdateFieldValues(Radiation : region(ispace(int3d), Radiation_columns),
-                                 Radiation_cellVolume : double,
                                  Radiation_qa : double,
                                  Radiation_qs : double)
 where
-  reads(Radiation.{acc_d2, acc_d2t4}),
+  reads(Radiation.{acc_d2, acc_d2t4, cellWidth}),
   writes(Radiation.{Ib, sigma})
 do
   __demand(__openmp)
   for c in Radiation do
-    c.sigma = c.acc_d2*PI*(Radiation_qa+Radiation_qs)/(4.0*Radiation_cellVolume)
+    c.sigma = c.acc_d2*PI*(Radiation_qa+Radiation_qs)/(4.0*c.cellWidth[0]*c.cellWidth[1]*c.cellWith[2])
     if c.acc_d2 == 0.0 then
       c.Ib = 0.0
     else
@@ -6902,17 +6901,9 @@ local function mkInstance() local INSTANCE = {}
           for c in tiles do
             Radiation_AccumulateParticleValues(p_Particles[c], p_Fluid[c], p_Radiation[c])
           end
-          -- TODO: Radiation not updated for non-uniform mesh
-          var Radiation_xCellWidth = (config.Grid.xWidth/config.Radiation.u.DOM.xNum)
-          var Radiation_yCellWidth = (config.Grid.yWidth/config.Radiation.u.DOM.yNum)
-          var Radiation_zCellWidth = (config.Grid.zWidth/config.Radiation.u.DOM.zNum)
-          var Radiation_cellVolume = Radiation_xCellWidth * Radiation_yCellWidth * Radiation_zCellWidth
-          -- TODO: Radiation not updated for non-uniform mesh
           Radiation_UpdateFieldValues(Radiation,
-                                      Radiation_cellVolume,
                                       config.Radiation.u.DOM.qa,
                                       config.Radiation.u.DOM.qs);
-          -- TODO: Radiation not updated for non-uniform mesh
           [DOM_INST.ComputeRadiationField(config, tiles, p_Radiation)];
           for c in tiles do
             Particles_AbsorbRadiationDOM(p_Particles[c],

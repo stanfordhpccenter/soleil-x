@@ -40,7 +40,7 @@ sigma =  5.67036713*np.power(10.0,-8.0)
 X_max = 1.0 # [m]
 
 # Number of steps between 0 and X_max
-Nx_analytical = 1001 # [points] 
+Nx_analytical = 10001 # [points] 
 
 # Wall temperatures
 #T_left_wall  = 1.0 # [K]
