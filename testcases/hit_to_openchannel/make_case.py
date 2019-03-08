@@ -240,6 +240,8 @@ output()
 
 if not args.debug:
     max_iter = int(math.ceil(int(mc['flowThroughTimes']) * L / U_0 / delta_t_c))
+    # Leave some slack space on the channel section for particles
+    N_p = int(N_p * 1.2)
     # Round up number of particles to fit tiling
     tiles_0 = (mc['configs'][0]['Mapping']['tiles'][0] *
                mc['configs'][0]['Mapping']['tiles'][1] *
@@ -277,7 +279,7 @@ if not args.debug:
     mc['configs'][1]['Integrator']['fixedDeltaTime'] = delta_t_c
     mc['configs'][1]['Flow']['prandtl'] = Pr
     mc['configs'][1]['Flow']['initParams'][2] = U_0
-    mc['configs'][1]['Particles']['maxNum'] = int(N_p * 1.2)
+    mc['configs'][1]['Particles']['maxNum'] = N_p
     mc['configs'][1]['Particles']['convectiveCoeff'] = h
     mc['configs'][1]['Particles']['heatCapacity'] = C_v_p
     mc['configs'][1]['Particles']['diameterMean'] = d_p
