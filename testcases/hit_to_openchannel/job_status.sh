@@ -1,45 +1,58 @@
 #!/bin/bash -eu
 
-VERBOSE="${VERBOSE:-0}"
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
-for JOBOUT in "$@"; do
-    COUNT_FAILURES=0
-    JOBID="${JOBOUT%.out}"
-    OUTDIR="$( head -n 1 "$JOBOUT" | awk '{print $4'} )"
-    if [[ ! -e "$JOBOUT" ]]; then
-        echo "$JOBID: not started"
-    elif grep -q 'CUDA_ERROR_OUT_OF_MEMORY' "$JOBOUT"; then
-        echo "$JOBID: cuda oom"
-    elif grep -q 'TERM_ADMIN' "$JOBOUT"; then
-        echo "$JOBID: killed by admin"
-    elif grep -q 'TERM_OWNER' "$JOBOUT"; then
-        echo "$JOBID: manually killed"
-    elif grep -q 'TERM_RUNLIMIT' "$JOBOUT"; then
-        echo "$JOBID: timeout"
-    elif grep -q 'Cannot open your job file' "$JOBOUT"; then
-        echo "$JOBID: cannot open job file"
-    elif grep -q 'code 247' "$JOBOUT"; then
-        echo "$JOBID: code 247"
-    elif grep -q 'code 255' "$JOBOUT"; then
-        echo "$JOBID: code 255"
-    elif grep -q 'JSM server is not responding' "$JOBOUT"; then
-        echo "$JOBID: jsm server not responding"
-    elif grep -q 'id.is_event' "$JOBOUT"; then
-        echo "$JOBID: realm assert: id.is_event"
-    elif grep -q 'Ran out of space while copying particles from other section' "$JOBOUT"; then
-        echo "$JOBID: channel section overflow"
-    elif grep -q Successfully "$JOBOUT"; then
-        echo -n "$JOBID: done"
-	COUNT_FAILURES=1
-    elif grep -q summary "$JOBOUT"; then
-        echo "$JOBID: OTHER ERROR"
+COUNT_FAILURES="${COUNT_FAILURES:-0}"
+AVERAGE="${AVERAGE:-0}"
+NUM_CASES="${NUM_CASES:-32}"
+
+for ARG in "$@"; do
+    if [[ -d "$ARG" ]]; then
+        if ! ls "$ARG"/*.out 1> /dev/null 2>&1; then
+            echo "$ARG not started"
+            continue
+        fi
+        JOBOUT="$(ls "$ARG"/*.out | tail -n 1)"
+        LAUNCH_DIR="$ARG"
     else
-        echo -n "$JOBID: running"
-	COUNT_FAILURES=1
+        JOBOUT="$ARG"
+        LAUNCH_DIR="$(dirname "$JOBOUT")"
     fi
-    if [[ "$VERBOSE" == 1 && "$COUNT_FAILURES" == 1 ]]; then
-        FAILURES=`tail -q -n 1 "$OUTDIR"/sample*/console.txt | grep 'nan' | wc -l`
-        echo " ($FAILURES cases diverged)"
+    BASEOUT="$(basename "$JOBOUT")"
+    JOBID="${BASEOUT%.out}"
+    OUT_DIR="$( head -n 1 "$JOBOUT" | awk '{print $4'} )"
+
+    NO_ERROR=0
+    if [[ ! -e "$JOBOUT" ]]; then
+        echo -n "$JOBOUT not started"
+    elif grep -q 'CUDA_ERROR_OUT_OF_MEMORY' "$JOBOUT"; then
+        echo -n "$JOBOUT cuda oom"
+    elif grep -q 'TERM_ADMIN' "$JOBOUT"; then
+        echo -n "$JOBOUT killed by admin"
+    elif grep -q 'TERM_OWNER' "$JOBOUT"; then
+        echo -n "$JOBOUT manually killed"
+    elif grep -q 'TERM_RUNLIMIT' "$JOBOUT"; then
+        echo -n "$JOBOUT timeout"
+    elif grep -q 'Ran out of space while copying particles from other section' "$JOBOUT"; then
+        echo -n "$JOBOUT channel section overflow"
+    elif grep -q Successfully "$JOBOUT"; then
+        echo -n "$JOBOUT done"
+        NO_ERROR=1
+        if [[ "$AVERAGE" == 1 ]]; then
+            echo -n ", averaging"
+            if [[ ! -e "$LAUNCH_DIR"/"$JOBID".csv ]]; then
+                "$SCRIPT_DIR"/time_average_all.sh "$NUM_CASES" "$LAUNCH_DIR" "$OUT_DIR" > "$LAUNCH_DIR"/"$JOBID".csv
+            fi
+        fi
+    elif grep -q summary "$JOBOUT"; then
+        echo -n "$JOBOUT OTHER ERROR"
+    else
+        echo -n "$JOBOUT running"
+        NO_ERROR=1
+    fi
+    if [[ "$COUNT_FAILURES" == 1 && "$NO_ERROR" == 1 ]]; then
+        FAILURES=`tail -q -n 1 "$OUT_DIR"/sample*/console.txt | grep 'nan' | wc -l`
+        echo " ($FAILURES samples diverged)"
     else
         echo
     fi
