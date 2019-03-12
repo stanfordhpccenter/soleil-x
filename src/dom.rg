@@ -589,7 +589,6 @@ local function mkSweep(q)
           var z_value = z_faces[{p.x,p.y    }].I[m]
           -- Integrate to compute cell-centered value of I
           var oldI = sub_points[s1d].I
-          -- TODO update for non uniform mesh
           var dx = points[p].cellWidth[0]
           var dy = points[p].cellWidth[1]
           var dz = points[p].cellWidth[2]
@@ -606,7 +605,6 @@ local function mkSweep(q)
                       + fabs(angles[m].eta) * dAy/GAMMA
                       + fabs(angles[m].mu)  * dAz/GAMMA)
           if newI > 0.0 then
-            -- TODO update for non uniform mesh
             res += pow(newI-oldI,2) / pow(newI,2)
           end
           sub_points[s1d].I = newI

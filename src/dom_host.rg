@@ -345,12 +345,10 @@ local task writeOutput(points : region(ispace(int3d), Point_columns))
 where
   reads(points.{centerCoordinates, cellWidth, G})
 do
-
   var fp = C.fopen ("volume_solution.txt", "w+");
   var limits = points.bounds
   C.fprintf(fp, "%d \t %d \t %d\n", limits.hi.x+1, limits.hi.y+1, limits.hi.z+1)
   C.fprintf(fp, "i \t j \t k \t x \t\t y \t\t z  \t\t dx \t\t dy \t\t dz \t\t G\n")
-
   for ind in points.ispace do
     C.fprintf(fp, "%d \t %d \t %d \t %f \t %f \t %f \t %f \t %f \t %f \t %f\n",
                    ind.x, ind.y, ind.z,
@@ -358,9 +356,7 @@ do
                    points[ind].cellWidth[0], points[ind].cellWidth[1], points[ind].cellWidth[2],
                    points[ind].G)
   end
-
   C.fclose(fp);
-
 end
 
 -------------------------------------------------------------------------------
@@ -384,18 +380,13 @@ task work(config : SCHEMA.Config)
   [DOM_INST.DeclSymbols(config, tiles)];
   [DOM_INST.InitRegions(config, tiles, p_points)];
 
-  --for c in tiles do
-  --  Radiation_InitializeGeometry(p_points[c],
-  --                               config.Grid.xType, config.Grid.yType, config.Grid.zType,
-  --                               config.Radiation.u.DOM.xNum, config.Grid.origin[0], config.Grid.xWidth,
-  --                               config.Radiation.u.DOM.yNum, config.Grid.origin[1], config.Grid.yWidth,
-  --                               config.Radiation.u.DOM.zNum, config.Grid.origin[2], config.Grid.zWidth)
-  --end
-  Radiation_InitializeGeometry(points,
-                               config.Grid.xType, config.Grid.yType, config.Grid.zType,
-                               config.Radiation.u.DOM.xNum, config.Grid.origin[0], config.Grid.xWidth,
-                               config.Radiation.u.DOM.yNum, config.Grid.origin[1], config.Grid.yWidth,
-                               config.Radiation.u.DOM.zNum, config.Grid.origin[2], config.Grid.zWidth)
+  for c in tiles do
+    Radiation_InitializeGeometry(p_points[c],
+                                 config.Grid.xType, config.Grid.yType, config.Grid.zType,
+                                 config.Radiation.u.DOM.xNum, config.Grid.origin[0], config.Grid.xWidth,
+                                 config.Radiation.u.DOM.yNum, config.Grid.origin[1], config.Grid.yWidth,
+                                 config.Radiation.u.DOM.zNum, config.Grid.origin[2], config.Grid.zWidth)
+  end
 
   -- Prepare fake inputs
   --fill(points.Ib, (SB/PI) * pow(1000.0,4.0))

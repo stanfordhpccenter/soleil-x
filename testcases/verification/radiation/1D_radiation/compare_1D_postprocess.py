@@ -2,8 +2,8 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Reads in numpy compressed array files (.npz) files with the mcrt solution and
-# and the analytical solution and plots them data.
+# Reads in numpy compressed array files (.npz) with the simulation and
+# analytical solutions, plots them, and computes the L2 norm of the error.
 
 # --------------------------------------------------------------------------- #
 #                            Read Command Line Input                          #
@@ -37,8 +37,8 @@ else :
 #                         Load the Simulation Results                         #
 # --------------------------------------------------------------------------- #
 
-# These are assumed to be 3D numpy arrays
 data_simulation = np.load(simulation_solution_filename)
+# These are assumed to be 3D numpy arrays
 x_simulation  = data_simulation['x']
 y_simulation  = data_simulation['y']
 z_simulation  = data_simulation['z']
@@ -47,17 +47,15 @@ dy_simulation = data_simulation['dy']
 dz_simulation = data_simulation['dz']
 G_simulation  = data_simulation['G']
 
-
 # -------------------------------------------------------------------------- #
 #                            Load the Analytical Solution                    #
 # -------------------------------------------------------------------------- #
 
-# These are assumed to be 1D numpy arrays
 data_analytical = np.load(analytical_solution_filename)
+# These are assumed to be 1D numpy arrays
 x_analytical = data_analytical['x_analytical']
 G_analytical = data_analytical['G_analytical']
 q_analytical = data_analytical['q_analytical']
-
 
 # -------------------------------------------------------------------------- #
 #                               Print Data Summary                           #
@@ -108,7 +106,7 @@ for i_ana, i_sim in enumerate(np.searchsorted(x_simulation[:,0,0]+0.5*dx_simulat
 # --------------------------------------------------------------------------- #
 #                                     Plot G                                  #
 # --------------------------------------------------------------------------- #
-plt.figure(1)
+plt.figure()
 plt.plot(x_analytical, G_analytical , '-k', label=r'Analytical')
 plt.plot(x_simulation[:, int(Ny/2), int(Nz/2)], 
          G_simulation[:, int(Ny/2), int(Nz/2)], 
@@ -125,7 +123,7 @@ plt.savefig('G_Nx_{}.pdf'.format(Nx), bbox_inches='tight')
 #                                 Plot Error                                  # 
 # --------------------------------------------------------------------------- #
 
-plt.figure(3)
+plt.figure()
 plt.plot(x_simulation[:, int(Ny/2), int(Nz/2)], 
          G_error[:, int(Ny/2), int(Nz/2)], 
          '-ok', fillstyle='full')

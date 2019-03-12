@@ -5538,7 +5538,7 @@ where
 do
   __demand(__openmp)
   for c in Radiation do
-    c.sigma = c.acc_d2*PI*(Radiation_qa+Radiation_qs)/(4.0*c.cellWidth[0]*c.cellWidth[1]*c.cellWith[2])
+    c.sigma = c.acc_d2*PI*(Radiation_qa+Radiation_qs)/(4.0*c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2])
     if c.acc_d2 == 0.0 then
       c.Ib = 0.0
     else
@@ -7184,6 +7184,25 @@ local function mkInstance() local INSTANCE = {}
   -----------------------------------------------------------------------------
   -- Cleanup code
   -----------------------------------------------------------------------------
+-- test for radiation mesh
+local task Console_Write_Radiation_Output(Radiation : region(ispace(int3d), Radiation_columns))
+where
+  reads(Radiation.{centerCoordinates, cellWidth, G})
+do
+  var fp = C.fopen ("volume_solution.txt", "w+");
+  var limits = Radiation.bounds
+  C.fprintf(fp, "%d \t %d \t %d\n", limits.hi.x+1, limits.hi.y+1, limits.hi.z+1)
+  C.fprintf(fp, "i \t j \t k \t x \t\t y \t\t z  \t\t dx \t\t dy \t\t dz \t\t G\n")
+  for ind in Radiation.ispace do
+    C.fprintf(fp, "%d \t %d \t %d \t %f \t %f \t %f \t %f \t %f \t %f \t %f\n",
+                   ind.x, ind.y, ind.z,
+                   Radiation[ind].centerCoordinates[0], Radiation[ind].centerCoordinates[1], Radiation[ind].centerCoordinates[2],
+                   Radiation[ind].cellWidth[0], Radiation[ind].cellWidth[1], Radiation[ind].cellWidth[2],
+                   Radiation[ind].G)
+  end
+  C.fclose(fp);
+end
+
 
   function INSTANCE.Cleanup(config) return rquote
 
@@ -7192,6 +7211,9 @@ local function mkInstance() local INSTANCE = {}
 
     -- Report final time
     Console_WriteFooter(config, startTime)
+
+-- test for radiation mesh
+Console_Write_Radiation_Output(Radiation)
 
   end end -- Cleanup
 
