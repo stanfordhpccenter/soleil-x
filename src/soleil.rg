@@ -148,10 +148,6 @@ local struct Fluid_columns {
   temperature_old_NSCBC : double;
   velocity_inc : double[3];
   temperature_inc : double;
-  debug_scalar : double;
-  debug_vector1 : double[3];
-  debug_vector2 : double[3];
-  debug_vector3: double[3];
 }
 
 local Fluid_primitives = terralib.newlist({
@@ -161,10 +157,6 @@ local Fluid_primitives = terralib.newlist({
   'pressure',
   'velocity',
   'temperature',
-  'debug_scalar',
-  'debug_vector1',
-  'debug_vector2',
-  'debug_vector3',
 })
 
 struct Radiation_columns {
@@ -805,41 +797,6 @@ task nonuniform_cell_width(x_min : double,
   return x_non_uniform_dx 
 end
 
-
----- Description:
-----     Find 1st derivative using central difference scheme
----- Input:
-----     y_minus = y in neighbor cell in the negative direction
-----     y_plus = y in neighbor cell in the positive direction 
-----     dx_minus = cell width of neighbor cell in the negative direction
-----     dx = cell width of current cell 
-----     dx_plus = cell width of neighbor cell in the positive direction
----- Output:
-----     1st derivative using central difference scheme
---terra central_difference(y_minus  : double,
---                         y_plus   : double,
---                         dx_minus : double,
---                         dx       : double,
---                         dx_plus  : double) : double
---  return (y_plus - y_minus)/(0.5*dx_minus + dx + 0.5*dx_plus)
---end
---
----- Description:
-----     Find 1st derivative using one sided difference scheme
----- Input:
-----     y_minus = y in neighbor cell in the negative direction
-----     y_plus = y in neighbor cell in the positive direction 
-----     dx_minus = cell width of neighbor cell in the negative direction
-----     dx_plus = cell width of neighbor cell in the positive direction
----- Output:
-----     1st derivative using one sided difference scheme
---terra one_sided_difference(y_minus  : double,
---                           y_plus   : double,
---                           dx_minus : double,
---                           dx_plus  : double) : double
---  return (y_plus - y_minus)/(0.5*dx_minus + 0.5*dx_plus)
---end
-
 -------------------------------------------------------------------------------
 -- OTHER ROUTINES
 -------------------------------------------------------------------------------
@@ -967,10 +924,6 @@ end
 __demand(__parallel, __cuda)
 task Flow_InitializeCell(Fluid : region(ispace(int3d), Fluid_columns))
 where
-  writes(Fluid.debug_scalar),
-  writes(Fluid.debug_vector1),
-  writes(Fluid.debug_vector2),
-  writes(Fluid.debug_vector3),
   writes(Fluid.centerCoordinates),
   writes(Fluid.cellWidth),
   writes(Fluid.dissipation),
@@ -1044,10 +997,6 @@ do
     Fluid[c].temperature_old_NSCBC = 0.0
     Fluid[c].velocity_inc = array(0.0, 0.0, 0.0)
     Fluid[c].temperature_inc = 0.0
-    Fluid[c].debug_scalar = 0.0
-    Fluid[c].debug_vector1 = array(0.0, 0.0, 0.0)
-    Fluid[c].debug_vector2 = array(0.0, 0.0, 0.0)
-    Fluid[c].debug_vector3 = array(0.0, 0.0, 0.0)
   end
 end
 
@@ -1201,21 +1150,6 @@ do
 
 end
 
-
-task Particles_InitializeCopyOrigin(Fluid    : region(ispace(int3d), Fluid_columns),
-                                    fromCell : int[3])
-where
-  reads (Fluid.{centerCoordinates, cellWidth})
-do
-    var originCellIndex = int3d{fromCell[0], fromCell[1], fromCell[2]}
-
-    var xParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[0] - Fluid[originCellIndex].cellWidth[0]
-    var yParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[1] - Fluid[originCellIndex].cellWidth[1]
-    var zParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[2] - Fluid[originCellIndex].cellWidth[2]
-
-    return array(xParticleCopyOrigin, yParticleCopyOrigin, zParticleCopyOrigin)
-end
-
 __demand(__parallel, __cuda)
 task Flow_FindRealOriginX(Fluid : region(ispace(int3d), Fluid_columns),
                           Grid_xOrigin : double)
@@ -1292,6 +1226,20 @@ do
    z_max max= Fluid[c].centerCoordinates[2] + 0.5*Fluid[c].cellWidth[2]
  end
  return z_max
+end
+
+task Particles_InitializeCopyOrigin(Fluid    : region(ispace(int3d), Fluid_columns),
+                                    fromCell : int[3])
+where
+  reads (Fluid.{centerCoordinates, cellWidth})
+do
+    var originCellIndex = int3d{fromCell[0], fromCell[1], fromCell[2]}
+
+    var xParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[0] - Fluid[originCellIndex].cellWidth[0]
+    var yParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[1] - Fluid[originCellIndex].cellWidth[1]
+    var zParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[2] - Fluid[originCellIndex].cellWidth[2]
+
+    return array(xParticleCopyOrigin, yParticleCopyOrigin, zParticleCopyOrigin)
 end
 
 
@@ -3054,7 +3002,6 @@ do
       rhoVelocityFluxX[0] += pressureFace
       Fluid[c].rhoVelocityFluxX = vv_sub(rhoVelocityFluxX, array(sigmaXX,sigmaYX,sigmaZX))
 
-      --Fluid[c].debug_vector1 = vv_sub(rhoVelocityFluxX, array(sigmaXX,sigmaYX,sigmaZX))
 
       -- Energy Flux Flux
       Fluid[c].rhoEnergyFluxX = (rhoEnergyFace + pressureFace)*velocityFace[0] - (usigma-heatFlux)
@@ -3077,7 +3024,6 @@ task Flow_GetFluxY(Fluid : region(ispace(int3d), Fluid_columns),
                    Grid_yBnum : int32, Grid_yNum : int32,
                    Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads writes(Fluid.{debug_vector1,debug_vector3}),
   reads(Fluid.{centerCoordinates, cellWidth}),
   reads(Fluid.{rho, pressure, velocity, rhoVelocity, rhoEnergy, temperature}),
   reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ, temperatureGradient}),
@@ -3245,9 +3191,6 @@ do
       var rhoVelocityFluxY = vs_mul(vs_mul(velocityFace, rhoFace), velocityFace[1])
       rhoVelocityFluxY[1] += pressureFace
       Fluid[c].rhoVelocityFluxY = vv_sub(rhoVelocityFluxY, array(sigmaXY,sigmaYY,sigmaZY))
-
-      Fluid[c].debug_vector1    = rhoVelocityFluxY 
-      Fluid[c].debug_vector3    = array(sigmaXY,sigmaYY,sigmaZY)
 
       -- Energy Flux Flux
       Fluid[c].rhoEnergyFluxY = (rhoEnergyFace + pressureFace)*velocityFace[1] - (usigma-heatFlux)
@@ -3439,8 +3382,6 @@ do
       var rhoVelocityFluxZ = vs_mul(vs_mul(velocityFace, rhoFace), velocityFace[2])
       rhoVelocityFluxZ[2] += pressureFace
       Fluid[c].rhoVelocityFluxZ = vv_sub(rhoVelocityFluxZ, array(sigmaXZ,sigmaYZ,sigmaZZ))
-
-      --Fluid[c].debug_vector3    = vv_sub(rhoVelocityFluxZ, array(sigmaXZ,sigmaYZ,sigmaZZ))
 
       -- Energy Flux Flux
       Fluid[c].rhoEnergyFluxZ = (rhoEnergyFace + pressureFace)*velocityFace[2] - (usigma-heatFlux)
@@ -4443,7 +4384,7 @@ task locate(pos : double[3],
     elseif pos[0] > x_pos_boundary then
       xidx = (Grid_xNum + 2*Grid_xBnum) - 1
     else
-      -- brut force search in interior cells
+      -- brute force search in interior cells
       for xidx_interior=0,(Grid_xNum+Grid_xBnum) do
         if (pos[0]>nonuniform_cell_neg_face(x_neg_boundary, x_pos_boundary, Grid_xNum, xidx_interior)) and
            (pos[0]<nonuniform_cell_pos_face(x_neg_boundary, x_pos_boundary, Grid_xNum, xidx_interior)) then
@@ -4471,7 +4412,7 @@ task locate(pos : double[3],
     elseif pos[1] > y_pos_boundary then
       yidx = (Grid_yNum + 2*Grid_yBnum) - 1
     else
-      -- brut force search in interior cells
+      -- brute force search in interior cells
       for yidx_interior=0,(Grid_yNum+Grid_yBnum) do
         if (pos[1]>nonuniform_cell_neg_face(y_neg_boundary, y_pos_boundary, Grid_yNum, yidx_interior)) and
            (pos[1]<nonuniform_cell_pos_face(y_neg_boundary, y_pos_boundary, Grid_yNum, yidx_interior)) then
@@ -4499,7 +4440,7 @@ task locate(pos : double[3],
     elseif pos[2] > z_pos_boundary then
       zidx = (Grid_zNum + 2*Grid_zBnum) - 1
     else
-      -- brut force search in interior cells
+      -- brute force search in interior cells
       for zidx_interior=0,(Grid_zNum+Grid_zBnum) do
         if (pos[2]>nonuniform_cell_neg_face(z_neg_boundary, z_pos_boundary, Grid_zNum, zidx_interior)) and
            (pos[2]<nonuniform_cell_pos_face(z_neg_boundary, z_pos_boundary, Grid_zNum, zidx_interior)) then
@@ -4535,31 +4476,6 @@ do
     end
   end
 end
-
---__demand(__parallel, __cuda)
---task Flow_PositionToCell(Fluid : region(ispace(int3d), Fluid_columns),
---                         Grid_xType : SCHEMA.GridType, Grid_yType : SCHEMA.GridType, Grid_zType : SCHEMA.GridType,
---                         position : double [3])
---where
---  reads (Fluid.centerCoordinates),
---  reads (Fluid.cellWidth)
---do
---
---  -- Find cell center coordinates
---  for cell in Fluid do
---    if (position[0] > (cell.centerCoordinates[0] - cell.cellWidth[0])) and 
---       (position[0] < (cell.centerCoordinates[0] + cell.cellWidth[0])) and
---       (position[1] > (cell.centerCoordinates[1] - cell.cellWidth[1])) and 
---       (position[1] < (cell.centerCoordinates[1] + cell.cellWidth[1])) and
---       (position[2] > (cell.centerCoordinates[2] - cell.cellWidth[2])) and 
---       (position[2] < (cell.centerCoordinates[2] + cell.cellWidth[2])) then
---  
---      return int3d{xidx, yidx, zidx}
---
---    end
---  end
---
---end
 
 __demand(__inline)
 task Fluid_elemColor(idx : int3d,
@@ -6662,17 +6578,12 @@ local function mkInstance() local INSTANCE = {}
 
   end end -- InitRegions
 
+  -----------------------------------------------------------------------------
+  -- Init for copy particles in 2 section simulations
+  -----------------------------------------------------------------------------
   function INSTANCE.InitParticleCopyOrigin(fromCell) return rquote
 
     var particleCopyOrigin = Particles_InitializeCopyOrigin(Fluid, fromCell)
-
-    --Grid.xParticleCopyOrigin = particleCopyOrigin[0]
-    --Grid.yParticleCopyOrigin = particleCopyOrigin[1]
-    --Grid.zParticleCopyOrigin = particleCopyOrigin[2]
-
-    --var [Grid.xParticleCopyOrigin] = particleCopyOrigin[0]
-    --var [Grid.yParticleCopyOrigin] = particleCopyOrigin[1]
-    --var [Grid.zParticleCopyOrigin] = particleCopyOrigin[2]
 
     Grid.xParticleCopyOrigin = particleCopyOrigin[0]
     Grid.yParticleCopyOrigin = particleCopyOrigin[1]
@@ -7339,24 +7250,12 @@ task workDual(mc : MultiConfig)
 
   [SIM0.InitParticleCopyOrigin(rexpr mc.copySrc.fromCell end)];
   [SIM1.InitParticleCopyOrigin(rexpr mc.copyTgt.fromCell end)];
-
   var copySrcOrigin = array(SIM0.Grid.xParticleCopyOrigin,
                             SIM0.Grid.yParticleCopyOrigin,
                             SIM0.Grid.zParticleCopyOrigin)
   var copyTgtOrigin = array(SIM1.Grid.xParticleCopyOrigin,
                             SIM1.Grid.xParticleCopyOrigin,
                             SIM1.Grid.xParticleCopyOrigin)
-
---  -- TODO: Update for non-uniform mesh
---  -- Now RealOrigin is not set in DeclSymbols but in InitRegions
---  var copySrcOrigin = array(
---    SIM0.Grid.xRealOrigin + mc.copySrc.fromCell[0] * SIM0.Grid.xCellWidth,
---    SIM0.Grid.yRealOrigin + mc.copySrc.fromCell[1] * SIM0.Grid.yCellWidth,
---    SIM0.Grid.zRealOrigin + mc.copySrc.fromCell[2] * SIM0.Grid.zCellWidth)
---  var copyTgtOrigin = array(
---    SIM1.Grid.xRealOrigin + mc.copyTgt.fromCell[0] * SIM1.Grid.xCellWidth,
---    SIM1.Grid.yRealOrigin + mc.copyTgt.fromCell[1] * SIM1.Grid.yCellWidth,
---    SIM1.Grid.zRealOrigin + mc.copyTgt.fromCell[2] * SIM1.Grid.zCellWidth)
 
   var srcOrigin = int3d{mc.copySrc.fromCell[0], mc.copySrc.fromCell[1], mc.copySrc.fromCell[2]}
   var tgtOrigin = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]}
