@@ -1197,19 +1197,24 @@ do
                                         (y_neg_face + y_pos_face)/2.0,
                                         (z_neg_face + z_pos_face)/2.0)
 
-    --rad_cell.cellWidth = array(double(fluid_index_neg.x),
-    --                           double(fluid_index_neg.y),
-    --                           double(fluid_index_neg.z))
-
-    --rad_cell.centerCoordinates =  array(double(fluid_index_pos.x),
-    --                                    double(fluid_index_pos.y),
-    --                                    double(fluid_index_pos.z))
-
-
   end
 
 end
 
+
+task Particles_InitializeCopyOrigin(Fluid    : region(ispace(int3d), Fluid_columns),
+                                    fromCell : int[3])
+where
+  reads (Fluid.{centerCoordinates, cellWidth})
+do
+    var originCellIndex = int3d{fromCell[0], fromCell[1], fromCell[2]}
+
+    var xParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[0] - Fluid[originCellIndex].cellWidth[0]
+    var yParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[1] - Fluid[originCellIndex].cellWidth[1]
+    var zParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[2] - Fluid[originCellIndex].cellWidth[2]
+
+    return array(xParticleCopyOrigin, yParticleCopyOrigin, zParticleCopyOrigin)
+end
 
 __demand(__parallel, __cuda)
 task Flow_FindRealOriginX(Fluid : region(ispace(int3d), Fluid_columns),
@@ -4797,8 +4802,7 @@ end
 task CopyQueue_push(Particles : region(ispace(int1d), Particles_columns),
                     CopyQueue : region(ispace(int1d), CopyQueue_columns),
                     copySrc : SCHEMA.Volume,
-                    copySrcOrigin : double[3], copyTgtOrigin : double[3],
-                    Fluid0_cellWidth : double[3], Fluid1_cellWidth : double[3])
+                    copySrcOrigin : double[3], copyTgtOrigin : double[3])
 where
   reads(Particles.[Particles_primitives], Particles.cell),
   writes(CopyQueue.[Particles_primitives])
@@ -4813,9 +4817,14 @@ do
         regentlib.assert(
           p2 <= CopyQueue.bounds.hi,
           'Ran out of space in cross-section particles copy queue')
+
+        --CopyQueue[p2].position =
+        --  vv_add(copyTgtOrigin, vv_mul(Fluid1_cellWidth,
+        --    vv_div(vv_sub(p1.position, copySrcOrigin), Fluid0_cellWidth)))
+
         CopyQueue[p2].position =
-          vv_add(copyTgtOrigin, vv_mul(Fluid1_cellWidth,
-            vv_div(vv_sub(p1.position, copySrcOrigin), Fluid0_cellWidth)))
+          vv_add(copyTgtOrigin, vv_sub(p1.position, copySrcOrigin))
+
         CopyQueue[p2].velocity = p1.velocity
         CopyQueue[p2].temperature = p1.temperature
         CopyQueue[p2].diameter = p1.diameter
@@ -5937,6 +5946,9 @@ local function mkInstance() local INSTANCE = {}
     xRealMax = regentlib.newsymbol(),
     yRealMax = regentlib.newsymbol(),
     zRealMax = regentlib.newsymbol(),
+    xParticleCopyOrigin = regentlib.newsymbol(),
+    yParticleCopyOrigin = regentlib.newsymbol(),
+    zParticleCopyOrigin = regentlib.newsymbol(),
   }
   local BC = {
     xPosSign = regentlib.newsymbol(double[3]),
@@ -6067,6 +6079,18 @@ local function mkInstance() local INSTANCE = {}
     if config.BC.xBCLeft == SCHEMA.FlowBC_Periodic then Grid.xBnum = 0 end
     if config.BC.yBCLeft == SCHEMA.FlowBC_Periodic then Grid.yBnum = 0 end
     if config.BC.zBCLeft == SCHEMA.FlowBC_Periodic then Grid.zBnum = 0 end
+
+    var [Grid.xRealOrigin] = config.Grid.origin[0]
+    var [Grid.yRealOrigin] = config.Grid.origin[1]
+    var [Grid.zRealOrigin] = config.Grid.origin[2]
+
+    var [Grid.xRealMax] = config.Grid.origin[0] + config.Grid.xWidth
+    var [Grid.yRealMax] = config.Grid.origin[1] + config.Grid.yWidth
+    var [Grid.zRealMax] = config.Grid.origin[2] + config.Grid.zWidth
+
+    var [Grid.xParticleCopyOrigin] = config.Grid.origin[0]
+    var [Grid.yParticleCopyOrigin] = config.Grid.origin[1]
+    var [Grid.zParticleCopyOrigin] = config.Grid.origin[2]
 
     var [NX] = config.Mapping.tiles[0]
     var [NY] = config.Mapping.tiles[1]
@@ -6407,16 +6431,10 @@ local function mkInstance() local INSTANCE = {}
                             Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
                             Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
 
-    var [Grid.xRealOrigin] = config.Grid.origin[0]
-    var [Grid.yRealOrigin] = config.Grid.origin[1]
-    var [Grid.zRealOrigin] = config.Grid.origin[2]
     Grid.xRealOrigin min= Flow_FindRealOriginX(Fluid, config.Grid.origin[0])
     Grid.yRealOrigin min= Flow_FindRealOriginY(Fluid, config.Grid.origin[1])
     Grid.zRealOrigin min= Flow_FindRealOriginZ(Fluid, config.Grid.origin[2])
 
-    var [Grid.xRealMax] = config.Grid.origin[0] + config.Grid.xWidth
-    var [Grid.yRealMax] = config.Grid.origin[1] + config.Grid.yWidth
-    var [Grid.zRealMax] = config.Grid.origin[2] + config.Grid.zWidth
     Grid.xRealMax max= Flow_FindRealMaxX(Fluid, config.Grid.origin[0] + config.Grid.xWidth)
     Grid.yRealMax max= Flow_FindRealMaxY(Fluid, config.Grid.origin[1] + config.Grid.yWidth)
     Grid.zRealMax max= Flow_FindRealMaxZ(Fluid, config.Grid.origin[2] + config.Grid.zWidth)
@@ -6643,6 +6661,24 @@ local function mkInstance() local INSTANCE = {}
     else regentlib.assert(false, 'Unhandled case in switch') end
 
   end end -- InitRegions
+
+  function INSTANCE.InitParticleCopyOrigin(fromCell) return rquote
+
+    var particleCopyOrigin = Particles_InitializeCopyOrigin(Fluid, fromCell)
+
+    --Grid.xParticleCopyOrigin = particleCopyOrigin[0]
+    --Grid.yParticleCopyOrigin = particleCopyOrigin[1]
+    --Grid.zParticleCopyOrigin = particleCopyOrigin[2]
+
+    --var [Grid.xParticleCopyOrigin] = particleCopyOrigin[0]
+    --var [Grid.yParticleCopyOrigin] = particleCopyOrigin[1]
+    --var [Grid.zParticleCopyOrigin] = particleCopyOrigin[2]
+
+    Grid.xParticleCopyOrigin = particleCopyOrigin[0]
+    Grid.yParticleCopyOrigin = particleCopyOrigin[1]
+    Grid.zParticleCopyOrigin = particleCopyOrigin[2]
+
+  end end -- InitParticleCopyOrigin
 
   -----------------------------------------------------------------------------
   -- Main time-step loop header
@@ -7245,133 +7281,145 @@ task workDual(mc : MultiConfig)
   var is_FakeCopyQueue = ispace(int1d, 0)
   var [FakeCopyQueue] = region(is_FakeCopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
-  ---- TODO: Update for non-uniform mesh
-  ---- Now RealOrigin is not set in DeclSymbols but in InitRegions
-  --var copySrcOrigin = array(
-  --  SIM0.Grid.xRealOrigin + mc.copySrc.fromCell[0] * SIM0.Grid.xCellWidth,
-  --  SIM0.Grid.yRealOrigin + mc.copySrc.fromCell[1] * SIM0.Grid.yCellWidth,
-  --  SIM0.Grid.zRealOrigin + mc.copySrc.fromCell[2] * SIM0.Grid.zCellWidth)
-  --var copyTgtOrigin = array(
-  --  SIM1.Grid.xRealOrigin + mc.copyTgt.fromCell[0] * SIM1.Grid.xCellWidth,
-  --  SIM1.Grid.yRealOrigin + mc.copyTgt.fromCell[1] * SIM1.Grid.yCellWidth,
-  --  SIM1.Grid.zRealOrigin + mc.copyTgt.fromCell[2] * SIM1.Grid.zCellWidth)
-  --var Fluid0_cellWidth = array(SIM0.Grid.xCellWidth, SIM0.Grid.yCellWidth, SIM0.Grid.zCellWidth)
-  --var Fluid1_cellWidth = array(SIM1.Grid.xCellWidth, SIM1.Grid.yCellWidth, SIM1.Grid.zCellWidth)
-  --var CopyQueue_ptr : int64 = 0
-  --var coloring_CopyQueue = C.legion_domain_point_coloring_create()
-  --for c in SIM0.tiles do
-  --  var partSize = CopyQueue_partSize(SIM0.p_Fluid[c].bounds,
-  --                                    mc.configs[0],
-  --                                    mc.copySrc)
-  --  C.legion_domain_point_coloring_color_domain(
-  --    coloring_CopyQueue, c, rect1d{CopyQueue_ptr,CopyQueue_ptr+partSize-1})
-  --  CopyQueue_ptr += partSize
-  --end
-  --var is_CopyQueue = ispace(int1d, CopyQueue_ptr)
-  --var [CopyQueue] = region(is_CopyQueue, CopyQueue_columns);
-  --[UTIL.emitRegionTagAttach(CopyQueue, MAPPER.SAMPLE_ID_TAG, rexpr mc.configs[0].Mapping.sampleId end, int)];
-  --var p_CopyQueue = partition(disjoint, CopyQueue, coloring_CopyQueue, SIM0.tiles)
-  --C.legion_domain_point_coloring_destroy(coloring_CopyQueue)
-  ---- Check 2-section configuration
-  --regentlib.assert(
-  --  SIM0.Integrator_simTime == SIM1.Integrator_simTime and
-  --  SIM0.Integrator_timeStep == SIM1.Integrator_timeStep,
-  --  'Coupled sections disagree on starting time')
-  --regentlib.assert(
-  --  -- copySrc is a valid volume
-  --  0 <= mc.copySrc.fromCell[0] and
-  --  0 <= mc.copySrc.fromCell[1] and
-  --  0 <= mc.copySrc.fromCell[2] and
-  --  mc.copySrc.fromCell[0] <= mc.copySrc.uptoCell[0] and
-  --  mc.copySrc.fromCell[1] <= mc.copySrc.uptoCell[1] and
-  --  mc.copySrc.fromCell[2] <= mc.copySrc.uptoCell[2] and
-  --  mc.copySrc.uptoCell[0] < mc.configs[0].Grid.xNum + 2 * SIM0.Grid.xBnum and
-  --  mc.copySrc.uptoCell[1] < mc.configs[0].Grid.yNum + 2 * SIM0.Grid.yBnum and
-  --  mc.copySrc.uptoCell[2] < mc.configs[0].Grid.zNum + 2 * SIM0.Grid.zBnum and
-  --  -- copyTgt is a valid volume
-  --  0 <= mc.copyTgt.fromCell[0] and
-  --  0 <= mc.copyTgt.fromCell[1] and
-  --  0 <= mc.copyTgt.fromCell[2] and
-  --  mc.copyTgt.fromCell[0] <= mc.copyTgt.uptoCell[0] and
-  --  mc.copyTgt.fromCell[1] <= mc.copyTgt.uptoCell[1] and
-  --  mc.copyTgt.fromCell[2] <= mc.copyTgt.uptoCell[2] and
-  --  mc.copyTgt.uptoCell[0] < mc.configs[1].Grid.xNum + 2 * SIM1.Grid.xBnum and
-  --  mc.copyTgt.uptoCell[1] < mc.configs[1].Grid.yNum + 2 * SIM1.Grid.yBnum and
-  --  mc.copySrc.uptoCell[2] < mc.configs[1].Grid.zNum + 2 * SIM1.Grid.zBnum and
-  --  -- volumes have the same size
-  --  mc.copySrc.uptoCell[0] - mc.copySrc.fromCell[0] ==
-  --  mc.copyTgt.uptoCell[0] - mc.copyTgt.fromCell[0] and
-  --  mc.copySrc.uptoCell[1] - mc.copySrc.fromCell[1] ==
-  --  mc.copyTgt.uptoCell[1] - mc.copyTgt.fromCell[1] and
-  --  mc.copySrc.uptoCell[2] - mc.copySrc.fromCell[2] ==
-  --  mc.copyTgt.uptoCell[2] - mc.copyTgt.fromCell[2],
-  --  'Invalid volume copy configuration');
-  ---- Initialize regions & partitions
-  --[parallelizeFor(SIM0, SIM0.InitRegions(rexpr mc.configs[0] end))];
-  --[parallelizeFor(SIM1, SIM1.InitRegions(rexpr mc.configs[1] end))];
-  --var srcOrigin = int3d{mc.copySrc.fromCell[0], mc.copySrc.fromCell[1], mc.copySrc.fromCell[2]}
-  --var tgtOrigin = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]}
-  --var srcColoring = C.legion_domain_point_coloring_create()
-  --for c in SIM1.tiles do
-  --  var tgtRect = intersection(SIM1.p_Fluid[c].bounds, mc.copyTgt)
-  --  if rectSize(tgtRect) > 0 then
-  --    var srcRect = rect3d{lo = tgtRect.lo - tgtOrigin + srcOrigin,
-  --                         hi = tgtRect.hi - tgtOrigin + srcOrigin}
-  --    C.legion_domain_point_coloring_color_domain(srcColoring, c, srcRect)
-  --  end
-  --end
-  --var p_Fluid0_src = partition(disjoint, SIM0.Fluid, srcColoring, SIM1.tiles)
-  --C.legion_domain_point_coloring_destroy(srcColoring)
-  --var tgtColoring = C.legion_domain_point_coloring_create()
-  --C.legion_domain_point_coloring_color_domain(tgtColoring, int1d(0),
-  --  rect3d{lo = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]},
-  --         hi = int3d{mc.copyTgt.uptoCell[0], mc.copyTgt.uptoCell[1], mc.copyTgt.uptoCell[2]}})
-  --var p_Fluid1_isCopied = partition(disjoint, SIM1.Fluid, tgtColoring, ispace(int1d,1))
-  --C.legion_domain_point_coloring_destroy(tgtColoring)
-  --var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
-  ---- Main simulation loop
-  --while true do
-  --  -- Perform preliminary actions before each timestep
-  --  [parallelizeFor(SIM0, SIM0.MainLoopHeader(rexpr mc.configs[0] end))];
-  --  [parallelizeFor(SIM1, SIM1.MainLoopHeader(rexpr mc.configs[1] end))];
-  --  -- Make sure both simulations are using the same timestep
-  --  SIM0.Integrator_deltaTime = min(SIM0.Integrator_deltaTime, SIM1.Integrator_deltaTime)
-  --  SIM1.Integrator_deltaTime = min(SIM0.Integrator_deltaTime, SIM1.Integrator_deltaTime);
-  --  [parallelizeFor(SIM0, SIM0.PerformIO(rexpr mc.configs[0] end))];
-  --  [parallelizeFor(SIM1, SIM1.PerformIO(rexpr mc.configs[1] end))];
-  --  if SIM0.Integrator_exitCond or SIM1.Integrator_exitCond then
-  --    break
-  --  end
-  --  -- Run one iteration of first section
-  --  [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end, FakeCopyQueue))];
-  --  -- Copy fluid & particles to second section
-  --  fill(CopyQueue.__valid, false) -- clear the copyqueue from the previous iteration
-  --  if SIM1.Integrator_timeStep % mc.copyEveryTimeSteps == 0 then
-  --    for c in SIM1.tiles do
-  --      var src = p_Fluid0_src[c]
-  --      var tgt = p_Fluid1_tgt[c][0]
-  --      copy(src.temperature, tgt.temperature_inc)
-  --      copy(src.velocity, tgt.velocity_inc)
-  --    end
-  --    fill(CopyQueue.position, array(-1.0, -1.0, -1.0))
-  --    fill(CopyQueue.velocity, array(-1.0, -1.0, -1.0))
-  --    fill(CopyQueue.temperature, -1.0)
-  --    fill(CopyQueue.diameter, -1.0)
-  --    fill(CopyQueue.density, -1.0)
-  --    for c in SIM0.tiles do
-  --      CopyQueue_push(SIM0.p_Particles[c],
-  --                     p_CopyQueue[c],
-  --                     mc.copySrc,
-  --                     copySrcOrigin, copyTgtOrigin,
-  --                     Fluid0_cellWidth, Fluid1_cellWidth)
-  --    end
-  --  end
-  --  -- Run one iteration of second section
-  --  [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, CopyQueue))];
-  --end
+
+
+  var CopyQueue_ptr : int64 = 0
+  var coloring_CopyQueue = C.legion_domain_point_coloring_create()
+  for c in SIM0.tiles do
+    var partSize = CopyQueue_partSize(SIM0.p_Fluid[c].bounds,
+                                      mc.configs[0],
+                                      mc.copySrc)
+    C.legion_domain_point_coloring_color_domain(
+      coloring_CopyQueue, c, rect1d{CopyQueue_ptr,CopyQueue_ptr+partSize-1})
+    CopyQueue_ptr += partSize
+  end
+  var is_CopyQueue = ispace(int1d, CopyQueue_ptr)
+  var [CopyQueue] = region(is_CopyQueue, CopyQueue_columns);
+  [UTIL.emitRegionTagAttach(CopyQueue, MAPPER.SAMPLE_ID_TAG, rexpr mc.configs[0].Mapping.sampleId end, int)];
+  var p_CopyQueue = partition(disjoint, CopyQueue, coloring_CopyQueue, SIM0.tiles)
+  C.legion_domain_point_coloring_destroy(coloring_CopyQueue)
+  -- Check 2-section configuration
+  regentlib.assert(
+    SIM0.Integrator_simTime == SIM1.Integrator_simTime and
+    SIM0.Integrator_timeStep == SIM1.Integrator_timeStep,
+    'Coupled sections disagree on starting time')
+  regentlib.assert(
+    -- copySrc is a valid volume
+    0 <= mc.copySrc.fromCell[0] and
+    0 <= mc.copySrc.fromCell[1] and
+    0 <= mc.copySrc.fromCell[2] and
+    mc.copySrc.fromCell[0] <= mc.copySrc.uptoCell[0] and
+    mc.copySrc.fromCell[1] <= mc.copySrc.uptoCell[1] and
+    mc.copySrc.fromCell[2] <= mc.copySrc.uptoCell[2] and
+    mc.copySrc.uptoCell[0] < mc.configs[0].Grid.xNum + 2 * SIM0.Grid.xBnum and
+    mc.copySrc.uptoCell[1] < mc.configs[0].Grid.yNum + 2 * SIM0.Grid.yBnum and
+    mc.copySrc.uptoCell[2] < mc.configs[0].Grid.zNum + 2 * SIM0.Grid.zBnum and
+    -- copyTgt is a valid volume
+    0 <= mc.copyTgt.fromCell[0] and
+    0 <= mc.copyTgt.fromCell[1] and
+    0 <= mc.copyTgt.fromCell[2] and
+    mc.copyTgt.fromCell[0] <= mc.copyTgt.uptoCell[0] and
+    mc.copyTgt.fromCell[1] <= mc.copyTgt.uptoCell[1] and
+    mc.copyTgt.fromCell[2] <= mc.copyTgt.uptoCell[2] and
+    mc.copyTgt.uptoCell[0] < mc.configs[1].Grid.xNum + 2 * SIM1.Grid.xBnum and
+    mc.copyTgt.uptoCell[1] < mc.configs[1].Grid.yNum + 2 * SIM1.Grid.yBnum and
+    mc.copySrc.uptoCell[2] < mc.configs[1].Grid.zNum + 2 * SIM1.Grid.zBnum and
+    -- volumes have the same size
+    mc.copySrc.uptoCell[0] - mc.copySrc.fromCell[0] ==
+    mc.copyTgt.uptoCell[0] - mc.copyTgt.fromCell[0] and
+    mc.copySrc.uptoCell[1] - mc.copySrc.fromCell[1] ==
+    mc.copyTgt.uptoCell[1] - mc.copyTgt.fromCell[1] and
+    mc.copySrc.uptoCell[2] - mc.copySrc.fromCell[2] ==
+    mc.copyTgt.uptoCell[2] - mc.copyTgt.fromCell[2],
+    'Invalid volume copy configuration');
+
+  -- Initialize regions & partitions
+  [parallelizeFor(SIM0, SIM0.InitRegions(rexpr mc.configs[0] end))];
+  [parallelizeFor(SIM1, SIM1.InitRegions(rexpr mc.configs[1] end))];
+
+  [SIM0.InitParticleCopyOrigin(rexpr mc.copySrc.fromCell end)];
+  [SIM1.InitParticleCopyOrigin(rexpr mc.copyTgt.fromCell end)];
+
+  var copySrcOrigin = array(SIM0.Grid.xParticleCopyOrigin,
+                            SIM0.Grid.yParticleCopyOrigin,
+                            SIM0.Grid.zParticleCopyOrigin)
+  var copyTgtOrigin = array(SIM1.Grid.xParticleCopyOrigin,
+                            SIM1.Grid.xParticleCopyOrigin,
+                            SIM1.Grid.xParticleCopyOrigin)
+
+--  -- TODO: Update for non-uniform mesh
+--  -- Now RealOrigin is not set in DeclSymbols but in InitRegions
+--  var copySrcOrigin = array(
+--    SIM0.Grid.xRealOrigin + mc.copySrc.fromCell[0] * SIM0.Grid.xCellWidth,
+--    SIM0.Grid.yRealOrigin + mc.copySrc.fromCell[1] * SIM0.Grid.yCellWidth,
+--    SIM0.Grid.zRealOrigin + mc.copySrc.fromCell[2] * SIM0.Grid.zCellWidth)
+--  var copyTgtOrigin = array(
+--    SIM1.Grid.xRealOrigin + mc.copyTgt.fromCell[0] * SIM1.Grid.xCellWidth,
+--    SIM1.Grid.yRealOrigin + mc.copyTgt.fromCell[1] * SIM1.Grid.yCellWidth,
+--    SIM1.Grid.zRealOrigin + mc.copyTgt.fromCell[2] * SIM1.Grid.zCellWidth)
+
+  var srcOrigin = int3d{mc.copySrc.fromCell[0], mc.copySrc.fromCell[1], mc.copySrc.fromCell[2]}
+  var tgtOrigin = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]}
+  var srcColoring = C.legion_domain_point_coloring_create()
+  for c in SIM1.tiles do
+    var tgtRect = intersection(SIM1.p_Fluid[c].bounds, mc.copyTgt)
+    if rectSize(tgtRect) > 0 then
+      var srcRect = rect3d{lo = tgtRect.lo - tgtOrigin + srcOrigin,
+                           hi = tgtRect.hi - tgtOrigin + srcOrigin}
+      C.legion_domain_point_coloring_color_domain(srcColoring, c, srcRect)
+    end
+  end
+  var p_Fluid0_src = partition(disjoint, SIM0.Fluid, srcColoring, SIM1.tiles)
+  C.legion_domain_point_coloring_destroy(srcColoring)
+  var tgtColoring = C.legion_domain_point_coloring_create()
+  C.legion_domain_point_coloring_color_domain(tgtColoring, int1d(0),
+    rect3d{lo = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]},
+           hi = int3d{mc.copyTgt.uptoCell[0], mc.copyTgt.uptoCell[1], mc.copyTgt.uptoCell[2]}})
+  var p_Fluid1_isCopied = partition(disjoint, SIM1.Fluid, tgtColoring, ispace(int1d,1))
+  C.legion_domain_point_coloring_destroy(tgtColoring)
+  var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
+  -- Main simulation loop
+  while true do
+    -- Perform preliminary actions before each timestep
+    [parallelizeFor(SIM0, SIM0.MainLoopHeader(rexpr mc.configs[0] end))];
+    [parallelizeFor(SIM1, SIM1.MainLoopHeader(rexpr mc.configs[1] end))];
+    -- Make sure both simulations are using the same timestep
+    SIM0.Integrator_deltaTime = min(SIM0.Integrator_deltaTime, SIM1.Integrator_deltaTime)
+    SIM1.Integrator_deltaTime = min(SIM0.Integrator_deltaTime, SIM1.Integrator_deltaTime);
+    [parallelizeFor(SIM0, SIM0.PerformIO(rexpr mc.configs[0] end))];
+    [parallelizeFor(SIM1, SIM1.PerformIO(rexpr mc.configs[1] end))];
+    if SIM0.Integrator_exitCond or SIM1.Integrator_exitCond then
+      break
+    end
+    -- Run one iteration of first section
+    [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end, FakeCopyQueue))];
+    -- Copy fluid & particles to second section
+    fill(CopyQueue.__valid, false) -- clear the copyqueue from the previous iteration
+    if SIM1.Integrator_timeStep % mc.copyEveryTimeSteps == 0 then
+      for c in SIM1.tiles do
+        var src = p_Fluid0_src[c]
+        var tgt = p_Fluid1_tgt[c][0]
+        copy(src.temperature, tgt.temperature_inc)
+        copy(src.velocity, tgt.velocity_inc)
+      end
+      fill(CopyQueue.position, array(-1.0, -1.0, -1.0))
+      fill(CopyQueue.velocity, array(-1.0, -1.0, -1.0))
+      fill(CopyQueue.temperature, -1.0)
+      fill(CopyQueue.diameter, -1.0)
+      fill(CopyQueue.density, -1.0)
+      for c in SIM0.tiles do
+        CopyQueue_push(SIM0.p_Particles[c],
+                       p_CopyQueue[c],
+                       mc.copySrc,
+                       copySrcOrigin, copyTgtOrigin)
+      end
+    end
+    -- Run one iteration of second section
+    [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, CopyQueue))];
+  end
   -- Cleanups
-  --[SIM0.Cleanup(rexpr mc.configs[0] end)];
-  --[SIM1.Cleanup(rexpr mc.configs[1] end)];
+  [SIM0.Cleanup(rexpr mc.configs[0] end)];
+  [SIM1.Cleanup(rexpr mc.configs[1] end)];
 end
 
 __demand(__inline)
