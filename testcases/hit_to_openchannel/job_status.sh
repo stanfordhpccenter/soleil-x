@@ -9,7 +9,10 @@ NUM_CASES="${NUM_CASES:-32}"
 for ARG in "$@"; do
     if [[ -d "$ARG" ]]; then
         if ! ls "$ARG"/*.out 1> /dev/null 2>&1; then
-            echo "$ARG not started"
+	    if (( "$#" > 1 )); then
+		echo -n "$ARG: "
+	    fi
+            echo "not started"
             continue
         fi
         JOBOUT="$(ls "$ARG"/*.out | tail -n 1)"
@@ -23,20 +26,25 @@ for ARG in "$@"; do
     OUT_DIR="$( head -n 1 "$JOBOUT" | awk '{print $4'} )"
 
     NO_ERROR=0
+    if (( "$#" > 1 )); then
+	echo -n "$JOBOUT: "
+    fi
     if [[ ! -e "$JOBOUT" ]]; then
-        echo -n "$JOBOUT not started"
+        echo -n "not started"
     elif grep -q 'CUDA_ERROR_OUT_OF_MEMORY' "$JOBOUT"; then
-        echo -n "$JOBOUT cuda oom"
+        echo -n "cuda oom"
     elif grep -q 'TERM_ADMIN' "$JOBOUT"; then
-        echo -n "$JOBOUT killed by admin"
+        echo -n "killed by admin"
     elif grep -q 'TERM_OWNER' "$JOBOUT"; then
-        echo -n "$JOBOUT manually killed"
+        echo -n "manually killed"
     elif grep -q 'TERM_RUNLIMIT' "$JOBOUT"; then
-        echo -n "$JOBOUT timeout"
+        echo -n "timeout"
     elif grep -q 'Ran out of space while copying particles from other section' "$JOBOUT"; then
-        echo -n "$JOBOUT channel section overflow"
+        echo -n "channel section overflow"
+    elif grep -q 'Cannot open your job file'  "$JOBOUT"; then
+        echo -n "jobfile"
     elif grep -q Successfully "$JOBOUT"; then
-        echo -n "$JOBOUT done"
+        echo -n "done"
         NO_ERROR=1
         if [[ "$AVERAGE" == 1 ]]; then
             echo -n ", averaging"
@@ -45,15 +53,15 @@ for ARG in "$@"; do
             fi
         fi
     elif grep -q summary "$JOBOUT"; then
-        echo -n "$JOBOUT OTHER ERROR"
+        echo -n "OTHER ERROR"
     else
-        echo -n "$JOBOUT running"
+        echo -n "running"
         NO_ERROR=1
     fi
     if [[ "$COUNT_FAILURES" == 1 && "$NO_ERROR" == 1 ]]; then
+        echo -n ", samples diverged: "
         FAILURES=`tail -q -n 1 "$OUT_DIR"/sample*/console.txt | grep 'nan' | wc -l`
-        echo " ($FAILURES samples diverged)"
-    else
-        echo
+        echo -n "$FAILURES"
     fi
+    echo
 done
