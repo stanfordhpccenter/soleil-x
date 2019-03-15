@@ -47,5 +47,5 @@ fi
 source "$SOLEIL_DIR"/src/jobscript_shared.sh
 
 mpiexec -np "$NUM_RANKS" --map-by ppr:"$RANKS_PER_NODE":node --bind-to none \
-    -x LD_LIBRARY_PATH -x SOLEIL_DIR -x GASNET_BACKTRACE -x LEGION_FREEZE_ON_ERROR \
+    -x LD_LIBRARY_PATH -x SOLEIL_DIR -x REALM_BACKTRACE -x LEGION_FREEZE_ON_ERROR \
     $COMMAND
