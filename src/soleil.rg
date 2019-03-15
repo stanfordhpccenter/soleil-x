@@ -5918,7 +5918,7 @@ task workDual(mc : MultiConfig)
   var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
   -- Main simulation loop
   while true do
-    var Integrator_timeStep = SIM0.Integrator_timeStep
+    var Integrator_timeStep = SIM0.Integrator_timeStep;
     -- Perform preliminary actions before each timestep
     [parallelizeFor(SIM0, SIM0.MainLoopHeader(rexpr mc.configs[0] end))];
     [parallelizeFor(SIM1, SIM1.MainLoopHeader(rexpr mc.configs[1] end))];
