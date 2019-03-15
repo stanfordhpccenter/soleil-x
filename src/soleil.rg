@@ -5137,7 +5137,7 @@ local function mkInstance() local INSTANCE = {}
     _2 = HDF_PARTICLES.write.simTime(_2, tiles, dirname, Particles, p_Particles, Integrator_simTime)
     C.free(dirname)
 
-  end -- DumpHDF
+  end end -- DumpHDF
 
   function INSTANCE.PerformIO(config) return rquote
 
