@@ -8,11 +8,14 @@ RESTART="${RESTART:-0}"
 NUM_CASES="${NUM_CASES:-32}"
 
 for ARG in "$@"; do
+    # Identify job if more than one were supplied
+    if (( "$#" > 1 )); then
+        echo -n "$ARG: "
+    fi
+
+    # For directories, find the latest jobout
     if [[ -d "$ARG" ]]; then
         if ! ls "$ARG"/*.out 1> /dev/null 2>&1; then
-            if (( "$#" > 1 )); then
-                echo -n "$ARG: "
-            fi
             echo "not started"
             continue
         fi
@@ -26,6 +29,7 @@ for ARG in "$@"; do
     JOBID="${BASEOUT%.out}"
     OUT_DIR="$( head -n 1 "$JOBOUT" | awk '{print $4'} )"
 
+    # Possible actions
     function average() {
         if [[ "$AVERAGE" == 1 ]]; then
             echo -n ", averaging"
@@ -54,9 +58,7 @@ for ARG in "$@"; do
 	fi
     }
 
-    if (( "$#" > 1 )); then
-        echo -n "$JOBOUT: "
-    fi
+    # Identify job status and proceed accordingly
     if [[ ! -s "$JOBOUT" ]]; then
         echo "not started"
     elif grep -q 'CUDA_ERROR_OUT_OF_MEMORY' "$JOBOUT"; then
