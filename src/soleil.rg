@@ -5213,6 +5213,23 @@ local function mkInstance() local INSTANCE = {}
   -- Per-time-step I/O
   -----------------------------------------------------------------------------
 
+  function INSTANCE.DumpHDF(config, nameFmt, ...) local args = terralib.newlist{...} return rquote
+
+    var dirname = [&int8](C.malloc(256))
+    C.snprintf(dirname, 256, ['%s/fluid_'..nameFmt], config.Mapping.outDir, [args])
+    var _1 = IO_CreateDir(0, dirname)
+    _1 = HDF_FLUID.dump(_1, tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
+    _1 = HDF_FLUID.write.timeStep(_1, tiles, dirname, Fluid, p_Fluid, Integrator_timeStep)
+    _1 = HDF_FLUID.write.simTime(_1, tiles, dirname, Fluid, p_Fluid, Integrator_simTime)
+    C.snprintf(dirname, 256, ['%s/particles_'..nameFmt], config.Mapping.outDir, [args])
+    var _2 = IO_CreateDir(0, dirname)
+    _2 = HDF_PARTICLES.dump(_2, tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
+    _2 = HDF_PARTICLES.write.timeStep(_2, tiles, dirname, Particles, p_Particles, Integrator_timeStep)
+    _2 = HDF_PARTICLES.write.simTime(_2, tiles, dirname, Particles, p_Particles, Integrator_simTime)
+    C.free(dirname)
+
+  end end -- DumpHDF
+
   function INSTANCE.PerformIO(config) return rquote
 
     -- Write to console
@@ -5276,18 +5293,7 @@ local function mkInstance() local INSTANCE = {}
     -- Dump restart files
     if config.IO.wrtRestart then
       if Integrator_exitCond or Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 then
-        var dirname = [&int8](C.malloc(256))
-        C.snprintf(dirname, 256, '%s/fluid_iter%010d', config.Mapping.outDir, Integrator_timeStep)
-        var _1 = IO_CreateDir(0, dirname)
-        _1 = HDF_FLUID.dump(_1, tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
-        _1 = HDF_FLUID.write.timeStep(_1, tiles, dirname, Fluid, p_Fluid, Integrator_timeStep)
-        _1 = HDF_FLUID.write.simTime(_1, tiles, dirname, Fluid, p_Fluid, Integrator_simTime)
-        C.snprintf(dirname, 256, '%s/particles_iter%010d', config.Mapping.outDir, Integrator_timeStep)
-        var _2 = IO_CreateDir(0, dirname)
-        _2 = HDF_PARTICLES.dump(_2, tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
-        _2 = HDF_PARTICLES.write.timeStep(_2, tiles, dirname, Particles, p_Particles, Integrator_timeStep)
-        _2 = HDF_PARTICLES.write.simTime(_2, tiles, dirname, Particles, p_Particles, Integrator_simTime)
-        C.free(dirname)
+        [INSTANCE.DumpHDF(config, 'iter%010d', Integrator_timeStep)];
       end
     end
 
@@ -5779,9 +5785,6 @@ return INSTANCE end -- mkInstance
 -- TOP-LEVEL INTERFACE
 -------------------------------------------------------------------------------
 
-local CopyQueue = regentlib.newsymbol()
-local FakeCopyQueue = regentlib.newsymbol()
-
 local function parallelizeFor(sim, stmts)
   return rquote
     __parallelize_with
@@ -5797,7 +5800,7 @@ __forbid(__optimize) __demand(__inner, __replicable)
 task workSingle(config : Config)
   [SIM.DeclSymbols(config)];
   var is_FakeCopyQueue = ispace(int1d, 0)
-  var [FakeCopyQueue] = region(is_FakeCopyQueue, CopyQueue_columns);
+  var FakeCopyQueue = region(is_FakeCopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
   [parallelizeFor(SIM, rquote
     [SIM.InitRegions(config)];
@@ -5818,11 +5821,17 @@ local SIM1 = mkInstance()
 
 __forbid(__optimize) __demand(__inner, __replicable)
 task workDual(mc : MultiConfig)
+  -- Read configuration options from the environment
+  var DEBUG_COPYING = false
+  if C.getenv('DEBUG_COPYING') ~= [&int8](0) and
+     C.strcmp(C.getenv('DEBUG_COPYING'), '1') == 0 then
+    DEBUG_COPYING = true
+  end
   -- Declare symbols
   [SIM0.DeclSymbols(rexpr mc.configs[0] end)];
   [SIM1.DeclSymbols(rexpr mc.configs[1] end)];
   var is_FakeCopyQueue = ispace(int1d, 0)
-  var [FakeCopyQueue] = region(is_FakeCopyQueue, CopyQueue_columns);
+  var FakeCopyQueue = region(is_FakeCopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
   var copySrcOrigin = array(
     SIM0.Grid.xRealOrigin + mc.copySrc.fromCell[0] * SIM0.Grid.xCellWidth,
@@ -5845,10 +5854,11 @@ task workDual(mc : MultiConfig)
     CopyQueue_size += partSize
   end
   var is_CopyQueue = ispace(int1d, CopyQueue_size)
-  var [CopyQueue] = region(is_CopyQueue, CopyQueue_columns);
+  var CopyQueue = region(is_CopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(CopyQueue, MAPPER.SAMPLE_ID_TAG, rexpr mc.configs[0].Mapping.sampleId end, int)];
   var p_CopyQueue = partition(disjoint, CopyQueue, coloring_CopyQueue, SIM0.tiles)
   C.legion_domain_point_coloring_destroy(coloring_CopyQueue)
+  fill(CopyQueue.__valid, false)
   -- Check 2-section configuration
   regentlib.assert(
     SIM0.Integrator_simTime == SIM1.Integrator_simTime and
@@ -5922,8 +5932,11 @@ task workDual(mc : MultiConfig)
     -- Run one iteration of first section
     [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end, FakeCopyQueue))];
     -- Copy fluid & particles to second section
-    fill(CopyQueue.__valid, false) -- clear the copyqueue from the previous iteration
     if SIM1.Integrator_timeStep % mc.copyEveryTimeSteps == 0 then
+      if DEBUG_COPYING then
+        [SIM0.DumpHDF(rexpr mc.configs[0] end, 'copysrc%010d', Integrator_timeStep)];
+        [SIM1.DumpHDF(rexpr mc.configs[1] end, 'precopy%010d', Integrator_timeStep)];
+      end
       for c in SIM1.tiles do
         var src = p_Fluid0_src[c]
         var tgt = p_Fluid1_tgt[c][0]
@@ -5945,9 +5958,19 @@ task workDual(mc : MultiConfig)
                          Fluid0_cellWidth, Fluid1_cellWidth)
         end
       end
+      if DEBUG_COPYING then
+        [SIM1.DumpHDF(rexpr mc.configs[1] end, 'postcopy%010d', Integrator_timeStep)];
+      end
     end
     -- Run one iteration of second section
     [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, CopyQueue))];
+    -- Clear copyqueue for next iteration
+    if SIM1.Integrator_timeStep % mc.copyEveryTimeSteps == 0 then
+      if DEBUG_COPYING then
+        [SIM1.DumpHDF(rexpr mc.configs[1] end, 'postiter%010d', Integrator_timeStep)];
+      end
+      fill(CopyQueue.__valid, false)
+    end
   end
   -- Cleanups
   [SIM0.Cleanup(rexpr mc.configs[0] end)];
