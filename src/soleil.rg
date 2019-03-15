@@ -5918,6 +5918,7 @@ task workDual(mc : MultiConfig)
   var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
   -- Main simulation loop
   while true do
+    var Integrator_timeStep = SIM0.Integrator_timeStep
     -- Perform preliminary actions before each timestep
     [parallelizeFor(SIM0, SIM0.MainLoopHeader(rexpr mc.configs[0] end))];
     [parallelizeFor(SIM1, SIM1.MainLoopHeader(rexpr mc.configs[1] end))];
@@ -5932,7 +5933,7 @@ task workDual(mc : MultiConfig)
     -- Run one iteration of first section
     [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end, FakeCopyQueue))];
     -- Copy fluid & particles to second section
-    if SIM1.Integrator_timeStep % mc.copyEveryTimeSteps == 0 then
+    if Integrator_timeStep % mc.copyEveryTimeSteps == 0 then
       if DEBUG_COPYING then
         [SIM0.DumpHDF(rexpr mc.configs[0] end, 'copysrc%010d', Integrator_timeStep)];
         [SIM1.DumpHDF(rexpr mc.configs[1] end, 'precopy%010d', Integrator_timeStep)];
@@ -5965,7 +5966,7 @@ task workDual(mc : MultiConfig)
     -- Run one iteration of second section
     [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, CopyQueue))];
     -- Clear copyqueue for next iteration
-    if SIM1.Integrator_timeStep % mc.copyEveryTimeSteps == 0 then
+    if Integrator_timeStep % mc.copyEveryTimeSteps == 0 then
       if DEBUG_COPYING then
         [SIM1.DumpHDF(rexpr mc.configs[1] end, 'postiter%010d', Integrator_timeStep)];
       end
