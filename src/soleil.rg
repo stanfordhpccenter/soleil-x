@@ -1887,9 +1887,9 @@ do
       var c_bnd = int3d(c)
       var c_int = ((c+{0, -1, 0})%Fluid.bounds)
       if (BC_yBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
-        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left) - 2.0*(BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left))
-        var c_2 = 4.0/(Grid_xWidth)*((BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left) - 1.0/4.0*(BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left))
-        var c_3 = BC_yBCLeftHeat_T_left
+        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_yBCRightHeat_T_right - BC_yBCRightHeat_T_left) - 2.0*(BC_yBCRightHeat_T_mid - BC_yBCRightHeat_T_left))
+        var c_2 = 4.0/(Grid_xWidth)*((BC_yBCRightHeat_T_mid - BC_yBCRightHeat_T_left) - 1.0/4.0*(BC_yBCRightHeat_T_right - BC_yBCRightHeat_T_left))
+        var c_3 = BC_yBCRightHeat_T_left
         var wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
         if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
           wall_temperature = 0.0
@@ -1915,9 +1915,9 @@ do
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 0, 1})%Fluid.bounds)
       if (BC_zBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
-        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left) - 2.0*(BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left))
-        var c_2 = 4.0/(Grid_xWidth)*((BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left) - 1.0/4.0*(BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left))
-        var c_3 = BC_yBCLeftHeat_T_left
+        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_zBCLeftHeat_T_right - BC_zBCLeftHeat_T_left) - 2.0*(BC_zBCLeftHeat_T_mid - BC_zBCLeftHeat_T_left))
+        var c_2 = 4.0/(Grid_xWidth)*((BC_zBCLeftHeat_T_mid - BC_zBCLeftHeat_T_left) - 1.0/4.0*(BC_zBCLeftHeat_T_right - BC_zBCLeftHeat_T_left))
+        var c_3 = BC_zBCLeftHeat_T_left
         var wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
         if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
           wall_temperature = 0.0
@@ -1943,9 +1943,9 @@ do
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 0, -1})%Fluid.bounds)
       if (BC_zBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
-        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left) - 2.0*(BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left))
-        var c_2 = 4.0/(Grid_xWidth)*((BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left) - 1.0/4.0*(BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left))
-        var c_3 = BC_yBCLeftHeat_T_left
+        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_zBCRightHeat_T_right - BC_zBCRightHeat_T_left) - 2.0*(BC_zBCRightHeat_T_mid - BC_zBCRightHeat_T_left))
+        var c_2 = 4.0/(Grid_xWidth)*((BC_zBCRightHeat_T_mid - BC_zBCRightHeat_T_left) - 1.0/4.0*(BC_zBCRightHeat_T_right - BC_zBCRightHeat_T_left))
+        var c_3 = BC_zBCRightHeat_T_left
         var wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
         if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
           wall_temperature = 0.0
