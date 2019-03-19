@@ -937,8 +937,7 @@ end
 __demand(__parallel, __leaf, __cuda)
 task Particles_InitRandomRest(Particles : region(ispace(int1d), Particles_columns),
                               Fluid : region(ispace(int3d), Fluid_columns),
-                              config : Config,
-                              Grid_xBnum : int, Grid_yBnum : int, Grid_zBnum : int)
+                              config : Config)
 where
   reads(Particles.{__valid, cell, position}),
   reads(Fluid.{centerCoordinates, velocity}),
@@ -4732,10 +4731,7 @@ local function mkInstance() local INSTANCE = {}
                                        config,
                                        Grid.xBnum, Grid.yBnum, Grid.zBnum)
         end
-        Particles_InitRandomRest(Particles,
-                                 Fluid,
-                                 config,
-                                 Grid.xBnum, Grid.yBnum, Grid.zBnum)
+        Particles_InitRandomRest(Particles, Fluid, config)
       elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart then
         HDF_PARTICLES.load(0, tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
         for c in tiles do
