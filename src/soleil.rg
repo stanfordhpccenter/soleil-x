@@ -4574,6 +4574,57 @@ local function mkInstance() local INSTANCE = {}
   -- Region initialization
   -----------------------------------------------------------------------------
 
+  local function SyncConservedPrimitive(config) return rquote
+
+    -- Use the interior conserved values (and BC settings) to update primitive values
+    Flow_UpdateAuxiliaryVelocity(Fluid,
+                                 config,
+                                 config.Flow.constantVisc,
+                                 config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                 config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                 config.Flow.viscosityModel,
+                                 Grid.xBnum, config.Grid.xNum,
+                                 Grid.yBnum, config.Grid.yNum,
+                                 Grid.zBnum, config.Grid.zNum)
+    for c in tiles do
+      Flow_UpdateGhostVelocity(p_Fluid[c],
+                               config,
+                               BC.xNegVelocity, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
+                               BC.yNegVelocity, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
+                               BC.zNegVelocity, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
+                               Grid.xBnum, config.Grid.xNum,
+                               Grid.yBnum, config.Grid.yNum,
+                               Grid.zBnum, config.Grid.zNum)
+    end
+    Flow_UpdateAuxiliaryThermodynamics(Fluid,
+                                       config,
+                                       config.Flow.gamma,
+                                       config.Flow.gasConstant,
+                                       Grid.xBnum, config.Grid.xNum,
+                                       Grid.yBnum, config.Grid.yNum,
+                                       Grid.zBnum, config.Grid.zNum)
+    for c in tiles do
+      Flow_UpdateGhostThermodynamics(p_Fluid[c],
+                                     config,
+                                     config.Flow.gamma,
+                                     config.Flow.gasConstant,
+                                     BC.xNegTemperature, BC.xPosTemperature,
+                                     BC.yNegTemperature, BC.yPosTemperature,
+                                     BC.zNegTemperature, BC.zPosTemperature,
+                                     Grid.xBnum, config.Grid.xNum,
+                                     Grid.yBnum, config.Grid.yNum,
+                                     Grid.zBnum, config.Grid.zNum)
+    end
+
+    -- Compute the conserved values in the ghost cells
+    Flow_UpdateGhostConserved(Fluid,
+                              config,
+                              Grid.xBnum, config.Grid.xNum,
+                              Grid.yBnum, config.Grid.yNum,
+                              Grid.zBnum, config.Grid.zNum)
+
+  end end -- SyncConservedPrimitive
+
   function INSTANCE.InitRegions(config) return rquote
 
     -- initialize base region contents (dummy values & connectivity info)
@@ -4638,7 +4689,7 @@ local function mkInstance() local INSTANCE = {}
       end
     end
 
-    -- update interior cells from initialized primitive values
+    -- update all cells based on initialized primitive values
     Flow_UpdateConservedFromPrimitive(Fluid,
                                       config.Flow.gamma,
                                       config.Flow.gasConstant,
@@ -4653,51 +4704,7 @@ local function mkInstance() local INSTANCE = {}
                                                   Grid.yBnum, config.Grid.yNum,
                                                   Grid.zBnum, config.Grid.zNum)
     end
-    Flow_UpdateAuxiliaryVelocity(Fluid,
-                                 config,
-                                 config.Flow.constantVisc,
-                                 config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                 config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                 config.Flow.viscosityModel,
-                                 Grid.xBnum, config.Grid.xNum,
-                                 Grid.yBnum, config.Grid.yNum,
-                                 Grid.zBnum, config.Grid.zNum)
-    for c in tiles do
-      Flow_UpdateGhostVelocity(p_Fluid[c],
-                               config,
-                               BC.xNegVelocity, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
-                               BC.yNegVelocity, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
-                               BC.zNegVelocity, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
-                               Grid.xBnum, config.Grid.xNum,
-                               Grid.yBnum, config.Grid.yNum,
-                               Grid.zBnum, config.Grid.zNum)
-    end
-    Flow_UpdateAuxiliaryThermodynamics(Fluid,
-                                       config,
-                                       config.Flow.gamma,
-                                       config.Flow.gasConstant,
-                                       Grid.xBnum, config.Grid.xNum,
-                                       Grid.yBnum, config.Grid.yNum,
-                                       Grid.zBnum, config.Grid.zNum)
-    for c in tiles do
-      Flow_UpdateGhostThermodynamics(p_Fluid[c],
-                                     config,
-                                     config.Flow.gamma,
-                                     config.Flow.gasConstant,
-                                     BC.xNegTemperature, BC.xPosTemperature,
-                                     BC.yNegTemperature, BC.yPosTemperature,
-                                     BC.zNegTemperature, BC.zPosTemperature,
-                                     Grid.xBnum, config.Grid.xNum,
-                                     Grid.yBnum, config.Grid.yNum,
-                                     Grid.zBnum, config.Grid.zNum)
-    end
-
-      -- Compute the conserved values in the ghost cells
-    Flow_UpdateGhostConserved(Fluid,
-                              config,
-                              Grid.xBnum, config.Grid.xNum,
-                              Grid.yBnum, config.Grid.yNum,
-                              Grid.zBnum, config.Grid.zNum)
+    [SyncConservedPrimitive(config)];
 
     -- Initialize particles
     if config.Particles.maxNum > 0 then
@@ -5167,52 +5174,8 @@ local function mkInstance() local INSTANCE = {}
                              config)
       end
 
-      -- Use the new conserved values to update primitive values
-      Flow_UpdateAuxiliaryVelocity(Fluid,
-                                   config,
-                                   config.Flow.constantVisc,
-                                   config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                   config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                   config.Flow.viscosityModel,
-                                   Grid.xBnum, config.Grid.xNum,
-                                   Grid.yBnum, config.Grid.yNum,
-                                   Grid.zBnum, config.Grid.zNum)
-      for c in tiles do
-        Flow_UpdateGhostVelocity(p_Fluid[c],
-                                 config,
-                                 BC.xNegVelocity, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
-                                 BC.yNegVelocity, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
-                                 BC.zNegVelocity, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
-                                 Grid.xBnum, config.Grid.xNum,
-                                 Grid.yBnum, config.Grid.yNum,
-                                 Grid.zBnum, config.Grid.zNum)
-      end
-      Flow_UpdateAuxiliaryThermodynamics(Fluid,
-                                         config,
-                                         config.Flow.gamma,
-                                         config.Flow.gasConstant,
-                                         Grid.xBnum, config.Grid.xNum,
-                                         Grid.yBnum, config.Grid.yNum,
-                                         Grid.zBnum, config.Grid.zNum)
-      for c in tiles do
-        Flow_UpdateGhostThermodynamics(p_Fluid[c],
-                                       config,
-                                       config.Flow.gamma,
-                                       config.Flow.gasConstant,
-                                       BC.xNegTemperature, BC.xPosTemperature,
-                                       BC.yNegTemperature, BC.yPosTemperature,
-                                       BC.zNegTemperature, BC.zPosTemperature,
-                                       Grid.xBnum, config.Grid.xNum,
-                                       Grid.yBnum, config.Grid.yNum,
-                                       Grid.zBnum, config.Grid.zNum)
-      end
-
-      -- Compute the conserved values in the ghost cells
-      Flow_UpdateGhostConserved(Fluid,
-                                config,
-                                Grid.xBnum, config.Grid.xNum,
-                                Grid.yBnum, config.Grid.yNum,
-                                Grid.zBnum, config.Grid.zNum)
+      -- Update all cell values (conserved & primitive) based on updated interior conserved
+      [SyncConservedPrimitive(config)];
 
       -- Particle movement post-processing
       if config.Particles.maxNum > 0 and Integrator_timeStep % config.Particles.staggerFactor == 0 then
