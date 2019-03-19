@@ -937,7 +937,8 @@ end
 __demand(__parallel, __leaf, __cuda)
 task Particles_InitRandomRest(Particles : region(ispace(int1d), Particles_columns),
                               Fluid : region(ispace(int3d), Fluid_columns),
-                              config : Config)
+                              config : Config,
+                              Grid_xBnum : int, Grid_yBnum : int, Grid_zBnum : int)
 where
   reads(Particles.{__valid, cell, position}),
   reads(Fluid.{centerCoordinates, velocity}),
@@ -4731,7 +4732,10 @@ local function mkInstance() local INSTANCE = {}
                                        config,
                                        Grid.xBnum, Grid.yBnum, Grid.zBnum)
         end
-        Particles_InitRandomRest(Particles, Fluid, config)
+        Particles_InitRandomRest(Particles,
+                                 Fluid,
+                                 config,
+                                 Grid.xBnum, Grid.yBnum, Grid.zBnum)
       elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart then
         HDF_PARTICLES.load(0, tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
         for c in tiles do
@@ -4919,10 +4923,10 @@ local function mkInstance() local INSTANCE = {}
     -- Process incoming values from other section
     if incoming then
       if DEBUG_COPYING then
-        [DumpHDF(config, 'precopy%010d', Integrator_timeStep)];
+        [INSTANCE.DumpHDF(config, 'precopy%010d', Integrator_timeStep)];
       end
       -- Feed fluid
-      [SyncConservedPrimitive()];
+      [SyncConservedPrimitive(config)];
       -- Feed particles
       if config.Particles.maxNum > 0 then
         if config.Particles.feeding.type == SCHEMA.FeedModel_OFF then
@@ -4939,7 +4943,7 @@ local function mkInstance() local INSTANCE = {}
         else regentlib.assert(false, 'Unhandled case in switch') end
       end
       if DEBUG_COPYING then
-        [DumpHDF(config, 'postcopy%010d', Integrator_timeStep)];
+        [INSTANCE.DumpHDF(config, 'postcopy%010d', Integrator_timeStep)];
       end
     end
 
@@ -5291,7 +5295,7 @@ local function mkInstance() local INSTANCE = {}
 
     if incoming then
       if DEBUG_COPYING then
-        [DumpHDF(config, 'postiter%010d', Integrator_timeStep)];
+        [INSTANCE.DumpHDF(config, 'postiter%010d', Integrator_timeStep)];
       end
     end
 
