@@ -4093,6 +4093,7 @@ local function mkInstance() local INSTANCE = {}
   -- Symbols shared between quotes
   -----------------------------------------------------------------------------
 
+  local DEBUG_COPYING = regentlib.newsymbol()
   local startTime = regentlib.newsymbol()
   local Grid = {
     xCellWidth = regentlib.newsymbol(),
@@ -4159,6 +4160,7 @@ local function mkInstance() local INSTANCE = {}
   -- Exported symbols
   -----------------------------------------------------------------------------
 
+  INSTANCE.DEBUG_COPYING = DEBUG_COPYING
   INSTANCE.Grid = Grid
   INSTANCE.Integrator_deltaTime = Integrator_deltaTime
   INSTANCE.Integrator_simTime = Integrator_simTime
@@ -4181,6 +4183,16 @@ local function mkInstance() local INSTANCE = {}
   -----------------------------------------------------------------------------
 
   function INSTANCE.DeclSymbols(config) return rquote
+
+    ---------------------------------------------------------------------------
+    -- Environment options
+    ---------------------------------------------------------------------------
+
+    var [DEBUG_COPYING] = false
+    if C.getenv('DEBUG_COPYING') ~= [&int8](0) and
+       C.strcmp(C.getenv('DEBUG_COPYING'), '1') == 0 then
+      DEBUG_COPYING = true
+    end
 
     ---------------------------------------------------------------------------
     -- Preparation
@@ -4576,7 +4588,7 @@ local function mkInstance() local INSTANCE = {}
 
   local function SyncConservedPrimitive(config) return rquote
 
-    -- Use the interior conserved values (and BC settings) to update primitive values
+    -- Use the interior conserved values (and BC settings) to update primitives everywhere
     Flow_UpdateAuxiliaryVelocity(Fluid,
                                  config,
                                  config.Flow.constantVisc,
@@ -4902,22 +4914,33 @@ local function mkInstance() local INSTANCE = {}
   -- Main time-step loop body
   -----------------------------------------------------------------------------
 
-  function INSTANCE.MainLoopBody(config, CopyQueue) return rquote
+  function INSTANCE.MainLoopBody(config, incoming, CopyQueue) return rquote
 
-    -- Feed particles
-    if config.Particles.maxNum > 0 and Integrator_timeStep % config.Particles.staggerFactor == 0 then
-      if config.Particles.feeding.type == SCHEMA.FeedModel_OFF then
-        -- Do nothing
-      elseif config.Particles.feeding.type == SCHEMA.FeedModel_Incoming then
-        for c in tiles do
-          Particles_number +=
-            CopyQueue_pull(c,
-                           p_Particles[c],
-                           CopyQueue,
-                           config,
-                           Grid.xBnum, Grid.yBnum, Grid.zBnum)
-        end
-      else regentlib.assert(false, 'Unhandled case in switch') end
+    -- Process incoming values from other section
+    if incoming then
+      if DEBUG_COPYING then
+        [DumpHDF(config, 'precopy%010d', Integrator_timeStep)];
+      end
+      -- Feed fluid
+      [SyncConservedPrimitive()];
+      -- Feed particles
+      if config.Particles.maxNum > 0 then
+        if config.Particles.feeding.type == SCHEMA.FeedModel_OFF then
+          -- Do nothing
+        elseif config.Particles.feeding.type == SCHEMA.FeedModel_Incoming then
+          for c in tiles do
+            Particles_number +=
+              CopyQueue_pull(c,
+                             p_Particles[c],
+                             CopyQueue,
+                             config,
+                             Grid.xBnum, Grid.yBnum, Grid.zBnum)
+          end
+        else regentlib.assert(false, 'Unhandled case in switch') end
+      end
+      if DEBUG_COPYING then
+        [DumpHDF(config, 'postcopy%010d', Integrator_timeStep)];
+      end
     end
 
     -- Set iteration-specific fields that persist across RK sub-steps
@@ -5266,6 +5289,12 @@ local function mkInstance() local INSTANCE = {}
                                                Integrator_deltaTime)
     end
 
+    if incoming then
+      if DEBUG_COPYING then
+        [DumpHDF(config, 'postiter%010d', Integrator_timeStep)];
+      end
+    end
+
     Integrator_timeStep += 1
 
   end end -- MainLoopBody
@@ -5312,7 +5341,7 @@ task workSingle(config : Config)
       if SIM.Integrator_exitCond then
         break
       end
-      [SIM.MainLoopBody(config, FakeCopyQueue)];
+      [SIM.MainLoopBody(config, rexpr false end, FakeCopyQueue)];
     end
   end)];
   [SIM.Cleanup(config)];
@@ -5323,12 +5352,6 @@ local SIM1 = mkInstance()
 
 __forbid(__optimize) __demand(__inner, __replicable)
 task workDual(mc : MultiConfig)
-  -- Read configuration options from the environment
-  var DEBUG_COPYING = false
-  if C.getenv('DEBUG_COPYING') ~= [&int8](0) and
-     C.strcmp(C.getenv('DEBUG_COPYING'), '1') == 0 then
-    DEBUG_COPYING = true
-  end
   -- Declare symbols
   [SIM0.DeclSymbols(rexpr mc.configs[0] end)];
   [SIM1.DeclSymbols(rexpr mc.configs[1] end)];
@@ -5360,7 +5383,6 @@ task workDual(mc : MultiConfig)
   [UTIL.emitRegionTagAttach(CopyQueue, MAPPER.SAMPLE_ID_TAG, rexpr mc.configs[0].Mapping.sampleId end, int)];
   var p_CopyQueue = partition(disjoint, CopyQueue, coloring_CopyQueue, SIM0.tiles)
   C.legion_domain_point_coloring_destroy(coloring_CopyQueue)
-  fill(CopyQueue.__valid, false)
   -- Check 2-section configuration
   regentlib.assert(
     SIM0.Integrator_simTime == SIM1.Integrator_simTime and
@@ -5433,12 +5455,12 @@ task workDual(mc : MultiConfig)
       break
     end
     -- Run one iteration of first section
-    [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end, FakeCopyQueue))];
+    [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end, rexpr false end, FakeCopyQueue))];
     -- Copy fluid & particles to second section
-    if Integrator_timeStep % mc.copyEveryTimeSteps == 0 then
-      if DEBUG_COPYING then
+    var incoming = Integrator_timeStep % mc.copyEveryTimeSteps == 0
+    if incoming then
+      if SIM0.DEBUG_COPYING then
         [SIM0.DumpHDF(rexpr mc.configs[0] end, 'copysrc%010d', Integrator_timeStep)];
-        [SIM1.DumpHDF(rexpr mc.configs[1] end, 'precopy%010d', Integrator_timeStep)];
       end
       for c in SIM1.tiles do
         var src = p_Fluid0_src[c]
@@ -5447,6 +5469,7 @@ task workDual(mc : MultiConfig)
         copy(src.velocity, tgt.velocity_inc)
       end
       if CopyQueue_size > 0 then
+        fill(CopyQueue.__valid, false)
         fill(CopyQueue.position, array(-1.0, -1.0, -1.0))
         fill(CopyQueue.velocity, array(-1.0, -1.0, -1.0))
         fill(CopyQueue.temperature, -1.0)
@@ -5461,19 +5484,9 @@ task workDual(mc : MultiConfig)
                          Fluid0_cellWidth, Fluid1_cellWidth)
         end
       end
-      if DEBUG_COPYING then
-        [SIM1.DumpHDF(rexpr mc.configs[1] end, 'postcopy%010d', Integrator_timeStep)];
-      end
     end
     -- Run one iteration of second section
-    [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, CopyQueue))];
-    -- Clear copyqueue for next iteration
-    if Integrator_timeStep % mc.copyEveryTimeSteps == 0 then
-      if DEBUG_COPYING then
-        [SIM1.DumpHDF(rexpr mc.configs[1] end, 'postiter%010d', Integrator_timeStep)];
-      end
-      fill(CopyQueue.__valid, false)
-    end
+    [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, incoming, CopyQueue))];
   end
   -- Cleanups
   [SIM0.Cleanup(rexpr mc.configs[0] end)];
