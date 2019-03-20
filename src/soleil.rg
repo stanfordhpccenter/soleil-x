@@ -879,6 +879,10 @@ task GetDynamicViscosity(temperature : double,
   return viscosity
 end
 
+-- XXX: This task needs the parallelizer ghost regions to do the interpolation,
+-- but the parallelizer can't handle this task currently (even if we move the
+-- RNG to a separate task). Therefore, at this point this task will only work
+-- on a single tile.
 __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Particles_InitializeRandom(color : int3d,
                                 Particles : region(ispace(int1d), Particles_columns),
@@ -4695,6 +4699,7 @@ local function mkInstance() local INSTANCE = {}
     -- Initialize particles
     if config.Particles.maxNum > 0 then
       if config.Particles.initCase == SCHEMA.ParticlesInitCase_Random then
+        regentlib.assert(numTiles == 1, 'Random particle initialization will only work on 1 tile')
         regentlib.assert((config.Particles.initNum / config.Particles.parcelSize) % numTiles == 0,
                          'Uneven partitioning of particles')
         regentlib.assert(config.Particles.initNum <= config.Particles.maxNum,
