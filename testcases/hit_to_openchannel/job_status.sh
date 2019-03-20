@@ -5,17 +5,14 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 COUNT_FAILURES="${COUNT_FAILURES:-0}"
 AVERAGE="${AVERAGE:-0}"
 RESTART="${RESTART:-0}"
-NUM_CASES="${NUM_CASES:-32}"
 
 for ARG in "$@"; do
-    # Identify job if more than one were supplied
-    if (( "$#" > 1 )); then
-        echo -n "$ARG: "
-    fi
-
     # For directories, find the latest jobout
     if [[ -d "$ARG" ]]; then
         if ! ls "$ARG"/*.out 1> /dev/null 2>&1; then
+            if (( "$#" > 1 )); then
+                echo -n "$ARG: "
+            fi
             echo "not started"
             continue
         fi
@@ -34,7 +31,7 @@ for ARG in "$@"; do
         if [[ "$AVERAGE" == 1 ]]; then
             echo -n ", averaging"
             if [[ ! -e "$LAUNCH_DIR"/"$JOBID".csv ]]; then
-                "$SCRIPT_DIR"/time_average_all.sh "$NUM_CASES" "$LAUNCH_DIR" "$OUT_DIR" > "$LAUNCH_DIR"/"$JOBID".csv
+                "$SCRIPT_DIR"/time_average_all.sh 32 "$LAUNCH_DIR" "$OUT_DIR" > "$LAUNCH_DIR"/"$JOBID".csv
             fi
         fi
     }
@@ -54,11 +51,14 @@ for ARG in "$@"; do
             RANKS_PER_NODE=4 "$SOLEIL_DIR"/src/soleil.sh $(echo -m\ case{0..31}.json)
             cd ..
         else
-	    echo
-	fi
+            echo
+        fi
     }
 
     # Identify job status and proceed accordingly
+    if (( "$#" > 1 )); then
+        echo -n "$JOBOUT: "
+    fi
     if [[ ! -s "$JOBOUT" ]]; then
         echo "not started"
     elif grep -q 'CUDA_ERROR_OUT_OF_MEMORY' "$JOBOUT"; then
@@ -69,7 +69,15 @@ for ARG in "$@"; do
     elif grep -q 'TERM_OWNER' "$JOBOUT"; then
         echo "manually killed"
     elif grep -q 'TERM_RUNLIMIT' "$JOBOUT"; then
-        echo "timeout"
+        echo -n "timeout on:"
+        for I in {0..31}; do
+            MAX_ITER=`grep maxIter "$LAUNCH_DIR"/case$I.json | head -1 | awk '{print $2}'`
+            FINAL_ITER=`tail -n 1 "$OUT_DIR"/sample"$((I*2+1))"/console.txt | awk '{print $1}'`
+            if (( "$MAX_ITER" != "$FINAL_ITER" )); then
+                echo -n " case$I"
+            fi
+        done
+        echo
     elif grep -q 'Ran out of space while copying particles from other section' "$JOBOUT"; then
         echo "channel section overflow"
     elif grep -q 'Cannot open your job file' "$JOBOUT"; then
