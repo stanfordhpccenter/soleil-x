@@ -652,6 +652,25 @@ public:
     return priority;
   }
 
+  // Send each fill to the first rank of the first section.
+  // NOTE: Will only run if Legion is compiled with dynamic control replication.
+  virtual void select_sharding_functor(const MapperContext ctx,
+                                       const Fill& fill,
+                                       const SelectShardingFunctorInput& input,
+                                       SelectShardingFunctorOutput& output) {
+    CHECK(fill.parent_task != NULL &&
+          (EQUALS(fill.parent_task->get_task_name(), "workDual") ||
+           EQUALS(fill.parent_task->get_task_name(), "workSingle")) &&
+          !fill.is_index_space &&
+          fill.requirement.region.exists() &&
+          runtime->get_index_space_depth
+            (ctx, fill.requirement.region.get_index_space()) == 0,
+          "Unexpected argument on fill");
+    unsigned sample_id = find_sample_id(ctx, *(fill.parent_task));
+    SampleMapping& mapping = sample_mappings_[sample_id];
+    output.chosen_functor = mapping.hardcoded_functor(Point<3>(0,0,0))->id;
+  }
+
   // Send each cross-section explicit copy to the first rank of the first
   // section, to be mapped further.
   // NOTE: Will only run if Legion is compiled with dynamic control replication.
@@ -821,12 +840,6 @@ public:
                                        const SelectShardingFunctorInput& input,
                                        SelectShardingFunctorOutput& output) {
     CHECK(false, "Unsupported: Sharded Partition");
-  }
-  virtual void select_sharding_functor(const MapperContext ctx,
-                                       const Fill& fill,
-                                       const SelectShardingFunctorInput& input,
-                                       SelectShardingFunctorOutput& output) {
-    CHECK(false, "Unsupported: Sharded Fill");
   }
   virtual void select_sharding_functor(const MapperContext ctx,
                                        const MustEpoch& epoch,
