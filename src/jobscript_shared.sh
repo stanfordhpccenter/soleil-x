@@ -89,7 +89,7 @@ if [[ "$LOCAL_RUN" == 0 ]]; then
 fi
 # Synthesize final command
 COMMAND="$EXECUTABLE $ARGS \
-  $DEBUG_OPTS $PROFILER_OPTS \
+  -logfile $OUT_DIR/%.log $DEBUG_OPTS $PROFILER_OPTS \
   -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr $THREADS_PER_RANK \
   $GPU_OPTS \
   -ll:util 4 -ll:ahandlers 4 -ll:io 1 -ll:dma 2 \
