@@ -2098,7 +2098,7 @@ do
     if interior_cell or NSCBC_inflow_cell or NSCBC_outflow_cell then
       var c_sound = GetSoundSpeed(Fluid[c].temperature, Flow_gamma, Flow_gasConstant)
       var velocity = Fluid[c].velocity
-      acc max= dot(velocity,velocity) / c_sound
+      acc max= sqrt(dot(Fluid[c].velocity,Fluid[c].velocity))/c_sound
     end
   end
   return acc
