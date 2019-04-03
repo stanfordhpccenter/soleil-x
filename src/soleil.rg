@@ -2630,7 +2630,7 @@ do
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
     if interior_cell or NSCBC_inflow_cell or NSCBC_outflow_cell then
       var c_sound = GetSoundSpeed(Fluid[c].temperature, Flow_gamma, Flow_gasConstant)
-      acc max= dot(Fluid[c].velocity,Fluid[c].velocity)/c_sound
+      acc max= sqrt(dot(Fluid[c].velocity,Fluid[c].velocity))/c_sound
     end
   end
   return acc
@@ -2956,7 +2956,7 @@ do
       var velocityY_XFace   = 0.0
       var velocityZ_XFace   = 0.0
       var temperature_XFace = 0.0
-      if xNegGhost or is_xPosGhost(stencil, Grid_xBnum, Grid_xNum)then 
+      if xNegGhost then 
         -- do not use velocity gradients in ghost cells for computing the fluxes 
         velocityX_XFace   = (velocity_stencil[0] - velocity[0]) / xCellWidth
         velocityY_XFace   = (velocity_stencil[1] - velocity[1]) / xCellWidth
@@ -3001,7 +3001,6 @@ do
       var rhoVelocityFluxX = vs_mul(vs_mul(velocityFace,rhoFace), velocityFace[0])
       rhoVelocityFluxX[0] += pressureFace
       Fluid[c].rhoVelocityFluxX = vv_sub(rhoVelocityFluxX, array(sigmaXX,sigmaYX,sigmaZX))
-
 
       -- Energy Flux Flux
       Fluid[c].rhoEnergyFluxX = (rhoEnergyFace + pressureFace)*velocityFace[0] - (usigma-heatFlux)
@@ -3147,7 +3146,7 @@ do
       var velocityY_YFace   = 0.0
       var velocityZ_YFace   = 0.0
       var temperature_YFace = 0.0
-      if yNegGhost or is_yPosGhost(stencil, Grid_yBnum, Grid_yNum) then
+      if yNegGhost then
         velocityX_YFace   = (velocity_stencil[0] - velocity[0]) / yCellWidth
         velocityY_YFace   = (velocity_stencil[1] - velocity[1]) / yCellWidth
         velocityZ_YFace   = (velocity_stencil[2] - velocity[2]) / yCellWidth
@@ -3338,7 +3337,7 @@ do
       var velocityY_ZFace   = 0.0
       var velocityZ_ZFace   = 0.0
       var temperature_ZFace = 0.0
-      if zNegGhost or is_zPosGhost(stencil, Grid_zBnum, Grid_zNum) then
+      if zNegGhost then
         velocityX_ZFace   = (velocity_stencil[0] - velocity[0]) / zCellWidth
         velocityY_ZFace   = (velocity_stencil[1] - velocity[1]) / zCellWidth
         velocityZ_ZFace   = (velocity_stencil[2] - velocity[2]) / zCellWidth
