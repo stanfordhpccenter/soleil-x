@@ -91,7 +91,7 @@ function run_summit {
 }
 
 function run_lassen {
-    GROUP="${GROUP:-guests}"
+    GROUP="${GROUP:-stanford}"
     export QUEUE="${QUEUE:-pbatch}"
     DEPS=
     if [[ ! -z "$AFTER" ]]; then
