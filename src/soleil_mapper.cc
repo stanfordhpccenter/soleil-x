@@ -709,8 +709,7 @@ public:
           copy.dst_requirements[0].region.exists() &&
           !copy.dst_requirements[0].is_restricted() &&
           copy.src_requirements[0].privilege_fields.size() == 1 &&
-          copy.dst_requirements[0].privilege_fields.size() == 1 &&
-          input.src_instances[0].empty(),
+          copy.dst_requirements[0].privilege_fields.size() == 1,
           "Unexpected arguments on explicit copy");
     // Retrieve copy details.
     // We map according to the destination of the copy. We expand the
