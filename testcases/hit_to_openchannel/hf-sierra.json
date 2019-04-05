@@ -214,9 +214,9 @@
         },
 
         "Particles" : {
-            "initCase" : "Uniform",
+            "initCase" : "Random",
             "restartDir" : "",
-            "initNum" : 0,
+            "initNum" : "TBD",
             "maxNum" : "TBD",
             "restitutionCoeff" : -1.0,
             "convectiveCoeff" : "TBD",
