@@ -7,6 +7,7 @@ import re
 
 parser = argparse.ArgumentParser()
 parser.add_argument('hdf_file', nargs='+')
+parser.add_argument('--output_filename', nargs='?', const='DEFAULT_FILE_NAME', default='DEFAULT_FILE_NAME', help='name of the combined output file')
 args = parser.parse_args()
 
 # Read input metadata
@@ -26,7 +27,13 @@ for (prev,next) in zip(sorted_bounds[:-1],sorted_bounds[1:]):
 
 # Combine actual data into output HDF file
 shape = (sorted_bounds[-1][1] - sorted_bounds[0][0] + 1,)
-name = '%s-%s.hdf' % (sorted_bounds[0][0], sorted_bounds[-1][1])
+
+name = ''
+if args.output_filename == 'DEFAULT_FILE_NAME':
+  name = '%s-%s.hdf' % (sorted_bounds[0][0], sorted_bounds[-1][1])
+else:
+  name =  args.output_filename
+
 with h5py.File(name, 'w') as fout:
     with h5py.File(args.hdf_file[0], 'r') as fin:
         for fld in fin:
