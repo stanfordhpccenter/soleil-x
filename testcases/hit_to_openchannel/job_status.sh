@@ -5,6 +5,20 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 COUNT_FAILURES="${COUNT_FAILURES:-0}"
 AVERAGE="${AVERAGE:-0}"
 RESTART="${RESTART:-0}"
+PATCH="${PATCH:-0}"
+
+function clean_run() {
+    COUNT_FAILURES=0 AVERAGE=0 RESTART=0 PATCH=0 "${BASH_SOURCE[0]}" "$1"
+}
+
+function pushd() {
+    command pushd "$@" > /dev/null
+}
+
+function popd() {
+    command popd "$@" > /dev/null
+}
+
 
 for ARG in "$@"; do
     # For directories, find the latest jobout
@@ -47,11 +61,32 @@ for ARG in "$@"; do
             echo ", restarting"
             # Create a placeholder jobout, while the rerun job is in the queue
             touch "$LAUNCH_DIR"/"$(( JOBID + 1 ))".out
-            cd "$LAUNCH_DIR"
+            pushd "$LAUNCH_DIR"
             RANKS_PER_NODE=4 "$SOLEIL_DIR"/src/soleil.sh $(echo -m\ case{0..31}.json)
-            cd ..
+            popd
         else
             echo
+        fi
+    }
+    function patch() {
+        if [[ "$PATCH" == 1 ]]; then
+            for I in {0..31}; do
+                MAX_ITER=`grep maxIter "$LAUNCH_DIR"/case$I.json | head -1 | awk '{print $2}'`
+                FINAL_ITER=`tail -n 1 "$OUT_DIR"/sample"$((I*2+1))"/console.txt | awk '{print $1}'`
+                if (( "$MAX_ITER" != "$FINAL_ITER" )); then
+                    echo -n "  case$I"
+                    if [[ -d "$LAUNCH_DIR/patch$I" ]]; then
+                        echo -n ", patched: "
+                        clean_run "$LAUNCH_DIR/patch$I"
+                    else
+                        echo -n ", patching: "
+                        mkdir "$LAUNCH_DIR/patch$I"
+                        pushd "$LAUNCH_DIR/patch$I"
+                        RANKS_PER_NODE=4 "$SOLEIL_DIR"/src/soleil.sh -m "../case$I.json"
+                        popd
+                    fi
+                fi
+            done
         fi
     }
 
@@ -69,15 +104,8 @@ for ARG in "$@"; do
     elif grep -q 'TERM_OWNER' "$JOBOUT"; then
         echo "manually killed"
     elif grep -q 'TERM_RUNLIMIT' "$JOBOUT"; then
-        echo -n "timeout on:"
-        for I in {0..31}; do
-            MAX_ITER=`grep maxIter "$LAUNCH_DIR"/case$I.json | head -1 | awk '{print $2}'`
-            FINAL_ITER=`tail -n 1 "$OUT_DIR"/sample"$((I*2+1))"/console.txt | awk '{print $1}'`
-            if (( "$MAX_ITER" != "$FINAL_ITER" )); then
-                echo -n " case$I"
-            fi
-        done
-        echo
+        echo "timeout"
+        patch
     elif grep -q 'Ran out of space while copying particles from other section' "$JOBOUT"; then
         echo "channel section overflow"
     elif grep -q 'Cannot open your job file' "$JOBOUT"; then
