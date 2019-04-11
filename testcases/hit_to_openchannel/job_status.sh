@@ -19,7 +19,6 @@ function popd() {
     command popd "$@" > /dev/null
 }
 
-
 for ARG in "$@"; do
     # For directories, find the latest jobout
     if [[ -d "$ARG" ]]; then
@@ -69,19 +68,32 @@ for ARG in "$@"; do
         fi
     }
     function patch() {
+        echo
         if [[ "$PATCH" == 1 ]]; then
             for I in {0..31}; do
                 MAX_ITER=`grep maxIter "$LAUNCH_DIR"/case$I.json | head -1 | awk '{print $2}'`
                 FINAL_ITER=`tail -n 1 "$OUT_DIR"/sample"$((I*2+1))"/console.txt | awk '{print $1}'`
                 if (( "$MAX_ITER" != "$FINAL_ITER" )); then
                     echo -n "  case$I"
-                    if [[ -d "$LAUNCH_DIR/patch$I" ]]; then
-                        echo -n ", patched: "
-                        clean_run "$LAUNCH_DIR/patch$I"
+                    PATCH_LAUNCH_DIR="$LAUNCH_DIR/patch$I"
+                    if [[ -d "$PATCH_LAUNCH_DIR" ]]; then
+                        echo -n ", patch run: "
+                        PATCH_RESULT="$(clean_run "$PATCH_LAUNCH_DIR")"
+                        echo -n "$PATCH_RESULT"
+                        if [[ "$PATCH_RESULT" == "done" ]]; then
+                            echo -n ", postprocessing"
+                            PATCH_JOBOUT="$(ls "$PATCH_LAUNCH_DIR"/*.out | tail -n 1)"
+                            PATCH_OUT_DIR="$( head -n 1 "$PATCH_JOBOUT" | awk '{print $4'} )"
+                            mv "$OUT_DIR"/sample"$((I*2))" "$OUT_DIR"/timeout_sample"$((I*2))"
+                            mv "$OUT_DIR"/sample"$((I*2+1))" "$OUT_DIR"/timeout_sample"$((I*2+1))"
+                            ln -s "$PATCH_OUT_DIR"/sample0 "$OUT_DIR"/sample"$((I*2))"
+                            ln -s "$PATCH_OUT_DIR"/sample1 "$OUT_DIR"/sample"$((I*2+1))"
+                        fi
+                        echo
                     else
                         echo -n ", patching: "
-                        mkdir "$LAUNCH_DIR/patch$I"
-                        pushd "$LAUNCH_DIR/patch$I"
+                        mkdir "$PATCH_LAUNCH_DIR"
+                        pushd "$PATCH_LAUNCH_DIR"
                         RANKS_PER_NODE=4 "$SOLEIL_DIR"/src/soleil.sh -m "../case$I.json"
                         popd
                     fi
@@ -104,7 +116,8 @@ for ARG in "$@"; do
     elif grep -q 'TERM_OWNER' "$JOBOUT"; then
         echo "manually killed"
     elif grep -q 'TERM_RUNLIMIT' "$JOBOUT"; then
-        echo "timeout"
+        echo -n "timeout"
+        count_failures
         patch
     elif grep -q 'Ran out of space while copying particles from other section' "$JOBOUT"; then
         echo "channel section overflow"
