@@ -27,16 +27,18 @@ for i in range(0, num_jobs):
     os.mkdir('%s/job%d' % (args.out_dir, i))
     for j in range(0, len(cases)):
         for k in range(0, 2):
+            iter_i = min(i * args.iters_per_job, max_iter[j][k])
+            iter_i_1 = min((i+1) * args.iters_per_job, max_iter[j][k])
             config = cases[j]['configs'][k]
             dt = float(config['Integrator']['fixedDeltaTime'])
-            config['Integrator']['startIter'] = i * args.iters_per_job
-            config['Integrator']['startTime'] = i * args.iters_per_job * dt
-            config['Integrator']['maxIter'] = min((i+1) * args.iters_per_job, max_iter[j][k])
+            config['Integrator']['startIter'] = iter_i
+            config['Integrator']['startTime'] = iter_i * dt
+            config['Integrator']['maxIter'] = iter_i_1
             if i > 0:
                 config['Flow']['initCase'] = 'Restart'
-                config['Flow']['restartDir'] = '%s/job%d/sample%s/fluid_iter%010d' % (args.out_dir, i-1, 2*j+k, i*args.iters_per_job)
+                config['Flow']['restartDir'] = '%s/job%d/sample%s/fluid_iter%010d' % (args.out_dir, i-1, 2*j+k, iter_i)
                 config['Particles']['initCase'] = 'Restart'
-                config['Particles']['restartDir'] = '%s/job%d/sample%s/particles_iter%010d' % (args.out_dir, i-1, 2*j+k, i*args.iters_per_job)
+                config['Particles']['restartDir'] = '%s/job%d/sample%s/particles_iter%010d' % (args.out_dir, i-1, 2*j+k, iter_i)
         with open('job%d/case%d.json' % (i, j), 'w') as fout:
             json.dump(cases[j], fout, indent=4)
 

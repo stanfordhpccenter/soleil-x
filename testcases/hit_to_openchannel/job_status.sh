@@ -117,6 +117,7 @@ for ARG in "$@"; do
         echo "manually killed"
     elif grep -q 'TERM_RUNLIMIT' "$JOBOUT"; then
         echo -n "timeout"
+        average
         count_failures
         patch
     elif grep -q 'Ran out of space while copying particles from other section' "$JOBOUT"; then
