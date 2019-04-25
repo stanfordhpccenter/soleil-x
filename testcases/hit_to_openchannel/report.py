@@ -9,6 +9,7 @@ import sys
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-n', '--num-cases', type=int, default=32)
+parser.add_argument('-c', '--column', type=int, default=0)
 parser.add_argument('launch_dir', nargs='+')
 args = parser.parse_args()
 
@@ -22,7 +23,7 @@ for d in args.launch_dir:
     with open(latest_csv) as f:
         reader = csv.reader(f, dialect=csv.excel_tab)
         next(reader)
-        column = [row[0] for row in reader]
+        column = [row[args.column] for row in reader]
         assert len(column) == args.num_cases
         columns.append(column)
 
