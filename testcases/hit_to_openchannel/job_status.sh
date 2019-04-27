@@ -44,7 +44,7 @@ for ARG in "$@"; do
         if [[ "$AVERAGE" == 1 ]]; then
             echo -n ", averaging"
             if [[ ! -e "$LAUNCH_DIR"/"$JOBID".csv ]]; then
-                "$SCRIPT_DIR"/time_average_all.sh 32 "$LAUNCH_DIR" "$OUT_DIR" > "$LAUNCH_DIR"/"$JOBID".csv
+                "$SCRIPT_DIR"/time_average_all.sh 32 9999 "$LAUNCH_DIR" "$OUT_DIR" > "$LAUNCH_DIR"/"$JOBID".csv
             fi
         fi
     }
