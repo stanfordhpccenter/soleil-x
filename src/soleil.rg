@@ -5644,7 +5644,7 @@ task main()
       SCHEMA.parse_MultiConfig(&mc, args.argv[i+1])
       initDual(&mc, launched, outDirBase)
       launched += 2
-      workDual(mc])
+      workDual(mc)
     end
   end
   if launched < 1 then
