@@ -247,9 +247,9 @@ end
 
 local __demand(__inline)
 task drand48_r(rngState : &C.drand48_data)
-  var res : double[1]
-  C.drand48_r(rngState, [&double](res))
-  return res[0]
+  var res : double
+  C.drand48_r(rngState, &res)
+  return res
 end
 
 __demand(__inline)
@@ -924,17 +924,16 @@ do
   var Particles_initTemperature = config.Particles.initTemperature
   var Particles_diameterMean = config.Particles.diameterMean
   -- RNG state
-  var rngState : C.drand48_data[1]
-  var rngStatePtr = [&C.drand48_data](rngState)
-  C.srand48_r(C.legion_get_current_time_in_nanos(), rngStatePtr)
+  var rngState : C.drand48_data
+  C.srand48_r(C.legion_get_current_time_in_nanos(), &rngState)
   -- Fill loop
   for p in Particles do
     var relIdx = int64(p - pBase)
     if relIdx < particlesPerTile then
       -- Pick a random position within the current tile, ignoring boundary cells
-      var rx = 0.0; repeat rx = drand48_r(rngStatePtr) until rx ~= 0.0
-      var ry = 0.0; repeat ry = drand48_r(rngStatePtr) until ry ~= 0.0
-      var rz = 0.0; repeat rz = drand48_r(rngStatePtr) until rz ~= 0.0
+      var rx = 0.0; repeat rx = drand48_r(&rngState) until rx ~= 0.0
+      var ry = 0.0; repeat ry = drand48_r(&rngState) until ry ~= 0.0
+      var rz = 0.0; repeat rz = drand48_r(&rngState) until rz ~= 0.0
       var pos = array( Tile_xOrigin + Tile_xWidth * rx,
                        Tile_yOrigin + Tile_yWidth * ry,
                        Tile_zOrigin + Tile_zWidth * rz )
@@ -1170,15 +1169,14 @@ where
   writes(Fluid.{rho, pressure, velocity})
 do
   var magnitude = Flow_initParams[2]
-  var rngState : C.drand48_data[1]
-  var rngStatePtr = [&C.drand48_data](rngState)
-  C.srand48_r(C.legion_get_current_time_in_nanos(), rngStatePtr)
+  var rngState : C.drand48_data
+  C.srand48_r(C.legion_get_current_time_in_nanos(), &rngState)
   for c in Fluid do
     Fluid[c].rho = Flow_initParams[0]
     Fluid[c].pressure = Flow_initParams[1]
-    Fluid[c].velocity = array(2 * (drand48_r(rngStatePtr) - 0.5) * magnitude,
-                              2 * (drand48_r(rngStatePtr) - 0.5) * magnitude,
-                              2 * (drand48_r(rngStatePtr) - 0.5) * magnitude)
+    Fluid[c].velocity = array(2 * (drand48_r(&rngState) - 0.5) * magnitude,
+                              2 * (drand48_r(&rngState) - 0.5) * magnitude,
+                              2 * (drand48_r(&rngState) - 0.5) * magnitude)
   end
 end
 
@@ -1238,15 +1236,14 @@ where
   writes(Fluid.{rho, pressure, velocity})
 do
   var magnitude = Flow_initParams[5]
-  var rngState : C.drand48_data[1]
-  var rngStatePtr = [&C.drand48_data](rngState)
-  C.srand48_r(C.legion_get_current_time_in_nanos(), rngStatePtr)
+  var rngState : C.drand48_data
+  C.srand48_r(C.legion_get_current_time_in_nanos(), &rngState)
   for c in Fluid do
     Fluid[c].rho = Flow_initParams[0]
     Fluid[c].pressure = Flow_initParams[1]
-    Fluid[c].velocity = array(Flow_initParams[2] + 2 * (drand48_r(rngStatePtr) - 0.5) * magnitude,
-                              Flow_initParams[3] + 2 * (drand48_r(rngStatePtr) - 0.5) * magnitude,
-                              Flow_initParams[4] + 2 * (drand48_r(rngStatePtr) - 0.5) * magnitude)
+    Fluid[c].velocity = array(Flow_initParams[2] + 2 * (drand48_r(&rngState) - 0.5) * magnitude,
+                              Flow_initParams[3] + 2 * (drand48_r(&rngState) - 0.5) * magnitude,
+                              Flow_initParams[4] + 2 * (drand48_r(&rngState) - 0.5) * magnitude)
   end
 end
 
@@ -5637,17 +5634,17 @@ task main()
   var launched = 0
   for i = 1, args.argc do
     if C.strcmp(args.argv[i], '-i') == 0 and i < args.argc-1 then
-      var config : Config[1]
-      SCHEMA.parse_Config([&Config](config), args.argv[i+1])
-      initSingle([&Config](config), launched, outDirBase)
+      var config : Config
+      SCHEMA.parse_Config(&config, args.argv[i+1])
+      initSingle(&config, launched, outDirBase)
       launched += 1
-      workSingle(config[0])
+      workSingle(config)
     elseif C.strcmp(args.argv[i], '-m') == 0 and i < args.argc-1 then
-      var mc : MultiConfig[1]
-      SCHEMA.parse_MultiConfig([&MultiConfig](mc), args.argv[i+1])
-      initDual([&MultiConfig](mc), launched, outDirBase)
+      var mc : MultiConfig
+      SCHEMA.parse_MultiConfig(&mc, args.argv[i+1])
+      initDual(&mc, launched, outDirBase)
       launched += 2
-      workDual(mc[0])
+      workDual(mc])
     end
   end
   if launched < 1 then

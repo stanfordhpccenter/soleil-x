@@ -102,11 +102,11 @@ task main()
     C.fflush(stderr)
     C.exit(1)
   end
-  var config : SCHEMA.Config[1]
-  SCHEMA.parse_Config([&SCHEMA.Config](config), args.argv[1])
-  regentlib.assert(config[0].Radiation.type == SCHEMA.RadiationModel_DOM,
+  var config : SCHEMA.Config
+  SCHEMA.parse_Config(&config, args.argv[1])
+  regentlib.assert(config.Radiation.type == SCHEMA.RadiationModel_DOM,
                    'Configuration file must use DOM radiation model')
-  work(config[0])
+  work(config)
 end
 
 regentlib.saveobj(main, 'dom_host.o', 'object')
