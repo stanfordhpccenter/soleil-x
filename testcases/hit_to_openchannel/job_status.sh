@@ -6,6 +6,7 @@ COUNT_FAILURES="${COUNT_FAILURES:-0}"
 AVERAGE="${AVERAGE:-0}"
 RESTART="${RESTART:-0}"
 PATCH="${PATCH:-0}"
+TIME_RUNS="${TIME_RUNS:-0}"
 
 function clean_run() {
     COUNT_FAILURES=0 AVERAGE=0 RESTART=0 PATCH=0 "${BASH_SOURCE[0]}" "$1"
@@ -101,6 +102,19 @@ for ARG in "$@"; do
             done
         fi
     }
+    function time_runs() {
+        if [[ "$TIME_RUNS" == 1 ]]; then
+            echo -n ", timing"
+            MAX_TIME=0.0
+            for I in {0..31}; do
+                CASE_TIME=`tail -n 1 "$OUT_DIR"/sample"$((I*2+1))"/console.txt | awk '{print $3}'`
+                if (( $(echo "$CASE_TIME > $MAX_TIME" | bc -l) )); then
+                    MAX_TIME="$CASE_TIME"
+                fi
+            done
+            echo -n " $MAX_TIME"
+        fi
+    }
 
     # Identify job status and proceed accordingly
     if (( "$#" > 1 )); then
@@ -119,6 +133,7 @@ for ARG in "$@"; do
         echo -n "timeout"
         average
         count_failures
+        time_runs
         patch
     elif grep -q 'Ran out of space while copying particles from other section' "$JOBOUT"; then
         echo "channel section overflow"
@@ -128,6 +143,7 @@ for ARG in "$@"; do
         echo -n "done"
         average
         count_failures
+        time_runs
         echo
     elif grep -q summary "$JOBOUT"; then
         echo "OTHER ERROR"
