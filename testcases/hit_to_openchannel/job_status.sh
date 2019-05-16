@@ -122,23 +122,12 @@ for ARG in "$@"; do
     fi
     if [[ ! -s "$JOBOUT" ]]; then
         echo "not started"
-    elif grep -q 'CUDA_ERROR_OUT_OF_MEMORY' "$JOBOUT"; then
-        echo "cuda oom"
-    elif grep -q 'TERM_ADMIN' "$JOBOUT"; then
-        echo -n "killed by admin"
-        restart
-    elif grep -q 'TERM_OWNER' "$JOBOUT"; then
-        echo "manually killed"
     elif grep -q 'TERM_RUNLIMIT' "$JOBOUT"; then
         echo -n "timeout"
         average
         count_failures
         time_runs
         patch
-    elif grep -q 'Ran out of space while copying particles from other section' "$JOBOUT"; then
-        echo "channel section overflow"
-    elif grep -q 'Cannot open your job file' "$JOBOUT"; then
-        echo "cannot open jobfile"
     elif grep -q Successfully "$JOBOUT"; then
         echo -n "done"
         average
@@ -146,7 +135,8 @@ for ARG in "$@"; do
         time_runs
         echo
     elif grep -q summary "$JOBOUT"; then
-        echo "OTHER ERROR"
+        echo -n "ERROR"
+        restart
     else
         echo -n "running"
         count_failures
