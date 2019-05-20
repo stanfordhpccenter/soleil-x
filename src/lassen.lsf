@@ -8,9 +8,8 @@ GPUS_PER_NODE=4
 FB_PER_GPU=14500
 source "$SOLEIL_DIR"/src/jobscript_shared.sh
 
-# NOTE: We have to run through the pick_hcas.py script, due to a GASNet bug.
+export GASNET_NUM_QPS=1
 jsrun -n "$NUM_RANKS" -r "$RANKS_PER_NODE" -a 1 -c "$CORES_PER_RANK" -g "$GPUS_PER_RANK" -b rs \
-    "$SOLEIL_DIR"/src/pick_hcas.py \
     $COMMAND
 
 # Resources:
