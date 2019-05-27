@@ -5,6 +5,7 @@ RAM_PER_NODE=200000
 GPUS_PER_NODE=6
 FB_PER_GPU=15000
 source "$SOLEIL_DIR"/src/jobscript_shared.sh
+GPUS_PER_RANK="${GPUS_PER_RANK:-0}"
 
 export GASNET_NUM_QPS=1
 jsrun -n "$NUM_RANKS" -r "$RANKS_PER_NODE" -a 1 -c "$CORES_PER_RANK" -g "$GPUS_PER_RANK" -b rs \
