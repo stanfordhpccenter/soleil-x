@@ -455,10 +455,10 @@ extern "C" {
     
     Visualization::ImageReduction* compositor = gImageCompositors[sampleId];
     RegionPartition result;
-    result.indexSpace = compositor->sourceIndexSpace();
-    result.imageX = compositor->sourceImage();
-    result.colorSpace = compositor->depthPartitionColorSpace();
-    result.p_Image = compositor->depthPartition());
+    result.indexSpace = CObjectWrapper::wrap(compositor->sourceIndexSpace());
+    result.imageX = CObjectWrapper::wrap(compositor->sourceImage());
+    result.colorSpace = CObjectWrapper::wrap(compositor->depthPartitionColorSpace());
+    result.p_Image = CObjectWrapper::wrap(compositor->depthPartition());
     compositor->sourceImageFields(result.imageFields);
     return result;
   }
@@ -505,6 +505,7 @@ extern "C" {
     
     // Create projection functors
     
+    Visualization::ImageReduction* compositor = gImageCompositors[sampleId];
     if(firstTime) {
       ImageReductionProjectionFunctor* functor0 = new ImageReductionProjectionFunctor(compositor->everywhereDomain(), fluidPartition);
       runtime->register_projection_functor(1, functor0);
@@ -517,6 +518,7 @@ extern "C" {
     // Construct arguments to render task
     
     ArgumentMap argMap;
+    ImageDescriptor imageDescriptor = compositor->imageDescriptor();
     size_t argSize = sizeof(imageDescriptor) + 6 * sizeof(FieldData) + sizeof(int) + sizeof(int) + sizeof(double) + numParticlesToDraw * sizeof(long int);
     char args[argSize];
     char* argsPtr = args;
