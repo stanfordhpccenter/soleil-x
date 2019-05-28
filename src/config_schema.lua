@@ -42,6 +42,7 @@ Exports.InflowProfile = Union{
 Exports.TurbForcingModel = Union{
   OFF = {},
   HIT = {
+    meanVelocity = Array(3,double),
     G = double,
     t_o = double,
     K_o = double,
@@ -177,7 +178,7 @@ Exports.Config = {
     sutherlandSRef = double,
     initCase = Exports.FlowInitCase,
     restartDir = String(256),
-    initParams = Array(5,double),
+    initParams = Array(6,double),
     bodyForce = Array(3,double),
     turbForcing = Exports.TurbForcingModel,
   },

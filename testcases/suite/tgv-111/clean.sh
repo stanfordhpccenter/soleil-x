@@ -1,3 +1,3 @@
 #!/bin/bash -eu
 
-rm -rf sample0/ test.out
+rm -rf sample0/ test.out *.log

@@ -364,7 +364,8 @@ private:
     if (task.is_index_space ||
         STARTS_WITH(task.get_task_name(), "sweep_") ||
         EQUALS(task.get_task_name(), "cache_grid_translation") ||
-        EQUALS(task.get_task_name(), "initialize_angles")) {
+        EQUALS(task.get_task_name(), "initialize_angles") ||
+        STARTS_WITH(task.get_task_name(), "readTileAttr")) {
       CHECK(!task.regions.empty(),
             "Expected region argument in call to %s", task.get_task_name());
       const RegionRequirement& req = task.regions[0];
@@ -396,7 +397,7 @@ private:
     // Helper & I/O tasks: go up one level to the work task
     else if (STARTS_WITH(task.get_task_name(), "Console_Write") ||
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
-             EQUALS(task.get_task_name(), "createDir") ||
+             EQUALS(task.get_task_name(), "IO_CreateDir") ||
              EQUALS(task.get_task_name(), "__dummy") ||
              STARTS_WITH(task.get_task_name(), "__unary_") ||
              STARTS_WITH(task.get_task_name(), "__binary_")) {
@@ -429,7 +430,8 @@ private:
   DomainPoint find_tile(const MapperContext ctx,
                         const Task& task) const {
     // 3D index space tasks that are launched individually
-    if (STARTS_WITH(task.get_task_name(), "sweep_")) {
+    if (STARTS_WITH(task.get_task_name(), "sweep_") ||
+        STARTS_WITH(task.get_task_name(), "readTileAttr")) {
       assert(!task.regions.empty() && task.regions[0].region.exists());
       DomainPoint tile =
         runtime->get_logical_region_color_point(ctx, task.regions[0].region);
@@ -443,8 +445,7 @@ private:
              STARTS_WITH(task.get_task_name(), "Console_Write") ||
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
              STARTS_WITH(task.get_task_name(), "Visualize") ||
-             EQUALS(task.get_task_name(), "render_tile") ||
-             EQUALS(task.get_task_name(), "createDir") ||
+             EQUALS(task.get_task_name(), "IO_CreateDir") ||
              EQUALS(task.get_task_name(), "__dummy") ||
              STARTS_WITH(task.get_task_name(), "__unary_") ||
              STARTS_WITH(task.get_task_name(), "__binary_")) {
@@ -492,12 +493,12 @@ private:
              EQUALS(task.get_task_name(), "initialize_angles") ||
              STARTS_WITH(task.get_task_name(), "Console_Write") ||
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
-             EQUALS(task.get_task_name(), "createDir") ||
              STARTS_WITH(task.get_task_name(), "Visualize") ||
-             EQUALS(task.get_task_name(), "render_tile") ||
+             EQUALS(task.get_task_name(), "IO_CreateDir") ||
              EQUALS(task.get_task_name(), "__dummy") ||
              STARTS_WITH(task.get_task_name(), "__unary_") ||
-             STARTS_WITH(task.get_task_name(), "__binary_")) {
+             STARTS_WITH(task.get_task_name(), "__binary_") ||
+             STARTS_WITH(task.get_task_name(), "readTileAttr")) {
       unsigned sample_id = find_sample_id(ctx, task);
       SampleMapping& mapping = sample_mappings_[sample_id];
       DomainPoint tile = find_tile(ctx, task);
@@ -661,6 +662,25 @@ public:
     return priority;
   }
 
+  // Send each fill to the first rank of the first section.
+  // NOTE: Will only run if Legion is compiled with dynamic control replication.
+  virtual void select_sharding_functor(const MapperContext ctx,
+                                       const Fill& fill,
+                                       const SelectShardingFunctorInput& input,
+                                       SelectShardingFunctorOutput& output) {
+    CHECK(fill.parent_task != NULL &&
+          (EQUALS(fill.parent_task->get_task_name(), "workDual") ||
+           EQUALS(fill.parent_task->get_task_name(), "workSingle")) &&
+          !fill.is_index_space &&
+          fill.requirement.region.exists() &&
+          runtime->get_index_space_depth
+            (ctx, fill.requirement.region.get_index_space()) == 0,
+          "Unexpected argument on fill");
+    unsigned sample_id = find_sample_id(ctx, *(fill.parent_task));
+    SampleMapping& mapping = sample_mappings_[sample_id];
+    output.chosen_functor = mapping.hardcoded_functor(Point<3>(0,0,0))->id;
+  }
+
   // Send each cross-section explicit copy to the first rank of the first
   // section, to be mapped further.
   // NOTE: Will only run if Legion is compiled with dynamic control replication.
@@ -699,13 +719,7 @@ public:
           copy.dst_requirements[0].region.exists() &&
           !copy.dst_requirements[0].is_restricted() &&
           copy.src_requirements[0].privilege_fields.size() == 1 &&
-          copy.dst_requirements[0].privilege_fields.size() == 1 &&
-          input.src_instances[0].empty() &&
-          // NOTE: The runtime should be passing the existing fluid instances
-          // on the destination nodes as usable destinations, but doesn't, so
-          // we have to perform an explicit runtime call. If this behavior ever
-          // changes, this check will make sure we find out.
-          input.dst_instances[0].empty(),
+          copy.dst_requirements[0].privilege_fields.size() == 1,
           "Unexpected arguments on explicit copy");
     // Retrieve copy details.
     // We map according to the destination of the copy. We expand the
@@ -830,12 +844,6 @@ public:
                                        const SelectShardingFunctorInput& input,
                                        SelectShardingFunctorOutput& output) {
     CHECK(false, "Unsupported: Sharded Partition");
-  }
-  virtual void select_sharding_functor(const MapperContext ctx,
-                                       const Fill& fill,
-                                       const SelectShardingFunctorInput& input,
-                                       SelectShardingFunctorOutput& output) {
-    CHECK(false, "Unsupported: Sharded Fill");
   }
   virtual void select_sharding_functor(const MapperContext ctx,
                                        const MustEpoch& epoch,

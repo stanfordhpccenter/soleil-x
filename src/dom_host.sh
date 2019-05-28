@@ -8,6 +8,7 @@ export PROFILE="${PROFILE:-0}"
 export DEBUG="${DEBUG:-0}"
 export RANKS_PER_NODE=1
 export RESERVED_CORES="${RESERVED_CORES:-4}"
+export DEBUG_COPYING=0
 
 export EXECUTABLE="$SOLEIL_DIR"/src/dom_host.exec
 export MINUTES=10

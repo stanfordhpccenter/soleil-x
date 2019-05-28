@@ -83,7 +83,7 @@
         "sutherlandSRef" : 110.4,
         "initCase" : "Uniform",
         "restartDir" : "",
-        "initParams" : [0.000525805, 43.4923, 0.0, 0.0, 0.0],
+        "initParams" : [0.000525805, 43.4923, 0.0, 0.0, 0.0, -1.0],
         "bodyForce" : [0.0, 0.0, 0.0],
         "turbForcing" : { "type" : "OFF" }
     },

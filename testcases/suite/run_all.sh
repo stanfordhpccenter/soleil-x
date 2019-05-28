@@ -1,8 +1,10 @@
-#!/bin/bash -eu
+#!/bin/bash -u
 
 for DIR in */; do
     echo "$DIR"
     cd "$DIR"
-    ./run.sh
+    if ! ./run.sh; then
+	echo "FAIL"
+    fi
     cd ..
 done

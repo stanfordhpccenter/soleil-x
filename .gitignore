@@ -13,6 +13,7 @@
 *.dat
 *.csv
 *.hdf
+*.log
 console.txt
 
 src/config_schema.h

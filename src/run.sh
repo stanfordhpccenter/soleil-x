@@ -52,7 +52,7 @@ export NUM_RANKS=$(( NUM_NODES * RANKS_PER_NODE ))
 
 export LOCAL_RUN=0
 
-export GASNET_BACKTRACE=1
+export REALM_BACKTRACE=1
 
 export LEGION_FREEZE_ON_ERROR="$DEBUG"
 
@@ -91,7 +91,7 @@ function run_summit {
 }
 
 function run_lassen {
-    GROUP="${GROUP:-guests}"
+    GROUP="${GROUP:-stanford}"
     export QUEUE="${QUEUE:-pbatch}"
     DEPS=
     if [[ ! -z "$AFTER" ]]; then
@@ -161,7 +161,7 @@ function run_sapling {
     source "$SOLEIL_DIR"/src/jobscript_shared.sh
     # Emit final command
     mpiexec -H "$NODES" --bind-to none \
-        -x LD_LIBRARY_PATH -x SOLEIL_DIR -x GASNET_BACKTRACE -x SCRATCH -x LEGION_FREEZE_ON_ERROR \
+        -x LD_LIBRARY_PATH -x SOLEIL_DIR -x REALM_BACKTRACE -x LEGION_FREEZE_ON_ERROR -x DEBUG_COPYING \
         $COMMAND
     # Resources:
     # 40230MB RAM per node
