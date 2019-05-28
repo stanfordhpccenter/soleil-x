@@ -457,7 +457,9 @@ extern "C" {
     RegionPartition result;
     result.indexSpace = compositor->sourceIndexSpace();
     result.imageX = compositor->sourceImage();
-    result.p_Image = compositor->depthPartition();
+    result.colorSpace = compositor->depthPartitionColorSpace();
+    result.p_Image = compositor->depthPartition());
+    compositor->sourceImageFields(result.imageFields);
     return result;
   }
   

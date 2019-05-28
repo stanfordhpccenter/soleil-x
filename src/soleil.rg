@@ -5902,8 +5902,9 @@ task workSingle(config : Config)
       end
       [SIM.MainLoopBody(config, FakeCopyQueue)];
       var indexSpace = __import_ispace(int3d, ImageResult.indexSpace)
+      var colorSpace = __import_ispace(int3d, ImageResult.colorSpace)
       var imageX = __import_region(indexSpace, Image_columns, ImageResult.imageX, ImageResult.imageFields)
-      var p_Image = __import_partition(disjoint, imageX, ImageResult.colorSpace, ImageResult.p_Image)
+      var p_Image = __import_partition(disjoint, imageX, colorSpace, ImageResult.p_Image)
       Visualize(config, SIM.Integrator_timeStep, SIM.Fluid, SIM.Particles, SIM.p_Fluid, SIM.p_Particles, SIM.particlesToDraw, SIM.lowerBound, SIM.upperBound, SIM.tiles, imageX, p_Image)
     end
   end)];

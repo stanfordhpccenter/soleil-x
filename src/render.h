@@ -31,7 +31,7 @@ extern "C" {
     legion_index_space_t indexSpace;
     legion_logical_region_t imageX;
     legion_field_id_t imageFields[5];
-    legion_color_space_t colorSpace;
+    legion_index_space_t colorSpace;
     legion_logical_partition_t p_Image;
   } RegionPartition;
   
