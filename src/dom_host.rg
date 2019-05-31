@@ -401,8 +401,6 @@ task work(config : SCHEMA.Config)
   --writeIntensity(points)
   writeOutput(points)
 
-  writeHDF5Output(points)
-
 end
 
 local __demand(__inner)

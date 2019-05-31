@@ -801,7 +801,6 @@ end
 -- OTHER ROUTINES
 -------------------------------------------------------------------------------
 
--- TODO Update to take model as a whole. 
 __demand(__inline)
 task GetDynamicViscosity(temperature : double,
                          Flow_constantVisc : double,
