@@ -10,13 +10,7 @@ import 'regent'
 
 local C = regentlib.c
 local SCHEMA = terralib.includec("config_schema.h")
-local HDF5 = terralib.includec(assert(os.getenv('HDF_HEADER')))
---local HDF5 = terralib.includec("hdf5.h")
 local UTIL = require 'util'
-
--- HACK: Hardcoding missing #define's
-HDF5.H5F_ACC_TRUNC = 2
-HDF5.H5P_DEFAULT = 0
 
 local pow = regentlib.pow(double)
 local cos = regentlib.cos(double)
@@ -363,39 +357,6 @@ do
                    points[ind].G)
   end
   C.fclose(fp);
-end
-
-local task writeHDF5Output(Radiation : region(ispace(int3d), Point_columns))
-where
-  reads(points.{centerCoordinates, cellWidth, G})
-do
-
-    var file_id      : HDF5.hid_t
-    var dataset_id   : HDF5.hid_t
-    var dataspace_id : HDF5.hid_t
-    var dims         : HDF5.hsize_t[3]
-    var status       : HDF5.herr_t
-
-    var filename = "test_output.h5"
-    file_id = HDF5.H5Fcreate(filename, HDF5.H5F_ACC_TRUNC,
-                             HDF5.H5P_DEFAULT, HDF5.H5P_DEFAULT)
-
-
-    
-    region_dims = Radiation.bounds.hi - Radiation.bounds.lo + {1,1,1}
-    dims[0] = retion_dims[0]
-    dims[1] = retion_dims[1]
-    dims[2] = retion_dims[2]
-
-    dataspace_id = HDF5.H5Screate_simple(3, dims, [&uint64](0)) 
-
-    dataset_id = H5Dcreate2(file_id, "/dset", H5T_NATIVE_DOUBLE, dataspace_id, 
-                            H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-
-    status = H5Dclose(dataset_id);
-    status = H5Sclose(dataspace_id);
-    status = HDF5.H5Fclose(file_id)
-
 end
 
 -------------------------------------------------------------------------------
