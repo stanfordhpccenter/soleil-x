@@ -621,7 +621,6 @@ end
 --     i  = cell index between x_min and x_max
 --         Note: i = 0 has x_min as left face and 
 --               i = Nx-1 has x_max as right face
---               so no ghost cells accounted for here
 -- Output:
 --     location of cell center
 local __demand(__inline)
@@ -642,7 +641,6 @@ end
 --     i  = cell index between x_min and x_max
 --         Note: i = 0 has x_min as negative direction (left) face and 
 --               i = Nx-1 has x_max as positive direction (right) face
---               so no ghost cells accounted for here
 -- Output:
 --     location of face in the negative direction
 local __demand(__inline)
@@ -664,7 +662,6 @@ end
 --     i  = cell index between x_min and x_max
 --         Note: i = 0 has x_min as negative direction (left) face and 
 --               i = Nx-1 has x_max as positive direction (right) face
---               so no ghost cells accounted for here
 -- Output:
 --     location of face in the postive direction
 local __demand(__inline)
@@ -1690,10 +1687,8 @@ do
       var c_bnd = int3d(c)
       var c_int = ((c+{1, 0, 0})%Fluid.bounds)
       var cv = (Flow_gasConstant/(Flow_gamma-1.0))
-
       if NSCBC_inflow_cell then
         var rho = Fluid[c_bnd].rho
-
         var velocity = array(0.0, 0.0, 0.0)
         if BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Constant then
           velocity[0] = BC_xBCLeftInflowProfile_Constant_velocity
@@ -1749,11 +1744,9 @@ do
         else -- BC_xBCLeftHeat_type == SCHEMA.TempProfile_Incoming
           temperature = Fluid[c].temperature_inc
         end
-
         Fluid[c_bnd].rho = rho
         Fluid[c_bnd].rhoVelocity = vs_mul(velocity, rho)
         Fluid[c_bnd].rhoEnergy = rho*((cv*temperature)+(0.5*dot(velocity, velocity)))
-
       else
         var sign = BC_xNegSign
         var bnd_velocity = BC_xNegVelocity
@@ -1769,9 +1762,7 @@ do
           wall_temperature = bnd_temperature
         end
         temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
-
         rho = Fluid[c_int].pressure/(Flow_gasConstant*temperature)
-
         Fluid[c_bnd].rho = rho
         Fluid[c_bnd].rhoVelocity = vs_mul(velocity, rho)
         Fluid[c_bnd].rhoEnergy = rho*((cv*temperature)+(0.5*dot(velocity, velocity)))
@@ -2955,7 +2946,7 @@ do
       var velocityY_XFace   = 0.0
       var velocityZ_XFace   = 0.0
       var temperature_XFace = 0.0
-      if xNegGhost then 
+      if xNegGhost or is_xPosGhost(stencil, Grid_xBnum, Grid_xNum) then
         -- do not use velocity gradients in ghost cells for computing the fluxes 
         velocityX_XFace   = (velocity_stencil[0] - velocity[0]) / xCellWidth
         velocityY_XFace   = (velocity_stencil[1] - velocity[1]) / xCellWidth
@@ -3145,7 +3136,8 @@ do
       var velocityY_YFace   = 0.0
       var velocityZ_YFace   = 0.0
       var temperature_YFace = 0.0
-      if yNegGhost then
+      if yNegGhost or is_yPosGhost(stencil, Grid_yBnum, Grid_yNum) then
+        -- do not use velocity gradients in ghost cells for computing the fluxes 
         velocityX_YFace   = (velocity_stencil[0] - velocity[0]) / yCellWidth
         velocityY_YFace   = (velocity_stencil[1] - velocity[1]) / yCellWidth
         velocityZ_YFace   = (velocity_stencil[2] - velocity[2]) / yCellWidth
@@ -3336,7 +3328,8 @@ do
       var velocityY_ZFace   = 0.0
       var velocityZ_ZFace   = 0.0
       var temperature_ZFace = 0.0
-      if zNegGhost then
+      if zNegGhost or is_zPosGhost(stencil, Grid_zBnum, Grid_zNum) then
+        -- do not use velocity gradients in ghost cells for computing the fluxes 
         velocityX_ZFace   = (velocity_stencil[0] - velocity[0]) / zCellWidth
         velocityY_ZFace   = (velocity_stencil[1] - velocity[1]) / zCellWidth
         velocityZ_ZFace   = (velocity_stencil[2] - velocity[2]) / zCellWidth
@@ -3386,133 +3379,6 @@ do
     end
   end
 end
-
-----__demand(__inline)
---task Flow_UpdateFromConserved(Fluid : region(ispace(int3d), Fluid_columns),
---                              tiles : ispace(int3d),
---                              p_Fluid : partition(disjoint, Fluid, tiles),
---                              config : Config,
---                              Grid_xBnum : int32, Grid_yBnum : int32, Grid_zBnum : int32,
---                              BC_xNegTemperature : double, BC_xPosTemperature : double,
---                              BC_xNegVelocity : double[3], BC_xPosVelocity : double[3],
---                              BC_xNegSign : double[3],     BC_xPosSign : double[3],
---                              BC_yNegTemperature : double, BC_yPosTemperature : double,
---                              BC_yNegVelocity : double[3], BC_yPosVelocity : double[3],
---                              BC_yNegSign : double[3],     BC_yPosSign : double[3],
---                              BC_zNegTemperature : double, BC_zPosTemperature : double, 
---                              BC_zNegVelocity : double[3], BC_zPosVelocity : double[3],
---                              BC_zNegSign : double[3],     BC_zPosSign : double[3])
---where
---  reads(Fluid),
---  writes(Fluid)
---do
---
---    Flow_UpdateAuxiliaryVelocity(Fluid,
---                                 config,
---                                 config.Flow.constantVisc,
---                                 config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
---                                 config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
---                                 config.Flow.viscosityModel,
---                                 Grid_xBnum, config.Grid.xNum,
---                                 Grid_yBnum, config.Grid.yNum,
---                                 Grid_zBnum, config.Grid.zNum)
---    for c in tiles do
---      Flow_UpdateGhostVelocity(p_Fluid[c],
---                               config,
---                               BC_xNegVelocity, BC_xPosVelocity, BC_xNegSign, BC_xPosSign,
---                               BC_yNegVelocity, BC_yPosVelocity, BC_yNegSign, BC_yPosSign,
---                               BC_zNegVelocity, BC_zPosVelocity, BC_zNegSign, BC_zPosSign,
---                               Grid_xBnum, config.Grid.xNum,
---                               Grid_yBnum, config.Grid.yNum,
---                               Grid_zBnum, config.Grid.zNum)
---    end
---    Flow_UpdateAuxiliaryThermodynamics(Fluid,
---                                       config,
---                                       config.Flow.gamma,
---                                       config.Flow.gasConstant,
---                                       Grid_xBnum, config.Grid.xNum,
---                                       Grid_yBnum, config.Grid.yNum,
---                                       Grid_zBnum, config.Grid.zNum)
---    for c in tiles do
---      Flow_UpdateGhostThermodynamics(p_Fluid[c],
---                                     config,
---                                     config.Flow.gamma,
---                                     config.Flow.gasConstant,
---                                     Grid_xBnum, config.Grid.xNum,
---                                     Grid_yBnum, config.Grid.yNum,
---                                     Grid_zBnum, config.Grid.zNum)
---    end
---
---    for c in tiles do
---      Flow_UpdateGhostConserved(p_Fluid[c],
---                                config,
---                                BC_xNegTemperature, BC_xPosTemperature, BC_xNegVelocity, BC_xPosVelocity, BC_xNegSign, BC_xPosSign,
---                                BC_yNegTemperature, BC_yPosTemperature, BC_yNegVelocity, BC_yPosVelocity, BC_yNegSign, BC_yPosSign,
---                                BC_zNegTemperature, BC_zPosTemperature, BC_zNegVelocity, BC_zPosVelocity, BC_zNegSign, BC_zPosSign,
---                                config.Flow.gamma, config.Flow.gasConstant,
---                                config.Flow.constantVisc,
---                                config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
---                                config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
---                                config.Flow.viscosityModel,
---                                Grid_xBnum, config.Grid.xNum,
---                                Grid_yBnum, config.Grid.yNum,
---                                Grid_zBnum, config.Grid.zNum)
---    end
---
---    Flow_ComputeGradients(Fluid,
---                          config,
---                          Grid_xBnum, config.Grid.xNum,
---                          Grid_yBnum, config.Grid.yNum,
---                          Grid_zBnum, config.Grid.zNum)
---
---    for c in tiles do
---      Flow_UpdateGhostGradients(p_Fluid[c],
---                                config,
---                                BC_xNegSign, BC_yNegSign, BC_zNegSign,
---                                BC_xPosSign, BC_yPosSign, BC_zPosSign,
---                                Grid_xBnum, config.Grid.xNum,
---                                Grid_yBnum, config.Grid.yNum,
---                                Grid_zBnum, config.Grid.zNum)
---    end
---
---    -- Compute fluxes
---    Flow_GetFluxX(Fluid,
---                  config,
---                  config.Flow.constantVisc,
---                  config.Flow.gamma, config.Flow.gasConstant,
---                  config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
---                  config.Flow.prandtl,
---                  config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
---                  config.Flow.viscosityModel,
---                  Grid_xBnum, config.Grid.xNum,
---                  Grid_yBnum, config.Grid.yNum,
---                  Grid_zBnum, config.Grid.zNum)
---    Flow_GetFluxY(Fluid,
---                  config,
---                  config.Flow.constantVisc,
---                  config.Flow.gamma, config.Flow.gasConstant,
---                  config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
---                  config.Flow.prandtl,
---                  config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
---                  config.Flow.viscosityModel,
---                  Grid_xBnum, config.Grid.xNum,
---                  Grid_yBnum, config.Grid.yNum,
---                  Grid_zBnum, config.Grid.zNum)
---    Flow_GetFluxZ(Fluid,
---                  config,
---                  config.Flow.constantVisc,
---                  config.Flow.gamma, config.Flow.gasConstant,
---                  config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
---                  config.Flow.prandtl,
---                  config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
---                  config.Flow.viscosityModel,
---                  Grid_xBnum, config.Grid.xNum,
---                  Grid_yBnum, config.Grid.yNum,
---                  Grid_zBnum, config.Grid.zNum)
---
---end
-
-
 
 __demand(__parallel, __cuda)
 task Flow_UpdateUsingFluxX(Fluid : region(ispace(int3d), Fluid_columns),
@@ -4003,8 +3869,7 @@ task Flow_UpdateDissipationX(Fluid : region(ispace(int3d), Fluid_columns),
                              Grid_yBnum : int32, Grid_yNum : int32,
                              Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.{cellWidth}),
-  reads(Fluid.{cellWidth,dissipationFlux}),
+  reads(Fluid.{cellWidth, dissipationFlux}),
   reads writes(Fluid.dissipation)
 do
   __demand(__openmp)
@@ -4732,13 +4597,7 @@ do
           p2 <= CopyQueue.bounds.hi,
           'Ran out of space in cross-section particles copy queue')
 
-        --CopyQueue[p2].position =
-        --  vv_add(copyTgtOrigin, vv_mul(Fluid1_cellWidth,
-        --    vv_div(vv_sub(p1.position, copySrcOrigin), Fluid0_cellWidth)))
-
-        CopyQueue[p2].position =
-          vv_add(copyTgtOrigin, vv_sub(p1.position, copySrcOrigin))
-
+        CopyQueue[p2].position = vv_add(copyTgtOrigin, vv_sub(p1.position, copySrcOrigin))
         CopyQueue[p2].velocity = p1.velocity
         CopyQueue[p2].temperature = p1.temperature
         CopyQueue[p2].diameter = p1.diameter
@@ -5456,7 +5315,7 @@ task Radiation_UpdateFieldValues(Radiation : region(ispace(int3d), Radiation_col
                                  Radiation_qa : double,
                                  Radiation_qs : double)
 where
-  reads(Radiation.{acc_d2, acc_d2t4, cellWidth}),
+  reads(Radiation.{cellWidth, acc_d2, acc_d2t4}),
   writes(Radiation.{Ib, sigma})
 do
   __demand(__openmp)
@@ -6508,21 +6367,6 @@ local function mkInstance() local INSTANCE = {}
     --- end of Flow_UpdateFromConserved tasks ---
     ----------------------------------------
 
---    Flow_UpdateFromConserved(Fluid,
---                             tiles,
---                             p_Fluid,
---                             config,
---                             Grid.xBnum, Grid.yBnum, Grid.zBnum,
---                             BC.xNegTemperature, BC_xPosTemperature,
---                             BC.xNegVelocity,    BC_xPosVelocity,
---                             BC.xNegSign,        BC_xPosSign,
---                             BC.yNegTemperature, BC_yPosTemperature,
---                             BC.yNegVelocity,    BC_yPosVelocity,
---                             BC.yNegSign,        BC_yPosSign,
---                             BC.zNegTemperature, BC_zPosTemperature, 
---                             BC.zNegVelocity,    BC_zPosVelocity,
---                             BC.zNegSign,        BC_zPosSign)
-
     -- Initialize particles
     if config.Particles.initCase == SCHEMA.ParticlesInitCase_Random then
       regentlib.assert(false, "Random particle initialization is disabled")
@@ -6725,7 +6569,6 @@ local function mkInstance() local INSTANCE = {}
     -- RK sub-time-stepping loop
     var Integrator_time_old = Integrator_simTime
     for Integrator_stage = 1,config.Integrator.rkOrder+1 do
-
 
       -- Initialize conserved derivatives to 0
       Flow_InitializeTimeDerivatives(Fluid)
@@ -7023,21 +6866,6 @@ local function mkInstance() local INSTANCE = {}
       ---------------------------------------------
       --- end of Flow_UpdateFromConserved tasks ---
       ---------------------------------------------
-
---      Flow_UpdateFromConserved(Fluid,
---                               tiles,
---                               p_Fluid,
---                               config,
---                               Grid.xBnum, Grid.yBnum, Grid.zBnum,
---                               BC.xNegTemperature, BC_xPosTemperature,
---                               BC.xNegVelocity,    BC_xPosVelocity,
---                               BC.xNegSign,        BC_xPosSign,
---                               BC.yNegTemperature, BC_yPosTemperature,
---                               BC.yNegVelocity,    BC_yPosVelocity,
---                               BC.yNegSign,        BC_yPosSign,
---                               BC.zNegTemperature, BC_zPosTemperature, 
---                               BC.zNegVelocity,    BC_zPosVelocity,
---                               BC.zNegSign,        BC_zPosSign)
 
       -- Particle movement post-processing
       if Integrator_timeStep % config.Particles.staggerFactor == 0 then

@@ -21,7 +21,7 @@ else :
     sys.exit(2)
 
 
-dir_name = os.path.join(os.environ['SOLEIL_DIR'], 'testcases/verification/poiseuille')
+dir_name = os.path.join(os.environ['SOLEIL_DIR'], 'testcases/verification/fluid/poiseuille')
 
 soleil_input_file = os.path.join(dir_name, 'poiseuille.json')
 hdf_filename = filename
