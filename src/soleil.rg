@@ -6256,9 +6256,6 @@ local function mkInstance() local INSTANCE = {}
                                       Grid.yBnum, config.Grid.yNum,
                                       Grid.zBnum, config.Grid.zNum)
 
-    -----------------------------------------------
-    --- start or Flow_UpdateFromConserved tasks ---
-    -----------------------------------------------
     Flow_UpdateAuxiliaryVelocity(Fluid,
                                  config,
                                  config.Flow.constantVisc,
@@ -6310,62 +6307,6 @@ local function mkInstance() local INSTANCE = {}
                                 Grid.yBnum, config.Grid.yNum,
                                 Grid.zBnum, config.Grid.zNum)
     end
-
-    -- Compute velocity gradients
-    Flow_ComputeGradients(Fluid,
-                          config,
-                          Grid.xBnum, config.Grid.xNum,
-                          Grid.yBnum, config.Grid.yNum,
-                          Grid.zBnum, config.Grid.zNum)
-
-    for c in tiles do
-      Flow_UpdateGhostGradients(p_Fluid[c],
-                                config,
-                                BC.xNegSign, BC.yNegSign, BC.zNegSign,
-                                BC.xPosSign, BC.yPosSign, BC.zPosSign,
-                                Grid.xBnum, config.Grid.xNum,
-                                Grid.yBnum, config.Grid.yNum,
-                                Grid.zBnum, config.Grid.zNum)
-    end
-
-    -- Compute fluxes
-    Flow_GetFluxX(Fluid,
-                  config,
-                  config.Flow.constantVisc,
-                  config.Flow.gamma, config.Flow.gasConstant,
-                  config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                  config.Flow.prandtl,
-                  config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                  config.Flow.viscosityModel,
-                  Grid.xBnum, config.Grid.xNum,
-                  Grid.yBnum, config.Grid.yNum,
-                  Grid.zBnum, config.Grid.zNum)
-    Flow_GetFluxY(Fluid,
-                  config,
-                  config.Flow.constantVisc,
-                  config.Flow.gamma, config.Flow.gasConstant,
-                  config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                  config.Flow.prandtl,
-                  config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                  config.Flow.viscosityModel,
-                  Grid.xBnum, config.Grid.xNum,
-                  Grid.yBnum, config.Grid.yNum,
-                  Grid.zBnum, config.Grid.zNum)
-    Flow_GetFluxZ(Fluid,
-                  config,
-                  config.Flow.constantVisc,
-                  config.Flow.gamma, config.Flow.gasConstant,
-                  config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                  config.Flow.prandtl,
-                  config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                  config.Flow.viscosityModel,
-                  Grid.xBnum, config.Grid.xNum,
-                  Grid.yBnum, config.Grid.yNum,
-                  Grid.zBnum, config.Grid.zNum)
-
-    ----------------------------------------
-    --- end of Flow_UpdateFromConserved tasks ---
-    ----------------------------------------
 
     -- Initialize particles
     if config.Particles.initCase == SCHEMA.ParticlesInitCase_Random then
@@ -6570,6 +6511,58 @@ local function mkInstance() local INSTANCE = {}
     var Integrator_time_old = Integrator_simTime
     for Integrator_stage = 1,config.Integrator.rkOrder+1 do
 
+      -- Compute velocity gradients
+      Flow_ComputeGradients(Fluid,
+                            config,
+                            Grid.xBnum, config.Grid.xNum,
+                            Grid.yBnum, config.Grid.yNum,
+                            Grid.zBnum, config.Grid.zNum)
+
+      for c in tiles do
+        Flow_UpdateGhostGradients(p_Fluid[c],
+                                  config,
+                                  BC.xNegSign, BC.yNegSign, BC.zNegSign,
+                                  BC.xPosSign, BC.yPosSign, BC.zPosSign,
+                                  Grid.xBnum, config.Grid.xNum,
+                                  Grid.yBnum, config.Grid.yNum,
+                                  Grid.zBnum, config.Grid.zNum)
+      end
+
+      -- Compute fluxes
+      Flow_GetFluxX(Fluid,
+                    config,
+                    config.Flow.constantVisc,
+                    config.Flow.gamma, config.Flow.gasConstant,
+                    config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                    config.Flow.prandtl,
+                    config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                    config.Flow.viscosityModel,
+                    Grid.xBnum, config.Grid.xNum,
+                    Grid.yBnum, config.Grid.yNum,
+                    Grid.zBnum, config.Grid.zNum)
+      Flow_GetFluxY(Fluid,
+                    config,
+                    config.Flow.constantVisc,
+                    config.Flow.gamma, config.Flow.gasConstant,
+                    config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                    config.Flow.prandtl,
+                    config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                    config.Flow.viscosityModel,
+                    Grid.xBnum, config.Grid.xNum,
+                    Grid.yBnum, config.Grid.yNum,
+                    Grid.zBnum, config.Grid.zNum)
+      Flow_GetFluxZ(Fluid,
+                    config,
+                    config.Flow.constantVisc,
+                    config.Flow.gamma, config.Flow.gasConstant,
+                    config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                    config.Flow.prandtl,
+                    config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                    config.Flow.viscosityModel,
+                    Grid.xBnum, config.Grid.xNum,
+                    Grid.yBnum, config.Grid.yNum,
+                    Grid.zBnum, config.Grid.zNum)
+
       -- Initialize conserved derivatives to 0
       Flow_InitializeTimeDerivatives(Fluid)
 
@@ -6759,9 +6752,6 @@ local function mkInstance() local INSTANCE = {}
                              config)
       end
 
-      -----------------------------------------------
-      --- start or Flow_UpdateFromConserved tasks ---
-      -----------------------------------------------
       Flow_UpdateAuxiliaryVelocity(Fluid,
                                    config,
                                    config.Flow.constantVisc,
@@ -6813,59 +6803,6 @@ local function mkInstance() local INSTANCE = {}
                                   Grid.yBnum, config.Grid.yNum,
                                   Grid.zBnum, config.Grid.zNum)
       end
-
-      Flow_ComputeGradients(Fluid,
-                            config,
-                            Grid.xBnum, config.Grid.xNum,
-                            Grid.yBnum, config.Grid.yNum,
-                            Grid.zBnum, config.Grid.zNum)
-
-      for c in tiles do
-        Flow_UpdateGhostGradients(p_Fluid[c],
-                                  config,
-                                  BC.xNegSign, BC.yNegSign, BC.zNegSign,
-                                  BC.xPosSign, BC.yPosSign, BC.zPosSign,
-                                  Grid.xBnum, config.Grid.xNum,
-                                  Grid.yBnum, config.Grid.yNum,
-                                  Grid.zBnum, config.Grid.zNum)
-      end
-
-      Flow_GetFluxX(Fluid,
-                    config,
-                    config.Flow.constantVisc,
-                    config.Flow.gamma, config.Flow.gasConstant,
-                    config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                    config.Flow.prandtl,
-                    config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                    config.Flow.viscosityModel,
-                    Grid.xBnum, config.Grid.xNum,
-                    Grid.yBnum, config.Grid.yNum,
-                    Grid.zBnum, config.Grid.zNum)
-      Flow_GetFluxY(Fluid,
-                    config,
-                    config.Flow.constantVisc,
-                    config.Flow.gamma, config.Flow.gasConstant,
-                    config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                    config.Flow.prandtl,
-                    config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                    config.Flow.viscosityModel,
-                    Grid.xBnum, config.Grid.xNum,
-                    Grid.yBnum, config.Grid.yNum,
-                    Grid.zBnum, config.Grid.zNum)
-      Flow_GetFluxZ(Fluid,
-                    config,
-                    config.Flow.constantVisc,
-                    config.Flow.gamma, config.Flow.gasConstant,
-                    config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                    config.Flow.prandtl,
-                    config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                    config.Flow.viscosityModel,
-                    Grid.xBnum, config.Grid.xNum,
-                    Grid.yBnum, config.Grid.yNum,
-                    Grid.zBnum, config.Grid.zNum)
-      ---------------------------------------------
-      --- end of Flow_UpdateFromConserved tasks ---
-      ---------------------------------------------
 
       -- Particle movement post-processing
       if Integrator_timeStep % config.Particles.staggerFactor == 0 then
