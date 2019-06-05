@@ -799,6 +799,670 @@ end
 -------------------------------------------------------------------------------
 
 __demand(__inline)
+task locate(pos : double[3],
+            Grid_xType : SCHEMA.GridType, Grid_yType : SCHEMA.GridType, Grid_zType : SCHEMA.GridType,
+            Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
+            Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
+            Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
+
+  var xidx = 0
+  if (Grid_xType == SCHEMA.GridType_Uniform) then
+    var xcw = Grid_xWidth/Grid_xNum
+    var xro = Grid_xOrigin-Grid_xBnum*xcw
+    var xpos = floor((pos[0]-xro)/xcw)
+    var xrnum = Grid_xNum+2*Grid_xBnum
+    var xidx = max(0, min(xrnum-1, xpos))
+  elseif (Grid_xType == SCHEMA.GridType_Stretched) then
+    var x_neg_boundary = Grid_xOrigin
+    var x_pos_boundary = Grid_xOrigin + Grid_xWidth
+    -- assumes only one ghost cell in each direction
+    if pos[0] < x_neg_boundary then
+      xidx = 0
+    elseif pos[0] > x_pos_boundary then
+      xidx = (Grid_xNum + 2*Grid_xBnum) - 1
+    else
+      -- brute force search in interior cells
+      for xidx_interior=0,(Grid_xNum+Grid_xBnum) do
+        if (pos[0]>nonuniform_cell_neg_face(x_neg_boundary, x_pos_boundary, Grid_xNum, xidx_interior)) and
+           (pos[0]<nonuniform_cell_pos_face(x_neg_boundary, x_pos_boundary, Grid_xNum, xidx_interior)) then
+          -- Convert from interior index back to global index (accounts for ghost cells)
+          xidx = (xidx_interior + Grid_xBnum)
+          break
+        end 
+      end
+    end
+  end
+
+  var yidx = 0
+  if (Grid_yType == SCHEMA.GridType_Uniform) then
+    var ycw = Grid_yWidth/Grid_yNum
+    var yro = Grid_yOrigin-Grid_yBnum*ycw
+    var ypos = floor((pos[1]-yro)/ycw)
+    var yrnum = Grid_yNum+2*Grid_yBnum
+    var yidx = max(0, min(yrnum-1, ypos))
+  elseif (Grid_yType == SCHEMA.GridType_Stretched) then
+    var y_neg_boundary = Grid_yOrigin
+    var y_pos_boundary = Grid_yOrigin + Grid_yWidth
+    -- assumes only one ghost cell in each direction
+    if pos[1] < y_neg_boundary then
+      yidx = 0
+    elseif pos[1] > y_pos_boundary then
+      yidx = (Grid_yNum + 2*Grid_yBnum) - 1
+    else
+      -- brute force search in interior cells
+      for yidx_interior=0,(Grid_yNum+Grid_yBnum) do
+        if (pos[1]>nonuniform_cell_neg_face(y_neg_boundary, y_pos_boundary, Grid_yNum, yidx_interior)) and
+           (pos[1]<nonuniform_cell_pos_face(y_neg_boundary, y_pos_boundary, Grid_yNum, yidx_interior)) then
+          -- Convert from interior index back to global index (accounts for ghost cells)
+          yidx = (yidx_interior + Grid_yBnum)
+          break
+        end 
+      end
+    end
+  end
+
+  var zidx = 0
+  if (Grid_zType == SCHEMA.GridType_Uniform) then
+    var zcw = Grid_zWidth/Grid_zNum
+    var zro = Grid_zOrigin-Grid_zBnum*zcw
+    var zpos = floor((pos[2]-zro)/zcw)
+    var zrnum = Grid_zNum+2*Grid_zBnum
+    var zidx = max(0, min(zrnum-1, zpos))
+  elseif (Grid_zType == SCHEMA.GridType_Stretched) then
+    var z_neg_boundary = Grid_zOrigin
+    var z_pos_boundary = Grid_zOrigin + Grid_zWidth
+    -- assumes only one ghost cell in each direction
+    if pos[2] < z_neg_boundary then
+      zidx = 0
+    elseif pos[2] > z_pos_boundary then
+      zidx = (Grid_zNum + 2*Grid_zBnum) - 1
+    else
+      -- brute force search in interior cells
+      for zidx_interior=0,(Grid_zNum+Grid_zBnum) do
+        if (pos[2]>nonuniform_cell_neg_face(z_neg_boundary, z_pos_boundary, Grid_zNum, zidx_interior)) and
+           (pos[2]<nonuniform_cell_pos_face(z_neg_boundary, z_pos_boundary, Grid_zNum, zidx_interior)) then
+          -- Convert from interior index back to global index (accounts for ghost cells)
+          zidx = (zidx_interior + Grid_zBnum)
+          break
+        end 
+      end
+    end
+  end
+
+  return int3d{xidx, yidx, zidx}
+end
+
+__demand(__inline)
+task TrilinearInterpolateVector(xyz : double[3],
+                                c000 : double[3],
+                                c100 : double[3],
+                                c010 : double[3],
+                                c110 : double[3],
+                                c001 : double[3],
+                                c101 : double[3],
+                                c011 : double[3],
+                                c111 : double[3],
+                                xyz000 : double[3],
+                                xyz100 : double[3],
+                                xyz010 : double[3],
+                                xyz110 : double[3],
+                                xyz001 : double[3],
+                                xyz101 : double[3],
+                                xyz011 : double[3],
+                                xyz111 : double[3])
+
+  var dX = (xyz[0] - xyz000[0])/(xyz100[0] - xyz000[0])
+  var dY = (xyz[1] - xyz000[1])/(xyz010[1] - xyz000[1])
+  var dZ = (xyz[2] - xyz000[2])/(xyz001[2] - xyz000[2])
+
+  var oneMinusdX = (1.0-dX)
+  var oneMinusdY = (1.0-dY)
+  var oneMinusdZ = (1.0-dZ)
+
+  var weight00 = vv_add(vs_mul(c000, oneMinusdX), vs_mul(c100, dX))
+  var weight10 = vv_add(vs_mul(c010, oneMinusdX), vs_mul(c110, dX))
+  var weight01 = vv_add(vs_mul(c001, oneMinusdX), vs_mul(c101, dX))
+  var weight11 = vv_add(vs_mul(c011, oneMinusdX), vs_mul(c111, dX))
+
+  var weight0 =  vv_add(vs_mul(weight00, oneMinusdY), vs_mul(weight10, dY))
+  var weight1 =  vv_add(vs_mul(weight01, oneMinusdY), vs_mul(weight11, dY))
+
+  return vv_add(vs_mul(weight0, oneMinusdZ), vs_mul(weight1, dZ))
+end
+
+__demand(__inline)
+task InterpolateTriVelocity(c : int3d,
+                            xyz : double[3],
+                            Fluid : region(ispace(int3d), Fluid_columns))
+where
+  reads(Fluid.{centerCoordinates, velocity})
+do
+
+  var velocity000 = Fluid[c].velocity
+  var velocity001 = Fluid[(c+{ 0, 0, 1})%Fluid.bounds].velocity
+  var velocity00_ = Fluid[(c+{ 0, 0,-1})%Fluid.bounds].velocity
+  var velocity010 = Fluid[(c+{ 0, 1, 0})%Fluid.bounds].velocity
+  var velocity011 = Fluid[(c+{ 0, 1, 1})%Fluid.bounds].velocity
+  var velocity01_ = Fluid[(c+{ 0, 1,-1})%Fluid.bounds].velocity
+  var velocity0_0 = Fluid[(c+{ 0,-1, 0})%Fluid.bounds].velocity
+  var velocity0_1 = Fluid[(c+{ 0,-1, 1})%Fluid.bounds].velocity
+  var velocity0__ = Fluid[(c+{ 0,-1,-1})%Fluid.bounds].velocity
+
+  var velocity100 = Fluid[(c+{ 1, 0, 0})%Fluid.bounds].velocity
+  var velocity101 = Fluid[(c+{ 1, 0, 1})%Fluid.bounds].velocity
+  var velocity10_ = Fluid[(c+{ 1, 0,-1})%Fluid.bounds].velocity
+  var velocity110 = Fluid[(c+{ 1, 1, 0})%Fluid.bounds].velocity
+  var velocity111 = Fluid[(c+{ 1, 1, 1})%Fluid.bounds].velocity
+  var velocity11_ = Fluid[(c+{ 1, 1,-1})%Fluid.bounds].velocity
+  var velocity1_0 = Fluid[(c+{ 1,-1, 0})%Fluid.bounds].velocity
+  var velocity1_1 = Fluid[(c+{ 1,-1, 1})%Fluid.bounds].velocity
+  var velocity1__ = Fluid[(c+{ 1,-1,-1})%Fluid.bounds].velocity
+
+  var velocity_00 = Fluid[(c+{-1, 0, 0})%Fluid.bounds].velocity
+  var velocity_01 = Fluid[(c+{-1, 0, 1})%Fluid.bounds].velocity
+  var velocity_0_ = Fluid[(c+{-1, 0,-1})%Fluid.bounds].velocity
+  var velocity_10 = Fluid[(c+{-1, 1, 0})%Fluid.bounds].velocity
+  var velocity_11 = Fluid[(c+{-1, 1, 1})%Fluid.bounds].velocity
+  var velocity_1_ = Fluid[(c+{-1, 1,-1})%Fluid.bounds].velocity
+  var velocity__0 = Fluid[(c+{-1,-1, 0})%Fluid.bounds].velocity
+  var velocity__1 = Fluid[(c+{-1,-1, 1})%Fluid.bounds].velocity
+  var velocity___ = Fluid[(c+{-1,-1,-1})%Fluid.bounds].velocity
+
+
+  var centerCoordinates000 = Fluid[c].centerCoordinates
+  var centerCoordinates001 = Fluid[(c+{ 0, 0, 1})%Fluid.bounds].centerCoordinates
+  var centerCoordinates00_ = Fluid[(c+{ 0, 0,-1})%Fluid.bounds].centerCoordinates
+  var centerCoordinates010 = Fluid[(c+{ 0, 1, 0})%Fluid.bounds].centerCoordinates
+  var centerCoordinates011 = Fluid[(c+{ 0, 1, 1})%Fluid.bounds].centerCoordinates
+  var centerCoordinates01_ = Fluid[(c+{ 0, 1,-1})%Fluid.bounds].centerCoordinates
+  var centerCoordinates0_0 = Fluid[(c+{ 0,-1, 0})%Fluid.bounds].centerCoordinates
+  var centerCoordinates0_1 = Fluid[(c+{ 0,-1, 1})%Fluid.bounds].centerCoordinates
+  var centerCoordinates0__ = Fluid[(c+{ 0,-1,-1})%Fluid.bounds].centerCoordinates
+
+  var centerCoordinates100 = Fluid[(c+{ 1, 0, 0})%Fluid.bounds].centerCoordinates
+  var centerCoordinates101 = Fluid[(c+{ 1, 0, 1})%Fluid.bounds].centerCoordinates
+  var centerCoordinates10_ = Fluid[(c+{ 1, 0,-1})%Fluid.bounds].centerCoordinates
+  var centerCoordinates110 = Fluid[(c+{ 1, 1, 0})%Fluid.bounds].centerCoordinates
+  var centerCoordinates111 = Fluid[(c+{ 1, 1, 1})%Fluid.bounds].centerCoordinates
+  var centerCoordinates11_ = Fluid[(c+{ 1, 1,-1})%Fluid.bounds].centerCoordinates
+  var centerCoordinates1_0 = Fluid[(c+{ 1,-1, 0})%Fluid.bounds].centerCoordinates
+  var centerCoordinates1_1 = Fluid[(c+{ 1,-1, 1})%Fluid.bounds].centerCoordinates
+  var centerCoordinates1__ = Fluid[(c+{ 1,-1,-1})%Fluid.bounds].centerCoordinates
+
+  var centerCoordinates_00 = Fluid[(c+{-1, 0, 0})%Fluid.bounds].centerCoordinates
+  var centerCoordinates_01 = Fluid[(c+{-1, 0, 1})%Fluid.bounds].centerCoordinates
+  var centerCoordinates_0_ = Fluid[(c+{-1, 0,-1})%Fluid.bounds].centerCoordinates
+  var centerCoordinates_10 = Fluid[(c+{-1, 1, 0})%Fluid.bounds].centerCoordinates
+  var centerCoordinates_11 = Fluid[(c+{-1, 1, 1})%Fluid.bounds].centerCoordinates
+  var centerCoordinates_1_ = Fluid[(c+{-1, 1,-1})%Fluid.bounds].centerCoordinates
+  var centerCoordinates__0 = Fluid[(c+{-1,-1, 0})%Fluid.bounds].centerCoordinates
+  var centerCoordinates__1 = Fluid[(c+{-1,-1, 1})%Fluid.bounds].centerCoordinates
+  var centerCoordinates___ = Fluid[(c+{-1,-1,-1})%Fluid.bounds].centerCoordinates
+
+  var v000 = array(0.0, 0.0, 0.0)
+  var v001 = array(0.0, 0.0, 0.0)
+  var v010 = array(0.0, 0.0, 0.0)
+  var v011 = array(0.0, 0.0, 0.0)
+  var v100 = array(0.0, 0.0, 0.0)
+  var v101 = array(0.0, 0.0, 0.0)
+  var v110 = array(0.0, 0.0, 0.0)
+  var v111 = array(0.0, 0.0, 0.0)
+
+  var xyz000 = array(0.0, 0.0, 0.0)
+  var xyz001 = array(0.0, 0.0, 0.0)
+  var xyz010 = array(0.0, 0.0, 0.0)
+  var xyz011 = array(0.0, 0.0, 0.0)
+  var xyz100 = array(0.0, 0.0, 0.0)
+  var xyz101 = array(0.0, 0.0, 0.0)
+  var xyz110 = array(0.0, 0.0, 0.0)
+  var xyz111 = array(0.0, 0.0, 0.0)
+
+  if (xyz[0]>Fluid[c].centerCoordinates[0]) then
+    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = velocity000
+        v001 = velocity001
+        v010 = velocity010
+        v011 = velocity011
+        v100 = velocity100
+        v101 = velocity101
+        v110 = velocity110
+        v111 = velocity111
+
+        xyz000 = centerCoordinates000
+        xyz001 = centerCoordinates001
+        xyz010 = centerCoordinates010
+        xyz011 = centerCoordinates011
+        xyz100 = centerCoordinates100
+        xyz101 = centerCoordinates101
+        xyz110 = centerCoordinates110
+        xyz111 = centerCoordinates111
+      else
+        v000 = velocity00_
+        v001 = velocity000
+        v010 = velocity01_
+        v011 = velocity010
+        v100 = velocity10_
+        v101 = velocity100
+        v110 = velocity11_
+        v111 = velocity110
+
+        xyz000 = centerCoordinates00_
+        xyz001 = centerCoordinates000
+        xyz010 = centerCoordinates01_
+        xyz011 = centerCoordinates010
+        xyz100 = centerCoordinates10_
+        xyz101 = centerCoordinates100
+        xyz110 = centerCoordinates11_
+        xyz111 = centerCoordinates110
+      end
+    else
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = velocity0_0
+        v001 = velocity0_1
+        v010 = velocity000
+        v011 = velocity001
+        v100 = velocity1_0
+        v101 = velocity1_1
+        v110 = velocity100
+        v111 = velocity101
+
+        xyz000 = centerCoordinates0_0
+        xyz001 = centerCoordinates0_1
+        xyz010 = centerCoordinates000
+        xyz011 = centerCoordinates001
+        xyz100 = centerCoordinates1_0
+        xyz101 = centerCoordinates1_1
+        xyz110 = centerCoordinates100
+        xyz111 = centerCoordinates101
+      else
+        v000 = velocity0__
+        v001 = velocity0_0
+        v010 = velocity00_
+        v011 = velocity000
+        v100 = velocity1__
+        v101 = velocity1_0
+        v110 = velocity10_
+        v111 = velocity100
+
+        xyz000 = centerCoordinates0__
+        xyz001 = centerCoordinates0_0
+        xyz010 = centerCoordinates00_
+        xyz011 = centerCoordinates000
+        xyz100 = centerCoordinates1__
+        xyz101 = centerCoordinates1_0
+        xyz110 = centerCoordinates10_
+        xyz111 = centerCoordinates100
+      end
+    end
+  else
+    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = velocity_00
+        v001 = velocity_01
+        v010 = velocity_10
+        v011 = velocity_11
+        v100 = velocity000
+        v101 = velocity001
+        v110 = velocity010
+        v111 = velocity011
+
+        xyz000 = centerCoordinates_00
+        xyz001 = centerCoordinates_01
+        xyz010 = centerCoordinates_10
+        xyz011 = centerCoordinates_11
+        xyz100 = centerCoordinates000
+        xyz101 = centerCoordinates001
+        xyz110 = centerCoordinates010
+        xyz111 = centerCoordinates011
+      else       
+        v000 = velocity_0_
+        v001 = velocity_00
+        v010 = velocity_1_
+        v011 = velocity_10
+        v100 = velocity00_
+        v101 = velocity000
+        v110 = velocity01_
+        v111 = velocity010
+
+        xyz000 = centerCoordinates_0_
+        xyz001 = centerCoordinates_00
+        xyz010 = centerCoordinates_1_
+        xyz011 = centerCoordinates_10
+        xyz100 = centerCoordinates00_
+        xyz101 = centerCoordinates000
+        xyz110 = centerCoordinates01_
+        xyz111 = centerCoordinates010
+      end
+    else
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = velocity__0
+        v001 = velocity__1
+        v010 = velocity_00
+        v011 = velocity_01
+        v100 = velocity0_0
+        v101 = velocity0_1
+        v110 = velocity000
+        v111 = velocity001
+
+        xyz000 = centerCoordinates__0
+        xyz001 = centerCoordinates__1
+        xyz010 = centerCoordinates_00
+        xyz011 = centerCoordinates_01
+        xyz100 = centerCoordinates0_0
+        xyz101 = centerCoordinates0_1
+        xyz110 = centerCoordinates000
+        xyz111 = centerCoordinates001
+      else
+        v000 = velocity___
+        v001 = velocity__0
+        v010 = velocity_0_
+        v011 = velocity_00
+        v100 = velocity0__
+        v101 = velocity0_0
+        v110 = velocity00_
+        v111 = velocity000
+
+        xyz000 = centerCoordinates___
+        xyz001 = centerCoordinates__0
+        xyz010 = centerCoordinates_0_
+        xyz011 = centerCoordinates_00
+        xyz100 = centerCoordinates0__
+        xyz101 = centerCoordinates0_0
+        xyz110 = centerCoordinates00_
+        xyz111 = centerCoordinates000
+      end
+    end
+  end
+
+  return TrilinearInterpolateVector(xyz, v000, v100, v010, v110, v001, v101, v011, v111, xyz000, xyz100, xyz010, xyz110, xyz001, xyz101, xyz011, xyz111)
+end
+
+__demand(__inline)
+task TrilinearInterpolateScalar(xyz : double[3],
+                              c000 : double,
+                              c100 : double,
+                              c010 : double,
+                              c110 : double,
+                              c001 : double,
+                              c101 : double,
+                              c011 : double,
+                              c111 : double,
+                              xyz000 : double[3],
+                              xyz100 : double[3],
+                              xyz010 : double[3],
+                              xyz110 : double[3],
+                              xyz001 : double[3],
+                              xyz101 : double[3],
+                              xyz011 : double[3],
+                              xyz111 : double[3])
+
+  var dX = (xyz[0] - xyz000[0])/(xyz100[0] - xyz000[0])
+  var dY = (xyz[1] - xyz000[1])/(xyz010[1] - xyz000[1])
+  var dZ = (xyz[2] - xyz000[2])/(xyz001[2] - xyz000[2])
+
+  var oneMinusdX = (1.0-dX)
+  var oneMinusdY = (1.0-dY)
+  var oneMinusdZ = (1.0-dZ)
+
+  var weight00 = ((c000*oneMinusdX)+(c100*dX))
+  var weight10 = ((c010*oneMinusdX)+(c110*dX))
+  var weight01 = ((c001*oneMinusdX)+(c101*dX))
+  var weight11 = ((c011*oneMinusdX)+(c111*dX))
+
+  var weight0 = ((weight00*oneMinusdY)+(weight10*dY))
+  var weight1 = ((weight01*oneMinusdY)+(weight11*dY))
+
+  return ((weight0*oneMinusdZ)+(weight1*dZ))
+end
+
+__demand(__inline)
+task InterpolateTriTemp(c : int3d,
+                        xyz : double[3],
+                        Fluid : region(ispace(int3d), Fluid_columns))
+where
+  reads(Fluid.{centerCoordinates, temperature})
+do
+  var temperature000 = Fluid[c].temperature
+  var temperature001 = Fluid[((c+{ 0, 0, 1})%Fluid.bounds)].temperature
+  var temperature00_ = Fluid[((c+{ 0, 0,-1})%Fluid.bounds)].temperature
+  var temperature010 = Fluid[((c+{ 0, 1, 0})%Fluid.bounds)].temperature
+  var temperature011 = Fluid[((c+{ 0, 1, 1})%Fluid.bounds)].temperature
+  var temperature01_ = Fluid[((c+{ 0, 1,-1})%Fluid.bounds)].temperature
+  var temperature0_0 = Fluid[((c+{ 0,-1, 0})%Fluid.bounds)].temperature
+  var temperature0_1 = Fluid[((c+{ 0,-1, 1})%Fluid.bounds)].temperature
+  var temperature0__ = Fluid[((c+{ 0,-1,-1})%Fluid.bounds)].temperature
+
+  var temperature100 = Fluid[((c+{ 1, 0, 0})%Fluid.bounds)].temperature
+  var temperature101 = Fluid[((c+{ 1, 0, 1})%Fluid.bounds)].temperature
+  var temperature10_ = Fluid[((c+{ 1, 0,-1})%Fluid.bounds)].temperature
+  var temperature110 = Fluid[((c+{ 1, 1, 0})%Fluid.bounds)].temperature
+  var temperature111 = Fluid[((c+{ 1, 1, 1})%Fluid.bounds)].temperature
+  var temperature11_ = Fluid[((c+{ 1, 1,-1})%Fluid.bounds)].temperature
+  var temperature1_0 = Fluid[((c+{ 1,-1, 0})%Fluid.bounds)].temperature
+  var temperature1_1 = Fluid[((c+{ 1,-1, 1})%Fluid.bounds)].temperature
+  var temperature1__ = Fluid[((c+{ 1,-1,-1})%Fluid.bounds)].temperature
+
+  var temperature_00 = Fluid[((c+{-1, 0, 0})%Fluid.bounds)].temperature
+  var temperature_01 = Fluid[((c+{-1, 0, 1})%Fluid.bounds)].temperature
+  var temperature_0_ = Fluid[((c+{-1, 0,-1})%Fluid.bounds)].temperature
+  var temperature_10 = Fluid[((c+{-1, 1, 0})%Fluid.bounds)].temperature
+  var temperature_11 = Fluid[((c+{-1, 1, 1})%Fluid.bounds)].temperature
+  var temperature_1_ = Fluid[((c+{-1, 1,-1})%Fluid.bounds)].temperature
+  var temperature__0 = Fluid[((c+{-1,-1, 0})%Fluid.bounds)].temperature
+  var temperature__1 = Fluid[((c+{-1,-1, 1})%Fluid.bounds)].temperature
+  var temperature___ = Fluid[((c+{-1,-1,-1})%Fluid.bounds)].temperature
+
+  var centerCoordinates000 = Fluid[c].centerCoordinates
+  var centerCoordinates001 = Fluid[((c+{ 0, 0, 1})%Fluid.bounds)].centerCoordinates
+  var centerCoordinates00_ = Fluid[((c+{ 0, 0,-1})%Fluid.bounds)].centerCoordinates
+  var centerCoordinates010 = Fluid[((c+{ 0, 1, 0})%Fluid.bounds)].centerCoordinates
+  var centerCoordinates011 = Fluid[((c+{ 0, 1, 1})%Fluid.bounds)].centerCoordinates
+  var centerCoordinates01_ = Fluid[((c+{ 0, 1,-1})%Fluid.bounds)].centerCoordinates
+  var centerCoordinates0_0 = Fluid[((c+{ 0,-1, 0})%Fluid.bounds)].centerCoordinates
+  var centerCoordinates0_1 = Fluid[((c+{ 0,-1, 1})%Fluid.bounds)].centerCoordinates
+  var centerCoordinates0__ = Fluid[((c+{ 0,-1,-1})%Fluid.bounds)].centerCoordinates
+
+  var centerCoordinates100 = Fluid[((c+{ 1, 0, 0})%Fluid.bounds)].centerCoordinates
+  var centerCoordinates101 = Fluid[((c+{ 1, 0, 1})%Fluid.bounds)].centerCoordinates
+  var centerCoordinates10_ = Fluid[((c+{ 1, 0,-1})%Fluid.bounds)].centerCoordinates
+  var centerCoordinates110 = Fluid[((c+{ 1, 1, 0})%Fluid.bounds)].centerCoordinates
+  var centerCoordinates111 = Fluid[((c+{ 1, 1, 1})%Fluid.bounds)].centerCoordinates
+  var centerCoordinates11_ = Fluid[((c+{ 1, 1,-1})%Fluid.bounds)].centerCoordinates
+  var centerCoordinates1_0 = Fluid[((c+{ 1,-1, 0})%Fluid.bounds)].centerCoordinates
+  var centerCoordinates1_1 = Fluid[((c+{ 1,-1, 1})%Fluid.bounds)].centerCoordinates
+  var centerCoordinates1__ = Fluid[((c+{ 1,-1,-1})%Fluid.bounds)].centerCoordinates
+
+  var centerCoordinates_00 = Fluid[((c+{-1, 0, 0})%Fluid.bounds)].centerCoordinates
+  var centerCoordinates_01 = Fluid[((c+{-1, 0, 1})%Fluid.bounds)].centerCoordinates
+  var centerCoordinates_0_ = Fluid[((c+{-1, 0,-1})%Fluid.bounds)].centerCoordinates
+  var centerCoordinates_10 = Fluid[((c+{-1, 1, 0})%Fluid.bounds)].centerCoordinates
+  var centerCoordinates_11 = Fluid[((c+{-1, 1, 1})%Fluid.bounds)].centerCoordinates
+  var centerCoordinates_1_ = Fluid[((c+{-1, 1,-1})%Fluid.bounds)].centerCoordinates
+  var centerCoordinates__0 = Fluid[((c+{-1,-1, 0})%Fluid.bounds)].centerCoordinates
+  var centerCoordinates__1 = Fluid[((c+{-1,-1, 1})%Fluid.bounds)].centerCoordinates
+  var centerCoordinates___ = Fluid[((c+{-1,-1,-1})%Fluid.bounds)].centerCoordinates
+
+  var v000 = 0.0
+  var v001 = 0.0
+  var v010 = 0.0
+  var v011 = 0.0
+  var v100 = 0.0
+  var v101 = 0.0
+  var v110 = 0.0
+  var v111 = 0.0
+
+  var xyz000 = array(0.0, 0.0, 0.0)
+  var xyz001 = array(0.0, 0.0, 0.0)
+  var xyz010 = array(0.0, 0.0, 0.0)
+  var xyz011 = array(0.0, 0.0, 0.0)
+  var xyz100 = array(0.0, 0.0, 0.0)
+  var xyz101 = array(0.0, 0.0, 0.0)
+  var xyz110 = array(0.0, 0.0, 0.0)
+  var xyz111 = array(0.0, 0.0, 0.0)
+
+  if (xyz[0]>Fluid[c].centerCoordinates[0]) then
+    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = temperature000
+        v001 = temperature001
+        v010 = temperature010
+        v011 = temperature011
+        v100 = temperature100
+        v101 = temperature101
+        v110 = temperature110
+        v111 = temperature111
+
+        xyz000 = centerCoordinates000
+        xyz001 = centerCoordinates001
+        xyz010 = centerCoordinates010
+        xyz011 = centerCoordinates011
+        xyz100 = centerCoordinates100
+        xyz101 = centerCoordinates101
+        xyz110 = centerCoordinates110
+        xyz111 = centerCoordinates111
+      else
+        v000 = temperature00_
+        v001 = temperature000
+        v010 = temperature01_
+        v011 = temperature010
+        v100 = temperature10_
+        v101 = temperature100
+        v110 = temperature11_
+        v111 = temperature110
+
+        xyz000 = centerCoordinates00_
+        xyz001 = centerCoordinates000
+        xyz010 = centerCoordinates01_
+        xyz011 = centerCoordinates010
+        xyz100 = centerCoordinates10_
+        xyz101 = centerCoordinates100
+        xyz110 = centerCoordinates11_
+        xyz111 = centerCoordinates110
+      end
+    else
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = temperature0_0
+        v001 = temperature0_1
+        v010 = temperature000
+        v011 = temperature001
+        v100 = temperature1_0
+        v101 = temperature1_1
+        v110 = temperature100
+        v111 = temperature101
+
+        xyz000 = centerCoordinates0_0
+        xyz001 = centerCoordinates0_1
+        xyz010 = centerCoordinates000
+        xyz011 = centerCoordinates001
+        xyz100 = centerCoordinates1_0
+        xyz101 = centerCoordinates1_1
+        xyz110 = centerCoordinates100
+        xyz111 = centerCoordinates101
+      else
+        v000 = temperature0__
+        v001 = temperature0_0
+        v010 = temperature00_
+        v011 = temperature000
+        v100 = temperature1__
+        v101 = temperature1_0
+        v110 = temperature10_
+        v111 = temperature100
+
+        xyz000 = centerCoordinates0__
+        xyz001 = centerCoordinates0_0
+        xyz010 = centerCoordinates00_
+        xyz011 = centerCoordinates000
+        xyz100 = centerCoordinates1__
+        xyz101 = centerCoordinates1_0
+        xyz110 = centerCoordinates10_
+        xyz111 = centerCoordinates100
+      end
+    end
+  else
+    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = temperature_00
+        v001 = temperature_01
+        v010 = temperature_10
+        v011 = temperature_11
+        v100 = temperature000
+        v101 = temperature001
+        v110 = temperature010
+        v111 = temperature011
+
+        xyz000 = centerCoordinates_00
+        xyz001 = centerCoordinates_01
+        xyz010 = centerCoordinates_10
+        xyz011 = centerCoordinates_11
+        xyz100 = centerCoordinates000
+        xyz101 = centerCoordinates001
+        xyz110 = centerCoordinates010
+        xyz111 = centerCoordinates011
+      else
+        v000 = temperature_0_
+        v001 = temperature_00
+        v010 = temperature_1_
+        v011 = temperature_10
+        v100 = temperature00_
+        v101 = temperature000
+        v110 = temperature01_
+        v111 = temperature010
+
+        xyz000 = centerCoordinates_0_
+        xyz001 = centerCoordinates_00
+        xyz010 = centerCoordinates_1_
+        xyz011 = centerCoordinates_10
+        xyz100 = centerCoordinates00_
+        xyz101 = centerCoordinates000
+        xyz110 = centerCoordinates01_
+        xyz111 = centerCoordinates010
+      end
+    else
+      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
+        v000 = temperature__0
+        v001 = temperature__1
+        v010 = temperature_00
+        v011 = temperature_01
+        v100 = temperature0_0
+        v101 = temperature0_1
+        v110 = temperature000
+        v111 = temperature001
+
+        xyz000 = centerCoordinates__0
+        xyz001 = centerCoordinates__1
+        xyz010 = centerCoordinates_00
+        xyz011 = centerCoordinates_01
+        xyz100 = centerCoordinates0_0
+        xyz101 = centerCoordinates0_1
+        xyz110 = centerCoordinates000
+        xyz111 = centerCoordinates001
+      else
+        v000 = temperature___
+        v001 = temperature__0
+        v010 = temperature_0_
+        v011 = temperature_00
+        v100 = temperature0__
+        v101 = temperature0_0
+        v110 = temperature00_
+        v111 = temperature000
+
+        xyz000 = centerCoordinates___
+        xyz001 = centerCoordinates__0
+        xyz010 = centerCoordinates_0_
+        xyz011 = centerCoordinates_00
+        xyz100 = centerCoordinates0__
+        xyz101 = centerCoordinates0_0
+        xyz110 = centerCoordinates00_
+        xyz111 = centerCoordinates000
+      end
+    end
+  end
+
+  return TrilinearInterpolateScalar(xyz, v000, v100, v010, v110, v001, v101, v011, v111, xyz000, xyz100, xyz010, xyz110, xyz001, xyz101, xyz011, xyz111)
+end
+
+__demand(__inline)
 task GetDynamicViscosity(temperature : double,
                          Flow_constantVisc : double,
                          Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
@@ -2497,44 +3161,6 @@ do
 end
 
 __demand(__parallel, __cuda)
-task CalculateAverageDissipation(Fluid : region(ispace(int3d), Fluid_columns),
-                                 Grid_xBnum : int32, Grid_xNum : int32,
-                                 Grid_yBnum : int32, Grid_yNum : int32,
-                                 Grid_zBnum : int32, Grid_zNum : int32)
-where
-  reads(Fluid.{cellWidth, dissipation})
-do
-  var acc = 0.0
-  __demand(__openmp)
-  for c in Fluid do
-    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      var cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
-      acc += Fluid[c].dissipation*cellVolume
-    end
-  end
-  return acc
-end
-
-__demand(__parallel, __cuda)
-task CalculateAverageK(Fluid : region(ispace(int3d), Fluid_columns),
-                       Grid_xBnum : int32, Grid_xNum : int32,
-                       Grid_yBnum : int32, Grid_yNum : int32,
-                       Grid_zBnum : int32, Grid_zNum : int32)
-where
-  reads(Fluid.{cellWidth, rho, velocity})
-do
-  var acc = 0.0
-  __demand(__openmp)
-  for c in Fluid do
-    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      var cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
-      acc += 0.5*Fluid[c].rho*dot(Fluid[c].velocity, Fluid[c].velocity)*cellVolume
-    end
-  end
-  return acc
-end
-
-__demand(__parallel, __cuda)
 task CalculateMinTemperature(Fluid : region(ispace(int3d), Fluid_columns),
                              Grid_xBnum : int32, Grid_xNum : int32,
                              Grid_yBnum : int32, Grid_yNum : int32,
@@ -4168,6 +4794,43 @@ do
   end
 end
 
+__demand(__parallel, __cuda)
+task CalculateAverageDissipation(Fluid : region(ispace(int3d), Fluid_columns),
+                                 Grid_xBnum : int32, Grid_xNum : int32,
+                                 Grid_yBnum : int32, Grid_yNum : int32,
+                                 Grid_zBnum : int32, Grid_zNum : int32)
+where
+  reads(Fluid.{cellWidth, dissipation})
+do
+  var acc = 0.0
+  __demand(__openmp)
+  for c in Fluid do
+    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
+      var cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
+      acc += Fluid[c].dissipation*cellVolume
+    end
+  end
+  return acc
+end
+
+__demand(__parallel, __cuda)
+task CalculateAverageK(Fluid : region(ispace(int3d), Fluid_columns),
+                       Grid_xBnum : int32, Grid_xNum : int32,
+                       Grid_yBnum : int32, Grid_yNum : int32,
+                       Grid_zBnum : int32, Grid_zNum : int32)
+where
+  reads(Fluid.{cellWidth, rho, velocity})
+do
+  var acc = 0.0
+  __demand(__openmp)
+  for c in Fluid do
+    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
+      var cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
+      acc += 0.5*Fluid[c].rho*dot(Fluid[c].velocity, Fluid[c].velocity)*cellVolume
+    end
+  end
+  return acc
+end
 
 __demand(__parallel, __cuda)
 task Flow_AddTurbulentSource(Fluid : region(ispace(int3d), Fluid_columns),
@@ -4224,99 +4887,6 @@ end
 -- PARTICLE MOVEMENT
 -------------------------------------------------------------------------------
 
-__demand(__inline)
-task locate(pos : double[3],
-            Grid_xType : SCHEMA.GridType, Grid_yType : SCHEMA.GridType, Grid_zType : SCHEMA.GridType,
-            Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
-            Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
-            Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
-
-  var xidx = 0
-  if (Grid_xType == SCHEMA.GridType_Uniform) then
-    var xcw = Grid_xWidth/Grid_xNum
-    var xro = Grid_xOrigin-Grid_xBnum*xcw
-    var xpos = floor((pos[0]-xro)/xcw)
-    var xrnum = Grid_xNum+2*Grid_xBnum
-    var xidx = max(0, min(xrnum-1, xpos))
-  elseif (Grid_xType == SCHEMA.GridType_Stretched) then
-    var x_neg_boundary = Grid_xOrigin
-    var x_pos_boundary = Grid_xOrigin + Grid_xWidth
-    -- assumes only one ghost cell in each direction
-    if pos[0] < x_neg_boundary then
-      xidx = 0
-    elseif pos[0] > x_pos_boundary then
-      xidx = (Grid_xNum + 2*Grid_xBnum) - 1
-    else
-      -- brute force search in interior cells
-      for xidx_interior=0,(Grid_xNum+Grid_xBnum) do
-        if (pos[0]>nonuniform_cell_neg_face(x_neg_boundary, x_pos_boundary, Grid_xNum, xidx_interior)) and
-           (pos[0]<nonuniform_cell_pos_face(x_neg_boundary, x_pos_boundary, Grid_xNum, xidx_interior)) then
-          -- Convert from interior index back to global index (accounts for ghost cells)
-          xidx = (xidx_interior + Grid_xBnum)
-          break
-        end 
-      end
-    end
-  end
-
-  var yidx = 0
-  if (Grid_yType == SCHEMA.GridType_Uniform) then
-    var ycw = Grid_yWidth/Grid_yNum
-    var yro = Grid_yOrigin-Grid_yBnum*ycw
-    var ypos = floor((pos[1]-yro)/ycw)
-    var yrnum = Grid_yNum+2*Grid_yBnum
-    var yidx = max(0, min(yrnum-1, ypos))
-  elseif (Grid_yType == SCHEMA.GridType_Stretched) then
-    var y_neg_boundary = Grid_yOrigin
-    var y_pos_boundary = Grid_yOrigin + Grid_yWidth
-    -- assumes only one ghost cell in each direction
-    if pos[1] < y_neg_boundary then
-      yidx = 0
-    elseif pos[1] > y_pos_boundary then
-      yidx = (Grid_yNum + 2*Grid_yBnum) - 1
-    else
-      -- brute force search in interior cells
-      for yidx_interior=0,(Grid_yNum+Grid_yBnum) do
-        if (pos[1]>nonuniform_cell_neg_face(y_neg_boundary, y_pos_boundary, Grid_yNum, yidx_interior)) and
-           (pos[1]<nonuniform_cell_pos_face(y_neg_boundary, y_pos_boundary, Grid_yNum, yidx_interior)) then
-          -- Convert from interior index back to global index (accounts for ghost cells)
-          yidx = (yidx_interior + Grid_yBnum)
-          break
-        end 
-      end
-    end
-  end
-
-  var zidx = 0
-  if (Grid_zType == SCHEMA.GridType_Uniform) then
-    var zcw = Grid_zWidth/Grid_zNum
-    var zro = Grid_zOrigin-Grid_zBnum*zcw
-    var zpos = floor((pos[2]-zro)/zcw)
-    var zrnum = Grid_zNum+2*Grid_zBnum
-    var zidx = max(0, min(zrnum-1, zpos))
-  elseif (Grid_zType == SCHEMA.GridType_Stretched) then
-    var z_neg_boundary = Grid_zOrigin
-    var z_pos_boundary = Grid_zOrigin + Grid_zWidth
-    -- assumes only one ghost cell in each direction
-    if pos[2] < z_neg_boundary then
-      zidx = 0
-    elseif pos[2] > z_pos_boundary then
-      zidx = (Grid_zNum + 2*Grid_zBnum) - 1
-    else
-      -- brute force search in interior cells
-      for zidx_interior=0,(Grid_zNum+Grid_zBnum) do
-        if (pos[2]>nonuniform_cell_neg_face(z_neg_boundary, z_pos_boundary, Grid_zNum, zidx_interior)) and
-           (pos[2]<nonuniform_cell_pos_face(z_neg_boundary, z_pos_boundary, Grid_zNum, zidx_interior)) then
-          -- Convert from interior index back to global index (accounts for ghost cells)
-          zidx = (zidx_interior + Grid_zBnum)
-          break
-        end 
-      end
-    end
-  end
-
-  return int3d{xidx, yidx, zidx}
-end
 
 __demand(__cuda) -- MANUALLY PARALLELIZED
 task Particles_LocateInCells(Particles : region(ispace(int1d), Particles_columns),
@@ -4658,579 +5228,8 @@ do
   return acc
 end
 
--------------------------------------------------------------------------------
--- OTHER ROUTINES
--------------------------------------------------------------------------------
-
-__demand(__inline)
-task TrilinearInterpolateVector(xyz : double[3],
-                                c000 : double[3],
-                                c100 : double[3],
-                                c010 : double[3],
-                                c110 : double[3],
-                                c001 : double[3],
-                                c101 : double[3],
-                                c011 : double[3],
-                                c111 : double[3],
-                                xyz000 : double[3],
-                                xyz100 : double[3],
-                                xyz010 : double[3],
-                                xyz110 : double[3],
-                                xyz001 : double[3],
-                                xyz101 : double[3],
-                                xyz011 : double[3],
-                                xyz111 : double[3])
-
-  var dX = (xyz[0] - xyz000[0])/(xyz100[0] - xyz000[0])
-  var dY = (xyz[1] - xyz000[1])/(xyz010[1] - xyz000[1])
-  var dZ = (xyz[2] - xyz000[2])/(xyz001[2] - xyz000[2])
-
-  var oneMinusdX = (1.0-dX)
-  var oneMinusdY = (1.0-dY)
-  var oneMinusdZ = (1.0-dZ)
-
-  var weight00 = vv_add(vs_mul(c000, oneMinusdX), vs_mul(c100, dX))
-  var weight10 = vv_add(vs_mul(c010, oneMinusdX), vs_mul(c110, dX))
-  var weight01 = vv_add(vs_mul(c001, oneMinusdX), vs_mul(c101, dX))
-  var weight11 = vv_add(vs_mul(c011, oneMinusdX), vs_mul(c111, dX))
-
-  var weight0 =  vv_add(vs_mul(weight00, oneMinusdY), vs_mul(weight10, dY))
-  var weight1 =  vv_add(vs_mul(weight01, oneMinusdY), vs_mul(weight11, dY))
-
-  return vv_add(vs_mul(weight0, oneMinusdZ), vs_mul(weight1, dZ))
-end
-
-__demand(__inline)
-task InterpolateTriVelocity(c : int3d,
-                            xyz : double[3],
-                            Fluid : region(ispace(int3d), Fluid_columns))
-where
-  reads(Fluid.{centerCoordinates, velocity})
-do
-
-  var velocity000 = Fluid[c].velocity
-  var velocity001 = Fluid[(c+{ 0, 0, 1})%Fluid.bounds].velocity
-  var velocity00_ = Fluid[(c+{ 0, 0,-1})%Fluid.bounds].velocity
-  var velocity010 = Fluid[(c+{ 0, 1, 0})%Fluid.bounds].velocity
-  var velocity011 = Fluid[(c+{ 0, 1, 1})%Fluid.bounds].velocity
-  var velocity01_ = Fluid[(c+{ 0, 1,-1})%Fluid.bounds].velocity
-  var velocity0_0 = Fluid[(c+{ 0,-1, 0})%Fluid.bounds].velocity
-  var velocity0_1 = Fluid[(c+{ 0,-1, 1})%Fluid.bounds].velocity
-  var velocity0__ = Fluid[(c+{ 0,-1,-1})%Fluid.bounds].velocity
-
-  var velocity100 = Fluid[(c+{ 1, 0, 0})%Fluid.bounds].velocity
-  var velocity101 = Fluid[(c+{ 1, 0, 1})%Fluid.bounds].velocity
-  var velocity10_ = Fluid[(c+{ 1, 0,-1})%Fluid.bounds].velocity
-  var velocity110 = Fluid[(c+{ 1, 1, 0})%Fluid.bounds].velocity
-  var velocity111 = Fluid[(c+{ 1, 1, 1})%Fluid.bounds].velocity
-  var velocity11_ = Fluid[(c+{ 1, 1,-1})%Fluid.bounds].velocity
-  var velocity1_0 = Fluid[(c+{ 1,-1, 0})%Fluid.bounds].velocity
-  var velocity1_1 = Fluid[(c+{ 1,-1, 1})%Fluid.bounds].velocity
-  var velocity1__ = Fluid[(c+{ 1,-1,-1})%Fluid.bounds].velocity
-
-  var velocity_00 = Fluid[(c+{-1, 0, 0})%Fluid.bounds].velocity
-  var velocity_01 = Fluid[(c+{-1, 0, 1})%Fluid.bounds].velocity
-  var velocity_0_ = Fluid[(c+{-1, 0,-1})%Fluid.bounds].velocity
-  var velocity_10 = Fluid[(c+{-1, 1, 0})%Fluid.bounds].velocity
-  var velocity_11 = Fluid[(c+{-1, 1, 1})%Fluid.bounds].velocity
-  var velocity_1_ = Fluid[(c+{-1, 1,-1})%Fluid.bounds].velocity
-  var velocity__0 = Fluid[(c+{-1,-1, 0})%Fluid.bounds].velocity
-  var velocity__1 = Fluid[(c+{-1,-1, 1})%Fluid.bounds].velocity
-  var velocity___ = Fluid[(c+{-1,-1,-1})%Fluid.bounds].velocity
 
 
-  var centerCoordinates000 = Fluid[c].centerCoordinates
-  var centerCoordinates001 = Fluid[(c+{ 0, 0, 1})%Fluid.bounds].centerCoordinates
-  var centerCoordinates00_ = Fluid[(c+{ 0, 0,-1})%Fluid.bounds].centerCoordinates
-  var centerCoordinates010 = Fluid[(c+{ 0, 1, 0})%Fluid.bounds].centerCoordinates
-  var centerCoordinates011 = Fluid[(c+{ 0, 1, 1})%Fluid.bounds].centerCoordinates
-  var centerCoordinates01_ = Fluid[(c+{ 0, 1,-1})%Fluid.bounds].centerCoordinates
-  var centerCoordinates0_0 = Fluid[(c+{ 0,-1, 0})%Fluid.bounds].centerCoordinates
-  var centerCoordinates0_1 = Fluid[(c+{ 0,-1, 1})%Fluid.bounds].centerCoordinates
-  var centerCoordinates0__ = Fluid[(c+{ 0,-1,-1})%Fluid.bounds].centerCoordinates
-
-  var centerCoordinates100 = Fluid[(c+{ 1, 0, 0})%Fluid.bounds].centerCoordinates
-  var centerCoordinates101 = Fluid[(c+{ 1, 0, 1})%Fluid.bounds].centerCoordinates
-  var centerCoordinates10_ = Fluid[(c+{ 1, 0,-1})%Fluid.bounds].centerCoordinates
-  var centerCoordinates110 = Fluid[(c+{ 1, 1, 0})%Fluid.bounds].centerCoordinates
-  var centerCoordinates111 = Fluid[(c+{ 1, 1, 1})%Fluid.bounds].centerCoordinates
-  var centerCoordinates11_ = Fluid[(c+{ 1, 1,-1})%Fluid.bounds].centerCoordinates
-  var centerCoordinates1_0 = Fluid[(c+{ 1,-1, 0})%Fluid.bounds].centerCoordinates
-  var centerCoordinates1_1 = Fluid[(c+{ 1,-1, 1})%Fluid.bounds].centerCoordinates
-  var centerCoordinates1__ = Fluid[(c+{ 1,-1,-1})%Fluid.bounds].centerCoordinates
-
-  var centerCoordinates_00 = Fluid[(c+{-1, 0, 0})%Fluid.bounds].centerCoordinates
-  var centerCoordinates_01 = Fluid[(c+{-1, 0, 1})%Fluid.bounds].centerCoordinates
-  var centerCoordinates_0_ = Fluid[(c+{-1, 0,-1})%Fluid.bounds].centerCoordinates
-  var centerCoordinates_10 = Fluid[(c+{-1, 1, 0})%Fluid.bounds].centerCoordinates
-  var centerCoordinates_11 = Fluid[(c+{-1, 1, 1})%Fluid.bounds].centerCoordinates
-  var centerCoordinates_1_ = Fluid[(c+{-1, 1,-1})%Fluid.bounds].centerCoordinates
-  var centerCoordinates__0 = Fluid[(c+{-1,-1, 0})%Fluid.bounds].centerCoordinates
-  var centerCoordinates__1 = Fluid[(c+{-1,-1, 1})%Fluid.bounds].centerCoordinates
-  var centerCoordinates___ = Fluid[(c+{-1,-1,-1})%Fluid.bounds].centerCoordinates
-
-  var v000 = array(0.0, 0.0, 0.0)
-  var v001 = array(0.0, 0.0, 0.0)
-  var v010 = array(0.0, 0.0, 0.0)
-  var v011 = array(0.0, 0.0, 0.0)
-  var v100 = array(0.0, 0.0, 0.0)
-  var v101 = array(0.0, 0.0, 0.0)
-  var v110 = array(0.0, 0.0, 0.0)
-  var v111 = array(0.0, 0.0, 0.0)
-
-  var xyz000 = array(0.0, 0.0, 0.0)
-  var xyz001 = array(0.0, 0.0, 0.0)
-  var xyz010 = array(0.0, 0.0, 0.0)
-  var xyz011 = array(0.0, 0.0, 0.0)
-  var xyz100 = array(0.0, 0.0, 0.0)
-  var xyz101 = array(0.0, 0.0, 0.0)
-  var xyz110 = array(0.0, 0.0, 0.0)
-  var xyz111 = array(0.0, 0.0, 0.0)
-
-  if (xyz[0]>Fluid[c].centerCoordinates[0]) then
-    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = velocity000
-        v001 = velocity001
-        v010 = velocity010
-        v011 = velocity011
-        v100 = velocity100
-        v101 = velocity101
-        v110 = velocity110
-        v111 = velocity111
-
-        xyz000 = centerCoordinates000
-        xyz001 = centerCoordinates001
-        xyz010 = centerCoordinates010
-        xyz011 = centerCoordinates011
-        xyz100 = centerCoordinates100
-        xyz101 = centerCoordinates101
-        xyz110 = centerCoordinates110
-        xyz111 = centerCoordinates111
-      else
-        v000 = velocity00_
-        v001 = velocity000
-        v010 = velocity01_
-        v011 = velocity010
-        v100 = velocity10_
-        v101 = velocity100
-        v110 = velocity11_
-        v111 = velocity110
-
-        xyz000 = centerCoordinates00_
-        xyz001 = centerCoordinates000
-        xyz010 = centerCoordinates01_
-        xyz011 = centerCoordinates010
-        xyz100 = centerCoordinates10_
-        xyz101 = centerCoordinates100
-        xyz110 = centerCoordinates11_
-        xyz111 = centerCoordinates110
-      end
-    else
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = velocity0_0
-        v001 = velocity0_1
-        v010 = velocity000
-        v011 = velocity001
-        v100 = velocity1_0
-        v101 = velocity1_1
-        v110 = velocity100
-        v111 = velocity101
-
-        xyz000 = centerCoordinates0_0
-        xyz001 = centerCoordinates0_1
-        xyz010 = centerCoordinates000
-        xyz011 = centerCoordinates001
-        xyz100 = centerCoordinates1_0
-        xyz101 = centerCoordinates1_1
-        xyz110 = centerCoordinates100
-        xyz111 = centerCoordinates101
-      else
-        v000 = velocity0__
-        v001 = velocity0_0
-        v010 = velocity00_
-        v011 = velocity000
-        v100 = velocity1__
-        v101 = velocity1_0
-        v110 = velocity10_
-        v111 = velocity100
-
-        xyz000 = centerCoordinates0__
-        xyz001 = centerCoordinates0_0
-        xyz010 = centerCoordinates00_
-        xyz011 = centerCoordinates000
-        xyz100 = centerCoordinates1__
-        xyz101 = centerCoordinates1_0
-        xyz110 = centerCoordinates10_
-        xyz111 = centerCoordinates100
-      end
-    end
-  else
-    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = velocity_00
-        v001 = velocity_01
-        v010 = velocity_10
-        v011 = velocity_11
-        v100 = velocity000
-        v101 = velocity001
-        v110 = velocity010
-        v111 = velocity011
-
-        xyz000 = centerCoordinates_00
-        xyz001 = centerCoordinates_01
-        xyz010 = centerCoordinates_10
-        xyz011 = centerCoordinates_11
-        xyz100 = centerCoordinates000
-        xyz101 = centerCoordinates001
-        xyz110 = centerCoordinates010
-        xyz111 = centerCoordinates011
-      else       
-        v000 = velocity_0_
-        v001 = velocity_00
-        v010 = velocity_1_
-        v011 = velocity_10
-        v100 = velocity00_
-        v101 = velocity000
-        v110 = velocity01_
-        v111 = velocity010
-
-        xyz000 = centerCoordinates_0_
-        xyz001 = centerCoordinates_00
-        xyz010 = centerCoordinates_1_
-        xyz011 = centerCoordinates_10
-        xyz100 = centerCoordinates00_
-        xyz101 = centerCoordinates000
-        xyz110 = centerCoordinates01_
-        xyz111 = centerCoordinates010
-      end
-    else
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = velocity__0
-        v001 = velocity__1
-        v010 = velocity_00
-        v011 = velocity_01
-        v100 = velocity0_0
-        v101 = velocity0_1
-        v110 = velocity000
-        v111 = velocity001
-
-        xyz000 = centerCoordinates__0
-        xyz001 = centerCoordinates__1
-        xyz010 = centerCoordinates_00
-        xyz011 = centerCoordinates_01
-        xyz100 = centerCoordinates0_0
-        xyz101 = centerCoordinates0_1
-        xyz110 = centerCoordinates000
-        xyz111 = centerCoordinates001
-      else
-        v000 = velocity___
-        v001 = velocity__0
-        v010 = velocity_0_
-        v011 = velocity_00
-        v100 = velocity0__
-        v101 = velocity0_0
-        v110 = velocity00_
-        v111 = velocity000
-
-        xyz000 = centerCoordinates___
-        xyz001 = centerCoordinates__0
-        xyz010 = centerCoordinates_0_
-        xyz011 = centerCoordinates_00
-        xyz100 = centerCoordinates0__
-        xyz101 = centerCoordinates0_0
-        xyz110 = centerCoordinates00_
-        xyz111 = centerCoordinates000
-      end
-    end
-  end
-
-  return TrilinearInterpolateVector(xyz, v000, v100, v010, v110, v001, v101, v011, v111, xyz000, xyz100, xyz010, xyz110, xyz001, xyz101, xyz011, xyz111)
-end
-
-__demand(__inline)
-task TrilinearInterpolateScalar(xyz : double[3],
-                              c000 : double,
-                              c100 : double,
-                              c010 : double,
-                              c110 : double,
-                              c001 : double,
-                              c101 : double,
-                              c011 : double,
-                              c111 : double,
-                              xyz000 : double[3],
-                              xyz100 : double[3],
-                              xyz010 : double[3],
-                              xyz110 : double[3],
-                              xyz001 : double[3],
-                              xyz101 : double[3],
-                              xyz011 : double[3],
-                              xyz111 : double[3])
-
-  var dX = (xyz[0] - xyz000[0])/(xyz100[0] - xyz000[0])
-  var dY = (xyz[1] - xyz000[1])/(xyz010[1] - xyz000[1])
-  var dZ = (xyz[2] - xyz000[2])/(xyz001[2] - xyz000[2])
-
-  var oneMinusdX = (1.0-dX)
-  var oneMinusdY = (1.0-dY)
-  var oneMinusdZ = (1.0-dZ)
-
-  var weight00 = ((c000*oneMinusdX)+(c100*dX))
-  var weight10 = ((c010*oneMinusdX)+(c110*dX))
-  var weight01 = ((c001*oneMinusdX)+(c101*dX))
-  var weight11 = ((c011*oneMinusdX)+(c111*dX))
-
-  var weight0 = ((weight00*oneMinusdY)+(weight10*dY))
-  var weight1 = ((weight01*oneMinusdY)+(weight11*dY))
-
-  return ((weight0*oneMinusdZ)+(weight1*dZ))
-end
-
-__demand(__inline)
-task InterpolateTriTemp(c : int3d,
-                        xyz : double[3],
-                        Fluid : region(ispace(int3d), Fluid_columns))
-where
-  reads(Fluid.{centerCoordinates, temperature})
-do
-  var temperature000 = Fluid[c].temperature
-  var temperature001 = Fluid[((c+{ 0, 0, 1})%Fluid.bounds)].temperature
-  var temperature00_ = Fluid[((c+{ 0, 0,-1})%Fluid.bounds)].temperature
-  var temperature010 = Fluid[((c+{ 0, 1, 0})%Fluid.bounds)].temperature
-  var temperature011 = Fluid[((c+{ 0, 1, 1})%Fluid.bounds)].temperature
-  var temperature01_ = Fluid[((c+{ 0, 1,-1})%Fluid.bounds)].temperature
-  var temperature0_0 = Fluid[((c+{ 0,-1, 0})%Fluid.bounds)].temperature
-  var temperature0_1 = Fluid[((c+{ 0,-1, 1})%Fluid.bounds)].temperature
-  var temperature0__ = Fluid[((c+{ 0,-1,-1})%Fluid.bounds)].temperature
-
-  var temperature100 = Fluid[((c+{ 1, 0, 0})%Fluid.bounds)].temperature
-  var temperature101 = Fluid[((c+{ 1, 0, 1})%Fluid.bounds)].temperature
-  var temperature10_ = Fluid[((c+{ 1, 0,-1})%Fluid.bounds)].temperature
-  var temperature110 = Fluid[((c+{ 1, 1, 0})%Fluid.bounds)].temperature
-  var temperature111 = Fluid[((c+{ 1, 1, 1})%Fluid.bounds)].temperature
-  var temperature11_ = Fluid[((c+{ 1, 1,-1})%Fluid.bounds)].temperature
-  var temperature1_0 = Fluid[((c+{ 1,-1, 0})%Fluid.bounds)].temperature
-  var temperature1_1 = Fluid[((c+{ 1,-1, 1})%Fluid.bounds)].temperature
-  var temperature1__ = Fluid[((c+{ 1,-1,-1})%Fluid.bounds)].temperature
-
-  var temperature_00 = Fluid[((c+{-1, 0, 0})%Fluid.bounds)].temperature
-  var temperature_01 = Fluid[((c+{-1, 0, 1})%Fluid.bounds)].temperature
-  var temperature_0_ = Fluid[((c+{-1, 0,-1})%Fluid.bounds)].temperature
-  var temperature_10 = Fluid[((c+{-1, 1, 0})%Fluid.bounds)].temperature
-  var temperature_11 = Fluid[((c+{-1, 1, 1})%Fluid.bounds)].temperature
-  var temperature_1_ = Fluid[((c+{-1, 1,-1})%Fluid.bounds)].temperature
-  var temperature__0 = Fluid[((c+{-1,-1, 0})%Fluid.bounds)].temperature
-  var temperature__1 = Fluid[((c+{-1,-1, 1})%Fluid.bounds)].temperature
-  var temperature___ = Fluid[((c+{-1,-1,-1})%Fluid.bounds)].temperature
-
-  var centerCoordinates000 = Fluid[c].centerCoordinates
-  var centerCoordinates001 = Fluid[((c+{ 0, 0, 1})%Fluid.bounds)].centerCoordinates
-  var centerCoordinates00_ = Fluid[((c+{ 0, 0,-1})%Fluid.bounds)].centerCoordinates
-  var centerCoordinates010 = Fluid[((c+{ 0, 1, 0})%Fluid.bounds)].centerCoordinates
-  var centerCoordinates011 = Fluid[((c+{ 0, 1, 1})%Fluid.bounds)].centerCoordinates
-  var centerCoordinates01_ = Fluid[((c+{ 0, 1,-1})%Fluid.bounds)].centerCoordinates
-  var centerCoordinates0_0 = Fluid[((c+{ 0,-1, 0})%Fluid.bounds)].centerCoordinates
-  var centerCoordinates0_1 = Fluid[((c+{ 0,-1, 1})%Fluid.bounds)].centerCoordinates
-  var centerCoordinates0__ = Fluid[((c+{ 0,-1,-1})%Fluid.bounds)].centerCoordinates
-
-  var centerCoordinates100 = Fluid[((c+{ 1, 0, 0})%Fluid.bounds)].centerCoordinates
-  var centerCoordinates101 = Fluid[((c+{ 1, 0, 1})%Fluid.bounds)].centerCoordinates
-  var centerCoordinates10_ = Fluid[((c+{ 1, 0,-1})%Fluid.bounds)].centerCoordinates
-  var centerCoordinates110 = Fluid[((c+{ 1, 1, 0})%Fluid.bounds)].centerCoordinates
-  var centerCoordinates111 = Fluid[((c+{ 1, 1, 1})%Fluid.bounds)].centerCoordinates
-  var centerCoordinates11_ = Fluid[((c+{ 1, 1,-1})%Fluid.bounds)].centerCoordinates
-  var centerCoordinates1_0 = Fluid[((c+{ 1,-1, 0})%Fluid.bounds)].centerCoordinates
-  var centerCoordinates1_1 = Fluid[((c+{ 1,-1, 1})%Fluid.bounds)].centerCoordinates
-  var centerCoordinates1__ = Fluid[((c+{ 1,-1,-1})%Fluid.bounds)].centerCoordinates
-
-  var centerCoordinates_00 = Fluid[((c+{-1, 0, 0})%Fluid.bounds)].centerCoordinates
-  var centerCoordinates_01 = Fluid[((c+{-1, 0, 1})%Fluid.bounds)].centerCoordinates
-  var centerCoordinates_0_ = Fluid[((c+{-1, 0,-1})%Fluid.bounds)].centerCoordinates
-  var centerCoordinates_10 = Fluid[((c+{-1, 1, 0})%Fluid.bounds)].centerCoordinates
-  var centerCoordinates_11 = Fluid[((c+{-1, 1, 1})%Fluid.bounds)].centerCoordinates
-  var centerCoordinates_1_ = Fluid[((c+{-1, 1,-1})%Fluid.bounds)].centerCoordinates
-  var centerCoordinates__0 = Fluid[((c+{-1,-1, 0})%Fluid.bounds)].centerCoordinates
-  var centerCoordinates__1 = Fluid[((c+{-1,-1, 1})%Fluid.bounds)].centerCoordinates
-  var centerCoordinates___ = Fluid[((c+{-1,-1,-1})%Fluid.bounds)].centerCoordinates
-
-  var v000 = 0.0
-  var v001 = 0.0
-  var v010 = 0.0
-  var v011 = 0.0
-  var v100 = 0.0
-  var v101 = 0.0
-  var v110 = 0.0
-  var v111 = 0.0
-
-  var xyz000 = array(0.0, 0.0, 0.0)
-  var xyz001 = array(0.0, 0.0, 0.0)
-  var xyz010 = array(0.0, 0.0, 0.0)
-  var xyz011 = array(0.0, 0.0, 0.0)
-  var xyz100 = array(0.0, 0.0, 0.0)
-  var xyz101 = array(0.0, 0.0, 0.0)
-  var xyz110 = array(0.0, 0.0, 0.0)
-  var xyz111 = array(0.0, 0.0, 0.0)
-
-  if (xyz[0]>Fluid[c].centerCoordinates[0]) then
-    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = temperature000
-        v001 = temperature001
-        v010 = temperature010
-        v011 = temperature011
-        v100 = temperature100
-        v101 = temperature101
-        v110 = temperature110
-        v111 = temperature111
-
-        xyz000 = centerCoordinates000
-        xyz001 = centerCoordinates001
-        xyz010 = centerCoordinates010
-        xyz011 = centerCoordinates011
-        xyz100 = centerCoordinates100
-        xyz101 = centerCoordinates101
-        xyz110 = centerCoordinates110
-        xyz111 = centerCoordinates111
-      else
-        v000 = temperature00_
-        v001 = temperature000
-        v010 = temperature01_
-        v011 = temperature010
-        v100 = temperature10_
-        v101 = temperature100
-        v110 = temperature11_
-        v111 = temperature110
-
-        xyz000 = centerCoordinates00_
-        xyz001 = centerCoordinates000
-        xyz010 = centerCoordinates01_
-        xyz011 = centerCoordinates010
-        xyz100 = centerCoordinates10_
-        xyz101 = centerCoordinates100
-        xyz110 = centerCoordinates11_
-        xyz111 = centerCoordinates110
-      end
-    else
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = temperature0_0
-        v001 = temperature0_1
-        v010 = temperature000
-        v011 = temperature001
-        v100 = temperature1_0
-        v101 = temperature1_1
-        v110 = temperature100
-        v111 = temperature101
-
-        xyz000 = centerCoordinates0_0
-        xyz001 = centerCoordinates0_1
-        xyz010 = centerCoordinates000
-        xyz011 = centerCoordinates001
-        xyz100 = centerCoordinates1_0
-        xyz101 = centerCoordinates1_1
-        xyz110 = centerCoordinates100
-        xyz111 = centerCoordinates101
-      else
-        v000 = temperature0__
-        v001 = temperature0_0
-        v010 = temperature00_
-        v011 = temperature000
-        v100 = temperature1__
-        v101 = temperature1_0
-        v110 = temperature10_
-        v111 = temperature100
-
-        xyz000 = centerCoordinates0__
-        xyz001 = centerCoordinates0_0
-        xyz010 = centerCoordinates00_
-        xyz011 = centerCoordinates000
-        xyz100 = centerCoordinates1__
-        xyz101 = centerCoordinates1_0
-        xyz110 = centerCoordinates10_
-        xyz111 = centerCoordinates100
-      end
-    end
-  else
-    if (xyz[1]>Fluid[c].centerCoordinates[1]) then
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = temperature_00
-        v001 = temperature_01
-        v010 = temperature_10
-        v011 = temperature_11
-        v100 = temperature000
-        v101 = temperature001
-        v110 = temperature010
-        v111 = temperature011
-
-        xyz000 = centerCoordinates_00
-        xyz001 = centerCoordinates_01
-        xyz010 = centerCoordinates_10
-        xyz011 = centerCoordinates_11
-        xyz100 = centerCoordinates000
-        xyz101 = centerCoordinates001
-        xyz110 = centerCoordinates010
-        xyz111 = centerCoordinates011
-      else
-        v000 = temperature_0_
-        v001 = temperature_00
-        v010 = temperature_1_
-        v011 = temperature_10
-        v100 = temperature00_
-        v101 = temperature000
-        v110 = temperature01_
-        v111 = temperature010
-
-        xyz000 = centerCoordinates_0_
-        xyz001 = centerCoordinates_00
-        xyz010 = centerCoordinates_1_
-        xyz011 = centerCoordinates_10
-        xyz100 = centerCoordinates00_
-        xyz101 = centerCoordinates000
-        xyz110 = centerCoordinates01_
-        xyz111 = centerCoordinates010
-      end
-    else
-      if (xyz[2]>Fluid[c].centerCoordinates[2]) then
-        v000 = temperature__0
-        v001 = temperature__1
-        v010 = temperature_00
-        v011 = temperature_01
-        v100 = temperature0_0
-        v101 = temperature0_1
-        v110 = temperature000
-        v111 = temperature001
-
-        xyz000 = centerCoordinates__0
-        xyz001 = centerCoordinates__1
-        xyz010 = centerCoordinates_00
-        xyz011 = centerCoordinates_01
-        xyz100 = centerCoordinates0_0
-        xyz101 = centerCoordinates0_1
-        xyz110 = centerCoordinates000
-        xyz111 = centerCoordinates001
-      else
-        v000 = temperature___
-        v001 = temperature__0
-        v010 = temperature_0_
-        v011 = temperature_00
-        v100 = temperature0__
-        v101 = temperature0_0
-        v110 = temperature00_
-        v111 = temperature000
-
-        xyz000 = centerCoordinates___
-        xyz001 = centerCoordinates__0
-        xyz010 = centerCoordinates_0_
-        xyz011 = centerCoordinates_00
-        xyz100 = centerCoordinates0__
-        xyz101 = centerCoordinates0_0
-        xyz110 = centerCoordinates00_
-        xyz111 = centerCoordinates000
-      end
-    end
-  end
-
-  return TrilinearInterpolateScalar(xyz, v000, v100, v010, v110, v001, v101, v011, v111, xyz000, xyz100, xyz010, xyz110, xyz001, xyz101, xyz011, xyz111)
-end
 
 __demand(__parallel, __cuda)
 task Particles_AddFlowCoupling(Particles : region(ispace(int1d), Particles_columns),
@@ -6197,7 +6196,6 @@ local function mkInstance() local INSTANCE = {}
                          config.Radiation.u.DOM.zNum)
     end
     Flow_InitializeCell(Fluid)
-
     Flow_InitializeGeometry(Fluid,
                             config.Grid.xType, config.Grid.yType, config.Grid.zType,
                             Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
