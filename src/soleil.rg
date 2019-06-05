@@ -893,7 +893,7 @@ task locate(pos : double[3],
 end
 
 __demand(__inline)
-task TrilinearInterpolateVector(xyz : double[3],
+task TrilinearInterpolateVelocity(xyz : double[3],
                                 c000 : double[3],
                                 c100 : double[3],
                                 c010 : double[3],
@@ -1175,11 +1175,11 @@ do
     end
   end
 
-  return TrilinearInterpolateVector(xyz, v000, v100, v010, v110, v001, v101, v011, v111, xyz000, xyz100, xyz010, xyz110, xyz001, xyz101, xyz011, xyz111)
+  return TrilinearInterpolateVelocity(xyz, v000, v100, v010, v110, v001, v101, v011, v111, xyz000, xyz100, xyz010, xyz110, xyz001, xyz101, xyz011, xyz111)
 end
 
 __demand(__inline)
-task TrilinearInterpolateScalar(xyz : double[3],
+task TrilinearInterpolateTemp(xyz : double[3],
                               c000 : double,
                               c100 : double,
                               c010 : double,
@@ -1459,7 +1459,7 @@ do
     end
   end
 
-  return TrilinearInterpolateScalar(xyz, v000, v100, v010, v110, v001, v101, v011, v111, xyz000, xyz100, xyz010, xyz110, xyz001, xyz101, xyz011, xyz111)
+  return TrilinearInterpolateTemp(xyz, v000, v100, v010, v110, v001, v101, v011, v111, xyz000, xyz100, xyz010, xyz110, xyz001, xyz101, xyz011, xyz111)
 end
 
 __demand(__inline)
