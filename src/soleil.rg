@@ -386,54 +386,7 @@ do
 end
 
 
-task render_tile(FluidSubregion : region(ispace(int3d), Fluid_columns),
-              ParticlesSubregion : region(ispace(int1d), Particles_columns),
-              ImageSubregion : region(ispace(int3d), Image_columns),
-              Fluid : region(ispace(int3d), Fluid_columns),
-              Particles : region(ispace(int1d), Particles_columns),
-              p_Fluid : partition(disjoint, Fluid, ispace(int3d)),
-              p_Particles : partition(disjoint, Particles, ispace(int3d)),
-              particlesToDraw : region(ispace(int1d), Draw_columns),
-              lowerBound : double[3],
-              upperBound : double[3],
-              config : Config
-)
-where
-  reads(Fluid, Particles, particlesToDraw),
-  writes(ImageSubregion)
-do
-  var numFluidFields : int = 37
-  var fluidFields : C.legion_field_id_t[numFluidFields] = __fields(Fluid)
-  var numParticlesFields : int = 21
-  var particlesFields : C.legion_field_id_t[numParticlesFields] = __fields(Particles)
-  var numImageFields : int = 5
-  var imageFields : C.legion_field_id_t[numImageFields] = __fields(ImageSubregion)
 
-  render.cxx_render(__runtime(),
-                    __context(),
-                    config.Mapping.sampleId,
-                    __physical(Fluid),
-                    fluidFields,
-                    numFluidFields,
-                    __physical(Particles),
-                    particlesFields,
-                    numParticlesFields,
-                    __physical(ImageSubregion),
-                    imageFields,
-                    numImageFields,
-                    __raw(p_Fluid),
-                    __raw(p_Particles),
-                    config.Visualization.numParticlesToDraw,
-                    config.Visualization.isosurfaceField,
-                    config.Visualization.isosurfaceValue,
-                    __physical(particlesToDraw),
-                    lowerBound,
-                    upperBound)
-
-  render.cxx_reduce(__runtime(),
-                    __context(),
-                    config.Mapping.sampleId)
-end
 
 
 task Visualize(config : Config,
@@ -454,11 +407,38 @@ where
   writes(Image)
 do
   if Integrator_timeStep % config.Visualization.stepsPerRender == 0 and config.Visualization.stepsPerRender > 0 then
--- TODO change this for i in linear index space do, compute c from i
-    for c in tiles do
-      var index : int3d = { 0, 0, c.x + c.y * config.Mapping.tiles[0] + c.z * config.Mapping.tiles[0] * config.Mapping.tiles[1] }
-      render_tile(p_Fluid[c], p_Particles[c], p_Image[index], Fluid, Particles, p_Fluid, p_Particles, particlesToDraw, lowerBound, upperBound, config)
-    end
+    var numFluidFields : int = 37
+    var fluidFields : C.legion_field_id_t[numFluidFields] = __fields(Fluid)
+    var numParticlesFields : int = 21
+    var particlesFields : C.legion_field_id_t[numParticlesFields] = __fields(Particles)
+    var numImageFields : int = 5
+    var imageFields : C.legion_field_id_t[numImageFields] = __fields(Image)
+
+    render.cxx_render(__runtime(),
+      __context(),
+      config.Mapping.sampleId,
+      __physical(Fluid),
+      fluidFields,
+      numFluidFields,
+      __physical(Particles),
+      particlesFields,
+      numParticlesFields,
+      __physical(Image),
+      imageFields,
+      numImageFields,
+      __raw(p_Fluid),
+      __raw(p_Particles),
+      config.Visualization.numParticlesToDraw,
+      config.Visualization.isosurfaceField,
+      config.Visualization.isosurfaceValue,
+      __physical(particlesToDraw),
+      lowerBound,
+      upperBound)
+
+    render.cxx_reduce(__runtime(),
+      __context(),
+      config.Mapping.sampleId)
+
   end
 end
 
