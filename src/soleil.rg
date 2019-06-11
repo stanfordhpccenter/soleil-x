@@ -3085,10 +3085,10 @@ do
 end
 
 __demand(__parallel, __cuda)
-task CalculateIneriorVolume(Fluid : region(ispace(int3d), Fluid_columns),
-                            Grid_xBnum : int32, Grid_xNum : int32,
-                            Grid_yBnum : int32, Grid_yNum : int32,
-                            Grid_zBnum : int32, Grid_zNum : int32)
+task CalculateInteriorVolume(Fluid : region(ispace(int3d), Fluid_columns),
+                             Grid_xBnum : int32, Grid_xNum : int32,
+                             Grid_yBnum : int32, Grid_yNum : int32,
+                             Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{cellWidth,pressure})
 do
@@ -6426,7 +6426,7 @@ local function mkInstance() local INSTANCE = {}
     Particles_averageTemperature += Particles_IntegrateQuantities(Particles)
 
     var interior_volume = 0.0
-    interior_volume += CalculateIneriorVolume(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+    interior_volume += CalculateInteriorVolume(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
 
     Flow_averagePressure = (Flow_averagePressure/interior_volume)
     Flow_averageTemperature = (Flow_averageTemperature/interior_volume)
@@ -6579,7 +6579,7 @@ local function mkInstance() local INSTANCE = {}
         var Flow_averagePD = 0.0
 
         var interior_volume = 0.0
-        interior_volume += CalculateIneriorVolume(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
+        interior_volume += CalculateInteriorVolume(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
 
         Flow_averagePD += CalculateAveragePD(Fluid,
                                              Grid.xBnum, config.Grid.xNum,
@@ -6750,6 +6750,7 @@ local function mkInstance() local INSTANCE = {}
                              config)
       end
 
+      -- Use the new conserved values to update primitive values
       Flow_UpdateAuxiliaryVelocity(Fluid,
                                    config,
                                    config.Flow.constantVisc,
