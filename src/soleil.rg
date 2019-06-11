@@ -1895,9 +1895,9 @@ where
 do
     var originCellIndex = int3d{fromCell[0], fromCell[1], fromCell[2]}
 
-    var xParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[0] - Fluid[originCellIndex].cellWidth[0]
-    var yParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[1] - Fluid[originCellIndex].cellWidth[1]
-    var zParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[2] - Fluid[originCellIndex].cellWidth[2]
+    var xParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[0] - 0.5 * Fluid[originCellIndex].cellWidth[0]
+    var yParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[1] - 0.5 * Fluid[originCellIndex].cellWidth[1]
+    var zParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[2] - 0.5 * Fluid[originCellIndex].cellWidth[2]
 
     return array(xParticleCopyOrigin, yParticleCopyOrigin, zParticleCopyOrigin)
 end
@@ -7016,9 +7016,8 @@ task workDual(mc : MultiConfig)
                             SIM0.Grid.yParticleCopyOrigin,
                             SIM0.Grid.zParticleCopyOrigin)
   var copyTgtOrigin = array(SIM1.Grid.xParticleCopyOrigin,
-                            SIM1.Grid.xParticleCopyOrigin,
-                            SIM1.Grid.xParticleCopyOrigin)
-
+                            SIM1.Grid.yParticleCopyOrigin,
+                            SIM1.Grid.zParticleCopyOrigin)
   var srcOrigin = int3d{mc.copySrc.fromCell[0], mc.copySrc.fromCell[1], mc.copySrc.fromCell[2]}
   var tgtOrigin = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]}
   var srcColoring = C.legion_domain_point_coloring_create()
