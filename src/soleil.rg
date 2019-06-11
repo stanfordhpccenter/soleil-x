@@ -109,11 +109,11 @@ local CopyQueue_columns =
                     Particles_primitives)
 
 local struct Fluid_columns {
-  centerCoordinates : double[3];
-  cellWidth : double[3];
   rho : double;
   pressure : double;
   velocity : double[3];
+  centerCoordinates : double[3];
+  cellWidth : double[3];
   velocityGradientX : double[3];
   velocityGradientY : double[3];
   velocityGradientZ : double[3];
@@ -587,14 +587,13 @@ end
 -- Output:
 --     y location on line at x=xi
 local __demand(__inline)
-task linear_interpolation(xi : double,
+task linear_interpolation(xi    : double,
                           alpha : double,
                           beta  : double,
                           a     : double,
                           b     : double) : double
   return (b-a)/(beta-alpha)*(xi-alpha) + a
 end
-
 
 -- Description:
 --     Generate the cell width of a nonuniform mesh
@@ -610,7 +609,6 @@ task uniform_cell_width(x_min : double,
                         Nx    : uint64) : double
   return (x_max-x_min)/Nx
 end
-
 
 -- Description:
 --     Generate the cell center on a uniform mesh
@@ -674,7 +672,6 @@ task uniform_cell_pos_face(x_min : double,
   return x_center + 0.5*dx
 end
 
-
 -- Description:
 --     non-linear map point (x) on the interval (x_min, x_max) using
 --     a cosine  
@@ -685,7 +682,7 @@ end
 -- Output:
 --     x location on a non-uniform mesh
 local __demand(__inline)
-task transform_uniform_to_nonuniform(x : double,
+task transform_uniform_to_nonuniform(x     : double,
                                      x_min : double,
                                      x_max : double) : double
   -- map x onto the interval -1 to 1
@@ -742,7 +739,6 @@ task nonuniform_cell_pos_face(x_min : double,
   return transform_uniform_to_nonuniform(x_uniform_pos_face, x_min, x_max)
 end
 
-
 -- Description:
 --     Generate the cell center of a nonuniform mesh
 -- Input:
@@ -767,7 +763,6 @@ task nonuniform_cell_center(x_min : double,
 
   return x_non_uniform_center 
 end
-
 
 -- Description:
 --     Generate the cell width of a nonuniform mesh
@@ -809,7 +804,7 @@ task locate(pos : double[3],
   if (Grid_xType == SCHEMA.GridType_Uniform) then
     var xcw = Grid_xWidth/Grid_xNum
     var xro = Grid_xOrigin-Grid_xBnum*xcw
-    var xpos = floor((pos[0]-xro)/xcw)
+    var xpos = int(floor((pos[0]-xro)/xcw))
     var xrnum = Grid_xNum+2*Grid_xBnum
     var xidx = max(0, min(xrnum-1, xpos))
   elseif (Grid_xType == SCHEMA.GridType_Stretched) then
@@ -828,7 +823,7 @@ task locate(pos : double[3],
           -- Convert from interior index back to global index (accounts for ghost cells)
           xidx = (xidx_interior + Grid_xBnum)
           break
-        end 
+        end
       end
     end
   end
@@ -837,7 +832,7 @@ task locate(pos : double[3],
   if (Grid_yType == SCHEMA.GridType_Uniform) then
     var ycw = Grid_yWidth/Grid_yNum
     var yro = Grid_yOrigin-Grid_yBnum*ycw
-    var ypos = floor((pos[1]-yro)/ycw)
+    var ypos = int(floor((pos[1]-yro)/ycw))
     var yrnum = Grid_yNum+2*Grid_yBnum
     var yidx = max(0, min(yrnum-1, ypos))
   elseif (Grid_yType == SCHEMA.GridType_Stretched) then
@@ -865,7 +860,7 @@ task locate(pos : double[3],
   if (Grid_zType == SCHEMA.GridType_Uniform) then
     var zcw = Grid_zWidth/Grid_zNum
     var zro = Grid_zOrigin-Grid_zBnum*zcw
-    var zpos = floor((pos[2]-zro)/zcw)
+    var zpos = int(floor((pos[2]-zro)/zcw))
     var zrnum = Grid_zNum+2*Grid_zBnum
     var zidx = max(0, min(zrnum-1, zpos))
   elseif (Grid_zType == SCHEMA.GridType_Stretched) then
@@ -1758,9 +1753,7 @@ do
 
 end
 
-
---__demand(__parallel, __cuda)
-__demand(__cuda)
+__demand(__cuda) -- MANUALLY PARALLELIZED
 task Radiation_InitializeGeometry(Radiation : region(ispace(int3d), Radiation_columns),
                                   Fluid     : region(ispace(int3d), Fluid_columns),
                                   Grid_xNum : int32,
@@ -1901,7 +1894,6 @@ do
 
     return array(xParticleCopyOrigin, yParticleCopyOrigin, zParticleCopyOrigin)
 end
-
 
 __demand(__parallel, __cuda)
 task Flow_InitializeUniform(Fluid : region(ispace(int3d), Fluid_columns), Flow_initParams : double[5])
@@ -6362,6 +6354,7 @@ local function mkInstance() local INSTANCE = {}
   -----------------------------------------------------------------------------
   -- Init for copy particles in 2 section simulations
   -----------------------------------------------------------------------------
+
   function INSTANCE.InitParticleCopyOrigin(fromCell) return rquote
 
     var particleCopyOrigin = Particles_InitializeCopyOrigin(Fluid, fromCell)
@@ -6954,8 +6947,6 @@ task workDual(mc : MultiConfig)
   var is_FakeCopyQueue = ispace(int1d, 0)
   var [FakeCopyQueue] = region(is_FakeCopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
-
-
   var CopyQueue_ptr : int64 = 0
   var coloring_CopyQueue = C.legion_domain_point_coloring_create()
   for c in SIM0.tiles do
@@ -7005,11 +6996,9 @@ task workDual(mc : MultiConfig)
     mc.copySrc.uptoCell[2] - mc.copySrc.fromCell[2] ==
     mc.copyTgt.uptoCell[2] - mc.copyTgt.fromCell[2],
     'Invalid volume copy configuration');
-
   -- Initialize regions & partitions
   [parallelizeFor(SIM0, SIM0.InitRegions(rexpr mc.configs[0] end))];
   [parallelizeFor(SIM1, SIM1.InitRegions(rexpr mc.configs[1] end))];
-
   [SIM0.InitParticleCopyOrigin(rexpr mc.copySrc.fromCell end)];
   [SIM1.InitParticleCopyOrigin(rexpr mc.copyTgt.fromCell end)];
   var copySrcOrigin = array(SIM0.Grid.xParticleCopyOrigin,
