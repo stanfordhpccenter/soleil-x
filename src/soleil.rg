@@ -575,15 +575,15 @@ end
 -- MESH ROUTINES
 -------------------------------------------------------------------------------
 -- Description:
---     Linear interpolation, given the line defined by the points 
+--     Linear interpolation, given the line defined by the points
 --     (x=alpha, y=a) and (x=beta, y=b) find the y location of the
---     point on the line (x=xi, y=?) 
+--     point on the line (x=xi, y=?)
 -- Input:
 --     xi = location on x axis
 --     alpha = lower point on x axis
---     beta =  upper point on x axis 
---     a = lower point on y axis 
---     b = upper point on y axis 
+--     beta =  upper point on x axis
+--     a = lower point on y axis
+--     b = upper point on y axis
 -- Output:
 --     y location on line at x=xi
 local __demand(__inline)
@@ -599,7 +599,7 @@ end
 --     Generate the cell width of a nonuniform mesh
 -- Input:
 --     x_min = domain minimum
---     x_max = domain maximum 
+--     x_max = domain maximum
 --     Nx = number of cells between x_min and x_max
 -- Output:
 --     width of the non-uniform mesh cell
@@ -614,10 +614,10 @@ end
 --     Generate the cell center on a uniform mesh
 -- Input:
 --     x_min = domain minimum
---     x_max = domain maximum 
+--     x_max = domain maximum
 --     Nx = number of cells between x_min and x_max
 --     i  = cell index between x_min and x_max
---         Note: i = 0 has x_min as left face and 
+--         Note: i = 0 has x_min as left face and
 --               i = Nx-1 has x_max as right face
 -- Output:
 --     location of cell center
@@ -634,10 +634,10 @@ end
 --     Generate the location of the face in the negative direction
 -- Input:
 --     x_min = domain minimum
---     x_max = domain maximum 
+--     x_max = domain maximum
 --     Nx = number of cells between x_min and x_max
 --     i  = cell index between x_min and x_max
---         Note: i = 0 has x_min as negative direction (left) face and 
+--         Note: i = 0 has x_min as negative direction (left) face and
 --               i = Nx-1 has x_max as positive direction (right) face
 -- Output:
 --     location of face in the negative direction
@@ -655,10 +655,10 @@ end
 --     Generate the location of the face in the postive direction
 -- Input:
 --     x_min = domain minimum
---     x_max = domain maximum 
+--     x_max = domain maximum
 --     Nx = number of cells between x_min and x_max
 --     i  = cell index between x_min and x_max
---         Note: i = 0 has x_min as negative direction (left) face and 
+--         Note: i = 0 has x_min as negative direction (left) face and
 --               i = Nx-1 has x_max as positive direction (right) face
 -- Output:
 --     location of face in the postive direction
@@ -674,11 +674,11 @@ end
 
 -- Description:
 --     non-linear map point (x) on the interval (x_min, x_max) using
---     a cosine  
+--     a cosine
 -- Input:
 --     x = location on uniform mesh
 --     x_min = domain minimum
---     x_max = domain maximum 
+--     x_max = domain maximum
 -- Output:
 --     x location on a non-uniform mesh
 local __demand(__inline)
@@ -700,10 +700,10 @@ end
 --     on a non uniform mesh
 -- Input:
 --     x_min = domain minimum
---     x_max = domain maximum 
+--     x_max = domain maximum
 --     Nx = number of cells between x_min and x_max
 --     i  = cell index between x_min and x_max
---         Note: i = 0 has x_min as negative direction (left) face and 
+--         Note: i = 0 has x_min as negative direction (left) face and
 --               i = Nx-1 has x_max as positive direction (right) face
 --               so no ghost cells accounted for here
 -- Output:
@@ -722,10 +722,10 @@ end
 --     on a non uniform mesh
 -- Input:
 --     x_min = domain minimum
---     x_max = domain maximum 
+--     x_max = domain maximum
 --     Nx = number of cells between x_min and x_max
 --     i  = cell index between x_min and x_max
---         Note: i = 0 has x_min as negative direction (left) face and 
+--         Note: i = 0 has x_min as negative direction (left) face and
 --               i = Nx-1 has x_max as positive direction (right) face
 --               so no ghost cells accounted for here
 -- Output:
@@ -743,10 +743,10 @@ end
 --     Generate the cell center of a nonuniform mesh
 -- Input:
 --     x_min = domain minimum
---     x_max = domain maximum 
+--     x_max = domain maximum
 --     Nx = number of cells between x_min and x_max
 --     i  = cell index between x_min and x_max
---         Note: i = 0 has x_min as left face and 
+--         Note: i = 0 has x_min as left face and
 --               i = Nx-1 has x_max as right face
 --               so no ghost cells accounted for here
 -- Output:
@@ -761,17 +761,17 @@ task nonuniform_cell_center(x_min : double,
 
   var x_non_uniform_center = 0.5*(x_non_uniform_neg_face + x_non_uniform_pos_face)
 
-  return x_non_uniform_center 
+  return x_non_uniform_center
 end
 
 -- Description:
 --     Generate the cell width of a nonuniform mesh
 -- Input:
 --     x_min = domain minimum
---     x_max = domain maximum 
+--     x_max = domain maximum
 --     Nx = number of cells between x_min and x_max
 --     i  = cell index between x_min and x_max
---         Note: i = 0 has x_min as left face and 
+--         Note: i = 0 has x_min as left face and
 --               i = Nx-1 has x_max as right face
 --               so no ghost cells accounted for here
 -- Output:
@@ -786,7 +786,7 @@ task nonuniform_cell_width(x_min : double,
 
   var x_non_uniform_dx = x_non_uniform_pos_face - x_non_uniform_neg_face
 
-  return x_non_uniform_dx 
+  return x_non_uniform_dx
 end
 
 -------------------------------------------------------------------------------
@@ -851,7 +851,7 @@ task locate(pos : double[3],
           -- Convert from interior index back to global index (accounts for ghost cells)
           yidx = (yidx_interior + Grid_yBnum)
           break
-        end 
+        end
       end
     end
   end
@@ -879,7 +879,7 @@ task locate(pos : double[3],
           -- Convert from interior index back to global index (accounts for ghost cells)
           zidx = (zidx_interior + Grid_zBnum)
           break
-        end 
+        end
       end
     end
   end
@@ -1110,7 +1110,7 @@ do
         xyz101 = centerCoordinates001
         xyz110 = centerCoordinates010
         xyz111 = centerCoordinates011
-      else       
+      else
         v000 = velocity_0_
         v001 = velocity_00
         v010 = velocity_1_
@@ -1775,11 +1775,11 @@ do
   for rad_cell in Radiation do
     var rad_index = int3d(rad_cell)
 
-    var fluid_index_x_neg = (rad_index.x  )*xFactor 
+    var fluid_index_x_neg = (rad_index.x  )*xFactor
     var fluid_index_x_pos = (rad_index.x+1)*xFactor - 1
-    var fluid_index_y_neg = (rad_index.y  )*yFactor 
+    var fluid_index_y_neg = (rad_index.y  )*yFactor
     var fluid_index_y_pos = (rad_index.y+1)*yFactor - 1
-    var fluid_index_z_neg = (rad_index.z  )*zFactor 
+    var fluid_index_z_neg = (rad_index.z  )*zFactor
     var fluid_index_z_pos = (rad_index.z+1)*zFactor - 1
     var fluid_index_neg = int3d({fluid_index_x_neg, fluid_index_y_neg, fluid_index_z_neg})
     var fluid_index_pos = int3d({fluid_index_x_pos, fluid_index_y_pos, fluid_index_z_pos})
@@ -1790,7 +1790,7 @@ do
     var y_pos_face = Fluid[fluid_index_pos].centerCoordinates[1]+Fluid[fluid_index_pos].cellWidth[1]
     var z_neg_face = Fluid[fluid_index_neg].centerCoordinates[2]-Fluid[fluid_index_neg].cellWidth[2]
     var z_pos_face = Fluid[fluid_index_pos].centerCoordinates[2]+Fluid[fluid_index_pos].cellWidth[2]
-    
+
     rad_cell.cellWidth = array(x_pos_face - x_neg_face,
                                y_pos_face - y_neg_face,
                                z_pos_face - z_neg_face)
@@ -3548,7 +3548,7 @@ do
       var velocityZ_XFace   = 0.0
       var temperature_XFace = 0.0
       if xNegGhost or is_xPosGhost(stencil, Grid_xBnum, Grid_xNum) then
-        -- do not use velocity gradients in ghost cells for computing the fluxes 
+        -- do not use velocity gradients in ghost cells for computing the fluxes
         velocityX_XFace   = (velocity_stencil[0] - velocity[0]) / xCellWidth
         velocityY_XFace   = (velocity_stencil[1] - velocity[1]) / xCellWidth
         velocityZ_XFace   = (velocity_stencil[2] - velocity[2]) / xCellWidth
@@ -3736,12 +3736,12 @@ do
       var velocityZ_YFace   = 0.0
       var temperature_YFace = 0.0
       if yNegGhost or is_yPosGhost(stencil, Grid_yBnum, Grid_yNum) then
-        -- do not use velocity gradients in ghost cells for computing the fluxes 
+        -- do not use velocity gradients in ghost cells for computing the fluxes
         velocityX_YFace   = (velocity_stencil[0] - velocity[0]) / yCellWidth
         velocityY_YFace   = (velocity_stencil[1] - velocity[1]) / yCellWidth
         velocityZ_YFace   = (velocity_stencil[2] - velocity[2]) / yCellWidth
-        temperature_YFace = (temperature_stencil - temperature) / yCellWidth 
-      else 
+        temperature_YFace = (temperature_stencil - temperature) / yCellWidth
+      else
         velocityX_YFace = linear_interpolation(Fluid[c].centerCoordinates[1] + yCellWidth/2.0,
                                                Fluid[c].centerCoordinates[1],
                                                Fluid[c].centerCoordinates[1] + yCellWidth/2.0 + yCellWidth_stencil/2.0,
@@ -3926,7 +3926,7 @@ do
       var velocityZ_ZFace   = 0.0
       var temperature_ZFace = 0.0
       if zNegGhost or is_zPosGhost(stencil, Grid_zBnum, Grid_zNum) then
-        -- do not use velocity gradients in ghost cells for computing the fluxes 
+        -- do not use velocity gradients in ghost cells for computing the fluxes
         velocityX_ZFace   = (velocity_stencil[0] - velocity[0]) / zCellWidth
         velocityY_ZFace   = (velocity_stencil[1] - velocity[1]) / zCellWidth
         velocityZ_ZFace   = (velocity_stencil[2] - velocity[2]) / zCellWidth
@@ -4419,8 +4419,8 @@ do
       var velocityX_XFace   = 0.0
       var velocityY_XFace   = 0.0
       var velocityZ_XFace   = 0.0
-      if xNegGhost or is_xPosGhost(stencil, Grid_xBnum, Grid_xNum)then 
-        -- do not use velocity gradients in ghost cells for computing the fluxes 
+      if xNegGhost or is_xPosGhost(stencil, Grid_xBnum, Grid_xNum)then
+        -- do not use velocity gradients in ghost cells for computing the fluxes
         velocityX_XFace   = (velocity_stencil[0] - velocity[0]) / xCellWidth
         velocityY_XFace   = (velocity_stencil[1] - velocity[1]) / xCellWidth
         velocityZ_XFace   = (velocity_stencil[2] - velocity[2]) / xCellWidth
@@ -4567,7 +4567,7 @@ do
         velocityX_YFace   = (velocity_stencil[0] - velocity[0]) / yCellWidth
         velocityY_YFace   = (velocity_stencil[1] - velocity[1]) / yCellWidth
         velocityZ_YFace   = (velocity_stencil[2] - velocity[2]) / yCellWidth
-      else 
+      else
         velocityX_YFace = linear_interpolation(Fluid[c].centerCoordinates[1] + yCellWidth/2.0,
                                                Fluid[c].centerCoordinates[1],
                                                Fluid[c].centerCoordinates[1] + yCellWidth/2.0 + yCellWidth_stencil/2.0,
@@ -6604,7 +6604,7 @@ local function mkInstance() local INSTANCE = {}
                                                                Grid.xBnum, config.Grid.xNum,
                                                                Grid.yBnum, config.Grid.yNum,
                                                                Grid.zBnum, config.Grid.zNum)
-        Flow_averageDissipation /= interior_volume 
+        Flow_averageDissipation /= interior_volume
 
         Flow_averageK += CalculateAverageK(Fluid,
                                            Grid.xBnum, config.Grid.xNum,
