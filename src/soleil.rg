@@ -1679,11 +1679,11 @@ do
       var x_pos_boundary = Grid_xOrigin + Grid_xWidth
       var x_idx_interior = cell.x - Grid_xBnum
       if (Grid_xType == SCHEMA.GridType_Stretched) then
-        cell.centerCoordinates[0] = nonuniform_cell_center(x_neg_boundary, x_pos_boundary, Grid_xNum, x_idx_interior)
-        cell.cellWidth[0]         = nonuniform_cell_width( x_neg_boundary, x_pos_boundary, Grid_xNum, x_idx_interior)
+        Fluid[cell].centerCoordinates[0] = nonuniform_cell_center(x_neg_boundary, x_pos_boundary, Grid_xNum, x_idx_interior)
+        Fluid[cell].cellWidth[0]         = nonuniform_cell_width( x_neg_boundary, x_pos_boundary, Grid_xNum, x_idx_interior)
       elseif (Grid_xType == SCHEMA.GridType_Uniform) then
-        cell.centerCoordinates[0] = uniform_cell_center(x_neg_boundary, x_pos_boundary, Grid_xNum, x_idx_interior)
-        cell.cellWidth[0]         = uniform_cell_width( x_neg_boundary, x_pos_boundary, Grid_xNum)
+        Fluid[cell].centerCoordinates[0] = uniform_cell_center(x_neg_boundary, x_pos_boundary, Grid_xNum, x_idx_interior)
+        Fluid[cell].cellWidth[0]         = uniform_cell_width( x_neg_boundary, x_pos_boundary, Grid_xNum)
       end
     end
 
@@ -1692,11 +1692,11 @@ do
       var y_pos_boundary = Grid_yOrigin + Grid_yWidth
       var y_idx_interior = cell.y - Grid_yBnum
       if (Grid_yType == SCHEMA.GridType_Stretched) then
-        cell.centerCoordinates[1] = nonuniform_cell_center(y_neg_boundary, y_pos_boundary, Grid_yNum, y_idx_interior)
-        cell.cellWidth[1]         = nonuniform_cell_width( y_neg_boundary, y_pos_boundary, Grid_yNum, y_idx_interior)
+        Fluid[cell].centerCoordinates[1] = nonuniform_cell_center(y_neg_boundary, y_pos_boundary, Grid_yNum, y_idx_interior)
+        Fluid[cell].cellWidth[1]         = nonuniform_cell_width( y_neg_boundary, y_pos_boundary, Grid_yNum, y_idx_interior)
       elseif (Grid_yType == SCHEMA.GridType_Uniform) then
-        cell.centerCoordinates[1] = uniform_cell_center(y_neg_boundary, y_pos_boundary, Grid_yNum, y_idx_interior)
-        cell.cellWidth[1]         = uniform_cell_width( y_neg_boundary, y_pos_boundary, Grid_yNum)
+        Fluid[cell].centerCoordinates[1] = uniform_cell_center(y_neg_boundary, y_pos_boundary, Grid_yNum, y_idx_interior)
+        Fluid[cell].cellWidth[1]         = uniform_cell_width( y_neg_boundary, y_pos_boundary, Grid_yNum)
       end
     end
 
@@ -1705,11 +1705,11 @@ do
       var z_pos_boundary = Grid_zOrigin + Grid_zWidth
       var z_idx_interior = cell.z - Grid_zBnum
       if (Grid_zType == SCHEMA.GridType_Stretched) then
-        cell.centerCoordinates[2] = nonuniform_cell_center(z_neg_boundary, z_pos_boundary, Grid_zNum, z_idx_interior)
-        cell.cellWidth[2]         = nonuniform_cell_width( z_neg_boundary, z_pos_boundary, Grid_zNum, z_idx_interior)
+        Fluid[cell].centerCoordinates[2] = nonuniform_cell_center(z_neg_boundary, z_pos_boundary, Grid_zNum, z_idx_interior)
+        Fluid[cell].cellWidth[2]         = nonuniform_cell_width( z_neg_boundary, z_pos_boundary, Grid_zNum, z_idx_interior)
       elseif (Grid_zType == SCHEMA.GridType_Uniform) then
-        cell.centerCoordinates[2] = uniform_cell_center(z_neg_boundary, z_pos_boundary, Grid_zNum, z_idx_interior)
-        cell.cellWidth[2]         = uniform_cell_width( z_neg_boundary, z_pos_boundary, Grid_zNum)
+        Fluid[cell].centerCoordinates[2] = uniform_cell_center(z_neg_boundary, z_pos_boundary, Grid_zNum, z_idx_interior)
+        Fluid[cell].cellWidth[2]         = uniform_cell_width( z_neg_boundary, z_pos_boundary, Grid_zNum)
       end
     end
 
@@ -1726,27 +1726,27 @@ do
     var zPosGhost = is_zPosGhost(cell, Grid_zBnum, Grid_zNum)
 
     if xNegGhost then
-      cell.centerCoordinates[0] = Fluid[cell+{1,0,0}].centerCoordinates[0] - Fluid[cell+{1,0,0}].cellWidth[0]
-      cell.cellWidth[0] = Fluid[cell+{1,0,0}].cellWidth[0]
+      Fluid[cell].centerCoordinates[0] = Fluid[cell+{1,0,0}].centerCoordinates[0] - Fluid[cell+{1,0,0}].cellWidth[0]
+      Fluid[cell].cellWidth[0] = Fluid[cell+{1,0,0}].cellWidth[0]
     elseif xPosGhost then
-      cell.centerCoordinates[0] = Fluid[cell-{1,0,0}].centerCoordinates[0] + Fluid[cell-{1,0,0}].cellWidth[0]
-      cell.cellWidth[0] = Fluid[cell-{1,0,0}].cellWidth[0]
+      Fluid[cell].centerCoordinates[0] = Fluid[cell-{1,0,0}].centerCoordinates[0] + Fluid[cell-{1,0,0}].cellWidth[0]
+      Fluid[cell].cellWidth[0] = Fluid[cell-{1,0,0}].cellWidth[0]
     end
 
     if yNegGhost then
-      cell.centerCoordinates[1] = Fluid[cell+{0,1,0}].centerCoordinates[1] - Fluid[cell+{0,1,0}].cellWidth[1]
-      cell.cellWidth[1] = Fluid[cell+{0,1,0}].cellWidth[1]
+      Fluid[cell].centerCoordinates[1] = Fluid[cell+{0,1,0}].centerCoordinates[1] - Fluid[cell+{0,1,0}].cellWidth[1]
+      Fluid[cell].cellWidth[1] = Fluid[cell+{0,1,0}].cellWidth[1]
     elseif yPosGhost then
-      cell.centerCoordinates[1] = Fluid[cell-{0,1,0}].centerCoordinates[1] + Fluid[cell-{0,1,0}].cellWidth[1]
-      cell.cellWidth[1] = Fluid[cell-{0,1,0}].cellWidth[1]
+      Fluid[cell].centerCoordinates[1] = Fluid[cell-{0,1,0}].centerCoordinates[1] + Fluid[cell-{0,1,0}].cellWidth[1]
+      Fluid[cell].cellWidth[1] = Fluid[cell-{0,1,0}].cellWidth[1]
     end
 
     if zNegGhost then
-      cell.centerCoordinates[2] = Fluid[cell+{0,0,1}].centerCoordinates[2] - Fluid[cell+{0,0,1}].cellWidth[2]
-      cell.cellWidth[2] = Fluid[cell+{0,0,1}].cellWidth[2]
+      Fluid[cell].centerCoordinates[2] = Fluid[cell+{0,0,1}].centerCoordinates[2] - Fluid[cell+{0,0,1}].cellWidth[2]
+      Fluid[cell].cellWidth[2] = Fluid[cell+{0,0,1}].cellWidth[2]
     elseif zPosGhost then
-      cell.centerCoordinates[2] = Fluid[cell-{0,0,1}].centerCoordinates[2] + Fluid[cell-{0,0,1}].cellWidth[2]
-      cell.cellWidth[2] = Fluid[cell-{0,0,1}].cellWidth[2]
+      Fluid[cell].centerCoordinates[2] = Fluid[cell-{0,0,1}].centerCoordinates[2] + Fluid[cell-{0,0,1}].cellWidth[2]
+      Fluid[cell].cellWidth[2] = Fluid[cell-{0,0,1}].cellWidth[2]
     end
 
   end
@@ -1791,13 +1791,13 @@ do
     var z_neg_face = Fluid[fluid_index_neg].centerCoordinates[2]-Fluid[fluid_index_neg].cellWidth[2]
     var z_pos_face = Fluid[fluid_index_pos].centerCoordinates[2]+Fluid[fluid_index_pos].cellWidth[2]
 
-    rad_cell.cellWidth = array(x_pos_face - x_neg_face,
-                               y_pos_face - y_neg_face,
-                               z_pos_face - z_neg_face)
+    Radiation[rad_cell].cellWidth = array(x_pos_face - x_neg_face,
+                                          y_pos_face - y_neg_face,
+                                          z_pos_face - z_neg_face)
 
-    rad_cell.centerCoordinates =  array((x_neg_face + x_pos_face)/2.0,
-                                        (y_neg_face + y_pos_face)/2.0,
-                                        (z_neg_face + z_pos_face)/2.0)
+    Radiation[rad_cell].centerCoordinates =  array((x_neg_face + x_pos_face)/2.0,
+                                                   (y_neg_face + y_pos_face)/2.0,
+                                                   (z_neg_face + z_pos_face)/2.0)
 
   end
 
@@ -1940,7 +1940,7 @@ do
     var taylorGreenDensity = Flow_initParams[0]
     var taylorGreenPressure = Flow_initParams[1]
     var taylorGreenVelocity = Flow_initParams[2]
-    var xy = c.centerCoordinates
+    var xy = Fluid[c].centerCoordinates
     var coorZ = 0
     Fluid[c].rho = taylorGreenDensity
     Fluid[c].velocity = vs_mul([double[3]](array(((sin(xy[0])*cos(xy[1]))*cos(coorZ)), (((-cos(xy[0]))*sin(xy[1]))*cos(coorZ)), 0.0)), taylorGreenVelocity)
@@ -1965,7 +1965,7 @@ do
     var taylorGreenDensity = Flow_initParams[0]
     var taylorGreenPressure = Flow_initParams[1]
     var taylorGreenVelocity = Flow_initParams[2]
-    var xy = c.centerCoordinates
+    var xy = Fluid[c].centerCoordinates
     Fluid[c].rho = taylorGreenDensity
     Fluid[c].velocity = vs_mul([double[3]](array(((sin(xy[0])*cos(xy[1]))*cos(xy[2])), (((-cos(xy[0]))*sin(xy[1]))*cos(xy[2])), 0.0)), taylorGreenVelocity)
     var factorA = (cos((2.0*xy[2]))+2.0)
@@ -2772,32 +2772,32 @@ do
     var dz00_ = Fluid[(c+{ 0,  0, -1}) % Fluid.bounds].cellWidth[2]
 
     if interior then
-      Fluid[c].velocityGradientX = vs_div(vv_sub(v100, v_00), 0.5*dx100 + c.cellWidth[0] + 0.5*dx_00)
-      Fluid[c].velocityGradientY = vs_div(vv_sub(v010, v0_0), 0.5*dy010 + c.cellWidth[1] + 0.5*dy0_0)
-      Fluid[c].velocityGradientZ = vs_div(vv_sub(v001, v00_), 0.5*dz001 + c.cellWidth[2] + 0.5*dz00_)
-      Fluid[c].temperatureGradient[0] = (T100-T_00)/(0.5*dx100 + c.cellWidth[0] + 0.5*dx_00)
-      Fluid[c].temperatureGradient[1] = (T010-T0_0)/(0.5*dy010 + c.cellWidth[1] + 0.5*dy0_0)
-      Fluid[c].temperatureGradient[2] = (T001-T00_)/(0.5*dz001 + c.cellWidth[2] + 0.5*dz00_)
+      Fluid[c].velocityGradientX = vs_div(vv_sub(v100, v_00), 0.5*dx100 + Fluid[c].cellWidth[0] + 0.5*dx_00)
+      Fluid[c].velocityGradientY = vs_div(vv_sub(v010, v0_0), 0.5*dy010 + Fluid[c].cellWidth[1] + 0.5*dy0_0)
+      Fluid[c].velocityGradientZ = vs_div(vv_sub(v001, v00_), 0.5*dz001 + Fluid[c].cellWidth[2] + 0.5*dz00_)
+      Fluid[c].temperatureGradient[0] = (T100-T_00)/(0.5*dx100 + Fluid[c].cellWidth[0] + 0.5*dx_00)
+      Fluid[c].temperatureGradient[1] = (T010-T0_0)/(0.5*dy010 + Fluid[c].cellWidth[1] + 0.5*dy0_0)
+      Fluid[c].temperatureGradient[2] = (T001-T00_)/(0.5*dz001 + Fluid[c].cellWidth[2] + 0.5*dz00_)
     end
     if NSCBC_inflow_cell  then
       -- forward one sided difference
-      Fluid[c].velocityGradientX = vs_div(vv_sub(v100, c.velocity), 0.5*(dx100 + c.cellWidth[0]))
-      Fluid[c].temperatureGradient[0] = (T100-c.temperature)/(0.5*(dx100 + c.cellWidth[0]))
+      Fluid[c].velocityGradientX = vs_div(vv_sub(v100, Fluid[c].velocity), 0.5*(dx100 + Fluid[c].cellWidth[0]))
+      Fluid[c].temperatureGradient[0] = (T100-Fluid[c].temperature)/(0.5*(dx100 + Fluid[c].cellWidth[0]))
       -- central difference
-      Fluid[c].velocityGradientY = vs_div(vv_sub(v010, v0_0), 0.5*dy010 + c.cellWidth[1] + 0.5*dy0_0)
-      Fluid[c].velocityGradientZ = vs_div(vv_sub(v001, v00_), 0.5*dz001 + c.cellWidth[2] + 0.5*dz00_)
-      Fluid[c].temperatureGradient[1] = (T010-T0_0)/(0.5*dy010 + c.cellWidth[1] + 0.5*dy0_0)
-      Fluid[c].temperatureGradient[2] = (T001-T00_)/(0.5*dz001 + c.cellWidth[2] + 0.5*dz00_)
+      Fluid[c].velocityGradientY = vs_div(vv_sub(v010, v0_0), 0.5*dy010 + Fluid[c].cellWidth[1] + 0.5*dy0_0)
+      Fluid[c].velocityGradientZ = vs_div(vv_sub(v001, v00_), 0.5*dz001 + Fluid[c].cellWidth[2] + 0.5*dz00_)
+      Fluid[c].temperatureGradient[1] = (T010-T0_0)/(0.5*dy010 + Fluid[c].cellWidth[1] + 0.5*dy0_0)
+      Fluid[c].temperatureGradient[2] = (T001-T00_)/(0.5*dz001 + Fluid[c].cellWidth[2] + 0.5*dz00_)
     end
     if NSCBC_outflow_cell  then
       -- backward one sided difference
-      Fluid[c].velocityGradientX = vs_div(vv_sub(c.velocity, v_00), 0.5*(c.cellWidth[0] + dx_00))
-      Fluid[c].temperatureGradient[0] = (c.temperature-T_00)/(0.5*(dx_00 + c.cellWidth[0]))
+      Fluid[c].velocityGradientX = vs_div(vv_sub(Fluid[c].velocity, v_00), 0.5*(Fluid[c].cellWidth[0] + dx_00))
+      Fluid[c].temperatureGradient[0] = (Fluid[c].temperature-T_00)/(0.5*(dx_00 + Fluid[c].cellWidth[0]))
       -- central difference
-      Fluid[c].velocityGradientY = vs_div(vv_sub(v010, v0_0), 0.5*dy010 + c.cellWidth[1] + 0.5*dy0_0)
-      Fluid[c].velocityGradientZ = vs_div(vv_sub(v001, v00_), 0.5*dz001 + c.cellWidth[2] + 0.5*dz00_)
-      Fluid[c].temperatureGradient[1] = (T010-T0_0)/(0.5*dy010 + c.cellWidth[1] + 0.5*dy0_0)
-      Fluid[c].temperatureGradient[2] = (T001-T00_)/(0.5*dz001 + c.cellWidth[2] + 0.5*dz00_)
+      Fluid[c].velocityGradientY = vs_div(vv_sub(v010, v0_0), 0.5*dy010 + Fluid[c].cellWidth[1] + 0.5*dy0_0)
+      Fluid[c].velocityGradientZ = vs_div(vv_sub(v001, v00_), 0.5*dz001 + Fluid[c].cellWidth[2] + 0.5*dz00_)
+      Fluid[c].temperatureGradient[1] = (T010-T0_0)/(0.5*dy010 + Fluid[c].cellWidth[1] + 0.5*dy0_0)
+      Fluid[c].temperatureGradient[2] = (T001-T00_)/(0.5*dz001 + Fluid[c].cellWidth[2] + 0.5*dz00_)
     end
   end
 end
@@ -3073,7 +3073,7 @@ do
   __demand(__openmp)
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      acc += c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
+      acc += Fluid[c].cellWidth[0]*Fluid[c].cellWidth[1]*Fluid[c].cellWidth[2]
     end
   end
   return acc
@@ -3091,7 +3091,7 @@ do
   __demand(__openmp)
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      var cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
+      var cellVolume = Fluid[c].cellWidth[0]*Fluid[c].cellWidth[1]*Fluid[c].cellWidth[2]
       acc += Fluid[c].pressure*cellVolume
     end
   end
@@ -3110,7 +3110,7 @@ do
   __demand(__openmp)
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      var cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
+      var cellVolume = Fluid[c].cellWidth[0]*Fluid[c].cellWidth[1]*Fluid[c].cellWidth[2]
       acc += Fluid[c].temperature*cellVolume
     end
   end
@@ -3129,7 +3129,7 @@ do
   __demand(__openmp)
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      var cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
+      var cellVolume = Fluid[c].cellWidth[0]*Fluid[c].cellWidth[1]*Fluid[c].cellWidth[2]
       var kineticEnergy = 0.5*Fluid[c].rho*dot(Fluid[c].velocity, Fluid[c].velocity)
       acc += kineticEnergy*cellVolume
     end
@@ -3240,10 +3240,10 @@ do
   __demand(__openmp)
   for c in Fluid do
     var Grid_dXYZInverseSquare =
-      1.0/c.cellWidth[0]/c.cellWidth[0] +
-      1.0/c.cellWidth[1]/c.cellWidth[1] +
-      1.0/c.cellWidth[2]/c.cellWidth[2]
-    acc max= ((((fabs(Fluid[c].velocity[0])/c.cellWidth[0])+(fabs(Fluid[c].velocity[1])/c.cellWidth[1]))+(fabs(Fluid[c].velocity[2])/c.cellWidth[2]))+(GetSoundSpeed(Fluid[c].temperature, Flow_gamma, Flow_gasConstant)*sqrt(Grid_dXYZInverseSquare)))
+      1.0/Fluid[c].cellWidth[0]/Fluid[c].cellWidth[0] +
+      1.0/Fluid[c].cellWidth[1]/Fluid[c].cellWidth[1] +
+      1.0/Fluid[c].cellWidth[2]/Fluid[c].cellWidth[2]
+    acc max= ((((fabs(Fluid[c].velocity[0])/Fluid[c].cellWidth[0])+(fabs(Fluid[c].velocity[1])/Fluid[c].cellWidth[1]))+(fabs(Fluid[c].velocity[2])/Fluid[c].cellWidth[2]))+(GetSoundSpeed(Fluid[c].temperature, Flow_gamma, Flow_gasConstant)*sqrt(Grid_dXYZInverseSquare)))
   end
   return acc
 end
@@ -3261,9 +3261,9 @@ do
   __demand(__openmp)
   for c in Fluid do
     var Grid_dXYZInverseSquare =
-      1.0/c.cellWidth[0]/c.cellWidth[0] +
-      1.0/c.cellWidth[1]/c.cellWidth[1] +
-      1.0/c.cellWidth[2]/c.cellWidth[2]
+      1.0/Fluid[c].cellWidth[0]/Fluid[c].cellWidth[0] +
+      1.0/Fluid[c].cellWidth[1]/Fluid[c].cellWidth[1] +
+      1.0/Fluid[c].cellWidth[2]/Fluid[c].cellWidth[2]
     var dynamicViscosity = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
     acc max= ((((2.0*dynamicViscosity)/Fluid[c].rho)*Grid_dXYZInverseSquare)*4.0)
   end
@@ -3286,9 +3286,9 @@ do
   __demand(__openmp)
   for c in Fluid do
     var Grid_dXYZInverseSquare =
-      1.0/c.cellWidth[0]/c.cellWidth[0] +
-      1.0/c.cellWidth[1]/c.cellWidth[1] +
-      1.0/c.cellWidth[2]/c.cellWidth[2]
+      1.0/Fluid[c].cellWidth[0]/Fluid[c].cellWidth[0] +
+      1.0/Fluid[c].cellWidth[1]/Fluid[c].cellWidth[1] +
+      1.0/Fluid[c].cellWidth[2]/Fluid[c].cellWidth[2]
     var dynamicViscosity = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
     var cv = (Flow_gasConstant/(Flow_gamma-1.0))
     var cp = (Flow_gamma*cv)
@@ -4207,7 +4207,7 @@ do
                                      Flow_viscosityModel)
         var tau_12 =  mu*( Fluid[c_bnd].velocityGradientY[0] + Fluid[c_bnd].velocityGradientX[1] )
         var tau_13 =  mu*( Fluid[c_bnd].velocityGradientZ[0] + Fluid[c_bnd].velocityGradientX[2] )
-        var energy_term_x = (Fluid[c_bnd].velocity[0]*tau11_pos - Fluid[c_int].velocity[0]*tau11_neg) / (0.5*Fluid[c_int].cellWidth[0] + 0.5*Fluid[c_bnd].cellWidth[0]) + c.velocityGradientX[1]*tau_12 + c.velocityGradientX[2]*tau_13
+        var energy_term_x = (Fluid[c_bnd].velocity[0]*tau11_pos - Fluid[c_int].velocity[0]*tau11_neg) / (0.5*Fluid[c_int].cellWidth[0] + 0.5*Fluid[c_bnd].cellWidth[0]) + Fluid[c].velocityGradientX[1]*tau_12 + Fluid[c].velocityGradientX[2]*tau_13
 
         -- Update the RHS of conservation equations with x fluxes
         Fluid[c_bnd].rho_t += - d1
@@ -4305,7 +4305,7 @@ do
   __demand(__openmp)
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      var cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
+      var cellVolume = Fluid[c].cellWidth[0]*Fluid[c].cellWidth[1]*Fluid[c].cellWidth[2]
       var divU = Fluid[c].velocityGradientX[0] + Fluid[c].velocityGradientY[1] + Fluid[c].velocityGradientZ[2]
       acc += (divU * Fluid[c].pressure)*cellVolume
     end
@@ -4608,7 +4608,7 @@ do
   __demand(__openmp)
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      Fluid[c].dissipation += (Fluid[c].dissipationFlux-Fluid[((c+{0, -1, 0})%Fluid.bounds)].dissipationFlux)/c.cellWidth[1]
+      Fluid[c].dissipation += (Fluid[c].dissipationFlux-Fluid[((c+{0, -1, 0})%Fluid.bounds)].dissipationFlux)/Fluid[c].cellWidth[1]
     end
   end
 end
@@ -4770,7 +4770,7 @@ do
   __demand(__openmp)
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      var cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
+      var cellVolume = Fluid[c].cellWidth[0]*Fluid[c].cellWidth[1]*Fluid[c].cellWidth[2]
       acc += Fluid[c].dissipation*cellVolume
     end
   end
@@ -4789,7 +4789,7 @@ do
   __demand(__openmp)
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      var cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
+      var cellVolume = Fluid[c].cellWidth[0]*Fluid[c].cellWidth[1]*Fluid[c].cellWidth[2]
       acc += 0.5*Fluid[c].rho*dot(Fluid[c].velocity, Fluid[c].velocity)*cellVolume
     end
   end
@@ -4822,7 +4822,7 @@ do
       Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, force)
       Fluid[c].rhoEnergy_t += dot(force, Fluid[c].velocity)
 
-      var cellVolume = c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2]
+      var cellVolume = Fluid[c].cellWidth[0]*Fluid[c].cellWidth[1]*Fluid[c].cellWidth[2]
       acc += dot(force, Fluid[c].velocity) * cellVolume
     end
   end
@@ -5282,7 +5282,7 @@ where
 do
   __demand(__openmp)
   for c in Radiation do
-    c.sigma = c.acc_d2*PI*(Radiation_qa+Radiation_qs)/(4.0*c.cellWidth[0]*c.cellWidth[1]*c.cellWidth[2])
+    c.sigma = c.acc_d2*PI*(Radiation_qa+Radiation_qs)/(4.0*Radiation[c].cellWidth[0]*Radiation[c].cellWidth[1]*Radiation[c].cellWidth[2])
     if c.acc_d2 == 0.0 then
       c.Ib = 0.0
     else
