@@ -1889,16 +1889,20 @@ do
   return z_max
 end
 
-task Particles_InitializeCopyOrigin(Fluid    : region(ispace(int3d), Fluid_columns),
-                                    fromCell : int[3])
+__demand(__parallel, __cuda)
+task Fluid_FindCellOrigin(Fluid : region(ispace(int3d), Fluid_columns),
+                          cell : int[3])
 where
-  reads (Fluid.{centerCoordinates, cellWidth})
+  reads(Fluid.{centerCoordinates, cellWidth})
 do
-  var originCellIndex = int3d{fromCell[0], fromCell[1], fromCell[2]}
-  var xParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[0] - 0.5 * Fluid[originCellIndex].cellWidth[0]
-  var yParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[1] - 0.5 * Fluid[originCellIndex].cellWidth[1]
-  var zParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[2] - 0.5 * Fluid[originCellIndex].cellWidth[2]
-  return array(xParticleCopyOrigin, yParticleCopyOrigin, zParticleCopyOrigin)
+  var origin = array(0.0, 0.0, 0.0)
+  __demand(__openmp)
+  for c in Fluid do
+    if c.x == cell[0] and c.y == cell[1] and c.z == cell[2] then
+      origin += vv_sub(Fluid[c].centerCoordinates, vs_mul(0.5, Fluid[c].cellWidth))
+    end
+  end
+  return origin
 end
 
 __demand(__parallel, __cuda)
@@ -5685,9 +5689,7 @@ local function mkInstance() local INSTANCE = {}
     xRealMax = regentlib.newsymbol(),
     yRealMax = regentlib.newsymbol(),
     zRealMax = regentlib.newsymbol(),
-    xParticleCopyOrigin = regentlib.newsymbol(),
-    yParticleCopyOrigin = regentlib.newsymbol(),
-    zParticleCopyOrigin = regentlib.newsymbol(),
+    particleCopyOrigin = regentlib.newsymbol(),
   }
   local BC = {
     xPosSign = regentlib.newsymbol(double[3]),
@@ -5826,10 +5828,6 @@ local function mkInstance() local INSTANCE = {}
     var [Grid.xRealMax] = config.Grid.origin[0] + config.Grid.xWidth
     var [Grid.yRealMax] = config.Grid.origin[1] + config.Grid.yWidth
     var [Grid.zRealMax] = config.Grid.origin[2] + config.Grid.zWidth
-
-    var [Grid.xParticleCopyOrigin] = config.Grid.origin[0]
-    var [Grid.yParticleCopyOrigin] = config.Grid.origin[1]
-    var [Grid.zParticleCopyOrigin] = config.Grid.origin[2]
 
     var [NX] = config.Mapping.tiles[0]
     var [NY] = config.Mapping.tiles[1]
@@ -6343,11 +6341,8 @@ local function mkInstance() local INSTANCE = {}
 
   function INSTANCE.InitParticleCopyOrigin(fromCell) return rquote
 
-    var particleCopyOrigin = Particles_InitializeCopyOrigin(Fluid, fromCell)
-
-    Grid.xParticleCopyOrigin = particleCopyOrigin[0]
-    Grid.yParticleCopyOrigin = particleCopyOrigin[1]
-    Grid.zParticleCopyOrigin = particleCopyOrigin[2]
+    var [Grid.particleCopyOrigin] = array(0.0, 0.0, 0.0)
+    Grid.particleCopyOrigin += Flow_FindCellOrigin(Fluid, fromCell)
 
   end end -- InitParticleCopyOrigin
 
@@ -6987,14 +6982,8 @@ task workDual(mc : MultiConfig)
   -- Initialize regions & partitions
   [parallelizeFor(SIM0, SIM0.InitRegions(rexpr mc.configs[0] end))];
   [parallelizeFor(SIM1, SIM1.InitRegions(rexpr mc.configs[1] end))];
-  [SIM0.InitParticleCopyOrigin(rexpr mc.copySrc.fromCell end)];
-  [SIM1.InitParticleCopyOrigin(rexpr mc.copyTgt.fromCell end)];
-  var copySrcOrigin = array(SIM0.Grid.xParticleCopyOrigin,
-                            SIM0.Grid.yParticleCopyOrigin,
-                            SIM0.Grid.zParticleCopyOrigin)
-  var copyTgtOrigin = array(SIM1.Grid.xParticleCopyOrigin,
-                            SIM1.Grid.yParticleCopyOrigin,
-                            SIM1.Grid.zParticleCopyOrigin)
+  [parallelizeFor(SIM0, SIM0.InitParticleCopyOrigin(rexpr mc.copySrc.fromCell end))];
+  [parallelizeFor(SIM1, SIM1.InitParticleCopyOrigin(rexpr mc.copyTgt.fromCell end))];
   var srcOrigin = int3d{mc.copySrc.fromCell[0], mc.copySrc.fromCell[1], mc.copySrc.fromCell[2]}
   var tgtOrigin = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]}
   var srcColoring = C.legion_domain_point_coloring_create()
@@ -7048,7 +7037,7 @@ task workDual(mc : MultiConfig)
         CopyQueue_push(SIM0.p_Particles[c],
                        p_CopyQueue[c],
                        mc.copySrc,
-                       copySrcOrigin, copyTgtOrigin)
+                       SIM0.Grid.particleCopyOrigin, SIM1.Grid.particleCopyOrigin)
       end
     end
     -- Run one iteration of second section
