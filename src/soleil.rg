@@ -171,6 +171,7 @@ struct Image_columns {
   B : float;
   A : float;
   Z : float;
+  U : float;
 }
 
 -------------------------------------------------------------------------------
@@ -411,7 +412,7 @@ do
     var fluidFields : C.legion_field_id_t[numFluidFields] = __fields(Fluid)
     var numParticlesFields : int = 21
     var particlesFields : C.legion_field_id_t[numParticlesFields] = __fields(Particles)
-    var numImageFields : int = 5
+    var numImageFields : int = 6
     var imageFields : C.legion_field_id_t[numImageFields] = __fields(Image)
 
     render.cxx_render(__runtime(),
@@ -5623,6 +5624,10 @@ __forbid(__optimize) __demand(__inner, __replicable)
 task workSingle(config : Config)
   [SIM.DeclSymbols(config)];
   var ImageResult = VisualizeInit(config, SIM.Fluid, SIM.p_Fluid, SIM.Particles, SIM.particlesToDraw, SIM.lowerBound, SIM.upperBound)
+  var indexSpace = __import_ispace(int3d, ImageResult.indexSpace)
+  var colorSpace = __import_ispace(int3d, ImageResult.colorSpace)
+  var imageX = __import_region(indexSpace, Image_columns, ImageResult.imageX, ImageResult.imageFields)
+  var p_Image = __import_partition(disjoint, imageX, colorSpace, ImageResult.p_Image)
   var is_FakeCopyQueue = ispace(int1d, 0)
   var FakeCopyQueue = region(is_FakeCopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
@@ -5635,10 +5640,6 @@ task workSingle(config : Config)
         break
       end
       [SIM.MainLoopBody(config, rexpr false end, FakeCopyQueue)];
-      var indexSpace = __import_ispace(int3d, ImageResult.indexSpace)
-      var colorSpace = __import_ispace(int3d, ImageResult.colorSpace)
-      var imageX = __import_region(indexSpace, Image_columns, ImageResult.imageX, ImageResult.imageFields)
-      var p_Image = __import_partition(disjoint, imageX, colorSpace, ImageResult.p_Image)
       Visualize(config, SIM.Integrator_timeStep, SIM.Fluid, SIM.Particles, SIM.p_Fluid, SIM.p_Particles, SIM.particlesToDraw, SIM.lowerBound, SIM.upperBound, SIM.tiles, imageX, p_Image)
     end
   end)];
