@@ -1666,6 +1666,7 @@ where
   reads writes(Fluid.cellWidth)
 do
   -- Find cell center coordinates and cell width of interior cells
+  __demand(__openmp)
   for cell in Fluid do
     var xNegGhost = is_xNegGhost(cell, Grid_xBnum)
     var xPosGhost = is_xPosGhost(cell, Grid_xBnum, Grid_xNum)
@@ -1716,6 +1717,7 @@ do
   end
 
   -- Find cell center coordinates and cell width in ghost cells using the interior cells geometry
+  __demand(__openmp)
   for cell in Fluid do
 
     var xNegGhost = is_xNegGhost(cell, Grid_xBnum)
@@ -1810,6 +1812,7 @@ where
   reads(Fluid.{centerCoordinates, cellWidth})
 do
   var x_min = Grid_xOrigin
+  __demand(__openmp)
   for c in Fluid do
     x_min min= Fluid[c].centerCoordinates[0] - 0.5*Fluid[c].cellWidth[0]
   end
@@ -1823,6 +1826,7 @@ where
   reads(Fluid.{centerCoordinates, cellWidth})
 do
   var y_min = Grid_yOrigin
+  __demand(__openmp)
   for c in Fluid do
     y_min min= Fluid[c].centerCoordinates[1] - 0.5*Fluid[c].cellWidth[1]
   end
@@ -1836,6 +1840,7 @@ where
   reads(Fluid.{centerCoordinates, cellWidth})
 do
   var z_min = Grid_zOrigin
+  __demand(__openmp)
   for c in Fluid do
     z_min min= Fluid[c].centerCoordinates[2] - 0.5*Fluid[c].cellWidth[2]
   end
@@ -1849,6 +1854,7 @@ where
   reads(Fluid.{centerCoordinates, cellWidth})
 do
   var x_max = Grid_xMax
+  __demand(__openmp)
   for c in Fluid do
     x_max max= Fluid[c].centerCoordinates[0] + 0.5*Fluid[c].cellWidth[0]
   end
@@ -1862,6 +1868,7 @@ where
   reads(Fluid.{centerCoordinates, cellWidth})
 do
   var y_max = Grid_yMax
+  __demand(__openmp)
   for c in Fluid do
     y_max max= Fluid[c].centerCoordinates[1] + 0.5*Fluid[c].cellWidth[1]
   end
@@ -1875,6 +1882,7 @@ where
   reads(Fluid.{centerCoordinates, cellWidth})
 do
   var z_max = Grid_zMax
+  __demand(__openmp)
   for c in Fluid do
     z_max max= Fluid[c].centerCoordinates[2] + 0.5*Fluid[c].cellWidth[2]
   end
@@ -5190,9 +5198,6 @@ do
   end
   return acc
 end
-
-
-
 
 __demand(__parallel, __cuda)
 task Particles_AddFlowCoupling(Particles : region(ispace(int1d), Particles_columns),
