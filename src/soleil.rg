@@ -1807,78 +1807,78 @@ __demand(__parallel, __cuda)
 task Flow_FindRealOriginX(Fluid : region(ispace(int3d), Fluid_columns),
                           Grid_xOrigin : double)
 where
- reads(Fluid.{centerCoordinates, cellWidth})
+  reads(Fluid.{centerCoordinates, cellWidth})
 do
- var x_min = Grid_xOrigin
- for c in Fluid do
-   x_min min= Fluid[c].centerCoordinates[0] - 0.5*Fluid[c].cellWidth[0]
- end
- return x_min
+  var x_min = Grid_xOrigin
+  for c in Fluid do
+    x_min min= Fluid[c].centerCoordinates[0] - 0.5*Fluid[c].cellWidth[0]
+  end
+  return x_min
 end
 
 __demand(__parallel, __cuda)
 task Flow_FindRealOriginY(Fluid : region(ispace(int3d), Fluid_columns),
                           Grid_yOrigin : double)
 where
- reads(Fluid.{centerCoordinates, cellWidth})
+  reads(Fluid.{centerCoordinates, cellWidth})
 do
- var y_min = Grid_yOrigin
- for c in Fluid do
-   y_min min= Fluid[c].centerCoordinates[1] - 0.5*Fluid[c].cellWidth[1]
- end
- return y_min
+  var y_min = Grid_yOrigin
+  for c in Fluid do
+    y_min min= Fluid[c].centerCoordinates[1] - 0.5*Fluid[c].cellWidth[1]
+  end
+  return y_min
 end
 
 __demand(__parallel, __cuda)
 task Flow_FindRealOriginZ(Fluid : region(ispace(int3d), Fluid_columns),
                           Grid_zOrigin : double)
 where
- reads(Fluid.{centerCoordinates, cellWidth})
+  reads(Fluid.{centerCoordinates, cellWidth})
 do
- var z_min = Grid_zOrigin
- for c in Fluid do
-   z_min min= Fluid[c].centerCoordinates[2] - 0.5*Fluid[c].cellWidth[2]
- end
- return z_min
+  var z_min = Grid_zOrigin
+  for c in Fluid do
+    z_min min= Fluid[c].centerCoordinates[2] - 0.5*Fluid[c].cellWidth[2]
+  end
+  return z_min
 end
 
 __demand(__parallel, __cuda)
 task Flow_FindRealMaxX(Fluid : region(ispace(int3d), Fluid_columns),
                        Grid_xMax : double)
 where
- reads(Fluid.{centerCoordinates, cellWidth})
+  reads(Fluid.{centerCoordinates, cellWidth})
 do
- var x_max = Grid_xMax
- for c in Fluid do
-   x_max max= Fluid[c].centerCoordinates[0] + 0.5*Fluid[c].cellWidth[0]
- end
- return x_max
+  var x_max = Grid_xMax
+  for c in Fluid do
+    x_max max= Fluid[c].centerCoordinates[0] + 0.5*Fluid[c].cellWidth[0]
+  end
+  return x_max
 end
 
 __demand(__parallel, __cuda)
 task Flow_FindRealMaxY(Fluid : region(ispace(int3d), Fluid_columns),
                        Grid_yMax : double)
 where
- reads(Fluid.{centerCoordinates, cellWidth})
+  reads(Fluid.{centerCoordinates, cellWidth})
 do
- var y_max = Grid_yMax
- for c in Fluid do
-   y_max max= Fluid[c].centerCoordinates[1] + 0.5*Fluid[c].cellWidth[1]
- end
- return y_max
+  var y_max = Grid_yMax
+  for c in Fluid do
+    y_max max= Fluid[c].centerCoordinates[1] + 0.5*Fluid[c].cellWidth[1]
+  end
+  return y_max
 end
 
 __demand(__parallel, __cuda)
 task Flow_FindRealMaxZ(Fluid : region(ispace(int3d), Fluid_columns),
                        Grid_zMax : double)
 where
- reads(Fluid.{centerCoordinates, cellWidth})
+  reads(Fluid.{centerCoordinates, cellWidth})
 do
- var z_max = Grid_zMax
- for c in Fluid do
-   z_max max= Fluid[c].centerCoordinates[2] + 0.5*Fluid[c].cellWidth[2]
- end
- return z_max
+  var z_max = Grid_zMax
+  for c in Fluid do
+    z_max max= Fluid[c].centerCoordinates[2] + 0.5*Fluid[c].cellWidth[2]
+  end
+  return z_max
 end
 
 task Particles_InitializeCopyOrigin(Fluid    : region(ispace(int3d), Fluid_columns),
@@ -1886,13 +1886,11 @@ task Particles_InitializeCopyOrigin(Fluid    : region(ispace(int3d), Fluid_colum
 where
   reads (Fluid.{centerCoordinates, cellWidth})
 do
-    var originCellIndex = int3d{fromCell[0], fromCell[1], fromCell[2]}
-
-    var xParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[0] - 0.5 * Fluid[originCellIndex].cellWidth[0]
-    var yParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[1] - 0.5 * Fluid[originCellIndex].cellWidth[1]
-    var zParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[2] - 0.5 * Fluid[originCellIndex].cellWidth[2]
-
-    return array(xParticleCopyOrigin, yParticleCopyOrigin, zParticleCopyOrigin)
+  var originCellIndex = int3d{fromCell[0], fromCell[1], fromCell[2]}
+  var xParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[0] - 0.5 * Fluid[originCellIndex].cellWidth[0]
+  var yParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[1] - 0.5 * Fluid[originCellIndex].cellWidth[1]
+  var zParticleCopyOrigin = Fluid[originCellIndex].centerCoordinates[2] - 0.5 * Fluid[originCellIndex].cellWidth[2]
+  return array(xParticleCopyOrigin, yParticleCopyOrigin, zParticleCopyOrigin)
 end
 
 __demand(__parallel, __cuda)
@@ -3282,7 +3280,6 @@ do
       1.0/c.cellWidth[0]/c.cellWidth[0] +
       1.0/c.cellWidth[1]/c.cellWidth[1] +
       1.0/c.cellWidth[2]/c.cellWidth[2]
-
     acc max= ((((fabs(Fluid[c].velocity[0])/c.cellWidth[0])+(fabs(Fluid[c].velocity[1])/c.cellWidth[1]))+(fabs(Fluid[c].velocity[2])/c.cellWidth[2]))+(GetSoundSpeed(Fluid[c].temperature, Flow_gamma, Flow_gasConstant)*sqrt(Grid_dXYZInverseSquare)))
   end
   return acc
@@ -3483,7 +3480,6 @@ do
     var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
-
     if interior or xNegGhost  then
       var rho = Fluid[c].rho
       var pressure = Fluid[c].pressure
@@ -3640,7 +3636,6 @@ do
   end
 end
 
-
 __demand(__parallel, __cuda)
 task Flow_GetFluxY(Fluid : region(ispace(int3d), Fluid_columns),
                    config : Config,
@@ -3674,7 +3669,6 @@ do
     var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
     var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-
 
     if interior or yNegGhost or NSCBC_inflow_cell or NSCBC_outflow_cell then
       var rho = Fluid[c].rho
@@ -3964,8 +3958,6 @@ do
                                                  velocityGradientY[2],
                                                  velocityGradientY_stencil[2])
 
-
-
       var velocityX_ZFace   = 0.0
       var velocityY_ZFace   = 0.0
       var velocityZ_ZFace   = 0.0
@@ -4048,12 +4040,9 @@ do
 
     if interior then
       var xCellWidth = Fluid[c].cellWidth[0]
-
       Fluid[c].rho_t += ((-(Fluid[c].rhoFluxX-Fluid[(c+{-1, 0, 0})%Fluid.bounds].rhoFluxX))/xCellWidth)
-
       var tmp1 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxX, Fluid[(c+{-1, 0, 0})%Fluid.bounds].rhoVelocityFluxX), double((-1))), xCellWidth)
       Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp1)
-
       Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxX-Fluid[(c+{-1, 0, 0})%Fluid.bounds].rhoEnergyFluxX))/xCellWidth)
     end
   end
@@ -4085,12 +4074,9 @@ do
 
     if interior or NSCBC_inflow_cell or NSCBC_outflow_cell then
       var yCellWidth = Fluid[c].cellWidth[1]
-
       Fluid[c].rho_t += (-(Fluid[c].rhoFluxY-Fluid[(c+{0, -1, 0})%Fluid.bounds].rhoFluxY))/yCellWidth
-
       var tmp2 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxY, Fluid[(c+{0, -1, 0})%Fluid.bounds].rhoVelocityFluxY), double((-1))), yCellWidth)
       Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp2)
-
       Fluid[c].rhoEnergy_t += (-(Fluid[c].rhoEnergyFluxY-Fluid[(c+{0, -1, 0})%Fluid.bounds].rhoEnergyFluxY))/yCellWidth
     end
   end
@@ -4122,9 +4108,7 @@ do
 
     if interior or NSCBC_inflow_cell or NSCBC_outflow_cell then
       var zCellWidth = Fluid[c].cellWidth[2]
-
       Fluid[c].rho_t += (-(Fluid[c].rhoFluxZ-Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoFluxZ))/zCellWidth
-
       var tmp3 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxZ, Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoVelocityFluxZ), double((-1))), zCellWidth)
       Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp3)
 
@@ -6448,7 +6432,6 @@ local function mkInstance() local INSTANCE = {}
     Flow_averageTemperature += CalculateAverageTemperature(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
     Flow_averageKineticEnergy += CalculateAverageKineticEnergy(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
     Particles_averageTemperature += Particles_IntegrateQuantities(Particles)
-
     var interior_volume = 0.0
     interior_volume += CalculateInteriorVolume(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
     Flow_averagePressure = (Flow_averagePressure/interior_volume)
@@ -6744,7 +6727,7 @@ local function mkInstance() local INSTANCE = {}
                                                  Grid.xBnum, config.Grid.xNum,
                                                  Grid.yBnum, config.Grid.yNum,
                                                  Grid.zBnum, config.Grid.zNum)
-        -- Assumes that inflow out/flow only in the x direction
+        -- XXX: Assumes that inflow out/flow only in the x direction
         var Flow_lengthScale = config.Grid.xWidth
         for c in tiles do
           Flow_UpdateUsingFluxGhostNSCBC(p_Fluid[c],
