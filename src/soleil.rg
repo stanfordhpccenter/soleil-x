@@ -739,7 +739,7 @@ task locate(pos : double[3],
     var xro = Grid_xOrigin-Grid_xBnum*xcw
     var xpos = int(floor((pos[0]-xro)/xcw))
     var xrnum = Grid_xNum+2*Grid_xBnum
-    var xidx = max(0, min(xrnum-1, xpos))
+    xidx = max(0, min(xrnum-1, xpos))
   elseif (Grid_xType == SCHEMA.GridType_Stretched) then
     var x_neg_boundary = Grid_xOrigin
     var x_pos_boundary = Grid_xOrigin + Grid_xWidth
@@ -767,7 +767,7 @@ task locate(pos : double[3],
     var yro = Grid_yOrigin-Grid_yBnum*ycw
     var ypos = int(floor((pos[1]-yro)/ycw))
     var yrnum = Grid_yNum+2*Grid_yBnum
-    var yidx = max(0, min(yrnum-1, ypos))
+    yidx = max(0, min(yrnum-1, ypos))
   elseif (Grid_yType == SCHEMA.GridType_Stretched) then
     var y_neg_boundary = Grid_yOrigin
     var y_pos_boundary = Grid_yOrigin + Grid_yWidth
@@ -795,7 +795,7 @@ task locate(pos : double[3],
     var zro = Grid_zOrigin-Grid_zBnum*zcw
     var zpos = int(floor((pos[2]-zro)/zcw))
     var zrnum = Grid_zNum+2*Grid_zBnum
-    var zidx = max(0, min(zrnum-1, zpos))
+    zidx = max(0, min(zrnum-1, zpos))
   elseif (Grid_zType == SCHEMA.GridType_Stretched) then
     var z_neg_boundary = Grid_zOrigin
     var z_pos_boundary = Grid_zOrigin + Grid_zWidth
