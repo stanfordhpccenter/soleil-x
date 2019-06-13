@@ -42,6 +42,7 @@ Exports.InflowProfile = Union{
 Exports.TurbForcingModel = Union{
   OFF = {},
   HIT = {
+    meanVelocity = Array(3,double),
     G = double,
     t_o = double,
     K_o = double,
@@ -82,8 +83,10 @@ Exports.RadiationModel = Union{
     yLoTemp = double,
     zHiTemp = double,
     zLoTemp = double,
-    -- intensity coming in perpendicular on each wall [W/m^2]
+    -- incoming wall intensity [W/m^2]
+    -- power per unit of particle area (as projected on the wall)
     -- assumed monochromatic and collimated
+    -- only applied over the quadrature point that is normal to the wall
     xHiIntensity = double,
     xLoIntensity = double,
     yHiIntensity = double,
@@ -178,15 +181,15 @@ Exports.Config = {
     sutherlandSRef = double,
     initCase = Exports.FlowInitCase,
     restartDir = String(256),
-    initParams = Array(5,double),
+    initParams = Array(6,double),
     bodyForce = Array(3,double),
     turbForcing = Exports.TurbForcingModel,
   },
   Particles = {
     initCase = Exports.ParticlesInitCase,
     restartDir = String(256),
-    initNum = int,
-    maxNum = int,
+    initNum = int64,
+    maxNum = int64,
     restitutionCoeff = double,
     convectiveCoeff = double,
     heatCapacity = double,
@@ -200,6 +203,7 @@ Exports.Config = {
     feeding = Exports.FeedModel,
     -- how many timesteps to advance the fluid before every particle solve
     staggerFactor = int,
+    parcelSize = int,
   },
   Radiation = Exports.RadiationModel,
   IO = {
@@ -220,6 +224,8 @@ Exports.MultiConfig = {
   copySrc = Exports.Volume,
   -- volume to copy into every timestep (in the 2nd section)
   copyTgt = Exports.Volume,
+  -- whether to place the tiles of the two sections on the same set of ranks
+  collocateSections = bool,
   -- How often to copy values from one section to the other
   copyEveryTimeSteps = int,
 }

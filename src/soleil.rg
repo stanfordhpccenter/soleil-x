@@ -6,7 +6,7 @@ import "regent"
 local C = regentlib.c
 local MAPPER = terralib.includec("soleil_mapper.h")
 local SCHEMA = terralib.includec("config_schema.h")
-local UTIL = require 'util'
+local UTIL = require 'util-desugared'
 
 local acos = regentlib.acos(double)
 local ceil = regentlib.ceil(double)
@@ -23,8 +23,6 @@ local log = regentlib.log(double)
 -------------------------------------------------------------------------------
 -- COMPILE-TIME CONFIGURATION
 -------------------------------------------------------------------------------
-
-local USE_HDF = assert(os.getenv('USE_HDF')) ~= '0'
 
 local MAX_ANGLES_PER_QUAD = 44
 
@@ -54,7 +52,7 @@ local struct Particles_columns {
   temperature_t : double;
   __valid : bool;
   __xfer_dir : int8;
-  __xfer_slot : int;
+  __xfer_slot : int64;
 }
 
 local Particles_primitives = terralib.newlist({
@@ -67,6 +65,8 @@ local Particles_primitives = terralib.newlist({
 })
 local Particles_derived = terralib.newlist({
   'cell',
+  'deltaVelocityOverRelaxationTime',
+  'deltaTemperatureTerm',
 })
 local Particles_iterTemp = terralib.newlist({
   'position_old',
@@ -77,8 +77,6 @@ local Particles_iterTemp = terralib.newlist({
   'temperature_new',
 })
 local Particles_subStepTemp = terralib.newlist({
-  'deltaVelocityOverRelaxationTime',
-  'deltaTemperatureTerm',
   'velocity_t',
   'temperature_t',
   '__xfer_dir',
@@ -176,12 +174,22 @@ struct Radiation_columns {
 
 local DOM = (require 'dom-desugared')(MAX_ANGLES_PER_QUAD, Radiation_columns, SCHEMA)
 
+local HDF_FLUID = (require 'hdf_helper')(int3d, int3d, Fluid_columns,
+                                         Fluid_primitives,
+                                         {timeStep=int,simTime=double})
+
+local HDF_PARTICLES = (require 'hdf_helper')(int1d, int3d, Particles_columns,
+                                             Particles_primitives,
+                                             {timeStep=int,simTime=double})
+
 -------------------------------------------------------------------------------
 -- CONSTANTS
 -------------------------------------------------------------------------------
 
 local PI = 3.1415926535898
 local SB = 5.67e-08
+local DBL_DECIMAL_DIG = 17 -- HACK: normally defined in float.h
+local DBL_FORMAT = '%.'..tostring(DBL_DECIMAL_DIG)..'e'
 
 local RK_MIN_ORDER = 2
 local RK_MAX_ORDER = 4
@@ -244,9 +252,9 @@ end
 
 local __demand(__inline)
 task drand48_r(rngState : &C.drand48_data)
-  var res : double[1]
-  C.drand48_r(rngState, [&double](res))
-  return res[0]
+  var res : double
+  C.drand48_r(rngState, &res)
+  return res
 end
 
 __demand(__inline)
@@ -288,78 +296,6 @@ end
 -- I/O ROUTINES
 -------------------------------------------------------------------------------
 
-local __demand(__inline)
-task Fluid_dump(_ : int,
-                colors : ispace(int3d),
-                dirname : &int8,
-                Fluid : region(ispace(int3d),Fluid_columns),
-                Fluid_copy : region(ispace(int3d),Fluid_columns),
-                p_Fluid : partition(disjoint, Fluid, colors),
-                p_Fluid_copy : partition(disjoint, Fluid_copy, colors))
-where
-  reads(Fluid.[Fluid_primitives]),
-  reads writes(Fluid_copy.[Fluid_primitives]),
-  Fluid * Fluid_copy
-do
-  regentlib.assert(false, 'Recompile with USE_HDF=1')
-end
-
-local __demand(__inline)
-task Fluid_load(_ : int,
-                colors : ispace(int3d),
-                dirname : &int8,
-                Fluid : region(ispace(int3d),Fluid_columns),
-                Fluid_copy : region(ispace(int3d),Fluid_columns),
-                p_Fluid : partition(disjoint, Fluid, colors),
-                p_Fluid_copy : partition(disjoint, Fluid_copy, colors))
-where
-  reads writes(Fluid.[Fluid_primitives]),
-  reads writes(Fluid_copy.[Fluid_primitives]),
-  Fluid * Fluid_copy
-do
-  regentlib.assert(false, 'Recompile with USE_HDF=1')
-end
-
-local __demand(__inline)
-task Particles_dump(_ : int,
-                    colors : ispace(int3d),
-                    dirname : &int8,
-                    Particles : region(ispace(int1d),Particles_columns),
-                    Particles_copy : region(ispace(int1d),Particles_columns),
-                    p_Particles : partition(disjoint, Particles, colors),
-                    p_Particles_copy : partition(disjoint, Particles_copy, colors))
-where
-  reads(Particles.[Particles_primitives]),
-  reads writes(Particles_copy.[Particles_primitives]),
-  Particles * Particles_copy
-do
-  regentlib.assert(false, 'Recompile with USE_HDF=1')
-end
-
-local __demand(__inline)
-task Particles_load(_ : int,
-                    colors : ispace(int3d),
-                    dirname : &int8,
-                    Particles : region(ispace(int1d),Particles_columns),
-                    Particles_copy : region(ispace(int1d),Particles_columns),
-                    p_Particles : partition(disjoint, Particles, colors),
-                    p_Particles_copy : partition(disjoint, Particles_copy, colors))
-where
-  reads writes(Particles.[Particles_primitives]),
-  reads writes(Particles_copy.[Particles_primitives]),
-  Particles * Particles_copy
-do
-  regentlib.assert(false, 'Recompile with USE_HDF=1')
-end
-
-if USE_HDF then
-  local HDF = require "hdf_helper"
-  Fluid_dump, Fluid_load = HDF.mkHDFTasks(
-    int3d, int3d, Fluid_columns, Fluid_primitives)
-  Particles_dump, Particles_load = HDF.mkHDFTasks(
-    int1d, int3d, Particles_columns, Particles_primitives)
-end
-
 -- regentlib.rexpr, regentlib.rexpr, regentlib.rexpr* -> regentlib.rquote
 local function emitConsoleWrite(config, format, ...)
   local args = terralib.newlist{...}
@@ -375,16 +311,18 @@ local function emitConsoleWrite(config, format, ...)
 end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task Console_WriteHeader(config : Config)
-  [emitConsoleWrite(config, 'Iter\t'..
+task Console_WriteHeader(_ : int,
+                         config : Config)
+  [emitConsoleWrite(config, 'Iteration\t'..
                             'Sim Time\t'..
-                            'Wall t\t'..
+                            'Wall Time\t'..
                             'Delta Time\t'..
                             'Avg Press\t'..
                             'Avg Temp\t'..
-                            'Average KE\t'..
-                            '#Part\t'..
-                            'Particle T\n')];
+                            'Avg KE\t'..
+                            'Particle Num\t'..
+                            'Avg Particle T\n')];
+  return _
 end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
@@ -400,14 +338,14 @@ task Console_Write(config : Config,
                    Particles_averageTemperature : double)
   var currTime = C.legion_get_current_time_in_micros() / 1000;
   [emitConsoleWrite(config, '%d\t'..
-                            '%e\t'..
+                            DBL_FORMAT..'\t'..
                             '%llu.%03llu\t'..
-                            '%e\t'..
-                            '%e\t'..
-                            '%e\t'..
-                            '%e\t'..
+                            DBL_FORMAT..'\t'..
+                            DBL_FORMAT..'\t'..
+                            DBL_FORMAT..'\t'..
+                            DBL_FORMAT..'\t'..
                             '%lld\t'..
-                            '%e\n',
+                            DBL_FORMAT..'\n',
                     Integrator_timeStep,
                     Integrator_simTime,
                     rexpr (currTime - startTime) / 1000 end,
@@ -418,16 +356,6 @@ task Console_Write(config : Config,
                     Flow_averageKineticEnergy,
                     Particles_number,
                     Particles_averageTemperature)];
-end
-
--- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task Console_WriteFooter(config : Config,
-                         startTime : uint64)
-  var endTime = C.legion_get_current_time_in_micros() / 1000;
-  [emitConsoleWrite(config,
-                    'Total time: %llu.%03llu seconds\n',
-                    rexpr (endTime - startTime) / 1000 end,
-                    rexpr (endTime - startTime) % 1000 end)];
 end
 
 -- regentlib.rexpr, regentlib.rexpr, regentlib.rexpr, regentlib.rexpr*
@@ -474,7 +402,7 @@ where
 do
   var fromCell = probe.fromCell
   var uptoCell = probe.uptoCell
-  var acc = 0
+  var acc = int64(0)
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
@@ -492,7 +420,7 @@ end
 __demand(__parallel, __cuda)
 task Probe_AvgParticleT(Particles : region(ispace(int1d), Particles_columns),
                         probe : SCHEMA.Volume,
-                        totalParticles : int)
+                        totalParticles : int64)
 where
   reads(Particles.{cell, temperature, __valid})
 do
@@ -517,7 +445,7 @@ __demand(__parallel, __cuda)
 task Probe_AvgCellOfParticleT(Fluid : region(ispace(int3d), Fluid_columns),
                               Particles : region(ispace(int1d), Particles_columns),
                               probe : SCHEMA.Volume,
-                              totalParticles : int)
+                              totalParticles : int64)
 where
   reads(Particles.{cell, temperature, __valid}),
   reads(Fluid.temperature)
@@ -540,35 +468,40 @@ do
 end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task Probe_WriteHeader(config : Config,
+task Probe_WriteHeader(_ : int,
+                       config : Config,
                        probeId : int)
   [emitProbeWrite(config, probeId, 'Iter\t'..
                                    'AvgFluidT\t'..
                                    'AvgParticleT\t'..
                                    'AvgCellOfParticleT\n')];
+  return _
 end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task Probe_Write(config : Config,
+task Probe_Write(_ : int,
+                 config : Config,
                  probeId : int,
                  Integrator_timeStep : int,
                  avgFluidT : double,
                  avgParticleT : double,
                  avgCellOfParticleT : double)
   [emitProbeWrite(config, probeId, '%d\t'..
-                                   '%e\t'..
-                                   '%e\t'..
-                                   '%e\n',
+                                   DBL_FORMAT..'\t'..
+                                   DBL_FORMAT..'\t'..
+                                   DBL_FORMAT..'\n',
                   Integrator_timeStep,
                   avgFluidT,
                   avgParticleT,
                   avgCellOfParticleT)];
+  return _
 end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task createDir(dirname : regentlib.string)
+task IO_CreateDir(_ : int,
+                  dirname : regentlib.string)
   UTIL.createDir(dirname)
-  return 0
+  return _
 end
 
 -------------------------------------------------------------------------------
@@ -1464,16 +1397,94 @@ task GetDynamicViscosity(temperature : double,
                          Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
                          Flow_viscosityModel : SCHEMA.ViscosityModel)
   var viscosity = 0.0
-  if (Flow_viscosityModel == SCHEMA.ViscosityModel_Constant) then
+  if Flow_viscosityModel == SCHEMA.ViscosityModel_Constant then
     viscosity = Flow_constantVisc
-  else
-    if (Flow_viscosityModel == SCHEMA.ViscosityModel_PowerLaw) then
-      viscosity = (Flow_powerlawViscRef*pow((temperature/Flow_powerlawTempRef), double(0.75)))
-    else
-      viscosity = ((Flow_sutherlandViscRef*pow((temperature/Flow_sutherlandTempRef), (3.0/2.0)))*((Flow_sutherlandTempRef+Flow_sutherlandSRef)/(temperature+Flow_sutherlandSRef)))
-    end
+  elseif Flow_viscosityModel == SCHEMA.ViscosityModel_PowerLaw then
+    viscosity = Flow_powerlawViscRef*pow(temperature/Flow_powerlawTempRef, 0.75)
+  else -- Flow_viscosityModel == SCHEMA.ViscosityModel_Sutherland
+    viscosity =
+      Flow_sutherlandViscRef
+      * pow(temperature/Flow_sutherlandTempRef, 1.5)
+      * (Flow_sutherlandTempRef + Flow_sutherlandSRef)
+      / (temperature + Flow_sutherlandSRef)
   end
   return viscosity
+end
+
+-- XXX: This task needs the parallelizer ghost regions to do the interpolation,
+-- but the parallelizer can't handle this task currently (even if we move the
+-- RNG to a separate task). Therefore, at this point this task will only work
+-- on a single tile.
+-- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+task Particles_InitializeRandom(color : int3d,
+                                Particles : region(ispace(int1d), Particles_columns),
+                                Fluid : region(ispace(int3d), Fluid_columns),
+                                config : Config,
+                                Grid_xBnum : int, Grid_yBnum : int, Grid_zBnum : int)
+where
+  reads(Fluid.{centerCoordinates, velocity}),
+  writes(Particles.{__valid, cell, position, velocity, density, temperature, diameter})
+do
+  -- Grid geometry
+  var Grid_xNum = config.Grid.xNum
+  var Grid_yNum = config.Grid.yNum
+  var Grid_zNum = config.Grid.zNum
+  var Grid_xWidth = config.Grid.xWidth
+  var Grid_yWidth = config.Grid.yWidth
+  var Grid_zWidth = config.Grid.zWidth
+  var Grid_xOrigin = config.Grid.origin[0]
+  var Grid_yOrigin = config.Grid.origin[1]
+  var Grid_zOrigin = config.Grid.origin[2]
+  var Grid_xCellWidth = Grid_xWidth / Grid_xNum
+  var Grid_yCellWidth = Grid_yWidth / Grid_yNum
+  var Grid_zCellWidth = Grid_zWidth / Grid_zNum
+  var Grid_xRealOrigin = Grid_xOrigin - Grid_xCellWidth * Grid_xBnum
+  var Grid_yRealOrigin = Grid_yOrigin - Grid_yCellWidth * Grid_yBnum
+  var Grid_zRealOrigin = Grid_zOrigin - Grid_zCellWidth * Grid_zBnum
+  -- Tile geometry
+  var Tile_xWidth = Grid_xWidth / config.Mapping.tiles[0]
+  var Tile_yWidth = Grid_yWidth / config.Mapping.tiles[1]
+  var Tile_zWidth = Grid_zWidth / config.Mapping.tiles[2]
+  var Tile_xOrigin = Grid_xOrigin + color.x * Tile_xWidth
+  var Tile_yOrigin = Grid_yOrigin + color.y * Tile_yWidth
+  var Tile_zOrigin = Grid_zOrigin + color.z * Tile_zWidth
+  -- Particle values
+  var pBase = Particles.bounds.lo
+  var numTiles = config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2]
+  var particlesPerTile = config.Particles.initNum / config.Particles.parcelSize / numTiles
+  var Particles_density = config.Particles.density
+  var Particles_initTemperature = config.Particles.initTemperature
+  var Particles_diameterMean = config.Particles.diameterMean
+  -- RNG state
+  var rngState : C.drand48_data
+  C.srand48_r(C.legion_get_current_time_in_nanos(), &rngState)
+  -- Fill loop
+  for p in Particles do
+    var relIdx = int64(p - pBase)
+    if relIdx < particlesPerTile then
+      -- Pick a random position within the current tile, ignoring boundary cells
+      var rx = 0.0; repeat rx = drand48_r(&rngState) until rx ~= 0.0
+      var ry = 0.0; repeat ry = drand48_r(&rngState) until ry ~= 0.0
+      var rz = 0.0; repeat rz = drand48_r(&rngState) until rz ~= 0.0
+      var pos = array( Tile_xOrigin + Tile_xWidth * rx,
+                       Tile_yOrigin + Tile_yWidth * ry,
+                       Tile_zOrigin + Tile_zWidth * rz )
+      var c = locate(pos,
+                     Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth,
+                     Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth,
+                     Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
+      var flowVelocity = InterpolateTriVelocity(c,
+                                                pos,
+                                                Fluid)
+      Particles[p].__valid = true
+      Particles[p].cell = c
+      Particles[p].position = pos
+      Particles[p].velocity = flowVelocity
+      Particles[p].density = Particles_density
+      Particles[p].temperature = Particles_initTemperature
+      Particles[p].diameter = Particles_diameterMean
+    end
+  end
 end
 
 __demand(__cuda) -- MANUALLY PARALLELIZED
@@ -1497,22 +1508,23 @@ do
   var xSize = hi.x-lo.x+1
   var ySize = hi.y-lo.y+1
   var zSize = hi.z-lo.z+1
-  var particlesPerTask = config.Particles.initNum / (config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2])
+  var numTiles = config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2]
+  var particlesPerTile = config.Particles.initNum / config.Particles.parcelSize / numTiles
   var Particles_density = config.Particles.density
   var Particles_initTemperature = config.Particles.initTemperature
   var Particles_diameterMean = config.Particles.diameterMean
   __demand(__openmp)
   for p in Particles do
-    var relIdx = int(p - pBase)
-    if relIdx < particlesPerTask then
-      p.__valid = true
+    var relIdx = int64(p - pBase)
+    if relIdx < particlesPerTile then
+      Particles[p].__valid = true
       var c = lo + int3d{relIdx%xSize, relIdx/xSize%ySize, relIdx/xSize/ySize%zSize}
-      p.cell = c
-      p.position = Fluid[c].centerCoordinates
-      p.velocity = Fluid[c].velocity
-      p.density = Particles_density
-      p.temperature = Particles_initTemperature
-      p.diameter = Particles_diameterMean
+      Particles[p].cell = c
+      Particles[p].position = Fluid[c].centerCoordinates
+      Particles[p].velocity = Fluid[c].velocity
+      Particles[p].density = Particles_density
+      Particles[p].temperature = Particles_initTemperature
+      Particles[p].diameter = Particles_diameterMean
     end
   end
 end
@@ -1529,12 +1541,11 @@ do
   var heatCapacity = config.Particles.heatCapacity
   __demand(__openmp)
   for p in Particles do
-    if p.__valid then
-      var crossSectionArea = PI*pow(p.diameter,2.0)/4.0
-      var volume = PI*pow(p.diameter,3.0)/6.0
-      var mass = volume*p.density
+    if Particles[p].__valid then
+      var crossSectionArea = PI*pow(Particles[p].diameter,2.0)/4.0
+      var mass = PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density
       var absorbedRadiationIntensity = absorptivity*intensity*crossSectionArea
-      p.temperature_t += absorbedRadiationIntensity/(mass*heatCapacity)
+      Particles[p].temperature_t += absorbedRadiationIntensity/(mass*heatCapacity)
     end
   end
 end
@@ -1546,18 +1557,18 @@ where
 do
   __demand(__openmp)
   for p in Particles do
-    p.__valid = false
+    Particles[p].__valid = false
   end
 end
 
 __demand(__parallel, __cuda)
-task SetCoarseningField(Fluid : region(ispace(int3d), Fluid_columns),
-                        Grid_xBnum : int32, Grid_xNum : int32,
-                        Grid_yBnum : int32, Grid_yNum : int32,
-                        Grid_zBnum : int32, Grid_zNum : int32,
-                        Radiation_xNum : int32,
-                        Radiation_yNum : int32,
-                        Radiation_zNum : int32)
+task Flow_SetCoarseningField(Fluid : region(ispace(int3d), Fluid_columns),
+                             Grid_xBnum : int32, Grid_xNum : int32,
+                             Grid_yBnum : int32, Grid_yNum : int32,
+                             Grid_zBnum : int32, Grid_zNum : int32,
+                             Radiation_xNum : int32,
+                             Radiation_yNum : int32,
+                             Radiation_zNum : int32)
 where
   writes(Fluid.to_Radiation)
 do
@@ -1906,7 +1917,7 @@ do
 end
 
 __demand(__parallel, __cuda)
-task Flow_InitializeUniform(Fluid : region(ispace(int3d), Fluid_columns), Flow_initParams : double[5])
+task Flow_InitializeUniform(Fluid : region(ispace(int3d), Fluid_columns), Flow_initParams : double[6])
 where
   writes(Fluid.{rho, pressure, velocity})
 do
@@ -1918,28 +1929,27 @@ do
   end
 end
 
-__demand(__parallel) -- NO CUDA, NO OPENMP
+-- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Flow_InitializeRandom(Fluid : region(ispace(int3d), Fluid_columns),
-                           Flow_initParams : double[5])
+                           Flow_initParams : double[6])
 where
   writes(Fluid.{rho, pressure, velocity})
 do
   var magnitude = Flow_initParams[2]
-  var rngState : C.drand48_data[1]
-  var rngStatePtr = [&C.drand48_data](rngState)
-  C.srand48_r(C.legion_get_current_time_in_nanos(), rngStatePtr)
+  var rngState : C.drand48_data
+  C.srand48_r(C.legion_get_current_time_in_nanos(), &rngState)
   for c in Fluid do
     Fluid[c].rho = Flow_initParams[0]
     Fluid[c].pressure = Flow_initParams[1]
-    Fluid[c].velocity = array(2 * (drand48_r(rngStatePtr) - 0.5) * magnitude,
-                              2 * (drand48_r(rngStatePtr) - 0.5) * magnitude,
-                              2 * (drand48_r(rngStatePtr) - 0.5) * magnitude)
+    Fluid[c].velocity = array(2 * (drand48_r(&rngState) - 0.5) * magnitude,
+                              2 * (drand48_r(&rngState) - 0.5) * magnitude,
+                              2 * (drand48_r(&rngState) - 0.5) * magnitude)
   end
 end
 
 __demand(__parallel, __cuda)
 task Flow_InitializeTaylorGreen2D(Fluid : region(ispace(int3d), Fluid_columns),
-                                  Flow_initParams : double[5],
+                                  Flow_initParams : double[6],
                                   Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
                                   Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
                                   Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
@@ -1964,7 +1974,7 @@ end
 
 __demand(__parallel, __cuda)
 task Flow_InitializeTaylorGreen3D(Fluid : region(ispace(int3d), Fluid_columns),
-                                  Flow_initParams : double[5],
+                                  Flow_initParams : double[6],
                                   Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
                                   Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
                                   Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
@@ -1986,26 +1996,28 @@ do
   end
 end
 
-__demand(__parallel) -- NO CUDA, NO OPENMP
+-- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Flow_InitializePerturbed(Fluid : region(ispace(int3d), Fluid_columns),
-                              Flow_initParams : double[5])
+                              Flow_initParams : double[6])
 where
   writes(Fluid.{rho, pressure, velocity})
 do
-  var rngState : C.drand48_data[1]
-  var rngStatePtr = [&C.drand48_data](rngState)
-  C.srand48_r(C.legion_get_current_time_in_nanos(), rngStatePtr)
+  var magnitude = Flow_initParams[5]
+  var rngState : C.drand48_data
+  C.srand48_r(C.legion_get_current_time_in_nanos(), &rngState)
   for c in Fluid do
     Fluid[c].rho = Flow_initParams[0]
     Fluid[c].pressure = Flow_initParams[1]
-    Fluid[c].velocity = array(Flow_initParams[2] + (drand48_r(rngStatePtr)-0.5)*10.0,
-                              Flow_initParams[3] + (drand48_r(rngStatePtr)-0.5)*10.0,
-                              Flow_initParams[4] + (drand48_r(rngStatePtr)-0.5)*10.0)
+    Fluid[c].velocity = array(Flow_initParams[2] + 2 * (drand48_r(&rngState) - 0.5) * magnitude,
+                              Flow_initParams[3] + 2 * (drand48_r(&rngState) - 0.5) * magnitude,
+                              Flow_initParams[4] + 2 * (drand48_r(&rngState) - 0.5) * magnitude)
   end
 end
 
 -- Modify initial rho, pressure, velocity to be consistent with NSCBC inflow outflow condition, also set up stuff for RHS of inflow
-__demand(__parallel, __cuda)
+-- NOTE: It is safe to not pass the ghost regions to this task, because we
+-- always group ghost cells with their neighboring interior cells.
+__demand(__cuda) -- MANUALLY PARALLELIZED
 task Flow_InitializeGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
                                config : Config,
                                Flow_gasConstant : double,
@@ -2101,7 +2113,7 @@ do
         -- based on the incoming values, so we set a fake incoming value, that
         -- would have produced the fake velocity setting above.
         var velocity_inc = velocity
-        velocity_inc[0] -= BC_xBCLeftInflowProfile_Incoming_addedVelocity
+        velocity_inc[0] += -BC_xBCLeftInflowProfile_Incoming_addedVelocity
         Fluid[c_bnd].velocity_inc = velocity_inc
       end
       Fluid[c_bnd].velocity = velocity
@@ -2112,10 +2124,8 @@ do
       var temperature : double
       if BC_xBCLeftHeat_type == SCHEMA.TempProfile_Constant then
         temperature = BC_xBCLeftHeat_Constant_temperature
-
         -- Use the specified temperature to find the correct pressure for current density from EOS
         Fluid[c_bnd].pressure = temperature*Flow_gasConstant*Fluid[c_bnd].rho
-
       -- elseif BC_xBCLeftHeat_type == SCHEMA.TempProfile_Parabola then
       --   regentlib.assert(false, 'Parabola heat model not supported')
       else -- BC_xBCLeftHeat_type == SCHEMA.TempProfile_Incoming
@@ -2205,6 +2215,64 @@ do
       Fluid[c].rhoVelocity = vs_mul(Fluid[c].velocity, Fluid[c].rho)
       var cv = (Flow_gasConstant/(Flow_gamma-1.0))
       Fluid[c].rhoEnergy = Fluid[c].rho*((cv*tmpTemperature)+(0.5*dot(velocity, velocity)))
+    end
+  end
+end
+
+local function mkFlow_CalculateAverageVelocity(dim)
+  local I = dim == 'X' and 0 or
+            dim == 'Y' and 1 or
+            dim == 'Z' and 2 or
+            assert(false)
+  local __demand(__parallel, __cuda)
+  task Flow_CalculateAverageVelocity(Fluid : region(ispace(int3d), Fluid_columns),
+                                     Grid_xBnum : int32, Grid_xNum : int32,
+                                     Grid_yBnum : int32, Grid_yNum : int32,
+                                     Grid_zBnum : int32, Grid_zNum : int32)
+  where
+    reads(Fluid.{rho, rhoVelocity, cellWidth})
+  do
+    var acc = 0.0
+    __demand(__openmp)
+    for c in Fluid do
+      if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
+        var cellVolume = Fluid[c].cellWidth[0]*Fluid[c].cellWidth[1]*Fluid[c].cellWidth[2]
+        acc += (Fluid[c].rhoVelocity[I]/Fluid[c].rho)*cellVolume
+      end
+    end
+    return acc
+  end
+  local name = 'Flow_CalculateAverageVelocity'..dim
+  Flow_CalculateAverageVelocity:set_name(name)
+  Flow_CalculateAverageVelocity:get_primary_variant():get_ast().name[1] = name
+  return Flow_CalculateAverageVelocity
+end
+local Flow_CalculateAverageVelocityX = mkFlow_CalculateAverageVelocity('X')
+local Flow_CalculateAverageVelocityY = mkFlow_CalculateAverageVelocity('Y')
+local Flow_CalculateAverageVelocityZ = mkFlow_CalculateAverageVelocity('Z')
+
+__demand(__parallel, __cuda)
+task Flow_AdjustAverageVelocity(Fluid : region(ispace(int3d), Fluid_columns),
+                                config : Config,
+                                Flow_averageVelocityX : double,
+                                Flow_averageVelocityY : double,
+                                Flow_averageVelocityZ : double,
+                                Grid_xBnum : int32, Grid_xNum : int32,
+                                Grid_yBnum : int32, Grid_yNum : int32,
+                                Grid_zBnum : int32, Grid_zNum : int32)
+where
+  reads(Fluid.rho),
+  reads writes(Fluid.rhoVelocity)
+do
+  var adjustmentX = config.Flow.turbForcing.u.HIT.meanVelocity[0] - Flow_averageVelocityX
+  var adjustmentY = config.Flow.turbForcing.u.HIT.meanVelocity[1] - Flow_averageVelocityY
+  var adjustmentZ = config.Flow.turbForcing.u.HIT.meanVelocity[2] - Flow_averageVelocityZ
+  __demand(__openmp)
+  for c in Fluid do
+    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
+      Fluid[c].rhoVelocity[0] += adjustmentX*Fluid[c].rho
+      Fluid[c].rhoVelocity[1] += adjustmentY*Fluid[c].rho
+      Fluid[c].rhoVelocity[2] += adjustmentZ*Fluid[c].rho
     end
   end
 end
@@ -2301,66 +2369,24 @@ do
   end
 end
 
--- NOTE: It is safe to not pass the ghost regions to this task, because we
--- always group ghost cells with their neighboring interior cells.
-__demand(__cuda) -- MANUALLY PARALLELIZED
+__demand(__parallel, __cuda)
 task Flow_UpdateGhostConserved(Fluid : region(ispace(int3d), Fluid_columns),
                                config : Config,
-                               BC_xNegTemperature : double, BC_xNegVelocity : double[3],
-                               BC_xPosTemperature : double, BC_xPosVelocity : double[3],
-                               BC_xNegSign : double[3],     BC_xPosSign : double[3],
-                               BC_yNegTemperature : double, BC_yNegVelocity : double[3],
-                               BC_yPosTemperature : double, BC_yPosVelocity : double[3],
-                               BC_yNegSign : double[3],     BC_yPosSign : double[3],
-                               BC_zNegTemperature : double, BC_zNegVelocity : double[3],
-                               BC_zPosTemperature : double, BC_zPosVelocity : double[3],
-                               BC_zNegSign : double[3],     BC_zPosSign : double[3],
-                               Flow_gamma : double,
-                               Flow_gasConstant : double,
-                               Flow_constantVisc : double,
-                               Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                               Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                               Flow_viscosityModel : SCHEMA.ViscosityModel,
                                Grid_xBnum : int32, Grid_xNum : int32,
                                Grid_yBnum : int32, Grid_yNum : int32,
                                Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.{rho, pressure, temperature, rhoVelocity, rhoEnergy, centerCoordinates, velocity_inc, temperature_inc}),
+  reads(Fluid.{rho, velocity, pressure, temperature}),
   writes(Fluid.{rho, rhoEnergy, rhoVelocity})
 do
   var BC_xBCLeft  = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
-  var BC_yBCLeft  = config.BC.yBCLeft
-  var BC_yBCRight = config.BC.yBCRight
-  var BC_zBCLeft  = config.BC.zBCLeft
-  var BC_zBCRight = config.BC.zBCRight
-  var BC_yBCLeftHeat_T_left  = config.BC.yBCLeftHeat.u.Parabola.T_left
-  var BC_yBCLeftHeat_T_mid   = config.BC.yBCLeftHeat.u.Parabola.T_mid
-  var BC_yBCLeftHeat_T_right = config.BC.yBCLeftHeat.u.Parabola.T_right
-  var BC_yBCRightHeat_T_left  = config.BC.yBCRightHeat.u.Parabola.T_left
-  var BC_yBCRightHeat_T_mid   = config.BC.yBCRightHeat.u.Parabola.T_mid
-  var BC_yBCRightHeat_T_right = config.BC.yBCRightHeat.u.Parabola.T_right
-  var BC_zBCLeftHeat_T_left  = config.BC.zBCLeftHeat.u.Parabola.T_left
-  var BC_zBCLeftHeat_T_mid   = config.BC.zBCLeftHeat.u.Parabola.T_mid
-  var BC_zBCLeftHeat_T_right = config.BC.zBCLeftHeat.u.Parabola.T_right
-  var BC_zBCRightHeat_T_left  = config.BC.zBCRightHeat.u.Parabola.T_left
-  var BC_zBCRightHeat_T_mid   = config.BC.zBCRightHeat.u.Parabola.T_mid
-  var BC_zBCRightHeat_T_right = config.BC.zBCRightHeat.u.Parabola.T_right
-  -- Domain Size
-  var Grid_xWidth = config.Grid.xWidth
-  var Grid_yWidth = config.Grid.yWidth
-  var Grid_zWidth = config.Grid.zWidth
-  -- Inflow values
-  var BC_xBCLeftHeat_type = config.BC.xBCLeftHeat.type
-  var BC_xBCLeftHeat_Constant_temperature = config.BC.xBCLeftHeat.u.Constant.temperature
-  var BC_xBCLeftInflowProfile_type = config.BC.xBCLeftInflowProfile.type
-  var BC_xBCLeftInflowProfile_Constant_velocity = config.BC.xBCLeftInflowProfile.u.Constant.velocity
-  var BC_xBCLeftInflowProfile_Duct_meanVelocity = config.BC.xBCLeftInflowProfile.u.Duct.meanVelocity
-  var BC_xBCLeftInflowProfile_Incoming_addedVelocity = config.BC.xBCLeftInflowProfile.u.Incoming.addedVelocity
+  var Flow_gasConstant = config.Flow.gasConstant
+  var Flow_gamma = config.Flow.gamma
+  var cv = (Flow_gasConstant/(Flow_gamma-1.0))
 
   __demand(__openmp)
   for c in Fluid do
-
     var xNegGhost = is_xNegGhost(c, Grid_xBnum)
     var xPosGhost = is_xPosGhost(c, Grid_xBnum, Grid_xNum)
     var yNegGhost = is_yNegGhost(c, Grid_yBnum)
@@ -2373,305 +2399,20 @@ do
     var NSCBC_inflow_cell  = ((BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
-    if xNegGhost then
+    if ghost_cell then
       var c_bnd = int3d(c)
-      var c_int = ((c+{1, 0, 0})%Fluid.bounds)
-      var cv = (Flow_gasConstant/(Flow_gamma-1.0))
-      if NSCBC_inflow_cell then
-        var rho = Fluid[c_bnd].rho
-        var velocity = array(0.0, 0.0, 0.0)
-        if BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Constant then
-          velocity[0] = BC_xBCLeftInflowProfile_Constant_velocity
-        elseif BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Duct then
-          var y = Fluid[c].centerCoordinates[1]
-          var z = Fluid[c].centerCoordinates[2]
-          var y_dist_to_wall = 0.0
-          var y_local = 0.0
-          if y < (Grid_yWidth/ 2.0) then
-            y_dist_to_wall = y
-            y_local = (Grid_yWidth/ 2.0) - y
-          else
-            y_dist_to_wall = Grid_yWidth - y
-            y_local = y - (Grid_yWidth/ 2.0)
-          end
-          var z_dist_to_wall = 0.0
-          var z_local = 0.0
-          if z < (Grid_zWidth/ 2.0) then
-            z_dist_to_wall = z
-            z_local = (Grid_zWidth/ 2.0) - z
-          else
-            z_dist_to_wall = Grid_zWidth - z
-            z_local = z - (Grid_zWidth/ 2.0)
-          end
-          var d = 0.0
-          var d_max = 0.0
-          if y_dist_to_wall < z_dist_to_wall then
-            d = y_dist_to_wall
-            d_max = (Grid_yWidth/ 2.0)
-          else
-            d = z_dist_to_wall
-            d_max = (Grid_zWidth/ 2.0)
-          end
-          var meanVelocity = BC_xBCLeftInflowProfile_Duct_meanVelocity
-          var mu = GetDynamicViscosity(Fluid[c].temperature,
-                                       Flow_constantVisc,
-                                       Flow_powerlawTempRef, Flow_powerlawViscRef,
-                                       Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
-                                       Flow_viscosityModel)
-          var Re = Fluid[c].rho*meanVelocity*Grid_yWidth / mu
-          var n = -1.7 + 1.8*log(Re)
-          velocity[0] = meanVelocity*pow((d/d_max), (1.0/n))
-        else -- BC_xBCLeftInflowProfile_type == SCHEMA.InflowProfile_Incoming
-          velocity = Fluid[c].velocity_inc
-          velocity[0] += BC_xBCLeftInflowProfile_Incoming_addedVelocity
-        end
-
-        var temperature : double
-        if BC_xBCLeftHeat_type == SCHEMA.TempProfile_Constant then
-          temperature = BC_xBCLeftHeat_Constant_temperature
-        -- elseif BC_xBCLeftHeat_type == SCHEMA.TempProfile_Parabola then
-        --   regentlib.assert(false, 'Parabola heat model not supported')
-        else -- BC_xBCLeftHeat_type == SCHEMA.TempProfile_Incoming
-          temperature = Fluid[c].temperature_inc
-        end
-        Fluid[c_bnd].rho = rho
-        Fluid[c_bnd].rhoVelocity = vs_mul(velocity, rho)
-        Fluid[c_bnd].rhoEnergy = rho*((cv*temperature)+(0.5*dot(velocity, velocity)))
+      var velocity = Fluid[c_bnd].velocity
+      var temperature = Fluid[c_bnd].temperature
+      var rho : double
+      if NSCBC_inflow_cell or NSCBC_outflow_cell then
+        rho = Fluid[c_bnd].rho
       else
-        var sign = BC_xNegSign
-        var bnd_velocity = BC_xNegVelocity
-        var bnd_temperature = BC_xNegTemperature
-        var rho = 0.0
-        var temperature = 0.0
-        var velocity = array(0.0, 0.0, 0.0)
-        var wall_temperature = 0.0
-        velocity = vv_add(vv_mul(vs_div(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
-
-        wall_temperature = Fluid[c_int].temperature -- adibatic wall
-        if (bnd_temperature>0.0) then -- isothermal wall
-          wall_temperature = bnd_temperature
-        end
-        temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
-        rho = Fluid[c_int].pressure/(Flow_gasConstant*temperature)
-        Fluid[c_bnd].rho = rho
-        Fluid[c_bnd].rhoVelocity = vs_mul(velocity, rho)
-        Fluid[c_bnd].rhoEnergy = rho*((cv*temperature)+(0.5*dot(velocity, velocity)))
+        rho = Fluid[c_bnd].pressure/(Flow_gasConstant*temperature)
       end
+      Fluid[c_bnd].rho = rho
+      Fluid[c_bnd].rhoVelocity = vs_mul(velocity, rho)
+      Fluid[c_bnd].rhoEnergy = rho*((cv*temperature)+(0.5*dot(velocity, velocity)))
     end
-
-    if xPosGhost then
-      var c_bnd = int3d(c)
-      var c_int = ((c+{-1, 0, 0})%Fluid.bounds)
-      var cv = (Flow_gasConstant/(Flow_gamma-1.0))
-      if NSCBC_outflow_cell then
-        Fluid[c_bnd].rho = Fluid[c_bnd].rho
-        Fluid[c_bnd].rhoVelocity = Fluid[c_bnd].rhoVelocity
-        Fluid[c_bnd].rhoEnergy = Fluid[c_bnd].rhoEnergy
-      else
-        var sign = BC_xPosSign
-        var bnd_velocity = BC_xPosVelocity
-        var bnd_temperature = BC_xPosTemperature
-        var rho = 0.0
-        var temperature = 0.0
-        var velocity = array(0.0, 0.0, 0.0)
-        var wall_temperature = 0.0
-        velocity = vv_add(vv_mul(vs_div(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
-        wall_temperature = Fluid[c_int].temperature
-        if (bnd_temperature>0.0) then
-          wall_temperature = bnd_temperature
-        end
-        temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
-        rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
-        Fluid[c_bnd].rho = rho
-        Fluid[c_bnd].rhoVelocity = vs_mul(velocity, rho)
-        Fluid[c_bnd].rhoEnergy = rho*((cv*temperature)+(0.5*dot(velocity, velocity)))
-      end
-    end
-
-    if yNegGhost then
-      var c_bnd = int3d(c)
-      var c_int = ((c+{0, 1, 0})%Fluid.bounds)
-      var cv = (Flow_gasConstant/(Flow_gamma-1.0))
-      if (BC_yBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
-        var sign = BC_yNegSign
-        var bnd_velocity = BC_yNegVelocity -- velocity at face/boundary
-        var rho = 0.0
-        var temperature = 0.0
-        var velocity = array(0.0, 0.0, 0.0)
-        var wall_temperature = 0.0
-        velocity = vv_add(vv_mul(vs_div(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
-        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left) - 2.0*(BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left))
-        var c_2 = 4.0/(Grid_xWidth)*((BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left) - 1.0/4.0*(BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left))
-        var c_3 = BC_yBCLeftHeat_T_left
-        wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
-        if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
-          wall_temperature = 0.0
-        end
-        temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
-        rho = Fluid[c_int].pressure/(Flow_gasConstant*temperature)
-        Fluid[c_bnd].rho = rho
-        Fluid[c_bnd].rhoVelocity = vs_mul(velocity, rho)
-        Fluid[c_bnd].rhoEnergy = rho*((cv*temperature)+(0.5*dot(velocity, velocity)))
-      else
-        var sign = BC_yNegSign
-        var bnd_velocity = BC_yNegVelocity
-        var bnd_temperature = BC_yNegTemperature
-        var rho = 0.0
-        var temp_wall = 0.0
-        var temperature = 0.0
-        var velocity = array(0.0, 0.0, 0.0)
-        var velocity__3527 = array(0.0, 0.0, 0.0)
-        velocity__3527 = vv_add(vv_mul(vs_div(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
-        temp_wall = Fluid[c_int].temperature
-        if (bnd_temperature>0.0) then
-          temp_wall = bnd_temperature
-        end
-        temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
-        rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
-        Fluid[c_bnd].rho = rho
-        Fluid[c_bnd].rhoVelocity = vs_mul(velocity__3527, rho)
-        Fluid[c_bnd].rhoEnergy = (rho*((cv*temperature)+(0.5*dot(velocity__3527, velocity__3527))))
-      end
-    end
-
-    if yPosGhost then
-      var c_bnd = int3d(c)
-      var c_int = ((c+{0, -1, 0})%Fluid.bounds)
-      var cv = (Flow_gasConstant/(Flow_gamma-1.0))
-      if (BC_yBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
-        var sign = BC_yPosSign
-        var bnd_velocity = BC_yPosVelocity
-        var rho = 0.0
-        var temperature = 0.0
-        var velocity = array(0.0, 0.0, 0.0)
-        var wall_temperature = 0.0
-        velocity = vv_add(vv_mul(vs_div(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
-        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_yBCRightHeat_T_right - BC_yBCRightHeat_T_left) - 2.0*(BC_yBCRightHeat_T_mid - BC_yBCRightHeat_T_left))
-        var c_2 = 4.0/(Grid_xWidth)*((BC_yBCRightHeat_T_mid - BC_yBCRightHeat_T_left) - 1.0/4.0*(BC_yBCRightHeat_T_right - BC_yBCRightHeat_T_left))
-        var c_3 = BC_yBCRightHeat_T_left
-        wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
-        if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
-          wall_temperature = 0.0
-        end
-        temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
-        rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
-        Fluid[c_bnd].rho = rho
-        Fluid[c_bnd].rhoVelocity = vs_mul(velocity, rho)
-        Fluid[c_bnd].rhoEnergy = (rho*((cv*temperature)+(0.5*dot(velocity, velocity))))
-      else
-        var sign = BC_yPosSign
-        var bnd_velocity = BC_yPosVelocity
-        var bnd_temperature = BC_yPosTemperature
-        var rho = 0.0
-        var temp_wall = 0.0
-        var temperature = 0.0
-        var velocity = array(0.0, 0.0, 0.0)
-        var velocity__3538 = array(0.0, 0.0, 0.0)
-        velocity__3538 = vv_add(vv_mul(vs_div(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
-        temp_wall = Fluid[c_int].temperature
-        if (bnd_temperature>0.0) then
-          temp_wall = bnd_temperature
-        end
-        temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
-        rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
-        Fluid[c_bnd].rho = rho
-        Fluid[c_bnd].rhoVelocity = vs_mul(velocity__3538, rho)
-        Fluid[c_bnd].rhoEnergy = (rho*((cv*temperature)+(0.5*dot(velocity__3538, velocity__3538))))
-      end
-    end
-
-    if zNegGhost then
-      var c_bnd = int3d(c)
-      var c_int = ((c+{0, 0, 1})%Fluid.bounds)
-      var cv = (Flow_gasConstant/(Flow_gamma-1.0))
-      if (BC_zBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
-        var sign = BC_zNegSign
-        var bnd_velocity = BC_zNegVelocity
-        var rho = 0.0
-        var temperature = 0.0
-        var velocity = array(0.0, 0.0, 0.0)
-        var wall_temperature = 0.0
-        velocity = vv_add(vv_mul(vs_div(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
-        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_zBCLeftHeat_T_right - BC_zBCLeftHeat_T_left) - 2.0*(BC_zBCLeftHeat_T_mid - BC_zBCLeftHeat_T_left))
-        var c_2 = 4.0/(Grid_xWidth)*((BC_zBCLeftHeat_T_mid - BC_zBCLeftHeat_T_left) - 1.0/4.0*(BC_zBCLeftHeat_T_right - BC_zBCLeftHeat_T_left))
-        var c_3 = BC_zBCLeftHeat_T_left
-        wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
-        if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
-          wall_temperature = 0.0
-        end
-        temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
-        rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
-        Fluid[c_bnd].rho = rho
-        Fluid[c_bnd].rhoVelocity = vs_mul(velocity, rho)
-        Fluid[c_bnd].rhoEnergy = (rho*((cv*temperature)+(0.5*dot(velocity, velocity))))
-      else
-        var sign = BC_zNegSign
-        var bnd_velocity = BC_zNegVelocity
-        var bnd_temperature = BC_zNegTemperature
-        var rho = 0.0
-        var temp_wall = 0.0
-        var temperature = 0.0
-        var velocity = array(0.0, 0.0, 0.0)
-        var velocity__3549 = array(0.0, 0.0, 0.0)
-        velocity__3549 = vv_add(vv_mul(vs_div(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
-        temp_wall = Fluid[c_int].temperature
-        if (bnd_temperature>0.0) then
-          temp_wall = bnd_temperature
-        end
-        temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
-        rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
-        Fluid[c_bnd].rho = rho
-        Fluid[c_bnd].rhoVelocity = vs_mul(velocity__3549, rho)
-        Fluid[c_bnd].rhoEnergy = (rho*((cv*temperature)+(0.5*dot(velocity__3549, velocity__3549))))
-      end
-    end
-
-    if zPosGhost then
-      var c_bnd = int3d(c)
-      var c_int = ((c+{0, 0, -1})%Fluid.bounds)
-      var cv = (Flow_gasConstant/(Flow_gamma-1.0))
-      if (BC_zBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
-        var sign = BC_zPosSign
-        var bnd_velocity = BC_zPosVelocity
-        var rho = 0.0
-        var temperature = 0.0
-        var velocity = array(0.0, 0.0, 0.0)
-        var wall_temperature = 0.0
-        velocity = vv_add(vv_mul(vs_div(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
-        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_zBCRightHeat_T_right - BC_zBCRightHeat_T_left) - 2.0*(BC_zBCRightHeat_T_mid - BC_zBCRightHeat_T_left))
-        var c_2 = 4.0/(Grid_xWidth)*((BC_zBCRightHeat_T_mid - BC_zBCRightHeat_T_left) - 1.0/4.0*(BC_zBCRightHeat_T_right - BC_zBCRightHeat_T_left))
-        var c_3 = BC_zBCRightHeat_T_left
-        wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
-        if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
-          wall_temperature = 0.0
-        end
-        temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
-        rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
-        Fluid[c_bnd].rho = rho
-        Fluid[c_bnd].rhoVelocity = vs_mul(velocity, rho)
-        Fluid[c_bnd].rhoEnergy = (rho*((cv*temperature)+(0.5*dot(velocity, velocity))))
-      else
-        var sign = BC_zPosSign
-        var bnd_velocity = BC_zPosVelocity
-        var bnd_temperature = BC_zPosTemperature
-        var rho = 0.0
-        var temp_wall = 0.0
-        var temperature = 0.0
-        var velocity = array(0.0, 0.0, 0.0)
-        var velocity__3560 = array(0.0, 0.0, 0.0)
-        velocity__3560 = vv_add(vv_mul(vs_div(Fluid[c_int].rhoVelocity, Fluid[c_int].rho), sign), bnd_velocity)
-        temp_wall = Fluid[c_int].temperature
-        if (bnd_temperature>0.0) then
-          temp_wall = bnd_temperature
-        end
-        temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
-        rho = (Fluid[c_int].pressure/(Flow_gasConstant*temperature))
-        Fluid[c_bnd].rho = rho
-        Fluid[c_bnd].rhoVelocity = vs_mul(velocity__3560, rho)
-        Fluid[c_bnd].rhoEnergy = (rho*((cv*temperature)+(0.5*dot(velocity__3560, velocity__3560))))
-      end
-    end
-
   end
 end
 
@@ -2975,9 +2716,9 @@ do
       var c_bnd = int3d(c)
       var c_int = ((c+{0, -1, 0})%Fluid.bounds)
       if (BC_yBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
-        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left) - 2.0*(BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left))
-        var c_2 = 4.0/(Grid_xWidth)*((BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left) - 1.0/4.0*(BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left))
-        var c_3 = BC_yBCLeftHeat_T_left
+        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_yBCRightHeat_T_right - BC_yBCRightHeat_T_left) - 2.0*(BC_yBCRightHeat_T_mid - BC_yBCRightHeat_T_left))
+        var c_2 = 4.0/(Grid_xWidth)*((BC_yBCRightHeat_T_mid - BC_yBCRightHeat_T_left) - 1.0/4.0*(BC_yBCRightHeat_T_right - BC_yBCRightHeat_T_left))
+        var c_3 = BC_yBCRightHeat_T_left
         var wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
         if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
           wall_temperature = 0.0
@@ -3003,9 +2744,9 @@ do
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 0, 1})%Fluid.bounds)
       if (BC_zBCLeft == SCHEMA.FlowBC_NonUniformTemperatureWall) then
-        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left) - 2.0*(BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left))
-        var c_2 = 4.0/(Grid_xWidth)*((BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left) - 1.0/4.0*(BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left))
-        var c_3 = BC_yBCLeftHeat_T_left
+        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_zBCLeftHeat_T_right - BC_zBCLeftHeat_T_left) - 2.0*(BC_zBCLeftHeat_T_mid - BC_zBCLeftHeat_T_left))
+        var c_2 = 4.0/(Grid_xWidth)*((BC_zBCLeftHeat_T_mid - BC_zBCLeftHeat_T_left) - 1.0/4.0*(BC_zBCLeftHeat_T_right - BC_zBCLeftHeat_T_left))
+        var c_3 = BC_zBCLeftHeat_T_left
         var wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
         if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
           wall_temperature = 0.0
@@ -3031,9 +2772,9 @@ do
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 0, -1})%Fluid.bounds)
       if (BC_zBCRight == SCHEMA.FlowBC_NonUniformTemperatureWall) then
-        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left) - 2.0*(BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left))
-        var c_2 = 4.0/(Grid_xWidth)*((BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left) - 1.0/4.0*(BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left))
-        var c_3 = BC_yBCLeftHeat_T_left
+        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_zBCRightHeat_T_right - BC_zBCRightHeat_T_left) - 2.0*(BC_zBCRightHeat_T_mid - BC_zBCRightHeat_T_left))
+        var c_2 = 4.0/(Grid_xWidth)*((BC_zBCRightHeat_T_mid - BC_zBCRightHeat_T_left) - 1.0/4.0*(BC_zBCRightHeat_T_right - BC_zBCRightHeat_T_left))
+        var c_3 = BC_zBCRightHeat_T_left
         var wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
         if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
           wall_temperature = 0.0
@@ -3074,12 +2815,12 @@ do
 end
 
 __demand(__parallel, __cuda)
-task CalculateInteriorVolume(Fluid : region(ispace(int3d), Fluid_columns),
-                             Grid_xBnum : int32, Grid_xNum : int32,
-                             Grid_yBnum : int32, Grid_yNum : int32,
-                             Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_CalculateInteriorVolume(Fluid : region(ispace(int3d), Fluid_columns),
+                                  Grid_xBnum : int32, Grid_xNum : int32,
+                                  Grid_yBnum : int32, Grid_yNum : int32,
+                                  Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.{cellWidth,pressure})
+  reads(Fluid.cellWidth)
 do
   var acc = 0.0
   __demand(__openmp)
@@ -3092,10 +2833,10 @@ do
 end
 
 __demand(__parallel, __cuda)
-task CalculateAveragePressure(Fluid : region(ispace(int3d), Fluid_columns),
-                              Grid_xBnum : int32, Grid_xNum : int32,
-                              Grid_yBnum : int32, Grid_yNum : int32,
-                              Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_CalculateAveragePressure(Fluid : region(ispace(int3d), Fluid_columns),
+                                   Grid_xBnum : int32, Grid_xNum : int32,
+                                   Grid_yBnum : int32, Grid_yNum : int32,
+                                   Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{cellWidth,pressure})
 do
@@ -3111,10 +2852,10 @@ do
 end
 
 __demand(__parallel, __cuda)
-task CalculateAverageTemperature(Fluid : region(ispace(int3d), Fluid_columns),
-                                 Grid_xBnum : int32, Grid_xNum : int32,
-                                 Grid_yBnum : int32, Grid_yNum : int32,
-                                 Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_CalculateAverageTemperature(Fluid : region(ispace(int3d), Fluid_columns),
+                                      Grid_xBnum : int32, Grid_xNum : int32,
+                                      Grid_yBnum : int32, Grid_yNum : int32,
+                                      Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{cellWidth,temperature})
 do
@@ -3130,10 +2871,10 @@ do
 end
 
 __demand(__parallel, __cuda)
-task CalculateAverageKineticEnergy(Fluid : region(ispace(int3d), Fluid_columns),
-                                   Grid_xBnum : int32, Grid_xNum : int32,
-                                   Grid_yBnum : int32, Grid_yNum : int32,
-                                   Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_CalculateAverageKineticEnergy(Fluid : region(ispace(int3d), Fluid_columns),
+                                        Grid_xBnum : int32, Grid_xNum : int32,
+                                        Grid_yBnum : int32, Grid_yNum : int32,
+                                        Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{cellWidth, rho, velocity})
 do
@@ -3144,42 +2885,6 @@ do
       var cellVolume = Fluid[c].cellWidth[0]*Fluid[c].cellWidth[1]*Fluid[c].cellWidth[2]
       var kineticEnergy = 0.5*Fluid[c].rho*dot(Fluid[c].velocity, Fluid[c].velocity)
       acc += kineticEnergy*cellVolume
-    end
-  end
-  return acc
-end
-
-__demand(__parallel, __cuda)
-task CalculateMinTemperature(Fluid : region(ispace(int3d), Fluid_columns),
-                             Grid_xBnum : int32, Grid_xNum : int32,
-                             Grid_yBnum : int32, Grid_yNum : int32,
-                             Grid_zBnum : int32, Grid_zNum : int32)
-where
-  reads(Fluid.temperature)
-do
-  var acc = math.huge
-  __demand(__openmp)
-  for c in Fluid do
-    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      acc min= Fluid[c].temperature
-    end
-  end
-  return acc
-end
-
-__demand(__parallel, __cuda)
-task CalculateMaxTemperature(Fluid : region(ispace(int3d), Fluid_columns),
-                             Grid_xBnum : int32, Grid_xNum : int32,
-                             Grid_yBnum : int32, Grid_yNum : int32,
-                             Grid_zBnum : int32, Grid_zNum : int32)
-where
-  reads(Fluid.temperature)
-do
-  var acc = -math.huge
-  __demand(__openmp)
-  for c in Fluid do
-    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      acc max= Fluid[c].temperature
     end
   end
   return acc
@@ -3206,13 +2911,13 @@ task GetSoundSpeed(temperature : double, Flow_gamma : double, Flow_gasConstant :
 end
 
 __demand(__parallel, __cuda)
-task CalculateMaxMachNumber(Fluid : region(ispace(int3d), Fluid_columns),
-                            config : Config,
-                            Flow_gamma : double,
-                            Flow_gasConstant : double,
-                            Grid_xBnum : int32, Grid_xNum : int32,
-                            Grid_yBnum : int32, Grid_yNum : int32,
-                            Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_CalculateMaxMachNumber(Fluid : region(ispace(int3d), Fluid_columns),
+                                 config : Config,
+                                 Flow_gamma : double,
+                                 Flow_gasConstant : double,
+                                 Grid_xBnum : int32, Grid_xNum : int32,
+                                 Grid_yBnum : int32, Grid_yNum : int32,
+                                 Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{velocity, temperature})
 do
@@ -3242,9 +2947,9 @@ do
 end
 
 __demand(__parallel, __cuda)
-task CalculateConvectiveSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
-                                       Flow_gamma : double,
-                                       Flow_gasConstant : double)
+task Flow_CalculateConvectiveSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
+                                            Flow_gamma : double,
+                                            Flow_gasConstant : double)
 where
   reads(Fluid.{cellWidth, velocity, temperature})
 do
@@ -3261,11 +2966,11 @@ do
 end
 
 __demand(__parallel, __cuda)
-task CalculateViscousSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
-                                    Flow_constantVisc : double,
-                                    Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                                    Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                                    Flow_viscosityModel : SCHEMA.ViscosityModel)
+task Flow_CalculateViscousSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
+                                         Flow_constantVisc : double,
+                                         Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                                         Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                                         Flow_viscosityModel : SCHEMA.ViscosityModel)
 where
   reads(Fluid.{cellWidth, rho, temperature})
 do
@@ -3283,14 +2988,14 @@ do
 end
 
 __demand(__parallel, __cuda)
-task CalculateHeatConductionSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
-                                           Flow_constantVisc : double,
-                                           Flow_gamma : double,
-                                           Flow_gasConstant : double,
-                                           Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                                           Flow_prandtl : double,
-                                           Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                                           Flow_viscosityModel : SCHEMA.ViscosityModel)
+task Flow_CalculateHeatConductionSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
+                                                Flow_constantVisc : double,
+                                                Flow_gamma : double,
+                                                Flow_gasConstant : double,
+                                                Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                                                Flow_prandtl : double,
+                                                Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                                                Flow_viscosityModel : SCHEMA.ViscosityModel)
 where
   reads(Fluid.{cellWidth, rho, temperature})
 do
@@ -3997,7 +3702,7 @@ task Flow_UpdateUsingFluxX(Fluid : region(ispace(int3d), Fluid_columns),
                            Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{cellWidth, rhoFluxX, rhoVelocityFluxX, rhoEnergyFluxX}),
-  reads writes atomic(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
+  reads writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
@@ -4015,9 +3720,10 @@ do
 
     if interior then
       var xCellWidth = Fluid[c].cellWidth[0]
-      Fluid[c].rho_t += ((-(Fluid[c].rhoFluxX-Fluid[(c+{-1, 0, 0})%Fluid.bounds].rhoFluxX))/xCellWidth)
-      var tmp1 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxX, Fluid[(c+{-1, 0, 0})%Fluid.bounds].rhoVelocityFluxX), double((-1))), xCellWidth)
-      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp1)
+      Fluid[c].rho_t += ((-(Fluid[c].rhoFluxX-Fluid[(c+{-1, 0, 0})%Fluid.bounds].rhoFluxX))/xCellWidth);
+      [UTIL.emitArrayReduce(3, '+',
+         rexpr Fluid[c].rhoVelocity_t end,
+         rexpr vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxX, Fluid[(c+{-1, 0, 0})%Fluid.bounds].rhoVelocityFluxX), double((-1))), xCellWidth) end)];
       Fluid[c].rhoEnergy_t += ((-(Fluid[c].rhoEnergyFluxX-Fluid[(c+{-1, 0, 0})%Fluid.bounds].rhoEnergyFluxX))/xCellWidth)
     end
   end
@@ -4031,7 +3737,7 @@ task Flow_UpdateUsingFluxY(Fluid : region(ispace(int3d), Fluid_columns),
                            Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{cellWidth, rhoFluxY, rhoVelocityFluxY, rhoEnergyFluxY}),
-  reads writes atomic(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
+  reads writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
@@ -4049,9 +3755,10 @@ do
 
     if interior or NSCBC_inflow_cell or NSCBC_outflow_cell then
       var yCellWidth = Fluid[c].cellWidth[1]
-      Fluid[c].rho_t += (-(Fluid[c].rhoFluxY-Fluid[(c+{0, -1, 0})%Fluid.bounds].rhoFluxY))/yCellWidth
-      var tmp2 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxY, Fluid[(c+{0, -1, 0})%Fluid.bounds].rhoVelocityFluxY), double((-1))), yCellWidth)
-      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp2)
+      Fluid[c].rho_t += (-(Fluid[c].rhoFluxY-Fluid[(c+{0, -1, 0})%Fluid.bounds].rhoFluxY))/yCellWidth;
+      [UTIL.emitArrayReduce(3, '+',
+         rexpr Fluid[c].rhoVelocity_t end,
+         rexpr vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxY, Fluid[(c+{0, -1, 0})%Fluid.bounds].rhoVelocityFluxY), double((-1))), yCellWidth) end)];
       Fluid[c].rhoEnergy_t += (-(Fluid[c].rhoEnergyFluxY-Fluid[(c+{0, -1, 0})%Fluid.bounds].rhoEnergyFluxY))/yCellWidth
     end
   end
@@ -4065,7 +3772,7 @@ task Flow_UpdateUsingFluxZ(Fluid : region(ispace(int3d), Fluid_columns),
                            Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{cellWidth, rhoFluxZ, rhoVelocityFluxZ, rhoEnergyFluxZ}),
-  reads writes atomic(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
+  reads writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
@@ -4083,10 +3790,10 @@ do
 
     if interior or NSCBC_inflow_cell or NSCBC_outflow_cell then
       var zCellWidth = Fluid[c].cellWidth[2]
-      Fluid[c].rho_t += (-(Fluid[c].rhoFluxZ-Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoFluxZ))/zCellWidth
-      var tmp3 = vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxZ, Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoVelocityFluxZ), double((-1))), zCellWidth)
-      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp3)
-
+      Fluid[c].rho_t += (-(Fluid[c].rhoFluxZ-Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoFluxZ))/zCellWidth;
+      [UTIL.emitArrayReduce(3, '+',
+         rexpr Fluid[c].rhoVelocity_t end,
+         rexpr vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxZ, Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoVelocityFluxZ), double((-1))), Grid_zCellWidth) end)];
       Fluid[c].rhoEnergy_t += (-(Fluid[c].rhoEnergyFluxZ-Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoEnergyFluxZ))/zCellWidth
     end
   end
@@ -4112,7 +3819,7 @@ task Flow_UpdateUsingFluxGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns)
 where
   reads(Fluid.{cellWidth, rho, velocity, pressure, temperature, rhoVelocity, dudtBoundary, dTdtBoundary}),
   reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ}),
-  reads writes atomic(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
+  reads writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
@@ -4219,7 +3926,7 @@ do
                                      Flow_viscosityModel)
         var tau_12 =  mu*( Fluid[c_bnd].velocityGradientY[0] + Fluid[c_bnd].velocityGradientX[1] )
         var tau_13 =  mu*( Fluid[c_bnd].velocityGradientZ[0] + Fluid[c_bnd].velocityGradientX[2] )
-        var energy_term_x = (Fluid[c_bnd].velocity[0]*tau11_pos - Fluid[c_int].velocity[0]*tau11_neg) / (0.5*Fluid[c_int].cellWidth[0] + 0.5*Fluid[c_bnd].cellWidth[0]) + Fluid[c].velocityGradientX[1]*tau_12 + Fluid[c].velocityGradientX[2]*tau_13
+        var energy_term_x = (Fluid[c_bnd].velocity[0]*tau11_pos - Fluid[c_int].velocity[0]*tau11_neg) / (0.5*Fluid[c_int].cellWidth[0] + 0.5*Fluid[c_bnd].cellWidth[0]) + Fluid[c_bnd].velocityGradientX[1]*tau_12 + Fluid[c_bnd].velocityGradientX[2]*tau_13
 
         -- Update the RHS of conservation equations with x fluxes
         Fluid[c_bnd].rho_t += - d1
@@ -4280,7 +3987,7 @@ task Flow_AddBodyForces(Fluid : region(ispace(int3d), Fluid_columns),
                         Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{rho, velocity}),
-  reads writes atomic(Fluid.{rhoEnergy_t, rhoVelocity_t})
+  reads writes(Fluid.{rhoEnergy_t, rhoVelocity_t})
 do
   var BC_xBCLeft = config.BC.xBCLeft
   var BC_xBCRight = config.BC.xBCRight
@@ -4298,18 +4005,38 @@ do
     var NSCBC_outflow_cell = ((BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if interior or NSCBC_inflow_cell or NSCBC_outflow_cell then
-      var tmp = vs_mul(Flow_bodyForce, Fluid[c].rho)
-      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, tmp)
+      [UTIL.emitArrayReduce(3, '+',
+         rexpr Fluid[c].rhoVelocity_t end,
+         rexpr vs_mul(Flow_bodyForce, Fluid[c].rho) end)];
       Fluid[c].rhoEnergy_t += (Fluid[c].rho*dot(Flow_bodyForce, Fluid[c].velocity))
     end
   end
 end
 
 __demand(__parallel, __cuda)
-task CalculateAveragePD(Fluid : region(ispace(int3d), Fluid_columns),
-                        Grid_xBnum : int32, Grid_xNum : int32,
-                        Grid_yBnum : int32, Grid_yNum : int32,
-                        Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_AddVelocity(Fluid : region(ispace(int3d), Fluid_columns),
+                      velocity : double[3],
+                      Grid_xBnum : int32, Grid_xNum : int32,
+                      Grid_yBnum : int32, Grid_yNum : int32,
+                      Grid_zBnum : int32, Grid_zNum : int32)
+where
+  reads writes(Fluid.velocity)
+do
+  __demand(__openmp)
+  for c in Fluid do
+    if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
+      [UTIL.emitArrayReduce(3, '+',
+         rexpr Fluid[c].velocity end,
+         rexpr velocity end)];
+    end
+  end
+end
+
+__demand(__parallel, __cuda)
+task Flow_CalculateAveragePD(Fluid : region(ispace(int3d), Fluid_columns),
+                             Grid_xBnum : int32, Grid_xNum : int32,
+                             Grid_yBnum : int32, Grid_yNum : int32,
+                             Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{cellWidth, pressure, velocityGradientX, velocityGradientY, velocityGradientZ})
 do
@@ -4771,10 +4498,10 @@ do
 end
 
 __demand(__parallel, __cuda)
-task CalculateAverageDissipation(Fluid : region(ispace(int3d), Fluid_columns),
-                                 Grid_xBnum : int32, Grid_xNum : int32,
-                                 Grid_yBnum : int32, Grid_yNum : int32,
-                                 Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_CalculateAverageDissipation(Fluid : region(ispace(int3d), Fluid_columns),
+                                      Grid_xBnum : int32, Grid_xNum : int32,
+                                      Grid_yBnum : int32, Grid_yNum : int32,
+                                      Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{cellWidth, dissipation})
 do
@@ -4790,10 +4517,10 @@ do
 end
 
 __demand(__parallel, __cuda)
-task CalculateAverageK(Fluid : region(ispace(int3d), Fluid_columns),
-                       Grid_xBnum : int32, Grid_xNum : int32,
-                       Grid_yBnum : int32, Grid_yNum : int32,
-                       Grid_zBnum : int32, Grid_zNum : int32)
+task Flow_CalculateAverageK(Fluid : region(ispace(int3d), Fluid_columns),
+                            Grid_xBnum : int32, Grid_xNum : int32,
+                            Grid_yBnum : int32, Grid_yNum : int32,
+                            Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.{cellWidth, rho, velocity})
 do
@@ -4819,7 +4546,7 @@ task Flow_AddTurbulentSource(Fluid : region(ispace(int3d), Fluid_columns),
                              config : Config)
 where
   reads(Fluid.{cellWidth, rho, velocity}),
-  reads writes atomic(Fluid.{rhoVelocity_t, rhoEnergy_t})
+  reads writes(Fluid.{rhoVelocity_t, rhoEnergy_t})
 do
   var W = Flow_averagePD + Flow_averageDissipation
   var G   = config.Flow.turbForcing.u.HIT.G
@@ -4830,8 +4557,10 @@ do
   __demand(__openmp)
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      var force = vs_mul(Fluid[c].velocity, Fluid[c].rho*A)
-      Fluid[c].rhoVelocity_t = vv_add(Fluid[c].rhoVelocity_t, force)
+      var force = vs_mul(Fluid[c].velocity, Fluid[c].rho*A);
+      [UTIL.emitArrayReduce(3, '+',
+         rexpr Fluid[c].rhoVelocity_t end,
+         rexpr force end)];
       Fluid[c].rhoEnergy_t += dot(force, Fluid[c].velocity)
 
       var cellVolume = Fluid[c].cellWidth[0]*Fluid[c].cellWidth[1]*Fluid[c].cellWidth[2]
@@ -4849,7 +4578,7 @@ task Flow_AdjustTurbulentSource(Fluid : region(ispace(int3d), Fluid_columns),
                                 Grid_yBnum : int32, Grid_yNum : int32,
                                 Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads writes atomic(Fluid.rhoEnergy_t)
+  reads writes(Fluid.rhoEnergy_t)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -4862,7 +4591,6 @@ end
 -------------------------------------------------------------------------------
 -- PARTICLE MOVEMENT
 -------------------------------------------------------------------------------
-
 
 __demand(__cuda) -- MANUALLY PARALLELIZED
 task Particles_LocateInCells(Particles : region(ispace(int1d), Particles_columns),
@@ -4908,13 +4636,14 @@ task Particles_CheckPartitioning(color : int3d,
 where
   reads(Particles.{cell, __valid})
 do
-  var num_invalid = 0
+  var num_invalid = int64(0)
   __demand(__openmp)
   for p in Particles do
-    if p.__valid and color ~= Fluid_elemColor(p.cell,
-                                              Grid_xBnum, Grid_xNum, NX,
-                                              Grid_yBnum, Grid_yNum, NY,
-                                              Grid_zBnum, Grid_zNum, NZ) then
+    if Particles[p].__valid and
+       color ~= Fluid_elemColor(Particles[p].cell,
+                                Grid_xBnum, Grid_xNum, NX,
+                                Grid_yBnum, Grid_yNum, NY,
+                                Grid_zBnum, Grid_zNum, NZ) then
       num_invalid += 1
     end
   end
@@ -4958,6 +4687,7 @@ __demand(__cuda) -- MANUALLY PARALLELIZED
 task TradeQueue_push(partColor : int3d,
                      Particles : region(ispace(int1d), Particles_columns),
                      [tradeQueues],
+                     config : Config,
                      Grid_xBnum : int32, Grid_xNum : int32, NX : int32,
                      Grid_yBnum : int32, Grid_yNum : int32, NY : int32,
                      Grid_zBnum : int32, Grid_zNum : int32, NZ : int32)
@@ -4971,7 +4701,7 @@ where
    end):flatten()]
 do
   -- Fill in movement direction
-  var toTransfer = 0
+  var toTransfer = int64(0)
   __demand(__openmp)
   for i in Particles do
     Particles[i].__xfer_dir = 0
@@ -4992,7 +4722,12 @@ do
       end
     end
   end
-  regentlib.assert(toTransfer == 0, 'Particle(s) moved past expected stencil');
+  [UTIL.emitAssert(
+     rexpr toTransfer == 0 end,
+     'Sample %d: %ld particle(s) moved past expected stencil',
+     rexpr config.Mapping.sampleId end,
+     rexpr toTransfer end)];
+  var total_xfers = int64(0);
   -- For each movement direction...
   @ESCAPE for k = 1,26 do local queue = tradeQueues[k] @EMIT
     -- Clear the transfer queue
@@ -5001,7 +4736,7 @@ do
       queue[j].__valid = false
     end
     -- Assign slots on the transfer queue for moving particles
-    var transferred = 0
+    var transferred = int64(0)
     __demand(__openmp)
     for i in Particles do
       if Particles[i].__xfer_dir == k then
@@ -5011,11 +4746,13 @@ do
         Particles[i].__xfer_slot = 0
       end
     end
-    __parallel_prefix(Particles.__xfer_slot, Particles.__xfer_slot, +, 1)
+    total_xfers += transferred
+    __parallel_prefix(Particles.__xfer_slot, Particles.__xfer_slot, +, 1);
     -- Check that there's enough space in the transfer queue
-    regentlib.assert(
-      transferred <= int(queue.bounds.hi - queue.bounds.lo + 1),
-      'Ran out of space in transfer queue')
+    [UTIL.emitAssert(
+       rexpr transferred <= int64(queue.bounds.hi - queue.bounds.lo + 1) end,
+       'Sample %d: Ran out of space in transfer queue',
+       rexpr config.Mapping.sampleId end)];
     -- Copy moving particles to the transfer queue
     __demand(__openmp)
     for i in Particles do
@@ -5028,11 +4765,13 @@ do
       end
     end
   @TIME end @EPACSE
+  return total_xfers
 end
 
 __demand(__cuda) -- MANUALLY PARALLELIZED
 task TradeQueue_pull(Particles : region(ispace(int1d), Particles_columns),
-                     [tradeQueues])
+                     [tradeQueues],
+                     config : Config)
 where
   reads(Particles.__valid),
   writes(Particles.[Particles_subStepConserved]),
@@ -5044,9 +4783,9 @@ where
    end):flatten()]
 do
   -- Count number of particles coming in from each transfer queue
-  var xfer_bounds : int[27]
+  var xfer_bounds : int64[27]
   xfer_bounds[0] = 0
-  var total_xfers = 0;
+  var total_xfers = int64(0);
   @ESCAPE for k = 1,26 do local queue = tradeQueues[k] @EMIT
     __demand(__openmp)
     for j in queue do
@@ -5057,7 +4796,7 @@ do
     xfer_bounds[k] = total_xfers
   @TIME end @EPACSE
   -- Number all empty slots on particles sub-region
-  var avail_slots = 0
+  var avail_slots = int64(0)
   __demand(__openmp)
   for i in Particles do
     if Particles[i].__valid then
@@ -5067,10 +4806,12 @@ do
       avail_slots += 1
     end
   end
-  __parallel_prefix(Particles.__xfer_slot, Particles.__xfer_slot, +, 1)
+  __parallel_prefix(Particles.__xfer_slot, Particles.__xfer_slot, +, 1);
   -- Check that there's enough space in the particles sub-region
-  regentlib.assert(total_xfers <= avail_slots,
-                   'Not enough space in sub-region for incoming particles');
+  [UTIL.emitAssert(
+     rexpr total_xfers <= avail_slots end,
+     'Sample %d: Not enough space in sub-region for incoming particles',
+     rexpr config.Mapping.sampleId end)];
   -- Copy moving particles from the transfer queues
   -- NOTE: This part assumes that transfer queues are filled contiguously.
   @ESCAPE for k = 1,26 do local queue = tradeQueues[k] @EMIT
@@ -5089,6 +4830,7 @@ do
       end
     end
   @TIME end @EPACSE
+  return total_xfers
 end
 
 __demand(__inline)
@@ -5115,17 +4857,18 @@ task CopyQueue_partSize(fluidPartBounds : rect3d,
                         copySrc : SCHEMA.Volume)
   var totalCells = config.Grid.xNum * config.Grid.yNum * config.Grid.zNum
   var copiedCells = rectSize(intersection(fluidPartBounds, copySrc))
-  return ceil(
+  return int64(ceil(
     copiedCells
     / [double](totalCells)
-    * config.Particles.maxNum
+    * (config.Particles.maxNum / config.Particles.parcelSize)
     * config.Particles.maxSkew
-  )
+  ))
 end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task CopyQueue_push(Particles : region(ispace(int1d), Particles_columns),
                     CopyQueue : region(ispace(int1d), CopyQueue_columns),
+                    config : Config,
                     copySrc : SCHEMA.Volume,
                     copySrcOrigin : double[3], copyTgtOrigin : double[3])
 where
@@ -5134,19 +4877,20 @@ where
 do
   var p2 = CopyQueue.bounds.lo
   for p1 in Particles do
-    if p1.__valid then
-      var cell = p1.cell
+    if Particles[p1].__valid then
+      var cell = Particles[p1].cell
       if  copySrc.fromCell[0] <= cell.x and cell.x <= copySrc.uptoCell[0]
       and copySrc.fromCell[1] <= cell.y and cell.y <= copySrc.uptoCell[1]
       and copySrc.fromCell[2] <= cell.z and cell.z <= copySrc.uptoCell[2] then
-        regentlib.assert(
-          p2 <= CopyQueue.bounds.hi,
-          'Ran out of space in cross-section particles copy queue')
-        CopyQueue[p2].position = vv_add(copyTgtOrigin, vv_sub(p1.position, copySrcOrigin))
-        CopyQueue[p2].velocity = p1.velocity
-        CopyQueue[p2].temperature = p1.temperature
-        CopyQueue[p2].diameter = p1.diameter
-        CopyQueue[p2].density = p1.density
+        [UTIL.emitAssert(
+           rexpr p2 <= CopyQueue.bounds.hi end,
+           'Sample %d: Ran out of space in cross-section particles copy queue',
+           rexpr config.Mapping.sampleId end)];
+        CopyQueue[p2].position = vv_add(copyTgtOrigin, vv_sub(Particles[p1].position, copySrcOrigin))
+        CopyQueue[p2].velocity = Particles[p1].velocity
+        CopyQueue[p2].temperature = Particles[p1].temperature
+        CopyQueue[p2].diameter = Particles[p1].diameter
+        CopyQueue[p2].density = Particles[p1].density
         CopyQueue[p2].__valid = true
         p2 += 1
       end
@@ -5168,12 +4912,12 @@ where
   reads(CopyQueue.[Particles_primitives], Particles.__valid),
   writes(Particles.[Particles_primitives], Particles.cell)
 do
-  var acc : int64 = 0
+  var acc = int64(0)
   var addedVelocity = config.Particles.feeding.u.Incoming.addedVelocity
   var p1 = Particles.bounds.lo
   for p2 in CopyQueue do
-    if p2.__valid then
-      var cell = locate(p2.position,
+    if CopyQueue[p2].__valid then
+      var cell = locate(CopyQueue[p2].position,
                         config.Grid.xType, config.Grid.yType, config.Grid.zType,
                         Grid_xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
                         Grid_yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
@@ -5186,15 +4930,16 @@ do
         while p1 <= Particles.bounds.hi and Particles[p1].__valid do
           p1 += 1
         end
-        regentlib.assert(
-          p1 <= Particles.bounds.hi,
-          'Ran out of space while copying over particles from other section')
+        [UTIL.emitAssert(
+           rexpr p1 <= Particles.bounds.hi end,
+           'Sample %d: Ran out of space while copying particles from other section',
+           rexpr config.Mapping.sampleId end)];
         Particles[p1].cell = cell
-        Particles[p1].position = p2.position
-        Particles[p1].velocity = vv_add(p2.velocity, addedVelocity)
-        Particles[p1].temperature = p2.temperature
-        Particles[p1].diameter = p2.diameter
-        Particles[p1].density = p2.density
+        Particles[p1].position = CopyQueue[p2].position
+        Particles[p1].velocity = vv_add(CopyQueue[p2].velocity, addedVelocity)
+        Particles[p1].temperature = CopyQueue[p2].temperature
+        Particles[p1].diameter = CopyQueue[p2].diameter
+        Particles[p1].density = CopyQueue[p2].density
         Particles[p1].__valid = true
         acc += 1
       end
@@ -5203,19 +4948,22 @@ do
   return acc
 end
 
+-------------------------------------------------------------------------------
+-- OTHER ROUTINES
+-------------------------------------------------------------------------------
+
 __demand(__parallel, __cuda)
-task Particles_AddFlowCoupling(Particles : region(ispace(int1d), Particles_columns),
-                               Fluid : region(ispace(int3d), Fluid_columns),
-                               Flow_constantVisc : double,
-                               Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                               Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                               Flow_viscosityModel : SCHEMA.ViscosityModel,
-                               Particles_convectiveCoeff : double,
-                               Particles_heatCapacity : double)
+task Particles_CalcDeltaTerms(Particles : region(ispace(int1d), Particles_columns),
+                              Fluid : region(ispace(int3d), Fluid_columns),
+                              Flow_constantVisc : double,
+                              Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
+                              Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
+                              Flow_viscosityModel : SCHEMA.ViscosityModel,
+                              Particles_convectiveCoeff : double)
 where
   reads(Fluid.{centerCoordinates, velocity, temperature}),
   reads(Particles.{cell, position, velocity, diameter, density, temperature, __valid}),
-  writes(Particles.{velocity_t, temperature_t, deltaTemperatureTerm, deltaVelocityOverRelaxationTime})
+  writes(Particles.{deltaTemperatureTerm, deltaVelocityOverRelaxationTime})
 do
   __demand(__openmp)
   for p in Particles do
@@ -5231,19 +4979,25 @@ do
                                                      Flow_powerlawTempRef, Flow_powerlawViscRef,
                                                      Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
                                                      Flow_viscosityModel)
-      var particleReynoldsNumber = 0.0
-      var relaxationTime =
-        Particles[p].density
-        * pow(Particles[p].diameter,2.0)
-        / (18.0*flowDynamicViscosity)
-        / (1.0 + (0.15*pow(particleReynoldsNumber,0.687)))
+      var relaxationTime = Particles[p].density * pow(Particles[p].diameter,2.0) / (18.0 * flowDynamicViscosity)
+      Particles[p].deltaVelocityOverRelaxationTime = vs_div(vv_sub(flowVelocity, Particles[p].velocity), relaxationTime)
+      Particles[p].deltaTemperatureTerm = PI * pow(Particles[p].diameter,2.0) * Particles_convectiveCoeff * (flowTemperature-Particles[p].temperature)
+    end
+  end
+end
 
-      var tmp2 = vs_div(vv_sub(flowVelocity, Particles[p].velocity), relaxationTime)
-      Particles[p].deltaVelocityOverRelaxationTime = tmp2
-      Particles[p].velocity_t = tmp2
-      var tmp3 = PI * pow(Particles[p].diameter,2.0) * Particles_convectiveCoeff * (flowTemperature-Particles[p].temperature)
-      Particles[p].deltaTemperatureTerm = tmp3
-      Particles[p].temperature_t = tmp3/(PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density*Particles_heatCapacity)
+__demand(__parallel, __cuda)
+task Particles_AddFlowCoupling(Particles : region(ispace(int1d), Particles_columns),
+                               Particles_heatCapacity : double)
+where
+  reads(Particles.{diameter, density, deltaTemperatureTerm, deltaVelocityOverRelaxationTime, __valid}),
+  writes(Particles.{velocity_t, temperature_t})
+do
+  __demand(__openmp)
+  for p in Particles do
+    if Particles[p].__valid then
+      Particles[p].velocity_t = Particles[p].deltaVelocityOverRelaxationTime
+      Particles[p].temperature_t = Particles[p].deltaTemperatureTerm/(PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density*Particles_heatCapacity)
     end
   end
 end
@@ -5258,7 +5012,9 @@ do
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
-      Particles[p].velocity_t = vv_add(Particles[p].velocity_t, Particles_bodyForce)
+      [UTIL.emitArrayReduce(3, '+',
+         rexpr Particles[p].velocity_t end,
+         rexpr Particles_bodyForce end)];
     end
   end
 end
@@ -5283,19 +5039,21 @@ end
 
 __demand(__parallel, __cuda)
 task Radiation_UpdateFieldValues(Radiation : region(ispace(int3d), Radiation_columns),
+                                 config : Config,
                                  Radiation_qa : double,
                                  Radiation_qs : double)
 where
   reads(Radiation.{cellWidth, acc_d2, acc_d2t4}),
   writes(Radiation.{Ib, sigma})
 do
+  var Particles_parcelSize = config.Particles.parcelSize
   __demand(__openmp)
   for c in Radiation do
-    c.sigma = c.acc_d2*PI*(Radiation_qa+Radiation_qs)/(4.0*Radiation[c].cellWidth[0]*Radiation[c].cellWidth[1]*Radiation[c].cellWidth[2])
-    if c.acc_d2 == 0.0 then
-      c.Ib = 0.0
+    Radiation[c].sigma = Radiation[c].acc_d2*PI*Particles_parcelSize*(Radiation_qa+Radiation_qs)/(4.0*Radiation[c].cellWidth[0]*Radiation[c].cellWidth[1]*Radiation[c].cellWidth[2])
+    if Radiation[c].acc_d2 == 0.0 then
+      Radiation[c].Ib = 0.0
     else
-      c.Ib = (SB*c.acc_d2t4)/(PI*c.acc_d2)
+      Radiation[c].Ib = (SB*Radiation[c].acc_d2t4)/(PI*Radiation[c].acc_d2)
     end
   end
 end
@@ -5315,34 +5073,33 @@ do
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
+      var mass = PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density
       var t4 = pow(Particles[p].temperature, 4.0)
-      var alpha = ((((PI*Radiation_qa)*pow(Particles[p].diameter, 2.0))*(Radiation[Fluid[Particles[p].cell].to_Radiation].G-((4.0*SB)*t4)))/4.0)
-      Particles[p].temperature_t += (alpha/((((PI*pow(Particles[p].diameter, 3.0))/6.0)*Particles[p].density)*Particles_heatCapacity))
+      var alpha = PI*Radiation_qa*pow(Particles[p].diameter, 2.0)*(Radiation[Fluid[Particles[p].cell].to_Radiation].G-4.0*SB*t4)/4.0
+      Particles[p].temperature_t += alpha/(mass*Particles_heatCapacity)
     end
   end
 end
 
 __demand(__parallel, __cuda)
 task Flow_AddParticlesCoupling(Particles : region(ispace(int1d), Particles_columns),
-                               Fluid : region(ispace(int3d), Fluid_columns))
+                               Fluid : region(ispace(int3d), Fluid_columns),
+                               config : Config)
 where
   reads(Fluid.{cellWidth}),
   reads(Particles.{cell, diameter, density, deltaTemperatureTerm, deltaVelocityOverRelaxationTime, __valid}),
-  reads writes atomic(Fluid.{rhoVelocity_t, rhoEnergy_t})
+  reads writes(Fluid.{rhoVelocity_t, rhoEnergy_t})
 do
+  var Particles_parcelSize = config.Particles.parcelSize
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
-      -- NOTE: We separate the array-type reduction into 3 separate reductions
-      -- over the 3 indices, to make sure the code generator emits them as
-      -- atomic operations.
       var cellVolume = Fluid[Particles[p].cell].cellWidth[0]*Fluid[Particles[p].cell].cellWidth[1]*Fluid[Particles[p].cell].cellWidth[2]
-      var tmp = vs_div(vs_mul(Particles[p].deltaVelocityOverRelaxationTime, (-(((PI*pow(Particles[p].diameter, 3.0))/6.0)*Particles[p].density))), cellVolume)
-      Fluid[Particles[p].cell].rhoVelocity_t[0] += tmp[0]
-      Fluid[Particles[p].cell].rhoVelocity_t[1] += tmp[1]
-      Fluid[Particles[p].cell].rhoVelocity_t[2] += tmp[2]
-
-      Fluid[Particles[p].cell].rhoEnergy_t += ((-Particles[p].deltaTemperatureTerm)/cellVolume)
+      var mass = PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density;
+      [UTIL.emitArrayReduce(3, '+',
+         rexpr Fluid[Particles[p].cell].rhoVelocity_t end,
+         rexpr vs_mul(Particles[p].deltaVelocityOverRelaxationTime, -mass*Particles_parcelSize/cellVolume) end)];
+      Fluid[Particles[p].cell].rhoEnergy_t += -Particles_parcelSize*Particles[p].deltaTemperatureTerm/cellVolume
     end
   end
 end
@@ -5367,9 +5124,10 @@ do
           for c in Fluid do
             -- Accumulate intermediate values into final values
             Fluid[c].rho_new +=
-              Fluid[c].rho_t * [RK_B[ORDER][STAGE]] * dt
-            Fluid[c].rhoVelocity_new = vv_add(Fluid[c].rhoVelocity_new,
-              vs_mul(Fluid[c].rhoVelocity_t, [RK_B[ORDER][STAGE]] * dt))
+              Fluid[c].rho_t * [RK_B[ORDER][STAGE]] * dt;
+            [UTIL.emitArrayReduce(3, '+',
+               rexpr Fluid[c].rhoVelocity_new end,
+               rexpr vs_mul(Fluid[c].rhoVelocity_t, [RK_B[ORDER][STAGE]] * dt) end)];
             Fluid[c].rhoEnergy_new +=
               Fluid[c].rhoEnergy_t * [RK_B[ORDER][STAGE]] * dt;
             @ESCAPE if STAGE == ORDER then @EMIT
@@ -5414,10 +5172,12 @@ do
           for p in Particles do
             if Particles[p].__valid then
               -- Accumulate intermediate values into final values
-              Particles[p].position_new = vv_add(Particles[p].position_new,
-                vs_mul(Particles[p].velocity, [RK_B[ORDER][STAGE]] * dt))
-              Particles[p].velocity_new = vv_add(Particles[p].velocity_new,
-                vs_mul(Particles[p].velocity_t, [RK_B[ORDER][STAGE]] * dt))
+              [UTIL.emitArrayReduce(3, '+',
+                 rexpr Particles[p].position_new end,
+                 rexpr vs_mul(Particles[p].velocity, [RK_B[ORDER][STAGE]] * dt) end)];
+              [UTIL.emitArrayReduce(3, '+',
+                 rexpr Particles[p].velocity_new end,
+                 rexpr vs_mul(Particles[p].velocity_t, [RK_B[ORDER][STAGE]] * dt) end)];
               Particles[p].temperature_new +=
                 Particles[p].temperature_t * [RK_B[ORDER][STAGE]] * dt;
               @ESCAPE if STAGE == ORDER then @EMIT
@@ -5444,6 +5204,7 @@ end
 
 -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Particles_HandleCollisions(Particles : region(ispace(int1d), Particles_columns),
+                                config : Config,
                                 Particles_deltaTime : double,
                                 Particles_restitutionCoeff : double )
 -- This is an adaption of collisionPrt routine of the Soleil-MPI version
@@ -5452,20 +5213,21 @@ where
   reads(Particles.{position_old, diameter, density, __valid}),
   reads writes(Particles.{position, velocity})
 do
+  var Particles_parcelSize = config.Particles.parcelSize
   for p1 in Particles do
-    if p1.__valid then
+    if Particles[p1].__valid then
       for p2 in Particles do
-        if p2.__valid and p1 < p2 then
+        if Particles[p2].__valid and p1 < p2 then
 
           -- Relative position of particles
-          var x = p2.position[0] - p1.position[0]
-          var y = p2.position[1] - p1.position[1]
-          var z = p2.position[2] - p1.position[2]
+          var x = Particles[p2].position[0] - Particles[p1].position[0]
+          var y = Particles[p2].position[1] - Particles[p1].position[1]
+          var z = Particles[p2].position[2] - Particles[p1].position[2]
 
           -- Old relative position of particles
-          var xold = p2.position_old[0] - p1.position_old[0]
-          var yold = p2.position_old[1] - p1.position_old[1]
-          var zold = p2.position_old[2] - p1.position_old[2]
+          var xold = Particles[p2].position_old[0] - Particles[p1].position_old[0]
+          var yold = Particles[p2].position_old[1] - Particles[p1].position_old[1]
+          var zold = Particles[p2].position_old[2] - Particles[p1].position_old[2]
 
 
           -- Relative velocity
@@ -5479,7 +5241,7 @@ do
           var u_scal_u = ux*ux + uy*uy + uz*uz
 
           -- Critical distance
-          var dcrit = 0.5*( p1.diameter + p2.diameter )
+          var dcrit = 0.5 * sqrt(Particles_parcelSize) * ( Particles[p1].diameter + Particles[p2].diameter )
 
           -- Checking if particles are getting away from each other
           if x_scal_u<0.0 then
@@ -5496,8 +5258,8 @@ do
 
 
                 -- Mass ratio of particles
-                var mr = (p2.density * p2.diameter * p2.diameter * p2.diameter)
-                mr = mr/ (p1.density * p1.diameter * p1.diameter * p1.diameter)
+                var mr = (Particles[p2].density * Particles[p2].diameter * Particles[p2].diameter * Particles[p2].diameter)
+                mr = mr/ (Particles[p1].density * Particles[p1].diameter * Particles[p1].diameter * Particles[p1].diameter)
 
                 -- Change of velocity and particle location after impact
                 -- Note: for now particle restitution coeff is the same for all particles ?
@@ -5506,22 +5268,22 @@ do
 
                 -- Update velocities
 
-                p1.velocity[0] = p1.velocity[0] + du*xold*mr
-                p1.velocity[1] = p1.velocity[1] + du*yold*mr
-                p1.velocity[2] = p1.velocity[2] + du*zold*mr
+                Particles[p1].velocity[0] = Particles[p1].velocity[0] + du*xold*mr
+                Particles[p1].velocity[1] = Particles[p1].velocity[1] + du*yold*mr
+                Particles[p1].velocity[2] = Particles[p1].velocity[2] + du*zold*mr
 
-                p2.velocity[0] = p2.velocity[0] - du*xold
-                p2.velocity[1] = p2.velocity[1] - du*yold
-                p2.velocity[2] = p2.velocity[2] - du*zold
+                Particles[p2].velocity[0] = Particles[p2].velocity[0] - du*xold
+                Particles[p2].velocity[1] = Particles[p2].velocity[1] - du*yold
+                Particles[p2].velocity[2] = Particles[p2].velocity[2] - du*zold
 
                 -- Update positions
-                p1.position[0] = p1.position[0] + dx*xold*mr
-                p1.position[1] = p1.position[1] + dx*yold*mr
-                p1.position[2] = p1.position[2] + dx*zold*mr
+                Particles[p1].position[0] = Particles[p1].position[0] + dx*xold*mr
+                Particles[p1].position[1] = Particles[p1].position[1] + dx*yold*mr
+                Particles[p1].position[2] = Particles[p1].position[2] + dx*zold*mr
 
-                p2.position[0] = p2.position[0] - dx*xold
-                p2.position[1] = p2.position[1] - dx*yold
-                p2.position[2] = p2.position[2] - dx*zold
+                Particles[p2].position[0] = Particles[p2].position[0] - dx*xold
+                Particles[p2].position[1] = Particles[p2].position[1] - dx*yold
+                Particles[p2].position[2] = Particles[p2].position[2] - dx*zold
 
               end
 
@@ -5566,7 +5328,7 @@ do
       end
       if (Particles[p].position[0]>(Grid_xOrigin+Grid_xWidth)) then
         if BC_xBCParticles == SCHEMA.ParticlesBC_Periodic then
-          Particles[p].position[0] -= Grid_xWidth
+          Particles[p].position[0] += -Grid_xWidth
         elseif BC_xBCParticles == SCHEMA.ParticlesBC_Bounce then
           Particles[p].position[0] = (Grid_xOrigin+Grid_xWidth)
           var impulse = ((-(1.0+Particles_restitutionCoeff))*Particles[p].velocity[0])
@@ -5594,7 +5356,7 @@ do
       end
       if (Particles[p].position[1]>(Grid_yOrigin+Grid_yWidth)) then
         if BC_yBCParticles == SCHEMA.ParticlesBC_Periodic then
-          Particles[p].position[1] -= Grid_yWidth
+          Particles[p].position[1] += -Grid_yWidth
         elseif BC_yBCParticles == SCHEMA.ParticlesBC_Bounce then
           Particles[p].position[1] = (Grid_yOrigin+Grid_yWidth)
           var impulse = ((-(1.0+Particles_restitutionCoeff))*Particles[p].velocity[1])
@@ -5622,7 +5384,7 @@ do
       end
       if (Particles[p].position[2]>(Grid_zOrigin+Grid_zWidth)) then
         if BC_zBCParticles == SCHEMA.ParticlesBC_Periodic then
-          Particles[p].position[2] -= Grid_zWidth
+          Particles[p].position[2] += -Grid_zWidth
         elseif BC_zBCParticles == SCHEMA.ParticlesBC_Bounce then
           Particles[p].position[2] = (Grid_zOrigin+Grid_zWidth)
           var impulse = ((-(1.0+Particles_restitutionCoeff))*Particles[p].velocity[2])
@@ -5678,8 +5440,10 @@ local function mkInstance() local INSTANCE = {}
   -- Symbols shared between quotes
   -----------------------------------------------------------------------------
 
+  local DEBUG_COPYING = regentlib.newsymbol()
   local startTime = regentlib.newsymbol()
   local Grid = {
+    volume = regentlib.newsymbol(),
     xBnum = regentlib.newsymbol(),
     yBnum = regentlib.newsymbol(),
     zBnum = regentlib.newsymbol(),
@@ -5725,6 +5489,11 @@ local function mkInstance() local INSTANCE = {}
   local Integrator_exitCond = regentlib.newsymbol()
   local Particles_number = regentlib.newsymbol()
 
+  local Flow_averagePressure = regentlib.newsymbol()
+  local Flow_averageTemperature = regentlib.newsymbol()
+  local Flow_averageKineticEnergy = regentlib.newsymbol()
+  local Particles_averageTemperature = regentlib.newsymbol()
+
   local Fluid = regentlib.newsymbol()
   local Fluid_copy = regentlib.newsymbol()
   local Particles = regentlib.newsymbol()
@@ -5736,18 +5505,21 @@ local function mkInstance() local INSTANCE = {}
   local p_Fluid_copy = regentlib.newsymbol()
   local p_Particles = regentlib.newsymbol()
   local p_Particles_copy = regentlib.newsymbol()
-  local p_TradeQueue = UTIL.generate(26, regentlib.newsymbol)
+  local p_TradeQueue_bySrc = UTIL.generate(26, regentlib.newsymbol)
+  local p_TradeQueue_byDst = UTIL.generate(26, regentlib.newsymbol)
   local p_Radiation = regentlib.newsymbol()
 
   -----------------------------------------------------------------------------
   -- Exported symbols
   -----------------------------------------------------------------------------
 
+  INSTANCE.DEBUG_COPYING = DEBUG_COPYING
   INSTANCE.Grid = Grid
   INSTANCE.Integrator_deltaTime = Integrator_deltaTime
   INSTANCE.Integrator_simTime = Integrator_simTime
   INSTANCE.Integrator_timeStep = Integrator_timeStep
   INSTANCE.Integrator_exitCond = Integrator_exitCond
+  INSTANCE.Flow_averagePressure = Flow_averagePressure
   INSTANCE.Fluid = Fluid
   INSTANCE.Fluid_copy = Fluid_copy
   INSTANCE.Particles = Particles
@@ -5767,6 +5539,16 @@ local function mkInstance() local INSTANCE = {}
   function INSTANCE.DeclSymbols(config) return rquote
 
     ---------------------------------------------------------------------------
+    -- Environment options
+    ---------------------------------------------------------------------------
+
+    var [DEBUG_COPYING] = false
+    if C.getenv('DEBUG_COPYING') ~= [&int8](0) and
+       C.strcmp(C.getenv('DEBUG_COPYING'), '1') == 0 then
+      DEBUG_COPYING = true
+    end
+
+    ---------------------------------------------------------------------------
     -- Preparation
     ---------------------------------------------------------------------------
 
@@ -5774,18 +5556,20 @@ local function mkInstance() local INSTANCE = {}
     var [startTime] = C.legion_get_current_time_in_micros() / 1000;
 
     -- Write console header
-    Console_WriteHeader(config)
+    Console_WriteHeader(0, config)
 
     -- Write probe file headers
     var probeId = 0
     while probeId < config.IO.probes.length do
-      Probe_WriteHeader(config, probeId)
+      Probe_WriteHeader(0, config, probeId)
       probeId += 1
     end
 
     ---------------------------------------------------------------------------
     -- Declare & initialize state variables
     ---------------------------------------------------------------------------
+
+    var [Grid.volume] = 0.0
 
     var [BC.xPosSign]
     var [BC.xNegSign]
@@ -5844,6 +5628,11 @@ local function mkInstance() local INSTANCE = {}
       'Unsupported RK integration scheme')
 
     var [Particles_number] = int64(0)
+
+    var [Flow_averagePressure] = 0.0
+    var [Flow_averageTemperature] = 0.0
+    var [Flow_averageKineticEnergy] = 0.0
+    var [Particles_averageTemperature] = 0.0
 
     if config.Radiation.type == SCHEMA.RadiationModel_DOM then
       regentlib.assert(config.Grid.xNum >= config.Radiation.u.DOM.xNum and
@@ -6073,9 +5862,13 @@ local function mkInstance() local INSTANCE = {}
     [UTIL.emitRegionTagAttach(Fluid_copy, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
 
     -- Create Particles Regions
-    regentlib.assert(config.Particles.maxNum % numTiles == 0,
+    regentlib.assert((config.Particles.maxNum / config.Particles.parcelSize) % numTiles == 0,
                      'Uneven partitioning of particles')
-    var maxParticlesPerTile = ceil((config.Particles.maxNum / numTiles) * config.Particles.maxSkew)
+    var maxParticlesPerTile = config.Particles.maxNum / config.Particles.parcelSize / numTiles
+    if numTiles > 1 then
+      maxParticlesPerTile =
+        int64(ceil(maxParticlesPerTile * config.Particles.maxSkew))
+    end
     var is_Particles = ispace(int1d, maxParticlesPerTile * numTiles)
     var [Particles] = region(is_Particles, Particles_columns);
     [UTIL.emitRegionTagAttach(Particles, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
@@ -6089,7 +5882,7 @@ local function mkInstance() local INSTANCE = {}
       for i = 0, num_dirs do
         escapeRatio *= config.Particles.escapeRatioPerDir
       end
-      var is_TradeQueue = ispace(int1d, ceil(escapeRatio * maxParticlesPerTile) * numTiles)
+      var is_TradeQueue = ispace(int1d, int64(ceil(escapeRatio * maxParticlesPerTile) * numTiles))
       var [TradeQueue[k]] = region(is_TradeQueue, TradeQueue_columns);
       [UTIL.emitRegionTagAttach(TradeQueue[k], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     @TIME end @EPACSE
@@ -6112,29 +5905,32 @@ local function mkInstance() local INSTANCE = {}
 
     -- Fluid Partitioning
     var [p_Fluid] =
-      [UTIL.mkPartitionEqually(int3d, int3d, Fluid_columns)]
-      (Fluid, tiles, Grid.xBnum, Grid.yBnum, Grid.zBnum)
+      [UTIL.mkPartitionByTile(int3d, int3d, Fluid_columns)]
+      (Fluid, tiles, int3d{Grid.xBnum,Grid.yBnum,Grid.zBnum}, int3d{0,0,0})
     var [p_Fluid_copy] =
-      [UTIL.mkPartitionEqually(int3d, int3d, Fluid_columns)]
-      (Fluid_copy, tiles, Grid.xBnum, Grid.yBnum, Grid.zBnum)
+      [UTIL.mkPartitionByTile(int3d, int3d, Fluid_columns)]
+      (Fluid_copy, tiles, int3d{Grid.xBnum,Grid.yBnum,Grid.zBnum}, int3d{0,0,0})
 
     -- Particles Partitioning
     var [p_Particles] =
-      [UTIL.mkPartitionEqually(int1d, int3d, Particles_columns)]
-      (Particles, tiles, 0)
+      [UTIL.mkPartitionByTile(int1d, int3d, Particles_columns)]
+      (Particles, tiles, 0, int3d{0,0,0})
     var [p_Particles_copy] =
-      [UTIL.mkPartitionEqually(int1d, int3d, Particles_columns)]
-      (Particles_copy, tiles, 0);
+      [UTIL.mkPartitionByTile(int1d, int3d, Particles_columns)]
+      (Particles_copy, tiles, 0, int3d{0,0,0});
     @ESCAPE for k = 1,26 do @EMIT
-      var [p_TradeQueue[k]] =
-        [UTIL.mkPartitionEqually(int1d, int3d, TradeQueue_columns)]
-        ([TradeQueue[k]], tiles, 0)
+      var [p_TradeQueue_bySrc[k]] =
+        [UTIL.mkPartitionByTile(int1d, int3d, TradeQueue_columns)]
+        ([TradeQueue[k]], tiles, 0, int3d{0,0,0});
+      var [p_TradeQueue_byDst[k]] =
+        [UTIL.mkPartitionByTile(int1d, int3d, TradeQueue_columns)]
+        ([TradeQueue[k]], tiles, 0, [colorOffsets[k]]);
     @TIME end @EPACSE
 
     -- Radiation Partitioning
     var [p_Radiation] =
-      [UTIL.mkPartitionEqually(int3d, int3d, Radiation_columns)]
-      (Radiation, tiles, 0, 0, 0);
+      [UTIL.mkPartitionByTile(int3d, int3d, Radiation_columns)]
+      (Radiation, tiles, int3d{0,0,0}, int3d{0,0,0});
 
     ---------------------------------------------------------------------------
     -- DOM code declarations
@@ -6148,85 +5944,9 @@ local function mkInstance() local INSTANCE = {}
   -- Region initialization
   -----------------------------------------------------------------------------
 
-  function INSTANCE.InitRegions(config) return rquote
+  local function SyncConservedPrimitive(config) return rquote
 
-    Particles_initValidField(Particles)
-    if config.Radiation.type == SCHEMA.RadiationModel_DOM then
-      SetCoarseningField(Fluid,
-                         Grid.xBnum, config.Grid.xNum,
-                         Grid.yBnum, config.Grid.yNum,
-                         Grid.zBnum, config.Grid.zNum,
-                         config.Radiation.u.DOM.xNum,
-                         config.Radiation.u.DOM.yNum,
-                         config.Radiation.u.DOM.zNum)
-    end
-    Flow_InitializeCell(Fluid)
-    Flow_InitializeGeometry(Fluid,
-                            config.Grid.xType, config.Grid.yType, config.Grid.zType,
-                            Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
-                            Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
-                            Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
-
-    Grid.xRealOrigin min= Flow_FindRealOriginX(Fluid, config.Grid.origin[0])
-    Grid.yRealOrigin min= Flow_FindRealOriginY(Fluid, config.Grid.origin[1])
-    Grid.zRealOrigin min= Flow_FindRealOriginZ(Fluid, config.Grid.origin[2])
-
-    Grid.xRealMax max= Flow_FindRealMaxX(Fluid, config.Grid.origin[0] + config.Grid.xWidth)
-    Grid.yRealMax max= Flow_FindRealMaxY(Fluid, config.Grid.origin[1] + config.Grid.yWidth)
-    Grid.zRealMax max= Flow_FindRealMaxZ(Fluid, config.Grid.origin[2] + config.Grid.zWidth)
-
-    if config.Flow.initCase == SCHEMA.FlowInitCase_Uniform then
-      Flow_InitializeUniform(Fluid, config.Flow.initParams)
-    elseif config.Flow.initCase == SCHEMA.FlowInitCase_Random then
-      Flow_InitializeRandom(Fluid, config.Flow.initParams)
-    elseif config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen2DVortex then
-      Flow_InitializeTaylorGreen2D(Fluid,
-                                   config.Flow.initParams,
-                                   Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
-                                   Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
-                                   Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
-    elseif config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen3DVortex then
-      Flow_InitializeTaylorGreen3D(Fluid,
-                                   config.Flow.initParams,
-                                   Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
-                                   Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
-                                   Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
-    elseif config.Flow.initCase == SCHEMA.FlowInitCase_Perturbed then
-      Flow_InitializePerturbed(Fluid, config.Flow.initParams)
-    elseif config.Flow.initCase == SCHEMA.FlowInitCase_Restart then
-      Fluid_load(0, tiles, config.Flow.restartDir, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
-    else regentlib.assert(false, 'Unhandled case in switch') end
-
-    -- initialize ghost cells to their specified values in NSCBC case
-    if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-        Flow_InitializeGhostNSCBC(Fluid,
-                                  config,
-                                  config.Flow.gasConstant,
-                                  config.Flow.constantVisc,
-                                  config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                  config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                  config.Flow.viscosityModel,
-                                  Grid.xBnum, config.Grid.xNum,
-                                  Grid.yBnum, config.Grid.yNum,
-                                  Grid.zBnum, config.Grid.zNum)
-    end
-
-    -- update interior cells from initialized primitive values
-    Flow_UpdateConservedFromPrimitive(Fluid,
-                                      config.Flow.gamma,
-                                      config.Flow.gasConstant,
-                                      Grid.xBnum, config.Grid.xNum,
-                                      Grid.yBnum, config.Grid.yNum,
-                                      Grid.zBnum, config.Grid.zNum)
-
-    if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
-      Flow_UpdateConservedFromPrimitiveGhostNSCBC(Fluid,
-                                                  config,
-                                                  config.Flow.gamma, config.Flow.gasConstant,
-                                                  Grid.xBnum, config.Grid.xNum,
-                                                  Grid.yBnum, config.Grid.yNum,
-                                                  Grid.zBnum, config.Grid.zNum)
-    end
+    -- Use the interior conserved values (and BC settings) to update primitives everywhere
     Flow_UpdateAuxiliaryVelocity(Fluid,
                                  config,
                                  config.Flow.constantVisc,
@@ -6266,34 +5986,144 @@ local function mkInstance() local INSTANCE = {}
                                      Grid.zBnum, config.Grid.zNum)
     end
 
-    for c in tiles do
-      Flow_UpdateGhostConserved(p_Fluid[c],
-                                config,
-                                BC.xNegTemperature, BC.xNegVelocity, BC.xPosTemperature, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
-                                BC.yNegTemperature, BC.yNegVelocity, BC.yPosTemperature, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
-                                BC.zNegTemperature, BC.zNegVelocity, BC.zPosTemperature, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
-                                config.Flow.gamma, config.Flow.gasConstant,
-                                config.Flow.constantVisc,
-                                config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                config.Flow.viscosityModel,
-                                Grid.xBnum, config.Grid.xNum,
-                                Grid.yBnum, config.Grid.yNum,
-                                Grid.zBnum, config.Grid.zNum)
+    -- Compute the conserved values in the ghost cells
+    Flow_UpdateGhostConserved(Fluid,
+                              config,
+                              Grid.xBnum, config.Grid.xNum,
+                              Grid.yBnum, config.Grid.yNum,
+                              Grid.zBnum, config.Grid.zNum)
+
+  end end -- SyncConservedPrimitive
+
+  function INSTANCE.InitRegions(config) return rquote
+
+    -- initialize base region contents (dummy values & connectivity info)
+    if config.Particles.maxNum > 0 then
+      Particles_initValidField(Particles)
+    end
+    if config.Radiation.type == SCHEMA.RadiationModel_DOM then
+      Flow_SetCoarseningField(Fluid,
+                              Grid.xBnum, config.Grid.xNum,
+                              Grid.yBnum, config.Grid.yNum,
+                              Grid.zBnum, config.Grid.zNum,
+                              config.Radiation.u.DOM.xNum,
+                              config.Radiation.u.DOM.yNum,
+                              config.Radiation.u.DOM.zNum)
+    end
+    Flow_InitializeCell(Fluid)
+    Flow_InitializeGeometry(Fluid,
+                            config.Grid.xType, config.Grid.yType, config.Grid.zType,
+                            Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
+                            Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
+                            Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+    Grid.volume += Flow_CalculateInteriorVolume(Fluid,
+                                                Grid.xBnum, config.Grid.xNum,
+                                                Grid.yBnum, config.Grid.yNum,
+                                                Grid.zBnum, config.Grid.zNum)
+    Grid.xRealOrigin min= Flow_FindRealOriginX(Fluid, config.Grid.origin[0])
+    Grid.yRealOrigin min= Flow_FindRealOriginY(Fluid, config.Grid.origin[1])
+    Grid.zRealOrigin min= Flow_FindRealOriginZ(Fluid, config.Grid.origin[2])
+    Grid.xRealMax max= Flow_FindRealMaxX(Fluid, config.Grid.origin[0] + config.Grid.xWidth)
+    Grid.yRealMax max= Flow_FindRealMaxY(Fluid, config.Grid.origin[1] + config.Grid.yWidth)
+    Grid.zRealMax max= Flow_FindRealMaxZ(Fluid, config.Grid.origin[2] + config.Grid.zWidth)
+
+    -- initialize fluid proper
+    if config.Flow.initCase == SCHEMA.FlowInitCase_Uniform then
+      Flow_InitializeUniform(Fluid, config.Flow.initParams)
+    elseif config.Flow.initCase == SCHEMA.FlowInitCase_Random then
+      for c in tiles do
+        Flow_InitializeRandom(p_Fluid[c], config.Flow.initParams)
+      end
+    elseif config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen2DVortex then
+      Flow_InitializeTaylorGreen2D(Fluid,
+                                   config.Flow.initParams,
+                                   Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
+                                   Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
+                                   Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+    elseif config.Flow.initCase == SCHEMA.FlowInitCase_TaylorGreen3DVortex then
+      Flow_InitializeTaylorGreen3D(Fluid,
+                                   config.Flow.initParams,
+                                   Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
+                                   Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
+                                   Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+    elseif config.Flow.initCase == SCHEMA.FlowInitCase_Perturbed then
+      for c in tiles do
+        Flow_InitializePerturbed(p_Fluid[c], config.Flow.initParams)
+      end
+    elseif config.Flow.initCase == SCHEMA.FlowInitCase_Restart then
+      HDF_FLUID.load(0, tiles, config.Flow.restartDir, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
+    else regentlib.assert(false, 'Unhandled case in switch') end
+
+    -- initialize ghost cells to their specified values in NSCBC case
+    if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
+      for c in tiles do
+        Flow_InitializeGhostNSCBC(p_Fluid[c],
+                                  config,
+                                  config.Flow.gasConstant,
+                                  config.Flow.constantVisc,
+                                  config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                  config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                  config.Flow.viscosityModel,
+                                  Grid.xBnum, config.Grid.xNum,
+                                  Grid.yBnum, config.Grid.yNum,
+                                  Grid.zBnum, config.Grid.zNum)
+      end
     end
 
+    -- update all cells based on initialized primitive values
+    Flow_UpdateConservedFromPrimitive(Fluid,
+                                      config.Flow.gamma,
+                                      config.Flow.gasConstant,
+                                      Grid.xBnum, config.Grid.xNum,
+                                      Grid.yBnum, config.Grid.yNum,
+                                      Grid.zBnum, config.Grid.zNum)
+
+    if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
+      Flow_UpdateConservedFromPrimitiveGhostNSCBC(Fluid,
+                                                  config,
+                                                  config.Flow.gamma, config.Flow.gasConstant,
+                                                  Grid.xBnum, config.Grid.xNum,
+                                                  Grid.yBnum, config.Grid.yNum,
+                                                  Grid.zBnum, config.Grid.zNum)
+    end
+    [SyncConservedPrimitive(config)];
+
     -- Initialize particles
-    if config.Particles.initCase == SCHEMA.ParticlesInitCase_Random then
-      regentlib.assert(false, "Random particle initialization is disabled")
-    elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart then
-      Particles_load(0, tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
-      for c in tiles do
-        Particles_LocateInCells(p_Particles[c],
-                                config.Grid.xType, config.Grid.yType, config.Grid.zType,
-                                Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
-                                Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
-                                Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
-      end
+    if config.Particles.maxNum > 0 then
+      if config.Particles.initCase == SCHEMA.ParticlesInitCase_Random then
+        regentlib.assert(numTiles == 1, 'Random particle initialization will only work on 1 tile')
+        regentlib.assert((config.Particles.initNum / config.Particles.parcelSize) % numTiles == 0,
+                         'Uneven partitioning of particles')
+        regentlib.assert(config.Particles.initNum <= config.Particles.maxNum,
+                         'Not enough space for initial number of particles')
+        for c in tiles do
+          Particles_InitializeRandom(c,
+                                     p_Particles[c],
+                                     p_Fluid[c],
+                                     config,
+                                     Grid.xBnum, Grid.yBnum, Grid.zBnum)
+        end
+      elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart then
+        HDF_PARTICLES.load(0, tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
+        for c in tiles do
+          Particles_LocateInCells(p_Particles[c],
+                                  config.Grid.xType, config.Grid.yType, config.Grid.zType,
+                                  Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
+                                  Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
+                                  Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+        end
+      elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform then
+        regentlib.assert((config.Particles.initNum / config.Particles.parcelSize) % numTiles == 0,
+                         'Uneven partitioning of particles')
+        regentlib.assert(config.Particles.initNum <= config.Particles.maxNum,
+                         'Not enough space for initial number of particles')
+        for c in tiles do
+          Particles_InitializeUniform(p_Particles[c],
+                                      p_Fluid[c],
+                                      config,
+                                      Grid.xBnum, Grid.yBnum, Grid.zBnum)
+        end
+      else regentlib.assert(false, 'Unhandled case in switch') end
       for c in tiles do
         Particles_CheckPartitioning(c,
                                     p_Particles[c],
@@ -6302,17 +6132,7 @@ local function mkInstance() local INSTANCE = {}
                                     Grid.zBnum, config.Grid.zNum, NZ)
       end
       Particles_number += Particles_CalculateNumber(Particles)
-    elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Uniform then
-      regentlib.assert(config.Particles.initNum <= config.Particles.maxNum,
-                       "Not enough space for initial number of particles")
-      for c in tiles do
-        Particles_InitializeUniform(p_Particles[c],
-                                    p_Fluid[c],
-                                    config,
-                                    Grid.xBnum, Grid.yBnum, Grid.zBnum)
-      end
-      Particles_number = (config.Particles.initNum / numTiles) * numTiles
-    else regentlib.assert(false, 'Unhandled case in switch') end
+    end
 
     -- Initialize radiation
     if config.Radiation.type == SCHEMA.RadiationModel_OFF then
@@ -6362,22 +6182,22 @@ local function mkInstance() local INSTANCE = {}
       var Integrator_maxViscousSpectralRadius = 0.0
       var Integrator_maxHeatConductionSpectralRadius = 0.0
       Integrator_maxConvectiveSpectralRadius max=
-        CalculateConvectiveSpectralRadius(Fluid,
-                                          config.Flow.gamma, config.Flow.gasConstant)
+        Flow_CalculateConvectiveSpectralRadius(Fluid,
+                                               config.Flow.gamma, config.Flow.gasConstant)
       Integrator_maxViscousSpectralRadius max=
-        CalculateViscousSpectralRadius(Fluid,
-                                       config.Flow.constantVisc,
-                                       config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                       config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                       config.Flow.viscosityModel)
+        Flow_CalculateViscousSpectralRadius(Fluid,
+                                            config.Flow.constantVisc,
+                                            config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                            config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                            config.Flow.viscosityModel)
       Integrator_maxHeatConductionSpectralRadius max=
-        CalculateHeatConductionSpectralRadius(Fluid,
-                                              config.Flow.constantVisc,
-                                              config.Flow.gamma, config.Flow.gasConstant,
-                                              config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                              config.Flow.prandtl,
-                                              config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                              config.Flow.viscosityModel)
+        Flow_CalculateHeatConductionSpectralRadius(Fluid,
+                                                   config.Flow.constantVisc,
+                                                   config.Flow.gamma, config.Flow.gasConstant,
+                                                   config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                                   config.Flow.prandtl,
+                                                   config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                                   config.Flow.viscosityModel)
       Integrator_deltaTime = (config.Integrator.cfl/max(Integrator_maxConvectiveSpectralRadius, max(Integrator_maxViscousSpectralRadius, Integrator_maxHeatConductionSpectralRadius)))
     end
 
@@ -6387,23 +6207,49 @@ local function mkInstance() local INSTANCE = {}
   -- Per-time-step I/O
   -----------------------------------------------------------------------------
 
+  function INSTANCE.DumpHDF(config, nameFmt, ...) local args = terralib.newlist{...} return rquote
+
+    var dirname = [&int8](C.malloc(256))
+    C.snprintf(dirname, 256, ['%s/fluid_'..nameFmt], config.Mapping.outDir, [args])
+    var _1 = IO_CreateDir(0, dirname)
+    _1 = HDF_FLUID.dump(_1, tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
+    _1 = HDF_FLUID.write.timeStep(_1, tiles, dirname, Fluid, p_Fluid, Integrator_timeStep)
+    _1 = HDF_FLUID.write.simTime(_1, tiles, dirname, Fluid, p_Fluid, Integrator_simTime)
+    C.snprintf(dirname, 256, ['%s/particles_'..nameFmt], config.Mapping.outDir, [args])
+    var _2 = IO_CreateDir(0, dirname)
+    _2 = HDF_PARTICLES.dump(_2, tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
+    _2 = HDF_PARTICLES.write.timeStep(_2, tiles, dirname, Particles, p_Particles, Integrator_timeStep)
+    _2 = HDF_PARTICLES.write.simTime(_2, tiles, dirname, Particles, p_Particles, Integrator_simTime)
+    C.free(dirname)
+
+  end end -- DumpHDF
+
   function INSTANCE.PerformIO(config) return rquote
 
     -- Write to console
-    var Flow_averagePressure = 0.0
-    var Flow_averageTemperature = 0.0
-    var Flow_averageKineticEnergy = 0.0
-    var Particles_averageTemperature = 0.0
-    Flow_averagePressure += CalculateAveragePressure(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-    Flow_averageTemperature += CalculateAverageTemperature(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-    Flow_averageKineticEnergy += CalculateAverageKineticEnergy(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-    Particles_averageTemperature += Particles_IntegrateQuantities(Particles)
-    var interior_volume = 0.0
-    interior_volume += CalculateInteriorVolume(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-    Flow_averagePressure = (Flow_averagePressure/interior_volume)
-    Flow_averageTemperature = (Flow_averageTemperature/interior_volume)
-    Flow_averageKineticEnergy = (Flow_averageKineticEnergy/interior_volume)
-    Particles_averageTemperature = (Particles_averageTemperature/Particles_number)
+    Flow_averagePressure = 0.0
+    Flow_averageTemperature = 0.0
+    Flow_averageKineticEnergy = 0.0
+    Particles_averageTemperature = 0.0
+    Flow_averagePressure += Flow_CalculateAveragePressure(Fluid,
+                                                          Grid.xBnum, config.Grid.xNum,
+                                                          Grid.yBnum, config.Grid.yNum,
+                                                          Grid.zBnum, config.Grid.zNum)
+    Flow_averageTemperature += Flow_CalculateAverageTemperature(Fluid,
+                                                                Grid.xBnum, config.Grid.xNum,
+                                                                Grid.yBnum, config.Grid.yNum,
+                                                                Grid.zBnum, config.Grid.zNum)
+    Flow_averageKineticEnergy += Flow_CalculateAverageKineticEnergy(Fluid,
+                                                                    Grid.xBnum, config.Grid.xNum,
+                                                                    Grid.yBnum, config.Grid.yNum,
+                                                                    Grid.zBnum, config.Grid.zNum)
+    if config.Particles.maxNum > 0 then
+      Particles_averageTemperature += Particles_IntegrateQuantities(Particles)
+    end
+    Flow_averagePressure /= Grid.volume
+    Flow_averageTemperature /= Grid.volume
+    Flow_averageKineticEnergy /= Grid.volume
+    Particles_averageTemperature /= Particles_number
     Console_Write(config,
                   Integrator_timeStep,
                   Integrator_simTime,
@@ -6424,26 +6270,21 @@ local function mkInstance() local INSTANCE = {}
         (probe.uptoCell[2] - probe.fromCell[2] + 1)
       var avgFluidT = 0.0
       avgFluidT += Probe_AvgFluidT(Fluid, probe, totalCells)
-      var totalParticles = 0
-      totalParticles += Probe_CountParticles(Particles, probe)
+      var totalParticles = int64(0)
       var avgParticleT = 0.0
-      avgParticleT += Probe_AvgParticleT(Particles, probe, totalParticles)
       var avgCellOfParticleT = 0.0
-      avgCellOfParticleT += Probe_AvgCellOfParticleT(Fluid, Particles, probe, totalParticles)
-      Probe_Write(config, i, Integrator_timeStep, avgFluidT, avgParticleT, avgCellOfParticleT)
+      if config.Particles.maxNum > 0 then
+        totalParticles += Probe_CountParticles(Particles, probe)
+        avgParticleT += Probe_AvgParticleT(Particles, probe, totalParticles)
+        avgCellOfParticleT += Probe_AvgCellOfParticleT(Fluid, Particles, probe, totalParticles)
+      end
+      Probe_Write(0, config, i, Integrator_timeStep, avgFluidT, avgParticleT, avgCellOfParticleT)
     end
 
     -- Dump restart files
     if config.IO.wrtRestart then
       if Integrator_exitCond or Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 then
-        var dirname = [&int8](C.malloc(256))
-        C.snprintf(dirname, 256, '%s/fluid_iter%010d', config.Mapping.outDir, Integrator_timeStep)
-        var _1 = createDir(dirname)
-        Fluid_dump(_1, tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
-        C.snprintf(dirname, 256, '%s/particles_iter%010d', config.Mapping.outDir, Integrator_timeStep)
-        var _2 = createDir(dirname)
-        Particles_dump(_2, tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
-        C.free(dirname)
+        [INSTANCE.DumpHDF(config, 'iter%010d', Integrator_timeStep)];
       end
     end
 
@@ -6453,27 +6294,38 @@ local function mkInstance() local INSTANCE = {}
   -- Main time-step loop body
   -----------------------------------------------------------------------------
 
-  function INSTANCE.MainLoopBody(config, CopyQueue) return rquote
+  function INSTANCE.MainLoopBody(config, incoming, CopyQueue) return rquote
 
-    -- Feed particles
-    if Integrator_timeStep % config.Particles.staggerFactor == 0 then
-      if config.Particles.feeding.type == SCHEMA.FeedModel_OFF then
-        -- Do nothing
-      elseif config.Particles.feeding.type == SCHEMA.FeedModel_Incoming then
-        for c in tiles do
-          Particles_number +=
-            CopyQueue_pull(c,
-                           p_Particles[c],
-                           CopyQueue,
-                           config,
-                           Grid.xBnum, Grid.yBnum, Grid.zBnum)
-        end
-      else regentlib.assert(false, 'Unhandled case in switch') end
+    -- Process incoming values from other section
+    if incoming then
+      if DEBUG_COPYING then
+        [INSTANCE.DumpHDF(config, 'precopy%010d', Integrator_timeStep)];
+      end
+      -- Feed fluid
+      [SyncConservedPrimitive(config)];
+      -- Feed particles
+      if config.Particles.maxNum > 0 then
+        if config.Particles.feeding.type == SCHEMA.FeedModel_OFF then
+          -- Do nothing
+        elseif config.Particles.feeding.type == SCHEMA.FeedModel_Incoming then
+          for c in tiles do
+            Particles_number +=
+              CopyQueue_pull(c,
+                             p_Particles[c],
+                             CopyQueue,
+                             config,
+                             Grid.xBnum, Grid.yBnum, Grid.zBnum)
+          end
+        else regentlib.assert(false, 'Unhandled case in switch') end
+      end
+      if DEBUG_COPYING then
+        [INSTANCE.DumpHDF(config, 'postcopy%010d', Integrator_timeStep)];
+      end
     end
 
     -- Set iteration-specific fields that persist across RK sub-steps
     Flow_InitializeTemporaries(Fluid)
-    if Integrator_timeStep % config.Particles.staggerFactor == 0 then
+    if config.Particles.maxNum > 0 and Integrator_timeStep % config.Particles.staggerFactor == 0 then
       Particles_InitializeTemporaries(Particles)
     end
 
@@ -6545,19 +6397,21 @@ local function mkInstance() local INSTANCE = {}
 
       -- Add turbulent forcing
       if config.Flow.turbForcing.type == SCHEMA.TurbForcingModel_HIT then
+        Flow_AddVelocity(Fluid,
+                         vs_mul(config.Flow.turbForcing.u.HIT.meanVelocity, -1.0),
+                         Grid.xBnum, config.Grid.xNum,
+                         Grid.yBnum, config.Grid.yNum,
+                         Grid.zBnum, config.Grid.zNum)
         var Flow_averageDissipation = 0.0
         var Flow_averageFe = 0.0
         var Flow_averageK = 0.0
         var Flow_averagePD = 0.0
 
-        var interior_volume = 0.0
-        interior_volume += CalculateInteriorVolume(Fluid, Grid.xBnum, config.Grid.xNum, Grid.yBnum, config.Grid.yNum, Grid.zBnum, config.Grid.zNum)
-
-        Flow_averagePD += CalculateAveragePD(Fluid,
-                                             Grid.xBnum, config.Grid.xNum,
-                                             Grid.yBnum, config.Grid.yNum,
-                                             Grid.zBnum, config.Grid.zNum)
-        Flow_averagePD /= interior_volume
+        Flow_averagePD += Flow_CalculateAveragePD(Fluid,
+                                                  Grid.xBnum, config.Grid.xNum,
+                                                  Grid.yBnum, config.Grid.yNum,
+                                                  Grid.zBnum, config.Grid.zNum)
+        Flow_averagePD /= Grid.volume
 
         Flow_ResetDissipation(Fluid)
 
@@ -6600,17 +6454,17 @@ local function mkInstance() local INSTANCE = {}
                                 Grid.yBnum, config.Grid.yNum,
                                 Grid.zBnum, config.Grid.zNum)
 
-        Flow_averageDissipation += CalculateAverageDissipation(Fluid,
-                                                               Grid.xBnum, config.Grid.xNum,
-                                                               Grid.yBnum, config.Grid.yNum,
-                                                               Grid.zBnum, config.Grid.zNum)
-        Flow_averageDissipation /= interior_volume
+        Flow_averageDissipation += Flow_CalculateAverageDissipation(Fluid,
+                                                                    Grid.xBnum, config.Grid.xNum,
+                                                                    Grid.yBnum, config.Grid.yNum,
+                                                                    Grid.zBnum, config.Grid.zNum)
+        Flow_averageDissipation /= Grid.volume
 
-        Flow_averageK += CalculateAverageK(Fluid,
-                                           Grid.xBnum, config.Grid.xNum,
-                                           Grid.yBnum, config.Grid.yNum,
-                                           Grid.zBnum, config.Grid.zNum)
-        Flow_averageK /= interior_volume
+        Flow_averageK += Flow_CalculateAverageK(Fluid,
+                                                Grid.xBnum, config.Grid.xNum,
+                                                Grid.yBnum, config.Grid.yNum,
+                                                Grid.zBnum, config.Grid.zNum)
+        Flow_averageK /= Grid.volume
 
         Flow_averageFe += Flow_AddTurbulentSource(Fluid,
                                                   Flow_averageDissipation,
@@ -6620,26 +6474,33 @@ local function mkInstance() local INSTANCE = {}
                                                   Grid.yBnum, config.Grid.yNum,
                                                   Grid.zBnum, config.Grid.zNum,
                                                   config)
-        Flow_averageFe /= interior_volume
+        Flow_averageFe /= Grid.volume
 
         Flow_AdjustTurbulentSource(Fluid,
                                    Flow_averageFe,
                                    Grid.xBnum, config.Grid.xNum,
                                    Grid.yBnum, config.Grid.yNum,
                                    Grid.zBnum, config.Grid.zNum)
+        Flow_AddVelocity(Fluid,
+                         config.Flow.turbForcing.u.HIT.meanVelocity,
+                         Grid.xBnum, config.Grid.xNum,
+                         Grid.yBnum, config.Grid.yNum,
+                         Grid.zBnum, config.Grid.zNum)
       end
 
       -- Particles & radiation solve
-      if Integrator_timeStep % config.Particles.staggerFactor == 0 then
+      if config.Particles.maxNum > 0 and (Integrator_timeStep % config.Particles.staggerFactor == 0 or Integrator_timeStep == config.Integrator.startIter) then
+        Particles_CalcDeltaTerms(Particles,
+                                 Fluid,
+                                 config.Flow.constantVisc,
+                                 config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
+                                 config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
+                                 config.Flow.viscosityModel,
+                                 config.Particles.convectiveCoeff)
+      end
+      if config.Particles.maxNum > 0 and Integrator_timeStep % config.Particles.staggerFactor == 0 then
         -- Add fluid forces to particles
-        Particles_AddFlowCoupling(Particles,
-                                  Fluid,
-                                  config.Flow.constantVisc,
-                                  config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                  config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                  config.Flow.viscosityModel,
-                                  config.Particles.convectiveCoeff,
-                                  config.Particles.heatCapacity)
+        Particles_AddFlowCoupling(Particles, config.Particles.heatCapacity)
         Particles_AddBodyForces(Particles, config.Particles.bodyForce)
         -- Add radiation
         if config.Radiation.type == SCHEMA.RadiationModel_OFF then
@@ -6653,6 +6514,7 @@ local function mkInstance() local INSTANCE = {}
             Radiation_AccumulateParticleValues(p_Particles[c], p_Fluid[c], p_Radiation[c])
           end
           Radiation_UpdateFieldValues(Radiation,
+                                      config,
                                       config.Radiation.u.DOM.qa,
                                       config.Radiation.u.DOM.qs);
           [DOM_INST.ComputeRadiationField(config, tiles, p_Radiation)];
@@ -6667,7 +6529,9 @@ local function mkInstance() local INSTANCE = {}
       end
 
       -- Add particle forces to fluid
-      Flow_AddParticlesCoupling(Particles, Fluid)
+      if config.Particles.maxNum > 0 then
+        Flow_AddParticlesCoupling(Particles, Fluid, config)
+      end
 
       -- Use fluxes to update conserved value derivatives
       Flow_UpdateUsingFluxZ(Fluid,
@@ -6687,12 +6551,12 @@ local function mkInstance() local INSTANCE = {}
                             Grid.zBnum, config.Grid.zNum)
       if ((config.BC.xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow) and (config.BC.xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow)) then
         var Flow_maxMach = -math.huge
-        Flow_maxMach max= CalculateMaxMachNumber(Fluid,
-                                                 config,
-                                                 config.Flow.gamma, config.Flow.gasConstant,
-                                                 Grid.xBnum, config.Grid.xNum,
-                                                 Grid.yBnum, config.Grid.yNum,
-                                                 Grid.zBnum, config.Grid.zNum)
+        Flow_maxMach max= Flow_CalculateMaxMachNumber(Fluid,
+                                                      config,
+                                                      config.Flow.gamma, config.Flow.gasConstant,
+                                                      Grid.xBnum, config.Grid.xNum,
+                                                      Grid.yBnum, config.Grid.yNum,
+                                                      Grid.zBnum, config.Grid.zNum)
         -- XXX: Assumes that inflow out/flow only in the x direction
         var Flow_lengthScale = config.Grid.xWidth
         for c in tiles do
@@ -6715,77 +6579,54 @@ local function mkInstance() local INSTANCE = {}
 
       -- Time step
       Flow_UpdateVars(Fluid, Integrator_deltaTime, Integrator_stage, config)
-      if Integrator_timeStep % config.Particles.staggerFactor == 0 then
+      if config.Particles.maxNum > 0 and Integrator_timeStep % config.Particles.staggerFactor == 0 then
         Particles_UpdateVars(Particles,
                              Integrator_deltaTime * config.Particles.staggerFactor,
                              Integrator_stage,
                              config)
       end
 
-      -- Use the new conserved values to update primitive values
-      Flow_UpdateAuxiliaryVelocity(Fluid,
+      -- Impose desired mean velocity
+      if config.Flow.turbForcing.type == SCHEMA.TurbForcingModel_HIT then
+        var Flow_averageVelocityX = 0.0
+        var Flow_averageVelocityY = 0.0
+        var Flow_averageVelocityZ = 0.0
+        Flow_averageVelocityX += Flow_CalculateAverageVelocityX(Fluid,
+                                                                Grid.xBnum, config.Grid.xNum,
+                                                                Grid.yBnum, config.Grid.yNum,
+                                                                Grid.zBnum, config.Grid.zNum)
+        Flow_averageVelocityY += Flow_CalculateAverageVelocityY(Fluid,
+                                                                Grid.xBnum, config.Grid.xNum,
+                                                                Grid.yBnum, config.Grid.yNum,
+                                                                Grid.zBnum, config.Grid.zNum)
+        Flow_averageVelocityZ += Flow_CalculateAverageVelocityZ(Fluid,
+                                                                Grid.xBnum, config.Grid.xNum,
+                                                                Grid.yBnum, config.Grid.yNum,
+                                                                Grid.zBnum, config.Grid.zNum)
+        Flow_averageVelocityX /= Grid.volume
+        Flow_averageVelocityY /= Grid.volume
+        Flow_averageVelocityZ /= Grid.volume
+        Flow_AdjustAverageVelocity(Fluid,
                                    config,
-                                   config.Flow.constantVisc,
-                                   config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                   config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                   config.Flow.viscosityModel,
+                                   Flow_averageVelocityX,
+                                   Flow_averageVelocityY,
+                                   Flow_averageVelocityZ,
                                    Grid.xBnum, config.Grid.xNum,
                                    Grid.yBnum, config.Grid.yNum,
                                    Grid.zBnum, config.Grid.zNum)
-      for c in tiles do
-        Flow_UpdateGhostVelocity(p_Fluid[c],
-                                 config,
-                                 BC.xNegVelocity, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
-                                 BC.yNegVelocity, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
-                                 BC.zNegVelocity, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
-                                 Grid.xBnum, config.Grid.xNum,
-                                 Grid.yBnum, config.Grid.yNum,
-                                 Grid.zBnum, config.Grid.zNum)
-      end
-      Flow_UpdateAuxiliaryThermodynamics(Fluid,
-                                         config,
-                                         config.Flow.gamma,
-                                         config.Flow.gasConstant,
-                                         Grid.xBnum, config.Grid.xNum,
-                                         Grid.yBnum, config.Grid.yNum,
-                                         Grid.zBnum, config.Grid.zNum)
-      for c in tiles do
-        Flow_UpdateGhostThermodynamics(p_Fluid[c],
-                                       config,
-                                       config.Flow.gamma,
-                                       config.Flow.gasConstant,
-                                       BC.xNegTemperature, BC.xPosTemperature,
-                                       BC.yNegTemperature, BC.yPosTemperature,
-                                       BC.zNegTemperature, BC.zPosTemperature,
-                                       Grid.xBnum, config.Grid.xNum,
-                                       Grid.yBnum, config.Grid.yNum,
-                                       Grid.zBnum, config.Grid.zNum)
       end
 
-      -- Compute the conserved values in the ghost cells
-      for c in tiles do
-        Flow_UpdateGhostConserved(p_Fluid[c],
-                                  config,
-                                  BC.xNegTemperature, BC.xNegVelocity, BC.xPosTemperature, BC.xPosVelocity, BC.xNegSign, BC.xPosSign,
-                                  BC.yNegTemperature, BC.yNegVelocity, BC.yPosTemperature, BC.yPosVelocity, BC.yNegSign, BC.yPosSign,
-                                  BC.zNegTemperature, BC.zNegVelocity, BC.zPosTemperature, BC.zPosVelocity, BC.zNegSign, BC.zPosSign,
-                                  config.Flow.gamma, config.Flow.gasConstant,
-                                  config.Flow.constantVisc,
-                                  config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                  config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                  config.Flow.viscosityModel,
-                                  Grid.xBnum, config.Grid.xNum,
-                                  Grid.yBnum, config.Grid.yNum,
-                                  Grid.zBnum, config.Grid.zNum)
-      end
+      -- Update all cell values (conserved & primitive) based on updated interior conserved
+      [SyncConservedPrimitive(config)];
 
       -- Particle movement post-processing
-      if Integrator_timeStep % config.Particles.staggerFactor == 0 then
+      if config.Particles.maxNum > 0 and Integrator_timeStep % config.Particles.staggerFactor == 0 then
         -- Handle particle collisions
         -- TODO: Collisions across tiles are not handled.
         if config.Particles.collisions and Integrator_stage == config.Integrator.rkOrder then
           for c in tiles do
             Particles_HandleCollisions(p_Particles[c],
+                                       config,
                                        Integrator_deltaTime * config.Particles.staggerFactor,
                                        config.Particles.restitutionCoeff)
           end
@@ -6816,22 +6657,29 @@ local function mkInstance() local INSTANCE = {}
                                   Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
         end
         if numTiles > 1 then
+          var totalPushed = int64(0)
           for c in tiles do
-            TradeQueue_push(c,
-                            p_Particles[c],
-                            [UTIL.range(1,26):map(function(k) return rexpr
-                               [p_TradeQueue[k]][c]
-                             end end)],
-                            Grid.xBnum, config.Grid.xNum, NX,
-                            Grid.yBnum, config.Grid.yNum, NY,
-                            Grid.zBnum, config.Grid.zNum, NZ)
+            totalPushed +=
+              TradeQueue_push(c,
+                              p_Particles[c],
+                              [UTIL.range(1,26):map(function(k) return rexpr
+                                 [p_TradeQueue_bySrc[k]][c]
+                               end end)],
+                              config,
+                              Grid.xBnum, config.Grid.xNum, NX,
+                              Grid.yBnum, config.Grid.yNum, NY,
+                              Grid.zBnum, config.Grid.zNum, NZ)
           end
+          var totalPulled = int64(0)
           for c in tiles do
-            TradeQueue_pull(p_Particles[c],
-                            [UTIL.range(1,26):map(function(k) return rexpr
-                               [p_TradeQueue[k]][ (c-[colorOffsets[k]]+{NX,NY,NZ}) % {NX,NY,NZ} ]
-                             end end)])
+            totalPulled +=
+              TradeQueue_pull(p_Particles[c],
+                              [UTIL.range(1,26):map(function(k) return rexpr
+                                 [p_TradeQueue_byDst[k]][c]
+                               end end)],
+                              config)
           end
+          regentlib.assert(totalPushed == totalPulled, 'Internal error in particle trading')
         end
       end
 
@@ -6862,6 +6710,12 @@ local function mkInstance() local INSTANCE = {}
                                                Integrator_deltaTime)
     end
 
+    if incoming then
+      if DEBUG_COPYING then
+        [INSTANCE.DumpHDF(config, 'postiter%010d', Integrator_timeStep)];
+      end
+    end
+
     Integrator_timeStep += 1
 
   end end -- MainLoopBody
@@ -6874,9 +6728,6 @@ local function mkInstance() local INSTANCE = {}
     -- Wait for everything above to finish
     __fence(__execution, __block)
 
-    -- Report final time
-    Console_WriteFooter(config, startTime)
-
   end end -- Cleanup
 
 return INSTANCE end -- mkInstance
@@ -6884,9 +6735,6 @@ return INSTANCE end -- mkInstance
 -------------------------------------------------------------------------------
 -- TOP-LEVEL INTERFACE
 -------------------------------------------------------------------------------
-
-local CopyQueue = regentlib.newsymbol()
-local FakeCopyQueue = regentlib.newsymbol()
 
 local function parallelizeFor(sim, stmts)
   return rquote
@@ -6903,7 +6751,7 @@ __forbid(__optimize) __demand(__inner, __replicable)
 task workSingle(config : Config)
   [SIM.DeclSymbols(config)];
   var is_FakeCopyQueue = ispace(int1d, 0)
-  var [FakeCopyQueue] = region(is_FakeCopyQueue, CopyQueue_columns);
+  var FakeCopyQueue = region(is_FakeCopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
   [parallelizeFor(SIM, rquote
     [SIM.InitRegions(config)];
@@ -6913,7 +6761,7 @@ task workSingle(config : Config)
       if SIM.Integrator_exitCond then
         break
       end
-      [SIM.MainLoopBody(config, FakeCopyQueue)];
+      [SIM.MainLoopBody(config, rexpr false end, FakeCopyQueue)];
     end
   end)];
   [SIM.Cleanup(config)];
@@ -6928,20 +6776,20 @@ task workDual(mc : MultiConfig)
   [SIM0.DeclSymbols(rexpr mc.configs[0] end)];
   [SIM1.DeclSymbols(rexpr mc.configs[1] end)];
   var is_FakeCopyQueue = ispace(int1d, 0)
-  var [FakeCopyQueue] = region(is_FakeCopyQueue, CopyQueue_columns);
+  var FakeCopyQueue = region(is_FakeCopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
-  var CopyQueue_ptr : int64 = 0
+  var CopyQueue_size = int64(0)
   var coloring_CopyQueue = C.legion_domain_point_coloring_create()
   for c in SIM0.tiles do
     var partSize = CopyQueue_partSize(SIM0.p_Fluid[c].bounds,
                                       mc.configs[0],
                                       mc.copySrc)
     C.legion_domain_point_coloring_color_domain(
-      coloring_CopyQueue, c, rect1d{CopyQueue_ptr,CopyQueue_ptr+partSize-1})
-    CopyQueue_ptr += partSize
+      coloring_CopyQueue, c, rect1d{CopyQueue_size,CopyQueue_size+partSize-1})
+    CopyQueue_size += partSize
   end
-  var is_CopyQueue = ispace(int1d, CopyQueue_ptr)
-  var [CopyQueue] = region(is_CopyQueue, CopyQueue_columns);
+  var is_CopyQueue = ispace(int1d, CopyQueue_size)
+  var CopyQueue = region(is_CopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(CopyQueue, MAPPER.SAMPLE_ID_TAG, rexpr mc.configs[0].Mapping.sampleId end, int)];
   var p_CopyQueue = partition(disjoint, CopyQueue, coloring_CopyQueue, SIM0.tiles)
   C.legion_domain_point_coloring_destroy(coloring_CopyQueue)
@@ -7006,6 +6854,7 @@ task workDual(mc : MultiConfig)
   var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
   -- Main simulation loop
   while true do
+    var Integrator_timeStep = SIM0.Integrator_timeStep;
     -- Perform preliminary actions before each timestep
     [parallelizeFor(SIM0, SIM0.MainLoopHeader(rexpr mc.configs[0] end))];
     [parallelizeFor(SIM1, SIM1.MainLoopHeader(rexpr mc.configs[1] end))];
@@ -7018,30 +6867,37 @@ task workDual(mc : MultiConfig)
       break
     end
     -- Run one iteration of first section
-    [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end, FakeCopyQueue))];
+    [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end, rexpr false end, FakeCopyQueue))];
     -- Copy fluid & particles to second section
-    fill(CopyQueue.__valid, false) -- clear the copyqueue from the previous iteration
-    if SIM1.Integrator_timeStep % mc.copyEveryTimeSteps == 0 then
+    var incoming = Integrator_timeStep % mc.copyEveryTimeSteps == 0
+    if incoming then
+      if SIM0.DEBUG_COPYING then
+        [SIM0.DumpHDF(rexpr mc.configs[0] end, 'copysrc%010d', Integrator_timeStep)];
+      end
       for c in SIM1.tiles do
         var src = p_Fluid0_src[c]
         var tgt = p_Fluid1_tgt[c][0]
         copy(src.temperature, tgt.temperature_inc)
         copy(src.velocity, tgt.velocity_inc)
       end
+      fill(CopyQueue.__valid, false)
       fill(CopyQueue.position, array(-1.0, -1.0, -1.0))
       fill(CopyQueue.velocity, array(-1.0, -1.0, -1.0))
       fill(CopyQueue.temperature, -1.0)
       fill(CopyQueue.diameter, -1.0)
       fill(CopyQueue.density, -1.0)
-      for c in SIM0.tiles do
-        CopyQueue_push(SIM0.p_Particles[c],
-                       p_CopyQueue[c],
-                       mc.copySrc,
-                       SIM0.Grid.particleCopyOrigin, SIM1.Grid.particleCopyOrigin)
+      if CopyQueue_size > 0 and C.finite(SIM1.Flow_averagePressure) == 1 then
+        for c in SIM0.tiles do
+          CopyQueue_push(SIM0.p_Particles[c],
+                         p_CopyQueue[c],
+                         mc.configs[0],
+                         mc.copySrc,
+                         SIM0.Grid.particleCopyOrigin, SIM1.Grid.particleCopyOrigin)
+        end
       end
     end
     -- Run one iteration of second section
-    [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, CopyQueue))];
+    [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, incoming, CopyQueue))];
   end
   -- Cleanups
   [SIM0.Cleanup(rexpr mc.configs[0] end)];
@@ -7060,15 +6916,15 @@ task initDual(mc : &MultiConfig, launched : int, outDirBase : &int8)
   initSingle([&Config](mc.configs), launched, outDirBase)
   initSingle([&Config](mc.configs) + 1, launched + 1, outDirBase)
   -- Check 2-section configuration
-  mc.configs[0].Particles.staggerFactor min= mc.copyEveryTimeSteps
-  mc.configs[1].Particles.staggerFactor min= mc.copyEveryTimeSteps
   regentlib.assert(
+    mc.configs[0].Particles.staggerFactor <= mc.copyEveryTimeSteps and
+    mc.configs[1].Particles.staggerFactor <= mc.copyEveryTimeSteps and
     mc.copyEveryTimeSteps % mc.configs[0].Particles.staggerFactor == 0 and
     mc.copyEveryTimeSteps % mc.configs[1].Particles.staggerFactor == 0,
     'Invalid stagger factor configuration')
 end
 
-__demand(__inner)
+__forbid(__optimize) __demand(__inner)
 task main()
   var args = regentlib.c.legion_runtime_get_input_args()
   var outDirBase = '.'
@@ -7080,17 +6936,17 @@ task main()
   var launched = 0
   for i = 1, args.argc do
     if C.strcmp(args.argv[i], '-i') == 0 and i < args.argc-1 then
-      var config : Config[1]
-      SCHEMA.parse_Config([&Config](config), args.argv[i+1])
-      initSingle([&Config](config), launched, outDirBase)
+      var config : Config
+      SCHEMA.parse_Config(&config, args.argv[i+1])
+      initSingle(&config, launched, outDirBase)
       launched += 1
-      workSingle(config[0])
+      workSingle(config)
     elseif C.strcmp(args.argv[i], '-m') == 0 and i < args.argc-1 then
-      var mc : MultiConfig[1]
-      SCHEMA.parse_MultiConfig([&MultiConfig](mc), args.argv[i+1])
-      initDual([&MultiConfig](mc), launched, outDirBase)
+      var mc : MultiConfig
+      SCHEMA.parse_MultiConfig(&mc, args.argv[i+1])
+      initDual(&mc, launched, outDirBase)
       launched += 2
-      workDual(mc[0])
+      workDual(mc)
     end
   end
   if launched < 1 then

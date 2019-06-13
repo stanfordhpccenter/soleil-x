@@ -220,30 +220,6 @@ function Exports.setSubList(set, list)
 end
 
 -------------------------------------------------------------------------------
--- Sets
--------------------------------------------------------------------------------
-
--- set(T) -> T*
-function Exports.setToList(set)
-  local list = terralib.newlist()
-  for elem,_ in pairs(set) do
-    list:insert(elem)
-  end
-  return list
-end
-
--- set(T) -> T
-function Exports.setPop(set)
-  local elem
-  for e,_ in pairs(set) do
-    elem = e
-    break
-  end
-  set[elem] = nil
-  return elem
-end
-
--------------------------------------------------------------------------------
 -- Strings
 -------------------------------------------------------------------------------
 
@@ -469,43 +445,48 @@ end
 -- regentlib.symbol, int, regentlib.rexpr, terralib.type -> regentlib.rquote
 function Exports.emitRegionTagAttach(r, tag, value, typ)
   return rquote
-    var info : typ[1]
-    info[0] = value
+    var info : typ = value
     regentlib.c.legion_logical_region_attach_semantic_information(
-      __runtime(), __raw(r), tag, [&typ](info), [sizeof(typ)], false)
+      __runtime(), __raw(r), tag, &info, [sizeof(typ)], false)
   end
 end
 
 -- intXd, intXd, terralib.struct -> regentlib.task
-function Exports.mkPartitionEqually(r_istype, cs_istype, fs)
-  local partitionEqually
+function Exports.mkPartitionByTile(r_istype, cs_istype, fs)
+  local partitionByTile
   if r_istype == int3d and cs_istype == int3d then
     __demand(__inline)
-    task partitionEqually(r : region(ispace(int3d), fs),
-                          cs : ispace(int3d),
-                          xBnum : int, yBnum : int, zBnum : int)
-      var Nx = r.bounds.hi.x - 2*xBnum + 1; var ntx = cs.bounds.hi.x + 1
-      var Ny = r.bounds.hi.y - 2*yBnum + 1; var nty = cs.bounds.hi.y + 1
-      var Nz = r.bounds.hi.z - 2*zBnum + 1; var ntz = cs.bounds.hi.z + 1
+    task partitionByTile(r : region(ispace(int3d), fs),
+                         cs : ispace(int3d),
+                         halo : int3d,
+                         offset : int3d)
+      var Nx = r.bounds.hi.x - 2*halo.x + 1; var ntx = cs.bounds.hi.x + 1
+      var Ny = r.bounds.hi.y - 2*halo.y + 1; var nty = cs.bounds.hi.y + 1
+      var Nz = r.bounds.hi.z - 2*halo.z + 1; var ntz = cs.bounds.hi.z + 1
+      regentlib.assert(r.bounds.lo == int3d{0,0,0}, "Can only partition root region")
       regentlib.assert(Nx % ntx == 0, "Uneven partitioning on x")
       regentlib.assert(Ny % nty == 0, "Uneven partitioning on y")
       regentlib.assert(Nz % ntz == 0, "Uneven partitioning on z")
+      regentlib.assert(-ntx <= offset.x and offset.x <= ntx, "offset.x too large")
+      regentlib.assert(-nty <= offset.y and offset.y <= nty, "offset.y too large")
+      regentlib.assert(-ntz <= offset.z and offset.z <= ntz, "offset.z too large")
       var coloring = regentlib.c.legion_domain_point_coloring_create()
-      for c in cs do
+      for c_real in cs do
+        var c = (c_real - offset + {ntx,nty,ntz}) % {ntx,nty,ntz}
         var rect = rect3d{
-          lo = int3d{xBnum + (Nx/ntx)*(c.x),
-                     yBnum + (Ny/nty)*(c.y),
-                     zBnum + (Nz/ntz)*(c.z)},
-          hi = int3d{xBnum + (Nx/ntx)*(c.x+1) - 1,
-                     yBnum + (Ny/nty)*(c.y+1) - 1,
-                     zBnum + (Nz/ntz)*(c.z+1) - 1}}
-        if c.x == 0 then rect.lo.x -= xBnum end
-        if c.y == 0 then rect.lo.y -= yBnum end
-        if c.z == 0 then rect.lo.z -= zBnum end
-        if c.x == ntx-1 then rect.hi.x += xBnum end
-        if c.y == nty-1 then rect.hi.y += yBnum end
-        if c.z == ntz-1 then rect.hi.z += zBnum end
-        regentlib.c.legion_domain_point_coloring_color_domain(coloring, c, rect)
+          lo = int3d{halo.x + (Nx/ntx)*(c.x),
+                     halo.y + (Ny/nty)*(c.y),
+                     halo.z + (Nz/ntz)*(c.z)},
+          hi = int3d{halo.x + (Nx/ntx)*(c.x+1) - 1,
+                     halo.y + (Ny/nty)*(c.y+1) - 1,
+                     halo.z + (Nz/ntz)*(c.z+1) - 1}}
+        if c.x == 0 then rect.lo.x -= halo.x end
+        if c.y == 0 then rect.lo.y -= halo.y end
+        if c.z == 0 then rect.lo.z -= halo.z end
+        if c.x == ntx-1 then rect.hi.x += halo.x end
+        if c.y == nty-1 then rect.hi.y += halo.y end
+        if c.z == ntz-1 then rect.hi.z += halo.z end
+        regentlib.c.legion_domain_point_coloring_color_domain(coloring, c_real, rect)
       end
       var p = partition(disjoint, r, coloring, cs)
       regentlib.c.legion_domain_point_coloring_destroy(coloring)
@@ -513,25 +494,30 @@ function Exports.mkPartitionEqually(r_istype, cs_istype, fs)
     end
   elseif r_istype == int2d and cs_istype == int2d then
     __demand(__inline)
-    task partitionEqually(r : region(ispace(int2d), fs),
-                          cs : ispace(int2d),
-                          xBnum : int, yBnum : int)
-      var Nx = r.bounds.hi.x - 2*xBnum + 1; var ntx = cs.bounds.hi.x + 1
-      var Ny = r.bounds.hi.y - 2*yBnum + 1; var nty = cs.bounds.hi.y + 1
+    task partitionByTile(r : region(ispace(int2d), fs),
+                         cs : ispace(int2d),
+                         halo : int2d,
+                         offset : int2d)
+      var Nx = r.bounds.hi.x - 2*halo.x + 1; var ntx = cs.bounds.hi.x + 1
+      var Ny = r.bounds.hi.y - 2*halo.y + 1; var nty = cs.bounds.hi.y + 1
+      regentlib.assert(r.bounds.lo == int2d{0,0}, "Can only partition root region")
       regentlib.assert(Nx % ntx == 0, "Uneven partitioning on x")
       regentlib.assert(Ny % nty == 0, "Uneven partitioning on y")
+      regentlib.assert(-ntx <= offset.x and offset.x <= ntx, "offset.x too large")
+      regentlib.assert(-nty <= offset.y and offset.y <= nty, "offset.y too large")
       var coloring = regentlib.c.legion_domain_point_coloring_create()
-      for c in cs do
+      for c_real in cs do
+        var c = (c_real - offset + {ntx,nty}) % {ntx,nty}
         var rect = rect2d{
-          lo = int2d{xBnum + (Nx/ntx)*(c.x),
-                     yBnum + (Ny/nty)*(c.y)},
-          hi = int2d{xBnum + (Nx/ntx)*(c.x+1) - 1,
-                     yBnum + (Ny/nty)*(c.y+1) - 1}}
-        if c.x == 0 then rect.lo.x -= xBnum end
-        if c.y == 0 then rect.lo.y -= yBnum end
-        if c.x == ntx-1 then rect.hi.x += xBnum end
-        if c.y == nty-1 then rect.hi.y += yBnum end
-        regentlib.c.legion_domain_point_coloring_color_domain(coloring, c, rect)
+          lo = int2d{halo.x + (Nx/ntx)*(c.x),
+                     halo.y + (Ny/nty)*(c.y)},
+          hi = int2d{halo.x + (Nx/ntx)*(c.x+1) - 1,
+                     halo.y + (Ny/nty)*(c.y+1) - 1}}
+        if c.x == 0 then rect.lo.x -= halo.x end
+        if c.y == 0 then rect.lo.y -= halo.y end
+        if c.x == ntx-1 then rect.hi.x += halo.x end
+        if c.y == nty-1 then rect.hi.y += halo.y end
+        regentlib.c.legion_domain_point_coloring_color_domain(coloring, c_real, rect)
       end
       var p = partition(disjoint, r, coloring, cs)
       regentlib.c.legion_domain_point_coloring_destroy(coloring)
@@ -539,33 +525,75 @@ function Exports.mkPartitionEqually(r_istype, cs_istype, fs)
     end
   elseif r_istype == int1d and cs_istype == int3d then
     __demand(__inline)
-    task partitionEqually(r : region(ispace(int1d), fs),
-                          cs : ispace(int3d),
-                          bnum : int)
-      var N = [int](r.bounds.hi - 2*bnum + 1)
+    task partitionByTile(r : region(ispace(int1d), fs),
+                         cs : ispace(int3d),
+                         halo : int64,
+                         offset : int3d)
+      var N = int64(r.bounds.hi - 2*halo + 1)
       var ntx = cs.bounds.hi.x + 1
       var nty = cs.bounds.hi.y + 1
       var ntz = cs.bounds.hi.z + 1
+      regentlib.assert(int64(r.bounds.lo) == 0, "Can only partition root region")
       regentlib.assert(N % (ntx*nty*ntz) == 0, "Uneven partitioning")
+      regentlib.assert(-ntx <= offset.x and offset.x <= ntx, "offset.x too large")
+      regentlib.assert(-nty <= offset.y and offset.y <= nty, "offset.y too large")
+      regentlib.assert(-ntz <= offset.z and offset.z <= ntz, "offset.z too large")
       var coloring = regentlib.c.legion_domain_point_coloring_create()
-      for c in cs do
+      for c_real in cs do
+        var c = (c_real - offset + {ntx,nty,ntz}) % {ntx,nty,ntz}
         var rect = rect1d{
-          lo = bnum + (N/ntx/nty/ntz)*(c.x*nty*ntz+c.y*ntz+c.z),
-          hi = bnum + (N/ntx/nty/ntz)*(c.x*nty*ntz+c.y*ntz+c.z+1) - 1}
+          lo = halo + (N/ntx/nty/ntz)*(c.x*nty*ntz+c.y*ntz+c.z),
+          hi = halo + (N/ntx/nty/ntz)*(c.x*nty*ntz+c.y*ntz+c.z+1) - 1}
         if c.x == 0 and
            c.y == 0 and
-           c.z == 0 then rect.lo -= bnum end
+           c.z == 0 then rect.lo -= halo end
         if c.x == ntx-1 and
            c.y == nty-1 and
-           c.z == ntz-1 then rect.hi += bnum end
-        regentlib.c.legion_domain_point_coloring_color_domain(coloring, c, rect)
+           c.z == ntz-1 then rect.hi += halo end
+        regentlib.c.legion_domain_point_coloring_color_domain(coloring, c_real, rect)
       end
       var p = partition(disjoint, r, coloring, cs)
       regentlib.c.legion_domain_point_coloring_destroy(coloring)
       return p
     end
   else assert(false) end
-  return partitionEqually
+  return partitionByTile
+end
+
+-- int, string, regentlib.rexpr, regentlib.rexpr -> regentlib.rquote
+function Exports.emitArrayReduce(dims, op, lhs, rhs)
+  -- We decompose each array-type reduction into a sequence of primitive
+  -- reductions over the array's elements, to make sure the code generator can
+  -- emit them as atomic operations if needed.
+  return rquote
+    var tmp = [rhs];
+    @ESCAPE for i = 0,dims-1 do
+      if     op == '+'   then @EMIT lhs[i] +=   tmp[i] @TIME
+      elseif op == '-'   then @EMIT lhs[i] -=   tmp[i] @TIME
+      elseif op == '*'   then @EMIT lhs[i] *=   tmp[i] @TIME
+      elseif op == '/'   then @EMIT lhs[i] /=   tmp[i] @TIME
+      elseif op == 'max' then @EMIT lhs[i] max= tmp[i] @TIME
+      elseif op == 'min' then @EMIT lhs[i] min= tmp[i] @TIME
+      else assert(false) end
+    end @EPACSE
+  end
+end
+
+-------------------------------------------------------------------------------
+-- Error handling
+-------------------------------------------------------------------------------
+
+-- regentlib.rexpr, string, regentlib.rexpr* -> regentlib.rquote
+function Exports.emitAssert(cond, format, ...)
+  local args = terralib.newlist{...}
+  return rquote
+    if not cond then
+      var stderr = C.fdopen(2, 'w')
+      C.fprintf(stderr, format, [args])
+      C.fflush(stderr)
+      C.exit(1)
+    end
+  end
 end
 
 -------------------------------------------------------------------------------

@@ -1,0 +1,150 @@
+{
+    "Mapping" : {
+        "tiles" : [2,2,2],
+        "tilesPerRank" : [2,2,2],
+        "sampleId" : -1,
+        "outDir" : "",
+        "wallTime" : 10
+    },
+
+    "Grid" : {
+        "xNum" : 64,
+        "yNum" : 64,
+        "zNum" : 64,
+        "origin" : [0.0, 0.0, 0.0],
+        "xWidth" : 6.283185307179586,
+        "yWidth" : 6.283185307179586,
+        "zWidth" : 6.283185307179586
+    },
+
+    "BC" : {
+        "xBCLeft" : "Periodic",
+        "xBCLeftVel" : [-1.0, -1.0, -1.0],
+        "xBCLeftHeat" : {
+            "type" : "Constant",
+            "temperature" : -1.0
+        },
+        "xBCLeftInflowProfile" : {
+            "type" : "Constant",
+            "velocity" : -1.0
+        },
+        "xBCRight" : "Periodic",
+        "xBCRightVel" : [-1.0, -1.0, -1.0],
+        "xBCRightHeat" : {
+            "type" : "Constant",
+            "temperature" : -1.0
+        },
+        "xBCRightP_inf" : -1.0,
+        "yBCLeft" : "Periodic",
+        "yBCLeftVel" : [-1.0, -1.0, -1.0],
+        "yBCLeftHeat" : {
+            "type" : "Constant",
+            "temperature" : -1.0
+        },
+        "yBCRight" : "Periodic",
+        "yBCRightVel" : [-1.0, -1.0, -1.0],
+        "yBCRightHeat" : {
+            "type" : "Constant",
+            "temperature" : -1.0
+        },
+        "zBCLeft" : "Periodic",
+        "zBCLeftVel" : [-1.0, -1.0, -1.0],
+        "zBCLeftHeat" : {
+            "type" : "Constant",
+            "temperature" : -1.0
+        },
+        "zBCRight" : "Periodic",
+        "zBCRightVel" : [-1.0, -1.0, -1.0],
+        "zBCRightHeat" : {
+            "type" : "Constant",
+            "temperature" : -1.0
+        }
+    },
+
+    "Integrator" : {
+        "startIter" : 0,
+        "startTime" : 0.0,
+        "maxIter" : 5,
+        "cfl" : 1.0,
+        "fixedDeltaTime" : -1.0,
+        "rkOrder" : 4
+    },
+
+    "Flow" : {
+        "gasConstant" : 20.4128,
+        "gamma" : 1.4,
+        "prandtl" : 0.7,
+        "viscosityModel" : "PowerLaw",
+        "constantVisc" : 0.004491,
+        "powerlawViscRef" : 0.00044,
+        "powerlawTempRef" : 1.0,
+        "sutherlandViscRef" : 1.716E-5,
+        "sutherlandTempRef" : 273.15,
+        "sutherlandSRef" : 110.4,
+        "initCase" : "TaylorGreen3DVortex",
+        "restartDir" : "",
+        "initParams" : [1.0, 100.0, 2.0, -1.0, -1.0, -1.0],
+        "bodyForce" : [0.0, 0.0, 0.0],
+        "turbForcing" : { "type" : "OFF" }
+    },
+
+    "Particles" : {
+        "initCase" : "Uniform",
+        "restartDir" : "",
+        "initNum" : 1000,
+        "maxNum" : 1000,
+        "restitutionCoeff" : -1.0,
+        "convectiveCoeff" : 0.7,
+        "heatCapacity" : 0.7,
+        "initTemperature" : 250.0,
+        "density" : 8900.0,
+        "diameterMean" : 5e-3,
+        "bodyForce" : [0.0, 0.0, 0.0],
+        "maxSkew" : 1.5,
+        "escapeRatioPerDir" : 0.005,
+        "collisions" : false,
+        "feeding" : { "type" : "OFF" },
+        "staggerFactor" : 1,
+        "parcelSize" : 1
+    },
+
+    "Radiation" : {
+        "type" : "DOM",
+        "qa" : 0.5,
+        "qs" : 0.5,
+        "xNum" : 64,
+        "yNum" : 64,
+        "zNum" : 64,
+        "angles" : 14,
+        "xHiEmiss" : 1.0,
+        "xLoEmiss" : 1.0,
+        "yHiEmiss" : 1.0,
+        "yLoEmiss" : 1.0,
+        "zHiEmiss" : 1.0,
+        "zLoEmiss" : 1.0,
+        "xHiTemp" : 300.0,
+        "xLoTemp" : 2000.0,
+        "yHiTemp" : 300.0,
+        "yLoTemp" : 300.0,
+        "zHiTemp" : 300.0,
+        "zLoTemp" : 300.0,
+        "xHiIntensity" : 0.0,
+        "xLoIntensity" : 0.0,
+        "yHiIntensity" : 0.0,
+        "yLoIntensity" : 0.0,
+        "zHiIntensity" : 0.0,
+        "zLoIntensity" : 0.0,
+        "xHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "xLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "yHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "yLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "zHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+        "zLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] }
+    },
+
+    "IO" : {
+        "wrtRestart" : false,
+        "restartEveryTimeSteps" : 1,
+        "probes" : []
+    }
+}

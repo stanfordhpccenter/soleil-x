@@ -85,7 +85,7 @@
         "sutherlandSRef" : 110.4,
         "initCase" : "Uniform",
         "restartDir" : "",
-        "initParams" : [1.2, 104040.0, 8.0, 0.0, 0.0],
+        "initParams" : [1.2, 104040.0, 8.0, 0.0, 0.0, -1.0],
         "bodyForce" : [9.8, 0.0, 0.0],
         "turbForcing" : { "type" : "OFF" }
     },
@@ -106,7 +106,8 @@
         "escapeRatioPerDir" : 0.005,
         "collisions" : true,
         "feeding" : { "type" : "OFF" },
-        "staggerFactor" : 1
+        "staggerFactor" : 1,
+        "parcelSize" : 1
     },
 
     "Radiation" : {

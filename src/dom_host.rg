@@ -10,7 +10,7 @@ import 'regent'
 
 local C = regentlib.c
 local SCHEMA = terralib.includec("config_schema.h")
-local UTIL = require 'util'
+local UTIL = require 'util-desugared'
 
 local pow = regentlib.pow(double)
 
@@ -67,11 +67,11 @@ local DOM_INST = DOM.mkInstance()
 -- Proxy tasks
 -------------------------------------------------------------------------------
 
-
-local task Radiation_InitializeGeometry(Radiation : region(ispace(int3d), Point_columns),
-                                        Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
-                                        Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
-                                        Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
+local __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+task Radiation_InitializeGeometry(Radiation : region(ispace(int3d), Point_columns),
+                                  Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
+                                  Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
+                                  Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
 where
   reads writes(Radiation.{centerCoordinates, cellWidth})
 do
@@ -96,7 +96,8 @@ do
   end
 end
 
-local task writeIntensity(points : region(ispace(int3d), Point_columns))
+local __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+task writeIntensity(points : region(ispace(int3d), Point_columns))
 where
   reads(points.G)
 do
@@ -130,8 +131,8 @@ task work(config : SCHEMA.Config)
                              config.Mapping.tiles[1],
                              config.Mapping.tiles[2]})
   var p_points =
-    [UTIL.mkPartitionEqually(int3d, int3d, Point_columns)]
-    (points, tiles, 0, 0, 0);
+    [UTIL.mkPartitionByTile(int3d, int3d, Point_columns)]
+    (points, tiles, int3d{0,0,0}, int3d{0,0,0});
   -- Declare DOM-managed regions
   [DOM_INST.DeclSymbols(config, tiles)];
   [DOM_INST.InitRegions(config, tiles, p_points)];
@@ -159,11 +160,11 @@ task main()
     C.fflush(stderr)
     C.exit(1)
   end
-  var config : SCHEMA.Config[1]
-  SCHEMA.parse_Config([&SCHEMA.Config](config), args.argv[1])
-  regentlib.assert(config[0].Radiation.type == SCHEMA.RadiationModel_DOM,
+  var config : SCHEMA.Config
+  SCHEMA.parse_Config(&config, args.argv[1])
+  regentlib.assert(config.Radiation.type == SCHEMA.RadiationModel_DOM,
                    'Configuration file must use DOM radiation model')
-  work(config[0])
+  work(config)
 end
 
 regentlib.saveobj(main, 'dom_host.o', 'object')

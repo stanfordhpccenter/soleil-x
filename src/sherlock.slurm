@@ -3,21 +3,15 @@
 #SBATCH --job-name=soleil
 #SBATCH --partition=aaiken
 
+CORES_PER_NODE=20
+RAM_PER_NODE=200000
+GPUS_PER_NODE=4
+FB_PER_GPU=15000
 source "$SOLEIL_DIR"/src/jobscript_shared.sh
 
-# Process CUDA configuration
-GPU_OPTS=
-if [[ "$USE_CUDA" == 1 ]]; then
-    GPU_OPTS="-ll:gpu 4 -ll:fsize 15000"
-fi
-
-srun -N "$NUM_RANKS" --ntasks-per-node=1 --cpus-per-task=20 \
+srun -n "$NUM_RANKS" --ntasks-per-node="$RANKS_PER_NODE" --cpus-per-task="$CORES_PER_RANK" \
     --export=ALL \
-    "$EXECUTABLE" $ARGS \
-    -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 19 \
-    $GPU_OPTS -ll:dma 2 -ll:ahandlers 2 \
-    -ll:csize 240000 \
-    -ll:stacksize 8 -ll:ostack 8 -lg:sched -1
+    $COMMAND
 
 # Resources:
 # 256GB RAM per node

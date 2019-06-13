@@ -13,8 +13,8 @@ See below for instructions targeting specific systems.
 The following are automatically installed during Legion installation:
 
 * LLVM 3.8 (for CUDA 8.0+) or 3.5 (for CUDA 7.5, and better debug info)
-* GASNET (custom version)
-* Terra (custom version -- we need to use LuaJIT2.1 instead of the default LuaJIT2.0, because the latter exhibits a spurious out-of-memory error when compiling large Regent programs)
+* GASNET (custom Legion-specific version)
+* Terra (custom Legion-specific version)
 * HDF5 (any recent version)
 
 ### Add to shell startup
@@ -50,7 +50,7 @@ Replace the `?` depending on your system's capabilities.
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=? USE_OPENMP=? USE_GASNET=? USE_HDF=? scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+USE_CUDA=? USE_OPENMP=? USE_GASNET=? USE_HDF=? scripts/setup_env.py --llvm-version 38
 ```
 
 See [Elliott's instructions](https://docs.google.com/document/d/1Qkl6r-1ZIb8WyH1f_WZbKgjp3due_Q8UiWKLh_nG1ec/edit) for more help.
@@ -76,7 +76,7 @@ Currently, Soleil-X reads the following options:
 
 * `-i <config>.json`: Provide a case configuration file, to be run as an additional sample. See [src/config_schema.lua](src/config_schema.lua) for documentation on the available options (`Config` struct).
 * `-m <multi-config>.json`: Provide a two-case configuration file, to be run as two connected samples. See [src/config_schema.lua](src/config_schema.lua) for documentation on the available options (`MultiConfig` struct).
-* `-o <out_dir>`: Specify an output directory for the executable (default is current directory).
+* `-o <out_dir>`: Specify an output directory for the executable (if not defined, we use a new directory under `$SCRATCH` if that is defined, otherwise we use the current directory).
 
 Setup (local Ubuntu machine w/o GPU)
 ====================================
@@ -104,7 +104,7 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=0 USE_OPENMP=1 USE_GASNET=0 USE_HDF=1 scripts/setup_env.py --llvm-version 35 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+USE_CUDA=0 USE_OPENMP=1 USE_GASNET=0 USE_HDF=1 scripts/setup_env.py --llvm-version 35
 ```
 
 ### Compile Soleil-X
@@ -149,7 +149,7 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 35 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 35
 ```
 
 ### Compile Soleil-X
@@ -173,7 +173,6 @@ module load openmpi/2.0.2
 export CONDUIT=ibv
 export CC=gcc
 export CXX=g++
-export LD_FLAGS=-lpmi2
 # Path setup
 export LEGION_DIR=???
 export HDF_ROOT="$LEGION_DIR"/language/hdf/install
@@ -197,7 +196,7 @@ We build Legion in a SLURM job, because processes on the login node are restrict
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 srun -N 1 -c 10 -p aaiken --gres=gpu:4 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+LD_FLAGS=-lpmi2 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 srun -N 1 -c 10 -p aaiken --gres=gpu:4 scripts/setup_env.py --llvm-version 38
 ```
 
 ### Compile Soleil-X
@@ -250,7 +249,7 @@ sed -i 's|$(GASNET_VERSION)/configure --prefix=|$(GASNET_VERSION)/configure --di
 make
 # Rest of compilation as normal
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38
 ```
 
 ### Compile Soleil-X
@@ -302,7 +301,7 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38
 ```
 
 ### Compile Soleil-X
@@ -331,7 +330,7 @@ export CONDUIT=ibv
 export LEGION_DIR=???
 export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
-export SCRATCH=/gpfs/alpinetds/proj-shared/csc275/stanford
+export SCRATCH=/gpfs/alpine/proj-shared/csc335/stanford
 # CUDA config
 export CUDA_HOME=/sw/summit/cuda/9.0.184
 export CUDA="$CUDA_HOME"
@@ -349,7 +348,7 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1-ppc64'
+CC_FLAGS='-DMAX_NUM_NODES=4096' TERRA_USE_PUC_LUA=1 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-branch 'puc_lua_master'
 ```
 
 ### Compile Soleil-X
@@ -395,7 +394,7 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-url 'https://github.com/StanfordLegion/terra.git' --terra-branch 'luajit2.1'
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38
 ```
 
 ### Compile Soleil-X
@@ -403,4 +402,55 @@ USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-versi
 ```
 cd "$SOLEIL_DIR"/src
 make
+```
+
+Setup (Lassen/Sierra @ LLNL)
+============================
+
+### Add to shell startup
+
+Install Legion and Soleil-X on the `/usr/workspace` filesystem; your home directory has a low quota.
+
+```
+# Module loads
+module load gcc/7.3.1
+module load cuda/9.2.148
+# Build config
+export CC=gcc
+export CXX=g++
+export CONDUIT=ibv
+# Path setup
+export LEGION_DIR=???
+export HDF_ROOT="$LEGION_DIR"/language/hdf/install
+export SOLEIL_DIR=???
+export SCRATCH=/p/gpfs1/`whoami`
+# CUDA config
+export CUDA_HOME=/usr/tce/packages/cuda/cuda-9.2.148
+export CUDA="$CUDA_HOME"
+export GPU_ARCH=volta
+```
+
+### Download software
+
+```
+git clone https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
+git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
+```
+
+### Install Legion
+
+We need to go through the `lalloc` utility script to build on a compute node.
+
+```
+cd "$LEGION_DIR"/language
+CC_FLAGS='-DMAX_NUM_NODES=4096' TERRA_USE_PUC_LUA=1 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 lalloc 1 -W 720 scripts/setup_env.py --llvm-version 38 --terra-branch 'puc_lua_master'
+```
+
+### Compile Soleil-X
+
+Soleil-X must similarly be built on a compute node.
+
+```
+cd "$SOLEIL_DIR"/src
+lalloc 1 -W 720 make
 ```

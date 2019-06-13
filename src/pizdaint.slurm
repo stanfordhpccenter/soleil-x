@@ -2,20 +2,15 @@
 #SBATCH --job-name=soleil
 #SBATCH --constraint=gpu
 
+CORES_PER_NODE=12
+RAM_PER_NODE=50000
+GPUS_PER_NODE=1
+FB_PER_GPU=15000
 source "$SOLEIL_DIR"/src/jobscript_shared.sh
 
-GPU_OPTS=
-if [[ "$USE_CUDA" == 1 ]]; then
-    GPU_OPTS="-ll:gpu 1 -ll:fsize 15000"
-fi
-
-srun -N "$NUM_RANKS" -n "$NUM_RANKS" \
+srun -n "$NUM_RANKS" --ntasks-per-node="$RANKS_PER_NODE" --cpus-per-task="$CORES_PER_RANK" \
     --export=ALL \
-    "$EXECUTABLE" $ARGS \
-    -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr 11 \
-    $GPU_OPTS -ll:dma 2 -ll:ahandlers 2 \
-    -ll:csize 58000 \
-    -ll:stacksize 8 -ll:ostack 8 -lg:sched -1
+    $COMMAND
 
 # Resources:
 # 12 cores per node

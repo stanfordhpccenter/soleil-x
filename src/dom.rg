@@ -12,7 +12,7 @@ return function(MAX_ANGLES_PER_QUAD, Point_columns, SCHEMA) local MODULE = {}
 
 local C = regentlib.c
 local MAPPER = terralib.includec("soleil_mapper.h")
-local UTIL = require 'util'
+local UTIL = require 'util-desugared'
 
 local fabs = regentlib.fabs(double)
 local max = regentlib.fmax
@@ -128,7 +128,7 @@ local angles = UTIL.generate(8, function()
   return regentlib.newsymbol(region(ispace(int1d), Angle_columns))
 end)
 
-local -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+local __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task initialize_angles([angles],
                        config : SCHEMA.Config)
 where
@@ -204,7 +204,7 @@ do
   regentlib.assert(normalExists[5], 'Normal missing for wall zHi')
 end
 
-local __demand(__cuda) -- MANUALLY PARALLELIZED
+local __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task initialize_points(points : region(ispace(int3d), Point_columns))
 where
   writes(points.{centerCoordinates, cellWidth, G, S})
@@ -230,7 +230,7 @@ end
 -- * Split the 1d index point s into its 4 coordinates m,x,y,z.
 -- * Follow the s3d_to_p field.
 
-local -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+local -- NOT LEAF, MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task cache_grid_translation(grid_map : region(ispace(int3d), GridMap_columns),
                             sub_point_offsets : region(ispace(int1d), bool),
                             diagonals : ispace(int1d))
@@ -244,13 +244,13 @@ do
     grid_map.bounds.lo.x == 0 and
     grid_map.bounds.lo.y == 0 and
     grid_map.bounds.lo.z == 0 and
-    int(sub_point_offsets.bounds.lo) == 0 and
-    int(sub_point_offsets.bounds.hi + 1) == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz and
-    int(diagonals.bounds.lo) == 0 and
-    int(diagonals.bounds.hi) == (Tx-1)+(Ty-1)+(Tz-1),
+    int64(sub_point_offsets.bounds.lo) == 0 and
+    int64(sub_point_offsets.bounds.hi + 1) == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz and
+    int64(diagonals.bounds.lo) == 0 and
+    int64(diagonals.bounds.hi) == (Tx-1)+(Ty-1)+(Tz-1),
     'Internal error')
   var coloring = regentlib.c.legion_domain_point_coloring_create()
-  var rect_start = 0
+  var rect_start = int64(0)
   -- Start one-before the first grid-order index
   var grid = int3d{-1,0,0}
   for d = 0, (Tx-1)+(Ty-1)+(Tz-1)+1 do
@@ -299,7 +299,7 @@ do
   regentlib.assert(grid.x == Tx-1 and
                    grid.y == Ty-1 and
                    grid.z == Tz-1 and
-                   rect_start == int(sub_point_offsets.bounds.hi + 1),
+                   rect_start == int64(sub_point_offsets.bounds.hi + 1),
                    'Internal error')
   -- Construct & return partition of sub-point offsets
   var p = partition(disjoint, sub_point_offsets, coloring, diagonals)
@@ -307,7 +307,7 @@ do
   return p
 end
 
-local __demand(__cuda) -- MANUALLY PARALLELIZED
+local __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task initialize_sub_points(sub_points : region(ispace(int1d), SubPoint_columns))
 where
   writes(sub_points.I)
@@ -321,7 +321,7 @@ end
 -- 'x'|'y'|'z', 1..8 -> regentlib.task
 local function mkInitializeFaces(dim, q)
 
-  local __demand(__cuda) -- MANUALLY PARALLELIZED
+  local __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
   task initialize_faces(faces : region(ispace(int2d), Face_columns),
                         config : SCHEMA.Config)
   where
@@ -349,7 +349,7 @@ local initialize_faces = {
   z = UTIL.range(1,8):map(function(q) return mkInitializeFaces('z', q) end),
 }
 
-local __demand(__cuda) -- MANUALLY PARALLELIZED
+local __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task source_term(points : region(ispace(int3d), Point_columns),
                  config : SCHEMA.Config)
 where
@@ -368,7 +368,7 @@ end
 -- 'x'|'y'|'z', 1..8 -> regentlib.task
 local function mkCacheIntensity(dim, q)
 
-  local __demand(__cuda) -- MANUALLY PARALLELIZED
+  local __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
   task cache_intensity(faces : region(ispace(int2d), Face_columns),
                        config : SCHEMA.Config)
   where
@@ -435,7 +435,7 @@ local function mkBound(wall)
     return regentlib.newsymbol(region(ispace(int2d), Face_columns))
   end)
 
-  local __demand(__cuda) -- MANUALLY PARALLELIZED
+  local __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
   task bound([faces],
              [angles],
              config : SCHEMA.Config)
@@ -500,7 +500,7 @@ local function mkBound(wall)
             if fromCell[0] <= a and a <= uptoCell[0] and
                fromCell[1] <= b and b <= uptoCell[1] and
                [isWallNormal(wall, rexpr [angles[q]][m] end)] then
-              I += incidentI
+              I += incidentI / [angles[q]][m].w
             end
             [faces[q]][idx].I[m] = I
           end
@@ -530,7 +530,7 @@ local bound_z_hi = mkBound(6)
 -- 1..8 -> regentlib.task
 local function mkSweep(q)
 
-  local __demand(__cuda) -- MANUALLY PARALLELIZED
+  local __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
   task sweep(points : region(ispace(int3d), Point_columns),
              sub_points : region(ispace(int1d), SubPoint_columns),
              grid_map : region(ispace(int3d), GridMap_columns),
@@ -550,13 +550,13 @@ local function mkSweep(q)
     var Ty = points.bounds.hi.y - points.bounds.lo.y + 1
     var Tz = points.bounds.hi.z - points.bounds.lo.z + 1
     regentlib.assert(
-      int(sub_points.bounds.hi - sub_points.bounds.lo + 1)
+      int64(sub_points.bounds.hi - sub_points.bounds.lo + 1)
       == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz and
       grid_map.bounds.lo.x == 0 and grid_map.bounds.hi.x + 1 == Tx and
       grid_map.bounds.lo.y == 0 and grid_map.bounds.hi.y + 1 == Ty and
       grid_map.bounds.lo.z == 0 and grid_map.bounds.hi.z + 1 == Tz and
-      int(sub_point_offsets.bounds.lo) == 0 and
-      int(sub_point_offsets.bounds.hi + 1) == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz and
+      int64(sub_point_offsets.bounds.lo) == 0 and
+      int64(sub_point_offsets.bounds.hi + 1) == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz and
       x_faces.bounds.hi.x - x_faces.bounds.lo.x + 1 == Ty and
       x_faces.bounds.hi.y - x_faces.bounds.lo.y + 1 == Tz and
       y_faces.bounds.hi.x - y_faces.bounds.lo.x + 1 == Tx and
@@ -565,13 +565,13 @@ local function mkSweep(q)
       z_faces.bounds.hi.y - z_faces.bounds.lo.y + 1 == Ty,
       'Internal error')
     var num_angles = config.Radiation.u.DOM.angles
-    var res = 0.0
+    var acc = 0.0
     -- Launch in order of intra-tile diagonals
-    for d = int(diagonals.bounds.lo), int(diagonals.bounds.hi+1) do
+    for d = int64(diagonals.bounds.lo), int64(diagonals.bounds.hi+1) do
       __demand(__openmp)
       for s1d_off in p_sub_point_offsets[d] do
         -- Compute sub-point index, translate to point index
-        var m = int(s1d_off) % MAX_ANGLES_PER_QUAD
+        var m = int64(s1d_off) % MAX_ANGLES_PER_QUAD
         if m < quadrantSize(q, num_angles) then
           var s3d_off = int3d{s1d_off / MAX_ANGLES_PER_QUAD % Tx,
                               s1d_off / MAX_ANGLES_PER_QUAD / Tx % Ty,
@@ -605,7 +605,7 @@ local function mkSweep(q)
                       + fabs(angles[m].eta) * dAy/GAMMA
                       + fabs(angles[m].mu)  * dAz/GAMMA)
           if newI > 0.0 then
-            res += pow(newI-oldI,2) / pow(newI,2)
+            acc += pow(newI-oldI,2) / pow(newI,2)
           end
           sub_points[s1d].I = newI
           -- Compute intensities on downwind faces
@@ -615,7 +615,7 @@ local function mkSweep(q)
         end
       end
     end
-    return res
+    return acc
   end
 
   local name = 'sweep_'..tostring(q)
@@ -631,7 +631,7 @@ local sub_points = UTIL.generate(8, function()
   return regentlib.newsymbol(region(ispace(int1d), SubPoint_columns))
 end)
 
-local __demand(__cuda) -- MANUALLY PARALLELIZED
+local __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task reduce_intensity(points : region(ispace(int3d), Point_columns),
                       [sub_points],
                       grid_map : region(ispace(int3d), GridMap_columns),
@@ -657,7 +657,7 @@ do
     'Internal error');
   @ESCAPE for q = 1, 8 do @EMIT
     regentlib.assert(
-      int([sub_points[q]].bounds.hi - [sub_points[q]].bounds.lo + 1)
+      int64([sub_points[q]].bounds.hi - [sub_points[q]].bounds.lo + 1)
       == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz,
       'Internal error')
   @TIME end @EPACSE
@@ -760,7 +760,7 @@ function MODULE.mkInstance() local INSTANCE = {}
     -- Regions for sub-points
     -- Conceptually int4d, but rolled into 1 dimension to make CUDA code
     -- generation easier. The effective storage order is Z > Y > X > M.
-    var is_sub_points = ispace(int1d, MAX_ANGLES_PER_QUAD*Nx*Ny*Nz);
+    var is_sub_points = ispace(int1d, int64(MAX_ANGLES_PER_QUAD)*Nx*Ny*Nz);
     @ESCAPE for q = 1, 8 do @EMIT
       var [sub_points[q]] = region(is_sub_points, SubPoint_columns);
       [UTIL.emitRegionTagAttach(sub_points[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
@@ -791,7 +791,7 @@ function MODULE.mkInstance() local INSTANCE = {}
     @TIME end @EPACSE
 
     -- Regions for intra-tile information
-    var is_sub_point_offsets = ispace(int1d, MAX_ANGLES_PER_QUAD*Tx*Ty*Tz)
+    var is_sub_point_offsets = ispace(int1d, int64(MAX_ANGLES_PER_QUAD)*Tx*Ty*Tz)
     var [sub_point_offsets] = region(is_sub_point_offsets, bool);
     [UTIL.emitRegionTagAttach(sub_point_offsets, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     var is_grid_map = ispace(int3d, {Tx,Ty,Tz})
@@ -804,8 +804,8 @@ function MODULE.mkInstance() local INSTANCE = {}
     -- Partition sub-points
     @ESCAPE for q = 1, 8 do @EMIT
       var [p_sub_points[q]] =
-        [UTIL.mkPartitionEqually(int1d, int3d, SubPoint_columns)]
-        ([sub_points[q]], tiles, 0)
+        [UTIL.mkPartitionByTile(int1d, int3d, SubPoint_columns)]
+        ([sub_points[q]], tiles, 0, int3d{0,0,0})
     @TIME end @EPACSE
 
     -- Partition faces
@@ -814,14 +814,14 @@ function MODULE.mkInstance() local INSTANCE = {}
     var [z_tiles] = ispace(int2d, {ntx,nty    });
     @ESCAPE for q = 1, 8 do @EMIT
       var [p_x_faces[q]] =
-        [UTIL.mkPartitionEqually(int2d, int2d, Face_columns)]
-        ([x_faces[q]], x_tiles, 0, 0)
+        [UTIL.mkPartitionByTile(int2d, int2d, Face_columns)]
+        ([x_faces[q]], x_tiles, int2d{0,0}, int2d{0,0})
       var [p_y_faces[q]] =
-        [UTIL.mkPartitionEqually(int2d, int2d, Face_columns)]
-        ([y_faces[q]], y_tiles, 0, 0)
+        [UTIL.mkPartitionByTile(int2d, int2d, Face_columns)]
+        ([y_faces[q]], y_tiles, int2d{0,0}, int2d{0,0})
       var [p_z_faces[q]] =
-        [UTIL.mkPartitionEqually(int2d, int2d, Face_columns)]
-        ([z_faces[q]], z_tiles, 0, 0)
+        [UTIL.mkPartitionByTile(int2d, int2d, Face_columns)]
+        ([z_faces[q]], z_tiles, int2d{0,0}, int2d{0,0})
     @TIME end @EPACSE
 
     -- Cache intra-tile information
@@ -875,7 +875,7 @@ function MODULE.mkInstance() local INSTANCE = {}
     end
 
     -- Compute until convergence.
-    var res : double = 1.0
+    var res = 1.0
     while res > TOLERANCE do
 
       -- Update the source term.
@@ -931,7 +931,7 @@ function MODULE.mkInstance() local INSTANCE = {}
       end
 
       -- Perform the sweep for computing new intensities.
-      res = 0.0;
+      var acc = 0.0;
       @ESCAPE for q = 1, 8 do @EMIT
         for i = [directions[q][1] and rexpr   0 end or rexpr ntx-1 end],
                 [directions[q][1] and rexpr ntx end or rexpr    -1 end],
@@ -942,7 +942,7 @@ function MODULE.mkInstance() local INSTANCE = {}
             for k = [directions[q][3] and rexpr   0 end or rexpr ntz-1 end],
                     [directions[q][3] and rexpr ntz end or rexpr    -1 end],
                     [directions[q][3] and rexpr   1 end or rexpr    -1 end] do
-              res +=
+              acc +=
                 [sweep[q]](p_points[{i,j,k}],
                            [p_sub_points[q]][{i,j,k}],
                            grid_map,
@@ -959,9 +959,6 @@ function MODULE.mkInstance() local INSTANCE = {}
         end
       @TIME end @EPACSE
 
-      -- Compute the residual.
-      res = sqrt(res/(Nx*Ny*Nz*config.Radiation.u.DOM.angles))
-
       -- Update intensity.
       for c in tiles do
         reduce_intensity(p_points[c],
@@ -970,6 +967,9 @@ function MODULE.mkInstance() local INSTANCE = {}
                          [angles],
                          config)
       end
+
+      -- Compute the residual.
+      res = sqrt(acc/(Nx*Ny*Nz*config.Radiation.u.DOM.angles))
 
     end -- while res > TOLERANCE
 

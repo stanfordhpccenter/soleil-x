@@ -84,7 +84,7 @@
             "sutherlandSRef" : -1.0,
             "initCase" : "Uniform",
             "restartDir" : "",
-            "initParams" : [1.0, 104040.0, 1.0, 0.0, 0.0],
+            "initParams" : [1.0, 104040.0, 1.0, 0.0, 0.0, -1.0],
             "bodyForce" : [1.2, 0.0, 0.0],
             "turbForcing" : { "type" : "OFF" }
         },
@@ -105,7 +105,8 @@
             "escapeRatioPerDir" : 0.0,
             "collisions" : false,
             "feeding" : { "type" : "OFF" },
-            "staggerFactor" : 1
+            "staggerFactor" : 1,
+            "parcelSize" : 1
         },
 
         "Radiation" : {
@@ -201,7 +202,7 @@
             "sutherlandSRef" : -1.0,
             "initCase" : "Uniform",
             "restartDir" : "",
-            "initParams" : [1.0, 104040.0, 1.0, 0.0, 0.0],
+            "initParams" : [1.0, 104040.0, 1.0, 0.0, 0.0, -1.0],
             "bodyForce" : [0.0, 0.0, 0.0],
             "turbForcing" : { "type" : "OFF" }
         },
@@ -225,7 +226,8 @@
                 "type" : "Incoming",
                 "addedVelocity" : [0.0,0.0,0.0]
             },
-            "staggerFactor" : 1
+            "staggerFactor" : 1,
+            "parcelSize" : 1
         },
 
         "Radiation" : {
@@ -246,5 +248,6 @@
         "fromCell" : [0,1,0],
         "uptoCell" : [0,16,15]
     },
+    "collocateSections" : false,
     "copyEveryTimeSteps" : 1
 }
