@@ -15,9 +15,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument('viz_ready_data_dir',
                     help='directory with the viz ready data')
 # optional
-parser.add_argument('--fluid_xmf_filename', nargs='?', const='out_fluid.xmf', default='out_fluid.xmf', type=str,
+parser.add_argument('--fluid_xmf_filename', nargs='?', const='fluid.xmf', default='fluid.xmf', type=str,
                     help='The fluid xmf file')
-parser.add_argument('--particles_xmf_filename', nargs='?', const='out_particles.xmf', default='out_particles.xmf', type=str,
+parser.add_argument('--particles_xmf_filename', nargs='?', const='particles.xmf', default='particles.xmf', type=str,
                     help='The partilces xmf file')
 parser.add_argument('--image_size_x', nargs='?', const=1280, default=1280, type=int,
                     help='Sets the number of horizontal pixels in the produced images')
@@ -66,13 +66,13 @@ def crop_x_section(input_source, clip_start_point, clip_stop_point):
 
   clip1 = Clip(Input=input_source)
   clip1.ClipType = 'Plane'
-  clip1.ClipType.Origin = clip_start_point 
+  clip1.ClipType.Origin = clip_start_point
   clip1.ClipType.Normal = [-1.0, 0.0, 0.0]
   return clip1
 
   clip2 = Clip(Input=clip1)
   clip2.ClipType = 'Plane'
-  clip2.ClipType.Origin = clip_stop_point 
+  clip2.ClipType.Origin = clip_stop_point
   clip2.ClipType.Normal = [1.0, 0.0, 0.0]
 
   return clip2
@@ -82,8 +82,8 @@ def crop_x_section(input_source, clip_start_point, clip_stop_point):
 clip_start_point = [0.158, 0.02, 0.02]  # a little before the end of the domain
 clip_stop_point  = [0.162, 0.02, 0.02]  # a little after the end of the domain
 
-fluid_clip     = crop_x_section(fluid,     clip_start_point, clip_stop_point)  
-particles_clip = crop_x_section(particles, clip_start_point, clip_stop_point)  
+fluid_clip     = crop_x_section(fluid,     clip_start_point, clip_stop_point)
+particles_clip = crop_x_section(particles, clip_start_point, clip_stop_point)
 
 ###############################################################################
 # Plot the data vs. time
@@ -110,8 +110,8 @@ paraview_fluid_variable_names = {'Temperature'        : 'temperature',
                                  'Velocity_Magnitude' : 'velocity (Magnitude)',
                                  'u'                  : 'velocity (0)',
                                  'v'                  : 'velocity (1)',
-                                 'w'                  : 'velocity (2)',        
-                                 'rho'                : 'rho',                 
+                                 'w'                  : 'velocity (2)',
+                                 'rho'                : 'rho',
                                  'Pressure'           : 'pressure'}
 
 paraview_particle_variable_names = {'Temperature'        : 'temperature',
@@ -141,22 +141,22 @@ def plot_stats_vs_time(input_source, selection, variable_name, paraview_variable
 
   # Properties modified on quartileChartView1
   quartileChartView1.ChartTitle = '{} in outlet clip vs Time'.format(variable_name)
-  
+
   # Properties modified on quartileChartView1
   quartileChartView1.LeftAxisTitle = '{}'.format(variable_name)
-  
+
   # Properties modified on quartileChartView1
   quartileChartView1.BottomAxisTitle = 'Restart File Number'
-  
+
   # Properties modified on quartileChartView1
   quartileChartView1.ShowLegend = 1
-  
+
   # Properties modified on quartileChartView1
   quartileChartView1.LegendLocation = 'TopLeft'
-  
+
   # update the view to ensure updated data information
   quartileChartView1.Update()
-  
+
   return quartileChartView1
 
 
@@ -166,21 +166,21 @@ def plot_stats_vs_time(input_source, selection, variable_name, paraview_variable
 query_string = 'id >= -1'
 # select the points for the particles
 points_selection = SelectionQuerySource()
-points_selection.QueryString = query_string 
+points_selection.QueryString = query_string
 points_selection.FieldType = 'POINT'
 # select the cells for the cells
 cells_selection = SelectionQuerySource()
-cells_selection.QueryString = query_string 
+cells_selection.QueryString = query_string
 cells_selection.FieldType = 'CELL'
 
 
-for variable_name in fluid_variable_names: 
+for variable_name in fluid_variable_names:
 
    chartView = plot_stats_vs_time(fluid_clip,
                                   cells_selection,
                                   variable_name,
                                   paraview_fluid_variable_names[variable_name])
-  
+
    # make the view the same size as the screen shot that you want to take
    chartView.ViewSize = [view_size_x,view_size_y]
    chartView.Update()
@@ -194,13 +194,13 @@ for variable_name in fluid_variable_names:
    print('Saved file: {}'.format(screenshot_filename))
 
 
-for variable_name in particle_variable_names: 
+for variable_name in particle_variable_names:
 
    chartView = plot_stats_vs_time(particles_clip,
                                   points_selection,
                                   variable_name,
                                   paraview_particle_variable_names[variable_name])
-  
+
    # make the view the same size as the screen shot that you want to take
    chartView.ViewSize = [view_size_x,view_size_y]
    chartView.Update()
@@ -212,5 +212,3 @@ for variable_name in particle_variable_names:
                   ImageResolution=[view_size_x, view_size_y],
                   CompressionLevel='0')
    print('Saved file: {}'.format(screenshot_filename))
-
-

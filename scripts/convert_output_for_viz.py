@@ -35,7 +35,7 @@ print('#########################################################################
 print('                          Generate fluid viz files ')
 print('##############################################################################')
 
-viz_fluid_command = 'python {} -s {} {} {}'.format(os.path.expandvars('$SOLEIL_DIR/scripts/viz_fluid.py'), 
+viz_fluid_command = 'python {} -s {} {} {}'.format(os.path.expandvars('$SOLEIL_DIR/scripts/viz_fluid.py'),
                                                    args.section,
                                                    args.json_file,
                                                    os.path.join(sample_dir,'fluid*/*.hdf'))
@@ -45,19 +45,19 @@ except subprocess.CalledProcessError as e:
   print("Failed command: {}".format(viz_fluid_command))
   print(e.output)
   sys.exit()
-else:  
+else:
   print("Successfully ran command: {}".format(viz_fluid_command))
   #print("Successfully moved merged fluid hdf file to: {}".format(merged_hdf_data_path))
 
 # Move the generated files to the output directory
-try:  
-    subprocess.check_output('mv out_fluid.xmf out_fluid*.hdf {}'.format(out_dir), shell=True)
+try:
+    subprocess.check_output('mv fluid.xmf fluid*.hdf {}'.format(out_dir), shell=True)
 except subprocess.CalledProcessError as e:
   #print("Failed command: {}".format(viz_fluid_command))
   print("Failed to move fluid xmf and hdf files to: {}".format(out_dir))
   print(e.output)
   sys.exit()
-else:  
+else:
   print("Successfully moved fluid xmf and hdf files to: {}".format(out_dir))
 
 print('')
@@ -74,18 +74,17 @@ except subprocess.CalledProcessError as e:
   print("Failed command: {}".format(viz_particles_command))
   print(e.output)
   sys.exit()
-else:  
+else:
   print("Successfully ran command: {}".format(viz_particles_command))
   #print("Successfully moved merged fluid hdf file to: {}".format(merged_hdf_data_path))
 
 # Move the generated files to the output directory
-try:  
-    subprocess.check_output('mv out_particles.xmf out_particles*.hdf {}'.format(out_dir), shell=True)
+try:
+    subprocess.check_output('mv particles.xmf particles*.hdf {}'.format(out_dir), shell=True)
 except subprocess.CalledProcessError as e:
   #print("Failed command: {}".format(mv_particle_command))
   print("Failed to move particles xmf and hdf files to {}".format(out_dir))
   print(e.output)
   sys.exit()
-else:  
+else:
   print("Successfully moved particles xmf and hdf files to {}".format(out_dir))
-

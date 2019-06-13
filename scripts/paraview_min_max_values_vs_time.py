@@ -1,6 +1,6 @@
 # generated using paraview version 5.6.0
 #
-# To ensure correct image size when batch processing, please search 
+# To ensure correct image size when batch processing, please search
 # for and uncomment the line `# renderView*.ViewSize = [*,*]`
 
 #### import the simple module from the paraview
@@ -18,9 +18,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument('viz_ready_data_dir',
                     help='directory with the viz ready data')
 # optional
-parser.add_argument('--fluid_xmf_filename', nargs='?', const='out_fluid.xmf', default='out_fluid.xmf', type=str,
+parser.add_argument('--fluid_xmf_filename', nargs='?', const='fluid.xmf', default='fluid.xmf', type=str,
                     help='The fluid xmf file')
-parser.add_argument('--particles_xmf_filename', nargs='?', const='out_particles.xmf', default='out_particles.xmf', type=str,
+parser.add_argument('--particles_xmf_filename', nargs='?', const='particles.xmf', default='particles.xmf', type=str,
                     help='The partilces xmf file')
 parser.add_argument('--image_size_x', nargs='?', const=1280, default=1280, type=int,
                     help='Sets the number of horizontal pixels in the produced images')
@@ -100,7 +100,7 @@ fluid_series_label = ['pressure (stats)',     'fluid pressure (stats)',
                       'velocity (0) (stats)', 'fluid velocity (0) (stats)',
                       'velocity (1) (stats)', 'fluid velocity (1) (stats)',
                       'velocity (2) (stats)', 'fluid velocity (2) (stats)',
-                      'velocity (Magnitude) (stats)', 'fluid velocity (Magnitude) (stats)', 
+                      'velocity (Magnitude) (stats)', 'fluid velocity (Magnitude) (stats)',
                       'vtkOriginalCellIds (stats)', 'vtkOriginalCellIds (stats)', 'N (stats)', 'N (stats)', 'Time (stats)', 'Time (stats)', 'vtkValidPointMask (stats)', 'vtkValidPointMask (stats)']
 
 particles_series_label = ['diameter (stats)',     'particle diameter (stats)',
@@ -143,7 +143,7 @@ label_names = {'temperature'          : 'Temperature',
                'velocity (2)'         : 'w',
                'rho'                  : 'rho',
                'pressure'             : 'Pressure'}
-     
+
 
 for variable_name in fluid_variable_names:
   for query_operation in query_operations:
@@ -152,12 +152,12 @@ for variable_name in fluid_variable_names:
 
     # Get the fluid selection
     fluid_selection = SelectionQuerySource()
-    fluid_selection.QueryString = query_string 
+    fluid_selection.QueryString = query_string
 
     # Create a new 'Quartile Chart View'
     quartileChartView1 = CreateView('QuartileChartView')
     quartileChartView1.ViewSize = [view_size_x,view_size_y]
-    
+
     # Plot the fluid selection over time
     plotSelectionOverTime1 = PlotSelectionOverTime(Input=out_fluidxmf,
                                                    Selection=fluid_selection)
@@ -167,15 +167,15 @@ for variable_name in fluid_variable_names:
     plotSelectionOverTime1Display.UseIndexForXAxis = 0
     plotSelectionOverTime1Display.XArrayName = 'Time'
     plotSelectionOverTime1Display.SeriesVisibility = [variable_name + ' (stats)']
-    plotSelectionOverTime1Display.SeriesLabel = fluid_series_label 
-    plotSelectionOverTime1Display.SeriesLineStyle = series_line_style 
-    plotSelectionOverTime1Display.SeriesMarkerStyle = series_marker_style 
+    plotSelectionOverTime1Display.SeriesLabel = fluid_series_label
+    plotSelectionOverTime1Display.SeriesLineStyle = series_line_style
+    plotSelectionOverTime1Display.SeriesMarkerStyle = series_marker_style
 
     # Get the partilce selection if needed
-    if variable_name in particle_variable_names: 
+    if variable_name in particle_variable_names:
       particle_selection = SelectionQuerySource()
-      particle_selection.QueryString = query_string 
-      particle_selection.FieldType = 'POINT' 
+      particle_selection.QueryString = query_string
+      particle_selection.FieldType = 'POINT'
 
       plotSelectionOverTime2 = PlotSelectionOverTime(Input=out_particlesxmf,
                                                      Selection=particle_selection)
@@ -185,25 +185,25 @@ for variable_name in fluid_variable_names:
       plotSelectionOverTime2Display.UseIndexForXAxis = 0
       plotSelectionOverTime2Display.XArrayName = 'Time'
       plotSelectionOverTime2Display.SeriesVisibility = [variable_name + ' (stats)']
-      plotSelectionOverTime2Display.SeriesLabel = particles_series_label 
+      plotSelectionOverTime2Display.SeriesLabel = particles_series_label
       plotSelectionOverTime2Display.SeriesLineStyle = series_line_style
       plotSelectionOverTime2Display.SeriesMarkerStyle = series_marker_style
 
     # Properties modified on quartileChartView1
     quartileChartView1.ChartTitle = '{} {} vs Time'.format(query_operation, label_names[variable_name])
-    
+
     # Properties modified on quartileChartView1
     quartileChartView1.LeftAxisTitle = '{} {}'.format(query_operation, label_names[variable_name])
-    
+
     # Properties modified on quartileChartView1
     quartileChartView1.BottomAxisTitle = 'Restart File Number'
-    
+
     # Properties modified on quartileChartView1
     quartileChartView1.ShowLegend = 1
-    
+
     # Properties modified on quartileChartView1
     quartileChartView1.LegendLocation = 'TopLeft'
-    
+
     # update the view to ensure updated data information
     quartileChartView1.Update()
 
@@ -214,5 +214,3 @@ for variable_name in fluid_variable_names:
                    ImageResolution=[view_size_x, view_size_y],
                    CompressionLevel='0')
     print('Saved file: {}'.format(screenshot_name))
-   
-

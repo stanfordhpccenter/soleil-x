@@ -1,6 +1,6 @@
 # trace generated using paraview version 5.6.0
 #
-# To ensure correct image size when batch processing, please search 
+# To ensure correct image size when batch processing, please search
 # for and uncomment the line `# renderView*.ViewSize = [*,*]`
 
 #### import the simple module from the paraview
@@ -13,8 +13,8 @@ paraview.simple._DisableFirstRenderCameraReset()
 ###############################################################################
 # Get from extents in the future:
 
-fluid_xmf_filename     = '/home/lalo/Desktop/debug-crash-data/lf32/job0/sample1/viz_ready_output/out_fluid.xmf'
-particles_xmf_filename = '/home/lalo/Desktop/debug-crash-data/lf32/job0/sample1/viz_ready_output/out_particles.xmf'
+fluid_xmf_filename     = '/home/lalo/Desktop/debug-crash-data/lf32/job0/sample1/viz_ready_output/fluid.xmf'
+particles_xmf_filename = '/home/lalo/Desktop/debug-crash-data/lf32/job0/sample1/viz_ready_output/particles.xmf'
 
 channel_center_point = [0.08, 0.02, 0.02]
 z_hat = [0.0, 0.0, 1.0]
@@ -33,8 +33,8 @@ z_hat = [0.0, 0.0, 1.0]
 #out_particlesxmf.GridStatus = out_particlesxmf.GetPropertyValue('GridInfo').GetData()
 
 # Find and name the sources if the files were read before this scrit was run
-out_fluidxmf     = FindSource('out_fluid.xmf')
-out_particlesxmf = FindSource('out_particles.xmf')
+out_fluidxmf     = FindSource('fluid.xmf')
+out_particlesxmf = FindSource('particles.xmf')
 
 
 RenameSource('fluid', out_fluidxmf)
@@ -58,7 +58,7 @@ RenameLayout('Main Layout', layout1)
 
 
 ###############################################################################
-# Set up animation 
+# Set up animation
 ###############################################################################
 
 # get animation scene
@@ -74,7 +74,7 @@ animationScene1.Loop = 1
 
 
 ###############################################################################
-# Set up view of raw fluid data  
+# Set up view of raw fluid data
 ###############################################################################
 
 ## show data in view
@@ -126,7 +126,7 @@ z_mid_slice_Display = Show(z_mid_slice, renderView1)
 # get color transfer function/color map for 'temperature'
 temperatureLUT = GetColorTransferFunction('temperature')
 temperatureLUT.RGBPoints = [0.0, 0.231373, 0.298039, 0.752941,
-                            0.5, 0.865003, 0.865003, 0.865003, 
+                            0.5, 0.865003, 0.865003, 0.865003,
                             1.0, 0.705882, 0.0156863, 0.14902]
 temperatureLUT.ScalarRangeInitialized = 1.0
 # rescale color and/or opacity maps used to include current data range (of the last time step)
@@ -161,7 +161,7 @@ y_mid_slice_Display = Show(y_mid_slice, renderView1)
 # get color transfer function/color map for 'temperature'
 temperatureLUT = GetColorTransferFunction('temperature')
 temperatureLUT.RGBPoints = [0.0, 0.231373, 0.298039, 0.752941,
-                            0.5, 0.865003, 0.865003, 0.865003, 
+                            0.5, 0.865003, 0.865003, 0.865003,
                             1.0, 0.705882, 0.0156863, 0.14902]
 temperatureLUT.ScalarRangeInitialized = 1.0
 # rescale color and/or opacity maps used to include current data range (of the last time step)
@@ -546,7 +546,7 @@ quartileChartView1.Update()
 
 max_particle_temperature_selection = SelectionQuerySource()
 max_particle_temperature_selection.QueryString = 'temperature  == max(temperature)'
-max_particle_temperature_selection.FieldType = 'POINT' 
+max_particle_temperature_selection.FieldType = 'POINT'
 
 plotSelectionOverTime2 = PlotSelectionOverTime(Input=out_particlesxmf,
                                                Selection=max_particle_temperature_selection)
@@ -572,7 +572,7 @@ plotSelectionOverTime2Display.SeriesPlotCorner = ['diameter (stats)', '0', 'temp
 plotSelectionOverTime2Display.SeriesLabelPrefix = ''
 plotSelectionOverTime2Display.SeriesLineStyle = ['diameter (stats)',     '1',
                                                  'temperature (stats)',  '1',
-                                                 'velocity (0) (stats)', '1', 
+                                                 'velocity (0) (stats)', '1',
                                                  'velocity (1) (stats)', '1',
                                                  'velocity (2) (stats)', '1',
                                                  'velocity (Magnitude) (stats)', '1', 'vtkOriginalPointIds (stats)', '1', 'X (stats)', '1', 'Y (stats)', '1', 'Z (stats)', '1', 'N (stats)', '1', 'Time (stats)', '1', 'vtkValidPointMask (stats)', '1']
@@ -658,5 +658,3 @@ SetActiveView(renderView1)
 #### uncomment the following to render all views
 RenderAllViews()
 # alternatively, if you want to write images, you can use SaveScreenshot(...).
-
-

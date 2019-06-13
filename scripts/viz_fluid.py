@@ -56,7 +56,6 @@ nx = None
 ny = None
 nz = None
 
-hdf_out_basename = 'out_fluid_'
 for (f, i) in zip(args.hdf_file, itertools.count()):
     hdf_in = h5py.File(f, 'r')
     # Extract domain size.
@@ -68,7 +67,7 @@ for (f, i) in zip(args.hdf_file, itertools.count()):
         assert nx == hdf_in['pressure'].shape[0]
         assert ny == hdf_in['pressure'].shape[1]
         assert nz == hdf_in['pressure'].shape[2]
-    hdf_out = h5py.File(hdf_out_basename+'%010d.hdf' % i, 'w')
+    hdf_out = h5py.File('out%010d.hdf' % i, 'w')
     # Copy pressure over.
     hdf_out['pressure'] = hdf_in['pressure'][:]
     # Copy rho over.
@@ -104,7 +103,7 @@ with open(args.json_file) as json_in:
 
 # NOTE: The XMF format expects grid dimensions in points, not cells, so we have
 # to add 1 on each dimension.
-with open('out_fluid.xmf', 'w') as xmf_out:
+with open('out.xmf', 'w') as xmf_out:
     xmf_out.write(XMF_HEADER)
     for i in range(len(args.hdf_file)):
         xmf_out.write(XMF_BODY
@@ -113,5 +112,5 @@ with open('out_fluid.xmf', 'w') as xmf_out:
                       .replace('@CELLS', '%s %s %s' % (nx,ny,nz))
                       .replace('@GRID_ORIGIN', '%s %s %s' % (ox,oy,oz))
                       .replace('@GRID_SPACING', '%s %s %s' % (dx,dy,dz))
-                      .replace('@HDF_FILE', hdf_out_basename+'%010d.hdf' % i))
+                      .replace('@HDF_FILE', 'out%010d.hdf' % i))
     xmf_out.write(XMF_FOOTER)
