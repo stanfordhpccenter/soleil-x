@@ -43,7 +43,10 @@
             0.0,
             0.0
         ],
-        "yNum": 256
+        "yNum": 256,
+        "xType" : "Uniform",
+        "yType" : "Uniform",
+        "zType" : "Uniform"
     },
     "IO": {
         "probes": [],

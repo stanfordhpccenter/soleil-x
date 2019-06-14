@@ -190,7 +190,10 @@
                 "zNum": 32,
                 "zWidth": 0.04,
                 "xWidth": 0.04,
-                "xNum": 32
+                "xNum": 32,
+                "xType" : "Uniform",
+                "yType" : "Uniform",
+                "zType" : "Uniform"
             },
             "IO": {
                 "restartEveryTimeSteps": 10000,
@@ -446,7 +449,10 @@
                 "zNum": 32,
                 "zWidth": 0.04,
                 "xWidth": 0.16,
-                "xNum": 128
+                "xNum": 128,
+                "xType" : "Uniform",
+                "yType" : "Uniform",
+                "zType" : "Uniform"
             },
             "IO": {
                 "restartEveryTimeSteps": 10000,

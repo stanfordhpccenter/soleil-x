@@ -14,7 +14,10 @@
         "origin" : [0.0, 0.0, 0.0],
         "xWidth" : 3.141592654,
         "yWidth" : 2.0,
-        "zWidth" : 1.047197551
+        "zWidth" : 1.047197551,
+        "xType" : "Uniform",
+        "yType" : "Uniform",
+        "zType" : "Uniform"
     },
 
     "BC" : {
