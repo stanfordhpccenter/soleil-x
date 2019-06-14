@@ -1903,23 +1903,52 @@ do
   return z_max
 end
 
--- TODO: The parallelizer cannot currently handle this task.
-__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
-task Flow_FindCellOrigin(Fluid : region(ispace(int3d), Fluid_columns),
-                         cell : int[3])
+__demand(__leaf, __parallel, __cuda)
+task Flow_FindCellOriginX(Fluid : region(ispace(int3d), Fluid_columns),
+                          cell : int[3])
 where
   reads(Fluid.{centerCoordinates, cellWidth})
 do
-  var origin = array(0.0, 0.0, 0.0)
+  var x_origin = 0.0
   __demand(__openmp)
   for c in Fluid do
     if c.x == cell[0] and c.y == cell[1] and c.z == cell[2] then
-      [UTIL.emitArrayReduce(3, '+',
-         origin,
-         rexpr vv_sub(Fluid[c].centerCoordinates, vs_mul(Fluid[c].cellWidth, 0.5)) end)];
+      x_origin += Fluid[c].centerCoordinates[0] - 0.5*Fluid[c].cellWidth[0]
     end
   end
-  return origin
+  return x_origin
+end
+
+__demand(__leaf, __parallel, __cuda)
+task Flow_FindCellOriginY(Fluid : region(ispace(int3d), Fluid_columns),
+                          cell : int[3])
+where
+  reads(Fluid.{centerCoordinates, cellWidth})
+do
+  var y_origin = 0.0
+  __demand(__openmp)
+  for c in Fluid do
+    if c.x == cell[0] and c.y == cell[1] and c.z == cell[2] then
+      y_origin += Fluid[c].centerCoordinates[1] - 0.5*Fluid[c].cellWidth[1]
+    end
+  end
+  return y_origin
+end
+
+__demand(__leaf, __parallel, __cuda)
+task Flow_FindCellOriginZ(Fluid : region(ispace(int3d), Fluid_columns),
+                          cell : int[3])
+where
+  reads(Fluid.{centerCoordinates, cellWidth})
+do
+  var z_origin = 0.0
+  __demand(__openmp)
+  for c in Fluid do
+    if c.x == cell[0] and c.y == cell[1] and c.z == cell[2] then
+      z_origin += Fluid[c].centerCoordinates[2] - 0.5*Fluid[c].cellWidth[2]
+    end
+  end
+  return z_origin
 end
 
 __demand(__leaf, __parallel, __cuda)
@@ -6162,9 +6191,14 @@ local function mkInstance() local INSTANCE = {}
 
   function INSTANCE.InitParticleCopyOrigin(fromCell) return rquote
 
-    for c in tiles do
-      Grid.particleCopyOrigin += Flow_FindCellOrigin(p_Fluid[c], fromCell)
-    end
+    var copyOriginX = 0.0
+    copyOriginX += Flow_FindCellOriginX(Fluid, fromCell)
+    var copyOriginY = 0.0
+    copyOriginY += Flow_FindCellOriginY(Fluid, fromCell)
+    var copyOriginZ = 0.0
+    copyOriginZ += Flow_FindCellOriginZ(Fluid, fromCell)
+
+    Grid.particleCopyOrigin = array(copyOriginX, copyOriginY, copyOriginZ)
 
   end end -- InitParticleCopyOrigin
 
