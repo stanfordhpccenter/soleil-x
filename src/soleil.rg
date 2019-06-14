@@ -1470,6 +1470,7 @@ do
                        Tile_yOrigin + Tile_yWidth * ry,
                        Tile_zOrigin + Tile_zWidth * rz )
       var c = locate(pos,
+                     config.Grid.xType, config.Grid.yType, config.Grid.zType,
                      Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth,
                      Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth,
                      Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
@@ -1666,19 +1667,21 @@ do
   end
 end
 
-__demand(__leaf, __parallel, __cuda)
+-- NOTE: It is safe to not pass the ghost regions to this task, because we
+-- always group ghost cells with their neighboring interior cells.
+__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Flow_InitializeGeometry(Fluid : region(ispace(int3d), Fluid_columns),
                              Grid_xType : SCHEMA.GridType, Grid_yType : SCHEMA.GridType, Grid_zType : SCHEMA.GridType,
                              Grid_xBnum : int32, Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
                              Grid_yBnum : int32, Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
                              Grid_zBnum : int32, Grid_zNum : int32, Grid_zOrigin : double, Grid_zWidth : double)
 where
-  reads writes(Fluid.centerCoordinates),
-  reads writes(Fluid.cellWidth)
+  reads writes(Fluid.{centerCoordinates, cellWidth})
 do
   -- Find cell center coordinates and cell width of interior cells
   __demand(__openmp)
   for cell in Fluid do
+
     var xNegGhost = is_xNegGhost(cell, Grid_xBnum)
     var xPosGhost = is_xPosGhost(cell, Grid_xBnum, Grid_xNum)
     var yNegGhost = is_yNegGhost(cell, Grid_yBnum)
@@ -1900,9 +1903,10 @@ do
   return z_max
 end
 
-__demand(__leaf, __parallel, __cuda)
-task Fluid_FindCellOrigin(Fluid : region(ispace(int3d), Fluid_columns),
-                          cell : int[3])
+-- TODO: The parallelizer cannot currently handle this task.
+__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
+task Flow_FindCellOrigin(Fluid : region(ispace(int3d), Fluid_columns),
+                         cell : int[3])
 where
   reads(Fluid.{centerCoordinates, cellWidth})
 do
@@ -1910,7 +1914,9 @@ do
   __demand(__openmp)
   for c in Fluid do
     if c.x == cell[0] and c.y == cell[1] and c.z == cell[2] then
-      origin += vv_sub(Fluid[c].centerCoordinates, vs_mul(0.5, Fluid[c].cellWidth))
+      [UTIL.emitArrayReduce(3, '+',
+         origin,
+         rexpr vv_sub(Fluid[c].centerCoordinates, vs_mul(Fluid[c].cellWidth, 0.5)) end)];
     end
   end
   return origin
@@ -3793,7 +3799,7 @@ do
       Fluid[c].rho_t += (-(Fluid[c].rhoFluxZ-Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoFluxZ))/zCellWidth;
       [UTIL.emitArrayReduce(3, '+',
          rexpr Fluid[c].rhoVelocity_t end,
-         rexpr vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxZ, Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoVelocityFluxZ), double((-1))), Grid_zCellWidth) end)];
+         rexpr vs_div(vs_mul(vv_sub(Fluid[c].rhoVelocityFluxZ, Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoVelocityFluxZ), double((-1))), zCellWidth) end)];
       Fluid[c].rhoEnergy_t += (-(Fluid[c].rhoEnergyFluxZ-Fluid[(c+{0, 0, -1})%Fluid.bounds].rhoEnergyFluxZ))/zCellWidth
     end
   end
@@ -5607,6 +5613,8 @@ local function mkInstance() local INSTANCE = {}
     var [Grid.yRealMax] = config.Grid.origin[1] + config.Grid.yWidth
     var [Grid.zRealMax] = config.Grid.origin[2] + config.Grid.zWidth
 
+    var [Grid.particleCopyOrigin] = array(0.0, 0.0, 0.0)
+
     var [numTiles] = config.Mapping.tiles[0] * config.Mapping.tiles[1] * config.Mapping.tiles[2]
 
     var [Integrator.exitCond] = true
@@ -6002,11 +6010,13 @@ local function mkInstance() local INSTANCE = {}
                               config.Radiation.u.DOM.zNum)
     end
     Flow_InitializeCell(Fluid)
-    Flow_InitializeGeometry(Fluid,
-                            config.Grid.xType, config.Grid.yType, config.Grid.zType,
-                            Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
-                            Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
-                            Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+    for c in tiles do
+      Flow_InitializeGeometry(p_Fluid[c],
+                              config.Grid.xType, config.Grid.yType, config.Grid.zType,
+                              Grid.xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
+                              Grid.yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
+                              Grid.zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+    end
     Grid.volume += Flow_CalculateInteriorVolume(Fluid,
                                                 Grid.xBnum, config.Grid.xNum,
                                                 Grid.yBnum, config.Grid.yNum,
@@ -6152,8 +6162,9 @@ local function mkInstance() local INSTANCE = {}
 
   function INSTANCE.InitParticleCopyOrigin(fromCell) return rquote
 
-    var [Grid.particleCopyOrigin] = array(0.0, 0.0, 0.0)
-    Grid.particleCopyOrigin += Flow_FindCellOrigin(Fluid, fromCell)
+    for c in tiles do
+      Grid.particleCopyOrigin += Flow_FindCellOrigin(p_Fluid[c], fromCell)
+    end
 
   end end -- InitParticleCopyOrigin
 
