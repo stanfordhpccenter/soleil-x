@@ -5478,17 +5478,14 @@ local function mkInstance() local INSTANCE = {}
     yBCParticles = regentlib.newsymbol(SCHEMA.ParticlesBC),
     zBCParticles = regentlib.newsymbol(SCHEMA.ParticlesBC),
   }
-  local NX = regentlib.newsymbol()
-  local NY = regentlib.newsymbol()
-  local NZ = regentlib.newsymbol()
   local numTiles = regentlib.newsymbol()
-
-  local Integrator_deltaTime = regentlib.newsymbol()
-  local Integrator_simTime = regentlib.newsymbol()
-  local Integrator_timeStep = regentlib.newsymbol()
-  local Integrator_exitCond = regentlib.newsymbol()
+  local Integrator = {
+    deltaTime = regentlib.newsymbol(),
+    simTime = regentlib.newsymbol(),
+    timeStep = regentlib.newsymbol(),
+    exitCond = regentlib.newsymbol(),
+  }
   local Particles_number = regentlib.newsymbol()
-
   local Flow_averagePressure = regentlib.newsymbol()
   local Flow_averageTemperature = regentlib.newsymbol()
   local Flow_averageKineticEnergy = regentlib.newsymbol()
@@ -5515,10 +5512,7 @@ local function mkInstance() local INSTANCE = {}
 
   INSTANCE.DEBUG_COPYING = DEBUG_COPYING
   INSTANCE.Grid = Grid
-  INSTANCE.Integrator_deltaTime = Integrator_deltaTime
-  INSTANCE.Integrator_simTime = Integrator_simTime
-  INSTANCE.Integrator_timeStep = Integrator_timeStep
-  INSTANCE.Integrator_exitCond = Integrator_exitCond
+  INSTANCE.Integrator = Integrator
   INSTANCE.Flow_averagePressure = Flow_averagePressure
   INSTANCE.Fluid = Fluid
   INSTANCE.Fluid_copy = Fluid_copy
@@ -5613,15 +5607,12 @@ local function mkInstance() local INSTANCE = {}
     var [Grid.yRealMax] = config.Grid.origin[1] + config.Grid.yWidth
     var [Grid.zRealMax] = config.Grid.origin[2] + config.Grid.zWidth
 
-    var [NX] = config.Mapping.tiles[0]
-    var [NY] = config.Mapping.tiles[1]
-    var [NZ] = config.Mapping.tiles[2]
-    var [numTiles] = NX * NY * NZ
+    var [numTiles] = config.Mapping.tiles[0] * config.Mapping.tiles[1] * config.Mapping.tiles[2]
 
-    var [Integrator_exitCond] = true
-    var [Integrator_simTime] = config.Integrator.startTime
-    var [Integrator_timeStep] = config.Integrator.startIter
-    var [Integrator_deltaTime] = config.Integrator.fixedDeltaTime
+    var [Integrator.exitCond] = true
+    var [Integrator.simTime] = config.Integrator.startTime
+    var [Integrator.timeStep] = config.Integrator.startIter
+    var [Integrator.deltaTime] = config.Integrator.fixedDeltaTime
     regentlib.assert(
       config.Integrator.rkOrder >= RK_MIN_ORDER and
       config.Integrator.rkOrder <= RK_MAX_ORDER,
@@ -5888,9 +5879,9 @@ local function mkInstance() local INSTANCE = {}
     @TIME end @EPACSE
 
     -- Create Radiation Regions
-    var rad_x = NX
-    var rad_y = NY
-    var rad_z = NZ
+    var rad_x = config.Mapping.tiles[0]
+    var rad_y = config.Mapping.tiles[1]
+    var rad_z = config.Mapping.tiles[2]
     if config.Radiation.type == SCHEMA.RadiationModel_DOM then
       rad_x = config.Radiation.u.DOM.xNum
       rad_y = config.Radiation.u.DOM.yNum
@@ -5901,7 +5892,7 @@ local function mkInstance() local INSTANCE = {}
     [UTIL.emitRegionTagAttach(Radiation, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
 
     -- Partitioning domain
-    var [tiles] = ispace(int3d, {NX,NY,NZ})
+    var [tiles] = ispace(int3d, {config.Mapping.tiles[0],config.Mapping.tiles[1],config.Mapping.tiles[2]})
 
     -- Fluid Partitioning
     var [p_Fluid] =
@@ -6127,9 +6118,9 @@ local function mkInstance() local INSTANCE = {}
       for c in tiles do
         Particles_CheckPartitioning(c,
                                     p_Particles[c],
-                                    Grid.xBnum, config.Grid.xNum, NX,
-                                    Grid.yBnum, config.Grid.yNum, NY,
-                                    Grid.zBnum, config.Grid.zNum, NZ)
+                                    Grid.xBnum, config.Grid.xNum, config.Mapping.tiles[0],
+                                    Grid.yBnum, config.Grid.yNum, config.Mapping.tiles[1],
+                                    Grid.zBnum, config.Grid.zNum, config.Mapping.tiles[2])
       end
       Particles_number += Particles_CalculateNumber(Particles)
     end
@@ -6173,8 +6164,8 @@ local function mkInstance() local INSTANCE = {}
   function INSTANCE.MainLoopHeader(config) return rquote
 
     -- Calculate exit condition
-    Integrator_exitCond =
-      Integrator_timeStep >= config.Integrator.maxIter
+    Integrator.exitCond =
+      Integrator.timeStep >= config.Integrator.maxIter
 
     -- Determine time step size
     if config.Integrator.cfl > 0.0 then
@@ -6198,7 +6189,7 @@ local function mkInstance() local INSTANCE = {}
                                                    config.Flow.prandtl,
                                                    config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
                                                    config.Flow.viscosityModel)
-      Integrator_deltaTime = (config.Integrator.cfl/max(Integrator_maxConvectiveSpectralRadius, max(Integrator_maxViscousSpectralRadius, Integrator_maxHeatConductionSpectralRadius)))
+      Integrator.deltaTime = (config.Integrator.cfl/max(Integrator_maxConvectiveSpectralRadius, max(Integrator_maxViscousSpectralRadius, Integrator_maxHeatConductionSpectralRadius)))
     end
 
   end end -- MainLoopHeader
@@ -6213,13 +6204,13 @@ local function mkInstance() local INSTANCE = {}
     C.snprintf(dirname, 256, ['%s/fluid_'..nameFmt], config.Mapping.outDir, [args])
     var _1 = IO_CreateDir(0, dirname)
     _1 = HDF_FLUID.dump(_1, tiles, dirname, Fluid, Fluid_copy, p_Fluid, p_Fluid_copy)
-    _1 = HDF_FLUID.write.timeStep(_1, tiles, dirname, Fluid, p_Fluid, Integrator_timeStep)
-    _1 = HDF_FLUID.write.simTime(_1, tiles, dirname, Fluid, p_Fluid, Integrator_simTime)
+    _1 = HDF_FLUID.write.timeStep(_1, tiles, dirname, Fluid, p_Fluid, Integrator.timeStep)
+    _1 = HDF_FLUID.write.simTime(_1, tiles, dirname, Fluid, p_Fluid, Integrator.simTime)
     C.snprintf(dirname, 256, ['%s/particles_'..nameFmt], config.Mapping.outDir, [args])
     var _2 = IO_CreateDir(0, dirname)
     _2 = HDF_PARTICLES.dump(_2, tiles, dirname, Particles, Particles_copy, p_Particles, p_Particles_copy)
-    _2 = HDF_PARTICLES.write.timeStep(_2, tiles, dirname, Particles, p_Particles, Integrator_timeStep)
-    _2 = HDF_PARTICLES.write.simTime(_2, tiles, dirname, Particles, p_Particles, Integrator_simTime)
+    _2 = HDF_PARTICLES.write.timeStep(_2, tiles, dirname, Particles, p_Particles, Integrator.timeStep)
+    _2 = HDF_PARTICLES.write.simTime(_2, tiles, dirname, Particles, p_Particles, Integrator.simTime)
     C.free(dirname)
 
   end end -- DumpHDF
@@ -6251,10 +6242,10 @@ local function mkInstance() local INSTANCE = {}
     Flow_averageKineticEnergy /= Grid.volume
     Particles_averageTemperature /= Particles_number
     Console_Write(config,
-                  Integrator_timeStep,
-                  Integrator_simTime,
+                  Integrator.timeStep,
+                  Integrator.simTime,
                   startTime,
-                  Integrator_deltaTime,
+                  Integrator.deltaTime,
                   Flow_averagePressure,
                   Flow_averageTemperature,
                   Flow_averageKineticEnergy,
@@ -6278,13 +6269,13 @@ local function mkInstance() local INSTANCE = {}
         avgParticleT += Probe_AvgParticleT(Particles, probe, totalParticles)
         avgCellOfParticleT += Probe_AvgCellOfParticleT(Fluid, Particles, probe, totalParticles)
       end
-      Probe_Write(0, config, i, Integrator_timeStep, avgFluidT, avgParticleT, avgCellOfParticleT)
+      Probe_Write(0, config, i, Integrator.timeStep, avgFluidT, avgParticleT, avgCellOfParticleT)
     end
 
     -- Dump restart files
     if config.IO.wrtRestart then
-      if Integrator_exitCond or Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 then
-        [INSTANCE.DumpHDF(config, 'iter%010d', Integrator_timeStep)];
+      if Integrator.exitCond or Integrator.timeStep % config.IO.restartEveryTimeSteps == 0 then
+        [INSTANCE.DumpHDF(config, 'iter%010d', Integrator.timeStep)];
       end
     end
 
@@ -6299,7 +6290,7 @@ local function mkInstance() local INSTANCE = {}
     -- Process incoming values from other section
     if incoming then
       if DEBUG_COPYING then
-        [INSTANCE.DumpHDF(config, 'precopy%010d', Integrator_timeStep)];
+        [INSTANCE.DumpHDF(config, 'precopy%010d', Integrator.timeStep)];
       end
       -- Feed fluid
       [SyncConservedPrimitive(config)];
@@ -6319,18 +6310,18 @@ local function mkInstance() local INSTANCE = {}
         else regentlib.assert(false, 'Unhandled case in switch') end
       end
       if DEBUG_COPYING then
-        [INSTANCE.DumpHDF(config, 'postcopy%010d', Integrator_timeStep)];
+        [INSTANCE.DumpHDF(config, 'postcopy%010d', Integrator.timeStep)];
       end
     end
 
     -- Set iteration-specific fields that persist across RK sub-steps
     Flow_InitializeTemporaries(Fluid)
-    if config.Particles.maxNum > 0 and Integrator_timeStep % config.Particles.staggerFactor == 0 then
+    if config.Particles.maxNum > 0 and Integrator.timeStep % config.Particles.staggerFactor == 0 then
       Particles_InitializeTemporaries(Particles)
     end
 
     -- RK sub-time-stepping loop
-    var Integrator_time_old = Integrator_simTime
+    var Integrator_time_old = Integrator.simTime
     for Integrator_stage = 1,config.Integrator.rkOrder+1 do
 
       -- Compute velocity gradients
@@ -6489,7 +6480,7 @@ local function mkInstance() local INSTANCE = {}
       end
 
       -- Particles & radiation solve
-      if config.Particles.maxNum > 0 and (Integrator_timeStep % config.Particles.staggerFactor == 0 or Integrator_timeStep == config.Integrator.startIter) then
+      if config.Particles.maxNum > 0 and (Integrator.timeStep % config.Particles.staggerFactor == 0 or Integrator.timeStep == config.Integrator.startIter) then
         Particles_CalcDeltaTerms(Particles,
                                  Fluid,
                                  config.Flow.constantVisc,
@@ -6498,7 +6489,7 @@ local function mkInstance() local INSTANCE = {}
                                  config.Flow.viscosityModel,
                                  config.Particles.convectiveCoeff)
       end
-      if config.Particles.maxNum > 0 and Integrator_timeStep % config.Particles.staggerFactor == 0 then
+      if config.Particles.maxNum > 0 and Integrator.timeStep % config.Particles.staggerFactor == 0 then
         -- Add fluid forces to particles
         Particles_AddFlowCoupling(Particles, config.Particles.heatCapacity)
         Particles_AddBodyForces(Particles, config.Particles.bodyForce)
@@ -6578,10 +6569,10 @@ local function mkInstance() local INSTANCE = {}
       end
 
       -- Time step
-      Flow_UpdateVars(Fluid, Integrator_deltaTime, Integrator_stage, config)
-      if config.Particles.maxNum > 0 and Integrator_timeStep % config.Particles.staggerFactor == 0 then
+      Flow_UpdateVars(Fluid, Integrator.deltaTime, Integrator_stage, config)
+      if config.Particles.maxNum > 0 and Integrator.timeStep % config.Particles.staggerFactor == 0 then
         Particles_UpdateVars(Particles,
-                             Integrator_deltaTime * config.Particles.staggerFactor,
+                             Integrator.deltaTime * config.Particles.staggerFactor,
                              Integrator_stage,
                              config)
       end
@@ -6620,14 +6611,14 @@ local function mkInstance() local INSTANCE = {}
       [SyncConservedPrimitive(config)];
 
       -- Particle movement post-processing
-      if config.Particles.maxNum > 0 and Integrator_timeStep % config.Particles.staggerFactor == 0 then
+      if config.Particles.maxNum > 0 and Integrator.timeStep % config.Particles.staggerFactor == 0 then
         -- Handle particle collisions
         -- TODO: Collisions across tiles are not handled.
         if config.Particles.collisions and Integrator_stage == config.Integrator.rkOrder then
           for c in tiles do
             Particles_HandleCollisions(p_Particles[c],
                                        config,
-                                       Integrator_deltaTime * config.Particles.staggerFactor,
+                                       Integrator.deltaTime * config.Particles.staggerFactor,
                                        config.Particles.restitutionCoeff)
           end
         end
@@ -6666,9 +6657,9 @@ local function mkInstance() local INSTANCE = {}
                                  [p_TradeQueue_bySrc[k]][c]
                                end end)],
                               config,
-                              Grid.xBnum, config.Grid.xNum, NX,
-                              Grid.yBnum, config.Grid.yNum, NY,
-                              Grid.zBnum, config.Grid.zNum, NZ)
+                              Grid.xBnum, config.Grid.xNum, config.Mapping.tiles[0],
+                              Grid.yBnum, config.Grid.yNum, config.Mapping.tiles[1],
+                              Grid.zBnum, config.Grid.zNum, config.Mapping.tiles[2])
           end
           var totalPulled = int64(0)
           for c in tiles do
@@ -6689,9 +6680,9 @@ local function mkInstance() local INSTANCE = {}
           @ESCAPE for STAGE = 1,ORDER do @EMIT
             if Integrator_stage == STAGE then
               @ESCAPE if STAGE == ORDER then @EMIT
-                Integrator_simTime = Integrator_time_old + Integrator_deltaTime
+                Integrator.simTime = Integrator_time_old + Integrator.deltaTime
               @TIME else @EMIT
-                Integrator_simTime = Integrator_time_old + [RK_B[ORDER][STAGE]] * Integrator_deltaTime
+                Integrator.simTime = Integrator_time_old + [RK_B[ORDER][STAGE]] * Integrator.deltaTime
               @TIME end @EPACSE
             end
           @TIME end @EPACSE
@@ -6707,16 +6698,16 @@ local function mkInstance() local INSTANCE = {}
                                                Grid.xBnum, config.Grid.xNum,
                                                Grid.yBnum, config.Grid.yNum,
                                                Grid.zBnum, config.Grid.zNum,
-                                               Integrator_deltaTime)
+                                               Integrator.deltaTime)
     end
 
     if incoming then
       if DEBUG_COPYING then
-        [INSTANCE.DumpHDF(config, 'postiter%010d', Integrator_timeStep)];
+        [INSTANCE.DumpHDF(config, 'postiter%010d', Integrator.timeStep)];
       end
     end
 
-    Integrator_timeStep += 1
+    Integrator.timeStep += 1
 
   end end -- MainLoopBody
 
@@ -6758,7 +6749,7 @@ task workSingle(config : Config)
     while true do
       [SIM.MainLoopHeader(config)];
       [SIM.PerformIO(config)];
-      if SIM.Integrator_exitCond then
+      if SIM.Integrator.exitCond then
         break
       end
       [SIM.MainLoopBody(config, rexpr false end, FakeCopyQueue)];
@@ -6795,8 +6786,8 @@ task workDual(mc : MultiConfig)
   C.legion_domain_point_coloring_destroy(coloring_CopyQueue)
   -- Check 2-section configuration
   regentlib.assert(
-    SIM0.Integrator_simTime == SIM1.Integrator_simTime and
-    SIM0.Integrator_timeStep == SIM1.Integrator_timeStep,
+    SIM0.Integrator.simTime == SIM1.Integrator.simTime and
+    SIM0.Integrator.timeStep == SIM1.Integrator.timeStep,
     'Coupled sections disagree on starting time')
   regentlib.assert(
     -- copySrc is a valid volume
@@ -6854,25 +6845,25 @@ task workDual(mc : MultiConfig)
   var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
   -- Main simulation loop
   while true do
-    var Integrator_timeStep = SIM0.Integrator_timeStep;
+    var Integrator.timeStep = SIM0.Integrator.timeStep;
     -- Perform preliminary actions before each timestep
     [parallelizeFor(SIM0, SIM0.MainLoopHeader(rexpr mc.configs[0] end))];
     [parallelizeFor(SIM1, SIM1.MainLoopHeader(rexpr mc.configs[1] end))];
     -- Make sure both simulations are using the same timestep
-    SIM0.Integrator_deltaTime = min(SIM0.Integrator_deltaTime, SIM1.Integrator_deltaTime)
-    SIM1.Integrator_deltaTime = min(SIM0.Integrator_deltaTime, SIM1.Integrator_deltaTime);
+    SIM0.Integrator.deltaTime = min(SIM0.Integrator.deltaTime, SIM1.Integrator.deltaTime)
+    SIM1.Integrator.deltaTime = min(SIM0.Integrator.deltaTime, SIM1.Integrator.deltaTime);
     [parallelizeFor(SIM0, SIM0.PerformIO(rexpr mc.configs[0] end))];
     [parallelizeFor(SIM1, SIM1.PerformIO(rexpr mc.configs[1] end))];
-    if SIM0.Integrator_exitCond or SIM1.Integrator_exitCond then
+    if SIM0.Integrator.exitCond or SIM1.Integrator.exitCond then
       break
     end
     -- Run one iteration of first section
     [parallelizeFor(SIM0, SIM0.MainLoopBody(rexpr mc.configs[0] end, rexpr false end, FakeCopyQueue))];
     -- Copy fluid & particles to second section
-    var incoming = Integrator_timeStep % mc.copyEveryTimeSteps == 0
+    var incoming = Integrator.timeStep % mc.copyEveryTimeSteps == 0
     if incoming then
       if SIM0.DEBUG_COPYING then
-        [SIM0.DumpHDF(rexpr mc.configs[0] end, 'copysrc%010d', Integrator_timeStep)];
+        [SIM0.DumpHDF(rexpr mc.configs[0] end, 'copysrc%010d', Integrator.timeStep)];
       end
       for c in SIM1.tiles do
         var src = p_Fluid0_src[c]
