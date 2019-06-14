@@ -40,14 +40,14 @@ struct Point_columns {
 -- Mesh routines
 -------------------------------------------------------------------------------
 
-local __demand(__inline)
+__demand(__inline)
 task uniform_cell_width(x_min : double,
                         x_max : double,
                         Nx    : uint64) : double
   return (x_max-x_min)/Nx
 end
 
-local __demand(__inline)
+__demand(__inline)
 task uniform_cell_center(x_min : double,
                          x_max : double,
                          Nx    : uint64,
@@ -67,7 +67,7 @@ local DOM_INST = DOM.mkInstance()
 -- Proxy tasks
 -------------------------------------------------------------------------------
 
-local __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+__demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task Radiation_InitializeGeometry(Radiation : region(ispace(int3d), Point_columns),
                                   Grid_xNum : int32, Grid_xOrigin : double, Grid_xWidth : double,
                                   Grid_yNum : int32, Grid_yOrigin : double, Grid_yWidth : double,
@@ -96,7 +96,7 @@ do
   end
 end
 
-local __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+__demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task writeIntensity(points : region(ispace(int3d), Point_columns))
 where
   reads(points.G)
@@ -120,7 +120,7 @@ end
 -- Proxy main
 -------------------------------------------------------------------------------
 
-local __forbid(__optimize) __demand(__inner, __replicable)
+__forbid(__optimize) __demand(__inner, __replicable)
 task work(config : SCHEMA.Config)
   -- Declare externally-managed regions
   var is_points = ispace(int3d, {config.Radiation.u.DOM.xNum,
@@ -151,7 +151,7 @@ task work(config : SCHEMA.Config)
   writeIntensity(points)
 end
 
-local __demand(__inner)
+__demand(__inner)
 task main()
   var args = C.legion_runtime_get_input_args()
   var stderr = C.fdopen(2, 'w')
