@@ -1,13 +1,13 @@
 local Exports = {}
 
 -- Helper definitions
-Exports.Volume = {
-  fromCell = Array(3,int),
-  uptoCell = Array(3,int),
+Exports.Volume = Struct{
+  fromCell = Array(3,Int(4)),
+  uptoCell = Array(3,Int(4)),
 }
-Exports.Window = {
-  fromCell = Array(2,int),
-  uptoCell = Array(2,int),
+Exports.Window = Struct{
+  fromCell = Array(2,Int(4)),
+  uptoCell = Array(2,Int(4)),
 }
 
 -- Unions & enumeration constants
@@ -18,81 +18,81 @@ Exports.FlowInitCase = Enum('Uniform','Random','Restart','Perturbed','TaylorGree
 Exports.ParticlesInitCase = Enum('Random','Restart','Uniform')
 Exports.GridType = Enum('Uniform','Stretched')
 Exports.TempProfile = Union{
-  Constant = {
-    temperature = double,
+  Constant = Struct{
+    temperature = Float(8),
   },
-  Parabola = {
-    T_left = double,
-    T_right = double,
-    T_mid = double,
+  Parabola = Struct{
+    T_left = Float(8),
+    T_right = Float(8),
+    T_mid = Float(8),
   },
-  Incoming = {},
+  Incoming = Struct{},
 }
 Exports.InflowProfile = Union{
-  Constant = {
-    velocity = double,
+  Constant = Struct{
+    velocity = Float(8),
   },
-  Duct = {
-    meanVelocity = double,
+  Duct = Struct{
+    meanVelocity = Float(8),
   },
-  Incoming = {
-    addedVelocity = double,
+  Incoming = Struct{
+    addedVelocity = Float(8),
   },
 }
 Exports.TurbForcingModel = Union{
-  OFF = {},
-  HIT = {
-    meanVelocity = Array(3,double),
-    G = double,
-    t_o = double,
-    K_o = double,
+  OFF = Struct{},
+  HIT = Struct{
+    meanVelocity = Array(3,Float(8)),
+    G = Float(8),
+    t_o = Float(8),
+    K_o = Float(8),
   },
 }
 Exports.FeedModel = Union{
-  OFF = {},
-  Incoming = {
-    addedVelocity = Array(3,double),
+  OFF = Struct{},
+  Incoming = Struct{
+    addedVelocity = Array(3,Float(8)),
   },
 }
 Exports.RadiationModel = Union{
-  OFF = {},
-  Algebraic = {
-    intensity = double,
-    absorptivity = double,
+  OFF = Struct{},
+  Algebraic = Struct{
+    intensity = Float(8),
+    absorptivity = Float(8),
   },
-  DOM = {
-    qa = double,
-    qs = double,
+  DOM = Struct{
+    qa = Float(8),
+    qs = Float(8),
     -- number of cells in the radiation grid
-    xNum = int,
-    yNum = int,
-    zNum = int,
+    xNum = Int(4),
+    yNum = Int(4),
+    zNum = Int(4),
     -- number of quadrature points
-    angles = int,
+    angles = Int(4),
     -- wall emissivity [0.0-1.0]
-    xHiEmiss = double,
-    xLoEmiss = double,
-    yHiEmiss = double,
-    yLoEmiss = double,
-    zHiEmiss = double,
-    zLoEmiss = double,
+    xHiEmiss = Float(8),
+    xLoEmiss = Float(8),
+    yHiEmiss = Float(8),
+    yLoEmiss = Float(8),
+    zHiEmiss = Float(8),
+    zLoEmiss = Float(8),
     -- wall blackbody temperature [K]
-    xHiTemp = double,
-    xLoTemp = double,
-    yHiTemp = double,
-    yLoTemp = double,
-    zHiTemp = double,
-    zLoTemp = double,
+    xHiTemp = Float(8),
+    xLoTemp = Float(8),
+    yHiTemp = Float(8),
+    yLoTemp = Float(8),
+    zHiTemp = Float(8),
+    zLoTemp = Float(8),
     -- incoming wall intensity [W/m^2]
     -- power per unit of particle area (as projected on the wall)
     -- assumed monochromatic and collimated
     -- only applied over the quadrature point that is normal to the wall
-    xHiIntensity = double,
-    xLoIntensity = double,
-    yHiIntensity = double,
-    yLoIntensity = double,
-    zHiIntensity = double,
-    zLoIntensity = double,
+    xHiIntensity = Float(8),
+    xLoIntensity = Float(8),
+    yHiIntensity = Float(8),
+    yLoIntensity = Float(8),
+    zHiIntensity = Float(8),
+    zLoIntensity = Float(8),
     -- illuminated window on each wall
     xHiWindow = Exports.Window,
     xLoWindow = Exports.Window,
@@ -104,120 +104,120 @@ Exports.RadiationModel = Union{
 }
 
 -- Main config struct
-Exports.Config = {
-  Mapping = {
+Exports.Config = Struct{
+  Mapping = Struct{
     -- number of tiles in which to split the domain
-    tiles = Array(3,int),
+    tiles = Array(3,Int(4)),
     -- number of tiles to allocate to each rank
-    tilesPerRank = Array(3,int),
+    tilesPerRank = Array(3,Int(4)),
     -- unique id assigned to each sample, according to its order in the command
     -- line (first sample is 0, second is 1 etc.); the initial value of this
     -- option is irrelevant, it will be overriden by the code
-    sampleId = int,
+    sampleId = Int(4),
     -- output directory for each sample; the initial value of this option is
     -- irrelevant, it will be overriden by the code
     outDir = String(256),
     -- expected wall-clock execution time [minutes]
-    wallTime = int,
+    wallTime = Int(4),
   },
-  Grid = {
+  Grid = Struct{
     -- number of cells in the fluid grid
-    xNum = int,
-    yNum = int,
-    zNum = int,
+    xNum = Int(4),
+    yNum = Int(4),
+    zNum = Int(4),
     -- coordinates of the fluid grid's origin [m]
-    origin = Array(3,double),
+    origin = Array(3,Float(8)),
     -- width of the fluid grid [m]
-    xWidth = double,
-    yWidth = double,
-    zWidth = double,
+    xWidth = Float(8),
+    yWidth = Float(8),
+    zWidth = Float(8),
     -- grid type in each direction
     xType = Exports.GridType,
     yType = Exports.GridType,
     zType = Exports.GridType,
   },
-  BC = {
+  BC = Struct{
     xBCLeft = Exports.FlowBC,
-    xBCLeftVel = Array(3,double),
+    xBCLeftVel = Array(3,Float(8)),
     xBCLeftHeat = Exports.TempProfile,
     xBCLeftInflowProfile = Exports.InflowProfile,
     xBCRight = Exports.FlowBC,
-    xBCRightVel = Array(3,double),
+    xBCRightVel = Array(3,Float(8)),
     xBCRightHeat = Exports.TempProfile,
     -- Pressure that the sub-sonic outlet relaxes
-    xBCRightP_inf = double,
+    xBCRightP_inf = Float(8),
     yBCLeft = Exports.FlowBC,
-    yBCLeftVel = Array(3,double),
+    yBCLeftVel = Array(3,Float(8)),
     yBCLeftHeat = Exports.TempProfile,
     yBCRight = Exports.FlowBC,
-    yBCRightVel = Array(3,double),
+    yBCRightVel = Array(3,Float(8)),
     yBCRightHeat = Exports.TempProfile,
     zBCLeft = Exports.FlowBC,
-    zBCLeftVel = Array(3,double),
+    zBCLeftVel = Array(3,Float(8)),
     zBCLeftHeat = Exports.TempProfile,
     zBCRight = Exports.FlowBC,
-    zBCRightVel = Array(3,double),
+    zBCRightVel = Array(3,Float(8)),
     zBCRightHeat = Exports.TempProfile,
   },
-  Integrator = {
-    startIter = int,
-    startTime = double,
-    maxIter = int,
-    cfl = double,
-    fixedDeltaTime = double,
+  Integrator = Struct{
+    startIter = Int(4),
+    startTime = Float(8),
+    maxIter = Int(4),
+    cfl = Float(8),
+    fixedDeltaTime = Float(8),
     -- what order RK method to use [2-4]
-    rkOrder = int,
+    rkOrder = Int(4),
   },
-  Flow = {
-    gasConstant = double,
-    gamma = double,
-    prandtl = double,
+  Flow = Struct{
+    gasConstant = Float(8),
+    gamma = Float(8),
+    prandtl = Float(8),
     viscosityModel = Exports.ViscosityModel,
-    constantVisc = double,
-    powerlawViscRef = double,
-    powerlawTempRef = double,
-    sutherlandViscRef = double,
-    sutherlandTempRef = double,
-    sutherlandSRef = double,
+    constantVisc = Float(8),
+    powerlawViscRef = Float(8),
+    powerlawTempRef = Float(8),
+    sutherlandViscRef = Float(8),
+    sutherlandTempRef = Float(8),
+    sutherlandSRef = Float(8),
     initCase = Exports.FlowInitCase,
     restartDir = String(256),
-    initParams = Array(6,double),
-    bodyForce = Array(3,double),
+    initParams = Array(6,Float(8)),
+    bodyForce = Array(3,Float(8)),
     turbForcing = Exports.TurbForcingModel,
   },
-  Particles = {
+  Particles = Struct{
     initCase = Exports.ParticlesInitCase,
     restartDir = String(256),
-    initNum = int64,
-    maxNum = int64,
-    restitutionCoeff = double,
-    convectiveCoeff = double,
-    heatCapacity = double,
-    initTemperature = double,
-    density = double,
-    diameterMean = double,
-    bodyForce = Array(3,double),
-    maxSkew = double,
-    escapeRatioPerDir = double,
-    collisions = bool,
+    initNum = Int(8),
+    maxNum = Int(8),
+    restitutionCoeff = Float(8),
+    convectiveCoeff = Float(8),
+    heatCapacity = Float(8),
+    initTemperature = Float(8),
+    density = Float(8),
+    diameterMean = Float(8),
+    bodyForce = Array(3,Float(8)),
+    maxSkew = Float(8),
+    escapeRatioPerDir = Float(8),
+    collisions = Bool(),
     feeding = Exports.FeedModel,
     -- how many timesteps to advance the fluid before every particle solve
-    staggerFactor = int,
-    parcelSize = int,
+    staggerFactor = Int(4),
+    parcelSize = Int(4),
   },
   Radiation = Exports.RadiationModel,
-  IO = {
+  IO = Struct{
     -- whether to write restart files (requires compiling with HDF support)
-    wrtRestart = bool,
+    wrtRestart = Bool(),
     -- how often to write restart files
-    restartEveryTimeSteps = int,
+    restartEveryTimeSteps = Int(4),
     -- temperature probes
     probes = UpTo(5, Exports.Volume),
   },
 }
 
 -- Dual-section simulation config
-Exports.MultiConfig = {
+Exports.MultiConfig = Struct{
   -- case configurations for the two sections
   configs = Array(2,Exports.Config),
   -- volume to copy from every timestep (in the 1st section)
@@ -225,9 +225,9 @@ Exports.MultiConfig = {
   -- volume to copy into every timestep (in the 2nd section)
   copyTgt = Exports.Volume,
   -- whether to place the tiles of the two sections on the same set of ranks
-  collocateSections = bool,
+  collocateSections = Bool(),
   -- How often to copy values from one section to the other
-  copyEveryTimeSteps = int,
+  copyEveryTimeSteps = Int(4),
 }
 
 return Exports
