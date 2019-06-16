@@ -188,6 +188,17 @@ function isStruct(typ)
   return type(typ) == 'table' and getmetatable(typ) == StructMT
 end
 
+-- () -> int
+function StructMT:fieldsToParse()
+  local num = 0
+  for n,t in pairs(self.fields) do
+    if not t.hidden then
+      num = num + 1
+    end
+  end
+  return num
+end
+
 -------------------------------------------------------------------------------
 
 -- SchemaT = Bool | Int | Float | String
@@ -205,6 +216,14 @@ function isSchemaT(typ)
     isUpTo(typ) or
     isUnion(typ) or
     isStruct(typ)
+end
+
+-------------------------------------------------------------------------------
+
+-- SchemaT -> SchemaT
+function Hidden(typ)
+  typ.hidden = true
+  return typ
 end
 
 -------------------------------------------------------------------------------
@@ -367,10 +386,10 @@ local function emitValueParser(name, lval, rval, typ)
           if nodeValue.type ~= JSON.json_string then
             [fldReadErr('Type field on union not a string', name)]
           end
-          escape local j = 0; for choice,fields in pairs(typ.choices) do emit quote
-            if C.strcmp(nodeValue.u.string.ptr, [choice]) == 0 then
+          escape local j = 0; for n,fields in pairs(typ.choices) do emit quote
+            if C.strcmp(nodeValue.u.string.ptr, [n]) == 0 then
               [lval].type = [j]
-              [emitValueParser(name, `[lval].u.[choice], rval, fields)]
+              [emitValueParser(name, `[lval].u.[n], rval, fields)]
               break
             end
           end j = j + 1; end end
@@ -391,12 +410,12 @@ local function emitValueParser(name, lval, rval, typ)
         var nodeName = [rval].u.object.values[i].name
         var nodeValue = [rval].u.object.values[i].value
         var parsed = false
-        escape for fld,subTyp in pairs(typ.fields) do emit quote
-          if C.strcmp(nodeName, fld) == 0 then
-            [emitValueParser(name..'.'..fld, `[lval].[fld], nodeValue, subTyp)]
+        escape for n,t in pairs(typ.fields) do if not t.hidden then emit quote
+          if C.strcmp(nodeName, n) == 0 then
+            [emitValueParser(name..'.'..n, `[lval].[n], nodeValue, t)]
             parsed = true
           end
-        end end end
+        end end end end
         if parsed then
           totalParsed = totalParsed + 1
         elseif C.strcmp(nodeName, 'type') ~= 0 then
@@ -406,7 +425,7 @@ local function emitValueParser(name, lval, rval, typ)
         end
       end
       -- TODO: Assuming the json file contains no duplicate values
-      if totalParsed < [UTIL.tableSize(typ.fields)] then
+      if totalParsed < [typ:fieldsToParse()] then
         [errorOut('Missing fields from input file')]
       end
     end
