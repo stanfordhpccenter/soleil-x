@@ -579,6 +579,61 @@ function Exports.emitArrayReduce(dims, op, lhs, rhs)
   end
 end
 
+local SymbolFactoryMT = {}
+SymbolFactoryMT.__index = SymbolFactoryMT
+
+function Exports.SymbolFactory()
+  return setmetatable({
+    formals = terralib.newlist(), -- regentlib.symbol*
+    actuals = terralib.newlist(), -- regentlib.symbol*
+    privs = terralib.newlist(), -- regentlib.privilege*
+    header = rquote end, -- regentlib.rquote
+    _toTyped = {}, -- map(regentlib.symbol,regentlib.symbol)
+  }, SymbolFactoryMT)
+end
+
+-- terralib.type -> regentlib.symbol
+function SymbolFactoryMT:scalarVar(typ)
+  assert(terralib.types.istype(typ))
+  local sym = regentlib.newsymbol(typ)
+  self.formals:insert(sym)
+  self.actuals:insert(sym)
+  return sym
+end
+
+-- terralib.type -> regentlib.symbol
+function SymbolFactoryMT:_specialVar(typ)
+  local untyped = regentlib.newsymbol()
+  local typed = regentlib.newsymbol(typ)
+  self._toTyped[untyped] = typed
+  self.formals:insert(typed)
+  self.actuals:insert(untyped)
+  self.header = rquote [self.header]; var [untyped] = typed; end
+  return untyped, typed
+end
+
+-- regentlib.index_type -> regentlib.symbol
+function SymbolFactoryMT:ispaceVar(typ)
+  local untyped, typed = self:_specialVar(ispace(typ))
+  return untyped
+end
+
+-- regentlib.symbol, terralib.type -> regentlib.symbol
+function SymbolFactoryMT:regionVar(is, fs)
+  local typ = region(self._toTyped[is], fs)
+  local untyped, typed = self:_specialVar(typ)
+  self.privs:insert(regentlib.privilege(regentlib.reads, typed))
+  self.privs:insert(regentlib.privilege(regentlib.writes, typed))
+  return untyped
+end
+
+-- regentlib.symbol, regentlib.symbol -> regentlib.symbol
+function SymbolFactoryMT:partitionVar(r, cs)
+  local typ = partition(disjoint, self._toTyped[r], self._toTyped[cs])
+  local untyped, typed = self:_specialVar(typ)
+  return untyped
+end
+
 -------------------------------------------------------------------------------
 -- Error handling
 -------------------------------------------------------------------------------

@@ -1,4 +1,5 @@
 import "regent"
+
 -------------------------------------------------------------------------------
 -- IMPORTS
 -------------------------------------------------------------------------------
@@ -5469,77 +5470,90 @@ end
 
 local function mkInstance() local INSTANCE = {}
 
-  local DOM_INST = DOM.mkInstance()
-
   -----------------------------------------------------------------------------
   -- Symbols shared between quotes
   -----------------------------------------------------------------------------
 
-  local DEBUG_COPYING = regentlib.newsymbol()
-  local startTime = regentlib.newsymbol()
+  local SYMBOLS = UTIL.SymbolFactory()
+
+  local DEBUG_COPYING = SYMBOLS:scalarVar(bool)
+  local startTime = SYMBOLS:scalarVar(int)
   local Grid = {
-    volume = regentlib.newsymbol(),
-    xBnum = regentlib.newsymbol(),
-    yBnum = regentlib.newsymbol(),
-    zBnum = regentlib.newsymbol(),
-    xRealOrigin = regentlib.newsymbol(),
-    yRealOrigin = regentlib.newsymbol(),
-    zRealOrigin = regentlib.newsymbol(),
-    xRealMax = regentlib.newsymbol(),
-    yRealMax = regentlib.newsymbol(),
-    zRealMax = regentlib.newsymbol(),
-    particleCopyOrigin = regentlib.newsymbol(),
+    volume = SYMBOLS:scalarVar(double),
+    xBnum = SYMBOLS:scalarVar(int),
+    yBnum = SYMBOLS:scalarVar(int),
+    zBnum = SYMBOLS:scalarVar(int),
+    xRealOrigin = SYMBOLS:scalarVar(double),
+    yRealOrigin = SYMBOLS:scalarVar(double),
+    zRealOrigin = SYMBOLS:scalarVar(double),
+    xRealMax = SYMBOLS:scalarVar(double),
+    yRealMax = SYMBOLS:scalarVar(double),
+    zRealMax = SYMBOLS:scalarVar(double),
+    particleCopyOrigin = SYMBOLS:scalarVar(double[3]),
   }
   local BC = {
-    xPosSign = regentlib.newsymbol(double[3]),
-    xNegSign = regentlib.newsymbol(double[3]),
-    xPosVelocity = regentlib.newsymbol(double[3]),
-    xNegVelocity = regentlib.newsymbol(double[3]),
-    xPosTemperature = regentlib.newsymbol(double),
-    xNegTemperature = regentlib.newsymbol(double),
-    yPosSign = regentlib.newsymbol(double[3]),
-    yNegSign = regentlib.newsymbol(double[3]),
-    yPosVelocity = regentlib.newsymbol(double[3]),
-    yNegVelocity = regentlib.newsymbol(double[3]),
-    yPosTemperature = regentlib.newsymbol(double),
-    yNegTemperature = regentlib.newsymbol(double),
-    zPosSign = regentlib.newsymbol(double[3]),
-    zNegSign = regentlib.newsymbol(double[3]),
-    zPosVelocity = regentlib.newsymbol(double[3]),
-    zNegVelocity = regentlib.newsymbol(double[3]),
-    zPosTemperature = regentlib.newsymbol(double),
-    zNegTemperature = regentlib.newsymbol(double),
-    xBCParticles = regentlib.newsymbol(SCHEMA.ParticlesBC),
-    yBCParticles = regentlib.newsymbol(SCHEMA.ParticlesBC),
-    zBCParticles = regentlib.newsymbol(SCHEMA.ParticlesBC),
+    xPosSign = SYMBOLS:scalarVar(double[3]),
+    xNegSign = SYMBOLS:scalarVar(double[3]),
+    xPosVelocity = SYMBOLS:scalarVar(double[3]),
+    xNegVelocity = SYMBOLS:scalarVar(double[3]),
+    xPosTemperature = SYMBOLS:scalarVar(double),
+    xNegTemperature = SYMBOLS:scalarVar(double),
+    yPosSign = SYMBOLS:scalarVar(double[3]),
+    yNegSign = SYMBOLS:scalarVar(double[3]),
+    yPosVelocity = SYMBOLS:scalarVar(double[3]),
+    yNegVelocity = SYMBOLS:scalarVar(double[3]),
+    yPosTemperature = SYMBOLS:scalarVar(double),
+    yNegTemperature = SYMBOLS:scalarVar(double),
+    zPosSign = SYMBOLS:scalarVar(double[3]),
+    zNegSign = SYMBOLS:scalarVar(double[3]),
+    zPosVelocity = SYMBOLS:scalarVar(double[3]),
+    zNegVelocity = SYMBOLS:scalarVar(double[3]),
+    zPosTemperature = SYMBOLS:scalarVar(double),
+    zNegTemperature = SYMBOLS:scalarVar(double),
+    xBCParticles = SYMBOLS:scalarVar(SCHEMA.ParticlesBC),
+    yBCParticles = SYMBOLS:scalarVar(SCHEMA.ParticlesBC),
+    zBCParticles = SYMBOLS:scalarVar(SCHEMA.ParticlesBC),
   }
-  local numTiles = regentlib.newsymbol()
+  local numTiles = SYMBOLS:scalarVar(int)
   local Integrator = {
-    deltaTime = regentlib.newsymbol(),
-    simTime = regentlib.newsymbol(),
-    timeStep = regentlib.newsymbol(),
-    exitCond = regentlib.newsymbol(),
+    deltaTime = SYMBOLS:scalarVar(double),
+    simTime = SYMBOLS:scalarVar(double),
+    timeStep = SYMBOLS:scalarVar(int),
+    exitCond = SYMBOLS:scalarVar(bool),
   }
-  local Particles_number = regentlib.newsymbol()
-  local Flow_averagePressure = regentlib.newsymbol()
-  local Flow_averageTemperature = regentlib.newsymbol()
-  local Flow_averageKineticEnergy = regentlib.newsymbol()
-  local Particles_averageTemperature = regentlib.newsymbol()
+  local Particles_number = SYMBOLS:scalarVar(int64)
+  local Flow_averagePressure = SYMBOLS:scalarVar(double)
+  local Flow_averageTemperature = SYMBOLS:scalarVar(double)
+  local Flow_averageKineticEnergy = SYMBOLS:scalarVar(double)
+  local Particles_averageTemperature = SYMBOLS:scalarVar(double)
 
-  local Fluid = regentlib.newsymbol()
-  local Fluid_copy = regentlib.newsymbol()
-  local Particles = regentlib.newsymbol()
-  local Particles_copy = regentlib.newsymbol()
-  local TradeQueue = UTIL.generate(26, regentlib.newsymbol)
-  local Radiation = regentlib.newsymbol()
-  local tiles = regentlib.newsymbol()
-  local p_Fluid = regentlib.newsymbol()
-  local p_Fluid_copy = regentlib.newsymbol()
-  local p_Particles = regentlib.newsymbol()
-  local p_Particles_copy = regentlib.newsymbol()
-  local p_TradeQueue_bySrc = UTIL.generate(26, regentlib.newsymbol)
-  local p_TradeQueue_byDst = UTIL.generate(26, regentlib.newsymbol)
-  local p_Radiation = regentlib.newsymbol()
+  local is_Fluid = SYMBOLS:ispaceVar(int3d)
+  local Fluid = SYMBOLS:regionVar(is_Fluid, Fluid_columns)
+  local Fluid_copy = SYMBOLS:regionVar(is_Fluid, Fluid_columns)
+  local is_Particles = SYMBOLS:ispaceVar(int1d)
+  local Particles = SYMBOLS:regionVar(is_Particles, Particles_columns)
+  local Particles_copy = SYMBOLS:regionVar(is_Particles, Particles_columns)
+  local is_TradeQueue = UTIL.generate(26, function()
+    return SYMBOLS:ispaceVar(int1d)
+  end)
+  local TradeQueue = is_TradeQueue:map(function(is)
+    return SYMBOLS:regionVar(is, TradeQueue_columns)
+  end)
+  local is_Radiation = SYMBOLS:ispaceVar(int3d)
+  local Radiation = SYMBOLS:regionVar(is_Radiation, Radiation_columns)
+
+  local tiles = SYMBOLS:ispaceVar(int3d)
+  local p_Fluid = SYMBOLS:partitionVar(Fluid, tiles)
+  local p_Fluid_copy = SYMBOLS:partitionVar(Fluid_copy, tiles)
+  local p_Particles = SYMBOLS:partitionVar(Particles, tiles)
+  local p_Particles_copy = SYMBOLS:partitionVar(Particles_copy, tiles)
+  local p_TradeQueue_bySrc = TradeQueue:map(function(r)
+    return SYMBOLS:partitionVar(r, tiles)
+  end)
+  local p_TradeQueue_byDst = TradeQueue:map(function(r)
+    return SYMBOLS:partitionVar(r, tiles)
+  end)
+  local p_Radiation = SYMBOLS:partitionVar(Radiation, tiles)
 
   -----------------------------------------------------------------------------
   -- Exported symbols
@@ -5560,6 +5574,12 @@ local function mkInstance() local INSTANCE = {}
   INSTANCE.p_Particles = p_Particles
   INSTANCE.p_Particles_copy = p_Particles_copy
   INSTANCE.p_Radiation = p_Radiation
+
+  -----------------------------------------------------------------------------
+  -- Imported instances
+  -----------------------------------------------------------------------------
+
+  local DOM_INST = DOM.mkInstance(SYMBOLS, tiles)
 
   -----------------------------------------------------------------------------
   -- Symbol declaration & initialization
@@ -5881,9 +5901,9 @@ local function mkInstance() local INSTANCE = {}
     var sampleId = config.Mapping.sampleId
 
     -- Create Fluid Regions
-    var is_Fluid = ispace(int3d, {x = config.Grid.xNum + 2*Grid.xBnum,
-                                  y = config.Grid.yNum + 2*Grid.yBnum,
-                                  z = config.Grid.zNum + 2*Grid.zBnum})
+    var [is_Fluid] = ispace(int3d, {x = config.Grid.xNum + 2*Grid.xBnum,
+                                    y = config.Grid.yNum + 2*Grid.yBnum,
+                                    z = config.Grid.zNum + 2*Grid.zBnum})
     var [Fluid] = region(is_Fluid, Fluid_columns);
     [UTIL.emitRegionTagAttach(Fluid, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     var [Fluid_copy] = region(is_Fluid, Fluid_columns);
@@ -5897,7 +5917,7 @@ local function mkInstance() local INSTANCE = {}
       maxParticlesPerTile =
         int64(ceil(maxParticlesPerTile * config.Particles.maxSkew))
     end
-    var is_Particles = ispace(int1d, maxParticlesPerTile * numTiles)
+    var [is_Particles] = ispace(int1d, maxParticlesPerTile * numTiles)
     var [Particles] = region(is_Particles, Particles_columns);
     [UTIL.emitRegionTagAttach(Particles, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     var [Particles_copy] = region(is_Particles, Particles_columns);
@@ -5910,8 +5930,8 @@ local function mkInstance() local INSTANCE = {}
       for i = 0, num_dirs do
         escapeRatio *= config.Particles.escapeRatioPerDir
       end
-      var is_TradeQueue = ispace(int1d, int64(ceil(escapeRatio * maxParticlesPerTile) * numTiles))
-      var [TradeQueue[k]] = region(is_TradeQueue, TradeQueue_columns);
+      var [is_TradeQueue[k]] = ispace(int1d, int64(ceil(escapeRatio * maxParticlesPerTile) * numTiles))
+      var [TradeQueue[k]] = region([is_TradeQueue[k]], TradeQueue_columns);
       [UTIL.emitRegionTagAttach(TradeQueue[k], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     @TIME end @EPACSE
 
@@ -5924,7 +5944,7 @@ local function mkInstance() local INSTANCE = {}
       rad_y = config.Radiation.u.DOM.yNum
       rad_z = config.Radiation.u.DOM.zNum
     end
-    var is_Radiation = ispace(int3d, {x = rad_x, y = rad_y, z = rad_z})
+    var [is_Radiation] = ispace(int3d, {x = rad_x, y = rad_y, z = rad_z})
     var [Radiation] = region(is_Radiation, Radiation_columns);
     [UTIL.emitRegionTagAttach(Radiation, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
 
@@ -5964,7 +5984,7 @@ local function mkInstance() local INSTANCE = {}
     -- DOM code declarations
     ---------------------------------------------------------------------------
 
-    [DOM_INST.DeclSymbols(config, tiles)];
+    [DOM_INST.DeclSymbols(config)];
 
   end end -- DeclSymbols
 
@@ -6170,7 +6190,7 @@ local function mkInstance() local INSTANCE = {}
     elseif config.Radiation.type == SCHEMA.RadiationModel_Algebraic then
       -- Do nothing
     elseif config.Radiation.type == SCHEMA.RadiationModel_DOM then
-      [DOM_INST.InitRegions(config, tiles, p_Radiation)];
+      [DOM_INST.InitRegions(config, p_Radiation)];
       for c in tiles do
         Radiation_InitializeGeometry(p_Radiation[c],
                                      p_Fluid[c],
@@ -6553,7 +6573,7 @@ local function mkInstance() local INSTANCE = {}
                                       config,
                                       config.Radiation.u.DOM.qa,
                                       config.Radiation.u.DOM.qs);
-          [DOM_INST.ComputeRadiationField(config, tiles, p_Radiation)];
+          [DOM_INST.ComputeRadiationField(config, p_Radiation)];
           for c in tiles do
             Particles_AbsorbRadiationDOM(p_Particles[c],
                                          p_Fluid[c],

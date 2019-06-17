@@ -692,43 +692,71 @@ end
 -- FULL SIMULATION QUOTES
 -------------------------------------------------------------------------------
 
-function MODULE.mkInstance() local INSTANCE = {}
+function MODULE.mkInstance(SYMBOLS, tiles) local INSTANCE = {}
 
   -- Symbols shared between quotes
 
-  local Nx = regentlib.newsymbol('Nx')
-  local Ny = regentlib.newsymbol('Ny')
-  local Nz = regentlib.newsymbol('Nz')
-  local ntx = regentlib.newsymbol('ntx')
-  local nty = regentlib.newsymbol('nty')
-  local ntz = regentlib.newsymbol('ntz')
-  local Tx = regentlib.newsymbol('Tx')
-  local Ty = regentlib.newsymbol('Ty')
-  local Tz = regentlib.newsymbol('Tz')
+  local Nx = SYMBOLS:scalarVar(int)
+  local Ny = SYMBOLS:scalarVar(int)
+  local Nz = SYMBOLS:scalarVar(int)
+  local ntx = SYMBOLS:scalarVar(int)
+  local nty = SYMBOLS:scalarVar(int)
+  local ntz = SYMBOLS:scalarVar(int)
+  local Tx = SYMBOLS:scalarVar(int)
+  local Ty = SYMBOLS:scalarVar(int)
+  local Tz = SYMBOLS:scalarVar(int)
 
-  local sub_points = UTIL.generate(8, regentlib.newsymbol)
-  local p_sub_points = UTIL.generate(8, regentlib.newsymbol)
+  local is_sub_points = SYMBOLS:ispaceVar(int1d)
+  local sub_points = UTIL.generate(8, function()
+    return SYMBOLS:regionVar(is_sub_points, SubPoint_columns)
+  end)
+  local p_sub_points = sub_points:map(function(r)
+    return SYMBOLS:partitionVar(r, tiles)
+  end)
 
-  local x_faces = UTIL.generate(8, regentlib.newsymbol)
-  local y_faces = UTIL.generate(8, regentlib.newsymbol)
-  local z_faces = UTIL.generate(8, regentlib.newsymbol)
-  local x_tiles = regentlib.newsymbol('x_tiles')
-  local y_tiles = regentlib.newsymbol('y_tiles')
-  local z_tiles = regentlib.newsymbol('z_tiles')
-  local p_x_faces = UTIL.generate(8, regentlib.newsymbol)
-  local p_y_faces = UTIL.generate(8, regentlib.newsymbol)
-  local p_z_faces = UTIL.generate(8, regentlib.newsymbol)
+  local grid_x = SYMBOLS:ispaceVar(int2d)
+  local grid_y = SYMBOLS:ispaceVar(int2d)
+  local grid_z = SYMBOLS:ispaceVar(int2d)
+  local x_faces = UTIL.generate(8, function()
+    return SYMBOLS:regionVar(grid_x, Face_columns)
+  end)
+  local y_faces = UTIL.generate(8, function()
+    return SYMBOLS:regionVar(grid_y, Face_columns)
+  end)
+  local z_faces = UTIL.generate(8, function()
+    return SYMBOLS:regionVar(grid_z, Face_columns)
+  end)
+  local x_tiles = SYMBOLS:ispaceVar(int2d)
+  local y_tiles = SYMBOLS:ispaceVar(int2d)
+  local z_tiles = SYMBOLS:ispaceVar(int2d)
+  local p_x_faces = x_faces:map(function(r)
+    return SYMBOLS:partitionVar(r, x_tiles)
+  end)
+  local p_y_faces = y_faces:map(function(r)
+    return SYMBOLS:partitionVar(r, y_tiles)
+  end)
+  local p_z_faces = z_faces:map(function(r)
+    return SYMBOLS:partitionVar(r, z_tiles)
+  end)
 
-  local angles = UTIL.generate(8, regentlib.newsymbol)
+  local is_angles = UTIL.generate(8, function()
+    return SYMBOLS:ispaceVar(int1d)
+  end)
+  local angles = is_angles:map(function(is)
+    return SYMBOLS:regionVar(is, Angle_columns)
+  end)
 
-  local grid_map = regentlib.newsymbol('grid_map')
-  local sub_point_offsets = regentlib.newsymbol('sub_point_offsets')
-  local diagonals = regentlib.newsymbol('diagonals')
-  local p_sub_point_offsets = regentlib.newsymbol('p_sub_point_offsets')
+  local is_grid_map = SYMBOLS:ispaceVar(int3d)
+  local grid_map = SYMBOLS:regionVar(is_grid_map, GridMap_columns)
+
+  local is_sub_point_offsets = SYMBOLS:ispaceVar(int1d)
+  local sub_point_offsets = SYMBOLS:regionVar(is_sub_point_offsets, bool)
+  local diagonals = SYMBOLS:ispaceVar(int1d)
+  local p_sub_point_offsets = SYMBOLS:partitionVar(sub_point_offsets, diagonals)
 
   -- NOTE: This quote is included into the main simulation whether or not
   -- we're using DOM, so the values will be garbage if type ~= DOM.
-  function INSTANCE.DeclSymbols(config, tiles) return rquote
+  function INSTANCE.DeclSymbols(config) return rquote
 
     var sampleId = config.Mapping.sampleId
 
@@ -760,16 +788,16 @@ function MODULE.mkInstance() local INSTANCE = {}
     -- Regions for sub-points
     -- Conceptually int4d, but rolled into 1 dimension to make CUDA code
     -- generation easier. The effective storage order is Z > Y > X > M.
-    var is_sub_points = ispace(int1d, int64(MAX_ANGLES_PER_QUAD)*Nx*Ny*Nz);
+    var [is_sub_points] = ispace(int1d, int64(MAX_ANGLES_PER_QUAD)*Nx*Ny*Nz);
     @ESCAPE for q = 1, 8 do @EMIT
       var [sub_points[q]] = region(is_sub_points, SubPoint_columns);
       [UTIL.emitRegionTagAttach(sub_points[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     @TIME end @EPACSE
 
     -- Regions for faces
-    var grid_x = ispace(int2d, {   Ny,Nz})
-    var grid_y = ispace(int2d, {Nx,   Nz})
-    var grid_z = ispace(int2d, {Nx,Ny   });
+    var [grid_x] = ispace(int2d, {   Ny,Nz})
+    var [grid_y] = ispace(int2d, {Nx,   Nz})
+    var [grid_z] = ispace(int2d, {Nx,Ny   });
     @ESCAPE for q = 1, 8 do @EMIT
       var [x_faces[q]] = region(grid_x, Face_columns);
       [UTIL.emitRegionTagAttach(x_faces[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
@@ -785,16 +813,16 @@ function MODULE.mkInstance() local INSTANCE = {}
       num_angles = config.Radiation.u.DOM.angles
     end
     @ESCAPE for q = 1, 8 do @EMIT
-      var is_angles = ispace(int1d, quadrantSize(q, num_angles))
-      var [angles[q]] = region(is_angles, Angle_columns);
+      var [is_angles[q]] = ispace(int1d, quadrantSize(q, num_angles))
+      var [angles[q]] = region([is_angles[q]], Angle_columns);
       [UTIL.emitRegionTagAttach(angles[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     @TIME end @EPACSE
 
     -- Regions for intra-tile information
-    var is_sub_point_offsets = ispace(int1d, int64(MAX_ANGLES_PER_QUAD)*Tx*Ty*Tz)
+    var [is_sub_point_offsets] = ispace(int1d, int64(MAX_ANGLES_PER_QUAD)*Tx*Ty*Tz)
     var [sub_point_offsets] = region(is_sub_point_offsets, bool);
     [UTIL.emitRegionTagAttach(sub_point_offsets, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
-    var is_grid_map = ispace(int3d, {Tx,Ty,Tz})
+    var [is_grid_map] = ispace(int3d, {Tx,Ty,Tz})
     var [grid_map] = region(is_grid_map, GridMap_columns);
     [UTIL.emitRegionTagAttach(grid_map, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
 
@@ -831,7 +859,7 @@ function MODULE.mkInstance() local INSTANCE = {}
 
   end end -- DeclSymbols
 
-  function INSTANCE.InitRegions(config, tiles, p_points) return rquote
+  function INSTANCE.InitRegions(config, p_points) return rquote
 
     -- Initialize points
     for c in tiles do
@@ -863,7 +891,7 @@ function MODULE.mkInstance() local INSTANCE = {}
 
   end end -- InitRegions
 
-  function INSTANCE.ComputeRadiationField(config, tiles, p_points) return rquote
+  function INSTANCE.ComputeRadiationField(config, p_points) return rquote
 
     -- Initialize intensity.
     for c in tiles do
