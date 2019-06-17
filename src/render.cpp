@@ -431,6 +431,9 @@ extern "C" {
   }
   
   
+void cxx_fubar() {
+std::cout << "FUBAR!" << std::endl;
+}
   
   // this entry point is called once from the main task
   RegionPartition cxx_initialize(
@@ -502,7 +505,6 @@ extern "C" {
     PhysicalRegion* particlesToDraw = CObjectWrapper::unwrap(particlesToDraw_[0]);
     PhysicalRegion* image = CObjectWrapper::unwrap(image_[0]);
 
-    
     // Create projection functors
     
     Visualization::ImageReduction* compositor = gImageCompositors[sampleId];
@@ -557,7 +559,9 @@ extern "C" {
     renderLauncher.add_region_requirement(req0);
     
     RegionRequirement req1(particlesPartition, 2, READ_ONLY, EXCLUSIVE, particles->get_logical_region(), gImageReductionMapperID);
-    for(int i = 0; i < numParticlesFields; ++i) req1.add_field(particlesFields[i]);
+    for(int i = 0; i < numParticlesFields; ++i) {
+      req1.add_field(particlesFields[i]);
+    }
     renderLauncher.add_region_requirement(req1);
     
     RegionRequirement req2(image->get_logical_region(), 3, WRITE_DISCARD, EXCLUSIVE, image->get_logical_region(), gImageReductionMapperID);

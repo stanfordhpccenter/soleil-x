@@ -410,10 +410,11 @@ do
   if Integrator_timeStep % config.Visualization.stepsPerRender == 0 and config.Visualization.stepsPerRender > 0 then
     var numFluidFields : int = 37
     var fluidFields : C.legion_field_id_t[numFluidFields] = __fields(Fluid)
-    var numParticlesFields : int = 21
+    var numParticlesFields : int = 20
     var particlesFields : C.legion_field_id_t[numParticlesFields] = __fields(Particles)
     var numImageFields : int = 6
     var imageFields : C.legion_field_id_t[numImageFields] = __fields(Image)
+
 
     render.cxx_render(__runtime(),
       __context(),
