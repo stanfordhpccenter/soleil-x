@@ -16,58 +16,6 @@ local isSchemaT
 
 -------------------------------------------------------------------------------
 
-local BoolMT = {}
-BoolMT.__index = BoolMT
-
--- () -> Bool
-function Bool()
-  return setmetatable({
-  }, BoolMT)
-end
-
--- SchemaT -> bool
-local function isBool(typ)
-  return type(typ) == 'table' and getmetatable(typ) == BoolMT
-end
-
--------------------------------------------------------------------------------
-
-local IntMT = {}
-IntMT.__index = IntMT
-
--- int -> Int
-function Int(bytes)
-  assert(bytes == 4 or bytes == 8)
-  return setmetatable({
-    bytes = bytes, -- int
-  }, IntMT)
-end
-
--- SchemaT -> bool
-local function isInt(typ)
-  return type(typ) == 'table' and getmetatable(typ) == IntMT
-end
-
--------------------------------------------------------------------------------
-
-local FloatMT = {}
-FloatMT.__index = FloatMT
-
--- int -> Float
-function Float(bytes)
-  assert(bytes == 4 or bytes == 8)
-  return setmetatable({
-    bytes = bytes, -- int
-  }, FloatMT)
-end
-
--- SchemaT -> bool
-local function isFloat(typ)
-  return type(typ) == 'table' and getmetatable(typ) == FloatMT
-end
-
--------------------------------------------------------------------------------
-
 local StringMT = {}
 StringMT.__index = StringMT
 
@@ -75,7 +23,7 @@ StringMT.__index = StringMT
 function String(maxLen)
   assert(UTIL.isPosInt(maxLen))
   return setmetatable({
-    maxLen = maxLen, -- int
+    maxLen = maxLen,
   }, StringMT)
 end
 
@@ -91,14 +39,12 @@ EnumMT.__index = EnumMT
 
 -- string* -> Enum
 function Enum(...)
-  local choices = {}
+  local enum = {}
   for i,choice in ipairs({...}) do
     assert(type(choice) == 'string')
-    choices[choice] = i-1
+    enum[choice] = i-1
   end
-  return setmetatable({
-    choices = choices, -- map(string,int)
-  }, EnumMT)
+  return setmetatable(enum, EnumMT)
 end
 
 -- SchemaT -> bool
@@ -116,8 +62,8 @@ function Array(num, elemType)
   assert(UTIL.isPosInt(num))
   assert(isSchemaT(elemType))
   return setmetatable({
-    num = num, -- int
-    elemType = elemType, -- SchemaT
+    num = num,
+    elemType = elemType,
   }, ArrayMT)
 end
 
@@ -136,8 +82,8 @@ function UpTo(max, elemType)
   assert(UTIL.isPosInt(max))
   assert(isSchemaT(elemType))
   return setmetatable({
-    max = max, -- int
-    elemType = elemType, -- SchemaT
+    max = max,
+    elemType = elemType,
   }, UpToMT)
 end
 
@@ -153,13 +99,11 @@ UnionMT.__index = UnionMT
 
 -- map(string,Struct) -> Union
 function Union(choices)
-  for name,typ in pairs(choices) do
+  for name,fields in pairs(choices) do
     assert(type(name) == 'string')
-    assert(isStruct(typ))
+    assert(isStruct(fields))
   end
-  return setmetatable({
-    choices = choices, -- map(string,Struct)
-  }, UnionMT)
+  return setmetatable(UTIL.copyTable(choices), UnionMT)
 end
 
 -- SchemaT -> bool
@@ -169,36 +113,33 @@ end
 
 -------------------------------------------------------------------------------
 
-local StructMT = {}
-StructMT.__index = StructMT
-
--- map(string,SchemaT) -> Struct
-function Struct(fields)
-  for name,typ in pairs(fields) do
-    assert(type(name) == 'string')
-    assert(isSchemaT(typ))
-  end
-  return setmetatable({
-    fields = fields, -- map(string,SchemaT)
-  }, StructMT)
-end
+-- Struct = map(string,SchemaT)
 
 -- SchemaT -> bool
 function isStruct(typ)
-  return type(typ) == 'table' and getmetatable(typ) == StructMT
+  if type(typ) ~= 'table' or getmetatable(typ) ~= nil then
+    return false
+  end
+  for k,v in pairs(typ) do
+    if type(k) ~= 'string' or not isSchemaT(v) then
+      return false
+    end
+  end
+  return true
 end
 
 -------------------------------------------------------------------------------
 
--- SchemaT = Bool | Int | Float | String
+-- SchemaT = 'bool' | 'int' | 'int64' | 'double' | String
 --         | Enum | Array | UpTo | Union | Struct
 
 -- A -> bool
 function isSchemaT(typ)
   return
-    isBool(typ) or
-    isInt(typ) or
-    isFloat(typ) or
+    typ == bool or
+    typ == int or
+    typ == int64 or
+    typ == double or
     isString(typ) or
     isEnum(typ) or
     isArray(typ) or
@@ -214,18 +155,14 @@ local function convertSchemaT(typ, cache)
   if cache[typ] then
     return cache[typ]
   end
-  if isBool(typ) then
+  if typ == bool then
     return bool
-  elseif isInt(typ) then
-    return
-      typ.bytes == 4 and int   or
-      typ.bytes == 8 and int64 or
-      assert(false)
-  elseif isFloat(typ) then
-    return
-      typ.bytes == 4 and float  or
-      typ.bytes == 8 and double or
-      assert(false)
+  elseif typ == int then
+    return int
+  elseif typ == int64 then
+    return int64
+  elseif typ == double then
+    return double
   elseif isString(typ) then
     return int8[typ.maxLen]
   elseif isEnum(typ) then
@@ -240,7 +177,7 @@ local function convertSchemaT(typ, cache)
   elseif isUnion(typ) then
     local u = terralib.types.newstruct()
     u.entries:insert(terralib.newlist())
-    for n,t in pairs(typ.choices) do
+    for n,t in pairs(typ) do
       u.entries[1]:insert({field=n, type=convertSchemaT(t, cache)})
     end
     local s = terralib.types.newstruct()
@@ -249,7 +186,7 @@ local function convertSchemaT(typ, cache)
     return s
   elseif isStruct(typ) then
     local s = terralib.types.newstruct()
-    for n,t in pairs(typ.fields) do
+    for n,t in pairs(typ) do
       s.entries:insert({field=n, type=convertSchemaT(t, cache)})
     end
     return s
@@ -274,26 +211,31 @@ end
 
 -- terralib.symbol, terralib.expr, terralib.expr, SchemaT -> terralib.quote
 local function emitValueParser(name, lval, rval, typ)
-  if isBool(typ) then
+  if typ == bool then
     return quote
       if [rval].type ~= JSON.json_boolean then
         [fldReadErr('Wrong type', name)]
       end
       [lval] = [bool]([rval].u.boolean)
     end
-  elseif isInt(typ) then
+  elseif typ == int then
     return quote
       if [rval].type ~= JSON.json_integer then
         [fldReadErr('Wrong type', name)]
       end
-      escape if typ.bytes == 4 then emit quote
-        if [int]([rval].u.integer) ~= [rval].u.integer then
-          [fldReadErr('Integer value overflow', name)]
-        end
-      end end end
+      if [int]([rval].u.integer) ~= [rval].u.integer then
+        [fldReadErr('Integer value overflow', name)]
+      end
       [lval] = [rval].u.integer
     end
-  elseif isFloat(typ) then
+  elseif typ == int64 then
+    return quote
+      if [rval].type ~= JSON.json_integer then
+        [fldReadErr('Wrong type', name)]
+      end
+      [lval] = [rval].u.integer
+    end
+  elseif typ == double then
     return quote
       if [rval].type ~= JSON.json_double then
         [fldReadErr('Wrong type', name)]
@@ -316,7 +258,7 @@ local function emitValueParser(name, lval, rval, typ)
         [fldReadErr('Wrong type', name)]
       end
       var found = false
-      escape for choice,value in pairs(typ.choices) do emit quote
+      escape for choice,value in pairs(typ) do emit quote
         if C.strcmp([rval].u.string.ptr, choice) == 0 then
           [lval] = value
           found = true
@@ -367,7 +309,7 @@ local function emitValueParser(name, lval, rval, typ)
           if nodeValue.type ~= JSON.json_string then
             [fldReadErr('Type field on union not a string', name)]
           end
-          escape local j = 0; for choice,fields in pairs(typ.choices) do emit quote
+          escape local j = 0; for choice,fields in pairs(typ) do emit quote
             if C.strcmp(nodeValue.u.string.ptr, [choice]) == 0 then
               [lval].type = [j]
               [emitValueParser(name, `[lval].u.[choice], rval, fields)]
@@ -391,7 +333,7 @@ local function emitValueParser(name, lval, rval, typ)
         var nodeName = [rval].u.object.values[i].name
         var nodeValue = [rval].u.object.values[i].value
         var parsed = false
-        escape for fld,subTyp in pairs(typ.fields) do emit quote
+        escape for fld,subTyp in pairs(typ) do emit quote
           if C.strcmp(nodeName, fld) == 0 then
             [emitValueParser(name..'.'..fld, `[lval].[fld], nodeValue, subTyp)]
             parsed = true
@@ -406,7 +348,7 @@ local function emitValueParser(name, lval, rval, typ)
         end
       end
       -- TODO: Assuming the json file contains no duplicate values
-      if totalParsed < [UTIL.tableSize(typ.fields)] then
+      if totalParsed < [UTIL.tableSize(typ)] then
         [errorOut('Missing fields from input file')]
       end
     end
@@ -441,11 +383,13 @@ for srcN,srcT in pairs(SCHEMA) do
         deps[srcN]:insert(tgtN)
         return
       end
-      if isBool(tgtT) then
+      if tgtT == bool then
         -- Do nothing
-      elseif isInt(tgtT) then
+      elseif tgtT == int then
         -- Do nothing
-      elseif isFloat(tgtT) then
+      elseif tgtT == int64 then
+        -- Do nothing
+      elseif tgtT == double then
         -- Do nothing
       elseif isString(tgtT) then
         -- Do nothing
@@ -456,11 +400,11 @@ for srcN,srcT in pairs(SCHEMA) do
       elseif isUpTo(tgtT) then
         traverse(tgtT.elemType)
       elseif isUnion(tgtT) then
-        for n,t in pairs(tgtT.choices) do
+        for n,t in pairs(tgtT) do
           traverse(t)
         end
       elseif isStruct(tgtT) then
-        for n,t in pairs(tgtT.fields) do
+        for n,t in pairs(tgtT) do
           traverse(t)
         end
       else assert(false) end
@@ -514,14 +458,14 @@ for name,typ in pairs(SCHEMA) do
   if isEnum(typ) then
     hdrFile:write('\n')
     hdrFile:write('typedef int '..name..';\n')
-    for choice,value in pairs(typ.choices) do
+    for choice,value in pairs(typ) do
       hdrFile:write('#define '..name..'_'..choice..' '..value..'\n')
     end
   elseif isUnion(typ) then
     hdrFile:write('\n')
     hdrFile:write('typedef int '..name..';\n')
     local i = 0
-    for choice,_ in pairs(typ.choices) do
+    for choice,_ in pairs(typ) do
       hdrFile:write('#define '..name..'_'..choice..' '..i..'\n')
       i = i + 1
     end
