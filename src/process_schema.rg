@@ -186,6 +186,9 @@ local function convertSchemaT(typ, cache)
     return s
   elseif isStruct(typ) then
     local s = terralib.types.newstruct()
+    if UTIL.isEmpty(typ) then
+      s.entries:insert({field='__dummy', type=int})
+    end
     for n,t in pairs(typ) do
       s.entries:insert({field=n, type=convertSchemaT(t, cache)})
     end
