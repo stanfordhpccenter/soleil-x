@@ -93,7 +93,6 @@ LLVM_INCLUDES=-I${LLVM_INSTALL}/include
 
 ${LLVM_SRC_XZ}:	${SOLEIL_LLVM_DIR}
 	echo why are we downloading ${LLVM_SRC_XZ} again?
-	ls -l ${LLVM_SRC_XZ}
 	cd ${SOLEIL_LLVM_DIR} && wget ${LLVM_DOWNLOAD_URL}
 
 ${LLVM_SRC}:	${LLVM_SRC_XZ} ${SOLEIL_LLVM_DIR}

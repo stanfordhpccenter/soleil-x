@@ -431,10 +431,6 @@ extern "C" {
   }
   
   
-void cxx_fubar() {
-std::cout << "FUBAR!" << std::endl;
-}
-  
   // this entry point is called once from the main task
   RegionPartition cxx_initialize(
                                     legion_runtime_t runtime_,
@@ -552,7 +548,7 @@ std::cout << "FUBAR!" << std::endl;
 
     // Setup the render task launch with region requirements
     
-    IndexTaskLauncher renderLauncher(gRenderTaskID, compositor->everywhereDomain(), TaskArgument(args, sizeof(args)), argMap, Predicate::TRUE_PRED, false, gImageReductionMapperID);
+    IndexTaskLauncher renderLauncher(gRenderTaskID, compositor->everywhereDomain(), TaskArgument(args, argSize), argMap, Predicate::TRUE_PRED, false, gImageReductionMapperID);
     
     RegionRequirement req0(fluidPartition, 1, READ_ONLY, EXCLUSIVE, fluid->get_logical_region(), gImageReductionMapperID);
     for(int i = 0; i < numFluidFields; ++i) req0.add_field(fluidFields[i]);
@@ -564,7 +560,7 @@ std::cout << "FUBAR!" << std::endl;
     }
     renderLauncher.add_region_requirement(req1);
     
-    RegionRequirement req2(image->get_logical_region(), 3, WRITE_DISCARD, EXCLUSIVE, image->get_logical_region(), gImageReductionMapperID);
+    RegionRequirement req2(compositor->depthPartition(), 3, WRITE_DISCARD, EXCLUSIVE, image->get_logical_region(), gImageReductionMapperID);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_R);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_G);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_B);

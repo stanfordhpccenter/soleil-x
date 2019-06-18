@@ -5624,16 +5624,16 @@ local SIM = mkInstance()
 __forbid(__optimize) __demand(__inner, __replicable)
 task workSingle(config : Config)
   [SIM.DeclSymbols(config)];
-  var ImageResult = VisualizeInit(config, SIM.Fluid, SIM.p_Fluid, SIM.Particles, SIM.particlesToDraw, SIM.lowerBound, SIM.upperBound)
-  var indexSpace = __import_ispace(int3d, ImageResult.indexSpace)
-  var colorSpace = __import_ispace(int3d, ImageResult.colorSpace)
-  var imageX = __import_region(indexSpace, Image_columns, ImageResult.imageX, ImageResult.imageFields)
-  var p_Image = __import_partition(disjoint, imageX, colorSpace, ImageResult.p_Image)
   var is_FakeCopyQueue = ispace(int1d, 0)
   var FakeCopyQueue = region(is_FakeCopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
   [parallelizeFor(SIM, rquote
     [SIM.InitRegions(config)];
+    var ImageResult = VisualizeInit(config, SIM.Fluid, SIM.p_Fluid, SIM.Particles, SIM.particlesToDraw, SIM.lowerBound, SIM.upperBound)
+    var indexSpace = __import_ispace(int3d, ImageResult.indexSpace)
+    var colorSpace = __import_ispace(int3d, ImageResult.colorSpace)
+    var imageX = __import_region(indexSpace, Image_columns, ImageResult.imageX, ImageResult.imageFields)
+    var p_Image = __import_partition(disjoint, imageX, colorSpace, ImageResult.p_Image)
     while true do
       [SIM.MainLoopHeader(config)];
       [SIM.PerformIO(config)];

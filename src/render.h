@@ -24,8 +24,6 @@
 extern "C" {
 #endif
   
-void cxx_fubar(); // debug only
-
   void cxx_preinitialize(legion_mapper_id_t mapperID);
   
   typedef struct {
