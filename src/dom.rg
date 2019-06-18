@@ -692,7 +692,7 @@ end
 -- FULL SIMULATION QUOTES
 -------------------------------------------------------------------------------
 
-function MODULE.mkInstance(SYMBOLS, tiles) local INSTANCE = {}
+function MODULE.mkInstance(SYMBOLS, config, tiles, p_points) local INSTANCE = {}
 
   -- Symbols shared between quotes
 
@@ -756,7 +756,7 @@ function MODULE.mkInstance(SYMBOLS, tiles) local INSTANCE = {}
 
   -- NOTE: This quote is included into the main simulation whether or not
   -- we're using DOM, so the values will be garbage if type ~= DOM.
-  function INSTANCE.DeclSymbols(config) return rquote
+  function INSTANCE.DeclSymbols() return rquote
 
     var sampleId = config.Mapping.sampleId
 
@@ -859,7 +859,7 @@ function MODULE.mkInstance(SYMBOLS, tiles) local INSTANCE = {}
 
   end end -- DeclSymbols
 
-  function INSTANCE.InitRegions(config, p_points) return rquote
+  function INSTANCE.InitRegions() return rquote
 
     -- Initialize points
     for c in tiles do
@@ -891,7 +891,7 @@ function MODULE.mkInstance(SYMBOLS, tiles) local INSTANCE = {}
 
   end end -- InitRegions
 
-  function INSTANCE.ComputeRadiationField(config, p_points) return rquote
+  function INSTANCE.ComputeRadiationField() return rquote
 
     -- Initialize intensity.
     for c in tiles do

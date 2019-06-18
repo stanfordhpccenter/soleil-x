@@ -120,11 +120,13 @@ end
 -------------------------------------------------------------------------------
 
 local SYMBOLS = UTIL.SymbolFactory()
+local config = SYMBOLS:scalarVar(SCHEMA.Config)
 local tiles = SYMBOLS:ispaceVar(int3d)
-local DOM_INST = DOM.mkInstance(SYMBOLS, tiles)
+local p_points = SYMBOLS:ispaceVar(int3d)
+local DOM_INST = DOM.mkInstance(SYMBOLS, config, tiles, p_points)
 
 __forbid(__optimize) __demand(__inner, __replicable)
-task work(config : SCHEMA.Config)
+task work([config])
   -- Declare externally-managed regions
   var is_points = ispace(int3d, {config.Radiation.u.DOM.xNum,
                                  config.Radiation.u.DOM.yNum,
@@ -133,12 +135,12 @@ task work(config : SCHEMA.Config)
   var [tiles] = ispace(int3d, {config.Mapping.tiles[0],
                                config.Mapping.tiles[1],
                                config.Mapping.tiles[2]})
-  var p_points =
+  var [p_points] =
     [UTIL.mkPartitionByTile(int3d, int3d, Point_columns)]
     (points, tiles, int3d{0,0,0}, int3d{0,0,0});
   -- Declare DOM-managed regions
-  [DOM_INST.DeclSymbols(config)];
-  [DOM_INST.InitRegions(config, p_points)];
+  [DOM_INST.DeclSymbols()];
+  [DOM_INST.InitRegions()];
   for c in tiles do
     Radiation_InitializeGeometry(p_points[c],
                                  config.Radiation.u.DOM.xNum, config.Grid.origin[0], config.Grid.xWidth,
@@ -149,7 +151,7 @@ task work(config : SCHEMA.Config)
   fill(points.Ib, (SB/PI) * pow(1000.0,4.0))
   fill(points.sigma, config.Radiation.u.DOM.qa + config.Radiation.u.DOM.qs);
   -- Invoke DOM solver
-  [DOM_INST.ComputeRadiationField(config, p_points)];
+  [DOM_INST.ComputeRadiationField()];
   -- Output results
   writeIntensity(points)
 end
