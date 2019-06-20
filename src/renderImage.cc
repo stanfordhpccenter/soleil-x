@@ -208,11 +208,42 @@ void renderImage(int numFluidX,
   
 //  std::cout << "domain min " << domainMin[0] << "," << domainMin[1] << "," << domainMin[2] << std::endl;
 //  std::cout << "domain max " << domainMax[0] << "," << domainMax[1] << "," << domainMax[2] << std::endl;
+#if 1
+  switch(visualizationField) {
+    case temperatureField:
+      std::cout << "isosurface of temperature = " << targetValue << std::endl;
+      break;
+    case rhoField:
+      std::cout << "isosurface of rho = " << targetValue << std::endl;
+      break;
+    case pressureField:
+      std::cout << "isosurface of pressure = " << targetValue << std::endl;
+      break;
+    case velocityField:
+      std::cerr << "error, velocity field not selectable for isosurface" << std::endl;
+      break;
+  }
+#endif
   
   float systemScale;
   setupRender(domainMin, domainMax, &systemScale);
   vDrawScene(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, visualizationField, targetValue);
   renderParticles(numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity, numParticlesToDraw, particlesToDraw, systemScale);
+
+#if 1
+  double rhoSum = 0;
+  double pressureSum = 0;
+  double temperatureSum = 0;
+  unsigned numCells = numFluidX * numFluidY * numFluidZ;
+  for(unsigned i = 0; i < numCells; ++i) {
+    rhoSum += rho[i];
+    pressureSum += pressure[i];
+    temperatureSum += temperature[i];
+  }
+  std::cout << "mean rho " << (rhoSum / numCells) << std::endl;
+  std::cout << "mean pressure " << (pressureSum / numCells) << std::endl;
+  std::cout << "mean temperature " << (temperatureSum / numCells) << std::endl;
+#endif
 
 #if DRAW_COORDINATES
   drawCoordinates(numFluidX, numFluidY, numFluidZ, centerCoordinates);

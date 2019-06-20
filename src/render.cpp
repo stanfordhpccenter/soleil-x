@@ -244,7 +244,7 @@ extern "C" {
     std::cout << "wrote image to " << filename << std::endl;
 #endif
     
-#define SAVE_INTERMEDIATE_IMAGES 1
+#define SAVE_INTERMEDIATE_IMAGES 0
 #if SAVE_INTERMEDIATE_IMAGES
     {
       IndexSpace saveIndexSpace = image.get_logical_region().get_index_space();
@@ -514,7 +514,7 @@ extern "C" {
     }
     
     // Construct arguments to render task
-    
+
     ArgumentMap argMap;
     ImageDescriptor imageDescriptor = compositor->imageDescriptor();
     size_t argSize = sizeof(imageDescriptor) + 6 * sizeof(FieldData) + sizeof(int) + sizeof(int) + sizeof(double) + numParticlesToDraw * sizeof(long int);

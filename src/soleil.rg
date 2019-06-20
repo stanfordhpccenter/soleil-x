@@ -327,9 +327,7 @@ task VisualizeInit(config : Config,
                   Fluid : region(ispace(int3d), Fluid_columns),
                   p_Fluid : partition(disjoint, Fluid, ispace(int3d)),
                   Particles : region(ispace(int1d), Particles_columns),
-                  particlesToDraw : region(ispace(int1d), Draw_columns),
-                  lowerBound : double[3],
-                  upperBound : double[3]
+                  particlesToDraw : region(ispace(int1d), Draw_columns)
 )
 where
   writes(Particles.{id}, particlesToDraw),
@@ -360,7 +358,25 @@ do
     end
   end
 
-  -- get the global fluid bounds
+  -- return the image partition
+  var result = render.cxx_initialize(__runtime(),
+                                    __context(),
+                                    config.Mapping.sampleId,
+                                    __raw(p_Fluid))
+  return result
+
+end
+
+
+
+task VisualizeBounds(
+                    Fluid : region(ispace(int3d), Fluid_columns)
+)
+where reads(Fluid)
+do
+  var lowerBound : double[3]
+  var upperBound : double[3]
+
   for i = 0, 3 do
     lowerBound[i] = 9999
     upperBound[i] = -9999
@@ -376,16 +392,8 @@ do
       end
     end
   end
-
-  -- return the image partition
-  var result = render.cxx_initialize(__runtime(),
-                                    __context(),
-                                    config.Mapping.sampleId,
-                                    __raw(p_Fluid))
-  return result
-
+  return { lowerBound = lowerBound, upperBound = upperBound }
 end
-
 
 
 
@@ -4383,8 +4391,6 @@ local function mkInstance() local INSTANCE = {}
 
   local maxParticlesToDraw = regentlib.newsymbol(int32, "maxParticlesToDraw");
   local particlesToDraw = regentlib.newsymbol("particlesToDraw");
-  local lowerBound = regentlib.newsymbol(double [3], "lowerBound");
-  local upperBound = regentlib.newsymbol(double [3], "upperBound");
 
   local Image = regentlib.newsymbol(region(ispace(int3d), Image_columns))
   local p_Image = regentlib.newsymbol(partition(disjoint, Image, ispace(int3d)))
@@ -4412,8 +4418,6 @@ local function mkInstance() local INSTANCE = {}
   INSTANCE.p_Particles_copy = p_Particles_copy
   INSTANCE.p_Radiation = p_Radiation
   INSTANCE.particlesToDraw = particlesToDraw
-  INSTANCE.lowerBound = lowerBound
-  INSTANCE.upperBound = upperBound
 
   -----------------------------------------------------------------------------
   -- Symbol declaration & initialization
@@ -4487,8 +4491,6 @@ local function mkInstance() local INSTANCE = {}
     -- Visualization
     var [maxParticlesToDraw] = 100000
     var [particlesToDraw] = region(ispace(int1d, maxParticlesToDraw), Draw_columns)
-    var [lowerBound]
-    var [upperBound]
 
     -- Determine number of ghost cells in each direction
     -- 0 ghost cells if periodic and 1 otherwise
@@ -5629,7 +5631,8 @@ task workSingle(config : Config)
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
   [parallelizeFor(SIM, rquote
     [SIM.InitRegions(config)];
-    var ImageResult = VisualizeInit(config, SIM.Fluid, SIM.p_Fluid, SIM.Particles, SIM.particlesToDraw, SIM.lowerBound, SIM.upperBound)
+    var ImageResult = VisualizeInit(config, SIM.Fluid, SIM.p_Fluid, SIM.Particles, SIM.particlesToDraw)
+    var { lowerBound, upperBound } = VisualizeBounds(SIM.Fluid)
     var indexSpace = __import_ispace(int3d, ImageResult.indexSpace)
     var colorSpace = __import_ispace(int3d, ImageResult.colorSpace)
     var imageX = __import_region(indexSpace, Image_columns, ImageResult.imageX, ImageResult.imageFields)
@@ -5641,7 +5644,7 @@ task workSingle(config : Config)
         break
       end
       [SIM.MainLoopBody(config, rexpr false end, FakeCopyQueue)];
-      Visualize(config, SIM.Integrator_timeStep, SIM.Fluid, SIM.Particles, SIM.p_Fluid, SIM.p_Particles, SIM.particlesToDraw, SIM.lowerBound, SIM.upperBound, SIM.tiles, imageX, p_Image)
+      Visualize(config, SIM.Integrator_timeStep, SIM.Fluid, SIM.Particles, SIM.p_Fluid, SIM.p_Particles, SIM.particlesToDraw, lowerBound, upperBound, SIM.tiles, imageX, p_Image)
     end
   end)];
   [SIM.Cleanup(config)];

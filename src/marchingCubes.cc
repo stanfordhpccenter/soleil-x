@@ -139,7 +139,7 @@ void initializeMarchingCubes(GLfloat lightPosition[4])
   glLightfv( GL_LIGHT0, GL_SPECULAR, afPropertiesSpecular);
   glLightfv( GL_LIGHT0, GL_POSITION, lightPosition);
   glLightModelf(GL_LIGHT_MODEL_TWO_SIDE, 1.0);
-  printf("light position %g %g %g\n", lightPosition[0], lightPosition[1], lightPosition[2]);
+  printf("light position %f %f %f\n", lightPosition[0], lightPosition[1], lightPosition[2]);
   
   glEnable( GL_LIGHT0 );
   
@@ -449,10 +449,11 @@ GLvoid vMarchingCubes()
       {
         int index = iX + gNumFluidX * iY + gNumFluidX * gNumFluidY * iZ;
         const FieldData3* coordinate = gCenterCoordinates + index;
-#define RENDER_CELL_CENTERS 1
+#define RENDER_CELL_CENTERS 0
 #if RENDER_CELL_CENTERS
         GLUquadricObj *qobj = gluNewQuadric();
-        drawParticle(qobj, coordinate, 500, 300, 5.0e-5);
+        double scale = 1.0e-3;
+        drawParticle(qobj, coordinate, 500, 300, scale);
         gluDeleteQuadric(qobj);
 #else
         vMarchCube(coordinate->x[0] - stepSizeX / 2.0,
