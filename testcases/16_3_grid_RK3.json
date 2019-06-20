@@ -1,4 +1,4 @@
-        {
+{
             "BC": {
                 "yBCRightHeat": {
                     "type": "Constant",
@@ -172,7 +172,7 @@
                 "restartEveryTimeSteps": 10000,
                 "wrtRestart": true,
                 "probes": []
-            }
+            },
 
     "Visualization" : {
       "numParticlesToDraw" : 1000,
