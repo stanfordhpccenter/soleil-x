@@ -339,13 +339,15 @@ do
     p.id = particleID
     particleID = particleID + 1
   end
+  regentlib.c.printf("total particles = %d\n", particleID)
 
   -- select particles to draw
   C.srand(0)
   for i = 0, config.Visualization.numParticlesToDraw do
     var r = [double](C.rand()) / C.RAND_MAX
-    particlesToDraw[i].id = r * config.Particles.initNum
-regentlib.c.printf("draw particle %d\n", praticlesToDraw[i].id)
+    var n : double = particleID - 1
+    var id : int64 = [int64](r * n)
+    particlesToDraw[i].id = id
   end
 
   -- bubble sort the array
