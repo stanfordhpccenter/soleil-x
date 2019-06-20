@@ -62,22 +62,23 @@ static void temperatureToColor(float temperature,
 
 
 static void scaledTemperatureToColor(float temperature,
-                                     float color[2]) {
-  const float min = 0.0;
-  const float max = 40.0f;
+                                     float color[4],
+                                     FieldData isosurfaceScale[2]) {
+  const float min = isosurfaceScale[0];
+  const float max = isosurfaceScale[1];
   const float Kmin = 0.0f;
   const float Kmax = 10000.0f;
+  // stretch it on a scale of Kmin...Kmax
   float scaledTemperature = (temperature - min) * ((Kmax - Kmin) / (max - min));
   return temperatureToColor(scaledTemperature, color);
 }
 
 
-void drawParticle(GLUquadricObj* qobj, const FieldData3* position, FieldData density, FieldData particleTemperature, float particleSize) {
+void drawParticle(GLUquadricObj* qobj, const FieldData3* position, FieldData density, FieldData particleTemperature, float particleSize, FieldData isosurfaceScale[2]) {
   
   GLfloat t = particleTemperature;
   GLfloat color[4];
-  scaledTemperatureToColor(t, color);
-  color[0] = color[1] = color[2] = color[3] = 1;//debug
+  scaledTemperatureToColor(t, color, isosurfaceScale);
   glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, color);
   glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, color);
   glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, color);
@@ -122,14 +123,15 @@ void renderParticles(int numParticles,
                      const FieldData* particlesDensity,
                      int numParticlesToDraw,
                      long int* particlesToDraw,
-                     float systemScale) {
+                     float systemScale,
+                     FieldData isosurfaceScale[2]) {
   GLUquadricObj *qobj = gluNewQuadric();
   
   unsigned drawnCount = 0;
   for(int i = 0; i < numParticles; ++i) {
     if(drawThis(particlesID[i], numParticlesToDraw, particlesToDraw)) {
       if(particlesDensity[i] > 0) {
-        drawParticle(qobj, particlesPosition + i, particlesDensity[i], particlesTemperature[i], particleSize(systemScale, particlesDensity[i]));
+        drawParticle(qobj, particlesPosition + i, particlesDensity[i], particlesTemperature[i], particleSize(systemScale, particlesDensity[i]), isosurfaceScale);
         drawnCount++;
       }
     }

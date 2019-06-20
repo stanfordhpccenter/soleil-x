@@ -17,9 +17,11 @@ void vDrawScene(int numFluidX,
                 FieldData domainMin[3],
                 FieldData domainMax[3],
                 VisualizationField visualizationField,
-                FieldData targetValue);
+                FieldData targetValue,
+                FieldData isosurfaceScale[2]);
 
-void renderParticles(int numParticles, const long int* particlesID, const FieldData3* particlesPosition, const FieldData* particlesTemperature, const FieldData* particlesDensity, int numParticlesToDraw, long int* particlesToDraw, float systemScale);
+void renderParticles(int numParticles, const long int* particlesID, const FieldData3* particlesPosition, const FieldData* particlesTemperature, const FieldData* particlesDensity, int numParticlesToDraw, long int* particlesToDraw, float systemScale,
+                     FieldData isosurfaceScale[2]);
 
 void initializeMarchingCubes(GLfloat lightPosition[4]);
 
@@ -198,6 +200,7 @@ void renderImage(int numFluidX,
                  FieldData domainMax[3],
                  VisualizationField visualizationField,
                  FieldData targetValue,
+                 FieldData isosurfaceScale[2],
                  int numParticles,
                  const long int* particlesID,
                  const FieldData3* particlesPosition,
@@ -227,8 +230,8 @@ void renderImage(int numFluidX,
   
   float systemScale;
   setupRender(domainMin, domainMax, &systemScale);
-  vDrawScene(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, visualizationField, targetValue);
-  renderParticles(numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity, numParticlesToDraw, particlesToDraw, systemScale);
+  vDrawScene(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, visualizationField, targetValue, isosurfaceScale);
+  renderParticles(numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity, numParticlesToDraw, particlesToDraw, systemScale, isosurfaceScale);
 
 #if 1
   double rhoSum = 0;

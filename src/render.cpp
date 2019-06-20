@@ -156,6 +156,8 @@ extern "C" {
     argsPtr += sizeof(VisualizationField);
     double isosurfaceValue = *(double*)argsPtr;
     argsPtr += sizeof(double);
+    double* isosurfaceScale = (double*)argsPtr;
+    argsPtr += 2 * sizeof(double);
     long int* particlesToDraw = (long int*)argsPtr;
     
     // Initialize the renderer and its graphics context
@@ -206,7 +208,7 @@ extern "C" {
     const FieldData* particlesTemperatureP = particlesTemperature.ptr(Z1);
     const FieldData* particlesDensityP = particlesDensity.ptr(Z1);
     
-    renderImage(num[0], num[1], num[2], rhoP, pressureP, velocityP, centerCoordinatesP, temperatureP, lowerBound, upperBound, isosurfaceField, isosurfaceValue,
+    renderImage(num[0], num[1], num[2], rhoP, pressureP, velocityP, centerCoordinatesP, temperatureP, lowerBound, upperBound, isosurfaceField, isosurfaceValue, isosurfaceScale,
                 numParticles, idP, particlesPositionP, particlesTemperatureP, particlesDensityP,
                 particlesToDraw, numParticlesToDraw);
     
@@ -482,6 +484,7 @@ extern "C" {
                   int numParticlesToDraw,
                   int isosurfaceField,
                   double isosurfaceValue,
+                  double isosurfaceScale[2],
                   legion_physical_region_t* particlesToDraw_,
                   FieldData lowerBound[3],
                   FieldData upperBound[3]
@@ -517,7 +520,8 @@ extern "C" {
 
     ArgumentMap argMap;
     ImageDescriptor imageDescriptor = compositor->imageDescriptor();
-    size_t argSize = sizeof(imageDescriptor) + 6 * sizeof(FieldData) + sizeof(int) + sizeof(int) + sizeof(double) + numParticlesToDraw * sizeof(long int);
+    size_t argSize = sizeof(imageDescriptor) + 6 * sizeof(FieldData) + sizeof(int) + sizeof(VisualizationField) + sizeof(double) + 2 * sizeof(double) +
+      numParticlesToDraw * sizeof(long int);
     char args[argSize];
     char* argsPtr = args;
     memcpy(argsPtr, &imageDescriptor, sizeof(imageDescriptor));
@@ -530,9 +534,10 @@ extern "C" {
     argsPtr += sizeof(int);
     memcpy(argsPtr, &isosurfaceField, sizeof(VisualizationField));
     argsPtr += sizeof(VisualizationField);
-    assert(sizeof(VisualizationField) == sizeof(int));
     memcpy(argsPtr, &isosurfaceValue, sizeof(double));
     argsPtr += sizeof(double);
+    memcpy(argsPtr, isosurfaceScale, 2 * sizeof(double));
+    argsPtr += 2 * sizeof(double);
     
     // Copy particlesToDraw as a task argument
     

@@ -58,6 +58,7 @@ extern "C" {
                   int numParticlesToDraw,
                   int isosurfaceField,
                   double isosurfaceValue,
+                  double isosurfaceScale[2],
                   legion_physical_region_t *particlesToDraw_,
                   double lowerBound[3],
                   double upperBound[3]

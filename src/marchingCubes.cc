@@ -43,6 +43,7 @@ const FieldData *gRho, *gPressure, *gTemperature;
 const FieldData3 *gVelocity, *gCenterCoordinates;
 FieldData *gDomainMin, *gDomainMax;
 VisualizationField gVisualizationField;
+FieldData* gIsosurfaceScale;
 int gDrawnTriangles;
 
 
@@ -165,7 +166,8 @@ void vDrawScene(int numFluidX,
                 FieldData domainMin[3],
                 FieldData domainMax[3],
                 VisualizationField visualizationField,
-                FieldData targetValue)
+                FieldData targetValue,
+                FieldData isosurfaceScale[2])
 {
   gNumFluidX = numFluidX;
   gNumFluidY = numFluidY;
@@ -178,6 +180,7 @@ void vDrawScene(int numFluidX,
   gDomainMin = domainMin;
   gDomainMax = domainMax;
   gVisualizationField = visualizationField;
+  gIsosurfaceScale = isosurfaceScale;
   fTargetValue = targetValue;
   
   glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );

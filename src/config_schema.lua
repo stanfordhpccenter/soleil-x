@@ -215,6 +215,7 @@ Exports.Config = {
     numParticlesToDraw = int,
     isosurfaceField = Exports.VisualizationIsosurfaceField,
     isosurfaceValue = double,
+    isosurfaceScale = Array(2, double),
     stepsPerRender = int,
   }
 }

@@ -345,6 +345,7 @@ do
   for i = 0, config.Visualization.numParticlesToDraw do
     var r = [double](C.rand()) / C.RAND_MAX
     particlesToDraw[i].id = r * config.Particles.initNum
+regentlib.c.printf("draw particle %d\n", praticlesToDraw[i].id)
   end
 
   -- bubble sort the array
@@ -441,6 +442,7 @@ do
       config.Visualization.numParticlesToDraw,
       config.Visualization.isosurfaceField,
       config.Visualization.isosurfaceValue,
+      config.Visualization.isosurfaceScale,
       __physical(particlesToDraw),
       lowerBound,
       upperBound)
