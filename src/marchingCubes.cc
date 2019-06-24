@@ -332,6 +332,54 @@ GLvoid vGetNormal(GLvector &rfNormal, GLfloat fX, GLfloat fY, GLfloat fZ)
 }
 
 
+// draw a cube, for when all vertices match the isosurface value
+GLvoid drawCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat scaleY, GLfloat scaleZ)
+{
+  GLvector vertices[8];
+  
+  for(unsigned vertex = 0; vertex < 8; ++vertex) {
+    float iX = (vertex & 1) ? 1 : -1;
+    vertices[vertex].fX = fX + iX * scaleX * 0.5;
+    float iY = (vertex & 2) ? 1 : -1;
+    vertices[vertex].fY = fY + iY * scaleY * 0.5;
+    float iZ = (vertex & 4) ? 1 : -1;
+    vertices[vertex].fZ = fZ + iZ * scaleZ * 0.5;
+  }
+  
+  GLvector normal[6] = {
+    { 0, -1, 0 },
+    { 0, 1, 0 },
+    { 0, 0, -1 },
+    { 1, 0, 0 },
+    { -1, 0, 0 },
+    { 0, 0, 1 }
+  };
+  
+  
+  unsigned vertex[] = {
+    0, 1, 2, 0, 2, 3,
+    4, 5, 6, 4, 6, 7,
+    1, 0, 4, 1, 4, 5,
+    2, 1, 5, 2, 5, 6,
+    0, 3, 7, 0, 7, 4,
+    3, 2, 6, 3, 6, 7
+  };
+  
+  unsigned vertexID = 0;
+  glColor3f(1.0, 1.0, 1.0);
+  for(unsigned face = 0; face < 6; ++face) {
+    for(unsigned triangle = 0; triangle < 2; ++triangle) {
+      for(unsigned corner = 0; corner < 3; ++corner) {
+        glNormal3f(normal[face].fX, normal[face].fY, normal[face].fZ);
+        unsigned v = vertex[vertexID++];
+        glVertex3f(vertices[v].fX, vertices[v].fY, vertices[v].fZ);
+      }
+    }
+  }
+  
+}
+
+
 //vMarchCube1 performs the Marching Cubes algorithm on a single cube
 GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat scaleY, GLfloat scaleZ)
 {
@@ -397,11 +445,11 @@ GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat sc
 #endif
       return;
     }
-    iFlagIndex = 90;
-    iEdgeFlags = aiCubeEdgeFlags[iFlagIndex];
 #if DEBUG
     std::cout << "all vertices were equal" << std::endl;
 #endif
+    drawCube(fX, fY, fZ, scaleX, scaleY, scaleZ);
+    return;
   }
   
   //Find the point of intersection of the surface with each edge

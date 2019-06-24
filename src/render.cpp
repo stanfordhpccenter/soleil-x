@@ -586,7 +586,7 @@ extern "C" {
   
   
   
-  
+  // this entry point is called once from the Visualize task
   void cxx_reduce(legion_runtime_t runtime_,
                   legion_context_t ctx_,
                   legion_mapper_id_t sampleId
