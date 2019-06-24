@@ -36,6 +36,7 @@
 #include "GL/glu.h"
 #endif
 
+#define DEBUG 1
 
 
 int gNumFluidX, gNumFluidY, gNumFluidZ;
@@ -336,6 +337,10 @@ GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat sc
 {
   extern GLint aiCubeEdgeFlags[256];
   extern GLint a2iTriangleConnectionTable[256][16];
+
+#if DEBUG
+  std::cout << "vMarchCube " << fX << " " << fY << " " << fZ << std::endl;
+#endif
   
   GLint iCorner, iVertex, iVertexTest, iEdge, iTriangle, iFlagIndex, iEdgeFlags;
   GLfloat fOffset;
@@ -350,24 +355,53 @@ GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat sc
     afCubeValue[iVertex] = fSample(fX + a2fVertexOffset[iVertex][0]*scaleX,
                                    fY + a2fVertexOffset[iVertex][1]*scaleY,
                                    fZ + a2fVertexOffset[iVertex][2]*scaleZ);
+#if DEBUG
+    std::cout << "vertex " << iVertex << " at " << (fX + a2fVertexOffset[iVertex][0]*scaleX) << " " << (fY + a2fVertexOffset[iVertex][1]*scaleY) << " " << (fZ + a2fVertexOffset[iVertex][2]*scaleZ) << std::endl;
+    std::cout << "sample " << afCubeValue[iVertex] << std::endl;
+#endif
   }
   
   //Find which vertices are inside of the surface and which are outside
   iFlagIndex = 0;
+  unsigned equivalences = 0;
   for(iVertexTest = 0; iVertexTest < 8; iVertexTest++)
   {
+#if DEBUG
+    std::cout << "vertex value " << afCubeValue[iVertexTest] << " <=? " << fTargetValue << " ";
+#endif
+    if(afCubeValue[iVertexTest] == fTargetValue) equivalences++;
     if(afCubeValue[iVertexTest] <= fTargetValue) {
       iFlagIndex |= 1<<iVertexTest;
+#if DEBUG
+      std::cout << "YES iFlagIndex " << iFlagIndex;
+#endif
     }
+#if DEBUG
+    std::cout << std::endl;
+#endif
   }
   
   //Find which edges are intersected by the surface
   iEdgeFlags = aiCubeEdgeFlags[iFlagIndex];
+
+#if DEBUG
+  std::cout << "iEdgeFlags " << iEdgeFlags << std::endl;
+#endif
   
   //If the cube is entirely inside or outside of the surface, then there will be no intersections
   if(iEdgeFlags == 0)
   {
-    return;
+    if(equivalences != 8) {
+#if DEBUG
+      std::cout << "cube is empty" << std::endl;
+#endif
+      return;
+    }
+    iFlagIndex = 90;
+    iEdgeFlags = aiCubeEdgeFlags[iFlagIndex];
+#if DEBUG
+    std::cout << "all vertices were equal" << std::endl;
+#endif
   }
   
   //Find the point of intersection of the surface with each edge
@@ -379,12 +413,19 @@ GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat sc
     {
       fOffset = fGetOffset(afCubeValue[ a2iEdgeConnection[iEdge][0] ],
                            afCubeValue[ a2iEdgeConnection[iEdge][1] ], fTargetValue);
+
+#if DEBUG
+      std::cout << "iEdge " << iEdge << " fOffset " << fOffset << std::endl;
+#endif
       
       asEdgeVertex[iEdge].fX = fX + (a2fVertexOffset[ a2iEdgeConnection[iEdge][0] ][0]  +  fOffset * a2fEdgeDirection[iEdge][0]) * scaleX;
       asEdgeVertex[iEdge].fY = fY + (a2fVertexOffset[ a2iEdgeConnection[iEdge][0] ][1]  +  fOffset * a2fEdgeDirection[iEdge][1]) * scaleY;
       asEdgeVertex[iEdge].fZ = fZ + (a2fVertexOffset[ a2iEdgeConnection[iEdge][0] ][2]  +  fOffset * a2fEdgeDirection[iEdge][2]) * scaleZ;
       
       vGetNormal(asEdgeNorm[iEdge], asEdgeVertex[iEdge].fX, asEdgeVertex[iEdge].fY, asEdgeVertex[iEdge].fZ);
+#if DEBUG
+      std::cout << "asEdgeVertex " << asEdgeVertex[iEdge].fX << " " << asEdgeVertex[iEdge].fY << " " << asEdgeVertex[iEdge].fZ << std::endl;
+#endif
     }
   }
   
@@ -404,9 +445,11 @@ GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat sc
       glColor3f(sColor.fX, sColor.fY, sColor.fZ);
       glNormal3f(asEdgeNorm[iVertex].fX, asEdgeNorm[iVertex].fY,   asEdgeNorm[iVertex].fZ);
       glVertex3f(asEdgeVertex[iVertex].fX, asEdgeVertex[iVertex].fY, asEdgeVertex[iVertex].fZ);
-#if 0
+
+#if DEBUG
       printf("tri %g %g %g\n", asEdgeVertex[iVertex].fX, asEdgeVertex[iVertex].fY, asEdgeVertex[iVertex].fZ);
 #endif
+
       gDrawnTriangles++;
     }
   }  
