@@ -187,10 +187,7 @@ void vDrawScene(int numFluidX,
   glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
   
   glPushMatrix();
-
-  glBegin(GL_TRIANGLES);
   vMarchingCubes();
-  glEnd();
   glPopMatrix();
   
   glFinish();
@@ -335,54 +332,134 @@ GLvoid vGetNormal(GLvector &rfNormal, GLfloat fX, GLfloat fY, GLfloat fZ)
 // draw a cube, for when all vertices match the isosurface value
 GLvoid drawCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat scaleY, GLfloat scaleZ)
 {
-  GLvector vertices[8];
-  
-  for(unsigned vertex = 0; vertex < 8; ++vertex) {
-    float iX = (vertex & 1) ? 1 : -1;
-    vertices[vertex].fX = fX + iX * scaleX * 0.5;
-    float iY = (vertex & 2) ? 1 : -1;
-    vertices[vertex].fY = fY + iY * scaleY * 0.5;
-    float iZ = (vertex & 4) ? 1 : -1;
-    vertices[vertex].fZ = fZ + iZ * scaleZ * 0.5;
-  }
-  
-  GLvector normal[6] = {
-    { 0, -1, 0 },
-    { 0, 1, 0 },
-    { 0, 0, -1 },
-    { 1, 0, 0 },
-    { -1, 0, 0 },
-    { 0, 0, 1 }
-  };
-  
-  
-  unsigned vertex[] = {
-    0, 1, 2, 0, 2, 3,
-    4, 5, 6, 4, 6, 7,
-    1, 0, 4, 1, 4, 5,
-    2, 1, 5, 2, 5, 6,
-    0, 3, 7, 0, 7, 4,
-    3, 2, 6, 3, 6, 7
-  };
-  
-  unsigned vertexID = 0;
-  glColor3f(1.0, 1.0, 1.0);
-  for(unsigned face = 0; face < 6; ++face) {
-    for(unsigned triangle = 0; triangle < 2; ++triangle) {
-      for(unsigned corner = 0; corner < 3; ++corner) {
-        glNormal3f(normal[face].fX, normal[face].fY, normal[face].fZ);
-        unsigned v = vertex[vertexID++];
-        glVertex3f(vertices[v].fX, vertices[v].fY, vertices[v].fZ);
-      }
-    }
-  }
-  
+#if 1
+  std::cout << "draw cube at " << fX << " " << fY << " " << fZ << std::endl;
+#endif
+
+  GLfloat sx = scaleX * 0.5;
+  GLfloat sy = scaleY * 0.5;
+  GLfloat sz = scaleZ * 0.5;
+
+  GLfloat v0[] = {  sx,  sy,  sz };
+  GLfloat v1[] = { -sx,  sy,  sz };
+  GLfloat v2[] = { -sx, -sy,  sz };
+  GLfloat v3[] = {  sx, -sy,  sz };
+  GLfloat v4[] = {  sx, -sy, -sz };
+  GLfloat v5[] = {  sx,  sy, -sz };
+  GLfloat v6[] = { -sx,  sy, -sz };
+  GLfloat v7[] = { -sx, -sy, -sz };
+
+
+#if 0
+{
+  glColor3f(1, 1, 1);
+  glPushMatrix();
+  glTranslatef(fX, fY, fZ);
+  glBegin(GL_TRIANGLES);
+  GLfloat n0[] = { 1, 1, 1 };
+  glNormal3fv(n0);
+    glVertex3fv(v0);    // v0-v1-v2
+    glVertex3fv(v1);
+    glVertex3fv(v2);
+  glEnd();
+  glPopMatrix();
+  return;
+}
+#endif
+
+
+  glColor3f(1, 1, 1);
+  glPushMatrix();
+  glTranslatef(fX, fY, fZ);
+  glBegin(GL_TRIANGLES);
+
+  // cube vertices follow example at http://www.songho.ca/opengl/gl_vertexarray.html
+
+  GLfloat n0[] = { 0, 0, 1 };
+  glNormal3fv(n0);
+
+    glVertex3fv(v0);    // v0-v1-v2
+    glVertex3fv(v1);
+    glVertex3fv(v2);
+
+    glVertex3fv(v2);    // v2-v3-v0
+    glVertex3fv(v3);
+    glVertex3fv(v0);
+
+    // right face =================
+  GLfloat n1[] = { 1, 0, 0 };
+  glNormal3fv(n1);
+
+    glVertex3fv(v0);    // v0-v3-v4
+    glVertex3fv(v3);
+    glVertex3fv(v4);
+
+    glVertex3fv(v4);    // v4-v5-v0
+    glVertex3fv(v5);
+    glVertex3fv(v0);
+
+
+    // top face ===================
+  GLfloat n2[] = { 0, 1, 0 };
+  glNormal3fv(n2);
+
+    glVertex3fv(v0);    // v0-v5-v6
+    glVertex3fv(v5);
+    glVertex3fv(v6);
+
+    glVertex3fv(v6);    // v6-v1-v0
+    glVertex3fv(v1);
+    glVertex3fv(v0);
+
+  GLfloat n3[] = { 0, 0, -1 };
+  glNormal3fv(n3);
+
+    glVertex3fv(v5);
+    glVertex3fv(v4);
+    glVertex3fv(v7);
+
+    glVertex3fv(v7);
+    glVertex3fv(v6);
+    glVertex3fv(v5);
+
+  GLfloat n4[] = { -1, 0, 0 };
+  glNormal3fv(n4);
+
+    glVertex3fv(v1);
+    glVertex3fv(v6);
+    glVertex3fv(v7);
+
+    glVertex3fv(v1);
+    glVertex3fv(v7);
+    glVertex3fv(v2);
+
+  GLfloat n5[] = { 0, -1, 0 };
+  glNormal3fv(n5);
+
+    glVertex3fv(v3);
+    glVertex3fv(v4);
+    glVertex3fv(v7);
+
+    glVertex3fv(v3);
+    glVertex3fv(v7);
+    glVertex3fv(v2);
+
+  glEnd();
+  glPopMatrix();
+
+  gDrawnTriangles += 12;
+
 }
 
 
 //vMarchCube1 performs the Marching Cubes algorithm on a single cube
 GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat scaleY, GLfloat scaleZ)
 {
+#if 0
+drawCube(fX, fY, fZ, scaleX, scaleY, scaleZ);
+return;
+#endif
+
   extern GLint aiCubeEdgeFlags[256];
   extern GLint a2iTriangleConnectionTable[256][16];
 
@@ -479,6 +556,7 @@ GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat sc
   
   
   //Draw the triangles that were found.  There can be up to five per cube
+  glBegin(GL_TRIANGLES);
   for(iTriangle = 0; iTriangle < 5; iTriangle++)
   {
     if(a2iTriangleConnectionTable[iFlagIndex][3*iTriangle] < 0) {
@@ -501,6 +579,7 @@ GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat sc
       gDrawnTriangles++;
     }
   }  
+  glEnd();
 }
 
 #if 1

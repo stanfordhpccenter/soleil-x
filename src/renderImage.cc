@@ -78,6 +78,7 @@ void setupRender(FieldData domainMin[3], FieldData domainMax[3], float* depthMax
     (GLfloat)((domainMin[1] + domainMax[1]) * 0.5),
     (GLfloat)domainMax[2] };
   GLfloat up[] = { 0, 1, 0 };
+
 #if 1
 #if ORTHO
   std::cout << "glOrtho " << left << "," << right << "  " << bottom << "," << top << "  " << near << "," << far << std::endl;
