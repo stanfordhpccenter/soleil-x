@@ -130,7 +130,11 @@ void initializeMarchingCubes(GLfloat lightPosition[4])
   GLfloat afPropertiesDiffuse [] = {0.75, 0.75, 0.75, 1.00};
   GLfloat afPropertiesSpecular[] = {1.00, 1.00, 1.00, 1.00};
   
+#if 1
   glClearColor( 0, 0, 0, 1 );
+#else
+  glClearColor( 1, 1, 1, 1 );
+#endif
   
   glEnable(GL_DEPTH_TEST);
   glEnable(GL_LIGHTING);
@@ -349,90 +353,73 @@ GLvoid drawCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat scal
   GLfloat v6[] = { -sx,  sy, -sz };
   GLfloat v7[] = { -sx, -sy, -sz };
 
-
-#if 0
-{
-  glColor3f(1, 1, 1);
-  glPushMatrix();
-  glTranslatef(fX, fY, fZ);
-  glBegin(GL_TRIANGLES);
-  GLfloat n0[] = { 1, 1, 1 };
-  glNormal3fv(n0);
-    glVertex3fv(v0);    // v0-v1-v2
-    glVertex3fv(v1);
-    glVertex3fv(v2);
-  glEnd();
-  glPopMatrix();
-  return;
-}
-#endif
-
-
-  glColor3f(1, 1, 1);
   glPushMatrix();
   glTranslatef(fX, fY, fZ);
   glBegin(GL_TRIANGLES);
 
   // cube vertices follow example at http://www.songho.ca/opengl/gl_vertexarray.html
 
+  // front face
   GLfloat n0[] = { 0, 0, 1 };
   glNormal3fv(n0);
 
     glVertex3fv(v0);    // v0-v1-v2
-    glVertex3fv(v1);
+    glVertex3fv(v3);
     glVertex3fv(v2);
 
     glVertex3fv(v2);    // v2-v3-v0
-    glVertex3fv(v3);
+    glVertex3fv(v1);
     glVertex3fv(v0);
 
     // right face =================
   GLfloat n1[] = { 1, 0, 0 };
   glNormal3fv(n1);
 
-    glVertex3fv(v0);    // v0-v3-v4
-    glVertex3fv(v3);
+    glVertex3fv(v0);
+    glVertex3fv(v5);
     glVertex3fv(v4);
 
-    glVertex3fv(v4);    // v4-v5-v0
-    glVertex3fv(v5);
+    glVertex3fv(v4);
+    glVertex3fv(v3);
     glVertex3fv(v0);
-
 
     // top face ===================
   GLfloat n2[] = { 0, 1, 0 };
   glNormal3fv(n2);
 
-    glVertex3fv(v0);    // v0-v5-v6
-    glVertex3fv(v5);
-    glVertex3fv(v6);
-
-    glVertex3fv(v6);    // v6-v1-v0
-    glVertex3fv(v1);
+    glVertex3fv(v5);    
     glVertex3fv(v0);
+    glVertex3fv(v1);
 
+    glVertex3fv(v1);   
+    glVertex3fv(v6);
+    glVertex3fv(v5);
+
+  // rear face
   GLfloat n3[] = { 0, 0, -1 };
   glNormal3fv(n3);
 
-    glVertex3fv(v5);
     glVertex3fv(v4);
-    glVertex3fv(v7);
-
-    glVertex3fv(v7);
-    glVertex3fv(v6);
     glVertex3fv(v5);
+    glVertex3fv(v6);
 
+    glVertex3fv(v6);
+    glVertex3fv(v7);
+    glVertex3fv(v4);
+
+  // left face
   GLfloat n4[] = { -1, 0, 0 };
   glNormal3fv(n4);
 
     glVertex3fv(v1);
-    glVertex3fv(v6);
-    glVertex3fv(v7);
-
-    glVertex3fv(v1);
-    glVertex3fv(v7);
     glVertex3fv(v2);
+    glVertex3fv(v7);
 
+    glVertex3fv(v7);
+    glVertex3fv(v6);
+    glVertex3fv(v1);
+
+  // bottom face
   GLfloat n5[] = { 0, -1, 0 };
   glNormal3fv(n5);
 
@@ -440,9 +427,9 @@ GLvoid drawCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat scal
     glVertex3fv(v4);
     glVertex3fv(v7);
 
-    glVertex3fv(v3);
     glVertex3fv(v7);
     glVertex3fv(v2);
+    glVertex3fv(v3);
 
   glEnd();
   glPopMatrix();
@@ -455,10 +442,6 @@ GLvoid drawCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat scal
 //vMarchCube1 performs the Marching Cubes algorithm on a single cube
 GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat scaleY, GLfloat scaleZ)
 {
-#if 0
-drawCube(fX, fY, fZ, scaleX, scaleY, scaleZ);
-return;
-#endif
 
   extern GLint aiCubeEdgeFlags[256];
   extern GLint a2iTriangleConnectionTable[256][16];

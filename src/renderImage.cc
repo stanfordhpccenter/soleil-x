@@ -45,13 +45,13 @@ void setupRender(FieldData domainMin[3], FieldData domainMax[3], float* depthMax
   GLfloat bottom = -*depthMax * 0.5;
   GLfloat top = *depthMax * 2.0;
   GLfloat near = 0.0;
-  GLfloat far = *depthMax * 100.0;
+  GLfloat far = *depthMax * 3.0;
   glOrtho(left, right, bottom, top, near, far);
 #else
   GLfloat fovy = 45;
   GLfloat aspect = (GLfloat)WIDTH / (GLfloat)HEIGHT;
   GLfloat near = 0.0;
-  GLfloat far = *depthMax * 100.0;
+  GLfloat far = *depthMax * 3.0;
   gluPerspective(fovy, aspect, near, far);
 #endif
   
@@ -72,7 +72,7 @@ void setupRender(FieldData domainMin[3], FieldData domainMax[3], float* depthMax
   GLfloat from[] =
   { (GLfloat)((domainMin[0] + domainMax[0]) * 0.48),
     (GLfloat)(domainMax[1] + scale[1] * scaleOffset),
-    (GLfloat)(domainMin[2] - scale[2] * 2.0) };
+    (GLfloat)(domainMax[2] + scale[2] * 2.0) };
   GLfloat at[] =
   { (GLfloat)((domainMin[0] + domainMax[0]) * 0.5),
     (GLfloat)((domainMin[1] + domainMax[1]) * 0.5),
