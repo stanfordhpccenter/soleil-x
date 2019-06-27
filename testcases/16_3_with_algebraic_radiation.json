@@ -179,9 +179,9 @@
     "Visualization" : {
       "numParticlesToDraw" : 1000,
       "isosurfaceField" : "temperature",
-      "isosurfaceValue" : 300.0,
+      "isosurfaceValue" : 301.0,
       "isosurfaceScale" : [ 0.0, 600.0 ],
-      "stepsPerRender" : 1
+      "stepsPerRender" : 10
     }
 
         }
