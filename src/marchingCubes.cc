@@ -565,6 +565,9 @@ GLvoid vMarchCubeOLD(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat
       iVertex = a2iTriangleConnectionTable[iFlagIndex][3*iTriangle+iCorner];
       
       vGetColor(sColor, asEdgeVertex[iVertex], asEdgeNorm[iVertex]);
+      glMaterialfv(GL_FRONT, GL_AMBIENT,   color);
+      glMaterialfv(GL_FRONT, GL_DIFFUSE,   color);
+      glMaterialfv(GL_FRONT, GL_SPECULAR,  afSpecularWhite);
       glColor3f(sColor.fX, sColor.fY, sColor.fZ);
       glNormal3f(asEdgeNorm[iVertex].fX, asEdgeNorm[iVertex].fY,   asEdgeNorm[iVertex].fZ);
       glVertex3f(asEdgeVertex[iVertex].fX, asEdgeVertex[iVertex].fY, asEdgeVertex[iVertex].fZ);
@@ -725,11 +728,14 @@ GLvoid vMarchCube(int index)
     {
       int iVertex = a2iTriangleConnectionTable[iFlagIndex][3*iTriangle+iCorner];
       
-      // TODO get color by scale
+      // get color by scale
       FieldData isosurfaceScalar = getFluidSample(index);
       GLfloat color[4];
       scaledTemperatureToColor(isosurfaceScalar, color, gIsosurfaceScale);
       glColor4fv(color);
+      glMaterialfv(GL_FRONT, GL_AMBIENT,   color);
+      glMaterialfv(GL_FRONT, GL_DIFFUSE,   color);
+      glMaterialfv(GL_FRONT, GL_SPECULAR,  afSpecularWhite);
       
       //TODO normal vector
       //glNormal3f(asEdgeNorm[iVertex].fX, asEdgeNorm[iVertex].fY,   asEdgeNorm[iVertex].fZ);
