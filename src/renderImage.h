@@ -45,6 +45,9 @@ void renderTerminate(OSMesaContext mesaCtx, GLubyte*& rgbaBuffer, GLfloat*& dept
 
 void write_targa(const char *filename, const GLubyte *rgba, int width, int height);
 void write_ppm(const char *filename, const GLubyte *rgba, int width, int height);
-
+void temperatureToColor(float temperature, float color[4]);
+void scaledTemperatureToColor(float temperature,
+                              float color[4],
+                              FieldData isosurfaceScale[2]);
 #endif // __renderimage_h__
 

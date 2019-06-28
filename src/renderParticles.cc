@@ -21,59 +21,6 @@
 typedef double FieldData;
 
 
-static void temperatureToColor(float temperature,
-                               float color[4]) {
-  
-  // https://stackoverflow.com/questions/7229895/display-temperature-as-a-color-with-c
-  
-  float x = (float)(temperature / 1000.0);
-  float x2 = x * x;
-  float x3 = x2 * x;
-  float x4 = x3 * x;
-  float x5 = x4 * x;
-  
-  float R, G, B = 0.0f;
-  
-  // red
-  if (temperature <= 6600)
-    R = 1.0f;
-  else
-    R = 0.0002889f * x5 - 0.01258f * x4 + 0.2148f * x3 - 1.776f * x2 + 6.907f * x - 8.723f;
-  
-  // green
-  if (temperature <= 6600)
-    G = -4.593e-05f * x5 + 0.001424f * x4 - 0.01489f * x3 + 0.0498f * x2 + 0.1669f * x - 0.1653f;
-  else
-    G = -1.308e-07f * x5 + 1.745e-05f * x4 - 0.0009116f * x3 + 0.02348f * x2 - 0.3048f * x + 2.159f;
-  
-  // blue
-  if (temperature <= 2000)
-    B = 0.0f;
-  else if (temperature < 6600)
-    B = 1.764e-05f * x5 + 0.0003575f * x4 - 0.01554f * x3 + 0.1549f * x2 - 0.3682f * x + 0.2386f;
-  else
-    B = 1.0f;
-  
-  color[0] = R;
-  color[1] = G;
-  color[2] = B;
-  color[3] = 1.0f;
-}
-
-
-static void scaledTemperatureToColor(float temperature,
-                                     float color[4],
-                                     FieldData isosurfaceScale[2]) {
-  const float min = isosurfaceScale[0];
-  const float max = isosurfaceScale[1];
-  const float Kmin = 0.0f;
-  const float Kmax = 10000.0f;
-  // stretch it on a scale of Kmin...Kmax
-  float scaledTemperature = (temperature - min) * ((Kmax - Kmin) / (max - min));
-  return temperatureToColor(scaledTemperature, color);
-}
-
-
 void drawParticle(GLUquadricObj* qobj, const FieldData3* position, FieldData density, FieldData particleTemperature, float particleSize, FieldData isosurfaceScale[2]) {
   
   GLfloat t = particleTemperature;

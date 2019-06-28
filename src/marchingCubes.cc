@@ -117,6 +117,8 @@ GLenum    ePolygonMode = GL_FILL;
 GLfloat   fTargetValue;
 GLfloat   fTime = 0.0;
 GLvector  sSourcePoint[3];
+GLfloat v0[3], v1[3], v2[3], v3[3], v4[3], v5[3], v6[3], v7[3];
+GLfloat gScaleX, gScaleY, gScaleZ;
 
 GLfloat fSample(GLfloat fX, GLfloat fY, GLfloat fZ);
 
@@ -155,6 +157,8 @@ void initializeMarchingCubes(GLfloat lightPosition[4])
   glMaterialfv(GL_FRONT, GL_DIFFUSE,   afDiffuseBlue);
   glMaterialfv(GL_FRONT, GL_SPECULAR,  afSpecularWhite);
   glMaterialf( GL_FRONT, GL_SHININESS, 25.0);
+  
+  
 }
 
 
@@ -187,6 +191,10 @@ void vDrawScene(int numFluidX,
   gVisualizationField = visualizationField;
   gIsosurfaceScale = isosurfaceScale;
   fTargetValue = targetValue;
+  
+  gScaleX = (domainMax[0] - domainMin[0]) / numFluidX;
+  gScaleY = (domainMax[1] - domainMin[1]) / numFluidY;
+  gScaleZ = (domainMax[2] - domainMin[2]) / numFluidZ;
   
   glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
   
@@ -334,15 +342,20 @@ GLvoid vGetNormal(GLvector &rfNormal, GLfloat fX, GLfloat fY, GLfloat fZ)
 
 
 // draw a cube, for when all vertices match the isosurface value
-GLvoid drawCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat scaleY, GLfloat scaleZ)
+GLvoid drawCube(int index)
 {
+  const FieldData3* coordinates = gCenterCoordinates + index;
+  GLfloat fX = coordinates->x[0];
+  GLfloat fY = coordinates->x[1];
+  GLfloat fZ = coordinates->x[2];
+  
 #if 1
   std::cout << "draw cube at " << fX << " " << fY << " " << fZ << std::endl;
 #endif
 
-  GLfloat sx = scaleX * 0.5;
-  GLfloat sy = scaleY * 0.5;
-  GLfloat sz = scaleZ * 0.5;
+  GLfloat sx = gScaleX * 0.5;
+  GLfloat sy = gScaleY * 0.5;
+  GLfloat sz = gScaleZ * 0.5;
 
   GLfloat v0[] = {  sx,  sy,  sz };
   GLfloat v1[] = { -sx,  sy,  sz };
@@ -438,9 +451,10 @@ GLvoid drawCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat scal
 
 }
 
+#if 0
 
 //vMarchCube1 performs the Marching Cubes algorithm on a single cube
-GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat scaleY, GLfloat scaleZ)
+GLvoid vMarchCubeOLD(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat scaleY, GLfloat scaleZ)
 {
 
   extern GLint aiCubeEdgeFlags[256];
@@ -565,21 +579,169 @@ GLvoid vMarchCube(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat sc
   glEnd();
 }
 
-#if 1
-void printBoundingBox()
+#endif
+
+
+// handles wraparound boundary conditions
+GLint getOffsetIndex(int index, int offsetX, int offsetY, int offsetZ) {
+  int ix = index / gNumFluidZ * gNumFluidY;
+  index -= ix * gNumFluidZ * gNumFluidY;
+  int iy = index / gNumFluidZ;
+  index -= iy * gNumFluidZ;
+  int iz = index;
+  int nextX = ix + offsetX;
+  if(nextX < 0) nextX = gNumFluidX - 1;
+  if(nextX >= gNumFluidX) nextX = 0;
+  int nextY = iy + offsetY;
+  if(nextY < 0) nextY = gNumFluidY - 1;
+  if(nextY >= gNumFluidY) nextY = 0;
+  int nextZ = iz + offsetZ;
+  if(nextZ < 0) nextZ = gNumFluidZ - 1;
+  if(nextZ >= gNumFluidZ) nextZ = 0;
+  int nextIndex = nextZ + nextY * gNumFluidZ + nextX * gNumFluidZ * gNumFluidY;
+  return nextIndex;
+}
+
+
+// gather the indices of points surrounding a cell corner
+GLvoid getNeighborIndices(int index, int offsetX, int offsetY, int offsetZ, int indices[])
 {
-  FieldData min[3] = { 9999, 9999, 9999 };
-  FieldData max[3] = { -9999, -9999, -9999 };
-  for(int i = 0; i < gNumFluidX * gNumFluidY * gNumFluidZ; ++i) {
-    const FieldData3* coordinate = gCenterCoordinates + i;
-    for(unsigned j = 0; j < 3; ++j) {
-      min[j] = fmin(min[j], coordinate->x[j]);
-      max[j] = fmax(max[j], coordinate->x[j]);
+  unsigned indexCount = 0;
+  for(unsigned ix = 0; ix < 2; ++ix) {
+    int offX = ix ? offsetX : 0;
+    for(unsigned iy = 0; iy < 2; ++iy) {
+      int offY = iy ? offsetY : 0;
+      for(unsigned iz = 0; iz < 2; ++iz) {
+        int offZ = iz ? offsetZ : 0;
+        indices[indexCount++] = getOffsetIndex(index, offX, offY, offZ);
+      }
     }
   }
-  std::cout << "Bounding box cell centers: (" << min[0] << "," << min[1] << "," << min[2] << ") ... (" << max[0] << "," << max[1] << "," << max[2] << ")" << std::endl;
 }
-#endif
+
+
+GLfloat getFluidSample(int index) {
+  const FieldData* data;
+  switch(gVisualizationField) {
+    case rhoField:
+      data = gRho;
+      break;
+    case pressureField:
+      data = gPressure;
+      break;
+    case temperatureField:
+      data = gTemperature;
+      break;
+    default:
+      std::cerr << "invalid visualization field " << gVisualizationField << std::endl;
+      std::cerr << "fields " << rhoField << " " << pressureField << " " << temperatureField << std::endl;
+      data = gRho;
+      break;
+  }
+  return data[index];
+}
+
+
+
+//vMarchCube performs the Marching Cubes algorithm on a single cube
+GLvoid vMarchCube(int index)
+{
+  extern GLint aiCubeEdgeFlags[256];
+  extern GLint a2iTriangleConnectionTable[256][16];
+
+  // Make a local copy of the values at the cube's corners
+  const unsigned numCorners = 8;
+  GLfloat afCubeValue[numCorners];
+  for(unsigned corner = 0; corner < numCorners; ++corner) {
+    int offsetX = (corner & 1) ? 1 : -1;
+    int offsetY = (corner & 2) ? 1 : -1;
+    int offsetZ = (corner & 4) ? 1 : -1;
+    int neighborIndices[numCorners];
+    getNeighborIndices(index, offsetX, offsetY, offsetZ, neighborIndices);
+    GLfloat cornerSum = 0;
+    for(unsigned i = 0; i < numCorners; ++i) {
+      cornerSum += getFluidSample(neighborIndices[i]);
+    }
+    afCubeValue[corner] = cornerSum / numCorners;
+  }
+  
+  //Find which vertices are inside of the surface and which are outside
+  int iFlagIndex = 0;
+  unsigned equivalences = 0;
+  for(unsigned iVertexTest = 0; iVertexTest < numCorners; iVertexTest++)
+  {
+    if(afCubeValue[iVertexTest] == fTargetValue) equivalences++;
+    if(afCubeValue[iVertexTest] <= fTargetValue) {
+      iFlagIndex |= 1 << iVertexTest;
+    }
+  }
+
+  //Find which edges are intersected by the surface
+  int iEdgeFlags = aiCubeEdgeFlags[iFlagIndex];
+
+  //If the cube is entirely inside or outside of the surface, then there will be no intersections
+  if(iEdgeFlags == 0)
+  {
+    if(equivalences == numCorners) {
+      drawCube(index);
+    }
+    return;
+  }
+
+  //Find the point of intersection of the surface with each edge
+  const unsigned numEdges = 12;
+  GLvector asEdgeVertex[numEdges];
+  //GLvector asEdgeNorm[numEdges];
+  const FieldData3* coordinate = gCenterCoordinates + index;
+  GLfloat fX = coordinate->x[0];
+  GLfloat fY = coordinate->x[1];
+  GLfloat fZ = coordinate->x[2];
+  
+  for(unsigned iEdge = 0; iEdge < numEdges; iEdge++)
+  {
+    //if there is an intersection on this edge
+    if(iEdgeFlags & (1 << iEdge))
+    {
+      GLfloat fOffset = fGetOffset(afCubeValue[ a2iEdgeConnection[iEdge][0] ],
+                           afCubeValue[ a2iEdgeConnection[iEdge][1] ], fTargetValue);
+      asEdgeVertex[iEdge].fX = fX + (a2fVertexOffset[ a2iEdgeConnection[iEdge][0] ][0]  +  fOffset * a2fEdgeDirection[iEdge][0]) * gScaleX;
+      asEdgeVertex[iEdge].fY = fY + (a2fVertexOffset[ a2iEdgeConnection[iEdge][0] ][1]  +  fOffset * a2fEdgeDirection[iEdge][1]) * gScaleY;
+      asEdgeVertex[iEdge].fZ = fZ + (a2fVertexOffset[ a2iEdgeConnection[iEdge][0] ][2]  +  fOffset * a2fEdgeDirection[iEdge][2]) * gScaleZ;
+      // TODO compute a normal vector
+    }
+  }
+  
+  
+  //Draw the triangles that were found.  There can be up to five per cube
+  const unsigned maxTriangles = 5;
+  glBegin(GL_TRIANGLES);
+  for(unsigned iTriangle = 0; iTriangle < maxTriangles; iTriangle++)
+  {
+    if(a2iTriangleConnectionTable[iFlagIndex][3*iTriangle] < 0) {
+      break;
+    }
+    const unsigned numTriVertices = 3;
+    for(unsigned iCorner = 0; iCorner < numTriVertices; iCorner++)
+    {
+      int iVertex = a2iTriangleConnectionTable[iFlagIndex][3*iTriangle+iCorner];
+      
+      // TODO get color by scale
+      FieldData isosurfaceScalar = getFluidSample(index);
+      GLfloat color[4];
+      scaledTemperatureToColor(isosurfaceScalar, color, gIsosurfaceScale);
+      glColor4fv(color);
+      
+      //TODO normal vector
+      //glNormal3f(asEdgeNorm[iVertex].fX, asEdgeNorm[iVertex].fY,   asEdgeNorm[iVertex].fZ);
+      glVertex3f(asEdgeVertex[iVertex].fX, asEdgeVertex[iVertex].fY, asEdgeVertex[iVertex].fZ);
+      gDrawnTriangles++;
+    }
+
+  }
+  glEnd();
+}
+
+
 
 #if 1
 void drawParticle(GLUquadricObj* qobj, const FieldData3* position, FieldData density, FieldData particleTemperature, float particleSize);
@@ -590,34 +752,21 @@ GLvoid vMarchingCubes()
 {
   gDrawnTriangles = 0;
   GLint iX, iY, iZ;
-  float stepSizeX = (gDomainMax[0] - gDomainMin[0]) / gNumFluidX;
-  float stepSizeY = (gDomainMax[1] - gDomainMin[1]) / gNumFluidY;
-  float stepSizeZ = (gDomainMax[2] - gDomainMin[2]) / gNumFluidZ;
-
-#if 1
-  printBoundingBox();
-  printf("scale %g %g %g\n", stepSizeX, stepSizeY, stepSizeZ);
-#endif
 
   for(iX = 0; iX < gNumFluidX; iX++)
     for(iY = 0; iY < gNumFluidY; iY++)
       for(iZ = 0; iZ < gNumFluidZ; iZ++)
       {
         int index = iX + gNumFluidX * iY + gNumFluidX * gNumFluidY * iZ;
-        const FieldData3* coordinate = gCenterCoordinates + index;
 #define RENDER_CELL_CENTERS 0
 #if RENDER_CELL_CENTERS
         GLUquadricObj *qobj = gluNewQuadric();
         double scale = 1.0e-3;
+        const FieldData3* coordinate = gCenterCoordinates + index;
         drawParticle(qobj, coordinate, 500, 300, scale);
         gluDeleteQuadric(qobj);
 #else
-        vMarchCube(coordinate->x[0] - stepSizeX / 2.0,
-                   coordinate->x[1] - stepSizeY / 2.0,
-                   coordinate->x[2] - stepSizeZ / 2.0,
-                   stepSizeX,
-                   stepSizeY,
-                   stepSizeZ);
+        vMarchCube(index);
 #endif
       }
   std::cout << "drew " << gDrawnTriangles << " triangles" << std::endl;
