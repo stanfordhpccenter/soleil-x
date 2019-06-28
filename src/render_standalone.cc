@@ -78,6 +78,13 @@ void saveImageToFile(char* fluidFileName,
 }
 
 
+FieldData meanTemperature(FieldData* temperature, unsigned numElements) {
+  FieldData sum = 0;
+  for(unsigned i = 0; i < numElements; ++i) sum += temperature[i];
+  FieldData result = sum / numElements;
+  return result;
+}
+
 
 int main(int argc, char **argv) {
   
@@ -151,10 +158,12 @@ int main(int argc, char **argv) {
   OSMesaContext mesaCtx;
   GLubyte* rgbaBuffer;
   GLfloat* depthBuffer;
+  
+  FieldData isosurfaceValue = meanTemperature(temperature, numFluidLines);
 
   renderInitialize(lowerBound, upperBound, mesaCtx, rgbaBuffer, depthBuffer);
   double scale[] = { 0.0, 600.0 };
-  renderImage(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, lowerBound, upperBound, temperatureField, 300.0, scale,
+  renderImage(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, lowerBound, upperBound, temperatureField, isosurfaceValue, scale,
               numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity,
               particlesToDraw, numParticlesToDraw);
 
