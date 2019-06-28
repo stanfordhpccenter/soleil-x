@@ -602,6 +602,9 @@ GLint getOffsetIndex(int index, int offsetX, int offsetY, int offsetZ) {
   if(nextZ < 0) nextZ = gNumFluidZ - 1;
   if(nextZ >= gNumFluidZ) nextZ = 0;
   int nextIndex = nextZ + nextY * gNumFluidZ + nextX * gNumFluidZ * gNumFluidY;
+#if DEBUG
+  std::cout << "cell " << index << " (" << ix << "," << iy << "," << iz << ")\tneighbor " << nextIndex << " (" << nextX << "," << nextY << "," << nextZ << ")" << std::endl;
+#endif
   return nextIndex;
 }
 
@@ -641,6 +644,9 @@ GLfloat getFluidSample(int index) {
       data = gRho;
       break;
   }
+#if DEBUG
+  std::cout << "fluid sample at " << index << " = " << data[index] << std::endl;
+#endif
   return data[index];
 }
 
@@ -651,6 +657,11 @@ GLvoid vMarchCube(int index)
 {
   extern GLint aiCubeEdgeFlags[256];
   extern GLint a2iTriangleConnectionTable[256][16];
+  
+#if DEBUG
+  std::cout << "------------------------------" << std::endl;
+  std::cout << "vMarchCube " << index << std::endl;
+#endif
 
   // Make a local copy of the values at the cube's corners
   const unsigned numCorners = 8;
@@ -666,6 +677,9 @@ GLvoid vMarchCube(int index)
       cornerSum += getFluidSample(neighborIndices[i]);
     }
     afCubeValue[corner] = cornerSum / numCorners;
+#if DEBUG
+  std::cout << "cube corner " << corner << " has value " << afCubeValue[corner] << std::endl;
+#endif
   }
   
   //Find which vertices are inside of the surface and which are outside
@@ -681,6 +695,10 @@ GLvoid vMarchCube(int index)
 
   //Find which edges are intersected by the surface
   int iEdgeFlags = aiCubeEdgeFlags[iFlagIndex];
+  
+#if DEBUG
+  std::cout << "iEdgeFlags " << iEdgeFlags << std::endl;
+#endif
 
   //If the cube is entirely inside or outside of the surface, then there will be no intersections
   if(iEdgeFlags == 0)
