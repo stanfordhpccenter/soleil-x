@@ -36,7 +36,7 @@
 #include "GL/glu.h"
 #endif
 
-#define DEBUG 1
+#define DEBUG 0
 
 
 int gNumFluidX, gNumFluidY, gNumFluidZ;
@@ -356,7 +356,7 @@ GLvoid drawCube(int index)
   GLfloat fY = coordinates->x[1];
   GLfloat fZ = coordinates->x[2];
   
-#if 1
+#if DEBUG
   std::cout << "draw cube at " << fX << " " << fY << " " << fZ << std::endl;
 #endif
 
@@ -735,7 +735,7 @@ GLvoid vMarchCube(int index)
       asEdgeVertex[iEdge].fY = fY + (a2fVertexOffset[ a2iEdgeConnection[iEdge][0] ][1]  +  fOffset * a2fEdgeDirection[iEdge][1]) * gScaleY;
       asEdgeVertex[iEdge].fZ = fZ + (a2fVertexOffset[ a2iEdgeConnection[iEdge][0] ][2]  +  fOffset * a2fEdgeDirection[iEdge][2]) * gScaleZ;
 
-#if 1//DEBUG ONLY
+#if 0//DEBUG ONLY
 asEdgeVertex[iEdge].fX *= 20.0;
 asEdgeVertex[iEdge].fY *= 20.0;
 asEdgeVertex[iEdge].fZ *= 20.0;
@@ -837,7 +837,6 @@ GLvoid vMarchingCubes()
         gluDeleteQuadric(qobj);
 #else
         vMarchCube(index);
-return;
 #endif
       }
   std::cout << "drew " << gDrawnTriangles << " triangles" << std::endl;
