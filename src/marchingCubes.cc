@@ -36,7 +36,7 @@
 #include "GL/glu.h"
 #endif
 
-#define DEBUG 1
+#define DEBUG 0
 
 
 int gNumFluidX, gNumFluidY, gNumFluidZ;
@@ -587,11 +587,11 @@ GLvoid vMarchCubeOLD(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat scaleX, GLfloat
 
 // handles wraparound boundary conditions
 GLint getOffsetIndex(int index, int offsetX, int offsetY, int offsetZ) {
-  int ix = index / gNumFluidZ * gNumFluidY;
-  index -= ix * gNumFluidZ * gNumFluidY;
-  int iy = index / gNumFluidZ;
-  index -= iy * gNumFluidZ;
-  int iz = index;
+  int ix = index / (gNumFluidZ * gNumFluidY);
+  int tmp = index - ix * gNumFluidZ * gNumFluidY;
+  int iy = tmp / gNumFluidZ;
+  tmp -= iy * gNumFluidZ;
+  int iz = tmp;
   int nextX = ix + offsetX;
   if(nextX < 0) nextX = gNumFluidX - 1;
   if(nextX >= gNumFluidX) nextX = 0;
