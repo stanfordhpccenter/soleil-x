@@ -119,6 +119,7 @@ GLfloat   fTime = 0.0;
 GLvector  sSourcePoint[3];
 GLfloat v0[3], v1[3], v2[3], v3[3], v4[3], v5[3], v6[3], v7[3];
 GLfloat gScaleX, gScaleY, gScaleZ;
+GLfloat* gCameraLookAt;
 
 GLfloat fSample(GLfloat fX, GLfloat fY, GLfloat fZ);
 
@@ -176,7 +177,8 @@ void vDrawScene(int numFluidX,
                 FieldData domainMax[3],
                 VisualizationField visualizationField,
                 FieldData targetValue,
-                FieldData isosurfaceScale[2])
+                FieldData isosurfaceScale[2],
+                GLfloat cameraLookAt[3])
 {
   gNumFluidX = numFluidX;
   gNumFluidY = numFluidY;
@@ -191,6 +193,7 @@ void vDrawScene(int numFluidX,
   gVisualizationField = visualizationField;
   gIsosurfaceScale = isosurfaceScale;
   fTargetValue = targetValue;
+  gCameraLookAt = cameraLookAt;
   
   gScaleX = (domainMax[0] - domainMin[0]) / numFluidX;
   gScaleY = (domainMax[1] - domainMin[1]) / numFluidY;
@@ -206,6 +209,7 @@ void vDrawScene(int numFluidX,
   
 }
 
+
 //fGetOffset finds the approximate point of intersection of the surface
 // between two points with the values fValue1 and fValue2
 GLfloat fGetOffset(GLfloat fValue1, GLfloat fValue2, GLfloat fValueDesired)
@@ -219,6 +223,7 @@ GLfloat fGetOffset(GLfloat fValue1, GLfloat fValue2, GLfloat fValueDesired)
   return (fValueDesired - fValue1)/fDelta;
 }
 
+#if 0 // OLD
 
 //vGetColor generates a color from a given position and normal of a point
 GLvoid vGetColor(GLvector &rfColor, GLvector &rfPosition, GLvector &rfNormal)
@@ -339,6 +344,8 @@ GLvoid vGetNormal(GLvector &rfNormal, GLfloat fX, GLfloat fY, GLfloat fZ)
   rfNormal.fZ = fSample(fX, fY, fZ-0.01) - fSample(fX, fY, fZ+0.01);
   vNormalizeVector(rfNormal, rfNormal);
 }
+
+#endif // OLD
 
 
 // draw a cube, for when all vertices match the isosurface value
@@ -712,7 +719,7 @@ GLvoid vMarchCube(int index)
   //Find the point of intersection of the surface with each edge
   const unsigned numEdges = 12;
   GLvector asEdgeVertex[numEdges];
-  //GLvector asEdgeNorm[numEdges];
+  GLvector asEdgeNorm[numEdges];
   const FieldData3* coordinate = gCenterCoordinates + index;
   GLfloat fX = coordinate->x[0];
   GLfloat fY = coordinate->x[1];
@@ -728,10 +735,50 @@ GLvoid vMarchCube(int index)
       asEdgeVertex[iEdge].fX = fX + (a2fVertexOffset[ a2iEdgeConnection[iEdge][0] ][0]  +  fOffset * a2fEdgeDirection[iEdge][0]) * gScaleX;
       asEdgeVertex[iEdge].fY = fY + (a2fVertexOffset[ a2iEdgeConnection[iEdge][0] ][1]  +  fOffset * a2fEdgeDirection[iEdge][1]) * gScaleY;
       asEdgeVertex[iEdge].fZ = fZ + (a2fVertexOffset[ a2iEdgeConnection[iEdge][0] ][2]  +  fOffset * a2fEdgeDirection[iEdge][2]) * gScaleZ;
-      // TODO compute a normal vector
     }
   }
   
+  unsigned numVertices = 0;
+  GLvector vertex[3];
+  unsigned edge[3];
+  for(unsigned iEdge = 0; iEdge < numEdges; iEdge++)
+  {
+    //if there is an intersection on this edge
+    if(iEdgeFlags & (1 << iEdge))
+    {
+      GLvector v = { asEdgeVertex[iEdge].fX, asEdgeVertex[iEdge].fY, asEdgeVertex[iEdge].fX };
+      edge[numVertices] = iEdge;
+      vertex[numVertices++] = v;
+      if(numVertices == 3) {
+        numVertices = 0;
+        GLvector v01, v02;
+        v01.fX = vertex[1].fX - vertex[0].fX;
+        v01.fY = vertex[1].fY - vertex[0].fZ;
+        v01.fZ = vertex[1].fY - vertex[0].fZ;
+        v02.fX = vertex[2].fX - vertex[0].fX;
+        v02.fY = vertex[2].fY - vertex[0].fZ;
+        v02.fZ = vertex[2].fY - vertex[0].fZ;
+        GLvector normal;
+        normal.fX = v01.fY * v02.fZ - v01.fZ * v02.fY;
+        normal.fY = v01.fZ * v02.fX - v01.fX * v02.fZ;
+        normal.fZ = v01.fX * v02.fY - v01.fY * v02.fX;
+        GLfloat dot = normal.fX * gCameraLookAt[0] + normal.fY * gCameraLookAt[1] + normal.fZ * gCameraLookAt[2];
+        GLfloat dotNegative = -normal.fX * gCameraLookAt[0] - normal.fY * gCameraLookAt[1] - normal.fZ * gCameraLookAt[2];
+        if(dot > dotNegative) {
+          asEdgeNorm[edge[0]] = normal;
+          asEdgeNorm[edge[1]] = normal;
+          asEdgeNorm[edge[2]] = normal;
+        } else {
+          normal.fX *= -1.0;
+          normal.fY *= -1.0;
+          normal.fZ *= -1.0;
+          asEdgeNorm[edge[0]] = normal;
+          asEdgeNorm[edge[1]] = normal;
+          asEdgeNorm[edge[2]] = normal;
+        }
+      }
+    }
+  }
   
   //Draw the triangles that were found.  There can be up to five per cube
   const unsigned maxTriangles = 5;
@@ -755,8 +802,7 @@ GLvoid vMarchCube(int index)
       glMaterialfv(GL_FRONT, GL_DIFFUSE,   color);
       glMaterialfv(GL_FRONT, GL_SPECULAR,  afSpecularWhite);
       
-      //TODO normal vector
-      //glNormal3f(asEdgeNorm[iVertex].fX, asEdgeNorm[iVertex].fY,   asEdgeNorm[iVertex].fZ);
+      glNormal3f(asEdgeNorm[iVertex].fX, asEdgeNorm[iVertex].fY,   asEdgeNorm[iVertex].fZ);
       glVertex3f(asEdgeVertex[iVertex].fX, asEdgeVertex[iVertex].fY, asEdgeVertex[iVertex].fZ);
       gDrawnTriangles++;
     }
