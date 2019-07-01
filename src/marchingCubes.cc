@@ -36,7 +36,7 @@
 #include "GL/glu.h"
 #endif
 
-#define DEBUG 0
+#define DEBUG 1
 
 
 int gNumFluidX, gNumFluidY, gNumFluidZ;
@@ -735,6 +735,16 @@ GLvoid vMarchCube(int index)
       asEdgeVertex[iEdge].fX = fX + (a2fVertexOffset[ a2iEdgeConnection[iEdge][0] ][0]  +  fOffset * a2fEdgeDirection[iEdge][0]) * gScaleX;
       asEdgeVertex[iEdge].fY = fY + (a2fVertexOffset[ a2iEdgeConnection[iEdge][0] ][1]  +  fOffset * a2fEdgeDirection[iEdge][1]) * gScaleY;
       asEdgeVertex[iEdge].fZ = fZ + (a2fVertexOffset[ a2iEdgeConnection[iEdge][0] ][2]  +  fOffset * a2fEdgeDirection[iEdge][2]) * gScaleZ;
+
+#if 1//DEBUG ONLY
+asEdgeVertex[iEdge].fX *= 20.0;
+asEdgeVertex[iEdge].fY *= 20.0;
+asEdgeVertex[iEdge].fZ *= 20.0;
+#endif
+
+#if DEBUG
+      std::cout << "vertex " << asEdgeVertex[iEdge].fX << " " << asEdgeVertex[iEdge].fY << " " << asEdgeVertex[iEdge].fZ << std::endl;
+#endif
     }
   }
   
@@ -747,36 +757,34 @@ GLvoid vMarchCube(int index)
     if(iEdgeFlags & (1 << iEdge))
     {
       GLvector v = { asEdgeVertex[iEdge].fX, asEdgeVertex[iEdge].fY, asEdgeVertex[iEdge].fX };
-      edge[numVertices] = iEdge;
-      vertex[numVertices++] = v;
-      if(numVertices == 3) {
-        numVertices = 0;
-        GLvector v01, v02;
-        v01.fX = vertex[1].fX - vertex[0].fX;
-        v01.fY = vertex[1].fY - vertex[0].fZ;
-        v01.fZ = vertex[1].fY - vertex[0].fZ;
-        v02.fX = vertex[2].fX - vertex[0].fX;
-        v02.fY = vertex[2].fY - vertex[0].fZ;
-        v02.fZ = vertex[2].fY - vertex[0].fZ;
-        GLvector normal;
-        normal.fX = v01.fY * v02.fZ - v01.fZ * v02.fY;
-        normal.fY = v01.fZ * v02.fX - v01.fX * v02.fZ;
-        normal.fZ = v01.fX * v02.fY - v01.fY * v02.fX;
-        GLfloat dot = normal.fX * gCameraLookAt[0] + normal.fY * gCameraLookAt[1] + normal.fZ * gCameraLookAt[2];
-        GLfloat dotNegative = -normal.fX * gCameraLookAt[0] - normal.fY * gCameraLookAt[1] - normal.fZ * gCameraLookAt[2];
-        if(dot > dotNegative) {
-          asEdgeNorm[edge[0]] = normal;
-          asEdgeNorm[edge[1]] = normal;
-          asEdgeNorm[edge[2]] = normal;
-        } else {
-          normal.fX *= -1.0;
-          normal.fY *= -1.0;
-          normal.fZ *= -1.0;
-          asEdgeNorm[edge[0]] = normal;
-          asEdgeNorm[edge[1]] = normal;
-          asEdgeNorm[edge[2]] = normal;
-        }
+      edge[numVertices % 3] = iEdge;
+      vertex[numVertices++ % 3] = v;
+      GLvector v01, v02;
+      v01.fX = vertex[1].fX - vertex[0].fX;
+      v01.fY = vertex[1].fY - vertex[0].fY;
+      v01.fZ = vertex[1].fZ - vertex[0].fZ;
+      v02.fX = vertex[2].fX - vertex[0].fX;
+      v02.fY = vertex[2].fY - vertex[0].fY;
+      v02.fZ = vertex[2].fZ - vertex[0].fZ;
+      GLvector normal;
+      normal.fX = v01.fY * v02.fZ - v01.fZ * v02.fY;
+      normal.fY = v01.fZ * v02.fX - v01.fX * v02.fZ;
+      normal.fZ = v01.fX * v02.fY - v01.fY * v02.fX;
+      GLfloat dot = normal.fX * gCameraLookAt[0] + normal.fY * gCameraLookAt[1] + normal.fZ * gCameraLookAt[2];
+      GLfloat dotNegative = -normal.fX * gCameraLookAt[0] - normal.fY * gCameraLookAt[1] - normal.fZ * gCameraLookAt[2];
+      GLfloat norm = sqrt(normal.fX * normal.fX + normal.fY * normal.fY + normal.fZ * normal.fZ);
+      normal.fX /= norm;
+      normal.fY /= norm;
+      normal.fZ /= norm;
+#if DEBUG
+      std::cout << "dot " << dot << " dotNegative " << dotNegative << " normal " << normal.fX << " " << normal.fY << " " << normal.fZ << std::endl;
+#endif
+      if(dot > dotNegative) {
+        normal.fX *= -1.0;
+        normal.fY *= -1.0;
+        normal.fZ *= -1.0;
       }
+      
     }
   }
   
@@ -837,6 +845,7 @@ GLvoid vMarchingCubes()
         gluDeleteQuadric(qobj);
 #else
         vMarchCube(index);
+return;
 #endif
       }
   std::cout << "drew " << gDrawnTriangles << " triangles" << std::endl;
