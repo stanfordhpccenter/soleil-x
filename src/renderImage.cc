@@ -18,7 +18,8 @@ void vDrawScene(int numFluidX,
                 FieldData domainMax[3],
                 VisualizationField visualizationField,
                 FieldData targetValue,
-                FieldData isosurfaceScale[2]);
+                FieldData isosurfaceScale[2],
+                GLfloat cameraLookAt[3]);
 
 void renderParticles(int numParticles, const long int* particlesID, const FieldData3* particlesPosition, const FieldData* particlesTemperature, const FieldData* particlesDensity, int numParticlesToDraw, long int* particlesToDraw, float systemScale,
                      FieldData isosurfaceScale[2]);
@@ -26,7 +27,7 @@ void renderParticles(int numParticles, const long int* particlesID, const FieldD
 void initializeMarchingCubes(GLfloat lightPosition[4]);
 
 
-void setupRender(FieldData domainMin[3], FieldData domainMax[3], float* depthMax) {
+void setupRender(FieldData domainMin[3], FieldData domainMax[3], float* depthMax, GLfloat cameraLookAt[3]) {
   // TODO add camera motion
   glViewport( 0, 0, WIDTH, HEIGHT );
   std::cout << "viewport width, height " << WIDTH << "," << HEIGHT << std::endl;
@@ -93,6 +94,7 @@ void setupRender(FieldData domainMin[3], FieldData domainMax[3], float* depthMax
   std::cout << "systemScale " << *depthMax << std::endl;
 #endif
   gluLookAt(from[0], from[1], from[2], at[0], at[1], at[2], up[0], up[1], up[2]);
+  for(unsigned i = 0; i < 3; ++i) cameraLookAt[i] = at[i] - from[i];
 }
 
 void createGraphicsContext(OSMesaContext &mesaCtx,
@@ -230,8 +232,9 @@ void renderImage(int numFluidX,
 #endif
   
   float systemScale;
-  setupRender(domainMin, domainMax, &systemScale);
-  vDrawScene(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, visualizationField, targetValue, isosurfaceScale);
+  GLfloat cameraLookAt[3];
+  setupRender(domainMin, domainMax, &systemScale, cameraLookAt);
+  vDrawScene(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, visualizationField, targetValue, isosurfaceScale, cameraLookAt);
   renderParticles(numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity, numParticlesToDraw, particlesToDraw, systemScale, isosurfaceScale);
 
 #if 1

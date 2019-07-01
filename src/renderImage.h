@@ -16,7 +16,7 @@ typedef enum {
   temperatureField
 } VisualizationField;
 
-void setCameraPosition(FieldData domainMin[3], FieldData domainMax[3]);
+void setCameraPosition(FieldData domainMin[3], FieldData domainMax[3], GLfloat cameraLookAt[3]);
 
 void renderInitialize(FieldData domainMin[3], FieldData domainMax[3],
                       OSMesaContext& mesaCtx, GLubyte*& rgbaBuffer, GLfloat*& depthBuffer);
