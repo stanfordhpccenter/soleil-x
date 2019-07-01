@@ -719,7 +719,6 @@ GLvoid vMarchCube(int index)
   //Find the point of intersection of the surface with each edge
   const unsigned numEdges = 12;
   GLvector asEdgeVertex[numEdges];
-  GLvector asEdgeNorm[numEdges];
   const FieldData3* coordinate = gCenterCoordinates + index;
   GLfloat fX = coordinate->x[0];
   GLfloat fY = coordinate->x[1];
@@ -748,46 +747,6 @@ asEdgeVertex[iEdge].fZ *= 20.0;
     }
   }
   
-  unsigned numVertices = 0;
-  GLvector vertex[3];
-  unsigned edge[3];
-  for(unsigned iEdge = 0; iEdge < numEdges; iEdge++)
-  {
-    //if there is an intersection on this edge
-    if(iEdgeFlags & (1 << iEdge))
-    {
-      GLvector v = { asEdgeVertex[iEdge].fX, asEdgeVertex[iEdge].fY, asEdgeVertex[iEdge].fX };
-      edge[numVertices % 3] = iEdge;
-      vertex[numVertices++ % 3] = v;
-      GLvector v01, v02;
-      v01.fX = vertex[1].fX - vertex[0].fX;
-      v01.fY = vertex[1].fY - vertex[0].fY;
-      v01.fZ = vertex[1].fZ - vertex[0].fZ;
-      v02.fX = vertex[2].fX - vertex[0].fX;
-      v02.fY = vertex[2].fY - vertex[0].fY;
-      v02.fZ = vertex[2].fZ - vertex[0].fZ;
-      GLvector normal;
-      normal.fX = v01.fY * v02.fZ - v01.fZ * v02.fY;
-      normal.fY = v01.fZ * v02.fX - v01.fX * v02.fZ;
-      normal.fZ = v01.fX * v02.fY - v01.fY * v02.fX;
-      GLfloat dot = normal.fX * gCameraLookAt[0] + normal.fY * gCameraLookAt[1] + normal.fZ * gCameraLookAt[2];
-      GLfloat dotNegative = -normal.fX * gCameraLookAt[0] - normal.fY * gCameraLookAt[1] - normal.fZ * gCameraLookAt[2];
-      GLfloat norm = sqrt(normal.fX * normal.fX + normal.fY * normal.fY + normal.fZ * normal.fZ);
-      normal.fX /= norm;
-      normal.fY /= norm;
-      normal.fZ /= norm;
-#if DEBUG
-      std::cout << "dot " << dot << " dotNegative " << dotNegative << " normal " << normal.fX << " " << normal.fY << " " << normal.fZ << std::endl;
-#endif
-      if(dot > dotNegative) {
-        normal.fX *= -1.0;
-        normal.fY *= -1.0;
-        normal.fZ *= -1.0;
-      }
-      
-    }
-  }
-  
   //Draw the triangles that were found.  There can be up to five per cube
   const unsigned maxTriangles = 5;
   glBegin(GL_TRIANGLES);
@@ -796,7 +755,40 @@ asEdgeVertex[iEdge].fZ *= 20.0;
     if(a2iTriangleConnectionTable[iFlagIndex][3*iTriangle] < 0) {
       break;
     }
+    GLvector vertices[3];
     const unsigned numTriVertices = 3;
+    for(unsigned iCorner = 0; iCorner < numTriVertices; iCorner++)
+    {
+      int iVertex = a2iTriangleConnectionTable[iFlagIndex][3*iTriangle+iCorner];
+      vertices[iCorner] = asEdgeVertex[iVertex];
+    }
+    
+    GLvector v01, v02;
+    v01.fX = vertices[1].fX - vertices[0].fX;
+    v01.fY = vertices[1].fY - vertices[0].fY;
+    v01.fZ = vertices[1].fZ - vertices[0].fZ;
+    v02.fX = vertices[2].fX - vertices[0].fX;
+    v02.fY = vertices[2].fY - vertices[0].fY;
+    v02.fZ = vertices[2].fZ - vertices[0].fZ;
+    GLvector normal;
+    normal.fX = v01.fY * v02.fZ - v01.fZ * v02.fY;
+    normal.fY = v01.fZ * v02.fX - v01.fX * v02.fZ;
+    normal.fZ = v01.fX * v02.fY - v01.fY * v02.fX;
+    GLfloat dot = normal.fX * gCameraLookAt[0] + normal.fY * gCameraLookAt[1] + normal.fZ * gCameraLookAt[2];
+    GLfloat dotNegative = -normal.fX * gCameraLookAt[0] - normal.fY * gCameraLookAt[1] - normal.fZ * gCameraLookAt[2];
+    GLfloat norm = sqrt(normal.fX * normal.fX + normal.fY * normal.fY + normal.fZ * normal.fZ);
+    normal.fX /= norm;
+    normal.fY /= norm;
+    normal.fZ /= norm;
+    if(dot > dotNegative) {
+      normal.fX *= -1.0;
+      normal.fY *= -1.0;
+      normal.fZ *= -1.0;
+    }
+#if DEBUG
+    std::cout << "normal " << normal.fX << " " << normal.fY << " " << normal.fZ << " dot " << dot << " dotNegative " << dotNegative << std::endl;
+#endif
+
     for(unsigned iCorner = 0; iCorner < numTriVertices; iCorner++)
     {
       int iVertex = a2iTriangleConnectionTable[iFlagIndex][3*iTriangle+iCorner];
@@ -810,7 +802,7 @@ asEdgeVertex[iEdge].fZ *= 20.0;
       glMaterialfv(GL_FRONT, GL_DIFFUSE,   color);
       glMaterialfv(GL_FRONT, GL_SPECULAR,  afSpecularWhite);
       
-      glNormal3f(asEdgeNorm[iVertex].fX, asEdgeNorm[iVertex].fY,   asEdgeNorm[iVertex].fZ);
+      glNormal3f(normal.fX, normal.fY, normal.fZ);
       glVertex3f(asEdgeVertex[iVertex].fX, asEdgeVertex[iVertex].fY, asEdgeVertex[iVertex].fZ);
       gDrawnTriangles++;
     }
