@@ -153,9 +153,9 @@
                 "diameterMean": 1.0523490294564067e-05
             },
             "Radiation": {
+                "intensity": 7281248.968051473,
                 "type": "Algebraic",
-                "absorptivity" : 1.0,
-                "intensity" : 1e3
+                "absorptivity": 0.4
             },
             "Grid": {
                 "origin": [
