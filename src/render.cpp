@@ -460,7 +460,7 @@ extern "C" {
     result.imageX = CObjectWrapper::wrap(compositor->sourceImage());
     result.colorSpace = CObjectWrapper::wrap(compositor->depthPartitionColorSpace());
     result.p_Image = CObjectWrapper::wrap(compositor->depthPartition());
-    compositor->sourceImageFields(result.imageFields);
+    compositor->sourceImageFields(ctx,    result.imageFields);
     return result;
   }
   
@@ -602,7 +602,7 @@ extern "C" {
     
     Visualization::ImageReduction* compositor = gImageCompositors[sampleId];
     compositor->set_depth_func(GL_LESS);
-    FutureMap futures = compositor->reduce_associative_commutative();
+    FutureMap futures = compositor->reduce_associative_commutative(ctx);
     futures.wait_all_results();
     
     // save the image
