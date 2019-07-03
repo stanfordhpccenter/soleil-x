@@ -2,6 +2,7 @@
 
 import argparse
 import glob
+import numpy as np
 import os
 import subprocess
 
@@ -10,8 +11,8 @@ parser.add_argument('-t', '--target-iters', type=int, default=5000)
 parser.add_argument('jobids', nargs='+')
 args = parser.parse_args()
 
-avg_tmin = 0.0
-avg_tmax = 0.0
+tmin_all = []
+tmax_all = []
 for j in args.jobids:
     tmin = float('inf')
     tmax = 0.0
@@ -23,7 +24,7 @@ for j in args.jobids:
         t = float(toks[2])
         tmin = min(t, tmin)
         tmax = max(t, tmax)
-    avg_tmin += tmin / len(args.jobids)
-    avg_tmax += tmax / len(args.jobids)
+    tmin_all.append(tmin)
+    tmax_all.append(tmax)
     print '%s: %.3f %.3f' % (j, tmin, tmax)
-print 'Average: %.3f %.3f' % (avg_tmin, avg_tmax)
+print 'Average: %.3f, StdDev: %.3f' % (np.mean(tmax_all), np.std(tmax_all, ddof=1))
