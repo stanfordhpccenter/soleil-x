@@ -10,7 +10,8 @@ typedef struct {
 } FieldData3;
 
 typedef enum {
-  rhoField = 0,
+  noneField = 0,
+  rhoField,
   pressureField,
   velocityField,
   temperatureField

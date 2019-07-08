@@ -139,6 +139,7 @@ extern "C" {
 #if SAVE_RENDER_DATA
     saveFluidRenderData(ctx, runtime, task, fluid, fluidFields);
     saveParticlesRenderData(ctx, runtime, task, particles, particlesFields);
+    return;
 #else
     
     // Get task arguments

@@ -431,11 +431,11 @@ do
     -- set the isosurface value.  If it is specified as zero then use the current mean value
     var isosurfaceValue : double = config.Visualization.isosurfaceValue
     if isosurfaceValue == 0.0 then
-      if config.Visualization.isosurfaceField == 3 then
+      if config.Visualization.isosurfaceField == 4 then
         isosurfaceValue = Flow_averageTemperature
-      elseif config.Visualization.isosurfaceField == 1 then
+      elseif config.Visualization.isosurfaceField == 2 then
         isosurfaceValue = Flow_averagePressure
-      elseif config.Visualization.isosurfaceField == 0 then
+      elseif config.Visualization.isosurfaceField == 1 then
         isosurfaceValue = Flow_averageDensity
       end
     end
@@ -457,7 +457,7 @@ do
       config.Visualization.numParticlesToDraw,
       config.Visualization.isosurfaceField,
       isosurfaceValue,
-      config.Visualization.isosurfaceScale,
+      config.Visualization.colorScale,
       __physical(particlesToDraw),
       lowerBound,
       upperBound)

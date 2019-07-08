@@ -16,7 +16,7 @@ Exports.ParticlesBC = Enum('Periodic','Bounce','Disappear')
 Exports.ViscosityModel = Enum('Constant','PowerLaw','Sutherland')
 Exports.FlowInitCase = Enum('Uniform','Random','Restart','Perturbed','TaylorGreen2DVortex','TaylorGreen3DVortex')
 Exports.ParticlesInitCase = Enum('Random','Restart','Uniform')
-Exports.VisualizationIsosurfaceField = Enum('rho', 'pressure', 'velocity', 'temperature')
+Exports.VisualizationIsosurfaceField = Enum('none', 'rho', 'pressure', 'velocity', 'temperature')
 Exports.TempProfile = Union{
   Constant = {
     temperature = double,
@@ -215,7 +215,7 @@ Exports.Config = {
     numParticlesToDraw = int,
     isosurfaceField = Exports.VisualizationIsosurfaceField,
     isosurfaceValue = double,
-    isosurfaceScale = Array(2, double),
+    colorScale = Array(2, double),
     stepsPerRender = int,
   }
 }

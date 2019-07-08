@@ -231,6 +231,8 @@ void renderImage(int numFluidX,
 //  std::cout << "domain max " << domainMax[0] << "," << domainMax[1] << "," << domainMax[2] << std::endl;
 #if 1
   switch(visualizationField) {
+    case noneField:
+      break;
     case temperatureField:
       std::cout << "isosurface of temperature = " << targetValue << std::endl;
       break;
@@ -249,7 +251,9 @@ void renderImage(int numFluidX,
   float systemScale;
   GLfloat cameraLookAt[3];
   setupRender(domainMin, domainMax, &systemScale, cameraLookAt);
-  vDrawScene(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, visualizationField, targetValue, isosurfaceScale, cameraLookAt);
+  if(visualizationField != noneField) {
+    vDrawScene(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, visualizationField, targetValue, isosurfaceScale, cameraLookAt);
+  }
   renderParticles(numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity, numParticlesToDraw, particlesToDraw, systemScale, isosurfaceScale);
 
 #if 1
