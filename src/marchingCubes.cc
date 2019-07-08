@@ -175,7 +175,7 @@ void vDrawScene(int numFluidX,
                 const FieldData* temperature,
                 FieldData domainMin[3],
                 FieldData domainMax[3],
-                VisualizationField visualizationField,
+                VisualizationField isosurfaceField,
                 FieldData targetValue,
                 FieldData isosurfaceScale[2],
                 GLfloat cameraLookAt[3])
@@ -190,7 +190,7 @@ void vDrawScene(int numFluidX,
   gTemperature = temperature;
   gDomainMin = domainMin;
   gDomainMax = domainMax;
-  gVisualizationField = visualizationField;
+  gVisualizationField = isosurfaceField;
   gIsosurfaceScale = isosurfaceScale;
   fTargetValue = targetValue;
   gCameraLookAt = cameraLookAt;
@@ -201,9 +201,11 @@ void vDrawScene(int numFluidX,
   
   glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
   
-  glPushMatrix();
-  vMarchingCubes();
-  glPopMatrix();
+  if(isosurfaceField != noneField) {
+    glPushMatrix();
+    vMarchingCubes();
+    glPopMatrix();
+  }
   
   glFinish();
   

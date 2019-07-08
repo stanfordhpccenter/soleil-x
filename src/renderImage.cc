@@ -16,7 +16,7 @@ void vDrawScene(int numFluidX,
                 const FieldData* temperature,
                 FieldData domainMin[3],
                 FieldData domainMax[3],
-                VisualizationField visualizationField,
+                VisualizationField isosurfaceField,
                 FieldData targetValue,
                 FieldData colorScale[2],
                 GLfloat cameraLookAt[3]);
@@ -216,7 +216,7 @@ void renderImage(int numFluidX,
                  const FieldData* temperature,
                  FieldData domainMin[3],
                  FieldData domainMax[3],
-                 VisualizationField visualizationField,
+                 VisualizationField isosurfaceField,
                  FieldData targetValue,
                  FieldData colorScale[2],
                  int numParticles,
@@ -230,8 +230,9 @@ void renderImage(int numFluidX,
 //  std::cout << "domain min " << domainMin[0] << "," << domainMin[1] << "," << domainMin[2] << std::endl;
 //  std::cout << "domain max " << domainMax[0] << "," << domainMax[1] << "," << domainMax[2] << std::endl;
 #if 1
-  switch(visualizationField) {
+  switch(isosurfaceField) {
     case noneField:
+      std::cout << "no isosurface" << std::endl;
       break;
     case temperatureField:
       std::cout << "isosurface of temperature = " << targetValue << std::endl;
@@ -251,10 +252,8 @@ void renderImage(int numFluidX,
   float systemScale;
   GLfloat cameraLookAt[3];
   setupRender(domainMin, domainMax, &systemScale, cameraLookAt);
-std::cout << "visualizationField " << visualizationField << std::endl;
-  if(visualizationField != noneField) {
-    vDrawScene(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, visualizationField, targetValue, colorScale, cameraLookAt);
-  }
+std::cout << "isosurfaceField " << isosurfaceField << std::endl;
+  vDrawScene(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, isosurfaceField, targetValue, colorScale, cameraLookAt);
   renderParticles(numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity, numParticlesToDraw, particlesToDraw, systemScale, colorScale);
 
 #if 1
@@ -416,6 +415,9 @@ void scaledTemperatureToColor(float temperature, float color[4], FieldData color
   const float Kmax = 10000.0f;
   // stretch it on a scale of Kmin...Kmax
   float scaledTemperature = (temperature - min) * ((Kmax - Kmin) / (max - min));
+#if 1
+  std::cout << "raw temperature " << temperature << " scaled " << scaledTemperature << " colorScale " << colorScale[0] << " " << colorScale[1] << std::endl;
+#endif
   return temperatureToColor(scaledTemperature, color);
 }
 

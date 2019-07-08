@@ -21,11 +21,11 @@
 typedef double FieldData;
 
 
-void drawParticle(GLUquadricObj* qobj, const FieldData3* position, FieldData density, FieldData particleTemperature, float particleSize, FieldData isosurfaceScale[2]) {
+void drawParticle(GLUquadricObj* qobj, const FieldData3* position, FieldData density, FieldData particleTemperature, float particleSize, FieldData colorScale[2]) {
   
   GLfloat t = particleTemperature;
   GLfloat color[4];
-  scaledTemperatureToColor(t, color, isosurfaceScale);
+  scaledTemperatureToColor(t, color, colorScale);
   glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, color);
   glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, color);
   glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, color);
@@ -71,14 +71,14 @@ void renderParticles(int numParticles,
                      int numParticlesToDraw,
                      long int* particlesToDraw,
                      float systemScale,
-                     FieldData isosurfaceScale[2]) {
+                     FieldData colorScale[2]) {
   GLUquadricObj *qobj = gluNewQuadric();
   
   unsigned drawnCount = 0;
   for(int i = 0; i < numParticles; ++i) {
     if(drawThis(particlesID[i], numParticlesToDraw, particlesToDraw)) {
       if(particlesDensity[i] > 0) {
-        drawParticle(qobj, particlesPosition + i, particlesDensity[i], particlesTemperature[i], particleSize(systemScale, particlesDensity[i]), isosurfaceScale);
+        drawParticle(qobj, particlesPosition + i, particlesDensity[i], particlesTemperature[i], particleSize(systemScale, particlesDensity[i]), colorScale);
         drawnCount++;
       }
     }
