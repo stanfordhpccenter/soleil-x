@@ -59,7 +59,7 @@ static bool drawThis(long int id, int numParticlesToDraw, long int* particlesToD
 static float particleSize(float systemScale, FieldData density) {
   // 0.0002 at density 8900 systemscale .023 numParticles 50 should be 500
   // systemScale*100/density
-  return systemScale * 100.0 / density;
+  return systemScale * 50.0 / density;
 }
 
 

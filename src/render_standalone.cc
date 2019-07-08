@@ -151,7 +151,7 @@ int main(int argc, char **argv) {
   FieldData* particlesDensity = new FieldData[numParticles];
 
   loadParticlesData(particlesFileName, numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity);
-  const int numParticlesToDraw = 500;
+  const int numParticlesToDraw = 10000;
   long int particlesToDraw[numParticlesToDraw] = { 0 };
   for(int i = 0; i < numParticlesToDraw; ++i) particlesToDraw[i] = i;
   
@@ -160,9 +160,10 @@ int main(int argc, char **argv) {
   GLfloat* depthBuffer;
   
   FieldData isosurfaceValue = meanTemperature(temperature, numFluidLines);
+  isosurfaceValue = 1.0; // turn it off
 
   renderInitialize(lowerBound, upperBound, mesaCtx, rgbaBuffer, depthBuffer);
-  double scale[] = { 0.0, 600.0 };
+  double scale[] = { 298.0, 305.0 };
   renderImage(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, lowerBound, upperBound, temperatureField, isosurfaceValue, scale,
               numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity,
               particlesToDraw, numParticlesToDraw);

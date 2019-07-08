@@ -66,10 +66,13 @@ void setupRender(FieldData domainMin[3], FieldData domainMax[3], float* depthMax
   glPushMatrix();
   glLoadIdentity();
   
+#if 0
   FieldData scale[3];
   for(unsigned i = 0; i < 3; ++i) scale[i] = domainMax[i] - domainMin[i];
   FieldData scaleOffset = 0.25;
+#endif
   
+#if 0
   GLfloat from[] =
   { (GLfloat)((domainMin[0] + domainMax[0]) * 0.48),
     (GLfloat)(domainMax[1] + scale[1] * scaleOffset),
@@ -78,6 +81,18 @@ void setupRender(FieldData domainMin[3], FieldData domainMax[3], float* depthMax
   { (GLfloat)((domainMin[0] + domainMax[0]) * 0.5),
     (GLfloat)((domainMin[1] + domainMax[1]) * 0.5),
     (GLfloat)domainMax[2] };
+#else
+  // view the particles coming toward the camera
+  GLfloat from[] =
+  { (GLfloat)(domainMax[0] * 2.0),
+    (GLfloat)(domainMax[1] * 2.0),
+    (GLfloat)(domainMin[2] + domainMax[2] * 0.5) };
+  GLfloat at[] =
+  { (GLfloat)((domainMin[0] + domainMax[0]) * 0.5),
+    (GLfloat)((domainMin[1] + domainMax[1]) * 0.5),
+    (GLfloat)((domainMin[2] + domainMax[2]) * 0.5) };
+#endif
+
   GLfloat up[] = { 0, 1, 0 };
 
 #if 1
