@@ -163,7 +163,7 @@ int main(int argc, char **argv) {
   isosurfaceValue = 1.0; // turn it off
 
   renderInitialize(lowerBound, upperBound, mesaCtx, rgbaBuffer, depthBuffer);
-  double scale[] = { 298.0, 315.0 };
+  double scale[] = { 298.0, 600.0 };
   renderImage(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, lowerBound, upperBound, temperatureField, isosurfaceValue, scale,
               numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity,
               particlesToDraw, numParticlesToDraw);

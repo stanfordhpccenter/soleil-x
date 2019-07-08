@@ -18,11 +18,11 @@ void vDrawScene(int numFluidX,
                 FieldData domainMax[3],
                 VisualizationField visualizationField,
                 FieldData targetValue,
-                FieldData isosurfaceScale[2],
+                FieldData colorScale[2],
                 GLfloat cameraLookAt[3]);
 
 void renderParticles(int numParticles, const long int* particlesID, const FieldData3* particlesPosition, const FieldData* particlesTemperature, const FieldData* particlesDensity, int numParticlesToDraw, long int* particlesToDraw, float systemScale,
-                     FieldData isosurfaceScale[2]);
+                     FieldData colorScale[2]);
 
 void initializeMarchingCubes(GLfloat lightPosition[4]);
 
@@ -218,7 +218,7 @@ void renderImage(int numFluidX,
                  FieldData domainMax[3],
                  VisualizationField visualizationField,
                  FieldData targetValue,
-                 FieldData isosurfaceScale[2],
+                 FieldData colorScale[2],
                  int numParticles,
                  const long int* particlesID,
                  const FieldData3* particlesPosition,
@@ -251,10 +251,11 @@ void renderImage(int numFluidX,
   float systemScale;
   GLfloat cameraLookAt[3];
   setupRender(domainMin, domainMax, &systemScale, cameraLookAt);
+std::cout << "visualizationField " << visualizationField << std::endl;
   if(visualizationField != noneField) {
-    vDrawScene(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, visualizationField, targetValue, isosurfaceScale, cameraLookAt);
+    vDrawScene(numFluidX, numFluidY, numFluidZ, rho, pressure, velocity, centerCoordinates, temperature, domainMin, domainMax, visualizationField, targetValue, colorScale, cameraLookAt);
   }
-  renderParticles(numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity, numParticlesToDraw, particlesToDraw, systemScale, isosurfaceScale);
+  renderParticles(numParticles, particlesID, particlesPosition, particlesTemperature, particlesDensity, numParticlesToDraw, particlesToDraw, systemScale, colorScale);
 
 #if 1
   double rhoSum = 0;
@@ -407,10 +408,10 @@ void temperatureToColor(float temperature, float color[4])
 }
 
 
-void scaledTemperatureToColor(float temperature, float color[4], FieldData isosurfaceScale[2])
+void scaledTemperatureToColor(float temperature, float color[4], FieldData colorScale[2])
 {
-  const float min = isosurfaceScale[0];
-  const float max = isosurfaceScale[1];
+  const float min = colorScale[0];
+  const float max = colorScale[1];
   const float Kmin = 0.0f;
   const float Kmax = 10000.0f;
   // stretch it on a scale of Kmin...Kmax
