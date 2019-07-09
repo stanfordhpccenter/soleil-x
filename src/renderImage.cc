@@ -49,49 +49,27 @@ void setupRender(FieldData domainMin[3], FieldData domainMax[3], float* depthMax
   GLfloat far = *depthMax * 3.0;
   glOrtho(left, right, bottom, top, near, far);
 #else
-  GLfloat fovy = 45;
+  GLfloat fovy = 20;
   GLfloat aspect = (GLfloat)WIDTH / (GLfloat)HEIGHT;
   GLfloat near = 0.0;
-  GLfloat far = *depthMax * 3.0;
+  GLfloat far = *depthMax * 2.0;
   gluPerspective(fovy, aspect, near, far);
 #endif
-  
-  /*
-   gluPersepctive 45 1.77778 0 2.3094
-   camera from 0.0192,-0.01,-0.03
-   camera at   0.02,0.004,0.02
-   */
   
   glMatrixMode(GL_MODELVIEW);
   glPushMatrix();
   glLoadIdentity();
   
-#if 0
-  FieldData scale[3];
-  for(unsigned i = 0; i < 3; ++i) scale[i] = domainMax[i] - domainMin[i];
-  FieldData scaleOffset = 0.25;
-#endif
-  
-#if 0
-  GLfloat from[] =
-  { (GLfloat)((domainMin[0] + domainMax[0]) * 0.48),
-    (GLfloat)(domainMax[1] + scale[1] * scaleOffset),
-    (GLfloat)(domainMax[2] + scale[2] * 2.0) };
-  GLfloat at[] =
-  { (GLfloat)((domainMin[0] + domainMax[0]) * 0.5),
-    (GLfloat)((domainMin[1] + domainMax[1]) * 0.5),
-    (GLfloat)domainMax[2] };
-#else
   // view the particles coming toward the camera
   GLfloat from[] =
   { (GLfloat)(domainMax[0] * 2.0),
-    (GLfloat)(domainMax[1] * 2.0),
+    (GLfloat)(domainMax[1] * 4.0),
     (GLfloat)(domainMin[2] + domainMax[2] * 0.5) };
+
   GLfloat at[] =
   { (GLfloat)((domainMin[0] + domainMax[0]) * 0.5),
     (GLfloat)((domainMin[1] + domainMax[1]) * 0.5),
     (GLfloat)((domainMin[2] + domainMax[2]) * 0.5) };
-#endif
 
   GLfloat up[] = { 0, 1, 0 };
 
@@ -367,7 +345,9 @@ write_ppm(const char *filename, const GLubyte *rgba, int width, int height)
   }
 }
 
-void temperatureToColor(float temperature, float color[4])
+#define DEBUG_COLOR 0
+
+void temperatureToColorOLD(float temperature, float color[4])
 {
   
   // https://stackoverflow.com/questions/7229895/display-temperature-as-a-color-with-c
@@ -379,6 +359,10 @@ void temperatureToColor(float temperature, float color[4])
   float x5 = x4 * x;
   
   float R, G, B = 0.0f;
+
+#if DEBUG_COLOR
+  std::cout << "scaled temperature (0..10000) " << temperature << std::endl;
+#endif
   
   // red
   if (temperature <= 6600)
@@ -400,10 +384,104 @@ void temperatureToColor(float temperature, float color[4])
   else
     B = 1.0f;
   
+#if 1
   color[0] = R;
   color[1] = G;
   color[2] = B;
   color[3] = 1.0f;
+#else
+  color[0] = B;
+  color[1] = G;
+  color[2] = R;
+  color[3] = 1.0f;
+#endif
+}
+
+
+// reference http://www.tannerhelland.com/4435/convert-temperature-rgb-algorithm-code/
+
+void temperatureToColor(float temperature, float color[4])
+{
+  float R, G, B;
+  float t = temperature / 100.0;
+  
+#if DEBUG_COLOR
+  std::cout << "scaled temperature " << temperature << std::endl;
+#endif
+
+  if(t <= 66) {
+    B = 255.0;
+#if DEBUG_COLOR
+    std::cout << "t<=66 " << t << " blue full on" << std::endl;
+#endif
+  } else {
+    if(t > 113) {
+      B = 0.0;
+#if DEBUG_COLOR
+      std::cout << "t>113 " << t << " blue off" << std::endl;
+#endif
+    } else {
+      B = t - 60.0;
+      B = 329.698727446 * pow(B, -0.1332047592);
+      if(B < 0) B = 0.0;
+      if(B > 255.0) B = 255.0;
+#if DEBUG_COLOR
+      std::cout << "t>66 " << t << " blue " << B << std::endl;
+#endif
+    }
+  }
+
+  if(t <= 66) {
+    G = t;
+    G = 99.4708025861 * log(G) - 161.1195681661;
+    if(G < 0) G = 0.0;
+    if(G > 255.0) G = 255.0;
+#if DEBUG_COLOR
+    std::cout << "t<=66 " << t << " green " << G << std::endl;
+#endif
+  } else {
+    if(t > 113) {
+      G = 0.0;
+#if DEBUG_COLOR
+      std::cout << "t>113 " << t << " green off" << std::endl;
+#endif
+    } else {
+      G = t - 60.0;
+      G = 288.1221695283 * pow(G, -0.0755148492);
+      if(G < 0) G = 0.0;
+      if(G > 255.0) G = 255.0;
+#if DEBUG_COLOR
+      std::cout << "t>66 " << t << " green " << G << std::endl;
+#endif
+    }
+  }
+
+  if(t >= 66) {
+    R = 255.0;
+#if DEBUG_COLOR
+    std::cout << "t>=66 " << t << " red full on" << std::endl;
+#endif
+  } else {
+    if(t <= 19) {
+      R = 0.0;
+#if DEBUG_COLOR
+      std::cout << "t<=19 " << t << " red zero" << std::endl;
+#endif
+    } else {
+      R = t - 10.0;
+      R = 138.5177312231 * log(R) - 305.0447927307;
+      if(R < 0) R = 0.0;
+      if(R > 255.0) R = 255.0;
+#if DEBUG_COLOR
+      std::cout << "t>19 " << t << " red " << R << std::endl;
+#endif
+    }
+  }
+
+  color[0] = R / 255.0;
+  color[1] = G / 255.0;
+  color[2] = B / 255.0;
+  color[3] = 1.0;
 }
 
 
@@ -411,11 +489,11 @@ void scaledTemperatureToColor(float temperature, float color[4], FieldData color
 {
   const float min = colorScale[0];
   const float max = colorScale[1];
-  const float Kmin = 0.0f;
-  const float Kmax = 10000.0f;
+  const float Kmin = 1500.0f;
+  const float Kmax = 15000.0f;
   // stretch it on a scale of Kmin...Kmax
-  float scaledTemperature = (temperature - min) * ((Kmax - Kmin) / (max - min));
-#if 1
+  float scaledTemperature = Kmin + (temperature - min) * ((Kmax - Kmin) / (max - min));
+#if DEBUG_COLOR
   std::cout << "raw temperature " << temperature << " scaled " << scaledTemperature << " colorScale " << colorScale[0] << " " << colorScale[1] << std::endl;
 #endif
   return temperatureToColor(scaledTemperature, color);
