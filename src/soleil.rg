@@ -1421,9 +1421,10 @@ task Particles_InitializeRandom(color : int3d,
                                 Particles : region(ispace(int1d), Particles_columns),
                                 Fluid : region(ispace(int3d), Fluid_columns),
                                 config : Config,
+                                Grid_volume : double,
                                 Grid_xBnum : int, Grid_yBnum : int, Grid_zBnum : int)
 where
-  reads(Fluid.{centerCoordinates, velocity}),
+  reads(Fluid.{centerCoordinates, cellWidth, velocity}),
   writes(Particles.{__valid, cell, position, velocity, density, temperature, diameter})
 do
   -- Grid geometry
@@ -1436,23 +1437,52 @@ do
   var Grid_xOrigin = config.Grid.origin[0]
   var Grid_yOrigin = config.Grid.origin[1]
   var Grid_zOrigin = config.Grid.origin[2]
-  var Grid_xCellWidth = Grid_xWidth / Grid_xNum
-  var Grid_yCellWidth = Grid_yWidth / Grid_yNum
-  var Grid_zCellWidth = Grid_zWidth / Grid_zNum
-  var Grid_xRealOrigin = Grid_xOrigin - Grid_xCellWidth * Grid_xBnum
-  var Grid_yRealOrigin = Grid_yOrigin - Grid_yCellWidth * Grid_yBnum
-  var Grid_zRealOrigin = Grid_zOrigin - Grid_zCellWidth * Grid_zBnum
+
   -- Tile geometry
-  var Tile_xWidth = Grid_xWidth / config.Mapping.tiles[0]
-  var Tile_yWidth = Grid_yWidth / config.Mapping.tiles[1]
-  var Tile_zWidth = Grid_zWidth / config.Mapping.tiles[2]
-  var Tile_xOrigin = Grid_xOrigin + color.x * Tile_xWidth
-  var Tile_yOrigin = Grid_yOrigin + color.y * Tile_yWidth
-  var Tile_zOrigin = Grid_zOrigin + color.z * Tile_zWidth
+  var Tile_xOrigin = config.Grid.origin[0] + config.Grid.xWidth
+  for c in Fluid do
+    Tile_xOrigin min= Fluid[c].centerCoordinates[0] - 0.5*Fluid[c].cellWidth[0]
+  end
+  var Tile_yOrigin = config.Grid.origin[1] + config.Grid.yWidth
+  for c in Fluid do
+    Tile_yOrigin min= Fluid[c].centerCoordinates[1] - 0.5*Fluid[c].cellWidth[1]
+  end
+  var Tile_zOrigin = config.Grid.origin[3] + config.Grid.zWidth
+  for c in Fluid do
+    Tile_zOrigin min= Fluid[c].centerCoordinates[2] - 0.5*Fluid[c].cellWidth[2]
+  end
+  -- Do not initialize particles in ghost cells
+  if Tile_xOrigin < config.Grid.origin[0] then Tile_xOrigin = config.Grid.origin[0] end
+  if Tile_yOrigin < config.Grid.origin[1] then Tile_yOrigin = config.Grid.origin[1] end
+  if Tile_zOrigin < config.Grid.origin[2] then Tile_zOrigin = config.Grid.origin[2] end
+
+  var Tile_xMax = config.Grid.origin[0]
+  for c in Fluid do
+    Tile_xMax max= Fluid[c].centerCoordinates[0] + 0.5*Fluid[c].cellWidth[0]
+  end
+  var Tile_yMax = config.Grid.origin[1]
+  for c in Fluid do
+    Tile_yMax max= Fluid[c].centerCoordinates[1] + 0.5*Fluid[c].cellWidth[1]
+  end
+  var Tile_zMax = config.Grid.origin[2]
+  for c in Fluid do
+    Tile_zMax max= Fluid[c].centerCoordinates[2] + 0.5*Fluid[c].cellWidth[2]
+  end
+  -- Do not initialize particles in ghost cells
+  if Tile_xMax < (config.Grid.origin[0] + config.Grid.xWidth) then Tile_xMax = config.Grid.origin[0] + config.Grid.xWidth end
+  if Tile_yMax < (config.Grid.origin[1] + config.Grid.yWidth) then Tile_yMax = config.Grid.origin[1] + config.Grid.yWidth end
+  if Tile_zMax < (config.Grid.origin[2] + config.Grid.zWidth) then Tile_zMax = config.Grid.origin[2] + config.Grid.zWidth end
+
+  var Tile_xWidth = Tile_xMax - Tile_xOrigin
+  var Tile_yWidth = Tile_yMax - Tile_yOrigin
+  var Tile_zWidth = Tile_zMax - Tile_zOrigin
+
+  var Tile_volume = Tile_xWidth*Tile_yWidth*Tile_zWidth 
+
   -- Particle values
   var pBase = Particles.bounds.lo
   var numTiles = config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2]
-  var particlesPerTile = config.Particles.initNum / config.Particles.parcelSize / numTiles
+  var particlesPerTile = config.Particles.initNum / config.Particles.parcelSize * (Tile_volume/Grid_volume)
   var Particles_density = config.Particles.density
   var Particles_initTemperature = config.Particles.initTemperature
   var Particles_diameterMean = config.Particles.diameterMean
@@ -6151,6 +6181,7 @@ local function mkInstance(config) local INSTANCE = {}
                                      p_Particles[c],
                                      p_Fluid[c],
                                      config,
+                                     Grid.volume,
                                      Grid.xBnum, Grid.yBnum, Grid.zBnum)
         end
       elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart then
