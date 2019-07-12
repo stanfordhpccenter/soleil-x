@@ -5776,6 +5776,14 @@ task workDual(mc : MultiConfig)
   -- Initialize regions & partitions
   [parallelizeFor(SIM0, SIM0.InitRegions(rexpr mc.configs[0] end))];
   [parallelizeFor(SIM1, SIM1.InitRegions(rexpr mc.configs[1] end))];
+
+  var ImageResult1 = VisualizeInit(mc.configs[1], SIM1.Fluid, SIM1.p_Fluid, SIM1.Particles, SIM1.particlesToDraw)
+  var { lowerBound, upperBound } = VisualizeBounds(SIM1.Fluid)
+  var indexSpace1 = __import_ispace(int3d, ImageResult1.indexSpace)
+  var colorSpace1 = __import_ispace(int3d, ImageResult1.colorSpace)
+  var imageX1 = __import_region(indexSpace1, Image_columns, ImageResult1.imageX, ImageResult1.imageFields)
+  var p_Image1 = __import_partition(disjoint, imageX1, colorSpace1, ImageResult1.p_Image)
+
   var srcOrigin = int3d{mc.copySrc.fromCell[0], mc.copySrc.fromCell[1], mc.copySrc.fromCell[2]}
   var tgtOrigin = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]}
   var srcColoring = C.legion_domain_point_coloring_create()
@@ -5843,6 +5851,9 @@ task workDual(mc : MultiConfig)
     end
     -- Run one iteration of second section
     [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, incoming, CopyQueue))];
+
+    -- Visualization
+    Visualize(mc.configs[1], SIM1.Integrator_timeStep, SIM1.Fluid, SIM1.Particles, SIM1.p_Fluid, SIM1.p_Particles, SIM1.particlesToDraw, lowerBound, upperBound, SIM1.tiles, imageX1, p_Image1, SIM1.Flow_averageDensity, SIM1.Flow_averagePressure, SIM1.Flow_averageTemperature)
   end
   -- Cleanups
   [SIM0.Cleanup(rexpr mc.configs[0] end)];
