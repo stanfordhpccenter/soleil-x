@@ -453,7 +453,6 @@
                     }
                 ]
             }
-        }
 ,
     "Visualization" : {
       "numParticlesToDraw" : 10000,
@@ -462,6 +461,7 @@
       "colorScale" : [ 298.0, 1900.0 ],
       "stepsPerRender" : 200
     }
+        }
 
     ],
     "flowThroughTimes": 3,
