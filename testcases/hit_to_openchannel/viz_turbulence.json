@@ -12,9 +12,9 @@
                     1,
                     1
                 ],
-                "sampleId": -1,
                 "outDir": "",
-                "wallTime": 120
+                "wallTime": 120,
+                "sampleId": -1
             },
             "Grid": {
                 "xNum": 128,
@@ -143,7 +143,7 @@
                 }
             },
             "Particles": {
-                "initCase": "Random",
+                "initCase": "Uniform",
                 "restartDir": "",
                 "initNum": 1816622,
                 "maxNum": 1816622,
@@ -164,7 +164,7 @@
                 "feeding": {
                     "type": "OFF"
                 },
-                "staggerFactor": 200,
+                "staggerFactor": 140,
                 "parcelSize": 1
             },
             "Radiation": {
@@ -175,15 +175,14 @@
                 "restartEveryTimeSteps": 1000,
                 "probes": []
             }
-,
-    "Visualization" : {
-      "numParticlesToDraw" : 10000,
-      "isosurfaceField" : "none",
-      "isosurfaceValue" : 1.0,
-      "colorScale" : [ 298.0, 1900.0 ],
-      "stepsPerRender" : 0
-    }
-
+ ,
+     "Visualization" : {
+       "numParticlesToDraw" : 10000,
+       "isosurfaceField" : "none",
+       "isosurfaceValue" : 1.0,
+       "colorScale" : [ 298.0, 1900.0 ],
+       "stepsPerRender" : 200
+     }
         },
         {
             "Mapping": {
@@ -197,9 +196,9 @@
                     1,
                     1
                 ],
-                "sampleId": -1,
                 "outDir": "",
-                "wallTime": 120
+                "wallTime": 120,
+                "sampleId": -1
             },
             "Grid": {
                 "xNum": 512,
@@ -319,7 +318,7 @@
                 }
             },
             "Particles": {
-                "initCase": "Random",
+                "initCase": "Uniform",
                 "restartDir": "",
                 "initNum": 7266492,
                 "maxNum": 8719792,
@@ -345,7 +344,7 @@
                         0.0
                     ]
                 },
-                "staggerFactor": 200,
+                "staggerFactor": 140,
                 "parcelSize": 1
             },
             "Radiation": {
@@ -453,16 +452,15 @@
                     }
                 ]
             }
-,
-    "Visualization" : {
-      "numParticlesToDraw" : 10000,
-      "isosurfaceField" : "none",
-      "isosurfaceValue" : 1.0,
-      "colorScale" : [ 298.0, 1900.0 ],
-      "stepsPerRender" : 200
-    }
+ ,
+     "Visualization" : {
+       "numParticlesToDraw" : 10000,
+       "isosurfaceField" : "none",
+       "isosurfaceValue" : 1.0,
+       "colorScale" : [ 298.0, 1900.0 ],
+       "stepsPerRender" : 200
+     }
         }
-
     ],
     "flowThroughTimes": 3,
     "copySrc": {
