@@ -2718,35 +2718,33 @@ do
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
 
-    if xNegGhost and not BC_xBCLeft == SCHEMA.FlowBC_NSCBC_SubsonicInflow then
+    if xNegGhost and BC_xBCLeft ~= SCHEMA.FlowBC_NSCBC_SubsonicInflow then
       var c_bnd = int3d(c)
       var c_int = ((c+{1, 0, 0})%Fluid.bounds)
-      var temperature = 0.0
-      var pressure = 0.0
-      pressure = Fluid[c_int].pressure
       var bnd_temperature  = BC_xNegTemperature
-      var wall_temperature = Fluid[c_int].temperature
+      var temp_wall = 0.0
+      var temperature = 0.0
+      temp_wall = Fluid[c_int].temperature
       if (bnd_temperature>0.0) then
-        wall_temperature = bnd_temperature
+        temp_wall = bnd_temperature
       end
-      temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
-      Fluid[c_bnd].pressure = pressure
+      temperature = (2.0*temp_wall)-Fluid[c_int].temperature
+      Fluid[c_bnd].pressure = Fluid[c_int].pressure
       Fluid[c_bnd].temperature = temperature
     end
 
-    if xPosGhost and not BC_xBCRight == SCHEMA.FlowBC_NSCBC_SubsonicOutflow then
+    if xPosGhost and BC_xBCRight ~= SCHEMA.FlowBC_NSCBC_SubsonicOutflow then
       var c_bnd = int3d(c)
       var c_int = ((c+{-1, 0, 0})%Fluid.bounds)
-      var temperature = 0.0
-      var pressure = 0.0
-      pressure = Fluid[c_int].pressure
       var bnd_temperature = BC_xPosTemperature
-      var wall_temperature = Fluid[c_int].temperature
+      var temp_wall = 0.0
+      var temperature = 0.0
+      temp_wall = Fluid[c_int].temperature
       if (bnd_temperature>0.0) then
-        wall_temperature = bnd_temperature
+        temp_wall = bnd_temperature
       end
-      temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
-      Fluid[c_bnd].pressure = pressure
+      temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
+      Fluid[c_bnd].pressure = Fluid[c_int].pressure
       Fluid[c_bnd].temperature = temperature
     end
 
