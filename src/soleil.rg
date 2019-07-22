@@ -500,7 +500,8 @@ task Console_WriteHeader(_ : int,
                             'Avg Temp\t'..
                             'Avg KE\t'..
                             'Particle Num\t'..
-                            'Avg Particle T\n')];
+                            'Avg Particle T'..
+                            'Max Particle T\n')];
   return _
 end
 
@@ -515,7 +516,8 @@ task Console_Write(config : Config,
                    Flow_averageTemperature : double,
                    Flow_averageKineticEnergy : double,
                    Particles_number : int64,
-                   Particles_averageTemperature : double)
+                   Particles_averageTemperature : double,
+                   Particles_maxTemperature : double)
   var currTime = C.legion_get_current_time_in_micros() / 1000;
   [emitConsoleWrite(config, '%d\t'..
                             DBL_FORMAT..'\t'..
@@ -526,6 +528,7 @@ task Console_Write(config : Config,
                             DBL_FORMAT..'\t'..
                             DBL_FORMAT..'\t'..
                             '%lld\t'..
+                            DBL_FORMAT..'\t'..
                             DBL_FORMAT..'\n',
                     Integrator_timeStep,
                     Integrator_simTime,
@@ -537,7 +540,8 @@ task Console_Write(config : Config,
                     Flow_averageTemperature,
                     Flow_averageKineticEnergy,
                     Particles_number,
-                    Particles_averageTemperature)];
+                    Particles_averageTemperature,
+                    Particles_maxTemperature)];
 end
 
 -- regentlib.rexpr, regentlib.rexpr, regentlib.rexpr, regentlib.rexpr*
@@ -2331,6 +2335,23 @@ do
     end
   end
   return acc
+end
+
+__demand(__leaf, __cuda)
+task Particles_getMaxTemperature(Particles : region(ispace(int1d), Particles_columns))
+where
+  reads(Particles.{temperature, __valid})
+do
+  var maxT = 0.0
+  __demand(__openmp)
+  for p in Particles do
+    if Particles[p].__valid then
+      if Particles[p].temperature > maxT then
+        maxT = Particles[p].temperature
+      end
+    end
+  end
+  return maxT
 end
 
 __demand(__inline)
@@ -4415,6 +4436,7 @@ local function mkInstance() local INSTANCE = {}
   local Flow_averageTemperature = regentlib.newsymbol()
   local Flow_averageKineticEnergy = regentlib.newsymbol()
   local Particles_averageTemperature = regentlib.newsymbol()
+  local Particles_maxTemperature = regentlib.newsymbol()
 
   local Fluid = regentlib.newsymbol()
   local Fluid_copy = regentlib.newsymbol()
@@ -4571,6 +4593,7 @@ local function mkInstance() local INSTANCE = {}
     var [Flow_averageTemperature] = 0.0
     var [Flow_averageKineticEnergy] = 0.0
     var [Particles_averageTemperature] = 0.0
+    var [Particles_maxTemperature] = 0.0
 
     if config.Radiation.type == SCHEMA.RadiationModel_DOM then
       regentlib.assert(config.Grid.xNum >= config.Radiation.u.DOM.xNum and
@@ -5167,6 +5190,7 @@ local function mkInstance() local INSTANCE = {}
                                                                     Grid.zBnum, config.Grid.zNum)
     if config.Particles.maxNum > 0 then
       Particles_averageTemperature += Particles_IntegrateQuantities(Particles)
+      Particles_maxTemperature = Particles_getMaxTemperature(Particles)
     end
     Flow_averageDensity = Flow_averageDensity / Grid.volume
     Flow_averagePressure = Flow_averagePressure / Grid.volume
@@ -5183,7 +5207,8 @@ local function mkInstance() local INSTANCE = {}
                   Flow_averageTemperature,
                   Flow_averageKineticEnergy,
                   Particles_number,
-                  Particles_averageTemperature)
+                  Particles_averageTemperature,
+                  Particles_maxTemperature)
 
     -- Write probe files
     for i = 0,config.IO.probes.length do

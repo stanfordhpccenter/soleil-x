@@ -1,6 +1,16 @@
 {
     "configs": [
         {
+            "Visualization": {
+                "numParticlesToDraw": 10000,
+                "isosurfaceField": "none",
+                "isosurfaceValue": 1.0,
+                "colorScale": [
+                    298.0,
+                    400.0
+                ],
+                "stepsPerRender": 200
+            },
             "Mapping": {
                 "tiles": [
                     1,
@@ -12,9 +22,9 @@
                     1,
                     1
                 ],
+                "sampleId": -1,
                 "outDir": "",
-                "wallTime": 120,
-                "sampleId": -1
+                "wallTime": 1440
             },
             "Grid": {
                 "xNum": 128,
@@ -175,16 +185,18 @@
                 "restartEveryTimeSteps": 1000,
                 "probes": []
             }
- ,
-     "Visualization" : {
-       "numParticlesToDraw" : 10000,
-       "isosurfaceField" : "none",
-       "isosurfaceValue" : 1.0,
-       "colorScale" : [ 298.0, 1900.0 ],
-       "stepsPerRender" : 200
-     }
         },
         {
+            "Visualization": {
+                "numParticlesToDraw": 10000,
+                "isosurfaceField": "none",
+                "isosurfaceValue": 1.0,
+                "colorScale": [
+                    298.0,
+                    400.0
+                ],
+                "stepsPerRender": 200
+            },
             "Mapping": {
                 "tiles": [
                     4,
@@ -196,9 +208,9 @@
                     1,
                     1
                 ],
+                "sampleId": -1,
                 "outDir": "",
-                "wallTime": 120,
-                "sampleId": -1
+                "wallTime": 1440
             },
             "Grid": {
                 "xNum": 512,
@@ -452,14 +464,6 @@
                     }
                 ]
             }
- ,
-     "Visualization" : {
-       "numParticlesToDraw" : 10000,
-       "isosurfaceField" : "none",
-       "isosurfaceValue" : 1.0,
-       "colorScale" : [ 298.0, 1900.0 ],
-       "stepsPerRender" : 200
-     }
         }
     ],
     "flowThroughTimes": 3,

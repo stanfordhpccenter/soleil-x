@@ -365,6 +365,8 @@ private:
         STARTS_WITH(task.get_task_name(), "sweep_") ||
         EQUALS(task.get_task_name(), "cache_grid_translation") ||
         EQUALS(task.get_task_name(), "initialize_angles") ||
+        EQUALS(task.get_task_name(), "Particles_getMaxTemperature") ||
+        STARTS_WITH(task.get_task_name(), "Visualize") ||
         STARTS_WITH(task.get_task_name(), "readTileAttr")) {
       CHECK(!task.regions.empty(),
             "Expected region argument in call to %s", task.get_task_name());
@@ -404,12 +406,6 @@ private:
       assert(task.parent_task != NULL);
       sample_ids = find_sample_ids(ctx, *(task.parent_task));
     }
-    // Visualization
-    else if(STARTS_WITH(task.get_task_name(), "Visualize") ||
-            EQUALS(task.get_task_name(), "render_tile")) {
-      assert(task.parent_task != NULL);
-      sample_ids = find_sample_ids(ctx, *(task.parent_task));
-    }
     // Other tasks: fail and notify the user
     else {
       CHECK(false, "Unhandled task in find_sample_ids: %s",
@@ -446,6 +442,7 @@ private:
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
              STARTS_WITH(task.get_task_name(), "Visualize") ||
              EQUALS(task.get_task_name(), "IO_CreateDir") ||
+             EQUALS(task.get_task_name(), "Particles_getMaxTemperature") ||
              EQUALS(task.get_task_name(), "__dummy") ||
              STARTS_WITH(task.get_task_name(), "__unary_") ||
              STARTS_WITH(task.get_task_name(), "__binary_")) {
@@ -495,6 +492,7 @@ private:
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
              STARTS_WITH(task.get_task_name(), "Visualize") ||
              EQUALS(task.get_task_name(), "IO_CreateDir") ||
+             EQUALS(task.get_task_name(), "Particles_getMaxTemperature") ||
              EQUALS(task.get_task_name(), "__dummy") ||
              STARTS_WITH(task.get_task_name(), "__unary_") ||
              STARTS_WITH(task.get_task_name(), "__binary_") ||

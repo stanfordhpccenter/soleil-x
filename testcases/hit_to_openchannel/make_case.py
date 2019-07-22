@@ -16,6 +16,7 @@ parser.add_argument('MLR', type=float)
 parser.add_argument('R', type=float)
 parser.add_argument('chi', type=float)
 parser.add_argument('C', type=float)
+parser.add_argument('-s', '--stagger', type=int, default=None)
 args = parser.parse_args()
 
 mc = json.load(args.base_json)
@@ -276,7 +277,10 @@ if not args.debug:
     mc['configs'][0]['Particles']['convectiveCoeff'] = h
     mc['configs'][0]['Particles']['heatCapacity'] = C_v_p
     mc['configs'][0]['Particles']['diameterMean'] = d_p
-    mc['configs'][0]['Particles']['staggerFactor'] = ratio_delta_t
+    if args.stagger is not None:
+      mc['configs'][0]['Particles']['staggerFactor'] = args.stagger
+    else:
+      mc['configs'][0]['Particles']['staggerFactor'] = ratio_delta_t
     mc['configs'][1]['Integrator']['maxIter'] = max_iter
     mc['configs'][1]['Integrator']['fixedDeltaTime'] = delta_t_c
     mc['configs'][1]['Flow']['prandtl'] = Pr
@@ -286,7 +290,10 @@ if not args.debug:
     mc['configs'][1]['Particles']['convectiveCoeff'] = h
     mc['configs'][1]['Particles']['heatCapacity'] = C_v_p
     mc['configs'][1]['Particles']['diameterMean'] = d_p
-    mc['configs'][1]['Particles']['staggerFactor'] = ratio_delta_t
+    if args.stagger is not None:
+      mc['configs'][1]['Particles']['staggerFactor'] = args.stagger
+    else:
+      mc['configs'][1]['Particles']['staggerFactor'] = ratio_delta_t
     if mc['configs'][1]['Radiation']['type'] == 'DOM':
         mc['configs'][1]['Radiation']['yHiIntensity'] = I_0/2
         mc['configs'][1]['Radiation']['yLoIntensity'] = I_0/2
