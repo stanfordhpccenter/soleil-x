@@ -4555,7 +4555,7 @@ local function mkInstance() local INSTANCE = {}
     var [BC.zBCParticles]
 
     -- Visualization
-    var [maxParticlesToDraw] = 100000
+    var [maxParticlesToDraw] = 1000000
     var [particlesToDraw] = region(ispace(int1d, maxParticlesToDraw), Draw_columns)
 
     -- Determine number of ghost cells in each direction
