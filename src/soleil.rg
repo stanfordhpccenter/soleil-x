@@ -415,7 +415,8 @@ task Visualize(config : Config,
               p_Image : partition(disjoint, Image, ispace(int3d)),
               Flow_averageDensity : double,
               Flow_averagePressure : double,
-              Flow_averageTemperature : double)
+              Flow_averageTemperature : double,
+              outDir : int8[256])
 where
   reads(Fluid, Particles, particlesToDraw),
   writes(Image)
@@ -464,7 +465,8 @@ do
 
     render.cxx_reduce(__runtime(),
       __context(),
-      config.Mapping.sampleId)
+      config.Mapping.sampleId,
+      outDir)
 
   end
 end
@@ -5722,7 +5724,7 @@ task workSingle(config : Config)
         break
       end
       [SIM.MainLoopBody(config, rexpr false end, FakeCopyQueue)];
-      Visualize(config, SIM.Integrator_timeStep, SIM.Fluid, SIM.Particles, SIM.p_Fluid, SIM.p_Particles, SIM.particlesToDraw, lowerBound, upperBound, SIM.tiles, imageX, p_Image, SIM.Flow_averageDensity, SIM.Flow_averagePressure, SIM.Flow_averageTemperature)
+      Visualize(config, SIM.Integrator_timeStep, SIM.Fluid, SIM.Particles, SIM.p_Fluid, SIM.p_Particles, SIM.particlesToDraw, lowerBound, upperBound, SIM.tiles, imageX, p_Image, SIM.Flow_averageDensity, SIM.Flow_averagePressure, SIM.Flow_averageTemperature, config.Mapping.outDir)
     end
   end)];
   [SIM.Cleanup(config)];
@@ -5878,7 +5880,7 @@ task workDual(mc : MultiConfig)
     [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, incoming, CopyQueue))];
 
     -- Visualization
-    Visualize(mc.configs[1], SIM1.Integrator_timeStep, SIM1.Fluid, SIM1.Particles, SIM1.p_Fluid, SIM1.p_Particles, SIM1.particlesToDraw, lowerBound, upperBound, SIM1.tiles, imageX1, p_Image1, SIM1.Flow_averageDensity, SIM1.Flow_averagePressure, SIM1.Flow_averageTemperature)
+    Visualize(mc.configs[1], SIM1.Integrator_timeStep, SIM1.Fluid, SIM1.Particles, SIM1.p_Fluid, SIM1.p_Particles, SIM1.particlesToDraw, lowerBound, upperBound, SIM1.tiles, imageX1, p_Image1, SIM1.Flow_averageDensity, SIM1.Flow_averagePressure, SIM1.Flow_averageTemperature, mc.configs[1].Mapping.outDir)
   end
   -- Cleanups
   [SIM0.Cleanup(rexpr mc.configs[0] end)];

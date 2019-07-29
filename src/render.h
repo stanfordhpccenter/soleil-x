@@ -66,7 +66,8 @@ extern "C" {
   
   void cxx_reduce(legion_runtime_t runtime_,
                   legion_context_t ctx_,
-                  legion_mapper_id_t sampleId
+                  legion_mapper_id_t sampleId,
+                  const char* outDir
                   );
   
   

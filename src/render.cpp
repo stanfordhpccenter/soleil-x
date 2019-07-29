@@ -331,6 +331,7 @@ extern "C" {
                              const std::vector<PhysicalRegion> &regions,
                              Context ctx, HighLevelRuntime *runtime) {
     ImageDescriptor* imageDescriptor = (ImageDescriptor*)(task->args);
+    unsigned char* outDir = (unsigned char*)(task->args) + sizeof(ImageDescriptor);
     PhysicalRegion image = regions[0];
     std::vector<legion_field_id_t> imageFields;
     image.get_fields(imageFields);
@@ -341,12 +342,8 @@ extern "C" {
     AccessorRO<ImageReduction::PixelField, 3> a(image, imageFields[3]);
     AccessorRO<ImageReduction::PixelField, 3> z(image, imageFields[4]);
     
-    char filename[128];
-    if(getenv("SCRATCH") != nullptr) {
-      sprintf(filename, "%s/image.%05d.tga", getenv("SCRATCH"), gFrameNumber++);
-    } else {
-      sprintf(filename, "image.%05d.tga", gFrameNumber++);
-    }
+    char filename[1024];
+    sprintf(filename, "%s/image.%05d.tga", outDir, gFrameNumber++);
     FILE* f = fopen(filename, "w");
     if(f == nullptr) {
       std::cerr << "could not create file " << filename << std::endl;
@@ -459,8 +456,8 @@ extern "C" {
     RegionPartition result;
     result.indexSpace = CObjectWrapper::wrap(compositor->sourceIndexSpace());
     result.imageX = CObjectWrapper::wrap(compositor->sourceImage());
-    result.colorSpace = CObjectWrapper::wrap(compositor->depthPartitionColorSpace());
-    result.p_Image = CObjectWrapper::wrap(compositor->depthPartition());
+    result.colorSpace = CObjectWrapper::wrap(compositor->everywhereColorSpace());
+    result.p_Image = CObjectWrapper::wrap(compositor->everywherePartition());
     compositor->sourceImageFields(ctx,    result.imageFields);
     return result;
   }
@@ -513,7 +510,7 @@ extern "C" {
       runtime->register_projection_functor(1, functor0);
       ImageReductionProjectionFunctor* functor1 = new ImageReductionProjectionFunctor(compositor->everywhereDomain(), particlesPartition);
       runtime->register_projection_functor(2, functor1);
-      ImageReductionProjectionFunctor* functor2 = new ImageReductionProjectionFunctor(compositor->everywhereDomain(), compositor->depthPartition());
+      ImageReductionProjectionFunctor* functor2 = new ImageReductionProjectionFunctor(compositor->everywhereDomain(), compositor->everywherePartition());
       runtime->register_projection_functor(3, functor2);
     }
     
@@ -566,7 +563,7 @@ extern "C" {
     }
     renderLauncher.add_region_requirement(req1);
     
-    RegionRequirement req2(compositor->depthPartition(), 3, WRITE_DISCARD, EXCLUSIVE, image->get_logical_region(), gImageReductionMapperID);
+    RegionRequirement req2(compositor->everywherePartition(), 3, WRITE_DISCARD, EXCLUSIVE, image->get_logical_region(), gImageReductionMapperID);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_R);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_G);
     req2.add_field(Visualization::ImageReduction::FID_FIELD_B);
@@ -590,7 +587,8 @@ extern "C" {
   // this entry point is called once from the Visualize task
   void cxx_reduce(legion_runtime_t runtime_,
                   legion_context_t ctx_,
-                  legion_mapper_id_t sampleId
+                  legion_mapper_id_t sampleId,
+                  const char* outDir
                   )
   {
 #if !USE_COMPOSITOR
@@ -608,9 +606,13 @@ extern "C" {
     
     // save the image
     ImageDescriptor imageDescriptor = compositor->imageDescriptor();
-    TaskLauncher saveImageLauncher(gSaveImageTaskID, TaskArgument(&imageDescriptor, sizeof(ImageDescriptor)), Predicate::TRUE_PRED, gImageReductionMapperID);
+    size_t argLen = sizeof(ImageDescriptor) + strlen(outDir) + 1;
+    char args[argLen] = { 0 };
+    memcpy(args, &imageDescriptor, sizeof(imageDescriptor));
+    strcpy(args + sizeof(imageDescriptor), outDir);
+    TaskLauncher saveImageLauncher(gSaveImageTaskID, TaskArgument(args, argLen), Predicate::TRUE_PRED, gImageReductionMapperID);
     DomainPoint slice0 = Point<3>::ZEROES();
-    LogicalRegion imageSlice0 = runtime->get_logical_subregion_by_color(compositor->depthPartition(), slice0);
+    LogicalRegion imageSlice0 = runtime->get_logical_subregion_by_color(compositor->everywherePartition(), slice0);
     RegionRequirement req(imageSlice0, READ_ONLY, EXCLUSIVE, compositor->sourceImage());
     saveImageLauncher.add_region_requirement(req);
     saveImageLauncher.add_field(0/*idx*/, Visualization::ImageReduction::FID_FIELD_R);
