@@ -413,9 +413,6 @@ task Visualize(config : Config,
               tiles : ispace(int3d),
               Image : region(ispace(int3d), Image_columns),
               p_Image : partition(disjoint, Image, ispace(int3d)),
-              Flow_averageDensity : double,
-              Flow_averagePressure : double,
-              Flow_averageTemperature : double,
               outDir : int8[256])
 where
   reads(Fluid, Particles, particlesToDraw),
@@ -428,18 +425,6 @@ do
     var particlesFields : C.legion_field_id_t[numParticlesFields] = __fields(Particles)
     var numImageFields : int = 6
     var imageFields : C.legion_field_id_t[numImageFields] = __fields(Image)
-
-    -- set the isosurface value.  If it is specified as zero then use the current mean value
-    var isosurfaceValue : double = config.Visualization.isosurfaceValue
-    if isosurfaceValue == 0.0 then
-      if config.Visualization.isosurfaceField == 4 then
-        isosurfaceValue = Flow_averageTemperature
-      elseif config.Visualization.isosurfaceField == 2 then
-        isosurfaceValue = Flow_averagePressure
-      elseif config.Visualization.isosurfaceField == 1 then
-        isosurfaceValue = Flow_averageDensity
-      end
-    end
 
     render.cxx_render(__runtime(),
       __context(),
@@ -457,7 +442,7 @@ do
       __raw(p_Particles),
       config.Visualization.numParticlesToDraw,
       config.Visualization.isosurfaceField,
-      isosurfaceValue,
+      config.Visualization.isosurfaceValue,
       config.Visualization.colorScale,
       __physical(particlesToDraw),
       lowerBound,
@@ -497,12 +482,11 @@ task Console_WriteHeader(_ : int,
                             'Sim Time\t'..
                             'Wall Time\t'..
                             'Delta Time\t'..
-                            'Avg rho\t'..
                             'Avg Press\t'..
                             'Avg Temp\t'..
                             'Avg KE\t'..
                             'Particle Num\t'..
-                            'Avg Particle T')];
+                            'Avg Particle T\n')];
   return _
 end
 
@@ -512,7 +496,6 @@ task Console_Write(config : Config,
                    Integrator_simTime : double,
                    startTime : uint64,
                    Integrator_deltaTime : double,
-                   Flow_averageDensity : double,
                    Flow_averagePressure : double,
                    Flow_averageTemperature : double,
                    Flow_averageKineticEnergy : double,
@@ -526,7 +509,6 @@ task Console_Write(config : Config,
                             DBL_FORMAT..'\t'..
                             DBL_FORMAT..'\t'..
                             DBL_FORMAT..'\t'..
-                            DBL_FORMAT..'\t'..
                             '%lld\t'..
                             DBL_FORMAT..'\n',
                     Integrator_timeStep,
@@ -534,7 +516,6 @@ task Console_Write(config : Config,
                     rexpr (currTime - startTime) / 1000 end,
                     rexpr (currTime - startTime) % 1000 end,
                     Integrator_deltaTime,
-                    Flow_averageDensity,
                     Flow_averagePressure,
                     Flow_averageTemperature,
                     Flow_averageKineticEnergy,
@@ -4412,7 +4393,6 @@ local function mkInstance() local INSTANCE = {}
   local Integrator_exitCond = regentlib.newsymbol()
   local Particles_number = regentlib.newsymbol()
 
-  local Flow_averageDensity = regentlib.newsymbol()
   local Flow_averagePressure = regentlib.newsymbol()
   local Flow_averageTemperature = regentlib.newsymbol()
   local Flow_averageKineticEnergy = regentlib.newsymbol()
@@ -4449,7 +4429,6 @@ local function mkInstance() local INSTANCE = {}
   INSTANCE.Integrator_simTime = Integrator_simTime
   INSTANCE.Integrator_timeStep = Integrator_timeStep
   INSTANCE.Integrator_exitCond = Integrator_exitCond
-  INSTANCE.Flow_averageDensity = Flow_averageDensity
   INSTANCE.Flow_averagePressure = Flow_averagePressure
   INSTANCE.Flow_averageTemperature = Flow_averageTemperature
   INSTANCE.Fluid = Fluid
@@ -4568,7 +4547,6 @@ local function mkInstance() local INSTANCE = {}
 
     var [Particles_number] = int64(0)
 
-    var [Flow_averageDensity] = 0.0
     var [Flow_averagePressure] = 0.0
     var [Flow_averageTemperature] = 0.0
     var [Flow_averageKineticEnergy] = 0.0
@@ -5142,16 +5120,10 @@ local function mkInstance() local INSTANCE = {}
   function INSTANCE.PerformIO(config) return rquote
 
     -- Write to console
-    Flow_averageDensity = 0.0
     Flow_averagePressure = 0.0
     Flow_averageTemperature = 0.0
     Flow_averageKineticEnergy = 0.0
     Particles_averageTemperature = 0.0
-    Flow_averageDensity += Flow_CalculateAverageDensity(Fluid,
-                                                        Grid.cellVolume,
-                                                        Grid.xBnum, config.Grid.xNum,
-                                                        Grid.yBnum, config.Grid.yNum,
-                                                        Grid.zBnum, config.Grid.zNum)
     Flow_averagePressure += Flow_CalculateAveragePressure(Fluid,
                                                           Grid.cellVolume,
                                                           Grid.xBnum, config.Grid.xNum,
@@ -5170,7 +5142,6 @@ local function mkInstance() local INSTANCE = {}
     if config.Particles.maxNum > 0 then
       Particles_averageTemperature += Particles_IntegrateQuantities(Particles)
     end
-    Flow_averageDensity = Flow_averageDensity / Grid.volume
     Flow_averagePressure = Flow_averagePressure / Grid.volume
     Flow_averageTemperature = Flow_averageTemperature / Grid.volume
     Flow_averageKineticEnergy = Flow_averageKineticEnergy / Grid.volume
@@ -5180,7 +5151,6 @@ local function mkInstance() local INSTANCE = {}
                   Integrator_simTime,
                   startTime,
                   Integrator_deltaTime,
-                  Flow_averageDensity,
                   Flow_averagePressure,
                   Flow_averageTemperature,
                   Flow_averageKineticEnergy,
@@ -5699,7 +5669,7 @@ task workSingle(config : Config)
         break
       end
       [SIM.MainLoopBody(config, rexpr false end, FakeCopyQueue)];
-      Visualize(config, SIM.Integrator_timeStep, SIM.Fluid, SIM.Particles, SIM.p_Fluid, SIM.p_Particles, SIM.particlesToDraw, lowerBound, upperBound, SIM.tiles, imageX, p_Image, SIM.Flow_averageDensity, SIM.Flow_averagePressure, SIM.Flow_averageTemperature, config.Mapping.outDir)
+      Visualize(config, SIM.Integrator_timeStep, SIM.Fluid, SIM.Particles, SIM.p_Fluid, SIM.p_Particles, SIM.particlesToDraw, lowerBound, upperBound, SIM.tiles, imageX, p_Image, config.Mapping.outDir)
     end
   end)];
   [SIM.Cleanup(config)];
@@ -5855,7 +5825,7 @@ task workDual(mc : MultiConfig)
     [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, incoming, CopyQueue))];
 
     -- Visualization
-    Visualize(mc.configs[1], SIM1.Integrator_timeStep, SIM1.Fluid, SIM1.Particles, SIM1.p_Fluid, SIM1.p_Particles, SIM1.particlesToDraw, lowerBound, upperBound, SIM1.tiles, imageX1, p_Image1, SIM1.Flow_averageDensity, SIM1.Flow_averagePressure, SIM1.Flow_averageTemperature, mc.configs[1].Mapping.outDir)
+    Visualize(mc.configs[1], SIM1.Integrator_timeStep, SIM1.Fluid, SIM1.Particles, SIM1.p_Fluid, SIM1.p_Particles, SIM1.particlesToDraw, lowerBound, upperBound, SIM1.tiles, imageX1, p_Image1, mc.configs[1].Mapping.outDir)
   end
   -- Cleanups
   [SIM0.Cleanup(rexpr mc.configs[0] end)];
