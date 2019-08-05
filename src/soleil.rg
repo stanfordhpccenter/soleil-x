@@ -1069,7 +1069,7 @@ task Particles_InitializeRandom(color : int3d,
                                 Grid_xBnum : int, Grid_yBnum : int, Grid_zBnum : int)
 where
   reads(Fluid.{centerCoordinates, velocity}),
-  writes(Particles.{__valid, cell, position, velocity, density, temperature, diameter})
+  writes(Particles.{__valid, id, cell, position, velocity, density, temperature, diameter})
 do
   -- Grid geometry
   var Grid_xNum = config.Grid.xNum
@@ -1126,6 +1126,7 @@ do
                                                 Grid_yCellWidth, Grid_yRealOrigin,
                                                 Grid_zCellWidth, Grid_zRealOrigin)
       Particles[p].__valid = true
+      Particles[p].id = 0
       Particles[p].cell = c
       Particles[p].position = pos
       Particles[p].velocity = flowVelocity
@@ -1143,7 +1144,7 @@ task Particles_InitializeUniform(Particles : region(ispace(int1d), Particles_col
                                  Grid_xBnum : int32, Grid_yBnum : int32, Grid_zBnum : int32)
 where
   reads(Fluid.{centerCoordinates, velocity}),
-  writes(Particles.{__valid, cell, position, velocity, density, temperature, diameter})
+  writes(Particles.{__valid, id, cell, position, velocity, density, temperature, diameter})
 do
   var pBase = Particles.bounds.lo
   var lo = Fluid.bounds.lo
@@ -1168,6 +1169,7 @@ do
     if relIdx < particlesPerTile then
       Particles[p].__valid = true
       var c = lo + int3d{relIdx%xSize, relIdx/xSize%ySize, relIdx/xSize/ySize%zSize}
+      Particles[p].id = 0
       Particles[p].cell = c
       Particles[p].position = Fluid[c].centerCoordinates
       Particles[p].velocity = Fluid[c].velocity
