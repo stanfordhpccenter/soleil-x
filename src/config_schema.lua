@@ -200,6 +200,7 @@ Exports.Config = {
     maxSkew = double,
     escapeRatioPerDir = double,
     collisions = bool,
+    twoWayCoupled = bool,
     feeding = Exports.FeedModel,
     -- how many timesteps to advance the fluid before every particle solve
     staggerFactor = int,

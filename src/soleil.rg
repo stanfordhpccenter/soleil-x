@@ -6614,7 +6614,7 @@ local function mkInstance(config) local INSTANCE = {}
       end
 
       -- Add particle forces to fluid
-      if config.Particles.maxNum > 0 then
+      if config.Particles.maxNum > 0 and config.Particles.twoWayCoupled then
         Flow_AddParticlesCoupling(Particles, Fluid, config)
       end
 
