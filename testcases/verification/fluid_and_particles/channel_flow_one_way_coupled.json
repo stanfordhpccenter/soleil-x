@@ -92,10 +92,10 @@
     },
 
     "Particles" : {
-        "initCase" : "Uniform",
+        "initCase" : "Random",
         "restartDir" : "",
-        "initNum" : 100,
-        "maxNum" : 100,
+        "initNum" : 1000000,
+        "maxNum" : 1100000,
         "restitutionCoeff" : 1.0,
         "convectiveCoeff" : 0.7,
         "heatCapacity" : 0.7,
@@ -108,8 +108,8 @@
         "collisions" : false,
         "twoWayCoupled" : false,
         "feeding" : { "type" : "OFF" },
-         "staggerFactor" : 1,
-         "parcelSize" : 1
+        "staggerFactor" : 1,
+        "parcelSize" : 1
     },
 
     "Radiation" : {
@@ -118,7 +118,7 @@
 
     "IO" : {
         "wrtRestart" : true,
-        "restartEveryTimeSteps" : 10000,
+        "restartEveryTimeSteps" : 10,
         "probes" : []
     }
 }
