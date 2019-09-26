@@ -1610,11 +1610,11 @@ do
   __demand(__openmp)
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      Fluid[c].to_Radiation = int3d{(c.x-Grid_xBnum)/xFactor,
-                                    (c.y-Grid_yBnum)/yFactor,
-                                    (c.z-Grid_zBnum)/zFactor}
+      Fluid[c].to_Radiation = int3d{(int3d(c).x-Grid_xBnum)/xFactor,
+                                    (int3d(c).y-Grid_yBnum)/yFactor,
+                                    (int3d(c).z-Grid_zBnum)/zFactor}
     else
-      Fluid[c].to_Radiation = int3d{uint64(-1), uint64(-1), uint64(-1)}
+      Fluid[c].to_Radiation = int3d({uint64(0ULL), uint64(0ULL), uint64(0ULL)})
     end
   end
 end
@@ -5086,10 +5086,7 @@ end
 __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Radiation_AccumulateParticleValues(Particles : region(ispace(int1d), Particles_columns),
                                         Fluid : region(ispace(int3d), Fluid_columns),
-                                        Radiation : region(ispace(int3d), Radiation_columns),
-                                        Grid_xBnum : int32, Grid_xNum : int32,
-                                        Grid_yBnum : int32, Grid_yNum : int32,
-                                        Grid_zBnum : int32, Grid_zNum : int32)
+                                        Radiation : region(ispace(int3d), Radiation_columns))
 where
   reads(Fluid.to_Radiation),
   reads(Particles.{cell, diameter, temperature, __valid}),
@@ -5098,11 +5095,8 @@ do
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
-      var c = Particles[p].cell
-      if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-        Radiation[Fluid[c].to_Radiation].acc_d2 += pow(Particles[p].diameter, 2.0)
-        Radiation[Fluid[c].to_Radiation].acc_d2t4 += (pow(Particles[p].diameter, 2.0)*pow(Particles[p].temperature, 4.0))
-      end
+      Radiation[Fluid[Particles[p].cell].to_Radiation].acc_d2 += pow(Particles[p].diameter, 2.0)
+      Radiation[Fluid[Particles[p].cell].to_Radiation].acc_d2t4 += (pow(Particles[p].diameter, 2.0)*pow(Particles[p].temperature, 4.0))
     end
   end
 end
@@ -5133,10 +5127,7 @@ task Particles_AbsorbRadiationDOM(Particles : region(ispace(int1d), Particles_co
                                   Fluid : region(ispace(int3d), Fluid_columns),
                                   Radiation : region(ispace(int3d), Radiation_columns),
                                   Particles_heatCapacity : double,
-                                  Radiation_qa : double,
-                                  Grid_xBnum : int32, Grid_xNum : int32,
-                                  Grid_yBnum : int32, Grid_yNum : int32,
-                                  Grid_zBnum : int32, Grid_zNum : int32)
+                                  Radiation_qa : double)
 where
   reads(Fluid.to_Radiation),
   reads(Radiation.G),
@@ -5146,13 +5137,10 @@ do
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
-      var c = Particles[p].cell
-      if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-        var mass = PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density
-        var t4 = pow(Particles[p].temperature, 4.0)
-        var alpha = PI*Radiation_qa*pow(Particles[p].diameter, 2.0)*(Radiation[Fluid[c].to_Radiation].G-4.0*SB*t4)/4.0
-        Particles[p].temperature_t += alpha/(mass*Particles_heatCapacity)
-      end
+      var mass = PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density
+      var t4 = pow(Particles[p].temperature, 4.0)
+      var alpha = PI*Radiation_qa*pow(Particles[p].diameter, 2.0)*(Radiation[Fluid[Particles[p].cell].to_Radiation].G-4.0*SB*t4)/4.0
+      Particles[p].temperature_t += alpha/(mass*Particles_heatCapacity)
     end
   end
 end
@@ -6608,12 +6596,7 @@ local function mkInstance(config) local INSTANCE = {}
           fill(Radiation.acc_d2, 0.0)
           fill(Radiation.acc_d2t4, 0.0)
           for c in tiles do
-            Radiation_AccumulateParticleValues(p_Particles[c],
-                                               p_Fluid[c],
-                                               p_Radiation[c],
-                                               Grid.xBnum, config.Grid.xNum,
-                                               Grid.yBnum, config.Grid.yNum,
-                                               Grid.zBnum, config.Grid.zNum)
+            Radiation_AccumulateParticleValues(p_Particles[c], p_Fluid[c], p_Radiation[c])
           end
           Radiation_UpdateFieldValues(Radiation,
                                       config,
@@ -6625,10 +6608,7 @@ local function mkInstance(config) local INSTANCE = {}
                                          p_Fluid[c],
                                          p_Radiation[c],
                                          config.Particles.heatCapacity,
-                                         config.Radiation.u.DOM.qa,
-                                         Grid.xBnum, config.Grid.xNum,
-                                         Grid.yBnum, config.Grid.yNum,
-                                         Grid.zBnum, config.Grid.zNum)
+                                         config.Radiation.u.DOM.qa)
           end
         else regentlib.assert(false, 'Unhandled case in switch') end
       end
