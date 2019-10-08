@@ -23,8 +23,8 @@ export HDF_HEADER ?= hdf5.h
 HDF_LIBNAME ?= hdf5
 
 #C compiler options
-CFLAGS += -ggdb -O0 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/runtime/legion -I$(IMAGE_COMPOSITOR_DIR)/include -I$(LEGION_DIR)/runtime/realm -march=native
-CXXFLAGS += -std=c++11 -ggdb -O0 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/runtime/legion -I$(IMAGE_COMPOSITOR_DIR)/include -I$(LEGION_DIR)/runtime/realm -march=native -DDEBUG_LEGION
+CFLAGS += -ggdb -O0 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/runtime/legion -I$(IMAGE_COMPOSITOR_DIR)/include -I$(LEGION_DIR)/runtime/realm -I$(LEGION_DIR)/bindings/regent -march=native
+CXXFLAGS += -std=c++11 -ggdb -O0 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/runtime/legion -I$(IMAGE_COMPOSITOR_DIR)/include -I$(LEGION_DIR)/runtime/realm -I$(LEGION_DIR)/bindings/regent -march=native -DDEBUG_LEGION
 
 CFLAGS += -DBOUNDS_CHECKS
 CXXFLAGS += -DBOUNDS_CHECKS
