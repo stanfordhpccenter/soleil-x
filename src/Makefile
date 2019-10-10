@@ -23,7 +23,7 @@ HDF_LIBNAME ?= hdf5
 
 # C compiler options
 CFLAGS += -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime
-CXXFLAGS += -std=c++11 -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime
+CXXFLAGS += -std=c++11 -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent
 
 # Regent options
 export INCLUDE_PATH := .
