@@ -23,7 +23,7 @@ HDF_LIBNAME ?= hdf5
 
 # C compiler options
 CFLAGS += -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent
-CXXFLAGS += -std=c++11 -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent
+CXXFLAGS += -std=c++11 -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent -I$(IMAGE_COMPOSITOR_DIR)/include
 
 # Regent options
 export INCLUDE_PATH := .
@@ -56,6 +56,10 @@ LINK_FLAGS += -L$(IMAGE_COMPOSITOR_DIR)/src -lImageCompositor
 
 .PHONY: default all clean
 
+HOST = $(shell hostname)
+HOST := $(patsubst daint%,pizdaint,$(HOST))
+
+
 default: soleil.exec
 
 all: soleil.exec dom_host.exec
@@ -67,7 +71,13 @@ clean:
 	./desugar.py $< > $@
 
 soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o
+ifeq ($(HOST),pizdaint)
+PIZDAINT_MESA_DIR := /apps/daint/UES/jenkins/6.0.UP07/mc/easybuild/software/Mesa/17.2.8-CrayGNU-18.08/
+MESA_LIB := ${PIZDAINT_MESA_DIR}/lib/libOSMesa.so
+  $(CXX) -o $@ $^ $(LINK_FLAGS) $(MESA_LIB) -lGLU
+else
 	$(CXX) -o $@ $^ $(LINK_FLAGS) -lOSMesa -lGLU
+endif
 
 soleil.o: soleil-desugared.rg soleil_mapper.h config_schema.h hdf_helper.rg dom-desugared.rg util-desugared.rg
 	$(REGENT) soleil-desugared.rg $(REGENT_FLAGS)
