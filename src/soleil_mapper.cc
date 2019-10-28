@@ -928,6 +928,17 @@ static void create_mappers(Machine machine,
   }
 }
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void cxx_preinitialize();
+
 void register_mappers() {
+  cxx_preinitialize();
   Runtime::add_registration_callback(create_mappers);
+
+#ifdef __cplusplus
+}
+#endif
 }

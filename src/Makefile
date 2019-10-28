@@ -52,6 +52,7 @@ ifeq ($(USE_HDF), 1)
   LINK_FLAGS += -l$(HDF_LIBNAME)
 endif
 LINK_FLAGS += -lm
+LINK_FLAGS += -L$(IMAGE_COMPOSITOR_DIR)/src -lImageCompositor
 
 .PHONY: default all clean
 
@@ -65,8 +66,8 @@ clean:
 %-desugared.rg: %.rg
 	./desugar.py $< > $@
 
-soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o
-	$(CXX) -o $@ $^ $(LINK_FLAGS)
+soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o
+	$(CXX) -o $@ $^ $(LINK_FLAGS) -lOSMesa -lGLU
 
 soleil.o: soleil-desugared.rg soleil_mapper.h config_schema.h hdf_helper.rg dom-desugared.rg util-desugared.rg
 	$(REGENT) soleil-desugared.rg $(REGENT_FLAGS)
@@ -79,6 +80,9 @@ dom_host.o: dom_host.rg config_schema.h dom-desugared.rg util-desugared.rg
 
 soleil_mapper.o: soleil_mapper.cc soleil_mapper.h config_schema.h
 	$(CXX) $(CXXFLAGS) -c -o  $@ $<
+
+render.o: render.cc render.h
+	$(CXX) $(CXXFLAGS) -I$(IMAGE_COMPOSITOR_DIR)/include -c -o $@ $<
 
 config_schema.o config_schema.h: process_schema.rg config_schema.lua json.h util-desugared.rg
 	$(REGENT) process_schema.rg config_schema.lua $(REGENT_FLAGS)

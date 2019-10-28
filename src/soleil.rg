@@ -35,6 +35,7 @@ local Config = SCHEMA.Config
 local MultiConfig = SCHEMA.MultiConfig
 
 local struct Particles_columns {
+  id : int64,
   cell : int3d;
   position : double[3];
   velocity : double[3];
@@ -57,6 +58,7 @@ local struct Particles_columns {
 }
 
 local Particles_primitives = terralib.newlist({
+  'id',
   'position',
   'velocity',
   'temperature',
@@ -286,6 +288,75 @@ __demand(__inline)
 task vv_div(a : double[3], b : double[3])
   return array(a[0] / b[0], a[1] / b[1], a[2] / b[2])
 end
+
+-------------------------------------------------------------------------------
+-- Visualization
+-------------------------------------------------------------------------------
+
+local root_dir = arg[0]:match(".*/") or "./"
+assert(os.getenv('LG_RT_DIR'), "LG_RT_DIR should be set!")
+local runtime_dir = os.getenv('LG_RT_DIR') .. "/"
+local legion_dir = runtime_dir .. "legion/"
+local mapper_dir = runtime_dir .. "mappers/"
+local realm_dir = runtime_dir .. "realm/"
+
+render = terralib.includec("render.h",
+{"-I", root_dir,
+"-I", runtime_dir,
+"-I", mapper_dir,
+"-I", legion_dir,
+"-I", realm_dir,
+})
+
+local struct Draw_columns {
+id : int64;
+}
+
+
+task VisualizeInit(config : Config,
+                  Particles : region(ispace(int1d), Particles_columns),
+                  p_Particles : partition(disjoint, Particles, ispace(int3d)),
+                  particlesToDraw : region(ispace(int1d), Draw_columns)
+)
+where
+  writes(Particles.{id}, particlesToDraw),
+  reads(particlesToDraw)
+do
+  -- assign particles ids
+  var particleID : int64 = 0
+  for p in Particles do
+    p.id = particleID
+    particleID = particleID + 1
+  end
+  regentlib.c.printf("total particles = %d\n", particleID)
+
+  -- select particles to draw
+  C.srand(0)
+  for i = 0, config.Visualization.numParticlesToDraw do
+    var r = [double](C.rand()) / C.RAND_MAX
+    var n : double = particleID - 1
+    var id : int64 = [int64](r * n)
+    particlesToDraw[i].id = id
+  end
+
+  -- bubble sort the array
+  for i = 0, config.Visualization.numParticlesToDraw do
+    for j = i, config.Visualization.numParticlesToDraw do
+      if particlesToDraw[i].id > particlesToDraw[j].id then
+        var temp = particlesToDraw[i].id
+        particlesToDraw[i].id = particlesToDraw[j].id
+        particlesToDraw[j].id = temp
+      end
+    end
+  end
+
+  render.cxx_initialize(__runtime(), __context(), __raw(Particles), __raw(p_Particles),
+    __fields(Particles), 20, __physical(particlesToDraw), __fields(particlesToDraw),
+    config.Visualization.numParticlesToDraw)
+
+end
+
+
 
 -------------------------------------------------------------------------------
 -- I/O ROUTINES
@@ -4227,6 +4298,9 @@ local function mkInstance() local INSTANCE = {}
   local p_TradeQueue_byDst = UTIL.generate(26, regentlib.newsymbol)
   local p_Radiation = regentlib.newsymbol()
 
+  local maxParticlesToDraw = regentlib.newsymbol(int32, "maxParticlesToDraw");
+  local particlesToDraw = regentlib.newsymbol("particlesToDraw");
+
   -----------------------------------------------------------------------------
   -- Exported symbols
   -----------------------------------------------------------------------------
@@ -4249,6 +4323,7 @@ local function mkInstance() local INSTANCE = {}
   INSTANCE.p_Particles = p_Particles
   INSTANCE.p_Particles_copy = p_Particles_copy
   INSTANCE.p_Radiation = p_Radiation
+  INSTANCE.particlesToDraw = particlesToDraw
 
   -----------------------------------------------------------------------------
   -- Symbol declaration & initialization
@@ -4318,6 +4393,10 @@ local function mkInstance() local INSTANCE = {}
     var [BC.xBCParticles]
     var [BC.yBCParticles]
     var [BC.zBCParticles]
+
+    -- Visualization
+    var [maxParticlesToDraw] = 1000000
+    var [particlesToDraw] = region(ispace(int1d, maxParticlesToDraw), Draw_columns)
 
     -- Determine number of ghost cells in each direction
     -- 0 ghost cells if periodic and 1 otherwise
@@ -5479,7 +5558,8 @@ end
 local SIM0 = mkInstance()
 local SIM1 = mkInstance()
 
-__forbid(__optimize) __demand(__inner, __replicable)
+--__forbid(__optimize) __demand(__inner, __replicable)
+__forbid(__optimize) __demand(__inner)
 task workDual(mc : MultiConfig)
   -- Declare symbols
   [SIM0.DeclSymbols(rexpr mc.configs[0] end)];
@@ -5570,6 +5650,8 @@ task workDual(mc : MultiConfig)
   C.legion_domain_point_coloring_destroy(tgtColoring)
   var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
   -- Main simulation loop
+  var stepNumber : int = 0
+  VisualizeInit(mc.configs[1], SIM1.Particles, SIM1.p_Particles, SIM1.particlesToDraw)
   while true do
     var Integrator_timeStep = SIM0.Integrator_timeStep;
     -- Perform preliminary actions before each timestep
@@ -5616,6 +5698,15 @@ task workDual(mc : MultiConfig)
     end
     -- Run one iteration of second section
     [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, incoming, CopyQueue))];
+    -- Visualization
+    if stepNumber % mc.configs[1].Visualization.stepsPerRender == 0 then
+      render.cxx_render(__runtime(), __context(),
+        mc.configs[1].Visualization.cameraFromAtUp,
+        mc.configs[1].Visualization.colorScale)
+      render.cxx_reduce(__context(), mc.configs[1].Visualization.cameraFromAtUp)
+      render.cxx_saveImage(__runtime(), __context(), ".")
+    end
+    stepNumber = stepNumber + 1
   end
   -- Cleanups
   [SIM0.Cleanup(rexpr mc.configs[0] end)];
