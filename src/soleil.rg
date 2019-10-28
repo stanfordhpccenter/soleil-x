@@ -962,7 +962,7 @@ task Particles_InitializeRandom(color : int3d,
                                 Grid_xBnum : int, Grid_yBnum : int, Grid_zBnum : int)
 where
   reads(Fluid.{centerCoordinates, velocity}),
-  writes(Particles.{__valid, cell, position, velocity, density, temperature, diameter})
+  writes(Particles.{__valid, id, cell, position, velocity, density, temperature, diameter})
 do
   -- Grid geometry
   var Grid_xNum = config.Grid.xNum
@@ -998,6 +998,7 @@ do
   var rngState : C.drand48_data
   C.srand48_r(C.legion_get_current_time_in_nanos(), &rngState)
   -- Fill loop
+  var id : int = 0
   for p in Particles do
     var relIdx = int64(p - pBase)
     if relIdx < particlesPerTile then
@@ -1019,6 +1020,8 @@ do
                                                 Grid_yCellWidth, Grid_yRealOrigin,
                                                 Grid_zCellWidth, Grid_zRealOrigin)
       Particles[p].__valid = true
+      Particles[p].id = id
+      id = id + 1
       Particles[p].cell = c
       Particles[p].position = pos
       Particles[p].velocity = flowVelocity
@@ -1036,7 +1039,7 @@ task Particles_InitializeUniform(Particles : region(ispace(int1d), Particles_col
                                  Grid_xBnum : int32, Grid_yBnum : int32, Grid_zBnum : int32)
 where
   reads(Fluid.{centerCoordinates, velocity}),
-  writes(Particles.{__valid, cell, position, velocity, density, temperature, diameter})
+  writes(Particles.{__valid, id, cell, position, velocity, density, temperature, diameter})
 do
   var pBase = Particles.bounds.lo
   var lo = Fluid.bounds.lo
@@ -1055,12 +1058,15 @@ do
   var Particles_density = config.Particles.density
   var Particles_initTemperature = config.Particles.initTemperature
   var Particles_diameterMean = config.Particles.diameterMean
+  var id : int = 0
   __demand(__openmp)
   for p in Particles do
     var relIdx = int64(p - pBase)
     if relIdx < particlesPerTile then
       Particles[p].__valid = true
       var c = lo + int3d{relIdx%xSize, relIdx/xSize%ySize, relIdx/xSize/ySize%zSize}
+      Particles[p].id = id
+      id = id + 1
       Particles[p].cell = c
       Particles[p].position = Fluid[c].centerCoordinates
       Particles[p].velocity = Fluid[c].velocity
@@ -3675,8 +3681,8 @@ task CopyQueue_pull(partColor : int3d,
                     config : Config,
                     Grid_xBnum : int32, Grid_yBnum : int32, Grid_zBnum : int32)
 where
-  reads(CopyQueue.[Particles_primitives], Particles.__valid),
-  writes(Particles.[Particles_primitives], Particles.cell)
+  reads(CopyQueue.[Particles_primitives], Particles.__valid, Particles.id),
+  writes(Particles.[Particles_primitives], Particles.cell, Particles.id)
 do
   var acc = int64(0)
   var addedVelocity = config.Particles.feeding.u.Incoming.addedVelocity
@@ -3699,6 +3705,7 @@ do
            rexpr p1 <= Particles.bounds.hi end,
            'Sample %d: Ran out of space while copying particles from other section',
            rexpr config.Mapping.sampleId end)];
+        Particles[p1].id = CopyQueue[p2].id
         Particles[p1].cell = cell
         Particles[p1].position = CopyQueue[p2].position
         Particles[p1].velocity = vv_add(CopyQueue[p2].velocity, addedVelocity)
