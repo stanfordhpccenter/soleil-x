@@ -71,13 +71,7 @@ clean:
 	./desugar.py $< > $@
 
 soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o
-ifeq ($(HOST),pizdaint)
-PIZDAINT_MESA_DIR := /apps/daint/UES/jenkins/6.0.UP07/mc/easybuild/software/Mesa/17.2.8-CrayGNU-18.08/
-MESA_LIB := ${PIZDAINT_MESA_DIR}/lib/libOSMesa.so
-  $(CXX) -o $@ $^ $(LINK_FLAGS) $(MESA_LIB) -lGLU
-else
 	$(CXX) -o $@ $^ $(LINK_FLAGS) -lOSMesa -lGLU
-endif
 
 soleil.o: soleil-desugared.rg soleil_mapper.h config_schema.h hdf_helper.rg dom-desugared.rg util-desugared.rg
 	$(REGENT) soleil-desugared.rg $(REGENT_FLAGS)
@@ -92,7 +86,7 @@ soleil_mapper.o: soleil_mapper.cc soleil_mapper.h config_schema.h
 	$(CXX) $(CXXFLAGS) -c -o  $@ $<
 
 render.o: render.cc render.h
-	$(CXX) $(CXXFLAGS) -I$(IMAGE_COMPOSITOR_DIR)/include -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -DGLAPIENTRY= -I$(MESA_INC) -I$(IMAGE_COMPOSITOR_DIR)/include -c -o $@ $<
 
 config_schema.o config_schema.h: process_schema.rg config_schema.lua json.h util-desugared.rg
 	$(REGENT) process_schema.rg config_schema.lua $(REGENT_FLAGS)
