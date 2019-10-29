@@ -3889,7 +3889,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Particles_AddFlowCoupling(Particles : region(ispace(int1d), Particles_columns),
                                Particles_heatCapacity : double)
 where

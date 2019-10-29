@@ -21,12 +21,12 @@ toolchainopts = {'dynamic': True}
 source_urls = ["http://llvm.org/releases/%(version)s"]
 sources = ["llvm-%(version)s.src.tar.xz"]
 
-python = 'python'
-pyver = '3'
-pysuff = '-%s%s' % (python, pyver)
+local_python = 'local_python'
+local_pyver = '3'
+local_pysuff = '-%s%s' % (local_python, local_pyver)
 dependencies = [
     ('zlib', '1.2.11'),
-    ('cray-python/3.6.1.1', EXTERNAL_MODULE)
+    ('cray-local_python/3.6.1.1', EXTERNAL_MODULE)
 ]
 
 builddependencies = [('CMake', '3.12.0','', True)]
