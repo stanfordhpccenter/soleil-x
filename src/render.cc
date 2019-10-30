@@ -561,7 +561,7 @@
     Visualization::ImageReduction* compositor = gImageCompositor;
     ImageDescriptor imageDescriptor = compositor->imageDescriptor();
     size_t argLen = sizeof(ImageDescriptor) + strlen(outDir) + 1;
-    char args[argLen] = { 0 };
+    char args[argLen];
     memcpy(args, &imageDescriptor, sizeof(imageDescriptor));
     strcpy(args + sizeof(imageDescriptor), outDir);
     TaskLauncher saveImageLauncher(gSaveImageTaskID, TaskArgument(args, argLen), Predicate::TRUE_PRED);
@@ -593,7 +593,7 @@
     ImageDescriptor imageDescriptor = compositor->imageDescriptor();
     ArgumentMap argMap;
     size_t argLen = sizeof(ImageDescriptor) + strlen(outDir) + 1;
-    char args[argLen] = { 0 };
+    char args[argLen];
     memcpy(args, &imageDescriptor, sizeof(imageDescriptor));
     strcpy(args + sizeof(imageDescriptor), outDir);
     IndexTaskLauncher saveImageLauncher(gSaveImageTaskID, compositor->compositeImageDomain(), TaskArgument(args, argLen),
