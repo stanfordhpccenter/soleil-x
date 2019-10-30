@@ -5542,12 +5542,15 @@ end
 
 local SIM = mkInstance()
 
-__forbid(__optimize) __demand(__inner, __replicable)
+--__forbid(__optimize) __demand(__inner, __replicable)
+__forbid(__optimize) __demand(__inner)
 task workSingle(config : Config)
   [SIM.DeclSymbols(config)];
   var is_FakeCopyQueue = ispace(int1d, 0)
   var FakeCopyQueue = region(is_FakeCopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
+  var stepNumber : int = 0
+  VisualizeInit(config, SIM.Particles, SIM.p_Particles, SIM.particlesToDraw);
   [parallelizeFor(SIM, rquote
     [SIM.InitRegions(config)];
     while true do
@@ -5557,6 +5560,15 @@ task workSingle(config : Config)
         break
       end
       [SIM.MainLoopBody(config, rexpr false end, FakeCopyQueue)];
+      -- Visualization
+      if stepNumber % config.Visualization.stepsPerRender == 0 then
+        render.cxx_render(__runtime(), __context(),
+          config.Visualization.cameraFromAtUp,
+          config.Visualization.colorScale)
+        render.cxx_reduce(__context(), config.Visualization.cameraFromAtUp)
+        render.cxx_saveImage(__runtime(), __context(), ".")
+      end
+      stepNumber = stepNumber + 1
     end
   end)];
   [SIM.Cleanup(config)];
