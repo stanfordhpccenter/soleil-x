@@ -5564,7 +5564,7 @@ C.printf("call VisualizeInit\n");
       end
       [SIM.MainLoopBody(config, rexpr false end, FakeCopyQueue)];
       -- Visualization
-      if stepNumber % config.Visualization.stepsPerRender == 0 then
+      if stepNumber % config.Visualization.stepsPerRender == 0 and config.Visualization.stepsPerRender > 0 then
         render.cxx_render(__runtime(), __context(),
           config.Visualization.cameraFromAtUp,
           config.Visualization.colorScale)
@@ -5721,7 +5721,7 @@ task workDual(mc : MultiConfig)
     -- Run one iteration of second section
     [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, incoming, CopyQueue))];
     -- Visualization
-    if stepNumber % mc.configs[1].Visualization.stepsPerRender == 0 then
+    if stepNumber % mc.configs[1].Visualization.stepsPerRender == 0 and mc.configs[1].Visualization.stepsPerRender > 0 then
       render.cxx_render(__runtime(), __context(),
         mc.configs[1].Visualization.cameraFromAtUp,
         mc.configs[1].Visualization.colorScale)
