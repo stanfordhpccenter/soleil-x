@@ -320,7 +320,7 @@ task VisualizeInit(config : Config,
 )
 where
   writes(Particles.{id}, particlesToDraw),
-  reads(particlesToDraw)
+  reads(Particles, particlesToDraw)
 do
   -- assign particles ids
   var particleID : int64 = 0
@@ -5545,14 +5545,17 @@ local SIM = mkInstance()
 --__forbid(__optimize) __demand(__inner, __replicable)
 __forbid(__optimize) __demand(__inner)
 task workSingle(config : Config)
+C.printf("in workSingle\n");
   [SIM.DeclSymbols(config)];
   var is_FakeCopyQueue = ispace(int1d, 0)
   var FakeCopyQueue = region(is_FakeCopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
-  var stepNumber : int = 0
-  VisualizeInit(config, SIM.Particles, SIM.p_Particles, SIM.particlesToDraw);
+C.printf("before parallelizeFor\n");
   [parallelizeFor(SIM, rquote
     [SIM.InitRegions(config)];
+C.printf("call VisualizeInit\n");
+    var stepNumber : int = 0
+    VisualizeInit(config, SIM.Particles, SIM.p_Particles, SIM.particlesToDraw);
     while true do
       [SIM.MainLoopHeader(config)];
       [SIM.PerformIO(config)];

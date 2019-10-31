@@ -384,6 +384,8 @@
 
   // Called from mapper before runtime has started
   void cxx_preinitialize() {
+std::cout<<__FUNCTION__<<std::endl;
+
     Visualization::ImageReduction::preinitializeBeforeRuntimeStarts();
     // allocate physical regions contiguously in memory
     LayoutConstraintRegistrar layout_registrar(FieldSpace::NO_SPACE, "SOA layout");
@@ -434,6 +436,11 @@
                      int numParticlesToDraw_
                      )
   {
+{
+char buffer[256];
+gethostname(buffer, 256);
+std::cout << buffer << " " << __FUNCTION__ << std::endl;
+}
     Runtime *runtime = CObjectWrapper::unwrap(runtime_);
     Context ctx = CObjectWrapper::unwrap(ctx_)->context();
     LogicalRegion region = CObjectWrapper::unwrap(region_);
@@ -442,6 +449,7 @@
 
     gImageCompositor = new Visualization::ImageReduction(region,
       partition, pFields, numPFields, imageDescriptor, ctx, runtime);
+__TRACE
 
     gParticlesFields = new legion_field_id_t[numPFields];
     memcpy(gParticlesFields, pFields, numPFields * sizeof(legion_field_id_t));
@@ -452,6 +460,7 @@
     for(int i = 0; i > gNumParticlesToDraw; ++i) {
       gParticlesToDraw[i] = particleId[i];
     }
+__TRACE
   }
 
 
@@ -466,6 +475,11 @@
                   double cameraFromAtUp[9],
                   double colorScale[2]
                   ) {
+{
+char buffer[256];
+gethostname(buffer, 256);
+std::cout << buffer << " " << __FUNCTION__ << std::endl;
+}
     // Unwrap objects
 
     Runtime *runtime = CObjectWrapper::unwrap(runtime_);

@@ -160,9 +160,10 @@ function run_sapling {
     FB_PER_GPU=5000
     source "$SOLEIL_DIR"/src/jobscript_shared.sh
     # Emit final command
+    echo "mpiexec -H $NODES --bind-to none -x LD_LIBRARY_PATH -x SOLEIL_DIR -x REALM_BACKTRACE -x LEGION_FREEZE_ON_ERROR -x DEBUG_COPYING $COMMAND"
     mpiexec -H "$NODES" --bind-to none \
         -x LD_LIBRARY_PATH -x SOLEIL_DIR -x REALM_BACKTRACE -x LEGION_FREEZE_ON_ERROR -x DEBUG_COPYING \
-        $COMMAND
+        $COMMAND -lg:inorder -ll:force_kthreads
     # Resources:
     # 40230MB RAM per node
     # 2 NUMA domains per node
