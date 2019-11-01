@@ -319,22 +319,14 @@ task VisualizeInit(config : Config,
                   particlesToDraw : region(ispace(int1d), Draw_columns)
 )
 where
-  writes(Particles.{id}, particlesToDraw),
+  writes(particlesToDraw),
   reads(Particles, particlesToDraw)
 do
-  -- assign particles ids
-  var particleID : int64 = 0
-  for p in Particles do
-    p.id = particleID
-    particleID = particleID + 1
-  end
-  regentlib.c.printf("total particles = %d\n", particleID)
-
   -- select particles to draw
-  C.srand(0)
+  C.srand(0) -- repeatable
   for i = 0, config.Visualization.numParticlesToDraw do
     var r = [double](C.rand()) / C.RAND_MAX
-    var n : double = particleID - 1
+    var n : double = config.Particles.maxNum - 1
     var id : int64 = [int64](r * n)
     particlesToDraw[i].id = id
   end
@@ -5545,16 +5537,14 @@ local SIM = mkInstance()
 --__forbid(__optimize) __demand(__inner, __replicable)
 __forbid(__optimize) __demand(__inner)
 task workSingle(config : Config)
-C.printf("in workSingle\n");
   [SIM.DeclSymbols(config)];
   var is_FakeCopyQueue = ispace(int1d, 0)
   var FakeCopyQueue = region(is_FakeCopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
-C.printf("before parallelizeFor\n");
   [parallelizeFor(SIM, rquote
     [SIM.InitRegions(config)];
-C.printf("call VisualizeInit\n");
     var stepNumber : int = 0
+    __fence(__execution, __block) 
     VisualizeInit(config, SIM.Particles, SIM.p_Particles, SIM.particlesToDraw);
     while true do
       [SIM.MainLoopHeader(config)];
@@ -5673,6 +5663,7 @@ task workDual(mc : MultiConfig)
   var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
   -- Main simulation loop
   var stepNumber : int = 0
+  __fence(__execution, __block) 
   VisualizeInit(mc.configs[1], SIM1.Particles, SIM1.p_Particles, SIM1.particlesToDraw)
   while true do
     var Integrator_timeStep = SIM0.Integrator_timeStep;

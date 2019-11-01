@@ -163,7 +163,7 @@ function run_sapling {
     echo "mpiexec -H $NODES --bind-to none -x LD_LIBRARY_PATH -x SOLEIL_DIR -x REALM_BACKTRACE -x LEGION_FREEZE_ON_ERROR -x DEBUG_COPYING $COMMAND"
     mpiexec -H "$NODES" --bind-to none \
         -x LD_LIBRARY_PATH -x SOLEIL_DIR -x REALM_BACKTRACE -x LEGION_FREEZE_ON_ERROR -x DEBUG_COPYING \
-        $COMMAND -lg:inorder -ll:force_kthreads
+        $COMMAND -ll:force_kthreads
     # Resources:
     # 40230MB RAM per node
     # 2 NUMA domains per node
