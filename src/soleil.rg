@@ -320,7 +320,7 @@ task VisualizeInit(config : Config,
 )
 where
   writes(particlesToDraw),
-  reads(Particles, particlesToDraw)
+  reads(Particles.{id, position, temperature, density}, particlesToDraw)
 do
   -- select particles to draw
   C.srand(0) -- repeatable
@@ -5544,7 +5544,6 @@ task workSingle(config : Config)
   [parallelizeFor(SIM, rquote
     [SIM.InitRegions(config)];
     var stepNumber : int = 0
-    __fence(__execution, __block) 
     VisualizeInit(config, SIM.Particles, SIM.p_Particles, SIM.particlesToDraw);
     while true do
       [SIM.MainLoopHeader(config)];
@@ -5663,7 +5662,6 @@ task workDual(mc : MultiConfig)
   var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
   -- Main simulation loop
   var stepNumber : int = 0
-  __fence(__execution, __block) 
   VisualizeInit(mc.configs[1], SIM1.Particles, SIM1.p_Particles, SIM1.particlesToDraw)
   while true do
     var Integrator_timeStep = SIM0.Integrator_timeStep;
