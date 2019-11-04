@@ -342,9 +342,10 @@ do
     end
   end
 
-  render.cxx_initialize(__runtime(), __context(), __raw(Particles.{id, position, temperature, density}), __raw(p_Particles),
-    __fields(Particles), 20, __physical(particlesToDraw), __fields(particlesToDraw),
-    config.Visualization.numParticlesToDraw)
+  render.cxx_initialize(__runtime(), __context(), 
+    __raw(Particles.{id, position, temperature, density}), __raw(p_Particles),
+    __fields(Particles.{id, position, temperature, density}), 4, __physical(particlesToDraw), 
+    __fields(particlesToDraw), config.Visualization.numParticlesToDraw)
 
 end
 
