@@ -342,6 +342,10 @@ do
     end
   end
 
+var hostname : int8[256];
+C.gethostname(hostname, 256);
+C.printf("calling cxx_initialize on host %s\n", hostname);
+
   render.cxx_initialize(__runtime(), __context(), 
     __raw(Particles.{id, position, temperature, density}), __raw(p_Particles),
     __fields(Particles.{id, position, temperature, density}), 4, __physical(particlesToDraw), 
@@ -5542,28 +5546,38 @@ task workSingle(config : Config)
   var is_FakeCopyQueue = ispace(int1d, 0)
   var FakeCopyQueue = region(is_FakeCopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
-  [parallelizeFor(SIM, rquote
-    [SIM.InitRegions(config)];
-    var stepNumber : int = 0
-    VisualizeInit(config, SIM.Particles, SIM.p_Particles, SIM.particlesToDraw);
-    while true do
+  [parallelizeFor(SIM, SIM.InitRegions(config))];
+  var stepNumber : int = 0
+
+var hostname : int8[256];
+C.gethostname(hostname, 256);
+C.printf("workSingle calls VisualizeInit on host %s\n", hostname);
+
+  VisualizeInit(config, SIM.Particles, SIM.p_Particles, SIM.particlesToDraw);
+  while true do
+    [parallelizeFor(SIM, rquote
       [SIM.MainLoopHeader(config)];
       [SIM.PerformIO(config)];
       if SIM.Integrator_exitCond then
         break
       end
-      [SIM.MainLoopBody(config, rexpr false end, FakeCopyQueue)];
-      -- Visualization
-      if stepNumber % config.Visualization.stepsPerRender == 0 and config.Visualization.stepsPerRender > 0 then
-        render.cxx_render(__runtime(), __context(),
-          config.Visualization.cameraFromAtUp,
-          config.Visualization.colorScale)
-        render.cxx_reduce(__context(), config.Visualization.cameraFromAtUp)
-        render.cxx_saveImage(__runtime(), __context(), ".")
-      end
-      stepNumber = stepNumber + 1
+      [SIM.MainLoopBody(config, rexpr false end, FakeCopyQueue)]
+    end)];
+    -- Visualization
+    if stepNumber % config.Visualization.stepsPerRender == 0 and config.Visualization.stepsPerRender > 0 then
+
+var hostname : int8[256];
+C.gethostname(hostname, 256);
+C.printf("workSingle calls cxx_render on host %s\n", hostname);
+
+      render.cxx_render(__runtime(), __context(),
+        config.Visualization.cameraFromAtUp,
+        config.Visualization.colorScale)
+      render.cxx_reduce(__context(), config.Visualization.cameraFromAtUp)
+      render.cxx_saveImage(__runtime(), __context(), ".")
     end
-  end)];
+    stepNumber = stepNumber + 1
+  end
   [SIM.Cleanup(config)];
 end
 
@@ -5663,6 +5677,11 @@ task workDual(mc : MultiConfig)
   var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
   -- Main simulation loop
   var stepNumber : int = 0
+
+var hostname : int8[256];
+C.gethostname(hostname, 256);
+C.printf("workDual calling VisualizeInit on host %s\n", hostname);
+
   VisualizeInit(mc.configs[1], SIM1.Particles, SIM1.p_Particles, SIM1.particlesToDraw)
   while true do
     var Integrator_timeStep = SIM0.Integrator_timeStep;
@@ -5712,6 +5731,11 @@ task workDual(mc : MultiConfig)
     [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, incoming, CopyQueue))];
     -- Visualization
     if stepNumber % mc.configs[1].Visualization.stepsPerRender == 0 and mc.configs[1].Visualization.stepsPerRender > 0 then
+
+var hostname : int8[256];
+C.gethostname(hostname, 256);
+C.printf("workDual calling cxx_render on host %s\n", hostname);
+
       render.cxx_render(__runtime(), __context(),
         mc.configs[1].Visualization.cameraFromAtUp,
         mc.configs[1].Visualization.colorScale)
