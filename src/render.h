@@ -30,8 +30,6 @@ typedef struct {
                      legion_logical_partition_t partition_,
                      legion_field_id_t pFields[],
                      int numPFields,
-                     legion_physical_region_t* particlesToDraw_,
-                     legion_field_id_t particlesToDrawFields[],
                      int numParticlesToDraw_
                      );
 

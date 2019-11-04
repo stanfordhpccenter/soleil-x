@@ -420,7 +420,13 @@ std::cout<<__FUNCTION__<<std::endl;
 
 
 
-
+static int compar(const void* p1, const void* p2) {
+  int i1 = *(int*)p1;
+  int i2 = *(int*)p2;
+  if(i1 < i2) return -1;
+  if(i1 > i2) return +1;
+  return 0;
+}
 
 
   // this entry point is called once from the main task
@@ -431,8 +437,6 @@ std::cout<<__FUNCTION__<<std::endl;
                      legion_logical_partition_t partition_,
                      legion_field_id_t pFields[],
                      int numPFields,
-                     legion_physical_region_t* particlesToDraw_,
-                     legion_field_id_t particlesToDrawFields[1],
                      int numParticlesToDraw_
                      )
   {
@@ -451,15 +455,14 @@ std::cout << buffer << " " << __FUNCTION__ << std::endl;
       partition, pFields, numPFields, imageDescriptor, ctx, runtime);
 __TRACE
 
-    gParticlesFields = new legion_field_id_t[numPFields];
-    memcpy(gParticlesFields, pFields, numPFields * sizeof(legion_field_id_t));
     gNumParticlesToDraw = numParticlesToDraw_;
     gParticlesToDraw = new long int[gNumParticlesToDraw];
-    PhysicalRegion* particlesToDraw = CObjectWrapper::unwrap(particlesToDraw_[0]);
-    AccessorRO<long int, 1> particleId(*particlesToDraw, particlesToDrawFields[0]);
+    srand(0);
     for(int i = 0; i > gNumParticlesToDraw; ++i) {
-      gParticlesToDraw[i] = particleId[i];
+      int id = (int)((float)rand() / RAND_MAX);
+      gParticlesToDraw[i] = id;
     }
+    qsort(gParticlesToDraw, gNumParticlesToDraw, sizeof(gParticlesToDraw[0]), compar);
 __TRACE
   }
 

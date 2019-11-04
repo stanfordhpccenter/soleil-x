@@ -313,46 +313,6 @@ id : int64;
 }
 
 
-task VisualizeInit(config : Config,
-                  Particles : region(ispace(int1d), Particles_columns),
-                  p_Particles : partition(disjoint, Particles, ispace(int3d)),
-                  particlesToDraw : region(ispace(int1d), Draw_columns)
-)
-where
-  writes(particlesToDraw),
-  reads(Particles.{id, position, temperature, density}, particlesToDraw)
-do
-  -- select particles to draw
-  C.srand(0) -- repeatable
-  for i = 0, config.Visualization.numParticlesToDraw do
-    var r = [double](C.rand()) / C.RAND_MAX
-    var n : double = config.Particles.maxNum - 1
-    var id : int64 = [int64](r * n)
-    particlesToDraw[i].id = id
-  end
-
-  -- bubble sort the array
-  for i = 0, config.Visualization.numParticlesToDraw do
-    for j = i, config.Visualization.numParticlesToDraw do
-      if particlesToDraw[i].id > particlesToDraw[j].id then
-        var temp = particlesToDraw[i].id
-        particlesToDraw[i].id = particlesToDraw[j].id
-        particlesToDraw[j].id = temp
-      end
-    end
-  end
-
-var hostname : int8[256];
-C.gethostname(hostname, 256);
-C.printf("calling cxx_initialize on host %s\n", hostname);
-
-  render.cxx_initialize(__runtime(), __context(), 
-    __raw(Particles.{id, position, temperature, density}), __raw(p_Particles),
-    __fields(Particles.{id, position, temperature, density}), 4, __physical(particlesToDraw), 
-    __fields(particlesToDraw), config.Visualization.numParticlesToDraw)
-
-end
-
 
 
 -------------------------------------------------------------------------------
@@ -4302,9 +4262,6 @@ local function mkInstance() local INSTANCE = {}
   local p_TradeQueue_byDst = UTIL.generate(26, regentlib.newsymbol)
   local p_Radiation = regentlib.newsymbol()
 
-  local maxParticlesToDraw = regentlib.newsymbol(int32, "maxParticlesToDraw");
-  local particlesToDraw = regentlib.newsymbol("particlesToDraw");
-
   -----------------------------------------------------------------------------
   -- Exported symbols
   -----------------------------------------------------------------------------
@@ -4327,7 +4284,6 @@ local function mkInstance() local INSTANCE = {}
   INSTANCE.p_Particles = p_Particles
   INSTANCE.p_Particles_copy = p_Particles_copy
   INSTANCE.p_Radiation = p_Radiation
-  INSTANCE.particlesToDraw = particlesToDraw
 
   -----------------------------------------------------------------------------
   -- Symbol declaration & initialization
@@ -4397,10 +4353,6 @@ local function mkInstance() local INSTANCE = {}
     var [BC.xBCParticles]
     var [BC.yBCParticles]
     var [BC.zBCParticles]
-
-    -- Visualization
-    var [maxParticlesToDraw] = 1000000
-    var [particlesToDraw] = region(ispace(int1d, maxParticlesToDraw), Draw_columns)
 
     -- Determine number of ghost cells in each direction
     -- 0 ghost cells if periodic and 1 otherwise
@@ -5548,12 +5500,12 @@ task workSingle(config : Config)
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
   [parallelizeFor(SIM, SIM.InitRegions(config))];
   var stepNumber : int = 0
-
-var hostname : int8[256];
-C.gethostname(hostname, 256);
-C.printf("workSingle calls VisualizeInit on host %s\n", hostname);
-
-  VisualizeInit(config, SIM.Particles, SIM.p_Particles, SIM.particlesToDraw);
+  render.cxx_initialize(__runtime(), __context(),
+    __raw(SIM.Particles),
+    __raw(SIM.p_Particles),
+    __fields([SIM.Particles].{id, position, temperature, density}),
+    4,
+    config.Visualization.numParticlesToDraw)
   while true do
     [parallelizeFor(SIM, rquote
       [SIM.MainLoopHeader(config)];
@@ -5677,12 +5629,13 @@ task workDual(mc : MultiConfig)
   var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
   -- Main simulation loop
   var stepNumber : int = 0
+  render.cxx_initialize(__runtime(), __context(),
+    __raw(SIM1.Particles),
+    __raw(SIM1.p_Particles),
+    __fields([SIM1.Particles].{id, position, temperature, density}),
+    4,
+    mc.configs[1].Visualization.numParticlesToDraw)
 
-var hostname : int8[256];
-C.gethostname(hostname, 256);
-C.printf("workDual calling VisualizeInit on host %s\n", hostname);
-
-  VisualizeInit(mc.configs[1], SIM1.Particles, SIM1.p_Particles, SIM1.particlesToDraw)
   while true do
     var Integrator_timeStep = SIM0.Integrator_timeStep;
     -- Perform preliminary actions before each timestep
@@ -5731,11 +5684,6 @@ C.printf("workDual calling VisualizeInit on host %s\n", hostname);
     [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, incoming, CopyQueue))];
     -- Visualization
     if stepNumber % mc.configs[1].Visualization.stepsPerRender == 0 and mc.configs[1].Visualization.stepsPerRender > 0 then
-
-var hostname : int8[256];
-C.gethostname(hostname, 256);
-C.printf("workDual calling cxx_render on host %s\n", hostname);
-
       render.cxx_render(__runtime(), __context(),
         mc.configs[1].Visualization.cameraFromAtUp,
         mc.configs[1].Visualization.colorScale)
