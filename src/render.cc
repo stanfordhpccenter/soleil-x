@@ -445,11 +445,13 @@ char buffer[256];
 gethostname(buffer, 256);
 std::cout << buffer << " " << __FUNCTION__ << std::endl;
 }
+__TRACE
     Runtime *runtime = CObjectWrapper::unwrap(runtime_);
     Context ctx = CObjectWrapper::unwrap(ctx_)->context();
     LogicalRegion region = CObjectWrapper::unwrap(region_);
     LogicalPartition partition = CObjectWrapper::unwrap(partition_);
     Visualization::ImageDescriptor imageDescriptor = { gImageWidth, gImageHeight, 1 };
+__TRACE
 
     gImageCompositor = new Visualization::ImageReduction(region,
       partition, pFields, numPFields, imageDescriptor, ctx, runtime);

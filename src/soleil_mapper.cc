@@ -365,7 +365,7 @@ private:
         STARTS_WITH(task.get_task_name(), "sweep_") ||
         EQUALS(task.get_task_name(), "cache_grid_translation") ||
         EQUALS(task.get_task_name(), "initialize_angles") ||
-        STARTS_WITH(task.get_task_name(), "Visualize") ||
+        EQUALS(task.get_task_name(), "initializeVisualization") ||
         STARTS_WITH(task.get_task_name(), "readTileAttr")) {
       CHECK(!task.regions.empty(),
             "Expected region argument in call to %s", task.get_task_name());
@@ -399,6 +399,7 @@ private:
     else if (STARTS_WITH(task.get_task_name(), "Console_Write") ||
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
              EQUALS(task.get_task_name(), "IO_CreateDir") ||
+             EQUALS(task.get_task_name(), "initializeVisualization") ||
              EQUALS(task.get_task_name(), "__dummy") ||
              STARTS_WITH(task.get_task_name(), "__unary_") ||
              STARTS_WITH(task.get_task_name(), "__binary_")) {
@@ -439,7 +440,7 @@ private:
              EQUALS(task.get_task_name(), "initialize_angles") ||
              STARTS_WITH(task.get_task_name(), "Console_Write") ||
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
-             STARTS_WITH(task.get_task_name(), "Visualize") ||
+             EQUALS(task.get_task_name(), "initializeVisualization") ||
              EQUALS(task.get_task_name(), "IO_CreateDir") ||
              EQUALS(task.get_task_name(), "__dummy") ||
              STARTS_WITH(task.get_task_name(), "__unary_") ||
@@ -488,7 +489,7 @@ private:
              EQUALS(task.get_task_name(), "initialize_angles") ||
              STARTS_WITH(task.get_task_name(), "Console_Write") ||
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
-             STARTS_WITH(task.get_task_name(), "Visualize") ||
+             EQUALS(task.get_task_name(), "initializeVisualization") ||
              EQUALS(task.get_task_name(), "IO_CreateDir") ||
              EQUALS(task.get_task_name(), "__dummy") ||
              STARTS_WITH(task.get_task_name(), "__unary_") ||

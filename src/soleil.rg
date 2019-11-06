@@ -5491,6 +5491,24 @@ end
 
 local SIM = mkInstance()
 
+__forbid(__inner)
+task initializeVisualization(
+        config : Config,
+        Particles : region(ispace(int1d), Particles_columns),
+        p_Particles : partition(disjoint, Particles, ispace(int3d))
+)
+where
+  reads(Particles.{id, position, temperature, density})
+do
+  render.cxx_initialize(__runtime(), __context(),
+    __raw(Particles),
+    __raw(p_Particles),
+    __fields([Particles].{id, position, temperature, density}),
+    4,
+    config.Visualization.numParticlesToDraw)
+end
+
+
 --__forbid(__optimize) __demand(__inner, __replicable)
 __forbid(__optimize) __demand(__inner)
 task workSingle(config : Config)
@@ -5499,13 +5517,8 @@ task workSingle(config : Config)
   var FakeCopyQueue = region(is_FakeCopyQueue, CopyQueue_columns);
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
   [parallelizeFor(SIM, SIM.InitRegions(config))];
+  initializeVisualization(config, SIM.Particles, SIM.p_Particles);
   var stepNumber : int = 0
-  render.cxx_initialize(__runtime(), __context(),
-    __raw(SIM.Particles),
-    __raw(SIM.p_Particles),
-    __fields([SIM.Particles].{id, position, temperature, density}),
-    4,
-    config.Visualization.numParticlesToDraw)
   while true do
     [parallelizeFor(SIM, rquote
       [SIM.MainLoopHeader(config)];
@@ -5517,11 +5530,6 @@ task workSingle(config : Config)
     end)];
     -- Visualization
     if stepNumber % config.Visualization.stepsPerRender == 0 and config.Visualization.stepsPerRender > 0 then
-
-var hostname : int8[256];
-C.gethostname(hostname, 256);
-C.printf("workSingle calls cxx_render on host %s\n", hostname);
-
       render.cxx_render(__runtime(), __context(),
         config.Visualization.cameraFromAtUp,
         config.Visualization.colorScale)
@@ -5539,6 +5547,9 @@ local SIM1 = mkInstance()
 --__forbid(__optimize) __demand(__inner, __replicable)
 __forbid(__optimize) __demand(__inner)
 task workDual(mc : MultiConfig)
+var hostname : int8[128];
+C.gethostname(hostname, 128);
+C.printf("workDual running on host %s\n", hostname);
   -- Declare symbols
   [SIM0.DeclSymbols(rexpr mc.configs[0] end)];
   [SIM1.DeclSymbols(rexpr mc.configs[1] end)];
@@ -5628,14 +5639,8 @@ task workDual(mc : MultiConfig)
   C.legion_domain_point_coloring_destroy(tgtColoring)
   var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
   -- Main simulation loop
+  initializeVisualization(mc.configs[1], SIM1.Particles, SIM1.p_Particles);
   var stepNumber : int = 0
-  render.cxx_initialize(__runtime(), __context(),
-    __raw(SIM1.Particles),
-    __raw(SIM1.p_Particles),
-    __fields([SIM1.Particles].{id, position, temperature, density}),
-    4,
-    mc.configs[1].Visualization.numParticlesToDraw)
-
   while true do
     var Integrator_timeStep = SIM0.Integrator_timeStep;
     -- Perform preliminary actions before each timestep
