@@ -365,7 +365,6 @@ private:
         STARTS_WITH(task.get_task_name(), "sweep_") ||
         EQUALS(task.get_task_name(), "cache_grid_translation") ||
         EQUALS(task.get_task_name(), "initialize_angles") ||
-        EQUALS(task.get_task_name(), "initializeVisualization") ||
         STARTS_WITH(task.get_task_name(), "readTileAttr")) {
       CHECK(!task.regions.empty(),
             "Expected region argument in call to %s", task.get_task_name());
@@ -767,6 +766,8 @@ public:
     dst_constraints.add_constraint
       (FieldConstraint(dst_req.privilege_fields,
                        false/*contiguous*/, false/*inorder*/));
+std::cout << ">>> " << node_id << " " << target_proc << " " << target_memory << std::endl;
+
     CHECK(runtime->find_physical_instance
             (ctx, target_memory, dst_constraints,
              std::vector<LogicalRegion>{dst_region},
