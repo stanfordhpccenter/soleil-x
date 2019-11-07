@@ -6,6 +6,7 @@ import json
 parser = argparse.ArgumentParser()
 parser.add_argument('base_json', type=argparse.FileType('r'))
 parser.add_argument('-n', '--num_times', type=int, default=8)
+parser.add_argument('-s', '--strong_scale', action='store_true')
 args = parser.parse_args()
 
 # Read base config
@@ -44,23 +45,27 @@ with open('1.json', 'w') as fout:
 for i in range(0,args.num_times):
     if i % 3 == 0:
         config['Mapping']['tiles'][2] *= 2
-        config['Grid']['zNum'] *= 2
-        config['Grid']['zWidth'] *= 2
-        if config['Radiation']['type'] == 'DOM':
-            config['Radiation']['zNum'] *= 2
     elif i % 3 == 1:
         config['Mapping']['tiles'][1] *= 2
-        config['Grid']['yNum'] *= 2
-        config['Grid']['yWidth'] *= 2
-        if config['Radiation']['type'] == 'DOM':
-            config['Radiation']['yNum'] *= 2
     else: # i % 3 == 2
         config['Mapping']['tiles'][0] *= 2
-        config['Grid']['xNum'] *= 2
-        config['Grid']['xWidth'] *= 2
-        if config['Radiation']['type'] == 'DOM':
-            config['Radiation']['xNum'] *= 2
-    config['Particles']['initNum'] *= 2
-    config['Particles']['maxNum'] *= 2
+    if not args.strong_scale:
+        if i % 3 == 0:
+            config['Grid']['zNum'] *= 2
+            config['Grid']['zWidth'] *= 2
+            if config['Radiation']['type'] == 'DOM':
+                config['Radiation']['zNum'] *= 2
+        elif i % 3 == 1:
+            config['Grid']['yNum'] *= 2
+            config['Grid']['yWidth'] *= 2
+            if config['Radiation']['type'] == 'DOM':
+                config['Radiation']['yNum'] *= 2
+        else: # i % 3 == 2
+            config['Grid']['xNum'] *= 2
+            config['Grid']['xWidth'] *= 2
+            if config['Radiation']['type'] == 'DOM':
+                config['Radiation']['xNum'] *= 2
+        config['Particles']['initNum'] *= 2
+        config['Particles']['maxNum'] *= 2
     with open(str(2**(i+1)) + '.json', 'w') as fout:
         json.dump(config, fout, indent=4)
