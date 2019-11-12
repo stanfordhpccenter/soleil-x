@@ -244,9 +244,9 @@
     // TODO sort particles by transformed Z
 
     AccessorRO<long int, 1> particlesID(particles, gParticlesFields[0]);
-    AccessorRO<FieldData, 1> particlesDensity(particles, gParticlesFields[6]);
-    AccessorRO<FieldData, 1> particlesTemperature(particles, gParticlesFields[4]);
-    AccessorRO<FieldData3, 1> particlesPosition(particles, gParticlesFields[2]);
+    AccessorRO<FieldData3, 1> particlesPosition(particles, gParticlesFields[1]);
+    AccessorRO<FieldData, 1> particlesTemperature(particles, gParticlesFields[2]);
+    AccessorRO<FieldData, 1> particlesDensity(particles, gParticlesFields[3]);
 
 
     Domain particlesDomain = runtime->get_index_space_domain(
@@ -440,22 +440,14 @@ static int compar(const void* p1, const void* p2) {
                      int numParticlesToDraw_
                      )
   {
-{
-char buffer[256];
-gethostname(buffer, 256);
-std::cout << buffer << " " << __FUNCTION__ << std::endl;
-}
-__TRACE
     Runtime *runtime = CObjectWrapper::unwrap(runtime_);
     Context ctx = CObjectWrapper::unwrap(ctx_)->context();
     LogicalRegion region = CObjectWrapper::unwrap(region_);
     LogicalPartition partition = CObjectWrapper::unwrap(partition_);
     Visualization::ImageDescriptor imageDescriptor = { gImageWidth, gImageHeight, 1 };
-__TRACE
 
     gImageCompositor = new Visualization::ImageReduction(region,
       partition, pFields, numPFields, imageDescriptor, ctx, runtime);
-__TRACE
 
     gNumParticlesToDraw = numParticlesToDraw_;
     gParticlesToDraw = new long int[gNumParticlesToDraw];
@@ -465,7 +457,11 @@ __TRACE
       gParticlesToDraw[i] = id;
     }
     qsort(gParticlesToDraw, gNumParticlesToDraw, sizeof(gParticlesToDraw[0]), compar);
-__TRACE
+
+    gParticlesFields = new legion_field_id_t[numPFields];
+    for(int i = 0; i < numPFields; ++i) {
+      gParticlesFields[i] = pFields[i];
+    }
   }
 
 
@@ -480,11 +476,7 @@ __TRACE
                   double cameraFromAtUp[9],
                   double colorScale[2]
                   ) {
-{
-char buffer[256];
-gethostname(buffer, 256);
-std::cout << buffer << " " << __FUNCTION__ << std::endl;
-}
+__TRACE
     // Unwrap objects
 
     Runtime *runtime = CObjectWrapper::unwrap(runtime_);
@@ -501,41 +493,26 @@ std::cout << buffer << " " << __FUNCTION__ << std::endl;
     camera.up[2] = cameraFromAtUp[8];
     Visualization::ImageReduction* compositor = gImageCompositor;
 
-__TRACE
     // Setup the render task launch with region requirements
     ArgumentMap argMap;
-__TRACE
     ImageDescriptor imageDescriptor = compositor->imageDescriptor();
-__TRACE
     size_t argSize = sizeof(ImageDescriptor) + sizeof(camera) + 2 * sizeof(double);
-__TRACE
     char args[argSize];
-__TRACE
     char *argsPtr = args;
-__TRACE
     memcpy(argsPtr, (char*)&imageDescriptor, sizeof(ImageDescriptor));
-__TRACE
     argsPtr += sizeof(ImageDescriptor);
-__TRACE
     memcpy(argsPtr, (char*)&camera, sizeof(camera));
-__TRACE
     argsPtr += sizeof(camera);
-__TRACE
     memcpy(argsPtr, (char*)colorScale, 2 * sizeof(double));
-__TRACE
     IndexTaskLauncher renderLauncher(gRenderTaskID, compositor->renderImageDomain(), TaskArgument(args, argSize),
                                      argMap, Predicate::TRUE_PRED, false);
-__TRACE
 
     RegionRequirement req0(imageDescriptor.simulationLogicalPartition, 0, READ_ONLY, EXCLUSIVE,
       imageDescriptor.simulationLogicalRegion);
-__TRACE
     for(int i = 0; i < imageDescriptor.numPFields; ++i) {
       req0.add_field(imageDescriptor.pFields[i]);
     }
-__TRACE
     renderLauncher.add_region_requirement(req0);
-__TRACE
 
     RegionRequirement req1(compositor->renderImagePartition(), 0, WRITE_DISCARD, EXCLUSIVE,
       compositor->sourceImage());

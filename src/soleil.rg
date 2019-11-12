@@ -4296,9 +4296,10 @@ local function mkInstance() local INSTANCE = {}
     ---------------------------------------------------------------------------
 
     var [DEBUG_COPYING] = false
-    if C.getenv('DEBUG_COPYING') ~= [&int8](0) and
-       C.strcmp(C.getenv('DEBUG_COPYING'), '1') == 0 then
-      DEBUG_COPYING = true
+    if C.getenv('DEBUG_COPYING') ~= [&int8](0) then
+      if C.strcmp(C.getenv('DEBUG_COPYING'), '1') == 0 then
+        DEBUG_COPYING = true
+      end
     end
 
     ---------------------------------------------------------------------------
@@ -5547,9 +5548,6 @@ local SIM1 = mkInstance()
 --__forbid(__optimize) __demand(__inner, __replicable)
 __forbid(__optimize) __demand(__inner)
 task workDual(mc : MultiConfig)
-var hostname : int8[128];
-C.gethostname(hostname, 128);
-C.printf("workDual running on host %s\n", hostname);
   -- Declare symbols
   [SIM0.DeclSymbols(rexpr mc.configs[0] end)];
   [SIM1.DeclSymbols(rexpr mc.configs[1] end)];
