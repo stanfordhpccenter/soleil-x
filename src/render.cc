@@ -21,6 +21,7 @@
   static int gNumParticlesToDraw = 0;
   static long int* gParticlesToDraw = nullptr;
   static legion_field_id_t* gParticlesFields;
+  static int gNumParticlesFields;
 
   typedef double FieldData;
 
@@ -222,6 +223,7 @@
   static void render_task(const Task *task,
                           const std::vector<PhysicalRegion> &regions,
                           Context ctx, HighLevelRuntime *runtime) {
+__TRACE
     PhysicalRegion particles = regions[0];
     PhysicalRegion image = regions[1];
     char* argsPtr = (char*)task->args;
@@ -231,9 +233,10 @@
     Camera* camera = (Camera*)argsPtr;
     argsPtr += sizeof(Camera);
     double* colorScale = (double*)argsPtr;
+    argsPtr += 2 * sizeof(double);
+    legion_field_id_t* particlesFields = (legion_field_id_t*)argsPtr;
 
-    // draw a cube in the center of the space
-
+__TRACE
     OSMesaContext mesaCtx;
     unsigned char* rgbaBuffer = nullptr;
     float* depthBuffer = nullptr;
@@ -243,10 +246,10 @@
 
     // TODO sort particles by transformed Z
 
-    AccessorRO<long int, 1> particlesID(particles, gParticlesFields[0]);
-    AccessorRO<FieldData3, 1> particlesPosition(particles, gParticlesFields[1]);
-    AccessorRO<FieldData, 1> particlesTemperature(particles, gParticlesFields[2]);
-    AccessorRO<FieldData, 1> particlesDensity(particles, gParticlesFields[3]);
+    AccessorRO<long int, 1> particlesID(particles, particlesFields[0]);
+    AccessorRO<FieldData3, 1> particlesPosition(particles, particlesFields[1]);
+    AccessorRO<FieldData, 1> particlesTemperature(particles, particlesFields[2]);
+    AccessorRO<FieldData, 1> particlesDensity(particles, particlesFields[3]);
 
 
     Domain particlesDomain = runtime->get_index_space_domain(
@@ -270,7 +273,7 @@
     }
     glEnd();
 
-
+__TRACE
     // now copy the image data into the image logical region
 
     glReadPixels(0, 0, imageDescriptor->width, imageDescriptor->height,
@@ -302,6 +305,7 @@
     OSMesaDestroyContext(mesaCtx);
     delete [] rgbaBuffer;
     delete [] depthBuffer;
+__TRACE
   }
 
 
@@ -384,7 +388,7 @@
 
   // Called from mapper before runtime has started
   void cxx_preinitialize() {
-std::cout<<__FUNCTION__<<std::endl;
+__TRACE
 
     Visualization::ImageReduction::preinitializeBeforeRuntimeStarts();
     // allocate physical regions contiguously in memory
@@ -440,6 +444,7 @@ static int compar(const void* p1, const void* p2) {
                      int numParticlesToDraw_
                      )
   {
+__TRACE
     Runtime *runtime = CObjectWrapper::unwrap(runtime_);
     Context ctx = CObjectWrapper::unwrap(ctx_)->context();
     LogicalRegion region = CObjectWrapper::unwrap(region_);
@@ -458,6 +463,7 @@ static int compar(const void* p1, const void* p2) {
     }
     qsort(gParticlesToDraw, gNumParticlesToDraw, sizeof(gParticlesToDraw[0]), compar);
 
+    gNumParticlesFields = numPFields;
     gParticlesFields = new legion_field_id_t[numPFields];
     for(int i = 0; i < numPFields; ++i) {
       gParticlesFields[i] = pFields[i];
@@ -496,7 +502,7 @@ __TRACE
     // Setup the render task launch with region requirements
     ArgumentMap argMap;
     ImageDescriptor imageDescriptor = compositor->imageDescriptor();
-    size_t argSize = sizeof(ImageDescriptor) + sizeof(camera) + 2 * sizeof(double);
+    size_t argSize = sizeof(ImageDescriptor) + sizeof(camera) + 2 * sizeof(double) + gNumParticlesFields * sizeof(int);
     char args[argSize];
     char *argsPtr = args;
     memcpy(argsPtr, (char*)&imageDescriptor, sizeof(ImageDescriptor));
@@ -504,8 +510,15 @@ __TRACE
     memcpy(argsPtr, (char*)&camera, sizeof(camera));
     argsPtr += sizeof(camera);
     memcpy(argsPtr, (char*)colorScale, 2 * sizeof(double));
+    argsPtr += 2 * sizeof(double);
+    memcpy(argsPtr, gParticlesFields, gNumParticlesFields * sizeof(legion_field_id_t));
+    argsPtr += gNumParticlesFields * sizeof(legion_field_id_t);
+
     IndexTaskLauncher renderLauncher(gRenderTaskID, compositor->renderImageDomain(), TaskArgument(args, argSize),
                                      argMap, Predicate::TRUE_PRED, false);
+
+__TRACE
+std::cout<<"renderImageDomain "<<compositor->renderImageDomain()<<std::endl;
 
     RegionRequirement req0(imageDescriptor.simulationLogicalPartition, 0, READ_ONLY, EXCLUSIVE,
       imageDescriptor.simulationLogicalRegion);
@@ -529,6 +542,7 @@ __TRACE
 __TRACE
     futures.wait_all_results();
 __TRACE
+std::cout<<"waited for all render_task instances\n";
   }
 
 
@@ -538,6 +552,7 @@ __TRACE
 
   void cxx_reduce(legion_context_t ctx_, double cameraFromAtUp[9]
 ) {
+__TRACE
     Context ctx = CObjectWrapper::unwrap(ctx_)->context();
     Camera camera;
     camera.from[0] = cameraFromAtUp[0];
@@ -558,6 +573,7 @@ __TRACE
       (float)(camera.at[2] - camera.from[2])
     };
     FutureMap futures = compositor->reduceImages(ctx, cameraDirection);
+__TRACE
     futures.wait_all_results();
   }
 

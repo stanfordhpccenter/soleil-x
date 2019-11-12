@@ -766,6 +766,7 @@ public:
     dst_constraints.add_constraint
       (FieldConstraint(dst_req.privilege_fields,
                        false/*contiguous*/, false/*inorder*/));
+
     CHECK(runtime->find_physical_instance
             (ctx, target_memory, dst_constraints,
              std::vector<LogicalRegion>{dst_region},

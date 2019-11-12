@@ -5519,6 +5519,7 @@ task workSingle(config : Config)
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
   [parallelizeFor(SIM, SIM.InitRegions(config))];
   initializeVisualization(config, SIM.Particles, SIM.p_Particles);
+  __fence(__execution, __block)
   var stepNumber : int = 0
   while true do
     [parallelizeFor(SIM, rquote
@@ -5534,7 +5535,9 @@ task workSingle(config : Config)
       render.cxx_render(__runtime(), __context(),
         config.Visualization.cameraFromAtUp,
         config.Visualization.colorScale)
+      __fence(__execution, __block)
       render.cxx_reduce(__context(), config.Visualization.cameraFromAtUp)
+      __fence(__execution, __block)
       render.cxx_saveImage(__runtime(), __context(), ".")
     end
     stepNumber = stepNumber + 1
@@ -5637,7 +5640,10 @@ task workDual(mc : MultiConfig)
   C.legion_domain_point_coloring_destroy(tgtColoring)
   var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
   -- Main simulation loop
+C.printf("calling initializeVisualization\n");C.fflush(C.stdout);
   initializeVisualization(mc.configs[1], SIM1.Particles, SIM1.p_Particles);
+  __fence(__execution, __block)
+C.printf("done with initializeVisualization\n");C.fflush(C.stdout);
   var stepNumber : int = 0
   while true do
     var Integrator_timeStep = SIM0.Integrator_timeStep;
@@ -5687,10 +5693,15 @@ task workDual(mc : MultiConfig)
     [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, incoming, CopyQueue))];
     -- Visualization
     if stepNumber % mc.configs[1].Visualization.stepsPerRender == 0 and mc.configs[1].Visualization.stepsPerRender > 0 then
+C.printf("calling cxx_render\n");C.fflush(C.stdout);
       render.cxx_render(__runtime(), __context(),
         mc.configs[1].Visualization.cameraFromAtUp,
         mc.configs[1].Visualization.colorScale)
+      __fence(__execution, __block)
+C.printf("calling cxx_reduce\n");C.fflush(C.stdout);
       render.cxx_reduce(__context(), mc.configs[1].Visualization.cameraFromAtUp)
+      __fence(__execution, __block)
+C.printf("calling cxx_saveImage\n");C.fflush(C.stdout);
       render.cxx_saveImage(__runtime(), __context(), ".")
     end
     stepNumber = stepNumber + 1
