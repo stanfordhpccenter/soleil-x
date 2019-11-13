@@ -553,6 +553,7 @@ std::cout<<"waited for all render_task instances\n";
   void cxx_reduce(legion_context_t ctx_, double cameraFromAtUp[9]
 ) {
 __TRACE
+std::cout<<"early out\n";return;
     Context ctx = CObjectWrapper::unwrap(ctx_)->context();
     Camera camera;
     camera.from[0] = cameraFromAtUp[0];
@@ -584,6 +585,8 @@ __TRACE
                      legion_context_t ctx_,
                      const char* outDir
                      ) {
+__TRACE
+std::cout<<"early out\n";return;
     Runtime *runtime = CObjectWrapper::unwrap(runtime_);
     Context ctx = CObjectWrapper::unwrap(ctx_)->context();
 

@@ -8,12 +8,13 @@ GPUS_PER_NODE=1
 FB_PER_GPU=14000
 source "$SOLEIL_DIR"/src/jobscript_shared.sh
 
-echo srun -n "$NUM_RANKS" --ntasks-per-node="$RANKS_PER_NODE" --cpus-per-task="$CORES_PER_RANK" \
-    --export=ALL $COMMAND
-
-srun -n "$NUM_RANKS" --ntasks-per-node="$RANKS_PER_NODE" --cpus-per-task="$CORES_PER_RANK" \
+SRUN_COMMAND="srun -n $NUM_RANKS --ntasks-per-node=$RANKS_PER_NODE --cpus-per-task=$CORES_PER_RANK \
     --export=ALL \
-    $COMMAND
+    $COMMAND \
+-lg:spy -logfile spy_%.log"
+
+echo $SRUN_COMMAND
+$SRUN_COMMAND
 
 # Resources:
 # 12 cores per node

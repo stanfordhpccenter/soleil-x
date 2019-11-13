@@ -5640,6 +5640,7 @@ task workDual(mc : MultiConfig)
   C.legion_domain_point_coloring_destroy(tgtColoring)
   var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
   -- Main simulation loop
+  __fence(__execution, __block)
 C.printf("calling initializeVisualization\n");C.fflush(C.stdout);
   initializeVisualization(mc.configs[1], SIM1.Particles, SIM1.p_Particles);
   __fence(__execution, __block)
@@ -5693,6 +5694,7 @@ C.printf("done with initializeVisualization\n");C.fflush(C.stdout);
     [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, incoming, CopyQueue))];
     -- Visualization
     if stepNumber % mc.configs[1].Visualization.stepsPerRender == 0 and mc.configs[1].Visualization.stepsPerRender > 0 then
+      __fence(__execution, __block)
 C.printf("calling cxx_render\n");C.fflush(C.stdout);
       render.cxx_render(__runtime(), __context(),
         mc.configs[1].Visualization.cameraFromAtUp,
