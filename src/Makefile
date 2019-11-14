@@ -76,14 +76,11 @@ soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o
 soleil.o: soleil-desugared.rg soleil_mapper.h config_schema.h hdf_helper.rg dom-desugared.rg util-desugared.rg
 	$(REGENT) soleil-desugared.rg $(REGENT_FLAGS)
 
-small.exec: small.o small_mapper.o config_schema.o json.o render.o
+small.exec: small.o soleil_mapper.o config_schema.o json.o render.o
 	$(CXX) -o $@ $^ $(LINK_FLAGS) -lOSMesa -lGLU
 
 small.o: small-desugared.rg soleil_mapper.h config_schema.h hdf_helper.rg dom-desugared.rg util-desugared.rg
 	$(REGENT) small-desugared.rg $(REGENT_FLAGS)
-
-small_mapper.o: small_mapper.cc soleil_mapper.h config_schema.h
-	$(CXX) $(CXXFLAGS) -c -o  $@ $<
 
 dom_host.exec: dom_host.o config_schema.o json.o
 	$(CXX) -o $@ $^ $(LINK_FLAGS)

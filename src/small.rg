@@ -8,6 +8,8 @@ local C = regentlib.c
 local MAPPER = terralib.includec("soleil_mapper.h")
 local SCHEMA = terralib.includec("config_schema.h")
 local Config = SCHEMA.Config
+local MultiConfig = SCHEMA.MultiConfig
+
 
 local struct Particles_columns {
   id : int64,
@@ -176,7 +178,7 @@ local SIM = mkInstance()
 
 --__forbid(__optimize) __demand(__inner, __replicable)
 __forbid(__optimize) __demand(__inner)
-task workSingle()
+task workDual()
 
   [SIM.DeclSymbols()];
   [SIM.InitRegions()];
@@ -199,14 +201,14 @@ __forbid(__optimize) __demand(__inner)
 task main()
   var args = regentlib.c.legion_runtime_get_input_args()
   for i = 1, args.argc do
-    if C.strcmp(args.argv[i], '-i') == 0 and i < args.argc-1 then
-      var config : Config
-      SCHEMA.parse_Config(&config, args.argv[i+1])
-      config.Mapping.sampleId = 0
-      workSingle()
+    if C.strcmp(args.argv[i], '-m') == 0 and i < args.argc-1 then
+      var mc : MultiConfig
+      SCHEMA.parse_MultiConfig(&mc, args.argv[i+1])
+      mc.configs[0].Mapping.sampleId = 0
+      mc.configs[1].Mapping.sampleId = 1
+      workDual()
     end
   end
-  workSingle()
 end
 
 -------------------------------------------------------------------------------
