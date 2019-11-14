@@ -22,8 +22,8 @@ export HDF_HEADER ?= hdf5.h
 HDF_LIBNAME ?= hdf5
 
 # C compiler options
-CFLAGS += -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent
-CXXFLAGS += -std=c++11 -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent -I$(IMAGE_COMPOSITOR_DIR)/include
+CFLAGS += -g  -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent
+CXXFLAGS += -std=c++11 -g  -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent -I$(IMAGE_COMPOSITOR_DIR)/include
 
 # Regent options
 export INCLUDE_PATH := .
@@ -76,11 +76,14 @@ soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o
 soleil.o: soleil-desugared.rg soleil_mapper.h config_schema.h hdf_helper.rg dom-desugared.rg util-desugared.rg
 	$(REGENT) soleil-desugared.rg $(REGENT_FLAGS)
 
-small.exec: small.o soleil_mapper.o config_schema.o json.o render.o
+small.exec: small.o small_mapper.o config_schema.o json.o render.o
 	$(CXX) -o $@ $^ $(LINK_FLAGS) -lOSMesa -lGLU
 
 small.o: small-desugared.rg soleil_mapper.h config_schema.h hdf_helper.rg dom-desugared.rg util-desugared.rg
 	$(REGENT) small-desugared.rg $(REGENT_FLAGS)
+
+small_mapper.o: small_mapper.cc soleil_mapper.h config_schema.h
+	$(CXX) $(CXXFLAGS) -c -o  $@ $<
 
 dom_host.exec: dom_host.o config_schema.o json.o
 	$(CXX) -o $@ $^ $(LINK_FLAGS)
