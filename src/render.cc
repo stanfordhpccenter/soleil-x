@@ -451,8 +451,10 @@ __TRACE
     LogicalPartition partition = CObjectWrapper::unwrap(partition_);
     Visualization::ImageDescriptor imageDescriptor = { gImageWidth, gImageHeight, 1 };
 
+__TRACE
     gImageCompositor = new Visualization::ImageReduction(region,
       partition, pFields, numPFields, imageDescriptor, ctx, runtime);
+__TRACE
 
     gNumParticlesToDraw = numParticlesToDraw_;
     gParticlesToDraw = new long int[gNumParticlesToDraw];
@@ -468,6 +470,7 @@ __TRACE
     for(int i = 0; i < numPFields; ++i) {
       gParticlesFields[i] = pFields[i];
     }
+__TRACE
   }
 
 

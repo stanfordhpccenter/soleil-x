@@ -91,9 +91,10 @@ task Particles_InitializeUniform(Particles : region(ispace(int1d), Particles_col
 where
 writes(Particles.{__valid, id, cell, position, velocity, density, temperature, diameter})
 do
+  var id = 0
   for p in Particles do
     Particles[p].__valid = true
-    Particles[p].id = 0
+    Particles[p].id = id
     Particles[p].cell = {0,0,0}
     var zero3 : double[3]
     Particles[p].position = zero3
@@ -101,6 +102,7 @@ do
     Particles[p].density = 0.0
     Particles[p].temperature = 0.0
     Particles[p].diameter = 0.0
+    id = id + 1
   end
 end
 -------------------------------------------------------------------------------
@@ -115,6 +117,7 @@ local function mkInstance() local INSTANCE = {}
 
   local Particles = regentlib.newsymbol()
   local p_Particles = regentlib.newsymbol()
+  local tiles = regentlib.newsymbol()
   local NX = regentlib.newsymbol()
   local NY = regentlib.newsymbol()
   local NZ = regentlib.newsymbol()
@@ -132,7 +135,7 @@ local function mkInstance() local INSTANCE = {}
 
   function INSTANCE.DeclSymbols(config) return rquote
 
-    var is_Particles = ispace(int1d, 100000)
+    var is_Particles = ispace(int1d, config.Particles.maxNum)
     var [Particles] = region(is_Particles, Particles_columns);
 
     -- Partitioning domain
@@ -153,7 +156,8 @@ local function mkInstance() local INSTANCE = {}
 
   function INSTANCE.InitRegions(config) return rquote
 
-  for c in config.tiles do
+  for c in [tiles] do
+    C.printf("initialie particles for one tile\n");C.fflush(C.stdout);
     Particles_InitializeUniform(p_Particles[c])
   end
 
@@ -179,21 +183,26 @@ do
     1000)
 end
 
-local SIM = mkInstance()
+local SIM0 = mkInstance()
+local SIM1 = mkInstance()
 
 --__forbid(__optimize) __demand(__inner, __replicable)
 __forbid(__optimize) __demand(__inner)
 task workDual(mc : MultiConfig)
 
   C.printf("workDual calls DeclSymbols\n");C.fflush(C.stdout);
-  [SIM.DeclSymbols()];
+  [SIM0.DeclSymbols(rexpr mc.configs[0] end)];
+  [SIM1.DeclSymbols(rexpr mc.configs[1] end)];
+
   C.printf("workDual calls InitRegions\n");C.fflush(C.stdout);
-  [SIM.InitRegions()];
+  [SIM0.InitRegions(rexpr mc.configs[0] end)];
+  [SIM1.InitRegions(rexpr mc.configs[1] end)];
+  C.printf("workDual back from InitRegions\n");C.fflush(C.stdout);
   __fence(__execution, __block)
   C.printf("workDual calls initializeVisualization\n");C.fflush(C.stdout);
   var cameraFromAtUp : double[9]
   var colorScale  : double[2]
-  initializeVisualization(SIM.Particles, SIM.p_Particles);
+  initializeVisualization(SIM1.Particles, SIM1.p_Particles);
   __fence(__execution, __block)
       render.cxx_render(__runtime(), __context(),
         cameraFromAtUp,
