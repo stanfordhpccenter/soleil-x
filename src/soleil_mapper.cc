@@ -518,6 +518,14 @@ public:
       EQUALS(task.get_task_name(), "workDual");
   }
 
+  // Enable tracing.
+  virtual void memoize_operation(const MapperContext ctx,
+                                 const Mappable& mappable,
+                                 const MemoizeInput& input,
+                                 MemoizeOutput& output) {
+    output.memoize = true;
+  }
+
   virtual void default_policy_rank_processor_kinds(
                               MapperContext ctx,
                               const Task& task,

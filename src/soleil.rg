@@ -4994,6 +4994,11 @@ local function mkInstance() local INSTANCE = {}
 
   function INSTANCE.MainLoopBody(config, incoming, CopyQueue) return rquote
 
+    -- Enable tracing if this is a fluid-only iteration.
+    if not (incoming or config.Particles.maxNum > 0 and (Integrator_timeStep % config.Particles.staggerFactor == 0 or Integrator_timeStep == config.Integrator.startIter)) then
+      C.legion_runtime_begin_trace(__runtime(), __context(), config.Mapping.sampleId, false)
+    end
+
     -- Process incoming values from other section
     if incoming then
       if DEBUG_COPYING then
@@ -5422,6 +5427,11 @@ local function mkInstance() local INSTANCE = {}
       if DEBUG_COPYING then
         [INSTANCE.DumpHDF(config, 'postiter%010d', Integrator_timeStep)];
       end
+    end
+
+    -- Mark end of trace.
+    if not (incoming or config.Particles.maxNum > 0 and (Integrator_timeStep % config.Particles.staggerFactor == 0 or Integrator_timeStep == config.Integrator.startIter)) then
+      C.legion_runtime_end_trace(__runtime(), __context(), config.Mapping.sampleId)
     end
 
     Integrator_timeStep += 1
