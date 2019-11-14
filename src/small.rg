@@ -145,9 +145,11 @@ local function mkInstance() local INSTANCE = {}
 
   for c in tiles do
     Particles_InitializeUniform(p_Particles[c])
+  end
 
   end end -- InitRegions
-end end
+
+return INSTANCE end -- mkInstance
 
 
 __forbid(__inner)
