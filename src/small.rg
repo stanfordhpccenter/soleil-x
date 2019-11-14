@@ -6,6 +6,8 @@ import "regent"
 
 local C = regentlib.c
 local MAPPER = terralib.includec("soleil_mapper.h")
+local SCHEMA = terralib.includec("config_schema.h")
+local Config = SCHEMA.Config
 
 local struct Particles_columns {
   id : int64,
@@ -195,7 +197,16 @@ end
 
 __forbid(__optimize) __demand(__inner)
 task main()
+  var args = regentlib.c.legion_runtime_get_input_args()
+  for i = 1, args.argc do
+    if C.strcmp(args.argv[i], '-i') == 0 and i < args.argc-1 then
+      var config : Config
+      SCHEMA.parse_Config(&config, args.argv[i+1])
+      config.Mapping.sampleId = 0
       workSingle()
+    end
+  end
+  workSingle()
 end
 
 -------------------------------------------------------------------------------
