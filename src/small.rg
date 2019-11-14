@@ -111,6 +111,7 @@ local function mkInstance() local INSTANCE = {}
 
   local Particles = regentlib.newsymbol()
   local p_Particles = regentlib.newsymbol()
+  local tiles = regentlib.newsymbol()
 
   -----------------------------------------------------------------------------
   -- Exported symbols
@@ -118,6 +119,7 @@ local function mkInstance() local INSTANCE = {}
 
   INSTANCE.Particles = Particles
   INSTANCE.p_Particles = p_Particles
+  INSTANCE.tiles = tiles
 
   -----------------------------------------------------------------------------
   -- Symbol declaration & initialization
@@ -200,4 +202,4 @@ end
 -- COMPILATION CALL
 -------------------------------------------------------------------------------
 
-regentlib.saveobj(main, "soleil.o", "object", MAPPER.register_mappers)
+regentlib.saveobj(main, "small.o", "object", MAPPER.register_mappers)
