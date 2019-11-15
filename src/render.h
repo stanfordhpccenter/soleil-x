@@ -30,7 +30,9 @@ typedef struct {
                      legion_logical_partition_t partition_,
                      legion_field_id_t pFields[],
                      int numPFields,
-                     int numParticlesToDraw_
+                     int numParticlesToDraw_,
+                     int sampleId,
+                     int tag
                      );
 
   void cxx_render(legion_runtime_t runtime_, legion_context_t ctx_,

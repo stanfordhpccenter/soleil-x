@@ -403,6 +403,7 @@ private:
              EQUALS(task.get_task_name(), "Particles_InitializeUniform") ||
              EQUALS(task.get_task_name(), "initial_task") ||
              EQUALS(task.get_task_name(), "render_task") ||
+             EQUALS(task.get_task_name(), "composite_task") ||
              EQUALS(task.get_task_name(), "save_image_task") ||
              EQUALS(task.get_task_name(), "__dummy") ||
              STARTS_WITH(task.get_task_name(), "__unary_") ||
@@ -449,6 +450,7 @@ private:
              EQUALS(task.get_task_name(), "Particles_InitializeUniform") ||
              EQUALS(task.get_task_name(), "initial_task") ||
              EQUALS(task.get_task_name(), "render_task") ||
+             EQUALS(task.get_task_name(), "composite_task") ||
              EQUALS(task.get_task_name(), "save_image_task") ||
              EQUALS(task.get_task_name(), "IO_CreateDir") ||
              EQUALS(task.get_task_name(), "__dummy") ||
@@ -503,6 +505,7 @@ private:
              EQUALS(task.get_task_name(), "Particles_InitializeUniform") ||
              EQUALS(task.get_task_name(), "initial_task") ||
              EQUALS(task.get_task_name(), "render_task") ||
+             EQUALS(task.get_task_name(), "composite_task") ||
              EQUALS(task.get_task_name(), "save_image_task") ||
              EQUALS(task.get_task_name(), "IO_CreateDir") ||
              EQUALS(task.get_task_name(), "__dummy") ||

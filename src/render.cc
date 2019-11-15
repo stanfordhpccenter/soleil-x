@@ -236,7 +236,6 @@ __TRACE
     argsPtr += 2 * sizeof(double);
     legion_field_id_t* particlesFields = (legion_field_id_t*)argsPtr;
 
-__TRACE
     OSMesaContext mesaCtx;
     unsigned char* rgbaBuffer = nullptr;
     float* depthBuffer = nullptr;
@@ -273,7 +272,6 @@ __TRACE
     }
     glEnd();
 
-__TRACE
     // now copy the image data into the image logical region
 
     glReadPixels(0, 0, imageDescriptor->width, imageDescriptor->height,
@@ -441,7 +439,9 @@ static int compar(const void* p1, const void* p2) {
                      legion_logical_partition_t partition_,
                      legion_field_id_t pFields[],
                      int numPFields,
-                     int numParticlesToDraw_
+                     int numParticlesToDraw_,
+                     int sampleId,
+                     int tag
                      )
   {
 __TRACE
@@ -451,10 +451,8 @@ __TRACE
     LogicalPartition partition = CObjectWrapper::unwrap(partition_);
     Visualization::ImageDescriptor imageDescriptor = { gImageWidth, gImageHeight, 1 };
 
-__TRACE
     gImageCompositor = new Visualization::ImageReduction(region,
       partition, pFields, numPFields, imageDescriptor, ctx, runtime);
-__TRACE
 
     gNumParticlesToDraw = numParticlesToDraw_;
     gParticlesToDraw = new long int[gNumParticlesToDraw];
@@ -470,6 +468,11 @@ __TRACE
     for(int i = 0; i < numPFields; ++i) {
       gParticlesFields[i] = pFields[i];
     }
+
+    legion_logical_region_t source = CObjectWrapper::wrap(gImageCompositor->sourceImage());
+    legion_logical_region_attach_semantic_information(
+      runtime_, source, tag,
+      &sampleId, sizeof(int), false);
 __TRACE
   }
 
@@ -556,7 +559,6 @@ std::cout<<"waited for all render_task instances\n";
   void cxx_reduce(legion_context_t ctx_, double cameraFromAtUp[9]
 ) {
 __TRACE
-std::cout<<"early out\n";return;
     Context ctx = CObjectWrapper::unwrap(ctx_)->context();
     Camera camera;
     camera.from[0] = cameraFromAtUp[0];
@@ -589,7 +591,6 @@ __TRACE
                      const char* outDir
                      ) {
 __TRACE
-std::cout<<"early out\n";return;
     Runtime *runtime = CObjectWrapper::unwrap(runtime_);
     Context ctx = CObjectWrapper::unwrap(ctx_)->context();
 

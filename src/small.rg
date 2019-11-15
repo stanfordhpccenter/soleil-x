@@ -137,6 +137,11 @@ local function mkInstance() local INSTANCE = {}
 
     var is_Particles = ispace(int1d, config.Particles.maxNum)
     var [Particles] = region(is_Particles, Particles_columns);
+    var sampleId = config.Mapping.sampleId
+    var info : int = sampleId
+    regentlib.c.legion_logical_region_attach_semantic_information(
+      __runtime(), __raw(Particles), MAPPER.SAMPLE_ID_TAG, &info, [sizeof(int)], false)
+
 
     -- Partitioning domain
     var [NX] = config.Mapping.tiles[0]

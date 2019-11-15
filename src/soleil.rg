@@ -5506,7 +5506,9 @@ do
     __raw(p_Particles),
     __fields([Particles].{id, position, temperature, density}),
     4,
-    config.Visualization.numParticlesToDraw)
+    config.Visualization.numParticlesToDraw,
+    config.Mapping.sampleId,
+    MAPPER.SAMPLE_ID_TAG)
 end
 
 
