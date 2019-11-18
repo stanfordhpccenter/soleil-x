@@ -10,6 +10,7 @@
 extern "C" {
 #endif
 
+
 typedef struct {
   double from[3];
   double at[3];
@@ -21,7 +22,7 @@ typedef struct {
   FieldData x[3];
 } FieldData3;
 
-  void cxx_preinitialize();
+  void cxx_preinitialize(legion_mapper_id_t mapperID);
 
   void cxx_initialize(
                      legion_runtime_t runtime_,

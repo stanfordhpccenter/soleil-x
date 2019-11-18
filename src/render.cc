@@ -22,6 +22,7 @@
   static long int* gParticlesToDraw = nullptr;
   static legion_field_id_t* gParticlesFields;
   static int gNumParticlesFields;
+  static MapperID gImageReductionMapperID = 0;
 
   typedef double FieldData;
 
@@ -385,7 +386,7 @@ __TRACE
 
 
   // Called from mapper before runtime has started
-  void cxx_preinitialize() {
+  void cxx_preinitialize(MapperID mapperID) {
 __TRACE
 
     Visualization::ImageReduction::preinitializeBeforeRuntimeStarts();
@@ -452,7 +453,7 @@ __TRACE
     Visualization::ImageDescriptor imageDescriptor = { gImageWidth, gImageHeight, 1 };
 
     gImageCompositor = new Visualization::ImageReduction(region,
-      partition, pFields, numPFields, imageDescriptor, ctx, runtime);
+      partition, pFields, numPFields, imageDescriptor, ctx, runtime, gImageReductionMapperID);
 
     gNumParticlesToDraw = numParticlesToDraw_;
     gParticlesToDraw = new long int[gNumParticlesToDraw];
@@ -521,20 +522,20 @@ __TRACE
     argsPtr += gNumParticlesFields * sizeof(legion_field_id_t);
 
     IndexTaskLauncher renderLauncher(gRenderTaskID, compositor->renderImageDomain(), TaskArgument(args, argSize),
-                                     argMap, Predicate::TRUE_PRED, false);
+                                     argMap, Predicate::TRUE_PRED, false, gImageReductionMapperID);
 
 __TRACE
 std::cout<<"renderImageDomain "<<compositor->renderImageDomain()<<std::endl;
 
     RegionRequirement req0(imageDescriptor.simulationLogicalPartition, 0, READ_ONLY, EXCLUSIVE,
-      imageDescriptor.simulationLogicalRegion);
+      imageDescriptor.simulationLogicalRegion, gImageReductionMapperID);
     for(int i = 0; i < imageDescriptor.numPFields; ++i) {
       req0.add_field(imageDescriptor.pFields[i]);
     }
     renderLauncher.add_region_requirement(req0);
 
     RegionRequirement req1(compositor->renderImagePartition(), 0, WRITE_DISCARD, EXCLUSIVE,
-      compositor->sourceImage());
+      compositor->sourceImage(), gImageReductionMapperID);
     req1.add_field(Visualization::ImageReduction::FID_FIELD_R);
     req1.add_field(Visualization::ImageReduction::FID_FIELD_G);
     req1.add_field(Visualization::ImageReduction::FID_FIELD_B);
@@ -601,10 +602,12 @@ __TRACE
     char args[argLen];
     memcpy(args, &imageDescriptor, sizeof(imageDescriptor));
     strcpy(args + sizeof(imageDescriptor), outDir);
-    TaskLauncher saveImageLauncher(gSaveImageTaskID, TaskArgument(args, argLen), Predicate::TRUE_PRED);
+    TaskLauncher saveImageLauncher(gSaveImageTaskID, TaskArgument(args, argLen),
+      Predicate::TRUE_PRED, gImageReductionMapperID);
     DomainPoint slice0 = Legion::Point<3>::ZEROES();
     LogicalRegion imageSlice0 = runtime->get_logical_subregion_by_color(compositor->compositeImagePartition(), slice0);
-    RegionRequirement req(imageSlice0, READ_ONLY, EXCLUSIVE, compositor->sourceImage());
+    RegionRequirement req(imageSlice0, READ_ONLY, EXCLUSIVE, compositor->sourceImage(),
+      gImageReductionMapperID);
     saveImageLauncher.add_region_requirement(req);
     saveImageLauncher.add_field(0/*idx*/, Visualization::ImageReduction::FID_FIELD_R);
     saveImageLauncher.add_field(0/*idx*/, Visualization::ImageReduction::FID_FIELD_G);
