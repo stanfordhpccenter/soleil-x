@@ -1732,6 +1732,13 @@ do
   end
 end
 
+__demand(__leaf, __parallel) -- NO CUDA, NO OPENMP
+task Pre_ComputeVelocityGradient(Fluid : region(ispace(int3d), Fluid_columns))
+where
+  reads(Fluid.velocity)
+do
+end
+
 __demand(__leaf, __parallel, __cuda)
 task Flow_ComputeVelocityGradient(Fluid : region(ispace(int3d), Fluid_columns),
                                   config : Config,
@@ -2326,6 +2333,13 @@ do
   end
 end
 
+__demand(__leaf, __parallel) -- NO CUDA, NO OPENMP
+task Pre_GetFlux(Fluid : region(ispace(int3d), Fluid_columns))
+where
+  reads(Fluid.{rho,pressure,rhoVelocity,rhoEnergy,temperature,velocity,velocityGradientX,velocityGradientY,velocityGradientZ})
+do
+end
+
 __demand(__leaf, __parallel, __cuda)
 task Flow_GetFluxX(Fluid : region(ispace(int3d), Fluid_columns),
                    config : Config,
@@ -2630,6 +2644,15 @@ do
       Fluid[c].rhoEnergyFluxZ = rhoEnergyFluxZ - (usigma-heatFlux)
     end
   end
+end
+
+__demand(__leaf, __parallel) -- NO CUDA, NO OPENMP
+task Pre_UpdateUsingFlux(Fluid : region(ispace(int3d), Fluid_columns))
+where
+  reads(Fluid.{rhoFluxX,rhoVelocityFluxX,rhoEnergyFluxX,
+               rhoFluxY,rhoVelocityFluxY,rhoEnergyFluxY,
+               rhoFluxZ,rhoVelocityFluxZ,rhoEnergyFluxZ})
+do
 end
 
 __demand(__leaf, __parallel, __cuda)
@@ -5032,6 +5055,7 @@ local function mkInstance() local INSTANCE = {}
     for Integrator_stage = 1,config.Integrator.rkOrder+1 do
 
       -- Compute velocity gradients
+      Pre_ComputeVelocityGradient(Fluid)
       Flow_ComputeVelocityGradient(Fluid,
                                    config,
                                    Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,
@@ -5048,6 +5072,7 @@ local function mkInstance() local INSTANCE = {}
       end
 
       -- Compute fluxes
+      Pre_GetFlux(Fluid)
       Flow_GetFluxX(Fluid,
                     config,
                     config.Flow.constantVisc,
@@ -5242,6 +5267,7 @@ local function mkInstance() local INSTANCE = {}
       end
 
       -- Use fluxes to update conserved value derivatives
+      Pre_UpdateUsingFlux(Fluid)
       Flow_UpdateUsingFluxZ(Fluid,
                             config,
                             Grid.xBnum, Grid.xCellWidth, config.Grid.xNum,

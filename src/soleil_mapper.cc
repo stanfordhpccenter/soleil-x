@@ -115,6 +115,9 @@ public:
                                            / config.Mapping.tilesPerRank[1]),
                      static_cast<unsigned>(config.Mapping.tiles[2]
                                            / config.Mapping.tilesPerRank[2])},
+      points_per_tile_{static_cast<unsigned>(config.Grid.xNum / config.Mapping.tiles[0]),
+                       static_cast<unsigned>(config.Grid.yNum / config.Mapping.tiles[1]),
+                       static_cast<unsigned>(config.Grid.zNum / config.Mapping.tiles[2])},
       first_rank_(first_rank),
       tiling_3d_functor_(new Tiling3DFunctor(rt, *this)),
       tiling_2d_functors_{{new Tiling2DFunctor(rt, *this, 0, false),
@@ -123,6 +126,9 @@ public:
                            new Tiling2DFunctor(rt, *this, 1, true )},
                           {new Tiling2DFunctor(rt, *this, 2, false),
                            new Tiling2DFunctor(rt, *this, 2, true )}} {
+    assert(config.Grid.xNum % config.Mapping.tiles[0] == 0 &&
+           config.Grid.yNum % config.Mapping.tiles[1] == 0 &&
+           config.Grid.zNum % config.Mapping.tiles[2] == 0);
     for (unsigned x = 0; x < x_tiles(); ++x) {
       for (unsigned y = 0; y < y_tiles(); ++y) {
         for (unsigned z = 0; z < z_tiles(); ++z) {
@@ -153,6 +159,12 @@ public:
   }
   unsigned num_tiles() const {
     return x_tiles() * y_tiles() * z_tiles();
+  }
+  DomainPoint tile_for_point(const DomainPoint& point) {
+    assert(point.get_dim() == 3);
+    return Point<3>(point[0] / points_per_tile_[0],
+                    point[1] / points_per_tile_[1],
+                    point[2] / points_per_tile_[2]);
   }
   Tiling3DFunctor* tiling_3d_functor() {
     return tiling_3d_functor_;
@@ -267,6 +279,7 @@ public:
 private:
   unsigned tiles_per_rank_[3];
   unsigned ranks_per_dim_[3];
+  unsigned points_per_tile_[3];
   AddressSpace first_rank_;
   Tiling3DFunctor* tiling_3d_functor_;
   Tiling2DFunctor* tiling_2d_functors_[3][2];
@@ -532,7 +545,8 @@ public:
                               std::vector<Processor::Kind>& ranking) {
     // Work tasks: map to IO processors, so they don't get blocked by tiny
     // CPU tasks.
-    if (EQUALS(task.get_task_name(), "workSingle") ||
+    if (EQUALS(task.get_task_name(), "main") ||
+        EQUALS(task.get_task_name(), "workSingle") ||
         EQUALS(task.get_task_name(), "workDual")) {
       ranking.push_back(Processor::IO_PROC);
     }
@@ -654,7 +668,8 @@ public:
     if (STARTS_WITH(task.get_task_name(), "Flow_ComputeVelocityGradient") ||
         STARTS_WITH(task.get_task_name(), "Flow_UpdateGhostVelocityGradient") ||
         STARTS_WITH(task.get_task_name(), "Flow_GetFlux") ||
-        STARTS_WITH(task.get_task_name(), "Flow_UpdateUsingFlux")) {
+        STARTS_WITH(task.get_task_name(), "Flow_UpdateUsingFlux") ||
+        STARTS_WITH(task.get_task_name(), "Pre_")) {
       priority = 1;
     }
     return priority;
@@ -777,6 +792,130 @@ public:
              output.dst_instances[0][0],
              true/*acquire*/, false/*tight_region_bounds*/),
           "Could not locate destination instance for explicit copy");
+  }
+
+  virtual void map_task(const MapperContext ctx,
+                        const Task& task,
+                        const MapTaskInput& input,
+                        MapTaskOutput& output) {
+    assert(input.premapped_regions.empty());
+    if (EQUALS(task.get_task_name(), "main") ||
+        EQUALS(task.get_task_name(), "workSingle") ||
+        EQUALS(task.get_task_name(), "workDual")) {
+      assert(task.regions.empty());
+      std::vector<VariantID> valid_variants;
+      runtime->find_valid_variants(ctx, task.task_id, valid_variants, task.target_proc.kind());
+      assert(valid_variants.size() == 1);
+      output.chosen_variant = valid_variants[0];
+      output.target_procs.push_back(task.target_proc);
+      return;
+    }
+    std::vector<VariantID> valid_variants;
+    Processor::Kind proc_kind = Processor::TOC_PROC;
+    runtime->find_valid_variants(ctx, task.task_id, valid_variants, proc_kind);
+    if (valid_variants.empty()) {
+      proc_kind = Processor::LOC_PROC;
+      runtime->find_valid_variants(ctx, task.task_id, valid_variants, proc_kind);
+    }
+    assert(valid_variants.size() == 1);
+    output.chosen_variant = valid_variants[0];
+    output.task_priority = default_policy_select_task_priority(ctx, task);
+    assert(task.target_proc.address_space() == node_id);
+    assert(task.target_proc.kind() == proc_kind);
+    output.target_procs.push_back(task.target_proc);
+    SampleMapping& mapping = sample_mappings_[find_sample_id(ctx, task)];
+    SplinteringFunctor* functor = mapping.tiling_3d_functor();
+    for (unsigned i = 0; i < task.regions.size(); ++i) {
+      RegionRequirement req = task.regions[i];
+      assert(req.region.exists());
+      assert(req.region.get_index_space().get_dim() == 3);
+      LayoutConstraintSet constr;
+      constr.add_constraint(FieldConstraint(req.privilege_fields, false /*contiguous*/, false /*inorder*/));
+      std::vector<DimensionKind> ordering = {DIM_X, DIM_Y, DIM_Z, DIM_F};
+      constr.add_constraint(OrderingConstraint(ordering, true /*contiguous*/));
+      PhysicalInstance inst;
+      bool inst_created;
+      Domain src_is = runtime->get_index_space_domain(ctx, req.region.get_index_space());
+      DomainPoint src_tile = mapping.tile_for_point(src_is.lo());
+      AddressSpace src_rank = functor->get_rank(src_tile);
+      Processor src_proc = select_proc(src_tile, proc_kind, functor);
+      if (proc_kind == Processor::TOC_PROC && (src_proc == task.target_proc || src_rank != node_id)) {
+        // Local tile or ghost cells from remote neighbor: make an instance on local FB
+        Machine::MemoryQuery query(machine);
+        query.only_kind(Memory::GPU_FB_MEM);
+        query.same_address_space_as(task.target_proc);
+        query.best_affinity_to(task.target_proc);
+        assert(query.count() == 1);
+        Memory target_mem = query.first();
+        bool inst_ok =
+          runtime->find_or_create_physical_instance(ctx, target_mem, constr,
+                                                    std::vector<LogicalRegion>{req.region},
+                                                    inst, inst_created, true /*acquire*/);
+        assert(inst_ok);
+      } else if (proc_kind == Processor::TOC_PROC && src_rank == node_id) {
+        // Ghost cells from intra-node neighbor: read from FB instance directly
+        Machine::MemoryQuery query(machine);
+        query.only_kind(Memory::GPU_FB_MEM);
+        query.same_address_space_as(src_proc);
+        query.best_affinity_to(src_proc);
+        assert(query.count() == 1);
+        Memory src_mem = query.first();
+        bool inst_ok =
+          runtime->find_physical_instance(ctx, src_mem, constr,
+                                          std::vector<LogicalRegion>{req.region},
+                                          inst);
+        assert(inst_ok);
+      } else if (proc_kind == Processor::LOC_PROC && src_rank == node_id) {
+        // Fake task pulling local tile into RAM
+        Machine::MemoryQuery query(machine);
+        query.only_kind(Memory::SYSTEM_MEM);
+        query.same_address_space_as(task.target_proc);
+        assert(query.count() == 1);
+        Memory target_mem = query.first();
+        assert(target_mem.exists());
+        bool inst_ok =
+          runtime->find_or_create_physical_instance(ctx, target_mem, constr,
+                                                    std::vector<LogicalRegion>{req.region},
+                                                    inst, inst_created, true /*acquire*/);
+        assert(inst_ok);
+      } else {
+        assert(false);
+      }
+      output.chosen_instances[i].push_back(inst);
+    }
+  }
+
+  void select_task_sources(const MapperContext ctx,
+                           const Task& task,
+                           const SelectTaskSrcInput& input,
+                           SelectTaskSrcOutput& output) {
+    Processor::Kind proc_kind = task.target_proc.kind();
+    assert(task.target_proc.address_space() == node_id);
+    SampleMapping& mapping = sample_mappings_[find_sample_id(ctx, task)];
+    SplinteringFunctor* functor = mapping.tiling_3d_functor();
+    RegionRequirement req = task.regions[input.region_req_index];
+    assert(req.region.exists());
+    assert(req.region.get_index_space().get_dim() == 3);
+    Domain src_is = runtime->get_index_space_domain(ctx, req.region.get_index_space());
+    DomainPoint src_tile = mapping.tile_for_point(src_is.lo());
+    AddressSpace src_rank = functor->get_rank(src_tile);
+    assert(// Pulling ghost cells from remote neighbor
+           (proc_kind == Processor::TOC_PROC && src_rank != node_id) ||
+           // Fake task pulling local tile into RAM
+           (proc_kind == Processor::LOC_PROC && src_rank == node_id));
+    Processor src_proc = select_proc(src_tile, Processor::TOC_PROC, functor);
+    Machine::MemoryQuery query(machine);
+    query.only_kind(Memory::GPU_FB_MEM);
+    query.same_address_space_as(src_proc);
+    query.best_affinity_to(src_proc);
+    assert(query.count() == 1);
+    Memory src_mem = query.first();
+    for (PhysicalInstance inst : input.source_instances) {
+      if (inst.get_location() == src_mem) {
+        output.chosen_ranking.push_back(inst);
+      }
+    }
+    assert(output.chosen_ranking.size() == 1);
   }
 
 //=============================================================================
