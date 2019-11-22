@@ -92,7 +92,7 @@ COMMAND="$EXECUTABLE $ARGS \
   -logfile $OUT_DIR/%.log $DEBUG_OPTS $PROFILER_OPTS \
   -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr $THREADS_PER_RANK \
   $GPU_OPTS \
-  -ll:util 4 -ll:ahandlers 4 -ll:io 1 -ll:dma 2 \
+  -ll:util 4 -ll:ahandlers 4 -ll:io 1 -ll:dma 8 \
   -ll:csize $RAM_PER_RANK \
   $GASNET_OPTS \
   -ll:stacksize 8 -ll:ostack 8 -lg:sched -1 -lg:hysteresis 0"
