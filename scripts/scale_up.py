@@ -3,11 +3,21 @@
 import argparse
 import json
 
+# Parse arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('base_json', type=argparse.FileType('r'))
 parser.add_argument('-n', '--num_times', type=int, default=8)
 parser.add_argument('-s', '--strong_scale', action='store_true')
+parser.add_argument('-o', '--order', choices=['xyz','xzy','yxz','yzx','zxy','zyx'], default='zyx')
 args = parser.parse_args()
+args.mod_x, args.mod_y, args.mod_z = (
+  (0,1,2) if args.order == 'xyz' else
+  (0,2,1) if args.order == 'xzy' else
+  (1,0,2) if args.order == 'yxz' else
+  (2,0,1) if args.order == 'yzx' else
+  (1,2,0) if args.order == 'zxy' else
+  (2,1,0) #  args.order == 'zyx'
+)
 
 # Read base config
 config = json.load(args.base_json)
@@ -43,24 +53,24 @@ with open('1.json', 'w') as fout:
 
 # Scale up
 for i in range(0,args.num_times):
-    if i % 3 == 0:
+    if i % 3 == args.mod_z:
         config['Mapping']['tiles'][2] *= 2
-    elif i % 3 == 1:
+    elif i % 3 == args.mod_y:
         config['Mapping']['tiles'][1] *= 2
-    else: # i % 3 == 2
+    else: # i % 3 == args.mod_x
         config['Mapping']['tiles'][0] *= 2
     if not args.strong_scale:
-        if i % 3 == 0:
+        if i % 3 == args.mod_z:
             config['Grid']['zNum'] *= 2
             config['Grid']['zWidth'] *= 2
             if config['Radiation']['type'] == 'DOM':
                 config['Radiation']['zNum'] *= 2
-        elif i % 3 == 1:
+        elif i % 3 == args.mod_y:
             config['Grid']['yNum'] *= 2
             config['Grid']['yWidth'] *= 2
             if config['Radiation']['type'] == 'DOM':
                 config['Radiation']['yNum'] *= 2
-        else: # i % 3 == 2
+        else: # i % 3 == args.mod_x
             config['Grid']['xNum'] *= 2
             config['Grid']['xWidth'] *= 2
             if config['Radiation']['type'] == 'DOM':
