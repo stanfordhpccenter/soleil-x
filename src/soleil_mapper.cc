@@ -798,6 +798,10 @@ public:
                         const Task& task,
                         const MapTaskInput& input,
                         MapTaskOutput& output) {
+    if (EQUALS(task.get_task_name(), "cache_grid_translation")) {
+      DefaultMapper::map_task(ctx, task, input, output);
+      return;
+    }
     assert(input.premapped_regions.empty());
     if (EQUALS(task.get_task_name(), "main") ||
         EQUALS(task.get_task_name(), "workSingle") ||
@@ -885,12 +889,23 @@ public:
     }
   }
 
-  void select_task_sources(const MapperContext ctx,
-                           const Task& task,
-                           const SelectTaskSrcInput& input,
-                           SelectTaskSrcOutput& output) {
-    Processor::Kind proc_kind = task.target_proc.kind();
-    assert(task.target_proc.address_space() == node_id);
+  virtual void select_task_sources(const MapperContext ctx,
+                                   const Task& task,
+                                   const SelectTaskSrcInput& input,
+                                   SelectTaskSrcOutput& output) {
+    if (EQUALS(task.get_task_name(), "cache_grid_translation")) {
+      DefaultMapper::select_task_sources(ctx, task, input, output);
+      return;
+    }
+    // task.target_proc is invalid here
+    // Processor::Kind proc_kind = task.target_proc.kind();
+    // assert(task.target_proc.address_space() == node_id);
+    Processor::Kind proc_kind = Processor::TOC_PROC;
+    std::vector<VariantID> valid_variants;
+    runtime->find_valid_variants(ctx, task.task_id, valid_variants, proc_kind);
+    if (valid_variants.empty()) {
+      proc_kind = Processor::LOC_PROC;
+    }
     SampleMapping& mapping = sample_mappings_[find_sample_id(ctx, task)];
     SplinteringFunctor* functor = mapping.tiling_3d_functor();
     RegionRequirement req = task.regions[input.region_req_index];
