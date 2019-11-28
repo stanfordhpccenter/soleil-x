@@ -5466,11 +5466,29 @@ task workSingle(config : Config)
     [SIM.InitRegions(config)];
     while true do
       [SIM.MainLoopHeader(config)];
+      -- Enable tracing if this iteration ...
+      var trace = not (
+        -- is not the final one
+        SIM.Integrator_exitCond or
+        -- does not dump HDF files
+        config.IO.wrtRestart and SIM.Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 or
+        -- is fluid-only
+        config.Particles.maxNum > 0 and (SIM.Integrator_timeStep % config.Particles.staggerFactor == 0 or SIM.Integrator_timeStep == config.Integrator.startIter)
+      )
+      -- Beginning of trace
+      if trace then
+        C.legion_runtime_begin_trace(__runtime(), __context(), config.Mapping.sampleId, false)
+      end
+      -- Main loop body
       [SIM.PerformIO(config)];
       if SIM.Integrator_exitCond then
         break
       end
       [SIM.MainLoopBody(config, rexpr false end, FakeCopyQueue)];
+      -- End of trace
+      if trace then
+        C.legion_runtime_end_trace(__runtime(), __context(), config.Mapping.sampleId)
+      end
     end
   end)];
   [SIM.Cleanup(config)];
