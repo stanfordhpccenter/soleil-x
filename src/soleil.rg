@@ -5481,17 +5481,15 @@ end
 __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Flow_copyValues(FluidTgt : region(ispace(int3d), Fluid_columns),
                      FluidSrc : region(ispace(int3d), Fluid_columns),
-                     copyTgt : SCHEMA.Volume,
                      srcOrigin : int3d,
                      tgtOrigin : int3d)
 where
   reads(FluidSrc.{temperature,velocity}),
   writes(FluidTgt.{temperature_inc,velocity_inc})
 do
-  var tgtRect = intersection(FluidTgt.bounds, copyTgt)
   __demand(__openmp)
-  for cTgt in tgtRect do
-    var cSrc = cTgt - tgtOrigin + srcOrigin
+  for cSrc in FluidSrc do
+    var cTgt = cSrc - srcOrigin + tgtOrigin
     FluidTgt[cTgt].temperature_inc = FluidSrc[cSrc].temperature
     FluidTgt[cTgt].velocity_inc = FluidSrc[cSrc].velocity
   end
@@ -5608,7 +5606,6 @@ task workDual(mc : MultiConfig)
       for c in SIM1.tiles do
         Flow_copyValues(SIM1.p_Fluid[c],
                         p_Fluid0_src[c],
-                        mc.copyTgt,
                         srcOrigin,
                         tgtOrigin)
       end
