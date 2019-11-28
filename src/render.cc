@@ -246,23 +246,43 @@ __TRACE
 
     // TODO sort particles by transformed Z
 
+__TRACE
+std::cout<<"particlesField[0] = "<<particlesFields[0]<<std::endl;
+
     AccessorRO<long int, 1> particlesID(particles, particlesFields[0]);
     AccessorRO<FieldData3, 1> particlesPosition(particles, particlesFields[1]);
     AccessorRO<FieldData, 1> particlesTemperature(particles, particlesFields[2]);
     AccessorRO<FieldData, 1> particlesDensity(particles, particlesFields[3]);
+    AccessorRO<bool, 1> particlesValid(particles, particlesFields[4]);
 
 
     Domain particlesDomain = runtime->get_index_space_domain(
       particles.get_logical_region().get_index_space());
     int numParticles = particlesDomain.get_volume();
+__TRACE
+std::cout<<"numParticles"<<numParticles<<std::endl;
     glBegin(GL_POINTS);
     for(int i = 0; i < numParticles; ++i) {
-      if(drawThis(particlesID[i], gNumParticlesToDraw, gParticlesToDraw)) {
+      if(particlesValid[i] &&
+        drawThis(particlesID[i], gNumParticlesToDraw, gParticlesToDraw)) {
+#if 1
+__TRACE
+if(i<100) {
+std::cout<<"id "<<particlesID[i]<<" position "<<particlesPosition[i].x[0]<<" "<< particlesPosition[i].x[1]<<" "<< particlesPosition[i].x[2]<<" temp "<<particlesTemperature[i]<<" density "<<particlesDensity[i]<<std::endl;
+}
+#endif
         if(particlesDensity[i] > 0) {
 
           GLfloat t = particlesTemperature[i];
           GLfloat color[4];
           scaledTemperatureToColor(t, color, colorScale);
+
+#if 0
+__TRACE
+std::cout<<"color "<<color[0]<<" "<<color[1]<<" "<<color[2]<<" "<<color[3]<<std::endl;
+color[0] = color[1] = color[2] = 1.0; color[3] = 0.5;
+#endif
+
           glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, color);
           glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, color);
           glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, color);
@@ -388,6 +408,8 @@ __TRACE
   // Called from mapper before runtime has started
   void cxx_preinitialize(MapperID mapperID) {
 __TRACE
+std::cout<<"mapperID " <<mapperID<<std::endl;
+    gImageReductionMapperID = mapperID;
 
     Visualization::ImageReduction::preinitializeBeforeRuntimeStarts();
     // allocate physical regions contiguously in memory
@@ -468,12 +490,12 @@ __TRACE
     gParticlesFields = new legion_field_id_t[numPFields];
     for(int i = 0; i < numPFields; ++i) {
       gParticlesFields[i] = pFields[i];
+#if 1
+std::cout << "gPArticlesFields["<<i<<"] = "<< pFields[i] << std::endl;
+#endif
     }
+__TRACE
 
-    legion_logical_region_t source = CObjectWrapper::wrap(gImageCompositor->sourceImage());
-    legion_logical_region_attach_semantic_information(
-      runtime_, source, tag,
-      &sampleId, sizeof(int), false);
 __TRACE
   }
 

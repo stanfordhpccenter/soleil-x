@@ -5499,13 +5499,18 @@ task initializeVisualization(
         p_Particles : partition(disjoint, Particles, ispace(int3d))
 )
 where
-  reads(Particles.{id, position, temperature, density})
+  reads(Particles.{id, position, temperature, density, __valid})
 do
+for i = 0, 100 do
+C.printf("particle id %ld position %g %g %g temp %g density %g\n", 
+   Particles[i].id, Particles[i].position[0], Particles[i].position[1], Particles[i].position[2], Particles[i].temperature, Particles[i].density);
+C.fflush(C.stdout);
+end
   render.cxx_initialize(__runtime(), __context(),
     __raw(Particles),
     __raw(p_Particles),
-    __fields([Particles].{id, position, temperature, density}),
-    4,
+    __fields([Particles].{id, position, temperature, density, __valid}),
+    5,
     config.Visualization.numParticlesToDraw,
     config.Mapping.sampleId,
     MAPPER.SAMPLE_ID_TAG)

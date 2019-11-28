@@ -399,12 +399,6 @@ private:
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
              EQUALS(task.get_task_name(), "IO_CreateDir") ||
              EQUALS(task.get_task_name(), "initializeVisualization") ||
-             EQUALS(task.get_task_name(), "partitionByTile") ||
-             EQUALS(task.get_task_name(), "Particles_InitializeUniform") ||
-             EQUALS(task.get_task_name(), "initial_task") ||
-             EQUALS(task.get_task_name(), "render_task") ||
-             EQUALS(task.get_task_name(), "composite_task") ||
-             EQUALS(task.get_task_name(), "save_image_task") ||
              EQUALS(task.get_task_name(), "__dummy") ||
              STARTS_WITH(task.get_task_name(), "__unary_") ||
              STARTS_WITH(task.get_task_name(), "__binary_")) {
@@ -446,12 +440,6 @@ private:
              STARTS_WITH(task.get_task_name(), "Console_Write") ||
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
              EQUALS(task.get_task_name(), "initializeVisualization") ||
-             EQUALS(task.get_task_name(), "partitionByTile") ||
-             EQUALS(task.get_task_name(), "Particles_InitializeUniform") ||
-             EQUALS(task.get_task_name(), "initial_task") ||
-             EQUALS(task.get_task_name(), "render_task") ||
-             EQUALS(task.get_task_name(), "composite_task") ||
-             EQUALS(task.get_task_name(), "save_image_task") ||
              EQUALS(task.get_task_name(), "IO_CreateDir") ||
              EQUALS(task.get_task_name(), "__dummy") ||
              STARTS_WITH(task.get_task_name(), "__unary_") ||
@@ -501,12 +489,6 @@ private:
              STARTS_WITH(task.get_task_name(), "Console_Write") ||
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
              EQUALS(task.get_task_name(), "initializeVisualization") ||
-             EQUALS(task.get_task_name(), "partitionByTile") ||
-             EQUALS(task.get_task_name(), "Particles_InitializeUniform") ||
-             EQUALS(task.get_task_name(), "initial_task") ||
-             EQUALS(task.get_task_name(), "render_task") ||
-             EQUALS(task.get_task_name(), "composite_task") ||
-             EQUALS(task.get_task_name(), "save_image_task") ||
              EQUALS(task.get_task_name(), "IO_CreateDir") ||
              EQUALS(task.get_task_name(), "__dummy") ||
              STARTS_WITH(task.get_task_name(), "__unary_") ||
