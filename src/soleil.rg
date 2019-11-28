@@ -5552,6 +5552,25 @@ task workSingle(config : Config)
   [SIM.Cleanup(config)];
 end
 
+-- NOTE: It is important that the target is placed first in the arguments list,
+-- to make sure the mapper will map this task on the target node.
+__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
+task Flow_copyValues(FluidTgt : region(ispace(int3d), Fluid_columns),
+                     FluidSrc : region(ispace(int3d), Fluid_columns),
+                     srcOrigin : int3d,
+                     tgtOrigin : int3d)
+where
+  reads(FluidSrc.{temperature,velocity}),
+  writes(FluidTgt.{temperature_inc,velocity_inc})
+do
+  __demand(__openmp)
+  for cSrc in FluidSrc do
+    var cTgt = cSrc - srcOrigin + tgtOrigin
+    FluidTgt[cTgt].temperature_inc = FluidSrc[cSrc].temperature
+    FluidTgt[cTgt].velocity_inc = FluidSrc[cSrc].velocity
+  end
+end
+
 local SIM0 = mkInstance()
 local SIM1 = mkInstance()
 
@@ -5639,13 +5658,6 @@ task workDual(mc : MultiConfig)
   end
   var p_Fluid0_src = partition(disjoint, SIM0.Fluid, srcColoring, SIM1.tiles)
   C.legion_domain_point_coloring_destroy(srcColoring)
-  var tgtColoring = C.legion_domain_point_coloring_create()
-  C.legion_domain_point_coloring_color_domain(tgtColoring, int1d(0),
-    rect3d{lo = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]},
-           hi = int3d{mc.copyTgt.uptoCell[0], mc.copyTgt.uptoCell[1], mc.copyTgt.uptoCell[2]}})
-  var p_Fluid1_isCopied = partition(disjoint, SIM1.Fluid, tgtColoring, ispace(int1d,1))
-  C.legion_domain_point_coloring_destroy(tgtColoring)
-  var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
   -- Main simulation loop
   __fence(__execution, __block)
 C.printf("calling initializeVisualization\n");C.fflush(C.stdout);
@@ -5675,10 +5687,10 @@ C.printf("done with initializeVisualization\n");C.fflush(C.stdout);
         [SIM0.DumpHDF(rexpr mc.configs[0] end, 'copysrc%010d', Integrator_timeStep)];
       end
       for c in SIM1.tiles do
-        var src = p_Fluid0_src[c]
-        var tgt = p_Fluid1_tgt[c][0]
-        copy(src.temperature, tgt.temperature_inc)
-        copy(src.velocity, tgt.velocity_inc)
+        Flow_copyValues(SIM1.p_Fluid[c],
+                        p_Fluid0_src[c],
+                        srcOrigin,
+                        tgtOrigin)
       end
       fill(CopyQueue.__valid, false)
       fill(CopyQueue.position, array(-1.0, -1.0, -1.0))
