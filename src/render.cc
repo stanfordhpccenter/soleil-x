@@ -266,8 +266,8 @@ std::cout<<"numParticles"<<numParticles<<std::endl;
       if(particlesValid[i] &&
         drawThis(particlesID[i], gNumParticlesToDraw, gParticlesToDraw)) {
 #if 1
+if(particlesValid[i]) {
 __TRACE
-if(i<100) {
 std::cout<<"id "<<particlesID[i]<<" position "<<particlesPosition[i].x[0]<<" "<< particlesPosition[i].x[1]<<" "<< particlesPosition[i].x[2]<<" temp "<<particlesTemperature[i]<<" density "<<particlesDensity[i]<<std::endl;
 }
 #endif
