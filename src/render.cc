@@ -246,9 +246,6 @@ __TRACE
 
     // TODO sort particles by transformed Z
 
-__TRACE
-std::cout<<"particlesField[0] = "<<particlesFields[0]<<std::endl;
-
     AccessorRO<long int, 1> particlesID(particles, particlesFields[0]);
     AccessorRO<FieldData3, 1> particlesPosition(particles, particlesFields[1]);
     AccessorRO<FieldData, 1> particlesTemperature(particles, particlesFields[2]);
@@ -259,17 +256,32 @@ std::cout<<"particlesField[0] = "<<particlesFields[0]<<std::endl;
     Domain particlesDomain = runtime->get_index_space_domain(
       particles.get_logical_region().get_index_space());
     int numParticles = particlesDomain.get_volume();
+
+#if 1
 __TRACE
 std::cout<<"numParticles"<<numParticles<<std::endl;
+long int numValid = 0;
+double min[3] = { 999, 999, 999 };
+double max[3] = { 0 };
+#endif
+
     glBegin(GL_POINTS);
     for(int i = 0; i < numParticles; ++i) {
-      if(particlesValid[i] &&
-        drawThis(particlesID[i], gNumParticlesToDraw, gParticlesToDraw)) {
+
 #if 1
 if(particlesValid[i]) {
+numValid++;
+for(int j = 0; j < 3; ++j) {
+if(min[j] > particlesPosition[i].x[j]) min[j] = particlesPosition[i].x[j];
+if(max[j] < particlesPosition[i].x[j]) max[j] = particlesPosition[i].x[j];
+}
+}
+#endif
+      if(particlesValid[i] &&
+        drawThis(particlesID[i], gNumParticlesToDraw, gParticlesToDraw)) {
+#if 0
 __TRACE
 std::cout<<"id "<<particlesID[i]<<" position "<<particlesPosition[i].x[0]<<" "<< particlesPosition[i].x[1]<<" "<< particlesPosition[i].x[2]<<" temp "<<particlesTemperature[i]<<" density "<<particlesDensity[i]<<std::endl;
-}
 #endif
         if(particlesDensity[i] > 0) {
 
@@ -292,6 +304,12 @@ color[0] = color[1] = color[2] = 1.0; color[3] = 0.5;
       }
     }
     glEnd();
+
+#if 1
+std::cout << "num valid particles in render_task " << numValid << std::endl;
+std::cout << "min " << min[0] << " " << min[1] << " " << min[2] << std::endl;
+std::cout << "max " << max[0] << " " << max[1] << " " << max[2] << std::endl;
+#endif
 
     // now copy the image data into the image logical region
 
@@ -477,11 +495,17 @@ __TRACE
     gImageCompositor = new Visualization::ImageReduction(region,
       partition, pFields, numPFields, imageDescriptor, ctx, runtime, gImageReductionMapperID);
 
+#if 1
+std::cout<<"renderImageDomain volume "<<gImageCompositor->renderImageDomain().get_volume()<<std::endl;
+std::cout<<"numParticlesToDraw_ "<<numParticlesToDraw_<<std::endl;
+#endif
+
     gNumParticlesToDraw = numParticlesToDraw_;
     gParticlesToDraw = new long int[gNumParticlesToDraw];
-    srand(0);
-    for(int i = 0; i > gNumParticlesToDraw; ++i) {
-      int id = (int)((float)rand() / RAND_MAX);
+    srandom(0);
+    for(int i = 0; i < gNumParticlesToDraw; ++i) {
+      long double r = (long double)random();
+      long int id = gNumParticlesToDraw * r / RAND_MAX;
       gParticlesToDraw[i] = id;
     }
     qsort(gParticlesToDraw, gNumParticlesToDraw, sizeof(gParticlesToDraw[0]), compar);
@@ -491,11 +515,9 @@ __TRACE
     for(int i = 0; i < numPFields; ++i) {
       gParticlesFields[i] = pFields[i];
 #if 1
-std::cout << "gPArticlesFields["<<i<<"] = "<< pFields[i] << std::endl;
+std::cout << "gParticlesFields["<<i<<"] = "<< pFields[i] << std::endl;
 #endif
     }
-__TRACE
-
 __TRACE
   }
 

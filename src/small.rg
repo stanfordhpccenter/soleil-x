@@ -89,6 +89,7 @@ end
 
 task Particles_InitializeUniform(Particles : region(ispace(int1d), Particles_columns))
 where
+reads(Particles.{__valid, id, cell, position, velocity, density, temperature, diameter}),
 writes(Particles.{__valid, id, cell, position, velocity, density, temperature, diameter})
 do
   var id = 0
@@ -97,7 +98,9 @@ do
     Particles[p].id = id
     Particles[p].cell = {0,0,0}
     var zero3 : double[3]
-    Particles[p].position = zero3
+    Particles[p].position[0] = 0.1
+    Particles[p].position[1] = 0.2
+    Particles[p].position[2] = 0.3
     Particles[p].velocity = zero3
     Particles[p].density = 0.0
     Particles[p].temperature = 0.0
@@ -135,18 +138,25 @@ local function mkInstance() local INSTANCE = {}
 
   function INSTANCE.DeclSymbols(config) return rquote
 
-    var is_Particles = ispace(int1d, config.Particles.maxNum)
+    -- Partitioning domain
+    var [NX] = config.Mapping.tiles[0]
+    var [NY] = config.Mapping.tiles[1]
+    var [NZ] = config.Mapping.tiles[2]
+    var numTiles = NX * NY * NZ
+
+    var maxParticlesPerTile = config.Particles.maxNum / config.Particles.parcelSize / numTiles
+    if numTiles > 1 then
+      maxParticlesPerTile =
+        int64(C.ceil(maxParticlesPerTile * config.Particles.maxSkew))
+    end
+    var is_Particles = ispace(int1d, maxParticlesPerTile * numTiles)
     var [Particles] = region(is_Particles, Particles_columns);
+
     var sampleId = config.Mapping.sampleId
     var info : int = sampleId
     regentlib.c.legion_logical_region_attach_semantic_information(
       __runtime(), __raw(Particles), MAPPER.SAMPLE_ID_TAG, &info, [sizeof(int)], false)
 
-
-    -- Partitioning domain
-    var [NX] = config.Mapping.tiles[0]
-    var [NY] = config.Mapping.tiles[1]
-    var [NZ] = config.Mapping.tiles[2]
     var [tiles] = ispace(int3d, {NX,NY,NZ})
 
     -- Particles Partitioning
@@ -173,20 +183,51 @@ return INSTANCE end -- mkInstance
 
 __forbid(__inner)
 task initializeVisualization(
+        config : Config,
         Particles : region(ispace(int1d), Particles_columns),
         p_Particles : partition(disjoint, Particles, ispace(int3d))
 )
 where
-  reads(Particles.{id, position, temperature, density})
+  reads(Particles.{id, position, temperature, density, __valid})
 do
-  C.printf("initialiseVisualization\n");C.fflush(C.stdout);
+  C.printf("initializeVisualization\n");C.fflush(C.stdout);
+  for p in Particles do
+    if p.__valid then
+      C.printf("particle id %ld position %g %g %g temperature %g density %g valid %d\n", 
+        p.id, p.position[0], p.position[1], p.position[2], p.temperature, p.density, p.__valid);C.fflush(C.stdout);
+    end
+  end
+
   render.cxx_initialize(__runtime(), __context(),
     __raw(Particles),
     __raw(p_Particles),
-    __fields([Particles].{id, position, temperature, density}),
-    4,
-    1000)
+    __fields([Particles].{id, position, temperature, density, __valid}),
+    5,
+    1000,
+    config.Mapping.sampleId,
+    MAPPER.SAMPLE_ID_TAG)
+
 end
+
+local SIM = mkInstance()
+
+--__forbid(__optimize) __demand(__inner, __replicable)
+__forbid(__optimize) __demand(__inner)
+task workSingle(config : Config)
+  [SIM.DeclSymbols(config)];
+  [SIM.InitRegions(rexpr config end)];
+  initializeVisualization(config, SIM.Particles, SIM.p_Particles);
+  __fence(__execution, __block)
+    -- Visualization
+      render.cxx_render(__runtime(), __context(),
+        config.Visualization.cameraFromAtUp,
+        config.Visualization.colorScale)
+      __fence(__execution, __block)
+      render.cxx_reduce(__context(), config.Visualization.cameraFromAtUp)
+      __fence(__execution, __block)
+      render.cxx_saveImage(__runtime(), __context(), ".")
+end
+
 
 local SIM0 = mkInstance()
 local SIM1 = mkInstance()
@@ -207,7 +248,7 @@ task workDual(mc : MultiConfig)
   C.printf("workDual calls initializeVisualization\n");C.fflush(C.stdout);
   var cameraFromAtUp : double[9]
   var colorScale  : double[2]
-  initializeVisualization(SIM1.Particles, SIM1.p_Particles);
+  initializeVisualization(mc.configs[1], SIM1.Particles, SIM1.p_Particles);
   __fence(__execution, __block)
       render.cxx_render(__runtime(), __context(),
         cameraFromAtUp,
@@ -229,6 +270,12 @@ task main()
       mc.configs[0].Mapping.sampleId = 0
       mc.configs[1].Mapping.sampleId = 1
       workDual(mc)
+    end
+    if C.strcmp(args.argv[i], '-i') == 0 and i < args.argc-1 then
+      var config : Config
+      SCHEMA.parse_Config(&config, args.argv[i+1])
+      config.Mapping.sampleId = 0
+      workSingle(config)
     end
   end
 end
