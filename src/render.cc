@@ -270,6 +270,12 @@ double max[3] = { 0 };
 
 #if 1
 if(particlesValid[i]) {
+std::cout<<"id "<<particlesID[i]<<" position "<<particlesPosition[i].x[0]<<" "<< particlesPosition[i].x[1]<<" "<< particlesPosition[i].x[2]<<" temp "<<particlesTemperature[i]<<" density "<<particlesDensity[i]<<" valid "<<particlesValid[i]<<std::endl;
+}
+#endif
+
+#if 1
+if(particlesValid[i]) {
 numValid++;
 for(int j = 0; j < 3; ++j) {
 if(min[j] > particlesPosition[i].x[j]) min[j] = particlesPosition[i].x[j];
@@ -277,12 +283,9 @@ if(max[j] < particlesPosition[i].x[j]) max[j] = particlesPosition[i].x[j];
 }
 }
 #endif
+
       if(particlesValid[i] &&
         drawThis(particlesID[i], gNumParticlesToDraw, gParticlesToDraw)) {
-#if 0
-__TRACE
-std::cout<<"id "<<particlesID[i]<<" position "<<particlesPosition[i].x[0]<<" "<< particlesPosition[i].x[1]<<" "<< particlesPosition[i].x[2]<<" temp "<<particlesTemperature[i]<<" density "<<particlesDensity[i]<<std::endl;
-#endif
         if(particlesDensity[i] > 0) {
 
           GLfloat t = particlesTemperature[i];

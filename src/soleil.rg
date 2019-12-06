@@ -1016,7 +1016,7 @@ do
   var Particles_initTemperature = config.Particles.initTemperature
   var Particles_diameterMean = config.Particles.diameterMean
   var id : int = 0
-  __demand(__openmp)
+  -- __demand(__openmp)
   for p in Particles do
     var relIdx = int64(p - pBase)
     if relIdx < particlesPerTile then

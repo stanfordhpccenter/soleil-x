@@ -11,7 +11,7 @@ source "$SOLEIL_DIR"/src/jobscript_shared.sh
 SRUN_COMMAND="srun -n $NUM_RANKS --ntasks-per-node=$RANKS_PER_NODE --cpus-per-task=$CORES_PER_RANK \
     --export=ALL \
     $COMMAND \
-"
+-logfile spy_%.log -lg:spy"
 
 echo $SRUN_COMMAND
 $SRUN_COMMAND
