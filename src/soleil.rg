@@ -879,19 +879,13 @@ task GetDynamicViscosity(temperature : double,
   return viscosity
 end
 
--- XXX: This task needs the parallelizer ghost regions to do the interpolation,
--- but the parallelizer can't handle this task currently (even if we move the
--- RNG to a separate task). Therefore, at this point this task will only work
--- on a single tile.
 __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task Particles_InitializeRandom(color : int3d,
-                                Particles : region(ispace(int1d), Particles_columns),
-                                Fluid : region(ispace(int3d), Fluid_columns),
-                                config : Config,
-                                Grid_xBnum : int, Grid_yBnum : int, Grid_zBnum : int)
+task Particles_InitializeRandomPos(color : int3d,
+                                   Particles : region(ispace(int1d), Particles_columns),
+                                   config : Config,
+                                   Grid_xBnum : int, Grid_yBnum : int, Grid_zBnum : int)
 where
-  reads(Fluid.{centerCoordinates, velocity}),
-  writes(Particles.{__valid, cell, position, velocity, density, temperature, diameter})
+  writes(Particles.{__valid, cell, position})
 do
   -- Grid geometry
   var Grid_xNum = config.Grid.xNum
@@ -903,12 +897,6 @@ do
   var Grid_xOrigin = config.Grid.origin[0]
   var Grid_yOrigin = config.Grid.origin[1]
   var Grid_zOrigin = config.Grid.origin[2]
-  var Grid_xCellWidth = Grid_xWidth / Grid_xNum
-  var Grid_yCellWidth = Grid_yWidth / Grid_yNum
-  var Grid_zCellWidth = Grid_zWidth / Grid_zNum
-  var Grid_xRealOrigin = Grid_xOrigin - Grid_xCellWidth * Grid_xBnum
-  var Grid_yRealOrigin = Grid_yOrigin - Grid_yCellWidth * Grid_yBnum
-  var Grid_zRealOrigin = Grid_zOrigin - Grid_zCellWidth * Grid_zBnum
   -- Tile geometry
   var Tile_xWidth = Grid_xWidth / config.Mapping.tiles[0]
   var Tile_yWidth = Grid_yWidth / config.Mapping.tiles[1]
@@ -920,9 +908,6 @@ do
   var pBase = Particles.bounds.lo
   var numTiles = config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2]
   var particlesPerTile = config.Particles.initNum / config.Particles.parcelSize / numTiles
-  var Particles_density = config.Particles.density
-  var Particles_initTemperature = config.Particles.initTemperature
-  var Particles_diameterMean = config.Particles.diameterMean
   -- RNG state
   var rngState : C.drand48_data
   C.srand48_r(C.legion_get_current_time_in_nanos(), &rngState)
@@ -941,15 +926,53 @@ do
                      Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth,
                      Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth,
                      Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
-      var flowVelocity = InterpolateTriVelocity(c,
-                                                pos,
+      Particles[p].__valid = true
+      Particles[p].cell = c
+      Particles[p].position = pos
+    end
+  end
+end
+
+__demand(__leaf, __parallel, __cuda)
+task Particles_InitializeRandomRest(Particles : region(ispace(int1d), Particles_columns),
+                                    Fluid : region(ispace(int3d), Fluid_columns),
+                                    config : Config,
+                                    Grid_xBnum : int, Grid_yBnum : int, Grid_zBnum : int)
+where
+  reads(Fluid.{centerCoordinates, velocity}),
+  reads(Particles.{__valid, cell, position}),
+  writes(Particles.{velocity, density, temperature, diameter})
+do
+  -- Grid geometry
+  var Grid_xNum = config.Grid.xNum
+  var Grid_yNum = config.Grid.yNum
+  var Grid_zNum = config.Grid.zNum
+  var Grid_xWidth = config.Grid.xWidth
+  var Grid_yWidth = config.Grid.yWidth
+  var Grid_zWidth = config.Grid.zWidth
+  var Grid_xOrigin = config.Grid.origin[0]
+  var Grid_yOrigin = config.Grid.origin[1]
+  var Grid_zOrigin = config.Grid.origin[2]
+  var Grid_xCellWidth = Grid_xWidth / Grid_xNum
+  var Grid_yCellWidth = Grid_yWidth / Grid_yNum
+  var Grid_zCellWidth = Grid_zWidth / Grid_zNum
+  var Grid_xRealOrigin = Grid_xOrigin - Grid_xCellWidth * Grid_xBnum
+  var Grid_yRealOrigin = Grid_yOrigin - Grid_yCellWidth * Grid_yBnum
+  var Grid_zRealOrigin = Grid_zOrigin - Grid_zCellWidth * Grid_zBnum
+  -- Particle values
+  var Particles_density = config.Particles.density
+  var Particles_initTemperature = config.Particles.initTemperature
+  var Particles_diameterMean = config.Particles.diameterMean
+  -- Fill loop
+  __demand(__openmp)
+  for p in Particles do
+    if Particles[p].__valid then
+      var flowVelocity = InterpolateTriVelocity(Particles[p].cell,
+                                                Particles[p].position,
                                                 Fluid,
                                                 Grid_xCellWidth, Grid_xRealOrigin,
                                                 Grid_yCellWidth, Grid_yRealOrigin,
                                                 Grid_zCellWidth, Grid_zRealOrigin)
-      Particles[p].__valid = true
-      Particles[p].cell = c
-      Particles[p].position = pos
       Particles[p].velocity = flowVelocity
       Particles[p].density = Particles_density
       Particles[p].temperature = Particles_initTemperature
@@ -4799,18 +4822,20 @@ local function mkInstance() local INSTANCE = {}
     -- Initialize particles
     if config.Particles.maxNum > 0 then
       if config.Particles.initCase == SCHEMA.ParticlesInitCase_Random then
-        regentlib.assert(numTiles == 1, 'Random particle initialization will only work on 1 tile')
         regentlib.assert((config.Particles.initNum / config.Particles.parcelSize) % numTiles == 0,
                          'Uneven partitioning of particles')
         regentlib.assert(config.Particles.initNum <= config.Particles.maxNum,
                          'Not enough space for initial number of particles')
         for c in tiles do
-          Particles_InitializeRandom(c,
-                                     p_Particles[c],
-                                     p_Fluid[c],
-                                     config,
-                                     Grid.xBnum, Grid.yBnum, Grid.zBnum)
+          Particles_InitializeRandomPos(c,
+                                        p_Particles[c],
+                                        config,
+                                        Grid.xBnum, Grid.yBnum, Grid.zBnum)
         end
+        Particles_InitializeRandomRest(Particles,
+                                       Fluid,
+                                       config,
+                                       Grid.xBnum, Grid.yBnum, Grid.zBnum)
       elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart then
         HDF_PARTICLES.load(0, tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
         for c in tiles do
