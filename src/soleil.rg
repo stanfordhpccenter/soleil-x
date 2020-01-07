@@ -916,7 +916,8 @@ task Particles_InitializeRandom(color : int3d,
                                 Particles : region(ispace(int1d), Particles_columns),
                                 Fluid : region(ispace(int3d), Fluid_columns),
                                 config : Config,
-                                Grid_xBnum : int, Grid_yBnum : int, Grid_zBnum : int)
+                                Grid_xBnum : int, Grid_yBnum : int, Grid_zBnum : int,
+                                tile_id : int64)
 where
   reads(Fluid.{centerCoordinates, velocity}),
   writes(Particles.{__valid, id, cell, position, velocity, density, temperature, diameter})
@@ -955,7 +956,8 @@ do
   var rngState : C.drand48_data
   C.srand48_r(C.legion_get_current_time_in_nanos(), &rngState)
   -- Fill loop
-  var id : int = 0
+  var shifted_tile_id : int64 = tile_id * C.pow(2.0, 32)
+  var id : int64 = 0
   for p in Particles do
     var relIdx = int64(p - pBase)
     if relIdx < particlesPerTile then
@@ -977,7 +979,7 @@ do
                                                 Grid_yCellWidth, Grid_yRealOrigin,
                                                 Grid_zCellWidth, Grid_zRealOrigin)
       Particles[p].__valid = true
-      Particles[p].id = id
+      Particles[p].id = id + shifted_tile_id
       id = id + 1
       Particles[p].cell = c
       Particles[p].position = pos
@@ -993,7 +995,8 @@ __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Particles_InitializeUniform(Particles : region(ispace(int1d), Particles_columns),
                                  Fluid : region(ispace(int3d), Fluid_columns),
                                  config : Config,
-                                 Grid_xBnum : int32, Grid_yBnum : int32, Grid_zBnum : int32)
+                                 Grid_xBnum : int32, Grid_yBnum : int32, Grid_zBnum : int32,
+                                 tile_id : int64)
 where
   reads(Fluid.{centerCoordinates, velocity}),
   writes(Particles.{__valid, id, cell, position, velocity, density, temperature, diameter})
@@ -1015,14 +1018,15 @@ do
   var Particles_density = config.Particles.density
   var Particles_initTemperature = config.Particles.initTemperature
   var Particles_diameterMean = config.Particles.diameterMean
-  var id : int = 0
+  var shifted_tile_id : int64 = tile_id * C.pow(2.0, 32)
+  var id : int64 = 0
   -- __demand(__openmp)
   for p in Particles do
     var relIdx = int64(p - pBase)
     if relIdx < particlesPerTile then
       Particles[p].__valid = true
       var c = lo + int3d{relIdx%xSize, relIdx/xSize%ySize, relIdx/xSize/ySize%zSize}
-      Particles[p].id = id
+      Particles[p].id = id + shifted_tile_id
       id = id + 1
       Particles[p].cell = c
       Particles[p].position = Fluid[c].centerCoordinates
@@ -4840,12 +4844,15 @@ local function mkInstance() local INSTANCE = {}
                          'Uneven partitioning of particles')
         regentlib.assert(config.Particles.initNum <= config.Particles.maxNum,
                          'Not enough space for initial number of particles')
+        var tile_id : int64 = 0
         for c in tiles do
           Particles_InitializeRandom(c,
                                      p_Particles[c],
                                      p_Fluid[c],
                                      config,
-                                     Grid.xBnum, Grid.yBnum, Grid.zBnum)
+                                     Grid.xBnum, Grid.yBnum, Grid.zBnum,
+                                     tile_id)
+          tile_id = tile_id + 1
         end
       elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart then
         HDF_PARTICLES.load(0, tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
@@ -4860,11 +4867,14 @@ local function mkInstance() local INSTANCE = {}
                          'Uneven partitioning of particles')
         regentlib.assert(config.Particles.initNum <= config.Particles.maxNum,
                          'Not enough space for initial number of particles')
+        var tile_id : int64 = 0
         for c in tiles do
           Particles_InitializeUniform(p_Particles[c],
                                       p_Fluid[c],
                                       config,
-                                      Grid.xBnum, Grid.yBnum, Grid.zBnum)
+                                      Grid.xBnum, Grid.yBnum, Grid.zBnum,
+                                      tile_id)
+          tile_id = tile_id + 1
         end
       else regentlib.assert(false, 'Unhandled case in switch') end
       for c in tiles do
@@ -5516,7 +5526,8 @@ end
     5,
     config.Visualization.numParticlesToDraw,
     config.Mapping.sampleId,
-    MAPPER.SAMPLE_ID_TAG)
+    MAPPER.SAMPLE_ID_TAG,
+    config.Mapping.tiles)
 end
 
 

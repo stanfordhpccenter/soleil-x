@@ -87,15 +87,18 @@ task partitionByTile(r : region(ispace(int1d), Particles_columns),
   return p
 end
 
-task Particles_InitializeUniform(Particles : region(ispace(int1d), Particles_columns))
+task Particles_InitializeUniform(
+  Particles : region(ispace(int1d), Particles_columns),
+  tile_id : int64)
 where
 reads(Particles.{__valid, id, cell, position, velocity, density, temperature, diameter}),
 writes(Particles.{__valid, id, cell, position, velocity, density, temperature, diameter})
 do
-  var id = 0
+  var id : int64 = 0
+  var shifted_tile_id : int64 = tile_id * C.pow(2.0, 32)
   for p in Particles do
     Particles[p].__valid = true
-    Particles[p].id = id
+    Particles[p].id = id + shifted_tile_id
     Particles[p].cell = {0,0,0}
     var zero3 : double[3]
     Particles[p].position[0] = 0.1
@@ -171,9 +174,11 @@ local function mkInstance() local INSTANCE = {}
 
   function INSTANCE.InitRegions(config) return rquote
 
+  var tile_id : int64 = 0
   for c in [tiles] do
     C.printf("initialie particles for one tile\n");C.fflush(C.stdout);
-    Particles_InitializeUniform(p_Particles[c])
+    Particles_InitializeUniform(p_Particles[c], tile_id)
+    tile_id = tile_id + 1
   end
 
   end end -- InitRegions
@@ -205,7 +210,8 @@ do
     5,
     1000,
     config.Mapping.sampleId,
-    MAPPER.SAMPLE_ID_TAG)
+    MAPPER.SAMPLE_ID_TAG,
+    config.Mapping.tiles)
 
 end
 

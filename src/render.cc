@@ -23,8 +23,64 @@
   static legion_field_id_t* gParticlesFields;
   static int gNumParticlesFields;
   static MapperID gImageReductionMapperID = 0;
+  static int gCreateProjectionFunctorTaskID = 0;
+  static int gRenderProjectionFunctorID = 99;//TODO system assigns this
 
   typedef double FieldData;
+
+      class RenderProjectionFunctor : public ProjectionFunctor {
+      public:
+        RenderProjectionFunctor(int tiles[3]) {
+          memcpy(mTiles, tiles, sizeof(mTiles));
+          mNx = tiles[0];
+          mNy = tiles[1];
+          mNz = tiles[2];
+        }
+
+        virtual LogicalRegion project(const Mappable *mappable, unsigned index,
+                                      LogicalPartition upperBound,
+                                      const DomainPoint &point) {
+          long int z = point[0] * mNx * mNy + point[1] * mNy + point[2];
+          DomainPoint remappedPoint;
+          remappedPoint[0] = 0;
+          remappedPoint[1] = 0;
+          remappedPoint[2] = z;
+
+          LogicalRegion result = Legion::Runtime::get_runtime()->get_logical_subregion_by_color(upperBound, remappedPoint);
+          return result;
+        }
+
+        virtual LogicalRegion project(LogicalPartition upper_bound, const DomainPoint &point, const Domain &launch_domain) {
+          assert(false);
+          LogicalRegion result;
+          return result;
+        }
+
+        virtual LogicalRegion project(const Mappable *mappable, unsigned index, LogicalRegion upper_bound, const DomainPoint &point) {
+          assert(false);
+          LogicalRegion result;
+          return result;
+        }
+
+        virtual LogicalRegion project(LogicalRegion upper_bound, const DomainPoint &point, const Domain &launch_domain) {
+          assert(false);
+          LogicalRegion result;
+          return result;
+        }
+
+
+        virtual bool is_exclusive(void) const{ return true; }
+        virtual unsigned get_depth(void) const{ return 0; }
+        virtual bool is_functional(void) const { return true; }
+
+      private:
+        int mTiles[3];
+        long int mNx;
+        long int mNy;
+        long int mNz;
+	};
+
+  static RenderProjectionFunctor* mRenderProjectionFunctor = nullptr;
 
 
   static void createGraphicsContext(OSMesaContext &mesaCtx,
@@ -220,6 +276,14 @@
     }
 
 
+  static void create_projection_functor_task(const Task *task,
+                          const std::vector<PhysicalRegion> &regions,
+                          Context ctx, HighLevelRuntime *runtime) {
+__TRACE
+    int* tiles = (int*)task->args;
+    mRenderProjectionFunctor = new RenderProjectionFunctor(tiles);
+  }
+
 
   static void render_task(const Task *task,
                           const std::vector<PhysicalRegion> &regions,
@@ -275,8 +339,12 @@ std::cout<<"id "<<particlesID[i]<<" position "<<particlesPosition[i].x[0]<<" "<<
 #endif
 
 #if 1
+#if 0
 if(particlesValid[i]) {
 numValid++;
+#else
+{
+#endif
 for(int j = 0; j < 3; ++j) {
 if(min[j] > particlesPosition[i].x[j]) min[j] = particlesPosition[i].x[j];
 if(max[j] < particlesPosition[i].x[j]) max[j] = particlesPosition[i].x[j];
@@ -443,15 +511,20 @@ std::cout<<"mapperID " <<mapperID<<std::endl;
     layout_registrar.add_constraint(OrderingConstraint(dim_order, true/*contig*/));
     LayoutConstraintID soa_layout_id = Runtime::preregister_layout(layout_registrar);
 
+    // preregister create_projection_functor_task
+    gCreateProjectionFunctorTaskID = Legion::HighLevelRuntime::generate_static_task_id();
+    TaskVariantRegistrar registrarCPFT(gCreateProjectionFunctorTaskID, "create_projection_functor_task");
+    registrarCPFT.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    Runtime::preregister_task_variant<create_projection_functor_task>(registrarCPFT, "create_projection_functor_task");
 
     // preregister render task
     gRenderTaskID = Legion::HighLevelRuntime::generate_static_task_id();
-    TaskVariantRegistrar registrar(gRenderTaskID, "render_task");
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC))
+    TaskVariantRegistrar registrarRender(gRenderTaskID, "render_task");
+    registrarRender.add_constraint(ProcessorConstraint(Processor::LOC_PROC))
     .add_layout_constraint_set(0/*index*/, soa_layout_id)
     .add_layout_constraint_set(1/*index*/, soa_layout_id)
     .add_layout_constraint_set(2/*index*/, soa_layout_id);
-    Runtime::preregister_task_variant<render_task>(registrar, "render_task");
+    Runtime::preregister_task_variant<render_task>(registrarRender, "render_task");
 
     // preregister save image task
     gSaveImageTaskID = Legion::HighLevelRuntime::generate_static_task_id();
@@ -475,6 +548,8 @@ static int compar(const void* p1, const void* p2) {
 }
 
 
+
+
   // this entry point is called once from the main task
   void cxx_initialize(
                      legion_runtime_t runtime_,
@@ -485,7 +560,8 @@ static int compar(const void* p1, const void* p2) {
                      int numPFields,
                      int numParticlesToDraw_,
                      int sampleId,
-                     int tag
+                     int tag,
+                     int tiles[3]
                      )
   {
 __TRACE
@@ -522,6 +598,9 @@ std::cout << "gParticlesFields["<<i<<"] = "<< pFields[i] << std::endl;
 #endif
     }
 __TRACE
+
+    size_t argLen = 3 * sizeof(int);
+    gImageCompositor->initializeRenderNodes(runtime, ctx, gCreateProjectionFunctorTaskID, (char*)tiles, argLen);
   }
 
 
@@ -581,7 +660,7 @@ std::cout<<"renderImageDomain "<<compositor->renderImageDomain()<<std::endl;
     }
     renderLauncher.add_region_requirement(req0);
 
-    RegionRequirement req1(compositor->renderImagePartition(), 0, WRITE_DISCARD, EXCLUSIVE,
+    RegionRequirement req1(compositor->renderImagePartition(), gRenderProjectionFunctorID, WRITE_DISCARD, EXCLUSIVE,
       compositor->sourceImage(), gImageReductionMapperID);
     req1.add_field(Visualization::ImageReduction::FID_FIELD_R);
     req1.add_field(Visualization::ImageReduction::FID_FIELD_G);

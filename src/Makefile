@@ -22,8 +22,8 @@ export HDF_HEADER ?= hdf5.h
 HDF_LIBNAME ?= hdf5
 
 # C compiler options
-CFLAGS += -g  -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent
-CXXFLAGS += -std=c++11 -g  -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent -I$(IMAGE_COMPOSITOR_DIR)/include
+CFLAGS += -g  -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent -DLEGION_SPY
+CXXFLAGS += -std=c++11 -g  -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent -I$(IMAGE_COMPOSITOR_DIR)/include -DLEGION_SPY
 
 # Regent options
 export INCLUDE_PATH := .
