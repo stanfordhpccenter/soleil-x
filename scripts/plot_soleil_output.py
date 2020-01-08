@@ -4,8 +4,11 @@ import h5py
 import matplotlib.pyplot as plt
 
 # list of things to plot
-scalar_data_to_plot = ['rho','pressure','temperature']
-vector_data_to_plot = ['cellWidth','velocity']
+scalar_data_to_plot = []
+vector_data_to_plot = []
+
+#scalar_data_to_plot = ['rho','pressure','temperature']
+#vector_data_to_plot = ['cellWidth','velocity']
 
 #scalar_data_to_plot = ['rho','pressure','temperature', 'debug_scalar']
 #vector_data_to_plot = ['cellWidth','velocity','velocityGradientX','velocityGradientY','velocityGradientZ','temperatureGradient']
@@ -56,6 +59,9 @@ z_slice_idx = 0
 x_values = f['centerCoordinates'][z_slice_idx,y_slice_idx,   :      ][:,0]
 y_values = f['centerCoordinates'][z_slice_idx,    :     ,x_slice_idx][:,1]
 z_values = f['centerCoordinates'][    :     ,y_slice_idx,x_slice_idx][:,2]
+dx_values = f['cellWidth'][z_slice_idx,y_slice_idx,   :      ][:,0]
+dy_values = f['cellWidth'][z_slice_idx,    :     ,x_slice_idx][:,1]
+dz_values = f['cellWidth'][    :     ,y_slice_idx,x_slice_idx][:,2]
 
 # Plot cell centers in each direction
 plt.figure()
@@ -70,8 +76,26 @@ plt.title('y values')
 
 plt.figure()
 plt.plot(z_values,np.zeros(len(z_values)),'o')
-plt.xlabel('y')
+plt.xlabel('z')
 plt.title('z values')
+
+plt.figure()
+plt.plot(range(len(dx_values)),dx_values,'o')
+plt.xlabel('x_idx')
+plt.ylabel('dx')
+plt.title('dx values')
+
+plt.figure()
+plt.plot(range(len(dy_values)),dy_values,'o')
+plt.xlabel('y_idx')
+plt.ylabel('dy')
+plt.title('dy values')
+
+plt.figure()
+plt.plot(range(len(dz_values)),dz_values,'o')
+plt.xlabel('z_idx')
+plt.ylabel('dz')
+plt.title('dz values')
 
 for scalar_feild_name in scalar_data_to_plot: 
   plt.figure()

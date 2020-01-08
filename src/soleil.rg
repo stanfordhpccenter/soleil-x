@@ -10,6 +10,7 @@ local SCHEMA = terralib.includec("config_schema.h")
 local UTIL = require 'util-desugared'
 
 local acos = regentlib.acos(double)
+local tanh = regentlib.tanh(double)
 local ceil = regentlib.ceil(double)
 local cos = regentlib.cos(double)
 local exp = regentlib.exp(double)
@@ -619,14 +620,29 @@ __demand(__inline)
 task transform_uniform_to_nonuniform(x     : double,
                                      x_min : double,
                                      x_max : double) : double
-  -- map x onto the interval -1 to 1
-  var x_scaled_minus1_to_plus1 = linear_interpolation(x, x_min, x_max, -1.0, 1.0)
 
-  -- map non-uniformly onto the interval -1 to 1
-  var x_non_uniform_minus1_to_plus1 = -1.0*cos(PI*(x_scaled_minus1_to_plus1+1.0)/2.0)
+  -----------------------
+  -- Cosine Stretching --
+  -----------------------
+  ---- map x onto the interval -1 to 1
+  --var x_scaled_minus1_to_plus1 = linear_interpolation(x, x_min, x_max, -1.0, 1.0)
+  ---- map non-uniformly onto the interval -1 to 1
+  --var x_non_uniform_minus1_to_plus1 = -1.0*cos(PI*(x_scaled_minus1_to_plus1+1.0)/2.0)
+  ---- map non-uniform sample back to origional interval x_min to x_max
+  --var x_non_uniform = linear_interpolation(x_non_uniform_minus1_to_plus1, -1.0, 1.0, x_min, x_max)
 
+  ----------------------------------
+  -- Hyperbolic Tanget Stretching --
+  ----------------------------------
+  var stretching_factor = 1.7
+  -- map x onto the interval 0 to 1
+  var x_scaled_zero_to_plus1 = linear_interpolation(x, x_min, x_max, 0.0, 1.0)
+  -- map non-uniformly onto the interval 0 to 1
+  var x_non_uniform_zero_to_plus1 = tanh(stretching_factor*(2.0*x_scaled_zero_to_plus1-1.0))/tanh(stretching_factor)
   -- map non-uniform sample back to origional interval x_min to x_max
-  return  linear_interpolation(x_non_uniform_minus1_to_plus1, -1.0, 1.0, x_min, x_max)
+  var x_non_uniform = linear_interpolation(x_non_uniform_zero_to_plus1, 0.0, 1.0, x_min, x_max)
+
+  return x_non_uniform 
 end
 
 -- Description:
