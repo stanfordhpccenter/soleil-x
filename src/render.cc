@@ -40,12 +40,21 @@
         virtual LogicalRegion project(const Mappable *mappable, unsigned index,
                                       LogicalPartition upperBound,
                                       const DomainPoint &point) {
-          long int z = point[0] * mNx * mNy + point[1] * mNy + point[2];
+          long int z = point[0] * mNy * mNz + point[1] * mNz + point[2];
           DomainPoint remappedPoint;
           remappedPoint[0] = 0;
           remappedPoint[1] = 0;
           remappedPoint[2] = z;
 
+__TRACE
+#if 1
+char buffer[128];
+{
+sprintf(buffer, "Accessing remapped point %lld %lld %lld\n", remappedPoint[0], remappedPoint[1], remappedPoint[2]);
+std::cout<<buffer;
+__TRACE
+}
+#endif
           LogicalRegion result = Legion::Runtime::get_runtime()->get_logical_subregion_by_color(upperBound, remappedPoint);
           return result;
         }
@@ -282,6 +291,7 @@
 __TRACE
     int* tiles = (int*)task->args;
     mRenderProjectionFunctor = new RenderProjectionFunctor(tiles);
+    runtime->register_projection_functor(gRenderProjectionFunctorID, mRenderProjectionFunctor);
   }
 
 
@@ -660,7 +670,16 @@ std::cout<<"renderImageDomain "<<compositor->renderImageDomain()<<std::endl;
     }
     renderLauncher.add_region_requirement(req0);
 
-    RegionRequirement req1(compositor->renderImagePartition(), gRenderProjectionFunctorID, WRITE_DISCARD, EXCLUSIVE,
+#if 1
+{
+IndexPartition ip = compositor->compositeImagePartition().get_index_partition();
+std::cout<<ip<<std::endl;
+Domain cs = runtime->get_index_partition_color_space(ctx, ip);
+std::cout<<"colorspace "<<cs<<std::endl;
+}
+#endif
+
+    RegionRequirement req1(compositor->compositeImagePartition(), gRenderProjectionFunctorID, WRITE_DISCARD, EXCLUSIVE,
       compositor->sourceImage(), gImageReductionMapperID);
     req1.add_field(Visualization::ImageReduction::FID_FIELD_R);
     req1.add_field(Visualization::ImageReduction::FID_FIELD_G);
