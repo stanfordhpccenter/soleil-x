@@ -116,7 +116,7 @@
         },
 
         "Particles" : {
-            "initCase" : "Random",
+            "initCase" : "Uniform",
             "restartDir" : "",
             "initNum" : "TBD",
             "maxNum" : "TBD",
@@ -254,7 +254,7 @@
         },
 
         "Particles" : {
-            "initCase" : "Random",
+            "initCase" : "Uniform",
             "restartDir" : "",
             "initNum" : "TBD",
             "maxNum" : "TBD",
