@@ -522,12 +522,12 @@ end
 -- Output:
 --     y location on line at x=xi
 __demand(__inline)
-task linear_interpolation(xi    : double,
+task linear_interpolation(x     : double,
                           alpha : double,
                           beta  : double,
                           a     : double,
                           b     : double) : double
-  return (b-a)/(beta-alpha)*(xi-alpha) + a
+  return (b-a)/(beta-alpha)*(x-alpha) + a
 end
 
 -- Description:
@@ -621,9 +621,9 @@ task transform_uniform_to_nonuniform(x     : double,
                                      x_min : double,
                                      x_max : double) : double
 
-  -----------------------
-  -- Cosine Stretching --
-  -----------------------
+  -------------------------
+  ---- Cosine Stretching --
+  -------------------------
   ---- map x onto the interval -1 to 1
   --var x_scaled_minus1_to_plus1 = linear_interpolation(x, x_min, x_max, -1.0, 1.0)
   ---- map non-uniformly onto the interval -1 to 1
@@ -637,12 +637,18 @@ task transform_uniform_to_nonuniform(x     : double,
   var stretching_factor = 1.7
   -- map x onto the interval 0 to 1
   var x_scaled_zero_to_plus1 = linear_interpolation(x, x_min, x_max, 0.0, 1.0)
-  -- map non-uniformly onto the interval 0 to 1
-  var x_non_uniform_zero_to_plus1 = tanh(stretching_factor*(2.0*x_scaled_zero_to_plus1-1.0))/tanh(stretching_factor)
-  -- map non-uniform sample back to origional interval x_min to x_max
-  var x_non_uniform = linear_interpolation(x_non_uniform_zero_to_plus1, 0.0, 1.0, x_min, x_max)
 
-  return x_non_uniform 
+  -- map non-uniformly onto the interval 0 to 1
+  var x_transformed     = tanh(stretching_factor*(2.0*x_scaled_zero_to_plus1-1.0))/tanh(stretching_factor)
+  var x_transformed_min = tanh(stretching_factor*(2.0*0.0-1.0))/tanh(stretching_factor)
+  var x_transformed_max = tanh(stretching_factor*(2.0*1.0-1.0))/tanh(stretching_factor)
+
+  -- map non-uniform sample back to origional interval x_min to x_max
+  var x_non_uniform = linear_interpolation(x_transformed, x_transformed_min, x_transformed_max, x_min, x_max)
+
+
+  return x_non_uniform
+
 end
 
 -- Description:
