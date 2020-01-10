@@ -1,4 +1,4 @@
-import sys
+import argparse
 import numpy as np
 import h5py
 import matplotlib.pyplot as plt
@@ -19,16 +19,9 @@ vector_data_to_plot = []
 #                            Read Command Line Input                          #
 # --------------------------------------------------------------------------- #
 
-if len(sys.argv) == 2:
-    # Data to postprocess
-    filename = sys.argv[1]
-else :
-    print('*************************************')
-    print('Error: Not enough command line arguments')
-    print('Useage: Pick one of the following')
-    print('$ python {} your_data.hdf'.format(sys.argv[0]))
-    print('*************************************')
-    sys.exit(2)
+parser.add_argument('hdf_file', 
+                    help='fluid file to read')
+args = parser.parse_args()
 
 # --------------------------------------------------------------------------- #
 
