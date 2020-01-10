@@ -162,7 +162,7 @@
                 }
             },
             "Particles": {
-                "initCase": "Uniform",
+                "initCase": "Random",
                 "restartDir": "",
                 "initNum": 1816622,
                 "maxNum": 1816622,
@@ -348,7 +348,7 @@
                 }
             },
             "Particles": {
-                "initCase": "Uniform",
+                "initCase": "Random",
                 "restartDir": "",
                 "initNum": 7266492,
                 "maxNum": 8719792,
