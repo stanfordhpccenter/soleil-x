@@ -41,21 +41,13 @@
                                       LogicalPartition upperBound,
                                       const DomainPoint &point) {
           long int z = point[0] * mNy * mNz + point[1] * mNz + point[2];
-          DomainPoint remappedPoint;
+          Legion::Point<3> remappedPoint;
           remappedPoint[0] = 0;
           remappedPoint[1] = 0;
           remappedPoint[2] = z;
+          DomainPoint remappedDomainPoint(remappedPoint);
 
-__TRACE
-#if 1
-char buffer[128];
-{
-sprintf(buffer, "Accessing remapped point %lld %lld %lld\n", remappedPoint[0], remappedPoint[1], remappedPoint[2]);
-std::cout<<buffer;
-__TRACE
-}
-#endif
-          LogicalRegion result = Legion::Runtime::get_runtime()->get_logical_subregion_by_color(upperBound, remappedPoint);
+          LogicalRegion result = Legion::Runtime::get_runtime()->get_logical_subregion_by_color(upperBound, remappedDomainPoint);
           return result;
         }
 
@@ -331,36 +323,8 @@ __TRACE
       particles.get_logical_region().get_index_space());
     int numParticles = particlesDomain.get_volume();
 
-#if 1
-__TRACE
-std::cout<<"numParticles"<<numParticles<<std::endl;
-long int numValid = 0;
-double min[3] = { 999, 999, 999 };
-double max[3] = { 0 };
-#endif
-
     glBegin(GL_POINTS);
     for(int i = 0; i < numParticles; ++i) {
-
-#if 1
-if(particlesValid[i]) {
-std::cout<<"id "<<particlesID[i]<<" position "<<particlesPosition[i].x[0]<<" "<< particlesPosition[i].x[1]<<" "<< particlesPosition[i].x[2]<<" temp "<<particlesTemperature[i]<<" density "<<particlesDensity[i]<<" valid "<<particlesValid[i]<<std::endl;
-}
-#endif
-
-#if 1
-#if 0
-if(particlesValid[i]) {
-numValid++;
-#else
-{
-#endif
-for(int j = 0; j < 3; ++j) {
-if(min[j] > particlesPosition[i].x[j]) min[j] = particlesPosition[i].x[j];
-if(max[j] < particlesPosition[i].x[j]) max[j] = particlesPosition[i].x[j];
-}
-}
-#endif
 
       if(particlesValid[i] &&
         drawThis(particlesID[i], gNumParticlesToDraw, gParticlesToDraw)) {
@@ -369,12 +333,6 @@ if(max[j] < particlesPosition[i].x[j]) max[j] = particlesPosition[i].x[j];
           GLfloat t = particlesTemperature[i];
           GLfloat color[4];
           scaledTemperatureToColor(t, color, colorScale);
-
-#if 0
-__TRACE
-std::cout<<"color "<<color[0]<<" "<<color[1]<<" "<<color[2]<<" "<<color[3]<<std::endl;
-color[0] = color[1] = color[2] = 1.0; color[3] = 0.5;
-#endif
 
           glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, color);
           glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, color);
@@ -385,12 +343,6 @@ color[0] = color[1] = color[2] = 1.0; color[3] = 0.5;
       }
     }
     glEnd();
-
-#if 1
-std::cout << "num valid particles in render_task " << numValid << std::endl;
-std::cout << "min " << min[0] << " " << min[1] << " " << min[2] << std::endl;
-std::cout << "max " << max[0] << " " << max[1] << " " << max[2] << std::endl;
-#endif
 
     // now copy the image data into the image logical region
 
@@ -507,7 +459,6 @@ __TRACE
   // Called from mapper before runtime has started
   void cxx_preinitialize(MapperID mapperID) {
 __TRACE
-std::cout<<"mapperID " <<mapperID<<std::endl;
     gImageReductionMapperID = mapperID;
 
     Visualization::ImageReduction::preinitializeBeforeRuntimeStarts();
@@ -579,15 +530,11 @@ __TRACE
     Context ctx = CObjectWrapper::unwrap(ctx_)->context();
     LogicalRegion region = CObjectWrapper::unwrap(region_);
     LogicalPartition partition = CObjectWrapper::unwrap(partition_);
+
     Visualization::ImageDescriptor imageDescriptor = { gImageWidth, gImageHeight, 1 };
 
     gImageCompositor = new Visualization::ImageReduction(region,
       partition, pFields, numPFields, imageDescriptor, ctx, runtime, gImageReductionMapperID);
-
-#if 1
-std::cout<<"renderImageDomain volume "<<gImageCompositor->renderImageDomain().get_volume()<<std::endl;
-std::cout<<"numParticlesToDraw_ "<<numParticlesToDraw_<<std::endl;
-#endif
 
     gNumParticlesToDraw = numParticlesToDraw_;
     gParticlesToDraw = new long int[gNumParticlesToDraw];
@@ -603,11 +550,7 @@ std::cout<<"numParticlesToDraw_ "<<numParticlesToDraw_<<std::endl;
     gParticlesFields = new legion_field_id_t[numPFields];
     for(int i = 0; i < numPFields; ++i) {
       gParticlesFields[i] = pFields[i];
-#if 1
-std::cout << "gParticlesFields["<<i<<"] = "<< pFields[i] << std::endl;
-#endif
     }
-__TRACE
 
     size_t argLen = 3 * sizeof(int);
     gImageCompositor->initializeRenderNodes(runtime, ctx, gCreateProjectionFunctorTaskID, (char*)tiles, argLen);
@@ -660,24 +603,12 @@ __TRACE
     IndexTaskLauncher renderLauncher(gRenderTaskID, compositor->renderImageDomain(), TaskArgument(args, argSize),
                                      argMap, Predicate::TRUE_PRED, false, gImageReductionMapperID);
 
-__TRACE
-std::cout<<"renderImageDomain "<<compositor->renderImageDomain()<<std::endl;
-
     RegionRequirement req0(imageDescriptor.simulationLogicalPartition, 0, READ_ONLY, EXCLUSIVE,
       imageDescriptor.simulationLogicalRegion, gImageReductionMapperID);
     for(int i = 0; i < imageDescriptor.numPFields; ++i) {
       req0.add_field(imageDescriptor.pFields[i]);
     }
     renderLauncher.add_region_requirement(req0);
-
-#if 1
-{
-IndexPartition ip = compositor->compositeImagePartition().get_index_partition();
-std::cout<<ip<<std::endl;
-Domain cs = runtime->get_index_partition_color_space(ctx, ip);
-std::cout<<"colorspace "<<cs<<std::endl;
-}
-#endif
 
     RegionRequirement req1(compositor->compositeImagePartition(), gRenderProjectionFunctorID, WRITE_DISCARD, EXCLUSIVE,
       compositor->sourceImage(), gImageReductionMapperID);
@@ -689,12 +620,8 @@ std::cout<<"colorspace "<<cs<<std::endl;
     req1.add_field(Visualization::ImageReduction::FID_FIELD_USERDATA);
     renderLauncher.add_region_requirement(req1);
 
-__TRACE
     FutureMap futures = runtime->execute_index_space(ctx, renderLauncher);
-__TRACE
     futures.wait_all_results();
-__TRACE
-std::cout<<"waited for all render_task instances\n";
   }
 
 

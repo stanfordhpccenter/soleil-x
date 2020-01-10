@@ -195,13 +195,6 @@ task initializeVisualization(
 where
   reads(Particles.{id, position, temperature, density, __valid})
 do
-  C.printf("initializeVisualization\n");C.fflush(C.stdout);
-  for p in Particles do
-    if p.__valid then
-      C.printf("particle id %ld position %g %g %g temperature %g density %g valid %d\n", 
-        p.id, p.position[0], p.position[1], p.position[2], p.temperature, p.density, p.__valid);C.fflush(C.stdout);
-    end
-  end
 
   render.cxx_initialize(__runtime(), __context(),
     __raw(Particles),
@@ -213,6 +206,13 @@ do
     MAPPER.SAMPLE_ID_TAG,
     config.Mapping.tiles)
 
+  C.printf("initializeVisualization\n");C.fflush(C.stdout);
+  for p in Particles do
+    if p.__valid then
+      C.printf("particle id %ld position %g %g %g temperature %g density %g valid %d\n", 
+        p.id, p.position[0], p.position[1], p.position[2], p.temperature, p.density, p.__valid);C.fflush(C.stdout);
+    end
+  end
 end
 
 local SIM = mkInstance()
