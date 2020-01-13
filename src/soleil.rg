@@ -991,7 +991,8 @@ do
   end
 end
 
-__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
+--__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
+__demand(__leaf) -- MANUALLY PARALLELIZED
 task Particles_InitializeUniform(Particles : region(ispace(int1d), Particles_columns),
                                  Fluid : region(ispace(int3d), Fluid_columns),
                                  config : Config,
@@ -5511,14 +5512,6 @@ task initializeVisualization(
 where
   reads(Particles.{id, position, temperature, density, __valid})
 do
-var v = config.Particles.maxNum
-for i = 0, v do
-if Particles[i].__valid then
-C.printf("particle id %ld position %g %g %g temp %g density %g\n", 
-   Particles[i].id, Particles[i].position[0], Particles[i].position[1], Particles[i].position[2], Particles[i].temperature, Particles[i].density);
-C.fflush(C.stdout);
-end
-end
   render.cxx_initialize(__runtime(), __context(),
     __raw(Particles),
     __raw(p_Particles),

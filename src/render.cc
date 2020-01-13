@@ -282,9 +282,44 @@
                           Context ctx, HighLevelRuntime *runtime) {
 __TRACE
     int* tiles = (int*)task->args;
+__TRACE
     mRenderProjectionFunctor = new RenderProjectionFunctor(tiles);
+__TRACE
     runtime->register_projection_functor(gRenderProjectionFunctorID, mRenderProjectionFunctor);
+__TRACE
   }
+
+  static int comparPoints(const void* p0, const void* p1) {
+    GLfloat* f0 = (GLfloat*)p0;
+    GLfloat* f1 = (GLfloat*)p1;
+    if(f0[3] < f1[3]) return -1;
+    if(f0[3] > f1[3]) return +1;
+    return 0;
+  }
+
+
+
+  static void transformPoints(AccessorRO<FieldData3, 1> particlesPosition,
+                              int lo,
+                              int hi,
+                              GLfloat points[])
+{
+  GLfloat modelView[16];
+  glGetFloatv(GL_MODELVIEW_MATRIX, modelView);
+
+  for(long long int i = lo; i < hi; ++i) {
+    FieldData3 position = particlesPosition[i];
+    GLfloat x = position.x[0];
+    GLfloat y = position.x[1];
+    GLfloat z = position.x[2];
+    GLfloat zTransformed = x * modelView[2] + y * modelView[6] + z * modelView[10] + modelView[14];
+    points[i * 4] = x;
+    points[i * 4 + 1] = y;
+    points[i * 4 + 2] = z;
+    points[i * 4 + 3] = zTransformed;
+  }
+  qsort(points, hi - lo, 4 * sizeof(GLfloat), comparPoints);
+}
 
 
   static void render_task(const Task *task,
@@ -308,9 +343,8 @@ __TRACE
     float* depthBuffer = nullptr;
     createGraphicsContext(mesaCtx, rgbaBuffer, depthBuffer,
       imageDescriptor->width, imageDescriptor->height);
+__TRACE
     initializeRender(camera, imageDescriptor->width, imageDescriptor->height);
-
-    // TODO sort particles by transformed Z
 
     AccessorRO<long int, 1> particlesID(particles, particlesFields[0]);
     AccessorRO<FieldData3, 1> particlesPosition(particles, particlesFields[1]);
@@ -318,13 +352,18 @@ __TRACE
     AccessorRO<FieldData, 1> particlesDensity(particles, particlesFields[3]);
     AccessorRO<bool, 1> particlesValid(particles, particlesFields[4]);
 
-
+__TRACE
     Domain particlesDomain = runtime->get_index_space_domain(
       particles.get_logical_region().get_index_space());
-    int numParticles = particlesDomain.get_volume();
 
+    long long int lo = particlesDomain.bounds<1, long long int>().lo[0];
+    long long int hi = particlesDomain.bounds<1, long long int>().hi[0];
+    GLfloat* points = new GLfloat[4 * (hi - lo)];
+    transformPoints(particlesPosition, lo, hi, points);
+
+__TRACE
     glBegin(GL_POINTS);
-    for(int i = 0; i < numParticles; ++i) {
+    for(int i = lo; i < hi; ++i) {
 
       if(particlesValid[i] &&
         drawThis(particlesID[i], gNumParticlesToDraw, gParticlesToDraw)) {
@@ -338,17 +377,21 @@ __TRACE
           glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, color);
           glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, color);
 
-          glVertex3f(particlesPosition[i].x[0], particlesPosition[i].x[1], particlesPosition[i].x[2]);
+          glVertex3f(points[4 * i],  points[4 * i + 1], points[4 * i + 2]);
         }
       }
     }
     glEnd();
+
+__TRACE
+    delete [] points;
 
     // now copy the image data into the image logical region
 
     glReadPixels(0, 0, imageDescriptor->width, imageDescriptor->height,
       GL_DEPTH_COMPONENT, GL_FLOAT, depthBuffer);
 
+__TRACE
     std::vector<legion_field_id_t> imageFields;
     image.get_fields(imageFields);
     AccessorWO<ImageReduction::PixelField, 3> r(image, imageFields[0]);
