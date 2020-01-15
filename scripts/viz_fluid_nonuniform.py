@@ -19,14 +19,17 @@ XMF_BODY = """
         <!-- Topology: orthonormal 3D grid -->
         <Topology TopologyType="3DRectMesh" Dimensions="@POINTS"></Topology>
         <Geometry GeometryType="VXVYVZ">
-          <DataItem Dimensions="@NX_POINTS" NumberType="Float" Precision="8" Format="XML">
-            @X_POINTS
+          <!-- Z Points -->
+          <DataItem Dimensions="@NZ_POINTS" NumberType="Float" Precision="8" Format="XML">
+            @Z_POINTS
           </DataItem>
+          <!-- Y Points -->
           <DataItem Dimensions="@NY_POINTS" NumberType="Float" Precision="8" Format="XML">
             @Y_POINTS
           </DataItem>
-          <DataItem Dimensions="@NZ_POINTS" NumberType="Float" Precision="8" Format="XML">
-            @Z_POINTS
+          <!-- X Points -->
+          <DataItem Dimensions="@NX_POINTS" NumberType="Float" Precision="8" Format="XML">
+            @X_POINTS
           </DataItem>
         </Geometry>
         <Attribute Name="pressure" AttributeType="Scalar" Center="Cell">
@@ -93,44 +96,23 @@ for (f, i) in zip(args.hdf_file, itertools.count()):
     cellWidth = hdf_in['cellWidth'][:][:,:,:,:]
 
     # Get the points that define the mesh
-    x_points = np.squeeze(centerCoordinates[0,0,:,0] - cellWidth[0,0,:,0]/2.0)
-    x_points = np.append(x_points, centerCoordinates[0,0,-1,0] + cellWidth[0,0,-1,0]/2.0)
+    x_points = np.squeeze(centerCoordinates[:,0,0,2] - cellWidth[:,0,0,2]/2.0)
+    x_points = np.append(x_points, centerCoordinates[-1,0,0,2] + cellWidth[-1,0,0,2]/2.0)
 
     y_points = np.squeeze(centerCoordinates[0,:,0,1] - cellWidth[0,:,0,1]/2.0)
     y_points = np.append(y_points, centerCoordinates[0,-1,0,1] + cellWidth[0,-1,0,1]/2.0)
 
-    z_points = np.squeeze(centerCoordinates[:,0,0,2] - cellWidth[:,0,0,2]/2.0)
-    z_points = np.append(z_points, centerCoordinates[-1,0,0,2] + cellWidth[-1,0,0,2]/2.0)
+    z_points = np.squeeze(centerCoordinates[0,0,:,0] - cellWidth[0,0,:,0]/2.0)
+    z_points = np.append(z_points, centerCoordinates[0,0,-1,0] + cellWidth[0,0,-1,0]/2.0)
 
     hdf_out['x_points'] = x_points
     hdf_out['y_points'] = y_points
     hdf_out['z_points'] = z_points
-    ###########################################################################
+
+    ##########################################################################
 
     hdf_out.close()
     hdf_in.close()
-
-# NOTE: We flip the X and Z dimensions, because Legion dumps data in
-# column-major order.
-with open(args.json_file) as json_in:
-    config = json.load(json_in)
-    if args.section is not None:
-        config = config['configs'][int(args.section)-1]
-    # Compute number of boundary cells on each dimension.
-    bx = nx - config['Grid']['zNum']
-    by = ny - config['Grid']['yNum']
-    bz = nz - config['Grid']['xNum']
-    assert bx == 0 or bx == 2, 'Expected at most 1-cell boundary'
-    assert by == 0 or by == 2, 'Expected at most 1-cell boundary'
-    assert bz == 0 or bz == 2, 'Expected at most 1-cell boundary'
-    # Compute cell width.
-    dx = config['Grid']['zWidth'] / config['Grid']['zNum']
-    dy = config['Grid']['yWidth'] / config['Grid']['yNum']
-    dz = config['Grid']['xWidth'] / config['Grid']['xNum']
-    # Compute grid origin (taking boundary cells into account).
-    ox = config['Grid']['origin'][2] - dx * (bx / 2)
-    oy = config['Grid']['origin'][1] - dy * (by / 2)
-    oz = config['Grid']['origin'][0] - dz * (bz / 2)
 
 # NOTE: The XMF format expects grid dimensions in points, not cells, so we have
 # to add 1 on each dimension.
