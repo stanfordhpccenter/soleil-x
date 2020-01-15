@@ -308,7 +308,22 @@ render = terralib.includec("render.h",
 "-I", realm_dir,
 })
 
-
+task initializeVisualization(
+        Particles : region(ispace(int1d), Particles_columns),
+        p_Particles : partition(disjoint, Particles, ispace(int3d)),
+        config : Config)
+where reads(Particles.{id, position, temperature, density, __valid})
+do
+    render.cxx_initialize(__runtime(), __context(),
+      __raw(Particles),
+      __raw(p_Particles),
+      __fields([Particles].{id, position, temperature, density, __valid}),
+      5,
+      config.Visualization.numParticlesToDraw,
+      config.Mapping.sampleId,
+      MAPPER.SAMPLE_ID_TAG,
+      config.Mapping.tiles)
+end
 
 -------------------------------------------------------------------------------
 -- I/O ROUTINES
@@ -5497,7 +5512,7 @@ end
 local SIM = mkInstance()
 
 --__forbid(__optimize) __demand(__inner, __replicable)
-__forbid(__optimize, __inner)
+__forbid(__optimize) __demand(__inner)
 task workSingle(config : Config)
   [SIM.DeclSymbols(config)];
   var is_FakeCopyQueue = ispace(int1d, 0)
@@ -5505,15 +5520,7 @@ task workSingle(config : Config)
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
   [parallelizeFor(SIM, rquote
     [SIM.InitRegions(config)];
-    render.cxx_initialize(__runtime(), __context(),
-      __raw(SIM.Particles),
-      __raw(SIM.p_Particles),
-      __fields([SIM.Particles].{id, position, temperature, density, __valid}),
-      5,
-      config.Visualization.numParticlesToDraw,
-      config.Mapping.sampleId,
-      MAPPER.SAMPLE_ID_TAG,
-      config.Mapping.tiles)
+    initializeVisualization(SIM.Particles, SIM.p_Particles,  config)
 
     var stepNumber : int = 0
     while true do
@@ -5579,7 +5586,7 @@ local SIM0 = mkInstance()
 local SIM1 = mkInstance()
 
 --__forbid(__optimize) __demand(__inner, __replicable)
-__forbid(__optimize, __inner)
+__forbid(__optimize) __demand(__inner)
 task workDual(mc : MultiConfig)
   -- Declare symbols
   [SIM0.DeclSymbols(rexpr mc.configs[0] end)];
@@ -5663,15 +5670,7 @@ task workDual(mc : MultiConfig)
   var p_Fluid0_src = partition(disjoint, SIM0.Fluid, srcColoring, SIM1.tiles)
   C.legion_domain_point_coloring_destroy(srcColoring)
   -- Main simulation loop
-  render.cxx_initialize(__runtime(), __context(),
-    __raw(SIM1.Particles),
-    __raw(SIM1.p_Particles),
-    __fields([SIM1.Particles].{id, position, temperature, density, __valid}),
-    5,
-    mc.configs[1].Visualization.numParticlesToDraw,
-    mc.configs[1].Mapping.sampleId,
-    MAPPER.SAMPLE_ID_TAG,
-    mc.configs[1].Mapping.tiles)
+  initializeVisualization(SIM1.Particles, SIM1.p_Particles, mc.configs[1])
   var stepNumber : int = 0
 
   while true do
