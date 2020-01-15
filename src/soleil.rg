@@ -35,6 +35,7 @@ local Config = SCHEMA.Config
 local MultiConfig = SCHEMA.MultiConfig
 
 local struct Particles_columns {
+  id : int64;
   cell : int3d;
   position : double[3];
   velocity : double[3];
@@ -57,6 +58,7 @@ local struct Particles_columns {
 }
 
 local Particles_primitives = terralib.newlist({
+  'id',
   'position',
   'velocity',
   'temperature',
@@ -286,6 +288,27 @@ __demand(__inline)
 task vv_div(a : double[3], b : double[3])
   return array(a[0] / b[0], a[1] / b[1], a[2] / b[2])
 end
+
+-------------------------------------------------------------------------------
+-- Visualization
+-------------------------------------------------------------------------------
+
+local root_dir = arg[0]:match(".*/") or "./"
+assert(os.getenv('LG_RT_DIR'), "LG_RT_DIR should be set!")
+local runtime_dir = os.getenv('LG_RT_DIR') .. "/"
+local legion_dir = runtime_dir .. "legion/"
+local mapper_dir = runtime_dir .. "mappers/"
+local realm_dir = runtime_dir .. "realm/"
+
+render = terralib.includec("render.h",
+{"-I", root_dir,
+"-I", runtime_dir,
+"-I", mapper_dir,
+"-I", legion_dir,
+"-I", realm_dir,
+})
+
+
 
 -------------------------------------------------------------------------------
 -- I/O ROUTINES
@@ -888,10 +911,11 @@ task Particles_InitializeRandom(color : int3d,
                                 Particles : region(ispace(int1d), Particles_columns),
                                 Fluid : region(ispace(int3d), Fluid_columns),
                                 config : Config,
-                                Grid_xBnum : int, Grid_yBnum : int, Grid_zBnum : int)
+                                Grid_xBnum : int, Grid_yBnum : int, Grid_zBnum : int,
+                                tile_id : int64)
 where
   reads(Fluid.{centerCoordinates, velocity}),
-  writes(Particles.{__valid, cell, position, velocity, density, temperature, diameter})
+  writes(Particles.{__valid, id, cell, position, velocity, density, temperature, diameter})
 do
   -- Grid geometry
   var Grid_xNum = config.Grid.xNum
@@ -927,6 +951,9 @@ do
   var rngState : C.drand48_data
   C.srand48_r(C.legion_get_current_time_in_nanos(), &rngState)
   -- Fill loop
+  var shifted_tile_id : int64 = tile_id * C.pow(2.0, 32)
+  var id : int64 = 0
+
   for p in Particles do
     var relIdx = int64(p - pBase)
     if relIdx < particlesPerTile then
@@ -948,6 +975,8 @@ do
                                                 Grid_yCellWidth, Grid_yRealOrigin,
                                                 Grid_zCellWidth, Grid_zRealOrigin)
       Particles[p].__valid = true
+      Particles[p].id = id + shifted_tile_id
+      id = id + 1
       Particles[p].cell = c
       Particles[p].position = pos
       Particles[p].velocity = flowVelocity
@@ -958,14 +987,16 @@ do
   end
 end
 
-__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
+--__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
+__demand(__leaf) -- MANUALLY PARALLELIZED
 task Particles_InitializeUniform(Particles : region(ispace(int1d), Particles_columns),
                                  Fluid : region(ispace(int3d), Fluid_columns),
                                  config : Config,
-                                 Grid_xBnum : int32, Grid_yBnum : int32, Grid_zBnum : int32)
+                                 Grid_xBnum : int32, Grid_yBnum : int32, Grid_zBnum : int32,
+                                 tile_id : int64)
 where
   reads(Fluid.{centerCoordinates, velocity}),
-  writes(Particles.{__valid, cell, position, velocity, density, temperature, diameter})
+  writes(Particles.{__valid, id, cell, position, velocity, density, temperature, diameter})
 do
   var pBase = Particles.bounds.lo
   var lo = Fluid.bounds.lo
@@ -984,12 +1015,17 @@ do
   var Particles_density = config.Particles.density
   var Particles_initTemperature = config.Particles.initTemperature
   var Particles_diameterMean = config.Particles.diameterMean
-  __demand(__openmp)
+  -- __demand(__openmp)
+  var shifted_tile_id : int64 = tile_id * C.pow(2.0, 32)
+  var id : int64 = 0
+
   for p in Particles do
     var relIdx = int64(p - pBase)
     if relIdx < particlesPerTile then
       Particles[p].__valid = true
       var c = lo + int3d{relIdx%xSize, relIdx/xSize%ySize, relIdx/xSize/ySize%zSize}
+      Particles[p].id = id + shifted_tile_id
+      id = id + 1
       Particles[p].cell = c
       Particles[p].position = Fluid[c].centerCoordinates
       Particles[p].velocity = Fluid[c].velocity
@@ -4804,12 +4840,14 @@ local function mkInstance() local INSTANCE = {}
                          'Uneven partitioning of particles')
         regentlib.assert(config.Particles.initNum <= config.Particles.maxNum,
                          'Not enough space for initial number of particles')
+        var tile_id : int64 = 0
         for c in tiles do
           Particles_InitializeRandom(c,
                                      p_Particles[c],
                                      p_Fluid[c],
                                      config,
-                                     Grid.xBnum, Grid.yBnum, Grid.zBnum)
+                                     Grid.xBnum, Grid.yBnum, Grid.zBnum, tile_id)
+          tile_id = tile_id + 1
         end
       elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart then
         HDF_PARTICLES.load(0, tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
@@ -4824,11 +4862,13 @@ local function mkInstance() local INSTANCE = {}
                          'Uneven partitioning of particles')
         regentlib.assert(config.Particles.initNum <= config.Particles.maxNum,
                          'Not enough space for initial number of particles')
+        var tile_id : int64 = 0
         for c in tiles do
           Particles_InitializeUniform(p_Particles[c],
                                       p_Fluid[c],
                                       config,
-                                      Grid.xBnum, Grid.yBnum, Grid.zBnum)
+                                      Grid.xBnum, Grid.yBnum, Grid.zBnum, tile_id)
+          tile_id = tile_id + 1
         end
       else regentlib.assert(false, 'Unhandled case in switch') end
       for c in tiles do
@@ -5456,7 +5496,8 @@ end
 
 local SIM = mkInstance()
 
-__forbid(__optimize) __demand(__inner, __replicable)
+--__forbid(__optimize) __demand(__inner, __replicable)
+__forbid(__optimize, __inner)
 task workSingle(config : Config)
   [SIM.DeclSymbols(config)];
   var is_FakeCopyQueue = ispace(int1d, 0)
@@ -5464,6 +5505,17 @@ task workSingle(config : Config)
   [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
   [parallelizeFor(SIM, rquote
     [SIM.InitRegions(config)];
+    render.cxx_initialize(__runtime(), __context(),
+      __raw(SIM.Particles),
+      __raw(SIM.p_Particles),
+      __fields([SIM.Particles].{id, position, temperature, density, __valid}),
+      5,
+      config.Visualization.numParticlesToDraw,
+      config.Mapping.sampleId,
+      MAPPER.SAMPLE_ID_TAG,
+      config.Mapping.tiles)
+
+    var stepNumber : int = 0
     while true do
       [SIM.MainLoopHeader(config)];
       -- Enable tracing if this iteration ...
@@ -5485,6 +5537,16 @@ task workSingle(config : Config)
         break
       end
       [SIM.MainLoopBody(config, rexpr false end, FakeCopyQueue)];
+      -- Visualization
+      if stepNumber % config.Visualization.stepsPerRender == 0 and config.Visualization.stepsPerRender > 0 then
+        render.cxx_render(__runtime(), __context(),
+          config.Visualization.cameraFromAtUp,
+          config.Visualization.colorScale)
+        render.cxx_reduce(__context(), config.Visualization.cameraFromAtUp)
+        render.cxx_saveImage(__runtime(), __context(), ".")
+      end
+      stepNumber = stepNumber + 1
+
       -- End of trace
       if trace then
         C.legion_runtime_end_trace(__runtime(), __context(), config.Mapping.sampleId)
@@ -5516,7 +5578,8 @@ end
 local SIM0 = mkInstance()
 local SIM1 = mkInstance()
 
-__forbid(__optimize) __demand(__inner, __replicable)
+--__forbid(__optimize) __demand(__inner, __replicable)
+__forbid(__optimize, __inner)
 task workDual(mc : MultiConfig)
   -- Declare symbols
   [SIM0.DeclSymbols(rexpr mc.configs[0] end)];
@@ -5600,6 +5663,17 @@ task workDual(mc : MultiConfig)
   var p_Fluid0_src = partition(disjoint, SIM0.Fluid, srcColoring, SIM1.tiles)
   C.legion_domain_point_coloring_destroy(srcColoring)
   -- Main simulation loop
+  render.cxx_initialize(__runtime(), __context(),
+    __raw(SIM1.Particles),
+    __raw(SIM1.p_Particles),
+    __fields([SIM1.Particles].{id, position, temperature, density, __valid}),
+    5,
+    mc.configs[1].Visualization.numParticlesToDraw,
+    mc.configs[1].Mapping.sampleId,
+    MAPPER.SAMPLE_ID_TAG,
+    mc.configs[1].Mapping.tiles)
+  var stepNumber : int = 0
+
   while true do
     var Integrator_timeStep = SIM0.Integrator_timeStep;
     -- Perform preliminary actions before each timestep
@@ -5646,6 +5720,17 @@ task workDual(mc : MultiConfig)
     end
     -- Run one iteration of second section
     [parallelizeFor(SIM1, SIM1.MainLoopBody(rexpr mc.configs[1] end, incoming, CopyQueue))];
+    -- Visualization
+    if stepNumber % mc.configs[1].Visualization.stepsPerRender == 0 and mc.configs[1].Visualization.stepsPerRender > 0 then
+C.printf("calling cxx_render\n");C.fflush(C.stdout);
+      render.cxx_render(__runtime(), __context(),
+        mc.configs[1].Visualization.cameraFromAtUp,
+        mc.configs[1].Visualization.colorScale)
+      render.cxx_reduce(__context(), mc.configs[1].Visualization.cameraFromAtUp)
+      render.cxx_saveImage(__runtime(), __context(), ".")
+    end
+    stepNumber = stepNumber + 1
+
   end
   -- Cleanups
   [SIM0.Cleanup(rexpr mc.configs[0] end)];

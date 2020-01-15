@@ -22,8 +22,8 @@ export HDF_HEADER ?= hdf5.h
 HDF_LIBNAME ?= hdf5
 
 # C compiler options
-CFLAGS += -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent
-CXXFLAGS += -std=c++11 -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent
+CFLAGS += -g  -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent -DLEGION_SPY
+CXXFLAGS += -std=c++11 -g  -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent -I$(IMAGE_COMPOSITOR_DIR)/include -DLEGION_SPY
 
 # Regent options
 export INCLUDE_PATH := .
@@ -52,8 +52,13 @@ ifeq ($(USE_HDF), 1)
   LINK_FLAGS += -l$(HDF_LIBNAME)
 endif
 LINK_FLAGS += -lm
+LINK_FLAGS += -L$(IMAGE_COMPOSITOR_DIR)/src -lImageCompositor
 
 .PHONY: default all clean
+
+HOST = $(shell hostname)
+HOST := $(patsubst daint%,pizdaint,$(HOST))
+
 
 default: soleil.exec
 
@@ -65,11 +70,20 @@ clean:
 %-desugared.rg: %.rg
 	./desugar.py $< > $@
 
-soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o
-	$(CXX) -o $@ $^ $(LINK_FLAGS)
+soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o render.o
+	$(CXX) -o $@ $^ $(LINK_FLAGS) -lOSMesa -lGLU
 
 soleil.o: soleil-desugared.rg soleil_mapper.h config_schema.h hdf_helper.rg dom-desugared.rg util-desugared.rg
 	$(REGENT) soleil-desugared.rg $(REGENT_FLAGS)
+
+small.exec: small.o small_mapper.o config_schema.o json.o render.o
+	$(CXX) -o $@ $^ $(LINK_FLAGS) -lOSMesa -lGLU
+
+small.o: small-desugared.rg soleil_mapper.h config_schema.h hdf_helper.rg dom-desugared.rg util-desugared.rg
+	$(REGENT) small-desugared.rg $(REGENT_FLAGS)
+
+small_mapper.o: small_mapper.cc soleil_mapper.h config_schema.h
+	$(CXX) $(CXXFLAGS) -c -o  $@ $<
 
 dom_host.exec: dom_host.o config_schema.o json.o
 	$(CXX) -o $@ $^ $(LINK_FLAGS)
@@ -79,6 +93,9 @@ dom_host.o: dom_host.rg config_schema.h dom-desugared.rg util-desugared.rg
 
 soleil_mapper.o: soleil_mapper.cc soleil_mapper.h config_schema.h
 	$(CXX) $(CXXFLAGS) -c -o  $@ $<
+
+render.o: render.cc render.h
+	$(CXX) $(CXXFLAGS) -DGLAPIENTRY= -I$(MESA_INC) -I$(IMAGE_COMPOSITOR_DIR)/include -c -o $@ $<
 
 config_schema.o config_schema.h: process_schema.rg config_schema.lua json.h util-desugared.rg
 	$(REGENT) process_schema.rg config_schema.lua $(REGENT_FLAGS)

@@ -209,6 +209,12 @@ Exports.Config = {
     -- temperature probes
     probes = UpTo(5, Exports.Volume),
   },
+  Visualization = {
+    numParticlesToDraw = int,
+    colorScale = Array(2, double),
+    stepsPerRender = int,
+    cameraFromAtUp = Array(9, double),
+  }
 }
 
 -- Dual-section simulation config
