@@ -79,7 +79,7 @@
             "gamma" : 1.4,
             "prandtl" : "0.707",
             "viscosityModel" : "Constant",
-            "constantVisc" : 1.846E-5,
+            "constantVisc" : 1.9E-5,
             "powerlawViscRef" : -1.0,
             "powerlawTempRef" : -1.0,
             "sutherlandViscRef" : -1.0,
@@ -88,7 +88,7 @@
             "initCase" : "Perturbed",
             "restartDir" : "",
             "initParams" : [1.2, 104040.0, 8.0, 0.0, 0.0, 0.8],
-            "bodyForce" : [25.92, 0.0, 0.0],
+            "bodyForce" : [12.8, 0.0, 0.0],
             "turbForcing" : {"type" : "OFF"}
         },
 
@@ -202,7 +202,7 @@
             "gamma" : 1.4,
             "prandtl" : "0.707",
             "viscosityModel" : "Constant",
-            "constantVisc" : 1.846E-5,
+            "constantVisc" : 1.9E-5,
             "powerlawViscRef" : -1.0,
             "powerlawTempRef" : -1.0,
             "sutherlandViscRef" : -1.0,
@@ -211,7 +211,7 @@
             "initCase" : "Perturbed",
             "restartDir" : "",
             "initParams" : [1.2, 104040.0, 8.0, 0.0, 0.0, 0.8],
-            "bodyForce" : [25.92, 0.0, 0.0],
+            "bodyForce" : [12.8, 0.0, 0.0],
             "turbForcing" : {"type" : "OFF"}
         },
 
