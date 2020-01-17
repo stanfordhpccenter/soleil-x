@@ -5,13 +5,13 @@
             "tilesPerRank" : [1,1,1],
             "sampleId" : -1,
             "outDir" : "",
-            "wallTime" : 720
+            "wallTime" : 60
         },
 
         "Grid" : {
-            "xNum" : 540,
-            "yNum" : 320,
-            "zNum" : 320,
+            "xNum" : 54,
+            "yNum" : 32,
+            "zNum" : 32,
             "origin" : [0.0, 0.0, 0.0],
             "xWidth" : 0.27,
             "yWidth" : 0.04,
@@ -68,7 +68,7 @@
         "Integrator" : {
             "startIter" : 0,
             "startTime" : 0.0,
-            "maxIter" : 1000000,
+            "maxIter" : 10,
             "cfl" : 1.0,
             "fixedDeltaTime" : -1.0,
             "rkOrder" : 4
@@ -95,8 +95,8 @@
         "Particles" : {
             "initCase" : "Random",
             "restartDir" : "",
-            "initNum" : 14904000,
-            "maxNum"  : 15000000,
+            "initNum" : 1500,
+            "maxNum"  : 2000,
             "restitutionCoeff" : 1.0,
             "convectiveCoeff" : 0.7,
             "heatCapacity" : 440.0,
@@ -128,13 +128,13 @@
             "tilesPerRank" : [1,1,1],
             "sampleId" : -1,
             "outDir" : "",
-            "wallTime" : 720
+            "wallTime" : 60
         },
 
         "Grid" : {
-            "xNum" : 540,
-            "yNum" : 320,
-            "zNum" : 320,
+            "xNum" : 54,
+            "yNum" : 32,
+            "zNum" : 32,
             "origin" : [0.0, 0.0, 0.0],
             "xWidth" : 0.27,
             "yWidth" : 0.04,
@@ -191,7 +191,7 @@
         "Integrator" : {
             "startIter" : 0,
             "startTime" : 0.0,
-            "maxIter" : 1000000,
+            "maxIter" : 10,
             "cfl" : 1.0,
             "fixedDeltaTime" : -1.0,
             "rkOrder" : 4
@@ -218,8 +218,8 @@
         "Particles" : {
             "initCase" : "Random",
             "restartDir" : "",
-            "initNum" : 14904000,
-            "maxNum" : 15000000,
+            "initNum" : 1500,
+            "maxNum"  : 2000,
             "restitutionCoeff" : 1.0,
             "convectiveCoeff" : 0.7,
             "heatCapacity" : 440.0,
@@ -243,9 +243,9 @@
             "type" : "DOM",
             "qa" : 0.396,
             "qs" : 0.745,
-            "xNum" : 270,
-            "yNum" : 160,
-            "zNum" : 160,
+            "xNum" : 27,
+            "yNum" : 16,
+            "zNum" : 16,
             "angles" : 350,
             "xHiEmiss" : 1.0,
             "xLoEmiss" : 1.0,
@@ -275,17 +275,17 @@
 
         "IO" : {
             "wrtRestart" : true,
-            "restartEveryTimeSteps" : 10000,
-            "probes" : [{"fromCell" : [540,0,0], "uptoCell" : [540,320,320]}]
+            "restartEveryTimeSteps" : 1,
+            "probes" : [{"fromCell" : [54,0,0], "uptoCell" : [54,32,32]}]
         }
     }],
     "copySrc" : {
         "fromCell" : [0,0,0],
-        "uptoCell" : [0,320,320]
+        "uptoCell" : [0,32,32]
     },
     "copyTgt" : {
         "fromCell" : [0,0,0],
-        "uptoCell" : [0,320,320]
+        "uptoCell" : [0,32,32]
     },
     "collocateSections" : true,
     "copyEveryTimeSteps" : 1
