@@ -5,7 +5,7 @@
             "tilesPerRank" : [1,1,1],
             "sampleId" : -1,
             "outDir" : "",
-            "wallTime" : 60
+            "wallTime" : 10
         },
 
         "Grid" : {
@@ -119,7 +119,7 @@
 
         "IO" : {
             "wrtRestart" : true,
-            "restartEveryTimeSteps" : 10000,
+            "restartEveryTimeSteps" : 1,
             "probes" : []
         }
     }, {
@@ -128,7 +128,7 @@
             "tilesPerRank" : [1,1,1],
             "sampleId" : -1,
             "outDir" : "",
-            "wallTime" : 60
+            "wallTime" : 10
         },
 
         "Grid" : {
@@ -246,7 +246,7 @@
             "xNum" : 27,
             "yNum" : 16,
             "zNum" : 16,
-            "angles" : 350,
+            "angles" : 110,
             "xHiEmiss" : 1.0,
             "xLoEmiss" : 1.0,
             "yHiEmiss" : 1.0,
