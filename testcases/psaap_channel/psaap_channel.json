@@ -109,7 +109,7 @@
             "collisions" : true,
             "twoWayCoupled" : true,
             "feeding" : { "type" : "OFF" },
-            "staggerFactor" : 1,
+            "staggerFactor" : 380,
             "parcelSize" : 1
         },
 
@@ -235,7 +235,7 @@
                 "type" : "Incoming",
                 "addedVelocity" : [0.0,0.0,0.0]
             },
-            "staggerFactor" : 1,
+            "staggerFactor" : 380,
             "parcelSize" : 1
         },
 
@@ -281,12 +281,12 @@
     }],
     "copySrc" : {
         "fromCell" : [0,0,0],
-        "uptoCell" : [0,320,320]
+        "uptoCell" : [0,321,321]
     },
     "copyTgt" : {
         "fromCell" : [0,0,0],
-        "uptoCell" : [0,320,320]
+        "uptoCell" : [0,321,321]
     },
     "collocateSections" : true,
-    "copyEveryTimeSteps" : 1
+    "copyEveryTimeSteps" : 380
 }

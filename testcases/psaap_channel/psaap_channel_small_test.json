@@ -281,11 +281,11 @@
     }],
     "copySrc" : {
         "fromCell" : [0,0,0],
-        "uptoCell" : [0,32,32]
+        "uptoCell" : [0,33,33]
     },
     "copyTgt" : {
         "fromCell" : [0,0,0],
-        "uptoCell" : [0,32,32]
+        "uptoCell" : [0,33,33]
     },
     "collocateSections" : true,
     "copyEveryTimeSteps" : 1
