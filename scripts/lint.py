@@ -23,10 +23,16 @@ openmp_depth = -1
 def check_task():
     def warn(msg):
         print 'Warning: Line %s: %s' % (task_start, msg)
-    if '__inline' in demands or task_name.startswith('work') or task_name == 'main':
+    if '__inline' in demands:
         return
+    if task_name.startswith('work') or task_name == 'main':
+        if '__inner' not in demands:
+            warn('Top-level task not declared inner')
+        return
+    if '__leaf' not in demands and 'NOT LEAF' not in annots:
+        warn('Task not declared leaf')
     if '__parallel' in demands and region_args != 1:
-        warn('Auto-parallelized tasks should have exactly 1 region argument')
+        warn('Auto-parallelized tasks should (usually) have exactly 1 region argument')
     if '__parallel' not in demands and 'MANUALLY PARALLELIZED' not in annots:
         warn('Task not auto-parallelized')
     if '__cuda' not in demands and 'NO CUDA' not in annots:
@@ -59,6 +65,7 @@ for (line, lineno) in zip(fileinput.input(), count(start=1)):
     record_annot('MANUALLY PARALLELIZED')
     record_annot('NO CUDA')
     record_annot('NO OPENMP')
+    record_annot('NOT LEAF')
     # Record region arguments
     for m in re.finditer(r':\s*region', line):
         region_args += 1

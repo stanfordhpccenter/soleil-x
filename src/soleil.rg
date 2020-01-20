@@ -1049,11 +1049,11 @@ do
   __demand(__openmp)
   for c in Fluid do
     if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
-      Fluid[c].to_Radiation = int3d{(int3d(c).x-Grid_xBnum)/xFactor,
-                                    (int3d(c).y-Grid_yBnum)/yFactor,
-                                    (int3d(c).z-Grid_zBnum)/zFactor}
+      Fluid[c].to_Radiation = int3d{(c.x-Grid_xBnum)/xFactor,
+                                    (c.y-Grid_yBnum)/yFactor,
+                                    (c.z-Grid_zBnum)/zFactor}
     else
-      Fluid[c].to_Radiation = int3d({uint64(0ULL), uint64(0ULL), uint64(0ULL)})
+      Fluid[c].to_Radiation = int3d{uint64(-1), uint64(-1), uint64(-1)}
     end
   end
 end
@@ -3689,7 +3689,7 @@ do
   end
 end
 
-__demand(__parallel, __cuda)
+__demand(__leaf, __parallel, __cuda)
 task Particles_AddFlowCoupling(Particles : region(ispace(int1d), Particles_columns),
                                Particles_heatCapacity : double)
 where
@@ -3725,7 +3725,10 @@ end
 __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Radiation_AccumulateParticleValues(Particles : region(ispace(int1d), Particles_columns),
                                         Fluid : region(ispace(int3d), Fluid_columns),
-                                        Radiation : region(ispace(int3d), Radiation_columns))
+                                        Radiation : region(ispace(int3d), Radiation_columns),
+                                        Grid_xBnum : int32, Grid_xNum : int32,
+                                        Grid_yBnum : int32, Grid_yNum : int32,
+                                        Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.to_Radiation),
   reads(Particles.{cell, diameter, temperature, __valid}),
@@ -3734,8 +3737,11 @@ do
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
-      Radiation[Fluid[Particles[p].cell].to_Radiation].acc_d2 += pow(Particles[p].diameter, 2.0)
-      Radiation[Fluid[Particles[p].cell].to_Radiation].acc_d2t4 += (pow(Particles[p].diameter, 2.0)*pow(Particles[p].temperature, 4.0))
+      var c = Particles[p].cell
+      if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
+        Radiation[Fluid[c].to_Radiation].acc_d2 += pow(Particles[p].diameter, 2.0)
+        Radiation[Fluid[c].to_Radiation].acc_d2t4 += (pow(Particles[p].diameter, 2.0)*pow(Particles[p].temperature, 4.0))
+      end
     end
   end
 end
@@ -3767,7 +3773,10 @@ task Particles_AbsorbRadiationDOM(Particles : region(ispace(int1d), Particles_co
                                   Fluid : region(ispace(int3d), Fluid_columns),
                                   Radiation : region(ispace(int3d), Radiation_columns),
                                   Particles_heatCapacity : double,
-                                  Radiation_qa : double)
+                                  Radiation_qa : double,
+                                  Grid_xBnum : int32, Grid_xNum : int32,
+                                  Grid_yBnum : int32, Grid_yNum : int32,
+                                  Grid_zBnum : int32, Grid_zNum : int32)
 where
   reads(Fluid.to_Radiation),
   reads(Radiation.G),
@@ -3777,10 +3786,13 @@ do
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
-      var mass = PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density
-      var t4 = pow(Particles[p].temperature, 4.0)
-      var alpha = PI*Radiation_qa*pow(Particles[p].diameter, 2.0)*(Radiation[Fluid[Particles[p].cell].to_Radiation].G-4.0*SB*t4)/4.0
-      Particles[p].temperature_t += alpha/(mass*Particles_heatCapacity)
+      var c = Particles[p].cell
+      if in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum) then
+        var mass = PI*pow(Particles[p].diameter,3.0)/6.0*Particles[p].density
+        var t4 = pow(Particles[p].temperature, 4.0)
+        var alpha = PI*Radiation_qa*pow(Particles[p].diameter, 2.0)*(Radiation[Fluid[c].to_Radiation].G-4.0*SB*t4)/4.0
+        Particles[p].temperature_t += alpha/(mass*Particles_heatCapacity)
+      end
     end
   end
 end
@@ -5194,7 +5206,12 @@ local function mkInstance() local INSTANCE = {}
           fill(Radiation.acc_d2, 0.0)
           fill(Radiation.acc_d2t4, 0.0)
           for c in tiles do
-            Radiation_AccumulateParticleValues(p_Particles[c], p_Fluid[c], p_Radiation[c])
+            Radiation_AccumulateParticleValues(p_Particles[c],
+                                               p_Fluid[c],
+                                               p_Radiation[c],
+                                               Grid.xBnum, config.Grid.xNum,
+                                               Grid.yBnum, config.Grid.yNum,
+                                               Grid.zBnum, config.Grid.zNum)
           end
           var Radiation_xCellWidth = (config.Grid.xWidth/config.Radiation.u.DOM.xNum)
           var Radiation_yCellWidth = (config.Grid.yWidth/config.Radiation.u.DOM.yNum)
@@ -5211,7 +5228,10 @@ local function mkInstance() local INSTANCE = {}
                                          p_Fluid[c],
                                          p_Radiation[c],
                                          config.Particles.heatCapacity,
-                                         config.Radiation.u.DOM.qa)
+                                         config.Radiation.u.DOM.qa,
+                                         Grid.xBnum, config.Grid.xNum,
+                                         Grid.yBnum, config.Grid.yNum,
+                                         Grid.zBnum, config.Grid.zNum)
           end
         else regentlib.assert(false, 'Unhandled case in switch') end
       end
@@ -5446,14 +5466,51 @@ task workSingle(config : Config)
     [SIM.InitRegions(config)];
     while true do
       [SIM.MainLoopHeader(config)];
+      -- Enable tracing if this iteration ...
+      var trace = not (
+        -- is not the final one
+        SIM.Integrator_exitCond or
+        -- does not dump HDF files
+        config.IO.wrtRestart and SIM.Integrator_timeStep % config.IO.restartEveryTimeSteps == 0 or
+        -- is fluid-only
+        config.Particles.maxNum > 0 and (SIM.Integrator_timeStep % config.Particles.staggerFactor == 0 or SIM.Integrator_timeStep == config.Integrator.startIter)
+      )
+      -- Beginning of trace
+      if trace then
+        C.legion_runtime_begin_trace(__runtime(), __context(), config.Mapping.sampleId, false)
+      end
+      -- Main loop body
       [SIM.PerformIO(config)];
       if SIM.Integrator_exitCond then
         break
       end
       [SIM.MainLoopBody(config, rexpr false end, FakeCopyQueue)];
+      -- End of trace
+      if trace then
+        C.legion_runtime_end_trace(__runtime(), __context(), config.Mapping.sampleId)
+      end
     end
   end)];
   [SIM.Cleanup(config)];
+end
+
+-- NOTE: It is important that the target is placed first in the arguments list,
+-- to make sure the mapper will map this task on the target node.
+__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
+task Flow_copyValues(FluidTgt : region(ispace(int3d), Fluid_columns),
+                     FluidSrc : region(ispace(int3d), Fluid_columns),
+                     srcOrigin : int3d,
+                     tgtOrigin : int3d)
+where
+  reads(FluidSrc.{temperature,velocity}),
+  writes(FluidTgt.{temperature_inc,velocity_inc})
+do
+  __demand(__openmp)
+  for cSrc in FluidSrc do
+    var cTgt = cSrc - srcOrigin + tgtOrigin
+    FluidTgt[cTgt].temperature_inc = FluidSrc[cSrc].temperature
+    FluidTgt[cTgt].velocity_inc = FluidSrc[cSrc].velocity
+  end
 end
 
 local SIM0 = mkInstance()
@@ -5542,13 +5599,6 @@ task workDual(mc : MultiConfig)
   end
   var p_Fluid0_src = partition(disjoint, SIM0.Fluid, srcColoring, SIM1.tiles)
   C.legion_domain_point_coloring_destroy(srcColoring)
-  var tgtColoring = C.legion_domain_point_coloring_create()
-  C.legion_domain_point_coloring_color_domain(tgtColoring, int1d(0),
-    rect3d{lo = int3d{mc.copyTgt.fromCell[0], mc.copyTgt.fromCell[1], mc.copyTgt.fromCell[2]},
-           hi = int3d{mc.copyTgt.uptoCell[0], mc.copyTgt.uptoCell[1], mc.copyTgt.uptoCell[2]}})
-  var p_Fluid1_isCopied = partition(disjoint, SIM1.Fluid, tgtColoring, ispace(int1d,1))
-  C.legion_domain_point_coloring_destroy(tgtColoring)
-  var p_Fluid1_tgt = cross_product(SIM1.p_Fluid, p_Fluid1_isCopied)
   -- Main simulation loop
   while true do
     var Integrator_timeStep = SIM0.Integrator_timeStep;
@@ -5572,10 +5622,10 @@ task workDual(mc : MultiConfig)
         [SIM0.DumpHDF(rexpr mc.configs[0] end, 'copysrc%010d', Integrator_timeStep)];
       end
       for c in SIM1.tiles do
-        var src = p_Fluid0_src[c]
-        var tgt = p_Fluid1_tgt[c][0]
-        copy(src.temperature, tgt.temperature_inc)
-        copy(src.velocity, tgt.velocity_inc)
+        Flow_copyValues(SIM1.p_Fluid[c],
+                        p_Fluid0_src[c],
+                        srcOrigin,
+                        tgtOrigin)
       end
       fill(CopyQueue.__valid, false)
       fill(CopyQueue.position, array(-1.0, -1.0, -1.0))
