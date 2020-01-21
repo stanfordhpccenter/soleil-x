@@ -308,12 +308,14 @@ render = terralib.includec("render.h",
 "-I", realm_dir,
 })
 
+__forbid(__inner)
 task initializeVisualization(
         Particles : region(ispace(int1d), Particles_columns),
         p_Particles : partition(disjoint, Particles, ispace(int3d)),
         config : Config)
 where reads(Particles.{id, position, temperature, density, __valid})
 do
+    var numParticles : int64 = Particles.bounds.hi - Particles.bounds.lo;
     render.cxx_initialize(__runtime(), __context(),
       __raw(Particles),
       __raw(p_Particles),
@@ -322,7 +324,8 @@ do
       config.Visualization.numParticlesToDraw,
       config.Mapping.sampleId,
       MAPPER.SAMPLE_ID_TAG,
-      config.Mapping.tiles)
+      config.Mapping.tiles,
+      numParticles)
 end
 
 -------------------------------------------------------------------------------
@@ -926,8 +929,7 @@ task Particles_InitializeRandom(color : int3d,
                                 Particles : region(ispace(int1d), Particles_columns),
                                 Fluid : region(ispace(int3d), Fluid_columns),
                                 config : Config,
-                                Grid_xBnum : int, Grid_yBnum : int, Grid_zBnum : int,
-                                tile_id : int64)
+                                Grid_xBnum : int, Grid_yBnum : int, Grid_zBnum : int)
 where
   reads(Fluid.{centerCoordinates, velocity}),
   writes(Particles.{__valid, id, cell, position, velocity, density, temperature, diameter})
@@ -966,8 +968,7 @@ do
   var rngState : C.drand48_data
   C.srand48_r(C.legion_get_current_time_in_nanos(), &rngState)
   -- Fill loop
-  var shifted_tile_id : int64 = tile_id * C.pow(2.0, 32)
-  var id : int64 = 0
+  var id : int64 = pBase
 
   for p in Particles do
     var relIdx = int64(p - pBase)
@@ -990,7 +991,7 @@ do
                                                 Grid_yCellWidth, Grid_yRealOrigin,
                                                 Grid_zCellWidth, Grid_zRealOrigin)
       Particles[p].__valid = true
-      Particles[p].id = id + shifted_tile_id
+      Particles[p].id = id 
       id = id + 1
       Particles[p].cell = c
       Particles[p].position = pos
@@ -1007,8 +1008,7 @@ __demand(__leaf) -- MANUALLY PARALLELIZED
 task Particles_InitializeUniform(Particles : region(ispace(int1d), Particles_columns),
                                  Fluid : region(ispace(int3d), Fluid_columns),
                                  config : Config,
-                                 Grid_xBnum : int32, Grid_yBnum : int32, Grid_zBnum : int32,
-                                 tile_id : int64)
+                                 Grid_xBnum : int32, Grid_yBnum : int32, Grid_zBnum : int32)
 where
   reads(Fluid.{centerCoordinates, velocity}),
   writes(Particles.{__valid, id, cell, position, velocity, density, temperature, diameter})
@@ -1031,15 +1031,14 @@ do
   var Particles_initTemperature = config.Particles.initTemperature
   var Particles_diameterMean = config.Particles.diameterMean
   -- __demand(__openmp)
-  var shifted_tile_id : int64 = tile_id * C.pow(2.0, 32)
-  var id : int64 = 0
+  var id : int64 = pBase
 
   for p in Particles do
     var relIdx = int64(p - pBase)
     if relIdx < particlesPerTile then
       Particles[p].__valid = true
       var c = lo + int3d{relIdx%xSize, relIdx/xSize%ySize, relIdx/xSize/ySize%zSize}
-      Particles[p].id = id + shifted_tile_id
+      Particles[p].id = id 
       id = id + 1
       Particles[p].cell = c
       Particles[p].position = Fluid[c].centerCoordinates
@@ -4855,14 +4854,12 @@ local function mkInstance() local INSTANCE = {}
                          'Uneven partitioning of particles')
         regentlib.assert(config.Particles.initNum <= config.Particles.maxNum,
                          'Not enough space for initial number of particles')
-        var tile_id : int64 = 0
         for c in tiles do
           Particles_InitializeRandom(c,
                                      p_Particles[c],
                                      p_Fluid[c],
                                      config,
-                                     Grid.xBnum, Grid.yBnum, Grid.zBnum, tile_id)
-          tile_id = tile_id + 1
+                                     Grid.xBnum, Grid.yBnum, Grid.zBnum)
         end
       elseif config.Particles.initCase == SCHEMA.ParticlesInitCase_Restart then
         HDF_PARTICLES.load(0, tiles, config.Particles.restartDir, Particles, Particles_copy, p_Particles, p_Particles_copy)
@@ -4877,13 +4874,11 @@ local function mkInstance() local INSTANCE = {}
                          'Uneven partitioning of particles')
         regentlib.assert(config.Particles.initNum <= config.Particles.maxNum,
                          'Not enough space for initial number of particles')
-        var tile_id : int64 = 0
         for c in tiles do
           Particles_InitializeUniform(p_Particles[c],
                                       p_Fluid[c],
                                       config,
-                                      Grid.xBnum, Grid.yBnum, Grid.zBnum, tile_id)
-          tile_id = tile_id + 1
+                                      Grid.xBnum, Grid.yBnum, Grid.zBnum)
         end
       else regentlib.assert(false, 'Unhandled case in switch') end
       for c in tiles do
@@ -5550,7 +5545,7 @@ task workSingle(config : Config)
           config.Visualization.cameraFromAtUp,
           config.Visualization.colorScale)
         render.cxx_reduce(__context(), config.Visualization.cameraFromAtUp)
-        render.cxx_saveImage(__runtime(), __context(), ".")
+        render.cxx_saveImage(__runtime(), __context(), "/scratch/snx3000/aheirich/images")
       end
       stepNumber = stepNumber + 1
 
@@ -5726,7 +5721,7 @@ C.printf("calling cxx_render\n");C.fflush(C.stdout);
         mc.configs[1].Visualization.cameraFromAtUp,
         mc.configs[1].Visualization.colorScale)
       render.cxx_reduce(__context(), mc.configs[1].Visualization.cameraFromAtUp)
-      render.cxx_saveImage(__runtime(), __context(), ".")
+      render.cxx_saveImage(__runtime(), __context(), "/scratch/snx3000/aheirich/images")
     end
     stepNumber = stepNumber + 1
 

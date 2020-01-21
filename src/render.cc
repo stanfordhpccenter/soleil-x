@@ -23,7 +23,7 @@
   static legion_field_id_t* gParticlesFields;
   static int gNumParticlesFields;
   static MapperID gImageReductionMapperID = 0;
-  static int gCreateProjectionFunctorTaskID = 0;
+  static int gInitialRenderTaskID = 0;
   static int gRenderProjectionFunctorID = 99;//TODO system assigns this
 
   typedef double FieldData;
@@ -31,7 +31,6 @@
       class RenderProjectionFunctor : public ProjectionFunctor {
       public:
         RenderProjectionFunctor(int tiles[3]) {
-__TRACE
           memcpy(mTiles, tiles, sizeof(mTiles));
           mNx = tiles[0];
           mNy = tiles[1];
@@ -41,7 +40,6 @@ __TRACE
         virtual LogicalRegion project(const Mappable *mappable, unsigned index,
                                       LogicalPartition upperBound,
                                       const DomainPoint &point) {
-__TRACE
           long int z = point[0] * mNy * mNz + point[1] * mNz + point[2];
           Legion::Point<3> remappedPoint;
           remappedPoint[0] = 0;
@@ -279,12 +277,28 @@ __TRACE
     }
 
 
-  static void create_projection_functor_task(const Task *task,
+  static void initial_render_task(const Task *task,
                           const std::vector<PhysicalRegion> &regions,
                           Context ctx, HighLevelRuntime *runtime) {
-    int* tiles = (int*)task->args;
+    long int* args = (long int*)task->args;
+    int tiles[3];
+    tiles[0] = args[0];
+    tiles[1] = args[1];
+    tiles[2] = args[2];
     mRenderProjectionFunctor = new RenderProjectionFunctor(tiles);
     runtime->register_projection_functor(gRenderProjectionFunctorID, mRenderProjectionFunctor);
+    if(gParticlesToDraw == nullptr) {
+      gNumParticlesToDraw = args[3];
+#if 1
+{
+char b[256];
+gethostname(b, sizeof(b));
+sprintf(b + strlen(b), " gNumParticlesToDraw = %d\n", gNumParticlesToDraw);
+}
+#endif
+      gParticlesToDraw = new long int[gNumParticlesToDraw];
+      memcpy(gParticlesToDraw, args + 4, gNumParticlesToDraw * sizeof(long int));
+    }
   }
 
   static int comparPoints(const void* p0, const void* p1) {
@@ -298,25 +312,46 @@ __TRACE
 
 
   static void transformPoints(AccessorRO<FieldData3, 1> particlesPosition,
+                              AccessorRO<bool, 1> particlesValid,
+                              AccessorRO<long int, 1> particlesID,
+                              long int numParticlesToDraw,
+                              long int *particlesToDraw,
                               int lo,
                               int hi,
-                              GLfloat points[])
+                              GLfloat points[],
+                              long int& numValid)
 {
+  numValid = 0;
+  int drawn = 0;
   GLfloat modelView[16];
   glGetFloatv(GL_MODELVIEW_MATRIX, modelView);
 
   for(long long int i = lo; i < hi; ++i) {
     FieldData3 position = particlesPosition[i];
-    GLfloat x = position.x[0];
-    GLfloat y = position.x[1];
-    GLfloat z = position.x[2];
-    GLfloat zTransformed = x * modelView[2] + y * modelView[6] + z * modelView[10] + modelView[14];
-    points[i * 4] = x;
-    points[i * 4 + 1] = y;
-    points[i * 4 + 2] = z;
-    points[i * 4 + 3] = zTransformed;
+    bool valid = particlesValid[i];
+    if(valid) numValid++;
+    if(valid && drawThis(particlesID[i], numParticlesToDraw, particlesToDraw)) {
+      drawn++;
+      GLfloat x = position.x[0];
+      GLfloat y = position.x[1];
+      GLfloat z = position.x[2];
+      GLfloat zTransformed = x * modelView[2] + y * modelView[6] + z * modelView[10] + modelView[14];
+      points[numValid * 5] = x;
+      points[numValid * 5 + 1] = y;
+      points[numValid * 5 + 2] = z;
+      points[numValid * 5 + 3] = zTransformed;
+      points[numValid * 5 + 4] = i;
+    }
   }
-  qsort(points, hi - lo, 4 * sizeof(GLfloat), comparPoints);
+  qsort(points, numValid, 5 * sizeof(GLfloat), comparPoints);
+#if 1
+{
+char b[128];
+gethostname(b, sizeof(b));
+sprintf(b + strlen(b), " numValid %ld drawn %d\n", numValid, drawn);
+std::cout<<b;
+}
+#endif
 }
 
 
@@ -341,7 +376,6 @@ __TRACE
     float* depthBuffer = nullptr;
     createGraphicsContext(mesaCtx, rgbaBuffer, depthBuffer,
       imageDescriptor->width, imageDescriptor->height);
-__TRACE
     initializeRender(camera, imageDescriptor->width, imageDescriptor->height);
 
     AccessorRO<long int, 1> particlesID(particles, particlesFields[0]);
@@ -350,24 +384,23 @@ __TRACE
     AccessorRO<FieldData, 1> particlesDensity(particles, particlesFields[3]);
     AccessorRO<bool, 1> particlesValid(particles, particlesFields[4]);
 
-__TRACE
     Domain particlesDomain = runtime->get_index_space_domain(
       particles.get_logical_region().get_index_space());
 
     long long int lo = particlesDomain.bounds<1, long long int>().lo[0];
     long long int hi = particlesDomain.bounds<1, long long int>().hi[0];
-    GLfloat* points = new GLfloat[4 * (hi - lo)];
-    transformPoints(particlesPosition, lo, hi, points);
+    GLfloat* points = new GLfloat[5 * (hi - lo)];
+    long int numValid;
+    transformPoints(particlesPosition, particlesValid, particlesID,
+      gNumParticlesToDraw, gParticlesToDraw, lo, hi, points, numValid);
 
-__TRACE
+    GLfloat min[3] = { 999, 999, 999 };
+    GLfloat max[3] = { -999, -999, -999 };
     glBegin(GL_POINTS);
-    for(int i = lo; i < hi; ++i) {
-
-      if(particlesValid[i] &&
-        drawThis(particlesID[i], gNumParticlesToDraw, gParticlesToDraw)) {
-        if(particlesDensity[i] > 0) {
-
-          GLfloat t = particlesTemperature[i];
+    for(long int i = 0; i < numValid; ++i) {
+        long long int index = (long long int)points[5 * i + 4];
+        if(particlesDensity[index] > 0) {
+          GLfloat t = particlesTemperature[index];
           GLfloat color[4];
           scaledTemperatureToColor(t, color, colorScale);
 
@@ -375,13 +408,27 @@ __TRACE
           glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, color);
           glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, color);
 
-          glVertex3f(points[4 * i],  points[4 * i + 1], points[4 * i + 2]);
+          glVertex3f(points[5 * i],  points[5 * i + 1], points[5 * i + 2]);
+
+          for(unsigned j = 0; j < 3; j++) {
+            if(min[j] > points[5 * i + j]) min[j] = points[5 * i + j];
+            if(max[j] < points[5 * i + j]) max[j] = points[5 * i + j];
+          }
         }
-      }
     }
     glEnd();
 
+#if 1
+{
 __TRACE
+char b[256];
+gethostname(b, sizeof(b));
+sprintf(b + strlen(b), " drawn min %g %g %g max %g %g %g\n",
+min[0], min[1], min[2], max[0], max[1], max[2]);
+std::cout<<b;
+}
+#endif
+
     delete [] points;
 
     // now copy the image data into the image logical region
@@ -389,7 +436,6 @@ __TRACE
     glReadPixels(0, 0, imageDescriptor->width, imageDescriptor->height,
       GL_DEPTH_COMPONENT, GL_FLOAT, depthBuffer);
 
-__TRACE
     std::vector<legion_field_id_t> imageFields;
     image.get_fields(imageFields);
     AccessorWO<ImageReduction::PixelField, 3> r(image, imageFields[0]);
@@ -499,7 +545,6 @@ __TRACE
 
   // Called from mapper before runtime has started
   void cxx_preinitialize(MapperID mapperID) {
-__TRACE
     gImageReductionMapperID = mapperID;
 
     Visualization::ImageReduction::preinitializeBeforeRuntimeStarts();
@@ -513,11 +558,11 @@ __TRACE
     layout_registrar.add_constraint(OrderingConstraint(dim_order, true/*contig*/));
     LayoutConstraintID soa_layout_id = Runtime::preregister_layout(layout_registrar);
 
-    // preregister create_projection_functor_task
-    gCreateProjectionFunctorTaskID = Legion::HighLevelRuntime::generate_static_task_id();
-    TaskVariantRegistrar registrarCPFT(gCreateProjectionFunctorTaskID, "create_projection_functor_task");
+    // preregister initial_render_task
+    gInitialRenderTaskID = Legion::HighLevelRuntime::generate_static_task_id();
+    TaskVariantRegistrar registrarCPFT(gInitialRenderTaskID, "initial_render_task");
     registrarCPFT.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    Runtime::preregister_task_variant<create_projection_functor_task>(registrarCPFT, "create_projection_functor_task");
+    Runtime::preregister_task_variant<initial_render_task>(registrarCPFT, "initial_render_task");
 
     // preregister render task
     gRenderTaskID = Legion::HighLevelRuntime::generate_static_task_id();
@@ -563,10 +608,10 @@ static int compar(const void* p1, const void* p2) {
                      int numParticlesToDraw_,
                      int sampleId,
                      int tag,
-                     int tiles[3]
+                     int tiles[3],
+                     long int numParticles
                      )
   {
-__TRACE
     Runtime *runtime = CObjectWrapper::unwrap(runtime_);
     Context ctx = CObjectWrapper::unwrap(ctx_)->context();
     LogicalRegion region = CObjectWrapper::unwrap(region_);
@@ -577,25 +622,32 @@ __TRACE
     gImageCompositor = new Visualization::ImageReduction(region,
       partition, pFields, numPFields, imageDescriptor, ctx, runtime, gImageReductionMapperID);
 
+    // pack the tiles into the first three positions of the arguments
     gNumParticlesToDraw = numParticlesToDraw_;
-    gParticlesToDraw = new long int[gNumParticlesToDraw];
+    const int numTiles = 3;
+    const int numNum = 1;
+    long int* particleBuffer = new long int[gNumParticlesToDraw + numTiles + numNum];
+    particleBuffer[0] = tiles[0];
+    particleBuffer[1] = tiles[1];
+    particleBuffer[2] = tiles[2];
+    particleBuffer[3] = gNumParticlesToDraw;
     srandom(0);
     for(int i = 0; i < gNumParticlesToDraw; ++i) {
       long double r = (long double)random();
-      long int id = gNumParticlesToDraw * r / RAND_MAX;
-      gParticlesToDraw[i] = id;
+      long int id = numParticles * r / RAND_MAX;
+      particleBuffer[i + numTiles + numNum] = id;
     }
-    qsort(gParticlesToDraw, gNumParticlesToDraw, sizeof(gParticlesToDraw[0]), compar);
+    qsort(particleBuffer + numTiles + numNum, gNumParticlesToDraw, sizeof(particleBuffer[0]), compar);
 
     gNumParticlesFields = numPFields;
     gParticlesFields = new legion_field_id_t[numPFields];
     for(int i = 0; i < numPFields; ++i) {
       gParticlesFields[i] = pFields[i];
     }
+    gParticlesToDraw = particleBuffer + numTiles + numNum;
 
-    size_t argLen = 3 * sizeof(int);
-    gImageCompositor->initializeRenderNodes(runtime, ctx, gCreateProjectionFunctorTaskID, (char*)tiles, argLen);
-__TRACE
+    size_t argLen = (gNumParticlesToDraw + numTiles + numNum) * sizeof(long int);
+    gImageCompositor->initializeRenderNodes(runtime, ctx, gInitialRenderTaskID, (char*)particleBuffer, argLen);
   }
 
 
@@ -674,7 +726,6 @@ __TRACE
 
   void cxx_reduce(legion_context_t ctx_, double cameraFromAtUp[9]
 ) {
-__TRACE
     Context ctx = CObjectWrapper::unwrap(ctx_)->context();
     Camera camera;
     camera.from[0] = cameraFromAtUp[0];
@@ -695,7 +746,6 @@ __TRACE
       (float)(camera.at[2] - camera.from[2])
     };
     FutureMap futures = compositor->reduceImages(ctx, cameraDirection);
-__TRACE
     futures.wait_all_results();
   }
 
@@ -706,7 +756,6 @@ __TRACE
                      legion_context_t ctx_,
                      const char* outDir
                      ) {
-__TRACE
     Runtime *runtime = CObjectWrapper::unwrap(runtime_);
     Context ctx = CObjectWrapper::unwrap(ctx_)->context();
 

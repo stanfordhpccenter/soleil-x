@@ -34,7 +34,8 @@ typedef struct {
                      int numParticlesToDraw_,
                      int sampleId,
                      int tag,
-                     int tiles[3]
+                     int tiles[3], 
+                     long int numParticles
                      );
 
   void cxx_render(legion_runtime_t runtime_, legion_context_t ctx_,
