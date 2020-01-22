@@ -26,7 +26,7 @@ local log = regentlib.log(double)
 -- COMPILE-TIME CONFIGURATION
 -------------------------------------------------------------------------------
 
-local MAX_ANGLES_PER_QUAD = 44
+local MAX_ANGLES_PER_QUAD = 14
 
 -------------------------------------------------------------------------------
 -- DATA STRUCTURES
