@@ -21,6 +21,7 @@
   static int gNumParticlesToDraw = 0;
   static long int* gParticlesToDraw = nullptr;
   static legion_field_id_t* gParticlesFields;
+  static long int* gParticleBuffer;
   static int gNumParticlesFields;
   static MapperID gImageReductionMapperID = 0;
   static int gInitialRenderTaskID = 0;
@@ -81,7 +82,7 @@
         long int mNz;
 	};
 
-  static RenderProjectionFunctor* mRenderProjectionFunctor = nullptr;
+  static RenderProjectionFunctor* gRenderProjectionFunctor = nullptr;
 
 
   static void createGraphicsContext(OSMesaContext &mesaCtx,
@@ -280,22 +281,16 @@
   static void initial_render_task(const Task *task,
                           const std::vector<PhysicalRegion> &regions,
                           Context ctx, HighLevelRuntime *runtime) {
+__TRACE
     long int* args = (long int*)task->args;
     int tiles[3];
     tiles[0] = args[0];
     tiles[1] = args[1];
     tiles[2] = args[2];
-    mRenderProjectionFunctor = new RenderProjectionFunctor(tiles);
-    runtime->register_projection_functor(gRenderProjectionFunctorID, mRenderProjectionFunctor);
+    gRenderProjectionFunctor = new RenderProjectionFunctor(tiles);
+    runtime->register_projection_functor(gRenderProjectionFunctorID, gRenderProjectionFunctor);
     if(gParticlesToDraw == nullptr) {
       gNumParticlesToDraw = args[3];
-#if 1
-{
-char b[256];
-gethostname(b, sizeof(b));
-sprintf(b + strlen(b), " gNumParticlesToDraw = %d\n", gNumParticlesToDraw);
-}
-#endif
       gParticlesToDraw = new long int[gNumParticlesToDraw];
       memcpy(gParticlesToDraw, args + 4, gNumParticlesToDraw * sizeof(long int));
     }
@@ -389,7 +384,9 @@ __TRACE
 
     long long int lo = particlesDomain.bounds<1, long long int>().lo[0];
     long long int hi = particlesDomain.bounds<1, long long int>().hi[0];
+__TRACE
     GLfloat* points = new GLfloat[5 * (hi - lo)];
+__TRACE
     long int numValid;
     transformPoints(particlesPosition, particlesValid, particlesID,
       gNumParticlesToDraw, gParticlesToDraw, lo, hi, points, numValid);
@@ -417,17 +414,6 @@ __TRACE
         }
     }
     glEnd();
-
-#if 1
-{
-__TRACE
-char b[256];
-gethostname(b, sizeof(b));
-sprintf(b + strlen(b), " drawn min %g %g %g max %g %g %g\n",
-min[0], min[1], min[2], max[0], max[1], max[2]);
-std::cout<<b;
-}
-#endif
 
     delete [] points;
 
@@ -462,7 +448,6 @@ std::cout<<b;
     OSMesaDestroyContext(mesaCtx);
     delete [] rgbaBuffer;
     delete [] depthBuffer;
-__TRACE
   }
 
 
@@ -612,6 +597,7 @@ static int compar(const void* p1, const void* p2) {
                      long int numParticles
                      )
   {
+__TRACE
     Runtime *runtime = CObjectWrapper::unwrap(runtime_);
     Context ctx = CObjectWrapper::unwrap(ctx_)->context();
     LogicalRegion region = CObjectWrapper::unwrap(region_);
@@ -626,28 +612,28 @@ static int compar(const void* p1, const void* p2) {
     gNumParticlesToDraw = numParticlesToDraw_;
     const int numTiles = 3;
     const int numNum = 1;
-    long int* particleBuffer = new long int[gNumParticlesToDraw + numTiles + numNum];
-    particleBuffer[0] = tiles[0];
-    particleBuffer[1] = tiles[1];
-    particleBuffer[2] = tiles[2];
-    particleBuffer[3] = gNumParticlesToDraw;
+    gParticleBuffer = new long int[gNumParticlesToDraw + numTiles + numNum];
+    gParticleBuffer[0] = tiles[0];
+    gParticleBuffer[1] = tiles[1];
+    gParticleBuffer[2] = tiles[2];
+    gParticleBuffer[3] = gNumParticlesToDraw;
     srandom(0);
     for(int i = 0; i < gNumParticlesToDraw; ++i) {
       long double r = (long double)random();
       long int id = numParticles * r / RAND_MAX;
-      particleBuffer[i + numTiles + numNum] = id;
+      gParticleBuffer[i + numTiles + numNum] = id;
     }
-    qsort(particleBuffer + numTiles + numNum, gNumParticlesToDraw, sizeof(particleBuffer[0]), compar);
+    qsort(gParticleBuffer + numTiles + numNum, gNumParticlesToDraw, sizeof(gParticleBuffer[0]), compar);
 
     gNumParticlesFields = numPFields;
     gParticlesFields = new legion_field_id_t[numPFields];
     for(int i = 0; i < numPFields; ++i) {
       gParticlesFields[i] = pFields[i];
     }
-    gParticlesToDraw = particleBuffer + numTiles + numNum;
+    gParticlesToDraw = gParticleBuffer + numTiles + numNum;
 
     size_t argLen = (gNumParticlesToDraw + numTiles + numNum) * sizeof(long int);
-    gImageCompositor->initializeRenderNodes(runtime, ctx, gInitialRenderTaskID, (char*)particleBuffer, argLen);
+    gImageCompositor->initializeRenderNodes(runtime, ctx, gInitialRenderTaskID, (char*)gParticleBuffer, argLen);
   }
 
 
@@ -716,7 +702,6 @@ __TRACE
 
     FutureMap futures = runtime->execute_index_space(ctx, renderLauncher);
     futures.wait_all_results();
-__TRACE
   }
 
 
@@ -726,6 +711,7 @@ __TRACE
 
   void cxx_reduce(legion_context_t ctx_, double cameraFromAtUp[9]
 ) {
+__TRACE
     Context ctx = CObjectWrapper::unwrap(ctx_)->context();
     Camera camera;
     camera.from[0] = cameraFromAtUp[0];
@@ -756,6 +742,7 @@ __TRACE
                      legion_context_t ctx_,
                      const char* outDir
                      ) {
+__TRACE
     Runtime *runtime = CObjectWrapper::unwrap(runtime_);
     Context ctx = CObjectWrapper::unwrap(ctx_)->context();
 
@@ -815,5 +802,11 @@ __TRACE
 
 
   void cxx_terminate() {
+    delete gParticleBuffer;
     delete gImageCompositor;
+    delete gRenderProjectionFunctor;
+    delete gParticlesFields;
+    delete gParticlesToDraw;
   }
+
+

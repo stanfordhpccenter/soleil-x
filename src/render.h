@@ -47,6 +47,7 @@ typedef struct {
 
   void cxx_saveIndividualImages(legion_runtime_t runtime_, legion_context_t ctx_, const char* outDir);
 
+  void cxx_terminate();
 
   #ifdef __cplusplus
   }

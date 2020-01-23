@@ -5782,6 +5782,7 @@ task main()
     C.fflush(stderr)
     C.exit(1)
   end
+  render.cxx_terminate()
 end
 
 -------------------------------------------------------------------------------
