@@ -114,18 +114,14 @@ function run_pizdaint {
 }
 
 function run_certainty {
-    export QUEUE="${QUEUE:-gpu}"
-    RESOURCES=
-    if [[ "$QUEUE" == "gpu" ]]; then
-	RESOURCES="gpu:4"
-    fi
+    export QUEUE="${QUEUE:-all}"
     EXCLUDED="$(paste -sd ',' "$SOLEIL_DIR"/src/blacklist/certainty.txt)"
     DEPS=
     if [[ ! -z "$AFTER" ]]; then
         DEPS="-d afterok:$AFTER"
     fi
     sbatch --export=ALL \
-        -N "$NUM_NODES" -t "$WALLTIME" -p "$QUEUE" --gres="$RESOURCES" $DEPS \
+        -N "$NUM_NODES" -t "$WALLTIME" -p "$QUEUE" $DEPS \
 	--exclude="$EXCLUDED" \
         "$SOLEIL_DIR"/src/certainty.slurm
 }

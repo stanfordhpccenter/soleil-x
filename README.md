@@ -211,6 +211,8 @@ srun -N 1 -c 10 -p aaiken --gres=gpu:4 make
 Setup (Certainty @ Stanford)
 ============================
 
+Certainty no longer has a GPU queue.
+
 ### Add to shell startup
 
 ```
@@ -249,14 +251,14 @@ sed -i 's|$(GASNET_VERSION)/configure --prefix=|$(GASNET_VERSION)/configure --di
 make
 # Rest of compilation as normal
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38
+USE_CUDA=0 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38
 ```
 
 ### Compile Soleil-X
 
 ```
 cd "$SOLEIL_DIR"/src
-make
+USE_CUDA=0 make
 ```
 
 Setup (Titan @ ORNL)

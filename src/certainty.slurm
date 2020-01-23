@@ -1,12 +1,11 @@
 #!/bin/bash -eu
 #SBATCH -J soleil
 
+USE_CUDA=0
 if [[ "$QUEUE" == "all" ]]; then
-    USE_CUDA=0
     CORES_PER_NODE=24
     RAM_PER_NODE=25000
 elif [[ "$QUEUE" == "32core" ]]; then
-    USE_CUDA=0
     CORES_PER_NODE=32
     RAM_PER_NODE=50000
     # 64GB RAM per node
@@ -14,7 +13,6 @@ elif [[ "$QUEUE" == "32core" ]]; then
     # 16 cores per NUMA domain
     # 2-way SMT per core
 elif [[ "$QUEUE" == "24core" ]]; then
-    USE_CUDA=0
     CORES_PER_NODE=24
     RAM_PER_NODE=25000
     # 36GB RAM per node
@@ -22,24 +20,12 @@ elif [[ "$QUEUE" == "24core" ]]; then
     # 12 cores per NUMA domain
     # 2-way SMT per core
 elif [[ "$QUEUE" == "largemem" ]]; then
-    USE_CUDA=0
     CORES_PER_NODE=24
     RAM_PER_NODE=120000
     # 144GB RAM per node
     # 2 NUMA domains per node
     # 12 cores per NUMA domain
     # 2-way SMT per core
-elif [[ "$QUEUE" == "gpu" ]]; then
-    CORES_PER_NODE=16
-    RAM_PER_NODE=25000
-    GPUS_PER_NODE=4
-    FB_PER_GPU=2500
-    # 36GB RAM per node
-    # 2 NUMA domains per node
-    # 8 cores per NUMA domain
-    # 2-way SMT per core
-    # 4 Kepler M2050 GPUs per node
-    # 3GB FB per GPU
 else
     echo "Unrecognized queue $QUEUE" >&2
     exit 1
