@@ -1,3 +1,4 @@
+import argparse
 import numpy as np
 import json
 from pprint import pprint
@@ -9,22 +10,18 @@ import h5py
 ##############################################################################
 #                                 User Input                                 #
 ##############################################################################
-if len(sys.argv) == 2:
-    # Data to postprocess
-    filename = sys.argv[1]
-else :
-    print('*************************************')
-    print('Error: Not enough command line arguments')
-    print('Useage: Pick one of the following')
-    print('$ python {} your_data.hdf'.format(sys.argv[0]))
-    print('*************************************')
-    sys.exit(2)
-
+parser = argparse.ArgumentParser()
+parser.add_argument('hdf_file', 
+                    type=str,
+                    help='fluid restart file')
+parser.add_argument('-v', '--verbose', 
+                    action='store_true',
+                    help='run in verbose mode')
+args = parser.parse_args()
 
 dir_name = os.path.join(os.environ['SOLEIL_DIR'], 'testcases/verification/fluid/poiseuille')
 
 soleil_input_file = os.path.join(dir_name, 'poiseuille.json')
-hdf_filename = filename
 
 ##############################################################################
 #                           Read Soleil Input File                           #
@@ -32,8 +29,6 @@ hdf_filename = filename
 
 with open(soleil_input_file) as f:
   data = json.load(f)
-
-#pprint(data)
 
 yNum = data["Grid"]["yNum"]
 yWidth  = data["Grid"]["yWidth"]
@@ -49,13 +44,14 @@ if not (data["Grid"]["origin"] == [0.0,0.0,0.0]):
 #                          Read Soleil Output Data                           #
 ##############################################################################
 
-f = h5py.File(hdf_filename, 'r')
+f = h5py.File(args.hdf_file, 'r')
 
-# List all groups
-print('Data Sets:')
-for k in f.keys() :
-  print(k)
-print('')
+if args.verbose:
+  # List all groups
+  print('Data Sets:')
+  for k in f.keys() :
+    print(k)
+  print('')
 
 # Get the data
 centerCoordinates = f['centerCoordinates']
@@ -73,7 +69,6 @@ if remove_y_ghost:
   rho = rho[:,1:Ny-1,:]
   velocity = velocity[:,1:Ny-1,:]
   temperature = temperature[:,1:Ny-1,:]
-
 
 # Get dimension of data
 Nx = rho.shape[2]
