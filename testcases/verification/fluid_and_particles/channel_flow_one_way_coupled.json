@@ -1,6 +1,6 @@
 {
     "Mapping" : {
-        "tiles" : [4,1,1],
+        "tiles" : [1,1,1],
         "tilesPerRank" : [1,1,1],
         "sampleId" : -1,
         "outDir" : "",
@@ -10,7 +10,7 @@
     "Grid" : {
         "xNum" : 192,
         "yNum" : 192,
-        "zNum" : 192,
+        "zNum" : 112,
         "origin" : [0.0, 0.0, 0.0],
         "xWidth" : 0.25109893282146784, 
         "yWidth" : 0.12554946641073392, 
@@ -84,9 +84,9 @@
         "sutherlandViscRef" : -1.0,
         "sutherlandTempRef" : -1.0,
         "sutherlandSRef" : -1.0,
-        "initCase" : "Uniform",
+        "initCase" : "Perturbed",
         "restartDir" : "",
-        "initParams" : [1.3, 111952.62, 1.65, 0.0, 0.0, -1.0],
+        "initParams" : [1.3, 111952.62, 1.65, 0.0, 0.0, 0.165],
         "bodyForce" : [0.9036914356279361, 0.0, 0.0],
         "turbForcing" : { "type" : "OFF" }
     },
@@ -118,7 +118,7 @@
 
     "IO" : {
         "wrtRestart" : true,
-        "restartEveryTimeSteps" : 1000,
+        "restartEveryTimeSteps" : 20000,
         "probes" : []
     }
 }
