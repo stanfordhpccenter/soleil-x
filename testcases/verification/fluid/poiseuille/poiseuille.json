@@ -106,6 +106,7 @@
         "maxSkew" : 1.5,
         "escapeRatioPerDir" : 0.005,
         "collisions" : false,
+        "twoWayCoupled" : false,
         "feeding" : { "type" : "OFF" },
          "staggerFactor" : 1,
          "parcelSize" : 1

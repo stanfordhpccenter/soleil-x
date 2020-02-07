@@ -114,18 +114,14 @@ function run_pizdaint {
 }
 
 function run_certainty {
-    export QUEUE="${QUEUE:-gpu}"
-    RESOURCES=
-    if [[ "$QUEUE" == "gpu" ]]; then
-	RESOURCES="gpu:4"
-    fi
+    export QUEUE="${QUEUE:-all}"
     EXCLUDED="$(paste -sd ',' "$SOLEIL_DIR"/src/blacklist/certainty.txt)"
     DEPS=
     if [[ ! -z "$AFTER" ]]; then
         DEPS="-d afterok:$AFTER"
     fi
     sbatch --export=ALL \
-        -N "$NUM_NODES" -t "$WALLTIME" -p "$QUEUE" --gres="$RESOURCES" $DEPS \
+        -N "$NUM_NODES" -t "$WALLTIME" -p "$QUEUE" $DEPS \
 	--exclude="$EXCLUDED" \
         "$SOLEIL_DIR"/src/certainty.slurm
 }
@@ -147,9 +143,13 @@ function run_sherlock {
 function run_sapling {
     # Allocate up to 2 nodes, from n0002 up to n0003
     if (( NUM_NODES == 1 )); then
-        NODES="n0002"
+        NODES="n0003"
     elif (( NUM_NODES == 2 )); then
         NODES="n0002,n0003"
+    elif (( NUM_NODES == 3 )); then
+        NODES="n0001,n0002,n0003"
+    elif (( NUM_NODES == 4 )); then
+        NODES="n0000,n0001,n0002,n0003"
     else
         quit "Too many nodes requested"
     fi

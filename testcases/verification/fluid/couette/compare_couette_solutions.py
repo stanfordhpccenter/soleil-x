@@ -1,3 +1,4 @@
+import argparse
 import numpy as np
 import os
 import json
@@ -9,23 +10,18 @@ import h5py
 ##############################################################################
 #                                 User Input                                 #
 ##############################################################################
-if len(sys.argv) == 2:
-    # Data to postprocess
-    filename = sys.argv[1]
-else :
-    print('*************************************')
-    print('Error: Not enough command line arguments')
-    print('Useage: Pick one of the following')
-    print('$ python {} your_data.hdf'.format(sys.argv[0]))
-    print('*************************************')
-    sys.exit(2)
-
+parser = argparse.ArgumentParser()
+parser.add_argument('hdf_file', 
+                    type=str,
+                    help='fluid restart file')
+parser.add_argument('-v', '--verbose', 
+                    action='store_true',
+                    help='run in verbose mode')
+args = parser.parse_args()
 
 dir_name = os.path.join(os.environ['SOLEIL_DIR'], 'testcases/verification/fluid/couette')
 
 soleil_input_file = os.path.join(dir_name, 'couette.json')
-hdf_filename = filename
-
 
 ##############################################################################
 #                           Read Soleil Input File                           #
@@ -56,13 +52,14 @@ if data["BC"]["yBCLeftVel"] == 'Periodic':
 #                          Read Soleil Output Data                           #
 ##############################################################################
 
-f = h5py.File(hdf_filename, 'r')
+f = h5py.File(args.hdf_file, 'r')
 
-# List all groups
-print('Data Sets:')
-for k in f.keys() :
-  print(k)
-print('')
+if args.verbose:
+  # List all groups
+  print('Data Sets:')
+  for k in f.keys() :
+    print(k)
+  print('')
 
 # Get the data
 centerCoordinates = f['centerCoordinates']

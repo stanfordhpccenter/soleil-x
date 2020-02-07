@@ -211,6 +211,8 @@ srun -N 1 -c 10 -p aaiken --gres=gpu:4 make
 Setup (Certainty @ Stanford)
 ============================
 
+Certainty no longer has a GPU queue.
+
 ### Add to shell startup
 
 ```
@@ -249,14 +251,14 @@ sed -i 's|$(GASNET_VERSION)/configure --prefix=|$(GASNET_VERSION)/configure --di
 make
 # Rest of compilation as normal
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38
+USE_CUDA=0 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38
 ```
 
 ### Compile Soleil-X
 
 ```
 cd "$SOLEIL_DIR"/src
-make
+USE_CUDA=0 make
 ```
 
 Setup (Titan @ ORNL)
@@ -346,9 +348,11 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ### Install Legion
 
+The system restricts the amount of memory we can use on a login node, so we need to build on a compute node.
+
 ```
 cd "$LEGION_DIR"/language
-CC_FLAGS='-DMAX_NUM_NODES=4096' TERRA_USE_PUC_LUA=1 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38 --terra-branch 'puc_lua_master'
+CC_FLAGS='-DMAX_NUM_NODES=4096' TERRA_USE_PUC_LUA=1 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 bsub -W 60 -nnodes 1 -P CSC335 -I scripts/setup_env.py --llvm-version 38 --terra-branch 'puc_lua_master'
 ```
 
 ### Compile Soleil-X
@@ -366,8 +370,10 @@ Setup (PizDaint @ ETH)
 ```
 # Module loads
 module swap PrgEnv-cray PrgEnv-gnu
+module unload gcc/8.3.0
+module load gcc/7.3.0 # Terra doesn't currently compile with gcc 8
 module load daint-gpu
-module load cudatoolkit/9.2.148_3.19-6.0.7.1_2.1__g3d9acc8
+module load cudatoolkit/10.1.105_3.27-7.0.1.1_4.1__ga311ce7
 # Build config
 export CC=cc
 export CXX=CC
@@ -378,7 +384,7 @@ export LEGION_DIR=???
 export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
 # CUDA config
-export CUDA_HOME=/opt/nvidia/cudatoolkit9.2/9.2.148_3.19-6.0.7.1_2.1__g3d9acc8
+export CUDA_HOME="$CUDATOOLKIT_HOME"
 export CUDA="$CUDA_HOME"
 export GPU_ARCH=pascal
 ```
@@ -443,7 +449,7 @@ We need to go through the `lalloc` utility script to build on a compute node.
 
 ```
 cd "$LEGION_DIR"/language
-CC_FLAGS='-DMAX_NUM_NODES=4096' TERRA_USE_PUC_LUA=1 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 lalloc 1 -W 720 scripts/setup_env.py --llvm-version 38 --terra-branch 'puc_lua_master'
+CC_FLAGS='-DMAX_NUM_NODES=4096' TERRA_USE_PUC_LUA=1 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 lalloc 1 -W 720 scripts/setup_env.py --llvm-version 38 --terra-branch 'puc_lua_master_backup-2019-08-23'
 ```
 
 ### Compile Soleil-X
