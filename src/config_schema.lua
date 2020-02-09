@@ -5,30 +5,31 @@ Exports.Volume = {
   fromCell = Array(3,int),
   uptoCell = Array(3,int),
 }
+
 Exports.Window = {
   fromCell = Array(2,int),
   uptoCell = Array(2,int),
 }
 
 -- Unions & enumeration constants
-Exports.FlowBC = Enum('Periodic','Symmetry','AdiabaticWall','IsothermalWall','NSCBC_SubsonicInflow','NSCBC_SubsonicOutflow','NonUniformTemperatureWall')
+--Exports.FlowBC = Enum('Periodic','Symmetry','AdiabaticWall','IsothermalWall','NSCBC_SubsonicInflow','NSCBC_SubsonicOutflow','NonUniformTemperatureWall')
 Exports.ParticlesBC = Enum('Periodic','Bounce','Disappear')
 Exports.ViscosityModel = Enum('Constant','PowerLaw','Sutherland')
 Exports.FlowInitCase = Enum('Uniform','Random','Restart','Perturbed','TaylorGreen2DVortex','TaylorGreen3DVortex')
 Exports.ParticlesInitCase = Enum('Random','Restart','Uniform')
 Exports.GridType = Enum('Uniform','Stretched')
-Exports.TempProfile = Union{
-  Constant = {
-    temperature = double,
-  },
-  Parabola = {
+
+Exports.EnergyBC = Union{
+  ConstantTemperature = {temperature = double},
+  ConstantHeatFlux = {heatFlux = double},
+  ParabolaTemperature = {
     T_left = double,
     T_right = double,
     T_mid = double,
   },
-  Incoming = {},
 }
-Exports.InflowProfile = Union{
+
+Exports.InflowVelocityProfile = Union{
   Constant = {
     velocity = double,
   },
@@ -39,6 +40,30 @@ Exports.InflowProfile = Union{
     addedVelocity = double,
   },
 }
+
+Exports.InflowTemperatureProfile = Union{
+  Constant = {
+    temperature = double,
+  },
+  Incoming = {},
+}
+
+Exports.FlowBC = Union{
+  Periodic = {},
+  Symmetry = {},
+  Wall = {
+    Velocity = Array(3,double),
+    EnergyBC = Exports.EnergyBC
+  },
+  NSCBC_SubsonicInflow = {
+    VelocityProfile    = Exports.InflowVelocityProfile,
+    TemperatureProfile = Exports.InflowTemperatureProfile,
+  },
+  NSCBC_SubsonicOutflow = {
+    P_inf = double
+  },
+}
+
 Exports.TurbForcingModel = Union{
   OFF = {},
   HIT = {
@@ -48,12 +73,14 @@ Exports.TurbForcingModel = Union{
     K_o = double,
   },
 }
+
 Exports.FeedModel = Union{
   OFF = {},
   Incoming = {
     addedVelocity = Array(3,double),
   },
 }
+
 Exports.RadiationModel = Union{
   OFF = {},
   Algebraic = {
@@ -137,27 +164,12 @@ Exports.Config = {
     zType = Exports.GridType,
   },
   BC = {
-    xBCLeft = Exports.FlowBC,
-    xBCLeftVel = Array(3,double),
-    xBCLeftHeat = Exports.TempProfile,
-    xBCLeftInflowProfile = Exports.InflowProfile,
+    xBCLeft  = Exports.FlowBC,
     xBCRight = Exports.FlowBC,
-    xBCRightVel = Array(3,double),
-    xBCRightHeat = Exports.TempProfile,
-    -- Pressure that the sub-sonic outlet relaxes
-    xBCRightP_inf = double,
-    yBCLeft = Exports.FlowBC,
-    yBCLeftVel = Array(3,double),
-    yBCLeftHeat = Exports.TempProfile,
+    yBCLeft  = Exports.FlowBC,
     yBCRight = Exports.FlowBC,
-    yBCRightVel = Array(3,double),
-    yBCRightHeat = Exports.TempProfile,
-    zBCLeft = Exports.FlowBC,
-    zBCLeftVel = Array(3,double),
-    zBCLeftHeat = Exports.TempProfile,
+    zBCLeft  = Exports.FlowBC,
     zBCRight = Exports.FlowBC,
-    zBCRightVel = Array(3,double),
-    zBCRightHeat = Exports.TempProfile,
   },
   Integrator = {
     startIter = int,
