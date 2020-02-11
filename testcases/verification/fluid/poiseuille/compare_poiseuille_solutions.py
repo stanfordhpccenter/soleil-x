@@ -23,6 +23,8 @@ dir_name = os.path.join(os.environ['SOLEIL_DIR'], 'testcases/verification/fluid/
 
 soleil_input_file = os.path.join(dir_name, 'poiseuille.json')
 
+debug = True
+
 ##############################################################################
 #                           Read Soleil Input File                           #
 ##############################################################################
@@ -101,12 +103,36 @@ u_slice_analytical = u(y_slice)
 L2_error = np.linalg.norm(u_slice-u_slice_analytical)
 print('L2 Error = {}'.format(L2_error))
 
-plt.figure(1)
+plt.figure()
 plt.plot(u_slice, y_slice, 'ok', label='Soleil-X')
 plt.plot(u_slice_analytical, y_slice, '-b', label='analytical')
 plt.xlabel(r'$u \ \left[ \frac{m}{s} \right]$', fontsize = 20)
 plt.ylabel(r'$y \ [m]$', fontsize = 20)
 plt.legend()
 plt.savefig('poiseuille_solutions.pdf', bbox_inches='tight')
+
+if debug:
+  print('Temperature Range: [{}, {}]'.format(np.min(temperature), np.max(temperature)))
+  print('Pressure Range: [{}, {}]'.format(np.min(pressure), np.max(pressure)))
+  print('Density Range: [{}, {}]'.format(np.min(rho), np.max(rho)))
+  plt.figure()
+  plt.plot(temperature_slice, y_slice, 'ok', label='Soleil-X')
+  plt.xlabel(r'$T \ \left[ K \right]$', fontsize = 20)
+  plt.ylabel(r'$y \ [m]$', fontsize = 20)
+  plt.legend()
+  
+  plt.figure()
+  plt.plot(rho_slice, y_slice, 'ok', label='Soleil-X')
+  plt.xlabel(r'$\rho \ \left[ \frac{kg}{m^3} \right]$', fontsize = 20)
+  plt.ylabel(r'$y \ [m]$', fontsize = 20)
+  plt.legend()
+  
+  plt.figure()
+  plt.plot(pressure_slice, y_slice, 'ok', label='Soleil-X')
+  plt.xlabel(r'$P \ \left[ Pa \right]$', fontsize = 20)
+  plt.ylabel(r'$y \ [m]$', fontsize = 20)
+  plt.legend()
+
+ 
 
 plt.show()

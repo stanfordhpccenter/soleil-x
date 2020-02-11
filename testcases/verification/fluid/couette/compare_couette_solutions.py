@@ -23,6 +23,8 @@ dir_name = os.path.join(os.environ['SOLEIL_DIR'], 'testcases/verification/fluid/
 
 soleil_input_file = os.path.join(dir_name, 'couette.json')
 
+debug = True
+
 ##############################################################################
 #                           Read Soleil Input File                           #
 ##############################################################################
@@ -34,18 +36,18 @@ with open(soleil_input_file) as f:
 
 yNum   = data["Grid"]["yNum"]
 yWidth = data["Grid"]["yWidth"]
-U      = data["BC"]["yBCRightVel"][0]
+U      = data["BC"]["yBCRight"]["Velocity"][0]
 
 # this solution assumes that y_min = 0.0
 if not (data["Grid"]["origin"] == [0.0,0.0,0.0]):
   sys.exit() 
 
 # this solution assumes that u_bottom wall = 0.0
-if not (data["BC"]["yBCLeftVel"] == [0.0,0.0,0.0]):
+if not (data["BC"]["yBCLeft"]["Velocity"] == [0.0,0.0,0.0]):
   sys.exit() 
 
 remove_y_ghost = True
-if data["BC"]["yBCLeftVel"] == 'Periodic':
+if data["BC"]["yBCLeft"] == 'Periodic':
   remove_y_ghost = False
 
 ##############################################################################
@@ -114,5 +116,27 @@ plt.xlabel(r'$u \ \left[ \frac{m}{s} \right]$', fontsize = 20)
 plt.ylabel(r'$y \ [m]$', fontsize = 20)
 plt.legend()
 plt.savefig('couette_solutions.pdf', bbox_inches='tight')
+
+if debug:
+  print('Temperature Range: [{}, {}]'.format(np.min(temperature), np.max(temperature)))
+  print('Pressure Range: [{}, {}]'.format(np.min(pressure), np.max(pressure)))
+  print('Density Range: [{}, {}]'.format(np.min(rho), np.max(rho)))
+  plt.figure()
+  plt.plot(temperature_slice, y_slice, 'ok', label='Soleil-X')
+  plt.xlabel(r'$T \ \left[ K \right]$', fontsize = 20)
+  plt.ylabel(r'$y \ [m]$', fontsize = 20)
+  plt.legend()
+  
+  plt.figure()
+  plt.plot(rho_slice, y_slice, 'ok', label='Soleil-X')
+  plt.xlabel(r'$\rho \ \left[ \frac{kg}{m^3} \right]$', fontsize = 20)
+  plt.ylabel(r'$y \ [m]$', fontsize = 20)
+  plt.legend()
+  
+  plt.figure()
+  plt.plot(pressure_slice, y_slice, 'ok', label='Soleil-X')
+  plt.xlabel(r'$P \ \left[ Pa \right]$', fontsize = 20)
+  plt.ylabel(r'$y \ [m]$', fontsize = 20)
+  plt.legend()
 
 plt.show()
