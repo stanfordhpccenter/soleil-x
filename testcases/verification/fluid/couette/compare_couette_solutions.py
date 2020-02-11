@@ -11,6 +11,9 @@ import h5py
 #                                 User Input                                 #
 ##############################################################################
 parser = argparse.ArgumentParser()
+parser.add_argument('case_json_file', 
+                    type=str,
+                    help='soleil-x input json file')
 parser.add_argument('hdf_file', 
                     type=str,
                     help='fluid restart file')
@@ -19,9 +22,8 @@ parser.add_argument('-v', '--verbose',
                     help='run in verbose mode')
 args = parser.parse_args()
 
-dir_name = os.path.join(os.environ['SOLEIL_DIR'], 'testcases/verification/fluid/couette')
-
-soleil_input_file = os.path.join(dir_name, 'couette.json')
+#dir_name = os.path.join(os.environ['SOLEIL_DIR'], 'testcases/verification/fluid/couette')
+#soleil_input_file = os.path.join(dir_name, 'couette.json')
 
 debug = True
 
@@ -29,7 +31,8 @@ debug = True
 #                           Read Soleil Input File                           #
 ##############################################################################
 
-with open(soleil_input_file) as f:
+#with open(soleil_input_file) as f:
+with open(args.case_json_file) as f:
   data = json.load(f)
 
 #pprint(data)

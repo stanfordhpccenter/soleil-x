@@ -12,7 +12,6 @@ Exports.Window = {
 }
 
 -- Unions & enumeration constants
---Exports.FlowBC = Enum('Periodic','Symmetry','AdiabaticWall','IsothermalWall','NSCBC_SubsonicInflow','NSCBC_SubsonicOutflow','NonUniformTemperatureWall')
 Exports.ParticlesBC = Enum('Periodic','Bounce','Disappear')
 Exports.ViscosityModel = Enum('Constant','PowerLaw','Sutherland')
 Exports.FlowInitCase = Enum('Uniform','Random','Restart','Perturbed','TaylorGreen2DVortex','TaylorGreen3DVortex')

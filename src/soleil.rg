@@ -1501,7 +1501,20 @@ do
   -- RNG state
   var rngState : C.drand48_data
   C.srand48_r(C.legion_get_current_time_in_nanos(), &rngState)
-  -- Fill loop
+  -- Global Grid
+  var Grid_xType = config.Grid.xType
+  var Grid_yType = config.Grid.yType
+  var Grid_zType = config.Grid.zType
+  var Grid_xNum = config.Grid.xNum
+  var Grid_yNum = config.Grid.yNum
+  var Grid_zNum = config.Grid.zNum
+  var Grid_xOrigin = config.Grid.origin[0]
+  var Grid_yOrigin = config.Grid.origin[1]
+  var Grid_zOrigin = config.Grid.origin[2]
+  var Grid_xWidth = config.Grid.xWidth
+  var Grid_yWidth = config.Grid.yWidth
+  var Grid_zWidth = config.Grid.zWidth
+
   for p in Particles do
     var relIdx = int64(p - pBase)
     if relIdx < particlesPerTile then
@@ -1513,10 +1526,10 @@ do
                        Tile_yOrigin + Tile_yWidth * ry,
                        Tile_zOrigin + Tile_zWidth * rz )
       var c = locate(pos,
-                     config.Grid.xType, config.Grid.yType, config.Grid.zType,
-                     Grid_xBnum, config.Grid.xNum, config.Grid.origin[0], config.Grid.xWidth,
-                     Grid_yBnum, config.Grid.yNum, config.Grid.origin[1], config.Grid.yWidth,
-                     Grid_zBnum, config.Grid.zNum, config.Grid.origin[2], config.Grid.zWidth)
+                     Grid_xType, Grid_yType, Grid_zType,
+                     Grid_xBnum, Grid_xNum, Grid_xOrigin, Grid_xWidth,
+                     Grid_yBnum, Grid_yNum, Grid_yOrigin, Grid_yWidth,
+                     Grid_zBnum, Grid_zNum, Grid_zOrigin, Grid_zWidth)
       var flowVelocity = InterpolateTriVelocity(c,
                                                 pos,
                                                 Fluid)
@@ -2119,14 +2132,18 @@ do
   var Grid_xWidth = config.Grid.xWidth
   var Grid_yWidth = config.Grid.yWidth
   var Grid_zWidth = config.Grid.zWidth
+  -- X boundary condition types
+  var BC_xBCLeft_type  = config.BC.xBCLeft.type 
+  var BC_xBCRight_type = config.BC.xBCRight.type 
   -- Inflow velocity values
-  var BC_xBCLeftInflowVelocityProfile_type = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.VelocityProfile.type
-  var BC_xBCLeftInflowVelocityProfile_Constant_velocity = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.VelocityProfile.u.Constant.velocity
-  var BC_xBCLeftInflowVelocityProfile_Duct_meanVelocity = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.VelocityProfile.u.Duct.meanVelocity
+  var BC_xBCLeftInflowVelocityProfile_type                   = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.VelocityProfile.type
+  var BC_xBCLeftInflowVelocityProfile_Constant_velocity      = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.VelocityProfile.u.Constant.velocity
+  var BC_xBCLeftInflowVelocityProfile_Duct_meanVelocity      = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.VelocityProfile.u.Duct.meanVelocity
   var BC_xBCLeftInflowVelocityProfile_Incoming_addedVelocity = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.VelocityProfile.u.Incoming.addedVelocity
   -- Inflow temperature values
-  var BC_xBCLeftTemperatureProfile_type = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.TemperatureProfile.type
+  var BC_xBCLeftTemperatureProfile_type                 = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.TemperatureProfile.type
   var BC_xBCLeftTemperatureProfile_Constant_temperature = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.TemperatureProfile.u.Constant.temperature
+
 
   __demand(__openmp)
   for c in Fluid do
@@ -2137,8 +2154,8 @@ do
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
 
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft.type == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight.type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft_type  == SCHEMA.FlowBC_NSCBC_SubsonicInflow)  and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight_type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if  NSCBC_inflow_cell then -- x- boundary cell
       -- Assume subsonic inflow
@@ -2273,6 +2290,11 @@ where
   reads(Fluid.{rho, velocity, pressure}),
   writes(Fluid.{rhoVelocity, rhoEnergy})
 do
+
+  -- X boundary condition types
+  var BC_xBCLeft_type  = config.BC.xBCLeft.type 
+  var BC_xBCRight_type = config.BC.xBCRight.type 
+
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = is_xNegGhost(c, Grid_xBnum)
@@ -2282,8 +2304,8 @@ do
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
 
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft.type == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight.type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft_type == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight_type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if (NSCBC_inflow_cell or NSCBC_outflow_cell) then
       var tmpTemperature = (Fluid[c].pressure/(Flow_gasConstant*Fluid[c].rho))
@@ -2371,6 +2393,9 @@ do
   var Grid_xWidth = config.Grid.xWidth
   var Grid_yWidth = config.Grid.yWidth
   var Grid_zWidth = config.Grid.zWidth
+  -- X boundary condition types
+  var BC_xBCLeft_type  = config.BC.xBCLeft.type 
+  var BC_xBCRight_type = config.BC.xBCRight.type 
   -- Inflow velocity values
   var BC_xBCLeftInflowVelocityProfile_type = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.VelocityProfile.type
   var BC_xBCLeftInflowVelocityProfile_Constant_velocity = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.VelocityProfile.u.Constant.velocity
@@ -2386,8 +2411,8 @@ do
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
     var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft.type == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight.type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft_type  == SCHEMA.FlowBC_NSCBC_SubsonicInflow)  and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight_type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if NSCBC_inflow_cell then
       var velocity = array(0.0, 0.0, 0.0)
@@ -2457,6 +2482,9 @@ do
   var Flow_gasConstant = config.Flow.gasConstant
   var Flow_gamma = config.Flow.gamma
   var cv = (Flow_gasConstant/(Flow_gamma-1.0))
+  -- X boundary condition types
+  var BC_xBCLeft_type  = config.BC.xBCLeft.type 
+  var BC_xBCRight_type = config.BC.xBCRight.type 
 
   __demand(__openmp)
   for c in Fluid do
@@ -2469,8 +2497,8 @@ do
     var ghost_cell = (xNegGhost or xPosGhost or
                       yNegGhost or yPosGhost or
                       zNegGhost or zPosGhost )
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft.type == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight.type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft_type  == SCHEMA.FlowBC_NSCBC_SubsonicInflow)  and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight_type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if ghost_cell then
       var c_bnd = int3d(c)
@@ -2503,6 +2531,10 @@ task Flow_UpdateGhostVelocity(Fluid : region(ispace(int3d), Fluid_columns),
 where
   reads writes(Fluid.velocity)
 do
+  -- X boundary condition types
+  var BC_xBCLeft_type  = config.BC.xBCLeft.type 
+  var BC_xBCRight_type = config.BC.xBCRight.type 
+
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = is_xNegGhost(c, Grid_xBnum)
@@ -2511,13 +2543,13 @@ do
     var yPosGhost = is_yPosGhost(c, Grid_yBnum, Grid_yNum)
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
-    if xNegGhost and not config.BC.xBCLeft.type == SCHEMA.FlowBC_NSCBC_SubsonicInflow then
+    if xNegGhost and not BC_xBCLeft_type == SCHEMA.FlowBC_NSCBC_SubsonicInflow then
       var c_int = ((c+{1, 0, 0})%Fluid.bounds)
       var sign = BC_xNegSign
       var bnd_velocity = BC_xNegVelocity
       Fluid[c].velocity = vv_add(vv_mul(Fluid[c_int].velocity, sign), bnd_velocity)
     end
-    if xPosGhost and not config.BC.xBCRight.type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow then
+    if xPosGhost and not BC_xBCRight_type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow then
       var c_int = ((c+{-1, 0, 0})%Fluid.bounds)
       var sign = BC_xPosSign
       var bnd_velocity = BC_xPosVelocity
@@ -2560,6 +2592,10 @@ where
   reads(Fluid.{cellWidth, velocity, temperature, temperatureGradient}),
   writes(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ, temperatureGradient})
 do
+  -- X boundary condition types
+  var BC_xBCLeft_type  = config.BC.xBCLeft.type 
+  var BC_xBCRight_type = config.BC.xBCRight.type 
+
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = is_xNegGhost(c, Grid_xBnum)
@@ -2569,8 +2605,8 @@ do
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
     var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft.type == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight.type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft_type  == SCHEMA.FlowBC_NSCBC_SubsonicInflow)  and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight_type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     var v100 = Fluid[(c+{ 1,  0,  0}) % Fluid.bounds].velocity
     var v010 = Fluid[(c+{ 0,  1,  0}) % Fluid.bounds].velocity
@@ -2627,8 +2663,6 @@ end
 __demand(__leaf, __parallel, __cuda)
 task Flow_UpdateAuxiliaryThermodynamics(Fluid : region(ispace(int3d), Fluid_columns),
                                         config : Config,
-                                        Flow_gamma : double,
-                                        Flow_gasConstant : double,
                                         Grid_xBnum : int32, Grid_xNum : int32,
                                         Grid_yBnum : int32, Grid_yNum : int32,
                                         Grid_zBnum : int32, Grid_zNum : int32)
@@ -2636,9 +2670,15 @@ where
   reads(Fluid.{rho, velocity, rhoEnergy, temperature_inc}),
   writes(Fluid.{pressure, temperature})
 do
+  -- X boundary condition types
+  var BC_xBCLeft_type  = config.BC.xBCLeft.type 
+  var BC_xBCRight_type = config.BC.xBCRight.type 
   -- Inflow temperature values
   var BC_xBCLeftTemperatureProfile_type = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.TemperatureProfile.type
   var BC_xBCLeftTemperatureProfile_Constant_temperature = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.TemperatureProfile.u.Constant.temperature
+  -- Gas Properties
+  var Flow_gamma = config.Flow.gamma
+  var Flow_gasConstant = config.Flow.gasConstant
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = is_xNegGhost(c, Grid_xBnum)
@@ -2648,8 +2688,8 @@ do
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
     var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft.type == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight.type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft_type  == SCHEMA.FlowBC_NSCBC_SubsonicInflow)  and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight_type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if NSCBC_inflow_cell  then
       var kineticEnergy = (0.5*Fluid[c].rho) * dot(Fluid[c].velocity,Fluid[c].velocity)
@@ -2676,8 +2716,6 @@ end
 __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Flow_UpdateGhostThermodynamics(Fluid : region(ispace(int3d), Fluid_columns),
                                     config : Config,
-                                    Flow_gamma : double,
-                                    Flow_gasConstant : double,
                                     BC_xNegTemperature : double, BC_xPosTemperature : double,
                                     BC_yNegTemperature : double, BC_yPosTemperature : double,
                                     BC_zNegTemperature : double, BC_zPosTemperature : double,
@@ -2689,9 +2727,48 @@ where
   writes(Fluid.{pressure, temperature})
 do
   var Grid_xWidth = config.Grid.xWidth
+  
+  var Flow_gamma = config.Flow.gamma
+  var Flow_gasConstant = config.Flow.gasConstant
 
-  var BC_yBCLeft_Wall_T = config.BC.yBCLeft.u.Wall.EnergyBC.u.ConstantTemperature.temperature
-  var BC_yBCLeft_Wall_heatFlux = config.BC.yBCLeft.u.Wall.EnergyBC.u.ConstantHeatFlux.heatFlux
+  var Flow_prandtl = config.Flow.prandtl
+  var Flow_constantVisc = config.Flow.constantVisc
+  var Flow_powerlawTempRef = config.Flow.powerlawTempRef
+  var Flow_powerlawViscRef = config.Flow.powerlawViscRef
+  var Flow_sutherlandSRef = config.Flow.sutherlandSRef
+  var Flow_sutherlandTempRef = config.Flow.sutherlandTempRef
+  var Flow_sutherlandViscRef = config.Flow.sutherlandViscRef
+  var Flow_viscosityModel = config.Flow.viscosityModel
+
+  var BC_xBCLeft_type                                           = config.BC.xBCLeft.type 
+  var BC_xBCLeft_Wall_EnergyBC_type                             = config.BC.xBCLeft.u.Wall.EnergyBC.type
+  var BC_xBCLeft_Wall_EnergyBC_ConstantTemperature_temperature  = config.BC.xBCLeft.u.Wall.EnergyBC.u.ConstantTemperature.temperature
+  var BC_xBCLeft_Wall_EnergyBC_ConstantHeatFlux_heatFlux        = config.BC.xBCLeft.u.Wall.EnergyBC.u.ConstantHeatFlux.heatFlux
+
+  var BC_xBCRight_type                                          = config.BC.xBCRight.type 
+  var BC_xBCRight_Wall_EnergyBC_type                            = config.BC.xBCRight.u.Wall.EnergyBC.type
+  var BC_xBCRight_Wall_EnergyBC_ConstantTemperature_temperature = config.BC.xBCRight.u.Wall.EnergyBC.u.ConstantTemperature.temperature
+  var BC_xBCRight_Wall_EnergyBC_ConstantHeatFlux_heatFlux       = config.BC.xBCRight.u.Wall.EnergyBC.u.ConstantHeatFlux.heatFlux
+
+  var BC_yBCLeft_type                                           = config.BC.yBCLeft.type 
+  var BC_yBCLeft_Wall_EnergyBC_type                             = config.BC.yBCLeft.u.Wall.EnergyBC.type
+  var BC_yBCLeft_Wall_EnergyBC_ConstantTemperature_temperature  = config.BC.yBCLeft.u.Wall.EnergyBC.u.ConstantTemperature.temperature
+  var BC_yBCLeft_Wall_EnergyBC_ConstantHeatFlux_heatFlux        = config.BC.yBCLeft.u.Wall.EnergyBC.u.ConstantHeatFlux.heatFlux
+
+  var BC_yBCRight_type                                          = config.BC.yBCRight.type 
+  var BC_yBCRight_Wall_EnergyBC_type                            = config.BC.yBCRight.u.Wall.EnergyBC.type
+  var BC_yBCRight_Wall_EnergyBC_ConstantTemperature_temperature = config.BC.yBCRight.u.Wall.EnergyBC.u.ConstantTemperature.temperature
+  var BC_yBCRight_Wall_EnergyBC_ConstantHeatFlux_heatFlux       = config.BC.yBCRight.u.Wall.EnergyBC.u.ConstantHeatFlux.heatFlux
+
+  var BC_zBCLeft_type                                           = config.BC.zBCLeft.type 
+  var BC_zBCLeft_Wall_EnergyBC_type                             = config.BC.zBCLeft.u.Wall.EnergyBC.type
+  var BC_zBCLeft_Wall_EnergyBC_ConstantTemperature_temperature  = config.BC.zBCLeft.u.Wall.EnergyBC.u.ConstantTemperature.temperature
+  var BC_zBCLeft_Wall_EnergyBC_ConstantHeatFlux_heatFlux        = config.BC.zBCLeft.u.Wall.EnergyBC.u.ConstantHeatFlux.heatFlux
+
+  var BC_zBCRight_type                                          = config.BC.zBCRight.type 
+  var BC_zBCRight_Wall_EnergyBC_type                            = config.BC.zBCRight.u.Wall.EnergyBC.type
+  var BC_zBCRight_Wall_EnergyBC_ConstantTemperature_temperature = config.BC.zBCRight.u.Wall.EnergyBC.u.ConstantTemperature.temperature
+  var BC_zBCRight_Wall_EnergyBC_ConstantHeatFlux_heatFlux       = config.BC.zBCRight.u.Wall.EnergyBC.u.ConstantHeatFlux.heatFlux
 
   var BC_yBCLeftHeat_T_left   = config.BC.yBCLeft.u.Wall.EnergyBC.u.ParabolaTemperature.T_left
   var BC_yBCLeftHeat_T_mid    = config.BC.yBCLeft.u.Wall.EnergyBC.u.ParabolaTemperature.T_mid
@@ -2719,50 +2796,98 @@ do
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
 
-    if xNegGhost and (config.BC.xBCLeft.type ~= SCHEMA.FlowBC_NSCBC_SubsonicInflow) then
+    if xNegGhost and (BC_xBCLeft_type ~= SCHEMA.FlowBC_NSCBC_SubsonicInflow) then
       var c_bnd = int3d(c)
       var c_int = ((c+{1, 0, 0})%Fluid.bounds)
-      var bnd_temperature  = BC_xNegTemperature
-      var temp_wall = 0.0
-      var temperature = 0.0
-      temp_wall = Fluid[c_int].temperature
-      if (bnd_temperature>0.0) then
-        temp_wall = bnd_temperature
-      end
-      temperature = (2.0*temp_wall)-Fluid[c_int].temperature
-      Fluid[c_bnd].pressure = Fluid[c_int].pressure
-      Fluid[c_bnd].temperature = temperature
+      if (BC_xBCLeft_type == SCHEMA.FlowBC_Wall)  then
+        if (BC_xBCLeft_Wall_EnergyBC_type == SCHEMA.EnergyBC_ConstantTemperature) then
+          var wall_temperature = BC_xBCLeft_Wall_EnergyBC_ConstantTemperature_temperature
+          Fluid[c_bnd].temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
+        elseif (BC_xBCLeft_Wall_EnergyBC_type == SCHEMA.EnergyBC_ConstantHeatFlux) then
+          var wall_heat_flux = BC_xBCLeft_Wall_EnergyBC_ConstantHeatFlux_heatFlux 
+
+          var mu = GetDynamicViscosity(Fluid[c_int].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
+          var cp = Flow_gamma * Flow_gasConstant / (Flow_gamma-1.0)
+          var k = (cp*mu)/Flow_prandtl 
+          var dx = (Fluid[c_int].centerCoordinates[0] - Fluid[c_bnd].centerCoordinates[0])
+          Fluid[c_bnd].temperature = Fluid[c_int].temperature + wall_heat_flux*dx/k
+        end
+
+        Fluid[c_bnd].pressure = Fluid[c_int].pressure
+      else
+        var bnd_temperature  = BC_xNegTemperature
+        var temp_wall = 0.0
+        var temperature = 0.0
+        temp_wall = Fluid[c_int].temperature
+        if (bnd_temperature>0.0) then
+          temp_wall = bnd_temperature
+        end
+        temperature = (2.0*temp_wall)-Fluid[c_int].temperature
+        Fluid[c_bnd].pressure = Fluid[c_int].pressure
+        Fluid[c_bnd].temperature = temperature
+     end
     end
 
-    if xPosGhost and (config.BC.xBCRight.type ~= SCHEMA.FlowBC_NSCBC_SubsonicOutflow) then
+    if xPosGhost and (BC_xBCRight_type ~= SCHEMA.FlowBC_NSCBC_SubsonicOutflow) then
       var c_bnd = int3d(c)
       var c_int = ((c+{-1, 0, 0})%Fluid.bounds)
-      var bnd_temperature = BC_xPosTemperature
-      var temp_wall = 0.0
-      var temperature = 0.0
-      temp_wall = Fluid[c_int].temperature
-      if (bnd_temperature>0.0) then
-        temp_wall = bnd_temperature
+      if (BC_xBCRight_type == SCHEMA.FlowBC_Wall)  then
+        if (BC_xBCRight_Wall_EnergyBC_type == SCHEMA.EnergyBC_ConstantTemperature) then
+          var wall_temperature = BC_xBCRight_Wall_EnergyBC_ConstantTemperature_temperature
+          Fluid[c_bnd].temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
+        elseif (BC_xBCRight_Wall_EnergyBC_type == SCHEMA.EnergyBC_ConstantHeatFlux) then
+          var wall_heat_flux = BC_xBCRight_Wall_EnergyBC_ConstantHeatFlux_heatFlux 
+
+          var mu = GetDynamicViscosity(Fluid[c_int].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
+          var cp = Flow_gamma * Flow_gasConstant / (Flow_gamma-1.0)
+          var k = (cp*mu)/Flow_prandtl 
+          var dx = (Fluid[c_int].centerCoordinates[0] - Fluid[c_bnd].centerCoordinates[0])
+          Fluid[c_bnd].temperature = Fluid[c_int].temperature + wall_heat_flux*dx/k
+        end
+
+        Fluid[c_bnd].pressure = Fluid[c_int].pressure
+      else
+        var bnd_temperature = BC_xPosTemperature
+        var temp_wall = 0.0
+        var temperature = 0.0
+        temp_wall = Fluid[c_int].temperature
+        if (bnd_temperature>0.0) then
+          temp_wall = bnd_temperature
+        end
+        temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
+        Fluid[c_bnd].pressure = Fluid[c_int].pressure
+        Fluid[c_bnd].temperature = temperature
       end
-      temperature = ((2.0*temp_wall)-Fluid[c_int].temperature)
-      Fluid[c_bnd].pressure = Fluid[c_int].pressure
-      Fluid[c_bnd].temperature = temperature
     end
 
     if yNegGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 1, 0})%Fluid.bounds)
-      if (config.BC.yBCLeft.type == SCHEMA.FlowBC_Wall) and (config.BC.yBCLeft.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ParabolaTemperature) then
-        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left) - 2.0*(BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left))
-        var c_2 = 4.0/(Grid_xWidth)*((BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left) - 1.0/4.0*(BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left))
-        var c_3 = BC_yBCLeftHeat_T_left
-        var wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
-        if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
-          wall_temperature = 0.0
+      if (BC_yBCLeft_type == SCHEMA.FlowBC_Wall)  then
+        if (BC_yBCLeft_Wall_EnergyBC_type == SCHEMA.EnergyBC_ConstantTemperature) then
+          var wall_temperature = BC_yBCLeft_Wall_EnergyBC_ConstantTemperature_temperature
+          Fluid[c_bnd].temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
+        elseif (BC_yBCLeft_Wall_EnergyBC_type == SCHEMA.EnergyBC_ConstantHeatFlux) then
+          var wall_heat_flux = BC_yBCLeft_Wall_EnergyBC_ConstantHeatFlux_heatFlux 
+
+          var mu = GetDynamicViscosity(Fluid[c_int].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
+          var cp = Flow_gamma * Flow_gasConstant / (Flow_gamma-1.0)
+          var k = (cp*mu)/Flow_prandtl 
+          var dy = (Fluid[c_int].centerCoordinates[1] - Fluid[c_bnd].centerCoordinates[1])
+          Fluid[c_bnd].temperature = Fluid[c_int].temperature + wall_heat_flux*dy/k
+        elseif (BC_yBCLeft_Wall_EnergyBC_type == SCHEMA.EnergyBC_ParabolaTemperature) then
+          var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left) - 2.0*(BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left))
+          var c_2 = 4.0/(Grid_xWidth)*((BC_yBCLeftHeat_T_mid - BC_yBCLeftHeat_T_left) - 1.0/4.0*(BC_yBCLeftHeat_T_right - BC_yBCLeftHeat_T_left))
+          var c_3 = BC_yBCLeftHeat_T_left
+          var wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
+          if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
+            wall_temperature = 0.0
+          end
+          Fluid[c_bnd].pressure = Fluid[c_int].pressure
+          Fluid[c_bnd].temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
         end
-        var temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
+
         Fluid[c_bnd].pressure = Fluid[c_int].pressure
-        Fluid[c_bnd].temperature = temperature
       else
         var bnd_temperature = BC_yNegTemperature
         var temp_wall = 0.0
@@ -2780,17 +2905,29 @@ do
     if yPosGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, -1, 0})%Fluid.bounds)
-      if (config.BC.yBCRight.type == SCHEMA.FlowBC_Wall) and (config.BC.yBCRight.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ParabolaTemperature) then
-        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_yBCRightHeat_T_right - BC_yBCRightHeat_T_left) - 2.0*(BC_yBCRightHeat_T_mid - BC_yBCRightHeat_T_left))
-        var c_2 = 4.0/(Grid_xWidth)*((BC_yBCRightHeat_T_mid - BC_yBCRightHeat_T_left) - 1.0/4.0*(BC_yBCRightHeat_T_right - BC_yBCRightHeat_T_left))
-        var c_3 = BC_yBCRightHeat_T_left
-        var wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
-        if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
-          wall_temperature = 0.0
+      if (BC_yBCRight_type == SCHEMA.FlowBC_Wall)  then
+        if (BC_yBCRight_Wall_EnergyBC_type == SCHEMA.EnergyBC_ConstantTemperature) then
+          var wall_temperature = BC_yBCRight_Wall_EnergyBC_ConstantTemperature_temperature
+          Fluid[c_bnd].temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
+        elseif (BC_yBCRight_Wall_EnergyBC_type == SCHEMA.EnergyBC_ConstantHeatFlux) then
+          var wall_heat_flux = BC_yBCRight_Wall_EnergyBC_ConstantHeatFlux_heatFlux 
+
+          var mu = GetDynamicViscosity(Fluid[c_int].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
+          var cp = Flow_gamma * Flow_gasConstant / (Flow_gamma-1.0)
+          var k = (cp*mu)/Flow_prandtl 
+          var dy = (Fluid[c_int].centerCoordinates[1] - Fluid[c_bnd].centerCoordinates[1])
+          Fluid[c_bnd].temperature = Fluid[c_int].temperature + wall_heat_flux*dy/k
+        elseif (BC_yBCRight_type == SCHEMA.FlowBC_Wall) and (BC_yBCRight_Wall_EnergyBC_type == SCHEMA.EnergyBC_ParabolaTemperature) then
+          var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_yBCRightHeat_T_right - BC_yBCRightHeat_T_left) - 2.0*(BC_yBCRightHeat_T_mid - BC_yBCRightHeat_T_left))
+          var c_2 = 4.0/(Grid_xWidth)*((BC_yBCRightHeat_T_mid - BC_yBCRightHeat_T_left) - 1.0/4.0*(BC_yBCRightHeat_T_right - BC_yBCRightHeat_T_left))
+          var c_3 = BC_yBCRightHeat_T_left
+          var wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
+          if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
+            wall_temperature = 0.0
+          end
+          Fluid[c_bnd].temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
         end
-        var temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
         Fluid[c_bnd].pressure = Fluid[c_int].pressure
-        Fluid[c_bnd].temperature = temperature
       else
         var bnd_temperature = BC_yPosTemperature
         var temp_wall = 0.0
@@ -2808,17 +2945,29 @@ do
     if zNegGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 0, 1})%Fluid.bounds)
-      if (config.BC.zBCLeft.type == SCHEMA.FlowBC_Wall) and (config.BC.zBCLeft.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ParabolaTemperature) then
-        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_zBCLeftHeat_T_right - BC_zBCLeftHeat_T_left) - 2.0*(BC_zBCLeftHeat_T_mid - BC_zBCLeftHeat_T_left))
-        var c_2 = 4.0/(Grid_xWidth)*((BC_zBCLeftHeat_T_mid - BC_zBCLeftHeat_T_left) - 1.0/4.0*(BC_zBCLeftHeat_T_right - BC_zBCLeftHeat_T_left))
-        var c_3 = BC_zBCLeftHeat_T_left
-        var wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
-        if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
-          wall_temperature = 0.0
+      if (BC_zBCLeft_type == SCHEMA.FlowBC_Wall)  then
+        if (BC_zBCLeft_Wall_EnergyBC_type == SCHEMA.EnergyBC_ConstantTemperature) then
+          var wall_temperature = BC_zBCLeft_Wall_EnergyBC_ConstantTemperature_temperature
+          Fluid[c_bnd].temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
+        elseif (BC_zBCLeft_Wall_EnergyBC_type == SCHEMA.EnergyBC_ConstantHeatFlux) then
+          var wall_heat_flux = BC_zBCLeft_Wall_EnergyBC_ConstantHeatFlux_heatFlux 
+
+          var mu = GetDynamicViscosity(Fluid[c_int].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
+          var cp = Flow_gamma * Flow_gasConstant / (Flow_gamma-1.0)
+          var k = (cp*mu)/Flow_prandtl 
+          var dz = (Fluid[c_int].centerCoordinates[2] - Fluid[c_bnd].centerCoordinates[2])
+          Fluid[c_bnd].temperature = Fluid[c_int].temperature + wall_heat_flux*dz/k
+        elseif BC_zBCLeft_Wall_EnergyBC_type == SCHEMA.EnergyBC_ParabolaTemperature then
+          var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_zBCLeftHeat_T_right - BC_zBCLeftHeat_T_left) - 2.0*(BC_zBCLeftHeat_T_mid - BC_zBCLeftHeat_T_left))
+          var c_2 = 4.0/(Grid_xWidth)*((BC_zBCLeftHeat_T_mid - BC_zBCLeftHeat_T_left) - 1.0/4.0*(BC_zBCLeftHeat_T_right - BC_zBCLeftHeat_T_left))
+          var c_3 = BC_zBCLeftHeat_T_left
+          var wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
+          if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
+            wall_temperature = 0.0
+          end
+          Fluid[c_bnd].temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
         end
-        var temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
         Fluid[c_bnd].pressure = Fluid[c_int].pressure
-        Fluid[c_bnd].temperature = temperature
       else
         var bnd_temperature = BC_zNegTemperature
         var temp_wall = 0.0
@@ -2836,17 +2985,30 @@ do
     if zPosGhost then
       var c_bnd = int3d(c)
       var c_int = ((c+{0, 0, -1})%Fluid.bounds)
-      if (config.BC.zBCRight.type == SCHEMA.FlowBC_Wall) and (config.BC.zBCRight.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ParabolaTemperature) then
-        var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_zBCRightHeat_T_right - BC_zBCRightHeat_T_left) - 2.0*(BC_zBCRightHeat_T_mid - BC_zBCRightHeat_T_left))
-        var c_2 = 4.0/(Grid_xWidth)*((BC_zBCRightHeat_T_mid - BC_zBCRightHeat_T_left) - 1.0/4.0*(BC_zBCRightHeat_T_right - BC_zBCRightHeat_T_left))
-        var c_3 = BC_zBCRightHeat_T_left
-        var wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
-        if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
-          wall_temperature = 0.0
+      --if (BC_zBCRight_type == SCHEMA.FlowBC_Wall) and (BC_zBCRight_Wall_EnergyBC_type == SCHEMA.EnergyBC_ParabolaTemperature) then
+      if (BC_zBCRight_type == SCHEMA.FlowBC_Wall)  then
+        if (BC_zBCRight_Wall_EnergyBC_type == SCHEMA.EnergyBC_ConstantTemperature) then
+          var wall_temperature = BC_zBCRight_Wall_EnergyBC_ConstantTemperature_temperature
+          Fluid[c_bnd].temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
+        elseif (BC_zBCRight_Wall_EnergyBC_type == SCHEMA.EnergyBC_ConstantHeatFlux) then
+          var wall_heat_flux = BC_zBCRight_Wall_EnergyBC_ConstantHeatFlux_heatFlux 
+
+          var mu = GetDynamicViscosity(Fluid[c_int].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
+          var cp = Flow_gamma * Flow_gasConstant / (Flow_gamma-1.0)
+          var k = (cp*mu)/Flow_prandtl 
+          var dz = (Fluid[c_int].centerCoordinates[2] - Fluid[c_bnd].centerCoordinates[2])
+          Fluid[c_bnd].temperature = Fluid[c_int].temperature + wall_heat_flux*dz/k
+        elseif BC_zBCRight_Wall_EnergyBC_type == SCHEMA.EnergyBC_ParabolaTemperature then
+          var c_1 = 2.0/(Grid_xWidth*Grid_xWidth)*( (BC_zBCRightHeat_T_right - BC_zBCRightHeat_T_left) - 2.0*(BC_zBCRightHeat_T_mid - BC_zBCRightHeat_T_left))
+          var c_2 = 4.0/(Grid_xWidth)*((BC_zBCRightHeat_T_mid - BC_zBCRightHeat_T_left) - 1.0/4.0*(BC_zBCRightHeat_T_right - BC_zBCRightHeat_T_left))
+          var c_3 = BC_zBCRightHeat_T_left
+          var wall_temperature = c_1*Fluid[c_bnd].centerCoordinates[0]*Fluid[c_bnd].centerCoordinates[0] + c_2*Fluid[c_bnd].centerCoordinates[0] + c_3
+          if wall_temperature < 0.0 then --unphysical.... set wall themperature to zero
+            wall_temperature = 0.0
+          end
+          Fluid[c_bnd].temperature = (2.0*wall_temperature)-Fluid[c_int].temperature
         end
-        var temperature = ((2.0*wall_temperature)-Fluid[c_int].temperature)
         Fluid[c_bnd].pressure = Fluid[c_int].pressure
-        Fluid[c_bnd].temperature = temperature
       else
         var bnd_temperature = BC_zPosTemperature
         var temp_wall = 0.0
@@ -2986,6 +3148,10 @@ task Flow_CalculateMaxMachNumber(Fluid : region(ispace(int3d), Fluid_columns),
 where
   reads(Fluid.{velocity, temperature})
 do
+  -- X boundary condition types
+  var BC_xBCLeft_type  = config.BC.xBCLeft.type 
+  var BC_xBCRight_type = config.BC.xBCRight.type 
+
   var acc = -math.huge
   __demand(__openmp)
   for c in Fluid do
@@ -2999,8 +3165,8 @@ do
                       yNegGhost or yPosGhost or
                       zNegGhost or zPosGhost )
     var interior_cell = not (ghost_cell)
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft.type == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight.type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft_type  == SCHEMA.FlowBC_NSCBC_SubsonicInflow)  and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight_type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
     if interior_cell or NSCBC_inflow_cell or NSCBC_outflow_cell then
       var c_sound = GetSoundSpeed(Fluid[c].temperature, Flow_gamma, Flow_gasConstant)
       acc max= sqrt(dot(Fluid[c].velocity,Fluid[c].velocity))/c_sound
@@ -3140,6 +3306,10 @@ task Flow_UpdateGhostGradients(Fluid : region(ispace(int3d), Fluid_columns),
 where
   reads writes(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ, temperatureGradient})
 do
+  -- X boundary condition types
+  var BC_xBCLeft_type  = config.BC.xBCLeft.type 
+  var BC_xBCRight_type = config.BC.xBCRight.type 
+
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = is_xNegGhost(c, Grid_xBnum)
@@ -3148,13 +3318,13 @@ do
     var yPosGhost = is_yPosGhost(c, Grid_yBnum, Grid_yNum)
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
-    if xNegGhost and config.BC.xBCLeft.type ~= SCHEMA.FlowBC_NSCBC_SubsonicInflow then
+    if xNegGhost and BC_xBCLeft_type ~= SCHEMA.FlowBC_NSCBC_SubsonicInflow then
       Fluid[c].velocityGradientX   = vv_mul(BC_xNegSign, Fluid[(c+{1, 0, 0})%Fluid.bounds].velocityGradientX)
       Fluid[c].velocityGradientY   = vv_mul(BC_xNegSign, Fluid[(c+{1, 0, 0})%Fluid.bounds].velocityGradientY)
       Fluid[c].velocityGradientZ   = vv_mul(BC_xNegSign, Fluid[(c+{1, 0, 0})%Fluid.bounds].velocityGradientZ)
       Fluid[c].temperatureGradient = vv_mul(BC_xNegSign, Fluid[(c+{1, 0, 0})%Fluid.bounds].temperatureGradient)
     end
-    if xPosGhost and config.BC.xBCRight.type ~= SCHEMA.FlowBC_NSCBC_SubsonicOutflow then
+    if xPosGhost and BC_xBCRight_type ~= SCHEMA.FlowBC_NSCBC_SubsonicOutflow then
       Fluid[c].velocityGradientX   = vv_mul(BC_xPosSign, Fluid[(c+{-1, 0, 0})%Fluid.bounds].velocityGradientX)
       Fluid[c].velocityGradientY   = vv_mul(BC_xPosSign, Fluid[(c+{-1, 0, 0})%Fluid.bounds].velocityGradientY)
       Fluid[c].velocityGradientZ   = vv_mul(BC_xPosSign, Fluid[(c+{-1, 0, 0})%Fluid.bounds].velocityGradientZ)
@@ -3206,6 +3376,9 @@ where
   reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ, temperatureGradient}),
   writes(Fluid.{rhoEnergyFluxX, rhoFluxX, rhoVelocityFluxX})
 do
+  -- X boundary condition types
+  var BC_xBCLeft_type  = config.BC.xBCLeft.type 
+  var BC_xBCRight_type = config.BC.xBCRight.type 
 
   __demand(__openmp)
   for c in Fluid do
@@ -3216,8 +3389,8 @@ do
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
     var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft.type == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight.type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft_type  == SCHEMA.FlowBC_NSCBC_SubsonicInflow)  and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight_type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if interior or xNegGhost  then
       var rho = Fluid[c].rho
@@ -3394,6 +3567,9 @@ where
   reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ, temperatureGradient}),
   writes(Fluid.{rhoEnergyFluxY, rhoFluxY, rhoVelocityFluxY})
 do
+  -- X boundary condition types
+  var BC_xBCLeft_type  = config.BC.xBCLeft.type 
+  var BC_xBCRight_type = config.BC.xBCRight.type 
 
   __demand(__openmp)
   for c in Fluid do
@@ -3404,8 +3580,8 @@ do
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
     var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft.type == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight.type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft_type  == SCHEMA.FlowBC_NSCBC_SubsonicInflow)  and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight_type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if interior or yNegGhost or NSCBC_inflow_cell or NSCBC_outflow_cell then
       var rho = Fluid[c].rho
@@ -3580,6 +3756,9 @@ where
   reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ, temperatureGradient}),
   writes(Fluid.{rhoEnergyFluxZ, rhoFluxZ, rhoVelocityFluxZ})
 do
+  -- X boundary condition types
+  var BC_xBCLeft_type  = config.BC.xBCLeft.type 
+  var BC_xBCRight_type = config.BC.xBCRight.type 
 
   __demand(__openmp)
   for c in Fluid do
@@ -3590,8 +3769,8 @@ do
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
     var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft.type == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight.type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft_type  == SCHEMA.FlowBC_NSCBC_SubsonicInflow)  and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight_type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if interior or zNegGhost or NSCBC_inflow_cell or NSCBC_outflow_cell then
       var rho = Fluid[c].rho
@@ -3759,6 +3938,10 @@ where
   reads(Fluid.{cellWidth, rhoFluxX, rhoVelocityFluxX, rhoEnergyFluxX}),
   reads writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
+  -- X boundary condition types
+  var BC_xBCLeft_type  = config.BC.xBCLeft.type 
+  var BC_xBCRight_type = config.BC.xBCRight.type 
+
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = is_xNegGhost(c, Grid_xBnum)
@@ -3768,8 +3951,8 @@ do
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
     var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft.type == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight.type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft_type  == SCHEMA.FlowBC_NSCBC_SubsonicInflow)  and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight_type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if interior then
       var xCellWidth = Fluid[c].cellWidth[0]
@@ -3792,6 +3975,10 @@ where
   reads(Fluid.{cellWidth, rhoFluxY, rhoVelocityFluxY, rhoEnergyFluxY}),
   reads writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
+  -- X boundary condition types
+  var BC_xBCLeft_type  = config.BC.xBCLeft.type 
+  var BC_xBCRight_type = config.BC.xBCRight.type 
+
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = is_xNegGhost(c, Grid_xBnum)
@@ -3801,8 +3988,8 @@ do
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
     var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft.type == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight.type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft_type  == SCHEMA.FlowBC_NSCBC_SubsonicInflow)  and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight_type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if interior or NSCBC_inflow_cell or NSCBC_outflow_cell then
       var yCellWidth = Fluid[c].cellWidth[1]
@@ -3825,6 +4012,10 @@ where
   reads(Fluid.{cellWidth, rhoFluxZ, rhoVelocityFluxZ, rhoEnergyFluxZ}),
   reads writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
+  -- X boundary condition types
+  var BC_xBCLeft_type  = config.BC.xBCLeft.type 
+  var BC_xBCRight_type = config.BC.xBCRight.type 
+
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = is_xNegGhost(c, Grid_xBnum)
@@ -3834,8 +4025,8 @@ do
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
     var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft.type == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight.type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft_type  == SCHEMA.FlowBC_NSCBC_SubsonicInflow)  and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight_type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if interior or NSCBC_inflow_cell or NSCBC_outflow_cell then
       var zCellWidth = Fluid[c].cellWidth[2]
@@ -3870,6 +4061,10 @@ where
   reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ}),
   reads writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
+  -- X boundary condition types
+  var BC_xBCLeft_type  = config.BC.xBCLeft.type 
+  var BC_xBCRight_type = config.BC.xBCRight.type 
+
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = is_xNegGhost(c, Grid_xBnum)
@@ -3881,8 +4076,8 @@ do
     var ghost_cell = (xNegGhost or xPosGhost or
                       yNegGhost or yPosGhost or
                       zNegGhost or zPosGhost )
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft.type == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight.type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft_type  == SCHEMA.FlowBC_NSCBC_SubsonicInflow)  and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight_type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if ghost_cell then
       if NSCBC_inflow_cell then
@@ -3999,6 +4194,10 @@ where
   writes(Fluid.{dudtBoundary, dTdtBoundary}),
   reads writes(Fluid.{velocity_old_NSCBC, temperature_old_NSCBC})
 do
+  -- X boundary condition types
+  var BC_xBCLeft_type  = config.BC.xBCLeft.type 
+  var BC_xBCRight_type = config.BC.xBCRight.type 
+
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = is_xNegGhost(c, Grid_xBnum)
@@ -4010,8 +4209,8 @@ do
     var ghost_cell = (xNegGhost or xPosGhost or
                       yNegGhost or yPosGhost or
                       zNegGhost or zPosGhost )
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft.type == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight.type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft_type  == SCHEMA.FlowBC_NSCBC_SubsonicInflow)  and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight_type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if NSCBC_inflow_cell then
       Fluid[c].dudtBoundary = (Fluid[c].velocity[0] - Fluid[c].velocity_old_NSCBC[0]) / Integrator_deltaTime
@@ -4035,6 +4234,10 @@ where
   reads writes(Fluid.{rhoEnergy_t, rhoVelocity_t})
 do
   var Flow_bodyForce = config.Flow.bodyForce
+  -- X boundary condition types
+  var BC_xBCLeft_type  = config.BC.xBCLeft.type 
+  var BC_xBCRight_type = config.BC.xBCRight.type 
+
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = is_xNegGhost(c, Grid_xBnum)
@@ -4044,8 +4247,8 @@ do
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
     var interior = in_interior(c, Grid_xBnum, Grid_xNum, Grid_yBnum, Grid_yNum, Grid_zBnum, Grid_zNum)
-    var NSCBC_inflow_cell  = ((config.BC.xBCLeft.type == SCHEMA.FlowBC_NSCBC_SubsonicInflow)   and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
-    var NSCBC_outflow_cell = ((config.BC.xBCRight.type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_inflow_cell  = ((BC_xBCLeft_type  == SCHEMA.FlowBC_NSCBC_SubsonicInflow)  and xNegGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
+    var NSCBC_outflow_cell = ((BC_xBCRight_type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) and xPosGhost and not (yNegGhost or yPosGhost or zNegGhost or zPosGhost))
 
     if interior or NSCBC_inflow_cell or NSCBC_outflow_cell then
       [UTIL.emitArrayReduce(3, '+',
@@ -5720,8 +5923,6 @@ local function mkInstance(config) local INSTANCE = {}
         -- Do nothing
       elseif config.BC.xBCLeft.u.NSCBC_SubsonicInflow.TemperatureProfile.type == SCHEMA.InflowTemperatureProfile_Incoming then
         -- Do nothing
-      --elseif config.BC.xBCLeftHeat.type == SCHEMA.TempProfile_Parabola then
-      --  regentlib.assert(false, 'Parabola heat model not supported')
       else regentlib.assert(false, 'Unhandled case in switch') end
       BC.xBCParticles = SCHEMA.ParticlesBC_Disappear
     else
@@ -5733,14 +5934,19 @@ local function mkInstance(config) local INSTANCE = {}
       elseif (config.BC.xBCLeft.type == SCHEMA.FlowBC_Wall) then
         BC.xNegSign = array(-1.0, -1.0, -1.0)
         BC.xNegVelocity = vs_mul(config.BC.xBCLeft.u.Wall.Velocity, 2.0)
+
+        -- This value does not end up getting used for wall bundry conditions. But since we pass it to functions later I am initializing it.
+        BC.xNegTemperature = -1.0
         if config.BC.xBCLeft.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ConstantTemperature then
-          BC.xNegTemperature = config.BC.xBCLeft.u.Wall.EnergyBC.u.ConstantTemperature.temperature
-        elseif (config.BC.xBCLeft.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ConstantHeatFlux) and (config.BC.xBCLeft.u.Wall.EnergyBC.u.ConstantHeatFlux.heatFlux == 0.0) then
-          -- legacy way of doing adiabatic walls
-          BC.xNegTemperature = -1.0
+          -- Do nothing
+        elseif config.BC.xBCLeft.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ConstantHeatFlux then
+          -- Do nothing
+        elseif config.BC.xBCLeft.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ParabolaTemperature then
+          -- Do nothing
         else
           regentlib.assert(false, 'Energy Boundary condition on xBCLeft Wall supported')
         end
+
         BC.xBCParticles = SCHEMA.ParticlesBC_Bounce
       else
         regentlib.assert(false, "Boundary conditions in xBCLeft not implemented")
@@ -5754,15 +5960,19 @@ local function mkInstance(config) local INSTANCE = {}
       elseif (config.BC.xBCRight.type == SCHEMA.FlowBC_Wall) then
         BC.xPosSign = array(-1.0, -1.0, -1.0)
         BC.xPosVelocity = vs_mul(config.BC.xBCRight.u.Wall.Velocity, 2.0)
+
+        -- This value does not end up getting used for wall bundry conditions. But since we pass it to functions later I am initializing it.
         BC.xPosTemperature = -1.0
         if config.BC.xBCRight.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ConstantTemperature then
-          BC.xPosTemperature = config.BC.xBCRight.u.Wall.EnergyBC.u.ConstantTemperature.temperature
-        elseif (config.BC.xBCRight.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ConstantHeatFlux) and (config.BC.xBCRight.u.Wall.EnergyBC.u.ConstantHeatFlux.heatFlux == 0.0) then
-          -- legacy way of doing adiabatic walls
-          BC.xPosTemperature = -1.0
+          -- Do nothing
+        elseif config.BC.xBCRight.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ConstantHeatFlux then
+          -- Do nothing
+        elseif config.BC.xBCRight.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ParabolaTemperature then
+          -- Do nothing
         else
           regentlib.assert(false, 'Energy Boundary condition on xBCRight Wall supported')
         end
+
         BC.xBCParticles = SCHEMA.ParticlesBC_Bounce
       else
         regentlib.assert(false, "Boundary conditions in xBCRight not implemented")
@@ -5781,17 +5991,22 @@ local function mkInstance(config) local INSTANCE = {}
       elseif (config.BC.yBCLeft.type == SCHEMA.FlowBC_Wall) then
         BC.yNegSign = array(-1.0, -1.0, -1.0)
         BC.yNegVelocity = vs_mul(config.BC.yBCLeft.u.Wall.Velocity, 2.0)
+
+        -- This value does not end up getting used for wall bundry conditions. But since we pass it to functions later I am initializing it.
+        BC.yNegTemperature = -1.0
         if config.BC.yBCLeft.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ConstantTemperature then
-          BC.yNegTemperature = config.BC.yBCLeft.u.Wall.EnergyBC.u.ConstantTemperature.temperature
-        elseif (config.BC.yBCLeft.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ConstantHeatFlux) and (config.BC.yBCLeft.u.Wall.EnergyBC.u.ConstantHeatFlux.heatFlux == 0.0) then
-          -- legacy way of doing adiabatic walls
-          BC.yNegTemperature = -1.0
+          -- Do nothing
+        elseif config.BC.yBCLeft.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ConstantHeatFlux then
+          -- Do nothing
+        elseif config.BC.yBCLeft.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ParabolaTemperature then
+          -- Do nothing
         else
           regentlib.assert(false, 'Energy Boundary condition on yBCLeft Wall supported')
         end
+
         BC.yBCParticles = SCHEMA.ParticlesBC_Bounce
       else
-        regentlib.assert(false, "Boundary conditions in y not implemented")
+        regentlib.assert(false, "Boundary conditions in yBCLeft not implemented")
       end
 
       if (config.BC.yBCRight.type == SCHEMA.FlowBC_Symmetry) then
@@ -5802,17 +6017,22 @@ local function mkInstance(config) local INSTANCE = {}
       elseif (config.BC.yBCRight.type == SCHEMA.FlowBC_Wall) then
         BC.yPosSign = array(-1.0, -1.0, -1.0)
         BC.yPosVelocity = vs_mul(config.BC.yBCRight.u.Wall.Velocity, 2.0)
+
+        -- This value does not end up getting used for wall bundry conditions. But since we pass it to functions later I am initializing it.
+        BC.yPosTemperature = -1.0
         if config.BC.yBCRight.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ConstantTemperature then
-          BC.yPosTemperature = config.BC.yBCRight.u.Wall.EnergyBC.u.ConstantTemperature.temperature
-        elseif (config.BC.yBCRight.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ConstantHeatFlux) and (config.BC.yBCRight.u.Wall.EnergyBC.u.ConstantHeatFlux.heatFlux == 0.0) then
-          -- legacy way of doing adiabatic walls
-          BC.yPosTemperature = -1.0
+          -- Do nothing
+        elseif config.BC.yBCRight.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ConstantHeatFlux then
+          -- Do nothing
+        elseif config.BC.yBCRight.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ParabolaTemperature then
+          -- Do nothing
         else
           regentlib.assert(false, 'Energy Boundary condition on yBCRight Wall supported')
         end
+
         BC.yBCParticles = SCHEMA.ParticlesBC_Bounce
       else
-        regentlib.assert(false, "Boundary conditions in y not implemented")
+        regentlib.assert(false, "Boundary conditions in yBCRight not implemented")
       end
     end
 
@@ -5828,14 +6048,19 @@ local function mkInstance(config) local INSTANCE = {}
       elseif (config.BC.zBCLeft.type == SCHEMA.FlowBC_Wall) then
         BC.zNegSign = array(-1.0, -1.0, -1.0)
         BC.zNegVelocity = vs_mul(config.BC.zBCLeft.u.Wall.Velocity, 2.0)
+
+        -- This value does not end up getting used for wall bundry conditions. But since we pass it to functions later I am initializing it.
+        BC.zNegTemperature = -1.0
         if config.BC.zBCLeft.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ConstantTemperature then
-          BC.zNegTemperature = config.BC.zBCLeft.u.Wall.EnergyBC.u.ConstantTemperature.temperature
-        elseif (config.BC.zBCLeft.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ConstantHeatFlux) and (config.BC.zBCLeft.u.Wall.EnergyBC.u.ConstantHeatFlux.heatFlux == 0.0) then
-          -- legacy way of doing adiabatic walls
-          BC.zNegTemperature = -1.0
+          -- Do nothing
+        elseif config.BC.zBCLeft.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ConstantHeatFlux then
+          -- Do nothing
+        elseif config.BC.zBCLeft.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ParabolaTemperature then
+          -- Do nothing
         else
-          regentlib.assert(false, 'Energy Boundary condition on yBCLeft Wall supported')
+          regentlib.assert(false, 'Energy Boundary condition on zBCLeft Wall supported')
         end
+
         BC.zBCParticles = SCHEMA.ParticlesBC_Bounce
       else
         regentlib.assert(false, "Boundary conditions in zBCLeft not implemented")
@@ -5849,14 +6074,19 @@ local function mkInstance(config) local INSTANCE = {}
       elseif (config.BC.zBCRight.type == SCHEMA.FlowBC_Wall) then
         BC.zPosSign = array(-1.0, -1.0, -1.0)
         BC.zPosVelocity = vs_mul(config.BC.zBCRight.u.Wall.Velocity, 2.0)
+
+        -- This value does not end up getting used for wall bundry conditions. But since we pass it to functions later I am initializing it.
+        BC.zPosTemperature = -1.0
         if config.BC.zBCRight.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ConstantTemperature then
-          BC.zPosTemperature = config.BC.zBCRight.u.Wall.EnergyBC.u.ConstantTemperature.temperature
-        elseif (config.BC.zBCRight.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ConstantHeatFlux) and (config.BC.zBCRight.u.Wall.EnergyBC.u.ConstantHeatFlux.heatFlux == 0.0) then
-          -- legacy way of doing adiabatic walls
-          BC.zPosTemperature = -1.0
+          -- Do nothing
+        elseif config.BC.zBCRight.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ConstantHeatFlux then
+          -- Do nothing
+        elseif config.BC.zBCRight.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ParabolaTemperature then
+          -- Do nothing
         else
           regentlib.assert(false, 'Energy Boundary condition on zBCRight Wall supported')
         end
+
         BC.zBCParticles = SCHEMA.ParticlesBC_Bounce
       else
         regentlib.assert(false, "Boundary conditions in zBCRight not implemented")
@@ -5996,16 +6226,12 @@ local function mkInstance(config) local INSTANCE = {}
     end
     Flow_UpdateAuxiliaryThermodynamics(Fluid,
                                        config,
-                                       config.Flow.gamma,
-                                       config.Flow.gasConstant,
                                        Grid.xBnum, config.Grid.xNum,
                                        Grid.yBnum, config.Grid.yNum,
                                        Grid.zBnum, config.Grid.zNum)
     for c in tiles do
       Flow_UpdateGhostThermodynamics(p_Fluid[c],
                                      config,
-                                     config.Flow.gamma,
-                                     config.Flow.gasConstant,
                                      BC.xNegTemperature, BC.xPosTemperature,
                                      BC.yNegTemperature, BC.yPosTemperature,
                                      BC.zNegTemperature, BC.zPosTemperature,
