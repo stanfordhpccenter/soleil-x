@@ -1418,13 +1418,13 @@ task GetDynamicViscosity(temperature : double,
                          Flow_constantVisc : double,
                          Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
                          Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                         Flow_viscosityModel : SCHEMA.ViscosityModel)
+                         Flow_viscosityModel_type : SCHEMA.ViscosityModel)
   var viscosity = 0.0
-  if Flow_viscosityModel == SCHEMA.ViscosityModel_Constant then
+  if Flow_viscosityModel_type == SCHEMA.ViscosityModel_Constant then
     viscosity = Flow_constantVisc
-  elseif Flow_viscosityModel == SCHEMA.ViscosityModel_PowerLaw then
+  elseif Flow_viscosityModel_type == SCHEMA.ViscosityModel_PowerLaw then
     viscosity = Flow_powerlawViscRef*pow(temperature/Flow_powerlawTempRef, 0.75)
-  else -- Flow_viscosityModel == SCHEMA.ViscosityModel_Sutherland
+  else -- Flow_viscosityModel_type == SCHEMA.ViscosityModel_Sutherland
     viscosity =
       Flow_sutherlandViscRef
       * pow(temperature/Flow_sutherlandTempRef, 1.5)
@@ -2111,11 +2111,6 @@ end
 __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Flow_InitializeGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
                                config : Config,
-                               Flow_gasConstant : double,
-                               Flow_constantVisc : double,
-                               Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                               Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                               Flow_viscosityModel : SCHEMA.ViscosityModel,
                                Grid_xBnum : int32, Grid_xNum : int32,
                                Grid_yBnum : int32, Grid_yNum : int32,
                                Grid_zBnum : int32, Grid_zNum : int32)
@@ -2143,7 +2138,15 @@ do
   -- Inflow temperature values
   var BC_xBCLeftTemperatureProfile_type                 = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.TemperatureProfile.type
   var BC_xBCLeftTemperatureProfile_Constant_temperature = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.TemperatureProfile.u.Constant.temperature
-
+  -- Fluid Properties
+  var Flow_gasConstant = config.Flow.gasConstant
+  var Flow_constantVisc = config.Flow.viscosityModel.u.Constant.viscosity
+  var Flow_powerlawTempRef = config.Flow.viscosityModel.u.PowerLaw.temperature_reference
+  var Flow_powerlawViscRef = config.Flow.viscosityModel.u.PowerLaw.viscosity_reference
+  var Flow_sutherlandSRef = config.Flow.viscosityModel.u.Sutherland.s_reference
+  var Flow_sutherlandTempRef = config.Flow.viscosityModel.u.Sutherland.temperature_reference
+  var Flow_sutherlandViscRef = config.Flow.viscosityModel.u.Sutherland.viscosity_reference
+  var Flow_viscosityModel_type = config.Flow.viscosityModel.type
 
   __demand(__openmp)
   for c in Fluid do
@@ -2196,7 +2199,7 @@ do
           d_max = (Grid_zWidth/ 2.0)
         end
         var meanVelocity = BC_xBCLeftInflowVelocityProfile_Duct_meanVelocity
-        var mu = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
+        var mu = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel_type)
         var Re = Fluid[c].rho*meanVelocity*Grid_yWidth / mu
         var n = -1.7 + 1.8*log(Re)
         velocity[0] = meanVelocity*pow((d/d_max), (1.0/n))
@@ -2378,10 +2381,6 @@ end
 __demand(__leaf, __parallel, __cuda)
 task Flow_UpdateAuxiliaryVelocity(Fluid : region(ispace(int3d), Fluid_columns),
                                   config : Config,
-                                  Flow_constantVisc : double,
-                                  Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                                  Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                                  Flow_viscosityModel : SCHEMA.ViscosityModel,
                                   Grid_xBnum : int32, Grid_xNum : int32,
                                   Grid_yBnum : int32, Grid_yNum : int32,
                                   Grid_zBnum : int32, Grid_zNum : int32)
@@ -2401,6 +2400,14 @@ do
   var BC_xBCLeftInflowVelocityProfile_Constant_velocity = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.VelocityProfile.u.Constant.velocity
   var BC_xBCLeftInflowVelocityProfile_Duct_meanVelocity = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.VelocityProfile.u.Duct.meanVelocity
   var BC_xBCLeftInflowVelocityProfile_Incoming_addedVelocity = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.VelocityProfile.u.Incoming.addedVelocity
+  -- Fluid Properties
+  var Flow_constantVisc = config.Flow.viscosityModel.u.Constant.viscosity
+  var Flow_powerlawTempRef = config.Flow.viscosityModel.u.PowerLaw.temperature_reference
+  var Flow_powerlawViscRef = config.Flow.viscosityModel.u.PowerLaw.viscosity_reference
+  var Flow_sutherlandSRef = config.Flow.viscosityModel.u.Sutherland.s_reference
+  var Flow_sutherlandTempRef = config.Flow.viscosityModel.u.Sutherland.temperature_reference
+  var Flow_sutherlandViscRef = config.Flow.viscosityModel.u.Sutherland.viscosity_reference
+  var Flow_viscosityModel_type = config.Flow.viscosityModel.type
 
   __demand(__openmp)
   for c in Fluid do
@@ -2453,7 +2460,7 @@ do
                                      Flow_constantVisc,
                                      Flow_powerlawTempRef, Flow_powerlawViscRef,
                                      Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
-                                     Flow_viscosityModel)
+                                     Flow_viscosityModel_type)
         var Re = Fluid[c].rho*meanVelocity*Grid_yWidth / mu
         var n = -1.7 + 1.8*log(Re)
         velocity[0] = meanVelocity*pow((d/d_max), (1.0/n))
@@ -2728,17 +2735,17 @@ where
 do
   var Grid_xWidth = config.Grid.xWidth
   
+  -- Fluid Properties
   var Flow_gamma = config.Flow.gamma
   var Flow_gasConstant = config.Flow.gasConstant
-
   var Flow_prandtl = config.Flow.prandtl
-  var Flow_constantVisc = config.Flow.constantVisc
-  var Flow_powerlawTempRef = config.Flow.powerlawTempRef
-  var Flow_powerlawViscRef = config.Flow.powerlawViscRef
-  var Flow_sutherlandSRef = config.Flow.sutherlandSRef
-  var Flow_sutherlandTempRef = config.Flow.sutherlandTempRef
-  var Flow_sutherlandViscRef = config.Flow.sutherlandViscRef
-  var Flow_viscosityModel = config.Flow.viscosityModel
+  var Flow_constantVisc = config.Flow.viscosityModel.u.Constant.viscosity
+  var Flow_powerlawTempRef = config.Flow.viscosityModel.u.PowerLaw.temperature_reference
+  var Flow_powerlawViscRef = config.Flow.viscosityModel.u.PowerLaw.viscosity_reference
+  var Flow_sutherlandSRef = config.Flow.viscosityModel.u.Sutherland.s_reference
+  var Flow_sutherlandTempRef = config.Flow.viscosityModel.u.Sutherland.temperature_reference
+  var Flow_sutherlandViscRef = config.Flow.viscosityModel.u.Sutherland.viscosity_reference
+  var Flow_viscosityModel_type = config.Flow.viscosityModel.type
 
   var BC_xBCLeft_type                                           = config.BC.xBCLeft.type 
   var BC_xBCLeft_Wall_EnergyBC_type                             = config.BC.xBCLeft.u.Wall.EnergyBC.type
@@ -2806,7 +2813,7 @@ do
         elseif (BC_xBCLeft_Wall_EnergyBC_type == SCHEMA.EnergyBC_ConstantHeatFlux) then
           var wall_heat_flux = BC_xBCLeft_Wall_EnergyBC_ConstantHeatFlux_heatFlux 
 
-          var mu = GetDynamicViscosity(Fluid[c_int].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
+          var mu = GetDynamicViscosity(Fluid[c_int].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel_type)
           var cp = Flow_gamma * Flow_gasConstant / (Flow_gamma-1.0)
           var k = (cp*mu)/Flow_prandtl 
           var dx = (Fluid[c_int].centerCoordinates[0] - Fluid[c_bnd].centerCoordinates[0])
@@ -2838,7 +2845,7 @@ do
         elseif (BC_xBCRight_Wall_EnergyBC_type == SCHEMA.EnergyBC_ConstantHeatFlux) then
           var wall_heat_flux = BC_xBCRight_Wall_EnergyBC_ConstantHeatFlux_heatFlux 
 
-          var mu = GetDynamicViscosity(Fluid[c_int].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
+          var mu = GetDynamicViscosity(Fluid[c_int].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel_type)
           var cp = Flow_gamma * Flow_gasConstant / (Flow_gamma-1.0)
           var k = (cp*mu)/Flow_prandtl 
           var dx = (Fluid[c_int].centerCoordinates[0] - Fluid[c_bnd].centerCoordinates[0])
@@ -2870,7 +2877,7 @@ do
         elseif (BC_yBCLeft_Wall_EnergyBC_type == SCHEMA.EnergyBC_ConstantHeatFlux) then
           var wall_heat_flux = BC_yBCLeft_Wall_EnergyBC_ConstantHeatFlux_heatFlux 
 
-          var mu = GetDynamicViscosity(Fluid[c_int].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
+          var mu = GetDynamicViscosity(Fluid[c_int].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel_type)
           var cp = Flow_gamma * Flow_gasConstant / (Flow_gamma-1.0)
           var k = (cp*mu)/Flow_prandtl 
           var dy = (Fluid[c_int].centerCoordinates[1] - Fluid[c_bnd].centerCoordinates[1])
@@ -2912,7 +2919,7 @@ do
         elseif (BC_yBCRight_Wall_EnergyBC_type == SCHEMA.EnergyBC_ConstantHeatFlux) then
           var wall_heat_flux = BC_yBCRight_Wall_EnergyBC_ConstantHeatFlux_heatFlux 
 
-          var mu = GetDynamicViscosity(Fluid[c_int].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
+          var mu = GetDynamicViscosity(Fluid[c_int].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel_type)
           var cp = Flow_gamma * Flow_gasConstant / (Flow_gamma-1.0)
           var k = (cp*mu)/Flow_prandtl 
           var dy = (Fluid[c_int].centerCoordinates[1] - Fluid[c_bnd].centerCoordinates[1])
@@ -2952,7 +2959,7 @@ do
         elseif (BC_zBCLeft_Wall_EnergyBC_type == SCHEMA.EnergyBC_ConstantHeatFlux) then
           var wall_heat_flux = BC_zBCLeft_Wall_EnergyBC_ConstantHeatFlux_heatFlux 
 
-          var mu = GetDynamicViscosity(Fluid[c_int].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
+          var mu = GetDynamicViscosity(Fluid[c_int].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel_type)
           var cp = Flow_gamma * Flow_gasConstant / (Flow_gamma-1.0)
           var k = (cp*mu)/Flow_prandtl 
           var dz = (Fluid[c_int].centerCoordinates[2] - Fluid[c_bnd].centerCoordinates[2])
@@ -2993,7 +3000,7 @@ do
         elseif (BC_zBCRight_Wall_EnergyBC_type == SCHEMA.EnergyBC_ConstantHeatFlux) then
           var wall_heat_flux = BC_zBCRight_Wall_EnergyBC_ConstantHeatFlux_heatFlux 
 
-          var mu = GetDynamicViscosity(Fluid[c_int].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
+          var mu = GetDynamicViscosity(Fluid[c_int].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel_type)
           var cp = Flow_gamma * Flow_gasConstant / (Flow_gamma-1.0)
           var k = (cp*mu)/Flow_prandtl 
           var dz = (Fluid[c_int].centerCoordinates[2] - Fluid[c_bnd].centerCoordinates[2])
@@ -3196,13 +3203,18 @@ end
 
 __demand(__leaf, __parallel, __cuda)
 task Flow_CalculateViscousSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
-                                         Flow_constantVisc : double,
-                                         Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                                         Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                                         Flow_viscosityModel : SCHEMA.ViscosityModel)
+                                         config : Config)
 where
   reads(Fluid.{cellWidth, rho, temperature})
 do
+  -- Fluid Properties
+  var Flow_constantVisc = config.Flow.viscosityModel.u.Constant.viscosity
+  var Flow_powerlawTempRef = config.Flow.viscosityModel.u.PowerLaw.temperature_reference
+  var Flow_powerlawViscRef = config.Flow.viscosityModel.u.PowerLaw.viscosity_reference
+  var Flow_sutherlandSRef = config.Flow.viscosityModel.u.Sutherland.s_reference
+  var Flow_sutherlandTempRef = config.Flow.viscosityModel.u.Sutherland.temperature_reference
+  var Flow_sutherlandViscRef = config.Flow.viscosityModel.u.Sutherland.viscosity_reference
+  var Flow_viscosityModel_type = config.Flow.viscosityModel.type
   var acc = -math.huge
   __demand(__openmp)
   for c in Fluid do
@@ -3210,7 +3222,7 @@ do
       1.0/Fluid[c].cellWidth[0]/Fluid[c].cellWidth[0] +
       1.0/Fluid[c].cellWidth[1]/Fluid[c].cellWidth[1] +
       1.0/Fluid[c].cellWidth[2]/Fluid[c].cellWidth[2]
-    var dynamicViscosity = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
+    var dynamicViscosity = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel_type)
     acc max= ((((2.0*dynamicViscosity)/Fluid[c].rho)*Grid_dXYZInverseSquare)*4.0)
   end
   return acc
@@ -3218,16 +3230,21 @@ end
 
 __demand(__leaf, __parallel, __cuda)
 task Flow_CalculateHeatConductionSpectralRadius(Fluid : region(ispace(int3d), Fluid_columns),
-                                                Flow_constantVisc : double,
-                                                Flow_gamma : double,
-                                                Flow_gasConstant : double,
-                                                Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                                                Flow_prandtl : double,
-                                                Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                                                Flow_viscosityModel : SCHEMA.ViscosityModel)
+                                               config : Config)
 where
   reads(Fluid.{cellWidth, rho, temperature})
 do
+  -- Fluid Properties
+  var Flow_gasConstant = config.Flow.gasConstant
+  var Flow_gamma = config.Flow.gamma
+  var Flow_prandtl = config.Flow.prandtl
+  var Flow_constantVisc = config.Flow.viscosityModel.u.Constant.viscosity
+  var Flow_powerlawTempRef = config.Flow.viscosityModel.u.PowerLaw.temperature_reference
+  var Flow_powerlawViscRef = config.Flow.viscosityModel.u.PowerLaw.viscosity_reference
+  var Flow_sutherlandSRef = config.Flow.viscosityModel.u.Sutherland.s_reference
+  var Flow_sutherlandTempRef = config.Flow.viscosityModel.u.Sutherland.temperature_reference
+  var Flow_sutherlandViscRef = config.Flow.viscosityModel.u.Sutherland.viscosity_reference
+  var Flow_viscosityModel_type = config.Flow.viscosityModel.type
   var acc = -math.huge
   __demand(__openmp)
   for c in Fluid do
@@ -3235,7 +3252,7 @@ do
       1.0/Fluid[c].cellWidth[0]/Fluid[c].cellWidth[0] +
       1.0/Fluid[c].cellWidth[1]/Fluid[c].cellWidth[1] +
       1.0/Fluid[c].cellWidth[2]/Fluid[c].cellWidth[2]
-    var dynamicViscosity = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel)
+    var dynamicViscosity = GetDynamicViscosity(Fluid[c].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel_type)
     var cv = (Flow_gasConstant/(Flow_gamma-1.0))
     var cp = (Flow_gamma*cv)
     var kappa = ((cp/Flow_prandtl)*dynamicViscosity)
@@ -3360,13 +3377,6 @@ end
 __demand(__leaf, __parallel, __cuda)
 task Flow_GetFluxX(Fluid : region(ispace(int3d), Fluid_columns),
                    config : Config,
-                   Flow_constantVisc : double,
-                   Flow_gamma : double,
-                   Flow_gasConstant : double,
-                   Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                   Flow_prandtl : double,
-                   Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                   Flow_viscosityModel : SCHEMA.ViscosityModel,
                    Grid_xBnum : int32, Grid_xNum : int32,
                    Grid_yBnum : int32, Grid_yNum : int32,
                    Grid_zBnum : int32, Grid_zNum : int32)
@@ -3379,6 +3389,17 @@ do
   -- X boundary condition types
   var BC_xBCLeft_type  = config.BC.xBCLeft.type 
   var BC_xBCRight_type = config.BC.xBCRight.type 
+  -- Fluid Properties
+  var Flow_gasConstant = config.Flow.gasConstant
+  var Flow_gamma = config.Flow.gamma
+  var Flow_prandtl = config.Flow.prandtl
+  var Flow_constantVisc = config.Flow.viscosityModel.u.Constant.viscosity
+  var Flow_powerlawTempRef = config.Flow.viscosityModel.u.PowerLaw.temperature_reference
+  var Flow_powerlawViscRef = config.Flow.viscosityModel.u.PowerLaw.viscosity_reference
+  var Flow_sutherlandSRef = config.Flow.viscosityModel.u.Sutherland.s_reference
+  var Flow_sutherlandTempRef = config.Flow.viscosityModel.u.Sutherland.temperature_reference
+  var Flow_sutherlandViscRef = config.Flow.viscosityModel.u.Sutherland.viscosity_reference
+  var Flow_viscosityModel_type = config.Flow.viscosityModel.type
 
   __demand(__openmp)
   for c in Fluid do
@@ -3407,7 +3428,7 @@ do
                                    Flow_constantVisc,
                                    Flow_powerlawTempRef, Flow_powerlawViscRef,
                                    Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
-                                   Flow_viscosityModel)
+                                   Flow_viscosityModel_type)
       var xCellWidth = Fluid[c].cellWidth[0]
 
       var stencil = (c+{1, 0, 0}) % Fluid.bounds
@@ -3425,7 +3446,7 @@ do
                                            Flow_constantVisc,
                                            Flow_powerlawTempRef, Flow_powerlawViscRef,
                                            Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
-                                           Flow_viscosityModel)
+                                           Flow_viscosityModel_type)
       var xCellWidth_stencil = Fluid[stencil].cellWidth[0]
 
 
@@ -3551,13 +3572,6 @@ end
 __demand(__leaf, __parallel, __cuda)
 task Flow_GetFluxY(Fluid : region(ispace(int3d), Fluid_columns),
                    config : Config,
-                   Flow_constantVisc : double,
-                   Flow_gamma : double,
-                   Flow_gasConstant : double,
-                   Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                   Flow_prandtl : double,
-                   Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                   Flow_viscosityModel : SCHEMA.ViscosityModel,
                    Grid_xBnum : int32, Grid_xNum : int32,
                    Grid_yBnum : int32, Grid_yNum : int32,
                    Grid_zBnum : int32, Grid_zNum : int32)
@@ -3567,6 +3581,17 @@ where
   reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ, temperatureGradient}),
   writes(Fluid.{rhoEnergyFluxY, rhoFluxY, rhoVelocityFluxY})
 do
+  -- Fluid Properties
+  var Flow_gasConstant = config.Flow.gasConstant
+  var Flow_gamma = config.Flow.gamma
+  var Flow_prandtl = config.Flow.prandtl
+  var Flow_constantVisc = config.Flow.viscosityModel.u.Constant.viscosity
+  var Flow_powerlawTempRef = config.Flow.viscosityModel.u.PowerLaw.temperature_reference
+  var Flow_powerlawViscRef = config.Flow.viscosityModel.u.PowerLaw.viscosity_reference
+  var Flow_sutherlandSRef = config.Flow.viscosityModel.u.Sutherland.s_reference
+  var Flow_sutherlandTempRef = config.Flow.viscosityModel.u.Sutherland.temperature_reference
+  var Flow_sutherlandViscRef = config.Flow.viscosityModel.u.Sutherland.viscosity_reference
+  var Flow_viscosityModel_type = config.Flow.viscosityModel.type
   -- X boundary condition types
   var BC_xBCLeft_type  = config.BC.xBCLeft.type 
   var BC_xBCRight_type = config.BC.xBCRight.type 
@@ -3598,7 +3623,7 @@ do
                                    Flow_constantVisc,
                                    Flow_powerlawTempRef, Flow_powerlawViscRef,
                                    Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
-                                   Flow_viscosityModel)
+                                   Flow_viscosityModel_type)
       var yCellWidth = Fluid[c].cellWidth[1]
 
       var stencil = (c+{0, 1, 0}) % Fluid.bounds
@@ -3616,7 +3641,7 @@ do
                                            Flow_constantVisc,
                                            Flow_powerlawTempRef, Flow_powerlawViscRef,
                                            Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
-                                           Flow_viscosityModel)
+                                           Flow_viscosityModel_type)
       var yCellWidth_stencil = Fluid[stencil].cellWidth[1]
 
       var muFace = linear_interpolation(Fluid[c].centerCoordinates[1] + yCellWidth/2.0,
@@ -3740,13 +3765,6 @@ end
 __demand(__leaf, __parallel, __cuda)
 task Flow_GetFluxZ(Fluid : region(ispace(int3d), Fluid_columns),
                    config : Config,
-                   Flow_constantVisc : double,
-                   Flow_gamma : double,
-                   Flow_gasConstant : double,
-                   Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                   Flow_prandtl : double,
-                   Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                   Flow_viscosityModel : SCHEMA.ViscosityModel,
                    Grid_xBnum : int32, Grid_xNum : int32,
                    Grid_yBnum : int32, Grid_yNum : int32,
                    Grid_zBnum : int32, Grid_zNum : int32)
@@ -3756,6 +3774,17 @@ where
   reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ, temperatureGradient}),
   writes(Fluid.{rhoEnergyFluxZ, rhoFluxZ, rhoVelocityFluxZ})
 do
+  -- Fluid Properties
+  var Flow_gasConstant = config.Flow.gasConstant
+  var Flow_gamma = config.Flow.gamma
+  var Flow_prandtl = config.Flow.prandtl
+  var Flow_constantVisc = config.Flow.viscosityModel.u.Constant.viscosity
+  var Flow_powerlawTempRef = config.Flow.viscosityModel.u.PowerLaw.temperature_reference
+  var Flow_powerlawViscRef = config.Flow.viscosityModel.u.PowerLaw.viscosity_reference
+  var Flow_sutherlandSRef = config.Flow.viscosityModel.u.Sutherland.s_reference
+  var Flow_sutherlandTempRef = config.Flow.viscosityModel.u.Sutherland.temperature_reference
+  var Flow_sutherlandViscRef = config.Flow.viscosityModel.u.Sutherland.viscosity_reference
+  var Flow_viscosityModel_type = config.Flow.viscosityModel.type
   -- X boundary condition types
   var BC_xBCLeft_type  = config.BC.xBCLeft.type 
   var BC_xBCRight_type = config.BC.xBCRight.type 
@@ -3787,7 +3816,7 @@ do
                                    Flow_constantVisc,
                                    Flow_powerlawTempRef, Flow_powerlawViscRef,
                                    Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
-                                   Flow_viscosityModel)
+                                   Flow_viscosityModel_type)
       var zCellWidth = Fluid[c].cellWidth[2]
 
 
@@ -3807,7 +3836,7 @@ do
                                            Flow_constantVisc,
                                            Flow_powerlawTempRef, Flow_powerlawViscRef,
                                            Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
-                                           Flow_viscosityModel)
+                                           Flow_viscosityModel_type)
       var zCellWidth_stencil = Fluid[stencil].cellWidth[2]
 
       var muFace = linear_interpolation(Fluid[c].centerCoordinates[2] + zCellWidth/2.0,
@@ -4044,14 +4073,8 @@ end
 __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Flow_UpdateUsingFluxGhostNSCBC(Fluid : region(ispace(int3d), Fluid_columns),
                                     config : Config,
-                                    Flow_gamma : double, Flow_gasConstant : double,
-                                    Flow_prandtl : double,
                                     Flow_maxMach : double,
                                     Flow_lengthScale : double,
-                                    Flow_constantVisc : double,
-                                    Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                                    Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                                    Flow_viscosityModel : SCHEMA.ViscosityModel,
                                     BC_xPosP_inf : double,
                                     Grid_xBnum : int32, Grid_xNum : int32,
                                     Grid_yBnum : int32, Grid_yNum : int32,
@@ -4061,6 +4084,17 @@ where
   reads(Fluid.{velocityGradientX, velocityGradientY, velocityGradientZ}),
   reads writes(Fluid.{rho_t, rhoVelocity_t, rhoEnergy_t})
 do
+  -- Fluid Properties
+  var Flow_gasConstant = config.Flow.gasConstant
+  var Flow_gamma = config.Flow.gamma
+  var Flow_prandtl = config.Flow.prandtl
+  var Flow_constantVisc = config.Flow.viscosityModel.u.Constant.viscosity
+  var Flow_powerlawTempRef = config.Flow.viscosityModel.u.PowerLaw.temperature_reference
+  var Flow_powerlawViscRef = config.Flow.viscosityModel.u.PowerLaw.viscosity_reference
+  var Flow_sutherlandSRef = config.Flow.viscosityModel.u.Sutherland.s_reference
+  var Flow_sutherlandTempRef = config.Flow.viscosityModel.u.Sutherland.temperature_reference
+  var Flow_sutherlandViscRef = config.Flow.viscosityModel.u.Sutherland.viscosity_reference
+  var Flow_viscosityModel_type = config.Flow.viscosityModel.type
   -- X boundary condition types
   var BC_xBCLeft_type  = config.BC.xBCLeft.type 
   var BC_xBCRight_type = config.BC.xBCRight.type 
@@ -4141,7 +4175,7 @@ do
                                         Flow_constantVisc,
                                         Flow_powerlawTempRef, Flow_powerlawViscRef,
                                         Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
-                                        Flow_viscosityModel)
+                                        Flow_viscosityModel_type)
         var tau11_pos = mu_pos*( Fluid[c_bnd].velocityGradientX[0] + Fluid[c_bnd].velocityGradientX[0] - (2.0/3.0)*(Fluid[c_bnd].velocityGradientX[0] + Fluid[c_bnd].velocityGradientY[1] + Fluid[c_bnd].velocityGradientZ[2]) )
         var tau21_pos = mu_pos*( Fluid[c_bnd].velocityGradientX[1] + Fluid[c_bnd].velocityGradientY[0] )
         var tau31_pos = mu_pos*( Fluid[c_bnd].velocityGradientX[2] + Fluid[c_bnd].velocityGradientZ[0] )
@@ -4150,7 +4184,7 @@ do
                                         Flow_constantVisc,
                                         Flow_powerlawTempRef, Flow_powerlawViscRef,
                                         Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
-                                        Flow_viscosityModel)
+                                        Flow_viscosityModel_type)
         var tau11_neg = mu_neg*( Fluid[c_int].velocityGradientX[0] + Fluid[c_int].velocityGradientX[0] - (2.0/3.0)*(Fluid[c_int].velocityGradientX[0] + Fluid[c_int].velocityGradientY[1] + Fluid[c_int].velocityGradientZ[2]) )
         var tau21_neg = mu_neg*( Fluid[c_int].velocityGradientX[1] + Fluid[c_int].velocityGradientY[0] )
         var tau31_neg = mu_neg*( Fluid[c_int].velocityGradientX[2] + Fluid[c_int].velocityGradientZ[0] )
@@ -4165,7 +4199,7 @@ do
                                      Flow_constantVisc,
                                      Flow_powerlawTempRef, Flow_powerlawViscRef,
                                      Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
-                                     Flow_viscosityModel)
+                                     Flow_viscosityModel_type)
         var tau_12 =  mu*( Fluid[c_bnd].velocityGradientY[0] + Fluid[c_bnd].velocityGradientX[1] )
         var tau_13 =  mu*( Fluid[c_bnd].velocityGradientZ[0] + Fluid[c_bnd].velocityGradientX[2] )
         var energy_term_x = (Fluid[c_bnd].velocity[0]*tau11_pos - Fluid[c_int].velocity[0]*tau11_neg) / (0.5*Fluid[c_int].cellWidth[0] + 0.5*Fluid[c_bnd].cellWidth[0]) + Fluid[c_bnd].velocityGradientX[1]*tau_12 + Fluid[c_bnd].velocityGradientX[2]*tau_13
@@ -4311,10 +4345,7 @@ end
 
 __demand(__leaf, __parallel, __cuda)
 task Flow_ComputeDissipationX(Fluid : region(ispace(int3d), Fluid_columns),
-                              Flow_constantVisc : double,
-                              Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                              Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                              Flow_viscosityModel : SCHEMA.ViscosityModel,
+                              config : Config,
                               Grid_xBnum : int32, Grid_xNum : int32,
                               Grid_yBnum : int32, Grid_yNum : int32,
                               Grid_zBnum : int32, Grid_zNum : int32)
@@ -4323,6 +4354,14 @@ where
   reads(Fluid.{velocity, temperature, velocityGradientX, velocityGradientY, velocityGradientZ}),
   writes(Fluid.dissipationFlux)
 do
+  -- Fluid Properties
+  var Flow_constantVisc = config.Flow.viscosityModel.u.Constant.viscosity
+  var Flow_powerlawTempRef = config.Flow.viscosityModel.u.PowerLaw.temperature_reference
+  var Flow_powerlawViscRef = config.Flow.viscosityModel.u.PowerLaw.viscosity_reference
+  var Flow_sutherlandSRef = config.Flow.viscosityModel.u.Sutherland.s_reference
+  var Flow_sutherlandTempRef = config.Flow.viscosityModel.u.Sutherland.temperature_reference
+  var Flow_sutherlandViscRef = config.Flow.viscosityModel.u.Sutherland.viscosity_reference
+  var Flow_viscosityModel_type = config.Flow.viscosityModel.type
   __demand(__openmp)
   for c in Fluid do
     var xNegGhost = is_xNegGhost(c, Grid_xBnum)
@@ -4339,7 +4378,7 @@ do
                                    Flow_constantVisc,
                                    Flow_powerlawTempRef, Flow_powerlawViscRef,
                                    Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
-                                   Flow_viscosityModel)
+                                   Flow_viscosityModel_type)
       var xCellWidth = Fluid[c].cellWidth[0]
 
       var stencil = (c+{1, 0, 0}) % Fluid.bounds
@@ -4352,7 +4391,7 @@ do
                                            Flow_constantVisc,
                                            Flow_powerlawTempRef, Flow_powerlawViscRef,
                                            Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
-                                           Flow_viscosityModel)
+                                           Flow_viscosityModel_type)
       var xCellWidth_stencil = Fluid[stencil].cellWidth[0]
 
 
@@ -4457,10 +4496,7 @@ end
 
 __demand(__leaf, __parallel, __cuda)
 task Flow_ComputeDissipationY(Fluid : region(ispace(int3d), Fluid_columns),
-                              Flow_constantVisc : double,
-                              Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                              Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                              Flow_viscosityModel : SCHEMA.ViscosityModel,
+                              config : Config,
                               Grid_xBnum : int32, Grid_xNum : int32,
                               Grid_yBnum : int32, Grid_yNum : int32,
                               Grid_zBnum : int32, Grid_zNum : int32)
@@ -4469,6 +4505,14 @@ where
   reads(Fluid.{velocity, temperature, velocityGradientX, velocityGradientY, velocityGradientZ}),
   writes(Fluid.dissipationFlux)
 do
+  -- Fluid Properties
+  var Flow_constantVisc = config.Flow.viscosityModel.u.Constant.viscosity
+  var Flow_powerlawTempRef = config.Flow.viscosityModel.u.PowerLaw.temperature_reference
+  var Flow_powerlawViscRef = config.Flow.viscosityModel.u.PowerLaw.viscosity_reference
+  var Flow_sutherlandSRef = config.Flow.viscosityModel.u.Sutherland.s_reference
+  var Flow_sutherlandTempRef = config.Flow.viscosityModel.u.Sutherland.temperature_reference
+  var Flow_sutherlandViscRef = config.Flow.viscosityModel.u.Sutherland.viscosity_reference
+  var Flow_viscosityModel_type = config.Flow.viscosityModel.type
   __demand(__openmp)
   for c in Fluid do
     var yNegGhost = is_yNegGhost(c, Grid_yBnum)
@@ -4485,7 +4529,7 @@ do
                                    Flow_constantVisc,
                                    Flow_powerlawTempRef, Flow_powerlawViscRef,
                                    Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
-                                   Flow_viscosityModel)
+                                   Flow_viscosityModel_type)
       var yCellWidth = Fluid[c].cellWidth[1]
 
       var stencil = (c+{0, 1, 0}) % Fluid.bounds
@@ -4498,7 +4542,7 @@ do
                                            Flow_constantVisc,
                                            Flow_powerlawTempRef, Flow_powerlawViscRef,
                                            Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
-                                           Flow_viscosityModel)
+                                           Flow_viscosityModel_type)
       var yCellWidth_stencil = Fluid[stencil].cellWidth[1]
 
       var muFace = linear_interpolation(Fluid[c].centerCoordinates[1] + yCellWidth/2.0,
@@ -4600,10 +4644,7 @@ end
 
 __demand(__leaf, __parallel, __cuda)
 task Flow_ComputeDissipationZ(Fluid : region(ispace(int3d), Fluid_columns),
-                              Flow_constantVisc : double,
-                              Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                              Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                              Flow_viscosityModel : SCHEMA.ViscosityModel,
+                              config : Config,
                               Grid_xBnum : int32, Grid_xNum : int32,
                               Grid_yBnum : int32, Grid_yNum : int32,
                               Grid_zBnum : int32, Grid_zNum : int32)
@@ -4612,6 +4653,14 @@ where
   reads(Fluid.{velocity, temperature, velocityGradientX, velocityGradientY, velocityGradientZ}),
   writes(Fluid.dissipationFlux)
 do
+  -- Fluid Properties
+  var Flow_constantVisc = config.Flow.viscosityModel.u.Constant.viscosity
+  var Flow_powerlawTempRef = config.Flow.viscosityModel.u.PowerLaw.temperature_reference
+  var Flow_powerlawViscRef = config.Flow.viscosityModel.u.PowerLaw.viscosity_reference
+  var Flow_sutherlandSRef = config.Flow.viscosityModel.u.Sutherland.s_reference
+  var Flow_sutherlandTempRef = config.Flow.viscosityModel.u.Sutherland.temperature_reference
+  var Flow_sutherlandViscRef = config.Flow.viscosityModel.u.Sutherland.viscosity_reference
+  var Flow_viscosityModel_type = config.Flow.viscosityModel.type
   __demand(__openmp)
   for c in Fluid do
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
@@ -4628,7 +4677,7 @@ do
                                    Flow_constantVisc,
                                    Flow_powerlawTempRef, Flow_powerlawViscRef,
                                    Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
-                                   Flow_viscosityModel)
+                                   Flow_viscosityModel_type)
       var zCellWidth = Fluid[c].cellWidth[2]
 
 
@@ -4643,7 +4692,7 @@ do
                                            Flow_constantVisc,
                                            Flow_powerlawTempRef, Flow_powerlawViscRef,
                                            Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
-                                           Flow_viscosityModel)
+                                           Flow_viscosityModel_type)
       var zCellWidth_stencil = Fluid[stencil].cellWidth[2]
 
       var muFace = linear_interpolation(Fluid[c].centerCoordinates[2] + zCellWidth/2.0,
@@ -5201,16 +5250,21 @@ end
 __demand(__leaf, __parallel, __cuda)
 task Particles_CalcDeltaTerms(Particles : region(ispace(int1d), Particles_columns),
                               Fluid : region(ispace(int3d), Fluid_columns),
-                              Flow_constantVisc : double,
-                              Flow_powerlawTempRef : double, Flow_powerlawViscRef : double,
-                              Flow_sutherlandSRef : double, Flow_sutherlandTempRef : double, Flow_sutherlandViscRef : double,
-                              Flow_viscosityModel : SCHEMA.ViscosityModel,
+                              config : Config,
                               Particles_convectiveCoeff : double)
 where
   reads(Fluid.{centerCoordinates, velocity, temperature}),
   reads(Particles.{cell, position, velocity, diameter, density, temperature, __valid}),
   writes(Particles.{deltaTemperatureTerm, deltaVelocityOverRelaxationTime})
 do
+  -- Fluid Properties
+  var Flow_constantVisc = config.Flow.viscosityModel.u.Constant.viscosity
+  var Flow_powerlawTempRef = config.Flow.viscosityModel.u.PowerLaw.temperature_reference
+  var Flow_powerlawViscRef = config.Flow.viscosityModel.u.PowerLaw.viscosity_reference
+  var Flow_sutherlandSRef = config.Flow.viscosityModel.u.Sutherland.s_reference
+  var Flow_sutherlandTempRef = config.Flow.viscosityModel.u.Sutherland.temperature_reference
+  var Flow_sutherlandViscRef = config.Flow.viscosityModel.u.Sutherland.viscosity_reference
+  var Flow_viscosityModel_type = config.Flow.viscosityModel.type
   __demand(__openmp)
   for p in Particles do
     if Particles[p].__valid then
@@ -5224,7 +5278,7 @@ do
                                                      Flow_constantVisc,
                                                      Flow_powerlawTempRef, Flow_powerlawViscRef,
                                                      Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef,
-                                                     Flow_viscosityModel)
+                                                     Flow_viscosityModel_type)
       var relaxationTime = Particles[p].density * pow(Particles[p].diameter,2.0) / (18.0 * flowDynamicViscosity)
       Particles[p].deltaVelocityOverRelaxationTime = vs_div(vv_sub(flowVelocity, Particles[p].velocity), relaxationTime)
       Particles[p].deltaTemperatureTerm = PI * pow(Particles[p].diameter,2.0) * Particles_convectiveCoeff * (flowTemperature-Particles[p].temperature)
@@ -6207,10 +6261,6 @@ local function mkInstance(config) local INSTANCE = {}
     -- Use the interior conserved values (and BC settings) to update primitives everywhere
     Flow_UpdateAuxiliaryVelocity(Fluid,
                                  config,
-                                 config.Flow.constantVisc,
-                                 config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                 config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                 config.Flow.viscosityModel,
                                  Grid.xBnum, config.Grid.xNum,
                                  Grid.yBnum, config.Grid.yNum,
                                  Grid.zBnum, config.Grid.zNum)
@@ -6315,11 +6365,6 @@ local function mkInstance(config) local INSTANCE = {}
       for c in tiles do
         Flow_InitializeGhostNSCBC(p_Fluid[c],
                                   config,
-                                  config.Flow.gasConstant,
-                                  config.Flow.constantVisc,
-                                  config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                  config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                  config.Flow.viscosityModel,
                                   Grid.xBnum, config.Grid.xNum,
                                   Grid.yBnum, config.Grid.yNum,
                                   Grid.zBnum, config.Grid.zNum)
@@ -6448,19 +6493,9 @@ local function mkInstance(config) local INSTANCE = {}
         Flow_CalculateConvectiveSpectralRadius(Fluid,
                                                config.Flow.gamma, config.Flow.gasConstant)
       Integrator_maxViscousSpectralRadius max=
-        Flow_CalculateViscousSpectralRadius(Fluid,
-                                            config.Flow.constantVisc,
-                                            config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                            config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                            config.Flow.viscosityModel)
+        Flow_CalculateViscousSpectralRadius(Fluid, config)
       Integrator_maxHeatConductionSpectralRadius max=
-        Flow_CalculateHeatConductionSpectralRadius(Fluid,
-                                                   config.Flow.constantVisc,
-                                                   config.Flow.gamma, config.Flow.gasConstant,
-                                                   config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                                   config.Flow.prandtl,
-                                                   config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                                   config.Flow.viscosityModel)
+        Flow_CalculateHeatConductionSpectralRadius(Fluid, config)
       Integrator.deltaTime = (config.Integrator.cfl/max(Integrator_maxConvectiveSpectralRadius, max(Integrator_maxViscousSpectralRadius, Integrator_maxHeatConductionSpectralRadius)))
     end
 
@@ -6616,34 +6651,16 @@ local function mkInstance(config) local INSTANCE = {}
       -- Compute fluxes
       Flow_GetFluxX(Fluid,
                     config,
-                    config.Flow.constantVisc,
-                    config.Flow.gamma, config.Flow.gasConstant,
-                    config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                    config.Flow.prandtl,
-                    config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                    config.Flow.viscosityModel,
                     Grid.xBnum, config.Grid.xNum,
                     Grid.yBnum, config.Grid.yNum,
                     Grid.zBnum, config.Grid.zNum)
       Flow_GetFluxY(Fluid,
                     config,
-                    config.Flow.constantVisc,
-                    config.Flow.gamma, config.Flow.gasConstant,
-                    config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                    config.Flow.prandtl,
-                    config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                    config.Flow.viscosityModel,
                     Grid.xBnum, config.Grid.xNum,
                     Grid.yBnum, config.Grid.yNum,
                     Grid.zBnum, config.Grid.zNum)
       Flow_GetFluxZ(Fluid,
                     config,
-                    config.Flow.constantVisc,
-                    config.Flow.gamma, config.Flow.gasConstant,
-                    config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                    config.Flow.prandtl,
-                    config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                    config.Flow.viscosityModel,
                     Grid.xBnum, config.Grid.xNum,
                     Grid.yBnum, config.Grid.yNum,
                     Grid.zBnum, config.Grid.zNum)
@@ -6679,10 +6696,7 @@ local function mkInstance(config) local INSTANCE = {}
         Flow_ResetDissipation(Fluid)
 
         Flow_ComputeDissipationX(Fluid,
-                                 config.Flow.constantVisc,
-                                 config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                 config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                 config.Flow.viscosityModel,
+                                 config,
                                  Grid.xBnum, config.Grid.xNum,
                                  Grid.yBnum, config.Grid.yNum,
                                  Grid.zBnum, config.Grid.zNum)
@@ -6692,10 +6706,7 @@ local function mkInstance(config) local INSTANCE = {}
                                 Grid.zBnum, config.Grid.zNum)
 
         Flow_ComputeDissipationY(Fluid,
-                                 config.Flow.constantVisc,
-                                 config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                 config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                 config.Flow.viscosityModel,
+                                 config,
                                  Grid.xBnum, config.Grid.xNum,
                                  Grid.yBnum, config.Grid.yNum,
                                  Grid.zBnum, config.Grid.zNum)
@@ -6705,10 +6716,7 @@ local function mkInstance(config) local INSTANCE = {}
                                 Grid.zBnum, config.Grid.zNum)
 
         Flow_ComputeDissipationZ(Fluid,
-                                 config.Flow.constantVisc,
-                                 config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                 config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                 config.Flow.viscosityModel,
+                                 config,
                                  Grid.xBnum, config.Grid.xNum,
                                  Grid.yBnum, config.Grid.yNum,
                                  Grid.zBnum, config.Grid.zNum)
@@ -6755,10 +6763,7 @@ local function mkInstance(config) local INSTANCE = {}
       if config.Particles.maxNum > 0 and (Integrator.timeStep % config.Particles.staggerFactor == 0 or Integrator.timeStep == config.Integrator.startIter) then
         Particles_CalcDeltaTerms(Particles,
                                  Fluid,
-                                 config.Flow.constantVisc,
-                                 config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                 config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                 config.Flow.viscosityModel,
+                                 config,
                                  config.Particles.convectiveCoeff)
       end
       if config.Particles.maxNum > 0 and Integrator.timeStep % config.Particles.staggerFactor == 0 then
@@ -6833,14 +6838,8 @@ local function mkInstance(config) local INSTANCE = {}
         for c in tiles do
           Flow_UpdateUsingFluxGhostNSCBC(p_Fluid[c],
                                          config,
-                                         config.Flow.gamma, config.Flow.gasConstant,
-                                         config.Flow.prandtl,
                                          Flow_maxMach,
                                          Flow_lengthScale,
-                                         config.Flow.constantVisc,
-                                         config.Flow.powerlawTempRef, config.Flow.powerlawViscRef,
-                                         config.Flow.sutherlandSRef, config.Flow.sutherlandTempRef, config.Flow.sutherlandViscRef,
-                                         config.Flow.viscosityModel,
                                          config.BC.xBCRight.u.NSCBC_SubsonicOutflow.P_inf,
                                          Grid.xBnum, config.Grid.xNum,
                                          Grid.yBnum, config.Grid.yNum,

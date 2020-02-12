@@ -38,7 +38,7 @@ with open(args.case_json_file) as f:
 yNum = data["Grid"]["yNum"]
 yWidth  = data["Grid"]["yWidth"]
 g = data["Flow"]["bodyForce"][0]
-constantVisc = data["Flow"]["constantVisc"]
+constantVisc = data["Flow"]["viscosityModel"]["viscosity"]
 
 # this solution assumes that y_min = 0.0
 if not (data["Grid"]["origin"] == [0.0,0.0,0.0]):

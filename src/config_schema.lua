@@ -13,10 +13,25 @@ Exports.Window = {
 
 -- Unions & enumeration constants
 Exports.ParticlesBC = Enum('Periodic','Bounce','Disappear')
-Exports.ViscosityModel = Enum('Constant','PowerLaw','Sutherland')
 Exports.FlowInitCase = Enum('Uniform','Random','Restart','Perturbed','TaylorGreen2DVortex','TaylorGreen3DVortex')
 Exports.ParticlesInitCase = Enum('Random','Restart','Uniform')
 Exports.GridType = Enum('Uniform','Stretched')
+
+--Exports.ViscosityModel = Enum('Constant','PowerLaw','Sutherland')
+Exports.ViscosityModel = Union{
+  Constant = {
+    viscosity = double
+  },
+  PowerLaw = {
+    temperature_reference = double,
+    viscosity_reference  = double
+  },
+  Sutherland = {
+    s_reference = double,
+    temperature_reference  = double,
+    viscosity_reference    = double
+  },
+}
 
 Exports.EnergyBC = Union{
   ConstantTemperature = {temperature = double},
@@ -184,12 +199,6 @@ Exports.Config = {
     gamma = double,
     prandtl = double,
     viscosityModel = Exports.ViscosityModel,
-    constantVisc = double,
-    powerlawViscRef = double,
-    powerlawTempRef = double,
-    sutherlandViscRef = double,
-    sutherlandTempRef = double,
-    sutherlandSRef = double,
     initCase = Exports.FlowInitCase,
     restartDir = String(256),
     initParams = Array(6,double),
