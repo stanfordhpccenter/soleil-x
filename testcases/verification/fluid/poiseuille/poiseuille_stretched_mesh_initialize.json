@@ -8,8 +8,8 @@
     },
 
     "Grid" : {
-        "xNum" : 32,
-        "yNum" : 16,
+        "xNum" : 64,
+        "yNum" : 32,
         "zNum" : 1,
         "origin" : [0.0, 0.0, 0.0],
         "xWidth" : 1.0,
@@ -26,7 +26,7 @@
         "yBCLeft"  : {"type" : "Wall",
                       "Velocity" : [0.0,0.0,0.0],
                       "EnergyBC" : {"type" : "ConstantHeatFlux",
-                                    "heatFlux" : 1000.0}
+                                    "heatFlux" : 0.0}
                      },
         "yBCRight" : {"type" : "Wall",
                       "Velocity" : [0.0,0.0,0.0],

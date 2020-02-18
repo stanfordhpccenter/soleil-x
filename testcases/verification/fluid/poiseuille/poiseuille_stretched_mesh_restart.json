@@ -53,8 +53,8 @@
         "viscosityModel" : {"type" : "Constant",
                              "viscosity" : 1.0
                            },
-        "initCase" : "Uniform",
-        "restartDir" : "",
+        "initCase" : "Restart",
+        "restartDir" : "/p/gpfs1/adcock4/878285/sample0/fluid_iter0001000000/",
         "initParams" : [1.0, 86100.0, 0.0, 0.0, 0.0, -1.0],
         "bodyForce" : [8.0, 0.0, 0.0],
         "turbForcing" : { "type" : "OFF" }
