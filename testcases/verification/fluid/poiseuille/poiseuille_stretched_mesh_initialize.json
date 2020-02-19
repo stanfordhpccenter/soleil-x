@@ -8,8 +8,8 @@
     },
 
     "Grid" : {
-        "xNum" : 64,
-        "yNum" : 32,
+        "xNum" : 1024,
+        "yNum" : 1024,
         "zNum" : 1,
         "origin" : [0.0, 0.0, 0.0],
         "xWidth" : 1.0,

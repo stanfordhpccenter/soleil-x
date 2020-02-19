@@ -41,6 +41,13 @@ Exports.EnergyBC = Union{
     T_right = double,
     T_mid = double,
   },
+  StochasticHeatFlux = {
+    baseline = double,
+    diff = double,
+    numUncertainties = int,
+    sigmaMin = double,
+    sigmaMax = double,
+  },
 }
 
 Exports.InflowVelocityProfile = Union{

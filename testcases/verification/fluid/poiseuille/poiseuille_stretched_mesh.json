@@ -8,8 +8,8 @@
     },
 
     "Grid" : {
-        "xNum" : 32,
-        "yNum" : 16,
+        "xNum" : 512,
+        "yNum" : 256,
         "zNum" : 1,
         "origin" : [0.0, 0.0, 0.0],
         "xWidth" : 1.0,
@@ -40,7 +40,7 @@
     "Integrator" : {
         "startIter" : 0,
         "startTime" : 0.0,
-        "maxIter" : 1000000,
+        "maxIter" : 100000,
         "cfl" : 1.0,
         "fixedDeltaTime" : -1.0,
          "rkOrder" : 4
