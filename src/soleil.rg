@@ -5780,6 +5780,13 @@ local function mkInstance(config) local INSTANCE = {}
     yNegVelocity = SYMBOLS:scalarVar(double[3]),
     yPosTemperature = SYMBOLS:scalarVar(double),
     yNegTemperature = SYMBOLS:scalarVar(double),
+    wall_heat_flux_left_baseline = SYMBOLS:scalarVar(double),
+    wall_heat_flux_left_numUncertainties = SYMBOLS:scalarVar(int),
+    -- hard-coding in that numUncertainties=10; not sure how to avoid
+    wall_heat_flux_left_amplitude : SYMBOLS.scalarVar(double[10])   
+    wall_heat_flux_left_sigma : SYMBOLS.scalarVar(double[10])
+    wall_heat_flux_left_mu : SYMBOLS.scalarVar(double[10])
+
     zPosSign = SYMBOLS:scalarVar(double[3]),
     zNegSign = SYMBOLS:scalarVar(double[3]),
     zPosVelocity = SYMBOLS:scalarVar(double[3]),
@@ -5909,6 +5916,11 @@ local function mkInstance(config) local INSTANCE = {}
     var [BC.yNegVelocity]
     var [BC.yPosTemperature]
     var [BC.yNegTemperature]
+    var [wall_heat_flux_left_baseline] = config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.baseline
+    var [wall_heat_flux_left_numUncertainties] = config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.numUncertainties
+    var [wall_heat_flux_left_amplitude] : array[wall_heat_flux_left_numUncertainties]
+    var [wall_heat_flux_left_sigma] : array[wall_heat_flux_left_numUncertainties]
+    var [wall_heat_flux_left_mu] : array[wall_heat_flux_left_numUncertainties]
 
     var [BC.zPosSign]
     var [BC.zNegSign]
@@ -6054,6 +6066,13 @@ local function mkInstance(config) local INSTANCE = {}
           -- Do nothing
         elseif config.BC.yBCLeft.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ParabolaTemperature then
           -- Do nothing
+        elseif config.BC.yBCLeft.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_StochasticHeatFlux then
+          var rngState : Cdrand48_data
+          for i =0,(wall_heat_flux_left_numUncertainties) do
+            wall_heat_flux_left_amplitude[i] = (drand48_r(&rngState) - .5)*config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.diff
+            wall_heat_flux_left_sigma[i] = drand48_r(&rngState)*(config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.sigmaMax - config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.sigmaMin) + config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.sigmaMin
+            wall_heat_flux_left_mu[i] = drand48_r(&rngState)*config.Grid.xWidth
+          end
         else
           regentlib.assert(false, 'Energy Boundary condition on yBCLeft Wall supported')
         end
