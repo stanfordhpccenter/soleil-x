@@ -42,4 +42,4 @@ for i in range(0, num_jobs):
 print "Testcases created; when you're ready, run:"
 for i in range(0, num_jobs):
     after_str = 'AFTER=$JOBID ' if i > 0 else ''
-    print 'JOBOUT=`%$SOLEIL_DIR/src/soleil.sh $(echo -i\ job%d/case{0..%d}.json) -o %s/job%d`; JOBID="${JOBOUT//[!0-9]/}"; echo $JOBID' % (after_str, i, len(cases) - 1, args.out_dir, i)
+    print 'JOBOUT=`%s$SOLEIL_DIR/src/soleil.sh $(echo -i\ job%d/case{0..%d}.json) -o %s/job%d`; JOBID="${JOBOUT//[!0-9]/}"; echo $JOBID' % (after_str, i, len(cases) - 1, args.out_dir, i)
