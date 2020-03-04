@@ -148,6 +148,7 @@ local struct Fluid_columns {
   temperature_old_NSCBC : double;
   velocity_inc : double[3];
   temperature_inc : double;
+  heatFlux : double;
 }
 
 local Fluid_primitives = terralib.newlist({
@@ -2258,6 +2259,45 @@ do
   end
 end
 
+__demand(__leaf, __cuda)
+task Flow_InitializeGhostStochasticHeatFlux(Fluid : region(ispace(int3d), Fluid_columns),
+                                            config : Config,
+                                            Gird_yBnum : int32)
+where
+  reads(Fluid.centerCoordinates),
+  writes(Fluid.heatFlux)
+do
+  __demand(__openmp)
+  var config_baseline = config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.baseline
+  var config_diff = config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.diff
+  var config_numUncertainties = config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.numUncertainties
+  var config_sigmaMin = config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.sigmaMin
+  var config_sigmaMax = config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.sigmaMax
+  var rngState : C.drand48_data
+  var diff : array[config_numUncertainties]
+  var sigma : array[config_numUncertainties]
+  var mu : array[config_numUncertainties]
+  for i=0,(config_numUncertainties) do
+    diff[i] = -config_diff + (2.0*config_diff)*drand48_r(&rngState)
+    sigma[i] = config_sigmaMin + (config_sigmaMax - config_sigmaMin)*drand48_r(&rngState)
+    mu[i] = 2.0*config_sigmaMax + ((1.0-2.0*config_sigmaMax) - 2.0*config_sigmaMax)*drand48_r(&rngState)
+  end
+ 
+  __demand(__openmp)
+  for c in fluid do
+    var yNegGhost = is_yNegGhost(c, Grid_yBnum)
+    if yNegGhost then
+      var c_bnd = int3d(c)
+      var x = Fluid[c].centerCoordinates[0]
+      var heatFlux = config_baseline
+      for i =0,(config_numUncertainties) do
+        heatFlux += diff[i]*exp(-1.0/2.0*pow((x-mu[i])/sigma[i],2))
+      end
+      Fluid[c_bnd].heatFlux = heatFlux
+    end
+  end
+end
+
 __demand(__leaf, __parallel, __cuda)
 task Flow_UpdateConservedFromPrimitive(Fluid : region(ispace(int3d), Fluid_columns),
                                        Flow_gamma : double,
@@ -2730,7 +2770,7 @@ task Flow_UpdateGhostThermodynamics(Fluid : region(ispace(int3d), Fluid_columns)
                                     Grid_yBnum : int32, Grid_yNum : int32,
                                     Grid_zBnum : int32, Grid_zNum : int32)
 where
-  reads(Fluid.{pressure, temperature, centerCoordinates}),
+  reads(Fluid.{pressure, temperature, centerCoordinates,heatFlux}),
   writes(Fluid.{pressure, temperature})
 do
   var Grid_xWidth = config.Grid.xWidth
@@ -2880,6 +2920,13 @@ do
           var mu = GetDynamicViscosity(Fluid[c_int].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel_type)
           var cp = Flow_gamma * Flow_gasConstant / (Flow_gamma-1.0)
           var k = (cp*mu)/Flow_prandtl 
+          var dy = (Fluid[c_int].centerCoordinates[1] - Fluid[c_bnd].centerCoordinates[1])
+          Fluid[c_bnd].temperature = Fluid[c_int].temperature + wall_heat_flux*dy/k        
+        elseif (BC_yBCLeft_Wall_EnergyBC_type == SCHEMA.EnergyBC_StochasticHeatFlux) then
+          var wall_heat_flux = Fluid[c_bnd].heatFlux
+          var mu = GetDynamicViscosity(Fluid[c_int].temperature, Flow_constantVisc, Flow_powerlawTempRef, Flow_powerlawViscRef, Flow_sutherlandSRef, Flow_sutherlandTempRef, Flow_sutherlandViscRef, Flow_viscosityModel_type)
+          var cp = Flow_gamma * Flow_gasConstant / (Flow_gamma-1.0)
+          var k = (cp*mu)/Flow_prandtl
           var dy = (Fluid[c_int].centerCoordinates[1] - Fluid[c_bnd].centerCoordinates[1])
           Fluid[c_bnd].temperature = Fluid[c_int].temperature + wall_heat_flux*dy/k
         elseif (BC_yBCLeft_Wall_EnergyBC_type == SCHEMA.EnergyBC_ParabolaTemperature) then
@@ -5780,12 +5827,6 @@ local function mkInstance(config) local INSTANCE = {}
     yNegVelocity = SYMBOLS:scalarVar(double[3]),
     yPosTemperature = SYMBOLS:scalarVar(double),
     yNegTemperature = SYMBOLS:scalarVar(double),
-    wall_heat_flux_left_baseline = SYMBOLS:scalarVar(double),
-    wall_heat_flux_left_numUncertainties = SYMBOLS:scalarVar(int),
-    -- hard-coding in that numUncertainties=10; not sure how to avoid
-    wall_heat_flux_left_amplitude : SYMBOLS.scalarVar(double[10])   
-    wall_heat_flux_left_sigma : SYMBOLS.scalarVar(double[10])
-    wall_heat_flux_left_mu : SYMBOLS.scalarVar(double[10])
 
     zPosSign = SYMBOLS:scalarVar(double[3]),
     zNegSign = SYMBOLS:scalarVar(double[3]),
@@ -5916,11 +5957,6 @@ local function mkInstance(config) local INSTANCE = {}
     var [BC.yNegVelocity]
     var [BC.yPosTemperature]
     var [BC.yNegTemperature]
-    var [wall_heat_flux_left_baseline] = config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.baseline
-    var [wall_heat_flux_left_numUncertainties] = config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.numUncertainties
-    var [wall_heat_flux_left_amplitude] : array[wall_heat_flux_left_numUncertainties]
-    var [wall_heat_flux_left_sigma] : array[wall_heat_flux_left_numUncertainties]
-    var [wall_heat_flux_left_mu] : array[wall_heat_flux_left_numUncertainties]
 
     var [BC.zPosSign]
     var [BC.zNegSign]
@@ -6067,12 +6103,7 @@ local function mkInstance(config) local INSTANCE = {}
         elseif config.BC.yBCLeft.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_ParabolaTemperature then
           -- Do nothing
         elseif config.BC.yBCLeft.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_StochasticHeatFlux then
-          var rngState : Cdrand48_data
-          for i =0,(wall_heat_flux_left_numUncertainties) do
-            wall_heat_flux_left_amplitude[i] = (drand48_r(&rngState) - .5)*config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.diff
-            wall_heat_flux_left_sigma[i] = drand48_r(&rngState)*(config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.sigmaMax - config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.sigmaMin) + config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.sigmaMin
-            wall_heat_flux_left_mu[i] = drand48_r(&rngState)*config.Grid.xWidth
-          end
+          -- Do nothing
         else
           regentlib.assert(false, 'Energy Boundary condition on yBCLeft Wall supported')
         end
@@ -6389,7 +6420,14 @@ local function mkInstance(config) local INSTANCE = {}
                                   Grid.zBnum, config.Grid.zNum)
       end
     end
-
+    if (config.BC.yBCLeft.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_StochasticHeatFlux) then
+      for c in tiles do
+        Flow_InitializeGhostStochasticHeatFlux(p_Fluid[c],
+                                               config,
+                                               Grid.yBnum)
+      end
+    end    
+ 
     -- update all cells based on initialized primitive values
     Flow_UpdateConservedFromPrimitive(Fluid,
                                       config.Flow.gamma,
@@ -6406,6 +6444,15 @@ local function mkInstance(config) local INSTANCE = {}
                                                   Grid.yBnum, config.Grid.yNum,
                                                   Grid.zBnum, config.Grid.zNum)
     end
+    -- if (config.BC.yBCLeft.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_StochasticHeatFlux) then
+    --   Flow_UpdateConservedFromPrimitiveGhostStochasticHeatFlux(Fluid,
+    --                                                           config,
+    --                                                           config.Flow.gamma, config.Flow.gasConstant,
+    --                                                           Grid.xBnum, config.Grid.xNum,
+    --                                                           Grid.yBnum, config.Grid.yNum,
+    --                                                           Grid.zBnum, config.Grid.zNum)
+    -- end
+
     [SyncConservedPrimitive(config)];
 
     -- Initialize particles
@@ -7275,14 +7322,14 @@ task main()
   end
   if launched < 1 then
     var stderr = C.fdopen(2, 'w')
-    C.fprintf(stderr, "No testcases supplied.\n")
-    C.fflush(stderr)
-    C.exit(1)
-  end
-end
+import "regent"
 
 -------------------------------------------------------------------------------
--- COMPILATION CALL
+-- IMPORTS
 -------------------------------------------------------------------------------
 
-regentlib.saveobj(main, "soleil.o", "object", MAPPER.register_mappers)
+local C = regentlib.c
+local MAPPER = terralib.includec("soleil_mapper.h")
+local SCHEMA = terralib.includec("config_schema.h")
+local UTIL = require 'util-desugared'
+
