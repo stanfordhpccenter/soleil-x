@@ -1680,6 +1680,7 @@ where
   writes(Fluid.temperature_old_NSCBC),
   writes(Fluid.velocity_inc),
   writes(Fluid.temperature_inc)
+  writes(Fluid.heatFlux)
 do
   __demand(__openmp)
   for c in Fluid do
@@ -1721,6 +1722,7 @@ do
     Fluid[c].temperature_old_NSCBC = 0.0
     Fluid[c].velocity_inc = array(0.0, 0.0, 0.0)
     Fluid[c].temperature_inc = 0.0
+    Fluid[c].heatFlux = 0.0
   end
 end
 
@@ -2262,22 +2264,22 @@ end
 __demand(__leaf, __cuda)
 task Flow_InitializeGhostStochasticHeatFlux(Fluid : region(ispace(int3d), Fluid_columns),
                                             config : Config,
-                                            Gird_yBnum : int32)
+                                            Grid_yBnum : int32)
 where
   reads(Fluid.centerCoordinates),
   writes(Fluid.heatFlux)
 do
-  __demand(__openmp)
   var config_baseline = config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.baseline
   var config_diff = config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.diff
   var config_numUncertainties = config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.numUncertainties
   var config_sigmaMin = config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.sigmaMin
   var config_sigmaMax = config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.sigmaMax
   var rngState : C.drand48_data
-  var diff : array[config_numUncertainties]
-  var sigma : array[config_numUncertainties]
-  var mu : array[config_numUncertainties]
-  for i=0,(config_numUncertainties) do
+  C.srand48_r(C.legion_get_current_time_in_nanos(), &rngState)
+  var diff : double[config_numUncertainties]
+  var sigma : double[config_numUncertainties]
+  var mu : double[config_numUncertainties]
+  for i=0,config_numUncertainties do
     diff[i] = -config_diff + (2.0*config_diff)*drand48_r(&rngState)
     sigma[i] = config_sigmaMin + (config_sigmaMax - config_sigmaMin)*drand48_r(&rngState)
     mu[i] = 2.0*config_sigmaMax + ((1.0-2.0*config_sigmaMax) - 2.0*config_sigmaMax)*drand48_r(&rngState)
@@ -2290,7 +2292,7 @@ do
       var c_bnd = int3d(c)
       var x = Fluid[c].centerCoordinates[0]
       var heatFlux = config_baseline
-      for i =0,(config_numUncertainties) do
+      for i =0,config_numUncertainties do
         heatFlux += diff[i]*exp(-1.0/2.0*pow((x-mu[i])/sigma[i],2))
       end
       Fluid[c_bnd].heatFlux = heatFlux
@@ -6444,14 +6446,6 @@ local function mkInstance(config) local INSTANCE = {}
                                                   Grid.yBnum, config.Grid.yNum,
                                                   Grid.zBnum, config.Grid.zNum)
     end
-    -- if (config.BC.yBCLeft.u.Wall.EnergyBC.type == SCHEMA.EnergyBC_StochasticHeatFlux) then
-    --   Flow_UpdateConservedFromPrimitiveGhostStochasticHeatFlux(Fluid,
-    --                                                           config,
-    --                                                           config.Flow.gamma, config.Flow.gasConstant,
-    --                                                           Grid.xBnum, config.Grid.xNum,
-    --                                                           Grid.yBnum, config.Grid.yNum,
-    --                                                           Grid.zBnum, config.Grid.zNum)
-    -- end
 
     [SyncConservedPrimitive(config)];
 
