@@ -1679,7 +1679,7 @@ where
   writes(Fluid.velocity_old_NSCBC),
   writes(Fluid.temperature_old_NSCBC),
   writes(Fluid.velocity_inc),
-  writes(Fluid.temperature_inc)
+  writes(Fluid.temperature_inc),
   writes(Fluid.heatFlux)
 do
   __demand(__openmp)
@@ -2276,9 +2276,15 @@ do
   var config_sigmaMax = config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.sigmaMax
   var rngState : C.drand48_data
   C.srand48_r(C.legion_get_current_time_in_nanos(), &rngState)
-  var diff : double[config_numUncertainties]
-  var sigma : double[config_numUncertainties]
-  var mu : double[config_numUncertainties]
+  -- var diff = region(ispace(int1d, {config_numUncertainties}), double)
+  -- var sigma = region(ispace(int1d, {config_numUncertainties}), double)
+  -- var mu = region(ispace(int1d, {config_numUncertainties}), double)
+  -- var diff : double[config_numUncertainties]
+  -- var sigma : double[config_numUncertainties]
+  -- var mu : double[config_numUncertainties]
+  var diff : double[10]
+  var sigma : double[10]
+  var mu : double[10]
   for i=0,config_numUncertainties do
     diff[i] = -config_diff + (2.0*config_diff)*drand48_r(&rngState)
     sigma[i] = config_sigmaMin + (config_sigmaMax - config_sigmaMin)*drand48_r(&rngState)
@@ -2286,7 +2292,7 @@ do
   end
  
   __demand(__openmp)
-  for c in fluid do
+  for c in Fluid do
     var yNegGhost = is_yNegGhost(c, Grid_yBnum)
     if yNegGhost then
       var c_bnd = int3d(c)
@@ -7316,14 +7322,14 @@ task main()
   end
   if launched < 1 then
     var stderr = C.fdopen(2, 'w')
-import "regent"
+    C.fprintf(stderr, "No testcases supplied.\n")
+    C.fflush(stderr)
+    C.exit(1)
+  end
+end
 
 -------------------------------------------------------------------------------
--- IMPORTS
+-- COMPILATION CALL
 -------------------------------------------------------------------------------
 
-local C = regentlib.c
-local MAPPER = terralib.includec("soleil_mapper.h")
-local SCHEMA = terralib.includec("config_schema.h")
-local UTIL = require 'util-desugared'
-
+regentlib.saveobj(main, "soleil.o", "object", MAPPER.register_mappers)

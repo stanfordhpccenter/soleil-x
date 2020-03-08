@@ -8,9 +8,9 @@
     },
 
     "Grid" : {
-        "xNum" : 4,
-        "yNum" : 16,
-        "zNum" : 4,
+        "xNum" : 64,
+        "yNum" : 32,
+        "zNum" : 1,
         "origin" : [0.0, 0.0, 0.0],
         "xWidth" : 1.0,
         "yWidth" : 1.0,
@@ -25,13 +25,13 @@
         "xBCRight" : {"type" : "Periodic"},
         "yBCLeft"  : {"type" : "Wall",
                       "Velocity" : [0.0,0.0,0.0],
-                      "EnergyBC" : {"type" : "ConstantTemperature",
-                                    "temperature" : 300.0}
+                      "EnergyBC" : {"type" : "ConstantHeatFlux",
+                                    "heatFlux" : 1000.0}
                      },
         "yBCRight" : {"type" : "Wall",
                       "Velocity" : [0.0,0.0,0.0],
-                      "EnergyBC" : {"type" : "ConstantTemperature",
-                                    "temperature" : 300.0}
+                      "EnergyBC" : {"type" : "ConstantHeatFlux",
+                                    "heatFlux" : 0.0}
                      },
         "zBCLeft"  : {"type" : "Periodic" },
         "zBCRight" : {"type" : "Periodic" }
@@ -40,7 +40,7 @@
     "Integrator" : {
         "startIter" : 0,
         "startTime" : 0.0,
-        "maxIter" : 100000,
+        "maxIter" : 20000,
         "cfl" : 1.0,
         "fixedDeltaTime" : -1.0,
          "rkOrder" : 4
@@ -55,7 +55,7 @@
                            },
         "initCase" : "Uniform",
         "restartDir" : "",
-        "initParams" : [1.0, 86100.0, 0.0, 0.0, 0.0, -1.0],
+        "initParams" : [0.1, 86100.0, 0.0, 0.0, 0.0, -1.0],
         "bodyForce" : [8.0, 0.0, 0.0],
         "turbForcing" : { "type" : "OFF" }
     },
@@ -64,7 +64,7 @@
         "initCase" : "Uniform",
         "restartDir" : "",
         "initNum" : 0,
-        "maxNum" : 10,
+        "maxNum" : 0,
         "restitutionCoeff" : 1.0,
         "convectiveCoeff" : 0.7,
         "heatCapacity" : 0.7,
@@ -87,7 +87,12 @@
 
     "IO" : {
         "wrtRestart" : true,
-        "restartEveryTimeSteps" : 10000,
-        "probes" : []
+        "restartEveryTimeSteps" : 2000,
+        "probes" : [{"fromCell" : [63,2,0], "uptoCell" : [63,2,0]},
+                    {"fromCell" : [63,7,0], "uptoCell" : [63,7,0]},
+                    {"fromCell" : [63,15,0], "uptoCell" : [63,15,0]},
+                    {"fromCell" : [31,2,0], "uptoCell" : [31,2,0]},
+                    {"fromCell" : [31,7,0], "uptoCell" : [31,7,0]},
+                    {"fromCell" : [31,15,0], "uptoCell" : [31,15,0]}]
     }
 }
