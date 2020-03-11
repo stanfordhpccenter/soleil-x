@@ -240,7 +240,7 @@ Exports.Config = {
     -- how often to write restart files
     restartEveryTimeSteps = int,
     -- temperature probes
-    probes = UpTo(1100, Exports.Volume),
+    probes = UpTo(10, Exports.Volume),
   },
 }
 
