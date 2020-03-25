@@ -8,15 +8,15 @@
     },
 
     "Grid" : {
-        "xNum" : 256,
-        "yNum" : 128,
+        "xNum" : 512,
+        "yNum" : 256,
         "zNum" : 1,
         "origin" : [0.0, 0.0, 0.0],
         "xWidth" : 1.0,
         "yWidth" : 1.0,
         "zWidth" : 1.0,
          "xType" : "Uniform",
-         "yType" : "Stretched",
+         "yType" : "Uniform",
          "zType" : "Uniform"
     },
 
@@ -40,7 +40,7 @@
     "Integrator" : {
         "startIter" : 0,
         "startTime" : 0.0,
-        "maxIter" : 1200000,
+        "maxIter" : 4000000,
         "cfl" : -1.0,
         "fixedDeltaTime" : 2.5e-7,
          "rkOrder" : 4
@@ -53,8 +53,8 @@
         "viscosityModel" : {"type" : "Constant",
                              "viscosity" : 1.0
                            },
-        "initCase" : "Uniform",
-        "restartDir" : "",
+        "initCase" : "Restart",
+        "restartDir" : "/p/gpfs1/adcock4/922219/sample0/fluid_iter0003600000",
         "initParams" : [1.0, 86100.0, 0.0, 0.0, 0.0, -1.0],
         "bodyForce" : [8.0, 0.0, 0.0],
         "turbForcing" : { "type" : "OFF" }
@@ -87,7 +87,7 @@
 
     "IO" : {
         "wrtRestart" : true,
-        "restartEveryTimeSteps" : 120000,
+        "restartEveryTimeSteps" : 400000,
         "probes" : []
     }
 }
