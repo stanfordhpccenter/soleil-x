@@ -48,7 +48,7 @@
                                },
             "initCase" : "Perturbed",
             "restartDir" : "",
-            "initParams" : [8.0, 104040.0, 8.0, 0.0, 0.0, 0.001],
+            "initParams" : [1.2, 104040.0, 8.0, 0.0, 0.0, 0.001],
             "bodyForce" : [0.0, 0.0, 0.0],
             "turbForcing" : {
                 "type" : "HIT",
@@ -64,7 +64,7 @@
             "restartDir" : "",
             "initNum" : 14904000,
             "maxNum"  : 15000000,
-            "restitutionCoeff" : -1.0,
+            "restitutionCoeff" : 1.0,
             "convectiveCoeff" : 0.7,
             "heatCapacity" : 440.0,
             "initTemperature" : 300.0,
@@ -76,7 +76,7 @@
             "collisions" : false,
             "twoWayCoupled" : true,
             "feeding" : { "type" : "OFF" },
-            "staggerFactor" : 380,
+            "staggerFactor" : 106,
             "parcelSize" : 1
         },
 
@@ -131,12 +131,12 @@
                           "EnergyBC" : {"type" : "ConstantHeatFlux",
                                         "heatFlux" : 0.0}
                          },
-            "yBCLeft"  : {"type" : "Wall",
+            "zBCLeft"  : {"type" : "Wall",
                           "Velocity" : [8.0, 0.0, 0.0],
                           "EnergyBC" : {"type" : "ConstantHeatFlux",
                                         "heatFlux" : 0.0}
                          },
-            "yBCRight" : {"type" : "Wall",
+            "zBCRight" : {"type" : "Wall",
                           "Velocity" : [8.0, 0.0, 0.0],
                           "EnergyBC" : {"type" : "ConstantHeatFlux",
                                         "heatFlux" : 0.0}
@@ -161,7 +161,7 @@
                                },
             "initCase" : "Perturbed",
             "restartDir" : "",
-            "initParams" : [8.0, 104040.0, 8.0, 0.0, 0.0, 0.001],
+            "initParams" : [1.2, 104040.0, 8.0, 0.0, 0.0, 0.001],
             "bodyForce" : [0.0, 0.0, 0.0],
             "turbForcing" : {"type" : "OFF"}
         },
@@ -183,7 +183,7 @@
             "collisions" : false,
             "twoWayCoupled" : true,
             "feeding" : { "type" : "OFF" },
-            "staggerFactor" : 380,
+            "staggerFactor" : 106,
             "parcelSize" : 1
         },
 
@@ -229,11 +229,11 @@
     }],
     "copySrc" : {
         "fromCell" : [0,0,0],
-        "uptoCell" : [0,88,88]
+        "uptoCell" : [0,87,87]
     },
     "copyTgt" : {
         "fromCell" : [0,0,0],
-        "uptoCell" : [0,88,88]
+        "uptoCell" : [0,87,87]
     },
     "collocateSections" : true,
     "copyEveryTimeSteps" : 106
