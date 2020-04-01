@@ -2550,13 +2550,13 @@ do
     var yPosGhost = is_yPosGhost(c, Grid_yBnum, Grid_yNum)
     var zNegGhost = is_zNegGhost(c, Grid_zBnum)
     var zPosGhost = is_zPosGhost(c, Grid_zBnum, Grid_zNum)
-    if xNegGhost and not BC_xBCLeft_type == SCHEMA.FlowBC_NSCBC_SubsonicInflow then
+    if xNegGhost and not (BC_xBCLeft_type == SCHEMA.FlowBC_NSCBC_SubsonicInflow) then
       var c_int = ((c+{1, 0, 0})%Fluid.bounds)
       var sign = BC_xNegSign
       var bnd_velocity = BC_xNegVelocity
       Fluid[c].velocity = vv_add(vv_mul(Fluid[c_int].velocity, sign), bnd_velocity)
     end
-    if xPosGhost and not BC_xBCRight_type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow then
+    if xPosGhost and not (BC_xBCRight_type == SCHEMA.FlowBC_NSCBC_SubsonicOutflow) then
       var c_int = ((c+{-1, 0, 0})%Fluid.bounds)
       var sign = BC_xPosSign
       var bnd_velocity = BC_xPosVelocity
@@ -4443,7 +4443,7 @@ do
       var velocityX_XFace   = 0.0
       var velocityY_XFace   = 0.0
       var velocityZ_XFace   = 0.0
-      if xNegGhost or is_xPosGhost(stencil, Grid_xBnum, Grid_xNum)then
+      if xNegGhost or is_xPosGhost(stencil, Grid_xBnum, Grid_xNum) then
         -- do not use velocity gradients in ghost cells for computing the fluxes
         velocityX_XFace   = (velocity_stencil[0] - velocity[0]) / xCellWidth
         velocityY_XFace   = (velocity_stencil[1] - velocity[1]) / xCellWidth
@@ -4865,7 +4865,6 @@ do
   return acc
 end
 
--- CHANGE to reduces+?
 __demand(__leaf, __parallel, __cuda)
 task Flow_AdjustTurbulentSource(Fluid : region(ispace(int3d), Fluid_columns),
                                 Flow_averageFe : double,

@@ -1,0 +1,93 @@
+{
+    "Mapping" : {
+        "tiles" : [1,1,1],
+        "tilesPerRank" : [1,1,1],
+        "sampleId" : -1,
+        "outDir" : "",
+        "wallTime" : 100
+    },
+
+    "Grid" : {
+        "xNum" : 16,
+        "yNum" : 16,
+        "zNum" : 16,
+        "origin" : [0.0, 0.0, 0.0],
+        "xWidth" : 1.0,
+        "yWidth" : 1.0,
+        "zWidth" : 1.0,
+        "xType" : "Uniform",
+        "yType" : "Uniform",
+        "zType" : "Uniform"
+    },
+
+    "BC" : {
+        "xBCLeft"  : {"type" : "Periodic"},
+        "xBCRight" : {"type" : "Periodic"},
+        "yBCLeft"  : {"type" : "Periodic" },
+        "yBCRight" : {"type" : "Periodic" },
+        "zBCLeft"  : {"type" : "Wall",
+                      "Velocity" : [0.0,0.0,0.0],
+                      "EnergyBC" : {"type" : "ConstantTemperature",
+                                    "temperature" : 300.0}
+                     },
+        "zBCRight" : {"type" : "Wall",
+                      "Velocity" : [1.0,0.0,0.0],
+                      "EnergyBC" : {"type" : "ConstantTemperature",
+                                    "temperature" : 300.0}
+                     }
+    },
+
+    "Integrator" : {
+        "startIter" : 0,
+        "startTime" : 0.0,
+        "maxIter" : 20000,
+        "cfl" : 1.0,
+        "fixedDeltaTime" : -1.0,
+        "rkOrder" : 4
+    },
+
+    "Flow" : {
+        "gasConstant" : 287.058,
+        "gamma" : 1.4,
+        "prandtl" : 0.71,
+        "viscosityModel" : {"type" : "Constant",
+                             "viscosity" : 1.0
+                           },
+        "initCase" : "Uniform",
+        "restartDir" : "",
+        "initParams" : [1.0, 86100.0, 0.0, 0.0, 0.0, -1.0],
+        "bodyForce" : [0.0, 0.0, 0.0],
+        "turbForcing" : { "type" : "OFF" }
+    },
+
+     "Particles" : {
+         "initCase" : "Uniform",
+         "restartDir" : "",
+         "initNum" : 0,
+         "maxNum" : 10,
+         "restitutionCoeff" : -1.0,
+         "convectiveCoeff" : 0.7,
+         "heatCapacity" : 0.7,
+         "initTemperature" : 250.0,
+         "density" : 8900.0,
+         "diameterMean" : 5e-3,
+         "bodyForce" : [0.0, 0.0, 0.0],
+         "maxSkew" : 1.5,
+         "escapeRatioPerDir" : 0.005,
+         "collisions" : false,
+         "twoWayCoupled" : false,
+         "feeding" : { "type" : "OFF" },
+         "staggerFactor" : 1,
+         "parcelSize" : 1
+     },
+
+     "Radiation" : {
+         "type" : "OFF"
+     },
+
+     "IO" : {
+         "wrtRestart" : true,
+         "restartEveryTimeSteps" : 5000,
+         "probes" : []
+     }
+}
