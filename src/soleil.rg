@@ -2261,12 +2261,12 @@ do
   end
 end
 
-__demand(__leaf, __cuda)
+--__demand(__leaf, __cuda)
 task Flow_InitializeGhostStochasticHeatFlux(Fluid : region(ispace(int3d), Fluid_columns),
                                             config : Config,
                                             Grid_yBnum : int32)
 where
-  reads(Fluid.centerCoordinates),
+  reads(Fluid.{centerCoordinates, heatFlux}),
   writes(Fluid.heatFlux)
 do
   var config_baseline = config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.baseline
@@ -2289,9 +2289,15 @@ do
     diff[i] = -config_diff + (2.0*config_diff)*drand48_r(&rngState)
     sigma[i] = config_sigmaMin + (config_sigmaMax - config_sigmaMin)*drand48_r(&rngState)
     mu[i] = 2.0*config_sigmaMax + ((1.0-2.0*config_sigmaMax) - 2.0*config_sigmaMax)*drand48_r(&rngState)
+    C.printf("i = %d, diff[i] = %f, sigma[i] = %f, mu[i] = %f\n", i, diff[i], sigma[i], mu[i])
   end
  
-  __demand(__openmp)
+  var heatFluxTotal = 0.0
+  var x_old = 0.0
+  var heatFlux_old = 0.0
+  var i = 0
+  C.printf("Fluid[c].centerCoordinates[0] heatFlux\n")
+  --__demand(__openmp)
   for c in Fluid do
     var yNegGhost = is_yNegGhost(c, Grid_yBnum)
     if yNegGhost then
@@ -2301,9 +2307,43 @@ do
       for i =0,config_numUncertainties do
         heatFlux += diff[i]*exp(-1.0/2.0*pow((x-mu[i])/sigma[i],2))
       end
+      if heatFlux < 0.0 then
+        heatFlux = 0.0
+      end
       Fluid[c_bnd].heatFlux = heatFlux
+      if i>0 then
+        heatFluxTotal += (x-x_old)*(heatFlux+heatFlux_old)/2.0 
+      end
+      x_old = x
+      heatFlux_old = heatFlux
+      C.printf("%f %f\n", Fluid[c].centerCoordinates[0], heatFlux)
+      i += 1
     end
   end
+  C.printf("heatFluxTotal=%f\n\n", heatFluxTotal)
+
+  -- normalize
+  var heatFluxTotal_normalized = 0.0 
+  i = 0
+  C.printf("Fluid[c].centerCoordinates[0] heatFlux\n")
+  --__demand(__openmp)
+  for c in Fluid do
+    var yNegGhost = is_yNegGhost(c, Grid_yBnum)
+    if yNegGhost then
+      var c_bnd = int3d(c)
+      var x = Fluid[c].centerCoordinates[0]
+      Fluid[c_bnd].heatFlux *= (config_baseline/heatFluxTotal)
+      var heatFlux = Fluid[c_bnd].heatFlux
+      if i>0 then
+        heatFluxTotal_normalized += (x-x_old)*(heatFlux+heatFlux_old)/2.0
+      end
+      x_old = x
+      heatFlux_old = heatFlux
+      C.printf("%f %f\n", Fluid[c].centerCoordinates[0], heatFlux)
+      i += 1
+    end
+  end
+  C.printf("heatFluxTotal_normalized=%f\n", heatFluxTotal_normalized)
 end
 
 __demand(__leaf, __parallel, __cuda)

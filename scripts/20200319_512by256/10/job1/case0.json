@@ -1,0 +1,217 @@
+{
+    "BC": {
+        "yBCLeft": {
+            "Velocity": [
+                0.0, 
+                0.0, 
+                0.0
+            ], 
+            "type": "Wall", 
+            "EnergyBC": {
+                "baseline": 1000.0, 
+                "sigmaMax": 0.04, 
+                "numUncertainties": 10, 
+                "sigmaMin": 0.03, 
+                "diff": 1000.0, 
+                "type": "StochasticHeatFlux"
+            }
+        }, 
+        "yBCRight": {
+            "Velocity": [
+                0.0, 
+                0.0, 
+                0.0
+            ], 
+            "type": "Wall", 
+            "EnergyBC": {
+                "type": "ConstantHeatFlux", 
+                "heatFlux": 0.0
+            }
+        }, 
+        "zBCRight": {
+            "type": "Periodic"
+        }, 
+        "zBCLeft": {
+            "type": "Periodic"
+        }, 
+        "xBCRight": {
+            "type": "Periodic"
+        }, 
+        "xBCLeft": {
+            "type": "Periodic"
+        }
+    }, 
+    "Integrator": {
+        "cfl": -1.0, 
+        "rkOrder": 4, 
+        "startIter": 2000000, 
+        "fixedDeltaTime": 2.5e-07, 
+        "startTime": 0.5, 
+        "maxIter": 4000000
+    }, 
+    "Flow": {
+        "gasConstant": 287.0, 
+        "prandtl": 0.71, 
+        "bodyForce": [
+            8.0, 
+            0.0, 
+            0.0
+        ], 
+        "turbForcing": {
+            "type": "OFF"
+        }, 
+        "initCase": "Restart", 
+        "restartDir": "/usr/workspace/adcock4/soleilx/src/20200319_512by256/10/job0/sample0/fluid_iter0002000000", 
+        "initParams": [
+            1.0, 
+            86100.0, 
+            0.0, 
+            0.0, 
+            0.0, 
+            -1.0
+        ], 
+        "viscosityModel": {
+            "viscosity": 1.0, 
+            "type": "Constant"
+        }, 
+        "gamma": 1.4
+    }, 
+    "Mapping": {
+        "tiles": [
+            1, 
+            1, 
+            1
+        ], 
+        "outDir": "", 
+        "tilesPerRank": [
+            1, 
+            1, 
+            1
+        ], 
+        "wallTime": 720, 
+        "sampleId": -1
+    }, 
+    "Particles": {
+        "parcelSize": 1, 
+        "feeding": {
+            "type": "OFF"
+        }, 
+        "maxNum": 0, 
+        "heatCapacity": 0.7, 
+        "initTemperature": 250.0, 
+        "density": 8900.0, 
+        "restitutionCoeff": 1.0, 
+        "convectiveCoeff": 0.7, 
+        "bodyForce": [
+            0.0, 
+            0.0, 
+            0.0
+        ], 
+        "staggerFactor": 1, 
+        "twoWayCoupled": false, 
+        "collisions": false, 
+        "initCase": "Restart", 
+        "maxSkew": 1.5, 
+        "restartDir": "/usr/workspace/adcock4/soleilx/src/20200319_512by256/10/job0/sample0/particles_iter0002000000", 
+        "initNum": 0, 
+        "escapeRatioPerDir": 0.005, 
+        "diameterMean": 0.005
+    }, 
+    "Radiation": {
+        "type": "OFF"
+    }, 
+    "Grid": {
+        "origin": [
+            0.0, 
+            0.0, 
+            0.0
+        ], 
+        "xType": "Uniform", 
+        "yNum": 256, 
+        "yWidth": 1.0, 
+        "yType": "Uniform", 
+        "zNum": 1, 
+        "zWidth": 1.0, 
+        "xWidth": 1.0, 
+        "xNum": 512, 
+        "zType": "Uniform"
+    }, 
+    "IO": {
+        "restartEveryTimeSteps": 400000, 
+        "wrtRestart": true, 
+        "probes": [
+            {
+                "uptoCell": [
+                    511, 
+                    25, 
+                    0
+                ], 
+                "fromCell": [
+                    511, 
+                    25, 
+                    0
+                ]
+            }, 
+            {
+                "uptoCell": [
+                    511, 
+                    63, 
+                    0
+                ], 
+                "fromCell": [
+                    511, 
+                    63, 
+                    0
+                ]
+            }, 
+            {
+                "uptoCell": [
+                    511, 
+                    127, 
+                    0
+                ], 
+                "fromCell": [
+                    511, 
+                    127, 
+                    0
+                ]
+            }, 
+            {
+                "uptoCell": [
+                    255, 
+                    25, 
+                    0
+                ], 
+                "fromCell": [
+                    255, 
+                    25, 
+                    0
+                ]
+            }, 
+            {
+                "uptoCell": [
+                    255, 
+                    63, 
+                    0
+                ], 
+                "fromCell": [
+                    255, 
+                    63, 
+                    0
+                ]
+            }, 
+            {
+                "uptoCell": [
+                    255, 
+                    127, 
+                    0
+                ], 
+                "fromCell": [
+                    255, 
+                    127, 
+                    0
+                ]
+            }
+        ]
+    }
+}

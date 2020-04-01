@@ -16,7 +16,7 @@
         "yWidth" : 1.0,
         "zWidth" : 1.0,
          "xType" : "Uniform",
-         "yType" : "Uniform",
+         "yType" : "Stretched",
          "zType" : "Uniform"
     },
 
@@ -25,13 +25,17 @@
         "xBCRight" : {"type" : "Periodic"},
         "yBCLeft"  : {"type" : "Wall",
                       "Velocity" : [0.0,0.0,0.0],
-                      "EnergyBC" : {"type" : "ConstantHeatFlux",
-                                    "heatFlux" : 0.0}
+                      "EnergyBC" : {"type" : "StochasticHeatFlux",
+                                    "baseline" : 1000.0,
+                                    "diff" : 1000.0,
+                                    "numUncertainties" : 10,
+                                    "sigmaMin" : 0.001,
+                                    "sigmaMax" : 0.01}
                      },
-        "yBCRight" : {"type" : "Wall",
+         "yBCRight" : {"type" : "Wall",
                       "Velocity" : [0.0,0.0,0.0],
                       "EnergyBC" : {"type" : "ConstantHeatFlux",
-                                    "heatFlux" : 0.0}
+                                    "heatFlux" : 1000.0}
                      },
         "zBCLeft"  : {"type" : "Periodic" },
         "zBCRight" : {"type" : "Periodic" }
@@ -53,8 +57,8 @@
         "viscosityModel" : {"type" : "Constant",
                              "viscosity" : 1.0
                            },
-        "initCase" : "Uniform",
-        "restartDir" : "",
+        "initCase" : "Restart",
+        "restartDir" : "/p/gpfs1/adcock4/958845/sample0/fluid_iter0000050000",
         "initParams" : [1.0, 86100.0, 0.0, 0.0, 0.0, -1.0],
         "bodyForce" : [8.0, 0.0, 0.0],
         "turbForcing" : { "type" : "OFF" }
@@ -64,7 +68,7 @@
         "initCase" : "Uniform",
         "restartDir" : "",
         "initNum" : 0,
-        "maxNum" : 0,
+        "maxNum" : 10,
         "restitutionCoeff" : 1.0,
         "convectiveCoeff" : 0.7,
         "heatCapacity" : 0.7,
@@ -88,6 +92,11 @@
     "IO" : {
         "wrtRestart" : true,
         "restartEveryTimeSteps" : 5000,
-        "probes" : []
+        "probes" : [{"fromCell" : [63,2,0], "uptoCell" : [63,2,0]},
+                    {"fromCell" : [63,7,0], "uptoCell" : [63,7,0]},
+                    {"fromCell" : [63,15,0], "uptoCell" : [63,15,0]},
+                    {"fromCell" : [31,2,0], "uptoCell" : [31,2,0]},
+                    {"fromCell" : [31,7,0], "uptoCell" : [31,7,0]},
+                    {"fromCell" : [31,15,0], "uptoCell" : [31,15,0]}]
     }
 }

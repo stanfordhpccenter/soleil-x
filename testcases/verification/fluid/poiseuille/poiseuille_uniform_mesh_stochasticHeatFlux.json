@@ -8,8 +8,8 @@
     },
 
     "Grid" : {
-        "xNum" : 64,
-        "yNum" : 32,
+        "xNum" : 512,
+        "yNum" : 256,
         "zNum" : 1,
         "origin" : [0.0, 0.0, 0.0],
         "xWidth" : 1.0,
@@ -28,9 +28,9 @@
                       "EnergyBC" : {"type" : "StochasticHeatFlux",
                                     "baseline" : 1000.0,
                                     "diff" : 1000.0,
-                                    "numUncertainties" : 2,
-                                    "sigmaMin" : 0.025,
-                                    "sigmaMax" : 0.1}
+                                    "numUncertainties" : 10,
+                                    "sigmaMin" : 0.03,
+                                    "sigmaMax" : 0.04}
                      },
         "yBCRight" : {"type" : "Wall",
                       "Velocity" : [0.0,0.0,0.0],
@@ -44,9 +44,9 @@
     "Integrator" : {
         "startIter" : 0,
         "startTime" : 0.0,
-        "maxIter" : 50000,
+        "maxIter" : 4000000,
         "cfl" : -1.0,
-        "fixedDeltaTime" : 2e-5,
+        "fixedDeltaTime" : 2.5e-7,
          "rkOrder" : 4
     },
 
@@ -57,10 +57,10 @@
         "viscosityModel" : {"type" : "Constant",
                              "viscosity" : 1.0
                            },
-        "initCase" : "Uniform",
-        "restartDir" : "",
+        "initCase" : "Restart",
+        "restartDir" : "/p/gpfs1/adcock4/922219/sample0/fluid_iter0003600000",
         "initParams" : [1.0, 86100.0, 0.0, 0.0, 0.0, -1.0],
-        "bodyForce" : [0.0, 0.0, 0.0],
+        "bodyForce" : [8.0, 0.0, 0.0],
         "turbForcing" : { "type" : "OFF" }
     },
 
@@ -91,12 +91,12 @@
 
     "IO" : {
         "wrtRestart" : true,
-        "restartEveryTimeSteps" : 5000,
-        "probes" : [{"fromCell" : [63,2,0], "uptoCell" : [63,2,0]},
-                    {"fromCell" : [63,7,0], "uptoCell" : [63,7,0]},
-                    {"fromCell" : [63,15,0], "uptoCell" : [63,15,0]},
-                    {"fromCell" : [31,2,0], "uptoCell" : [31,2,0]},
-                    {"fromCell" : [31,7,0], "uptoCell" : [31,7,0]},
-                    {"fromCell" : [31,15,0], "uptoCell" : [31,15,0]}]
+        "restartEveryTimeSteps" : 400000,
+        "probes" : [{"fromCell" : [511,25,0], "uptoCell" : [511,25,0]},
+                    {"fromCell" : [511,63,0], "uptoCell" : [511,63,0]},
+                    {"fromCell" : [511,127,0], "uptoCell" : [511,127,0]},
+                    {"fromCell" : [255,25,0], "uptoCell" : [255,25,0]},
+                    {"fromCell" : [255,63,0], "uptoCell" : [255,63,0]},
+                    {"fromCell" : [255,127,0], "uptoCell" : [255,127,0]}]
     }
 }
