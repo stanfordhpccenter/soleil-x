@@ -3518,39 +3518,6 @@ do
       var velocityZ_XFace   = (velocity_stencil[2] - velocity[2]) / (xCellWidth/2.0 + xCellWidth_stencil/2.0)
       var temperature_XFace = (temperature_stencil - temperature) / (xCellWidth/2.0 + xCellWidth_stencil/2.0)
 
-      --var velocityX_XFace   = 0.0
-      --var velocityY_XFace   = 0.0
-      --var velocityZ_XFace   = 0.0
-      --var temperature_XFace = 0.0
-      --if xNegGhost or is_xPosGhost(stencil, Grid_xBnum, Grid_xNum) then
-      --  -- do not use velocity gradients in ghost cells for computing the fluxes
-      --  velocityX_XFace   = (velocity_stencil[0] - velocity[0]) / xCellWidth
-      --  velocityY_XFace   = (velocity_stencil[1] - velocity[1]) / xCellWidth
-      --  velocityZ_XFace   = (velocity_stencil[2] - velocity[2]) / xCellWidth
-      --  temperature_XFace = (temperature_stencil - temperature) / xCellWidth
-      --else
-      --  velocityX_XFace = linear_interpolation(Fluid[c].centerCoordinates[0] + xCellWidth/2.0,
-      --                                         Fluid[c].centerCoordinates[0],
-      --                                         Fluid[c].centerCoordinates[0] + xCellWidth/2.0 + xCellWidth_stencil/2.0,
-      --                                         velocityGradientX[0],
-      --                                         velocityGradientX_stencil[0])
-      --  velocityY_XFace = linear_interpolation(Fluid[c].centerCoordinates[0] + xCellWidth/2.0,
-      --                                         Fluid[c].centerCoordinates[0],
-      --                                         Fluid[c].centerCoordinates[0] + xCellWidth/2.0 + xCellWidth_stencil/2.0,
-      --                                         velocityGradientX[1],
-      --                                         velocityGradientX_stencil[1])
-      --  velocityZ_XFace = linear_interpolation(Fluid[c].centerCoordinates[0] + xCellWidth/2.0,
-      --                                         Fluid[c].centerCoordinates[0],
-      --                                         Fluid[c].centerCoordinates[0] + xCellWidth/2.0 + xCellWidth_stencil/2.0,
-      --                                         velocityGradientX[2],
-      --                                         velocityGradientX_stencil[2])
-      --  temperature_XFace = linear_interpolation(Fluid[c].centerCoordinates[0] + xCellWidth/2.0,
-      --                                           Fluid[c].centerCoordinates[0],
-      --                                           Fluid[c].centerCoordinates[0] + xCellWidth/2.0 + xCellWidth_stencil/2.0,
-      --                                           temperatureGradient[0],
-      --                                           temperatureGradient_stencil[0])
-      --end
-
       var sigmaXX = muFace*(4.0*velocityX_XFace-2.0*velocityY_YFace-2.0*velocityZ_ZFace)/3.0
       var sigmaYX = muFace*(velocityY_XFace+velocityX_YFace)
       var sigmaZX = muFace*(velocityZ_XFace+velocityX_ZFace)
@@ -3715,39 +3682,6 @@ do
       var velocityY_YFace   = (velocity_stencil[1] - velocity[1]) / (yCellWidth/2.0 + yCellWidth_stencil/2.0)
       var velocityZ_YFace   = (velocity_stencil[2] - velocity[2]) / (yCellWidth/2.0 + yCellWidth_stencil/2.0)
       var temperature_YFace = (temperature_stencil - temperature) / (yCellWidth/2.0 + yCellWidth_stencil/2.0)
-
-      --var velocityX_YFace   = 0.0
-      --var velocityY_YFace   = 0.0
-      --var velocityZ_YFace   = 0.0
-      --var temperature_YFace = 0.0
-      --if yNegGhost or is_yPosGhost(stencil, Grid_yBnum, Grid_yNum) then
-      --  -- do not use velocity gradients in ghost cells for computing the fluxes
-      --  velocityX_YFace   = (velocity_stencil[0] - velocity[0]) / yCellWidth
-      --  velocityY_YFace   = (velocity_stencil[1] - velocity[1]) / yCellWidth
-      --  velocityZ_YFace   = (velocity_stencil[2] - velocity[2]) / yCellWidth
-      --  temperature_YFace = (temperature_stencil - temperature) / yCellWidth
-      --else
-      --  velocityX_YFace = linear_interpolation(Fluid[c].centerCoordinates[1] + yCellWidth/2.0,
-      --                                         Fluid[c].centerCoordinates[1],
-      --                                         Fluid[c].centerCoordinates[1] + yCellWidth/2.0 + yCellWidth_stencil/2.0,
-      --                                         velocityGradientY[0],
-      --                                         velocityGradientY_stencil[0])
-      --  velocityY_YFace = linear_interpolation(Fluid[c].centerCoordinates[1] + yCellWidth/2.0,
-      --                                         Fluid[c].centerCoordinates[1],
-      --                                         Fluid[c].centerCoordinates[1] + yCellWidth/2.0 + yCellWidth_stencil/2.0,
-      --                                         velocityGradientY[1],
-      --                                         velocityGradientY_stencil[1])
-      --  velocityZ_YFace = linear_interpolation(Fluid[c].centerCoordinates[1] + yCellWidth/2.0,
-      --                                         Fluid[c].centerCoordinates[1],
-      --                                         Fluid[c].centerCoordinates[1] + yCellWidth/2.0 + yCellWidth_stencil/2.0,
-      --                                         velocityGradientY[2],
-      --                                         velocityGradientY_stencil[2])
-      --  temperature_YFace = linear_interpolation(Fluid[c].centerCoordinates[1] + yCellWidth/2.0,
-      --                                           Fluid[c].centerCoordinates[1],
-      --                                           Fluid[c].centerCoordinates[1] + yCellWidth/2.0 + yCellWidth_stencil/2.0,
-      --                                           temperatureGradient[1],
-      --                                           temperatureGradient_stencil[1])
-      --end
 
       var sigmaXY = muFace*(velocityX_YFace+velocityY_XFace)
       var sigmaYY = muFace*(4.0*velocityY_YFace-2.0*velocityX_XFace-2.0*velocityZ_ZFace)/3.0
@@ -3915,39 +3849,6 @@ do
       var velocityY_ZFace   = (velocity_stencil[1] - velocity[1]) / (zCellWidth/2.0 + zCellWidth_stencil/2.0)
       var velocityZ_ZFace   = (velocity_stencil[2] - velocity[2]) / (zCellWidth/2.0 + zCellWidth_stencil/2.0)
       var temperature_ZFace = (temperature_stencil - temperature) / (zCellWidth/2.0 + zCellWidth_stencil/2.0)
-
-      --var velocityX_ZFace   = 0.0
-      --var velocityY_ZFace   = 0.0
-      --var velocityZ_ZFace   = 0.0
-      --var temperature_ZFace = 0.0
-      --if zNegGhost or is_zPosGhost(stencil, Grid_zBnum, Grid_zNum) then
-      --  -- do not use velocity gradients in ghost cells for computing the fluxes
-      --  velocityX_ZFace   = (velocity_stencil[0] - velocity[0]) / zCellWidth
-      --  velocityY_ZFace   = (velocity_stencil[1] - velocity[1]) / zCellWidth
-      --  velocityZ_ZFace   = (velocity_stencil[2] - velocity[2]) / zCellWidth
-      --  temperature_ZFace = (temperature_stencil - temperature) / zCellWidth
-      --else
-      --  velocityX_ZFace = linear_interpolation(Fluid[c].centerCoordinates[1] + zCellWidth/2.0,
-      --                                         Fluid[c].centerCoordinates[1],
-      --                                         Fluid[c].centerCoordinates[1] + zCellWidth/2.0 + zCellWidth_stencil/2.0,
-      --                                         velocityGradientZ[0],
-      --                                         velocityGradientZ_stencil[0])
-      --  velocityY_ZFace = linear_interpolation(Fluid[c].centerCoordinates[2] + zCellWidth/2.0,
-      --                                         Fluid[c].centerCoordinates[2],
-      --                                         Fluid[c].centerCoordinates[2] + zCellWidth/2.0 + zCellWidth_stencil/2.0,
-      --                                         velocityGradientZ[1],
-      --                                         velocityGradientZ_stencil[1])
-      --  velocityZ_ZFace = linear_interpolation(Fluid[c].centerCoordinates[2] + zCellWidth/2.0,
-      --                                         Fluid[c].centerCoordinates[2],
-      --                                         Fluid[c].centerCoordinates[2] + zCellWidth/2.0 + zCellWidth_stencil/2.0,
-      --                                         velocityGradientZ[2],
-      --                                         velocityGradientZ_stencil[2])
-      --  temperature_ZFace = linear_interpolation(Fluid[c].centerCoordinates[2] + zCellWidth/2.0,
-      --                                           Fluid[c].centerCoordinates[2],
-      --                                           Fluid[c].centerCoordinates[2] + zCellWidth/2.0 + zCellWidth_stencil/2.0,
-      --                                           temperatureGradient[2],
-      --                                           temperatureGradient_stencil[2])
-      --end
 
       var sigmaXZ = muFace*(velocityX_ZFace+velocityZ_XFace)
       var sigmaYZ = muFace*(velocityY_ZFace+velocityZ_YFace)
@@ -4460,32 +4361,6 @@ do
       var velocityZ_XFace   = (velocity_stencil[2] - velocity[2]) / (xCellWidth/2.0 + xCellWidth_stencil/2.0)
       var temperature_XFace = (temperature_stencil - temperature) / (xCellWidth/2.0 + xCellWidth_stencil/2.0)
 
-      --var velocityX_XFace   = 0.0
-      --var velocityY_XFace   = 0.0
-      --var velocityZ_XFace   = 0.0
-      --if xNegGhost or is_xPosGhost(stencil, Grid_xBnum, Grid_xNum) then
-      --  -- do not use velocity gradients in ghost cells for computing the fluxes
-      --  velocityX_XFace   = (velocity_stencil[0] - velocity[0]) / xCellWidth
-      --  velocityY_XFace   = (velocity_stencil[1] - velocity[1]) / xCellWidth
-      --  velocityZ_XFace   = (velocity_stencil[2] - velocity[2]) / xCellWidth
-      --else
-      --  velocityX_XFace = linear_interpolation(Fluid[c].centerCoordinates[0] + xCellWidth/2.0,
-      --                                         Fluid[c].centerCoordinates[0],
-      --                                         Fluid[c].centerCoordinates[0] + xCellWidth/2.0 + xCellWidth_stencil/2.0,
-      --                                         velocityGradientX[0],
-      --                                         velocityGradientX_stencil[0])
-      --  velocityY_XFace = linear_interpolation(Fluid[c].centerCoordinates[0] + xCellWidth/2.0,
-      --                                         Fluid[c].centerCoordinates[0],
-      --                                         Fluid[c].centerCoordinates[0] + xCellWidth/2.0 + xCellWidth_stencil/2.0,
-      --                                         velocityGradientX[1],
-      --                                         velocityGradientX_stencil[1])
-      --  velocityZ_XFace = linear_interpolation(Fluid[c].centerCoordinates[0] + xCellWidth/2.0,
-      --                                         Fluid[c].centerCoordinates[0],
-      --                                         Fluid[c].centerCoordinates[0] + xCellWidth/2.0 + xCellWidth_stencil/2.0,
-      --                                         velocityGradientX[2],
-      --                                         velocityGradientX_stencil[2])
-      --end
-
       var sigmaXX = muFace*(4.0*velocityX_XFace-2.0*velocityY_YFace-2.0*velocityZ_ZFace)/3.0
       var sigmaYX = muFace*(velocityY_XFace+velocityX_YFace)
       var sigmaZX = muFace*(velocityZ_XFace+velocityX_ZFace)
@@ -4613,31 +4488,6 @@ do
       var velocityY_YFace   = (velocity_stencil[1] - velocity[1]) / (yCellWidth/2.0 + yCellWidth_stencil/2.0)
       var velocityZ_YFace   = (velocity_stencil[2] - velocity[2]) / (yCellWidth/2.0 + yCellWidth_stencil/2.0)
       var temperature_YFace = (temperature_stencil - temperature) / (yCellWidth/2.0 + yCellWidth_stencil/2.0)
-
-      --var velocityX_YFace   = 0.0
-      --var velocityY_YFace   = 0.0
-      --var velocityZ_YFace   = 0.0
-      --if yNegGhost or is_yPosGhost(stencil, Grid_yBnum, Grid_yNum) then
-      --  velocityX_YFace   = (velocity_stencil[0] - velocity[0]) / yCellWidth
-      --  velocityY_YFace   = (velocity_stencil[1] - velocity[1]) / yCellWidth
-      --  velocityZ_YFace   = (velocity_stencil[2] - velocity[2]) / yCellWidth
-      --else
-      --  velocityX_YFace = linear_interpolation(Fluid[c].centerCoordinates[1] + yCellWidth/2.0,
-      --                                         Fluid[c].centerCoordinates[1],
-      --                                         Fluid[c].centerCoordinates[1] + yCellWidth/2.0 + yCellWidth_stencil/2.0,
-      --                                         velocityGradientY[0],
-      --                                         velocityGradientY_stencil[0])
-      --  velocityY_YFace = linear_interpolation(Fluid[c].centerCoordinates[1] + yCellWidth/2.0,
-      --                                         Fluid[c].centerCoordinates[1],
-      --                                         Fluid[c].centerCoordinates[1] + yCellWidth/2.0 + yCellWidth_stencil/2.0,
-      --                                         velocityGradientY[1],
-      --                                         velocityGradientY_stencil[1])
-      --  velocityZ_YFace = linear_interpolation(Fluid[c].centerCoordinates[1] + yCellWidth/2.0,
-      --                                         Fluid[c].centerCoordinates[1],
-      --                                         Fluid[c].centerCoordinates[1] + yCellWidth/2.0 + yCellWidth_stencil/2.0,
-      --                                         velocityGradientY[2],
-      --                                         velocityGradientY_stencil[2])
-      --end
 
       var sigmaXY = muFace*(velocityX_YFace+velocityY_XFace)
       var sigmaYY = muFace*(4.0*velocityY_YFace-2.0*velocityX_XFace-2.0*velocityZ_ZFace)/3.0
@@ -4768,31 +4618,6 @@ do
       var velocityY_ZFace   = (velocity_stencil[1] - velocity[1]) / (zCellWidth/2.0 + zCellWidth_stencil/2.0)
       var velocityZ_ZFace   = (velocity_stencil[2] - velocity[2]) / (zCellWidth/2.0 + zCellWidth_stencil/2.0)
       var temperature_ZFace = (temperature_stencil - temperature) / (zCellWidth/2.0 + zCellWidth_stencil/2.0)
-
-      --var velocityX_ZFace   = 0.0
-      --var velocityY_ZFace   = 0.0
-      --var velocityZ_ZFace   = 0.0
-      --if zNegGhost or is_zPosGhost(stencil, Grid_zBnum, Grid_zNum) then
-      --  velocityX_ZFace   = (velocity_stencil[0] - velocity[0]) / zCellWidth
-      --  velocityY_ZFace   = (velocity_stencil[1] - velocity[1]) / zCellWidth
-      --  velocityZ_ZFace   = (velocity_stencil[2] - velocity[2]) / zCellWidth
-      --else
-      --  velocityX_ZFace = linear_interpolation(Fluid[c].centerCoordinates[1] + zCellWidth/2.0,
-      --                                         Fluid[c].centerCoordinates[1],
-      --                                         Fluid[c].centerCoordinates[1] + zCellWidth/2.0 + zCellWidth_stencil/2.0,
-      --                                         velocityGradientZ[0],
-      --                                         velocityGradientZ_stencil[0])
-      --  velocityY_ZFace = linear_interpolation(Fluid[c].centerCoordinates[2] + zCellWidth/2.0,
-      --                                         Fluid[c].centerCoordinates[2],
-      --                                         Fluid[c].centerCoordinates[2] + zCellWidth/2.0 + zCellWidth_stencil/2.0,
-      --                                         velocityGradientZ[1],
-      --                                         velocityGradientZ_stencil[1])
-      --  velocityZ_ZFace = linear_interpolation(Fluid[c].centerCoordinates[2] + zCellWidth/2.0,
-      --                                         Fluid[c].centerCoordinates[2],
-      --                                         Fluid[c].centerCoordinates[2] + zCellWidth/2.0 + zCellWidth_stencil/2.0,
-      --                                         velocityGradientZ[2],
-      --                                         velocityGradientZ_stencil[2])
-      --end
 
       var sigmaXZ = muFace*(velocityX_ZFace+velocityZ_XFace)
       var sigmaYZ = muFace*(velocityY_ZFace+velocityZ_YFace)
