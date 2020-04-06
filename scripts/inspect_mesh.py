@@ -65,7 +65,7 @@ for direction in cell_centers_to_plot:
   plt.xlabel('{}'.format(direction))
   plt.title('{} values'.format(direction))
 
-# Plot cell widths in the requested  each directions
+# Plot cell width in the requested  each directions
 for direction in cell_width_to_plot:
   plt.figure()
   plt.plot(range(len(cell_width_values[direction])),cell_width_values[direction],'o')
@@ -78,7 +78,7 @@ for direction in cell_width_to_plot:
 for direction in cell_centers_to_print:
   print('{}_center = {}'.format(direction, repr(center_values[direction])))
 
-# Print cell centers in the requested directions
+# Print cell width in the requested directions
 for direction in cell_width_to_print:
   print('d{} = {}'.format(direction, repr(cell_width_values[direction])))
 

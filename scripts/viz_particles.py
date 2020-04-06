@@ -69,7 +69,7 @@ with open('particles.xmf', 'w') as xmf_out:
     xmf_out.write(XMF_HEADER)
     for i in range(len(args.hdf_file)):
         if size[i] == 0:
-            print 'Skipping timestep %s: Paraview cannot handle empty particle files' % i
+            print('Skipping timestep %s: Paraview cannot handle empty particle files' % i)
             continue
         xmf_out.write(XMF_BODY
                       .replace('@TIME', str(time[i]))
