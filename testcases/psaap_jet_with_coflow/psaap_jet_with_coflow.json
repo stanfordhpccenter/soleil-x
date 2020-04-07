@@ -170,7 +170,7 @@
             "initCase" : "Random",
             "restartDir" : "",
             "initNum" : 14904000,
-            "maxNum"  : 15000000,
+            "maxNum"  : 20000000,
             "restitutionCoeff" : -1.0,
             "convectiveCoeff" : 0.7,
             "heatCapacity" : 440.0,
@@ -217,7 +217,7 @@
             "xHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
             "xLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
             "yHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
-            "yLoWindow" : { "fromCell" : [0,0], "uptoCell" : [9999,9999] },
+            "yLoWindow" : { "fromCell" : [0,0],   "uptoCell" : [9999,9999] },
             "zHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
             "zLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] }
         },
