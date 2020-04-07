@@ -9,8 +9,6 @@ import glob
 #                               Parse Input                                    #
 ################################################################################
 parser = argparse.ArgumentParser()
-#parser.add_argument('json_file',
-#                    help='original simulation configuration file')
 parser.add_argument('--basedir', nargs='?', const='.', default='.',
                     help='directory with all the simulation output')
 parser.add_argument('--outdir', nargs='?', const='default', default='default',
@@ -37,7 +35,6 @@ if args.verbose:
   print('################################################################################')
   print('#                              Input Summary                                   #')
   print('################################################################################')
-  #print('case file: {}'.format(args.json_file))
   print('sample base directory: {}'.format(sample_base_dir))
   print('output base directory: {}'.format(out_base_dir))
   print('')
@@ -45,27 +42,12 @@ if args.verbose:
 ################################################################################
 #                              Error Checking                                  #
 ################################################################################
+
 if not os.path.exists(sample_base_dir):
   print('################################################################################')
   print('#                                 ERROR                                        #')
   print('################################################################################')
   print('Error: the provided sample base directory {} does not exist'.format(sample_base_dir))
-  sys.exit()
-
-if 'SOLEIL_DIR' not in os.environ:
-  print('################################################################################')
-  print('#                                 ERROR                                        #')
-  print('################################################################################')
-  print('Environment variable SOLEIL_DIR not set')
-  print('This should point to the directory where you installed Soliel-X')
-  sys.exit()
-
-viz_script = os.path.expandvars('$SOLEIL_DIR/scripts/convert_output_for_viz.py')
-if not os.path.isfile(viz_script):
-  print('################################################################################')
-  print('#                                 ERROR                                        #')
-  print('################################################################################')
-  print('file: {} does not exist'.format())
   sys.exit()
 
 sample0_base_dir = os.path.join(sample_base_dir,'sample0')
@@ -84,13 +66,28 @@ if not os.path.exists(sample1_base_dir):
   print('Error: the provided sample1 base directory {} does not exist'.format(sample1_base_dir))
   sys.exit()
 
+if 'SOLEIL_DIR' not in os.environ:
+  print('################################################################################')
+  print('#                                 ERROR                                        #')
+  print('################################################################################')
+  print('Environment variable SOLEIL_DIR not set')
+  print('This should point to the directory where you installed Soliel-X')
+  sys.exit()
+
+viz_script = os.path.expandvars('$SOLEIL_DIR/scripts/convert_output_for_viz.py')
+if not os.path.isfile(viz_script):
+  print('################################################################################')
+  print('#                                 ERROR                                        #')
+  print('################################################################################')
+  print('file: {} does not exist'.format())
+  sys.exit()
+
 ################################################################################
 # Create top level file 
 ################################################################################
 print('##############################################################################')
 print('#                Set up directory for visualization ready data files         #')
 print('##############################################################################')
-
 
 if args.debug:
     print('Would create new directory for visualization ready data:')
@@ -106,7 +103,8 @@ else:
     print('################################################################################')
     print('Directory for visualization ready data already exists:')
     print('{}'.format(out_base_dir))
-    print('Delete it and rerun this script')
+    print('I don\'t want to clobber whatever is there.')
+    print('Delete it and re-run and this script')
     print('')
     sys.exit()
 print('')
@@ -114,20 +112,8 @@ print('')
 sample0_out_dir = os.path.join(out_base_dir, 'sample0')
 sample1_out_dir = os.path.join(out_base_dir, 'sample1')
 
-#for section_number, (sample_dir, out_dir) in enumerate(zip([sample0_base_dir, sample1_base_dir], [sample0_out_dir, sample0_out_dir])):
 for sample_dir, out_dir in zip([sample0_base_dir, sample1_base_dir], [sample0_out_dir, sample1_out_dir]):
   
-  #print('##############################################################################')
-  #print('#                          Sample {}                                         #'.format(section_number))
-  #print('##############################################################################')
-  
-  #command = 'python {} --section {} --sampledir {} --outdir {} {}'.format(
-  #                                                   viz_script,
-  #                                                   section_number+1,
-  #                                                   sample_dir,
-  #                                                   out_dir,
-  #                                                   args.json_file)
-
   command = 'python {} --sampledir {} --outdir {}'.format(
                                                    viz_script,
                                                    sample_dir,
@@ -138,8 +124,10 @@ for sample_dir, out_dir in zip([sample0_base_dir, sample1_base_dir], [sample0_ou
   else:
     try:
       subprocess.check_output(command, shell=True)
+      print('Running command:')
+      print('{}'.format(command))
     except subprocess.CalledProcessError as e:
-      print('Failed command:')
+      print('Failed command with output:')
       print('{}'.format(command))
       print(e.output)
       sys.exit()

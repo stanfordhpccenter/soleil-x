@@ -4,7 +4,7 @@ import argparse
 import h5py
 import numpy as np
 import itertools
-import json
+#import json
 
 XMF_HEADER = """<?xml version="1.0" ?>
 <!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>
@@ -54,10 +54,6 @@ XMF_FOOTER = """
 """
 
 parser = argparse.ArgumentParser()
-parser.add_argument('json_file',
-                    help='original simulation configuration file')
-parser.add_argument('-s', '--section', choices=['1','2'],
-                    help='which section to visualize (if multi-section sim)')
 parser.add_argument('hdf_file', nargs='+',
                     help='fluid restart file(s) to visualize')
 args = parser.parse_args()
@@ -90,7 +86,6 @@ for (f, i) in zip(args.hdf_file, itertools.count()):
     # Convert velocity from an XxYxZ matrix of triples to an XxYxZx3 matrix.
     hdf_out['velocity'] = hdf_in['velocity'][:][:,:,:,:]
 
-    ###########################################################################
     # Add the gird points to the hdf file
     centerCoordinates = hdf_in['centerCoordinates'][:][:,:,:,:]
     cellWidth = hdf_in['cellWidth'][:][:,:,:,:]
@@ -108,8 +103,6 @@ for (f, i) in zip(args.hdf_file, itertools.count()):
     hdf_out['x_points'] = x_points
     hdf_out['y_points'] = y_points
     hdf_out['z_points'] = z_points
-
-    ##########################################################################
 
     hdf_out.close()
     hdf_in.close()

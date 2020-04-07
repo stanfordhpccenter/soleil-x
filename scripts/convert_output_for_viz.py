@@ -9,10 +9,10 @@ import glob
 #                               Parse Input                                    #
 ################################################################################
 parser = argparse.ArgumentParser()
-parser.add_argument('json_file',
-                    help='original simulation configuration file')
-parser.add_argument('-s', '--section', choices=['1','2'], 
-                    help='which section to visualize (if multi-section sim)')
+#parser.add_argument('json_file',
+#                    help='original simulation configuration file')
+#parser.add_argument('-s', '--section', choices=['1','2'], 
+#                    help='which section to visualize (if multi-section sim)')
 parser.add_argument('--sampledir', nargs='?', const='.', default='.',
                     help='directory with all the simulation output')
 parser.add_argument('--outdir', nargs='?', const='default', default='default',
@@ -39,10 +39,10 @@ if args.verbose:
   print('################################################################################')
   print('#                              Input Summary                                   #')
   print('################################################################################')
-  print('case file: {}'.format(args.json_file))
-  print('config in case file (section): {}'.format(args.section))
+  #print('case file: {}'.format(args.json_file))
+  #print('config in case file (section): {}'.format(args.section))
   print('sample directory: {}'.format(sample_dir))
-  print('output directory: {}'.format(sample_dir))
+  print('output directory: {}'.format(out_dir))
   print('')
 
 if not os.path.exists(sample_dir):
@@ -91,6 +91,7 @@ else:
     os.makedirs(out_dir)
     print('Created new directory for visualization ready data:')
     print('{}'.format(out_dir))
+    os.chdir(out_dir)
   else:
     print('################################################################################')
     print('#                                 ERROR                                        #')
@@ -102,7 +103,6 @@ else:
     sys.exit()
 print('')
 
-os.chdir(out_dir)
 
 print('##############################################################################')
 print('#                          Generate fluid viz files                          #')
@@ -115,10 +115,13 @@ if args.verbose:
     print(filename)
   print('')
 
-viz_fluid_command = 'python {} -s {} {} {}'.format(fluid_viz_script,
-                                                   args.section,
-                                                   args.json_file,
-                                                   ' '.join(fluid_hdf_files))
+#viz_fluid_command = 'python {} -s {} {} {}'.format(fluid_viz_script,
+#                                                   args.section,
+#                                                   args.json_file,
+#                                                   ' '.join(fluid_hdf_files))
+
+viz_fluid_command = 'python {} {}'.format(fluid_viz_script,
+                                          ' '.join(fluid_hdf_files))
 if args.debug:
   print('Would run command for fluid:')
   print(viz_fluid_command)
