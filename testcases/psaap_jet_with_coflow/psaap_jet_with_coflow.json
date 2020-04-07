@@ -5,7 +5,7 @@
             "tilesPerRank" : [1,1,1],
             "sampleId" : -1,
             "outDir" : "",
-            "wallTime" : 60
+            "wallTime" : 720
         },
 
         "Grid" : {
@@ -33,7 +33,7 @@
         "Integrator" : {
             "startIter" : 0,
             "startTime" : 0.0,
-            "maxIter" : 113720,
+            "maxIter" : 190000,
             "cfl" : -1.0,
             "fixedDeltaTime" : 5.276116778051355e-07,
             "rkOrder" : 4
@@ -62,8 +62,8 @@
         "Particles" : {
             "initCase" : "Random",
             "restartDir" : "",
-            "initNum" : 14904000,
-            "maxNum"  : 15000000,
+            "initNum" : 1730847,
+            "maxNum"  : 2200000,
             "restitutionCoeff" : 1.0,
             "convectiveCoeff" : 0.7,
             "heatCapacity" : 440.0,
@@ -85,7 +85,7 @@
         },
 
         "IO" : {
-            "wrtRestart" : false,
+            "wrtRestart" : true,
             "restartEveryTimeSteps" : 10000,
             "probes" : []
         }
@@ -95,7 +95,7 @@
             "tilesPerRank" : [1,1,1],
             "sampleId" : -1,
             "outDir" : "",
-            "wallTime" : 60
+            "wallTime" : 720
         },
 
         "Grid" : {
@@ -146,7 +146,7 @@
         "Integrator" : {
             "startIter" : 0,
             "startTime" : 0.0,
-            "maxIter" : 113720,
+            "maxIter" : 190000,
             "cfl" : -1.0,
             "fixedDeltaTime" : 5.276116778051355e-07,
             "rkOrder" : 4
@@ -169,8 +169,8 @@
         "Particles" : {
             "initCase" : "Random",
             "restartDir" : "",
-            "initNum" : 14904000,
-            "maxNum"  : 15000000,
+            "initNum" : 6923388,
+            "maxNum"  : 8000000,
             "restitutionCoeff" : -1.0,
             "convectiveCoeff" : 0.7,
             "heatCapacity" : 440.0,
@@ -182,7 +182,8 @@
             "escapeRatioPerDir" : 0.01,
             "collisions" : false,
             "twoWayCoupled" : true,
-            "feeding" : { "type" : "OFF" },
+            "feeding" : { "type" : "Incoming",
+                          "addedVelocity" : [0.0,0.0,0.0]},
             "staggerFactor" : 106,
             "parcelSize" : 1
         },
@@ -216,15 +217,15 @@
             "xHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
             "xLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
             "yHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
-            "yLoWindow" : { "fromCell" : [0,0], "uptoCell" : [9999,9999] },
+            "yLoWindow" : { "fromCell" : [0,0],   "uptoCell" : [9999,9999] },
             "zHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
             "zLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] }
         },
 
         "IO" : {
-            "wrtRestart" : false,
+            "wrtRestart" : true,
             "restartEveryTimeSteps" : 10000,
-            "probes" : []
+            "probes" : [{"fromCell" : [355,0,0], "uptoCell" : [355,88,88]}]
         }
     }],
     "copySrc" : {
