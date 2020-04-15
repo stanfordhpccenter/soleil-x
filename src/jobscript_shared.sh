@@ -85,14 +85,14 @@ fi
 # Add GASNET options
 GASNET_OPTS=
 if [[ "$LOCAL_RUN" == 0 ]]; then
-    GASNET_OPTS="-ll:rsize 0 -ll:ib_rsize 1024 -ll:gsize 0"
+    GASNET_OPTS="-ll:ahandlers 4 -ll:rsize 0 -ll:ib_rsize 1024 -ll:gsize 0"
 fi
 # Synthesize final command
 COMMAND="$EXECUTABLE $ARGS \
   -logfile $OUT_DIR/%.log $DEBUG_OPTS $PROFILER_OPTS \
   -ll:cpu 0 -ll:ocpu 1 -ll:onuma 0 -ll:okindhack -ll:othr $THREADS_PER_RANK \
   $GPU_OPTS \
-  -ll:util 4 -ll:ahandlers 4 -ll:io 1 -ll:dma 2 \
+  -ll:util 4 -ll:io 1 -ll:dma 2 \
   -ll:csize $RAM_PER_RANK \
   $GASNET_OPTS \
   -ll:stacksize 8 -ll:ostack 8 -lg:sched -1 -lg:hysteresis 0"
