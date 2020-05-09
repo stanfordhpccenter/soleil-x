@@ -6,10 +6,24 @@ import sys
 parser = argparse.ArgumentParser()
 parser.add_argument('--sampledir', nargs='?', const='.', default='.',
                     help='directory with all the simulation output')
+parser.add_argument('--outdir', nargs='?', const='default', default='default',
+                    help='directory where the simulation output were go')
+parser.add_argument('-v', '--verbose',
+                    action='store_true',
+                    help='verbose output')
+parser.add_argument('--debug',
+                    action='store_true',
+                    help='run in debug mode')
 args = parser.parse_args()
 
 sample_dir = args.sampledir
-merged_dir = os.path.join(sample_dir,'merged_data')
+
+# hack way to set default of outdir based on the sampledir argument
+out_dir = args.outdir
+if args.outdir == 'default':
+  outdir = os.path.join(sampledir,'merged_data')
+merged_dir = os.path.abspath(out_dir)
+
 
 print('##############################################################################')
 print('                     Set up directory for merged data files')

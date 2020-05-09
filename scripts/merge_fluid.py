@@ -59,6 +59,11 @@ with h5py.File(name, 'w') as fout:
     with h5py.File(args.hdf_file[0], 'r') as fin:
         for fld in fin:
             fout.create_dataset(fld, shape, dtype=fin[fld].dtype)
+        for attribute_name in fin.attrs:
+            fout.attrs[attribute_name] = fin.attrs[attribute_name]
+        #fout.attrs['simTime'] = fin.attrs['simTime']
+        #fout.attrs['timeStep'] = fin.attrs['timeStep']
+        #fout.attrs = fin.attrs
     for i in range(num_files):
         with h5py.File(args.hdf_file[i], 'r') as fin:
             for fld in fout:
