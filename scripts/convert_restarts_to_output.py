@@ -10,9 +10,9 @@ import glob
 ################################################################################
 parser = argparse.ArgumentParser()
 parser.add_argument('--basedir', nargs='?', const='.', default='.',
-                    help='directory with all the simulation output')
+                    help='directory that contains the samples')
 parser.add_argument('--outdir', nargs='?', const='default', default='default',
-                    help='directory where the simulation output were go')
+                    help='directory where output is written')
 parser.add_argument('-v', '--verbose',
                     action='store_true',
                     help='verbose output')
@@ -21,21 +21,21 @@ parser.add_argument('--debug',
                     help='run in debug mode')
 args = parser.parse_args()
 
-
-# Turn pathnames into absolute paths
-sample_base_dir = os.path.abspath(args.basedir)
-
-# hack way to set default of outdir based on the sampledir argument
+# hack way to set default of outdir based on the basedir argument
 out_base_dir = args.outdir
 if args.outdir == 'default':
-  out_base_dir = os.path.join(sample_base_dir,'viz_ready_data')
+  out_base_dir = os.path.join(args.basedir,'viz_ready_data')
+
+# Turn pathnames into absolute paths
+# doing this because later os.walk() can have trouble with relative path names.
+base_dir = os.path.abspath(args.basedir)
 out_base_dir = os.path.abspath(out_base_dir)
 
 if args.verbose:
   print('################################################################################')
   print('#                              Input Summary                                   #')
   print('################################################################################')
-  print('sample base directory: {}'.format(sample_base_dir))
+  print('input  base directory: {}'.format(base_dir))
   print('output base directory: {}'.format(out_base_dir))
   print('')
 
@@ -43,28 +43,19 @@ if args.verbose:
 #                              Error Checking                                  #
 ################################################################################
 
-if not os.path.exists(sample_base_dir):
+if not os.path.exists(base_dir):
   print('################################################################################')
   print('#                                 ERROR                                        #')
   print('################################################################################')
-  print('Error: the provided sample base directory {} does not exist'.format(sample_base_dir))
+  print('Error: the provided sample base directory {} does not exist'.format(base_dir))
   sys.exit()
 
-#sample0_base_dir = os.path.join(sample_base_dir,'sample0')
-#if not os.path.exists(sample0_base_dir):
-#  print('################################################################################')
-#  print('#                                 ERROR                                        #')
-#  print('################################################################################')
-#  print('Error: the provided sample0 base directory {} does not exist'.format(sample0_base_dir))
-#  sys.exit()
-#
-#sample1_base_dir = os.path.join(sample_base_dir,'sample1')
-#if not os.path.exists(sample1_base_dir):
-#  print('################################################################################')
-#  print('#                                 ERROR                                        #')
-#  print('################################################################################')
-#  print('Error: the provided sample1 base directory {} does not exist'.format(sample1_base_dir))
-#  sys.exit()
+if base_dir == out_base_dir:
+  print('################################################################################')
+  print('#                                 ERROR                                        #')
+  print('################################################################################')
+  print('Error: arguments basedir outdir cannot be the same')
+  sys.exit()
 
 if 'SOLEIL_DIR' not in os.environ:
   print('################################################################################')
@@ -90,18 +81,23 @@ if not os.path.isfile(viz_script):
   print('file: {} does not exist'.format())
   sys.exit()
 
-print('##############################################################################')
-print('#                Set up directory for visualization ready data files         #')
-print('##############################################################################')
+################################################################################
+#                        Create Directory for Output                           #
+################################################################################
+if args.verbose:
+  print('##############################################################################')
+  print('#                Set up directory for visualization ready data files         #')
+  print('##############################################################################')
 
 if args.debug:
-    print('Would create new directory for visualization ready data:')
-    print('{}'.format(out_base_dir))
+  print('Would create new directory for visualization ready data:')
+  print('{}'.format(out_base_dir))
 else:
   if not os.path.exists(out_base_dir):
     os.makedirs(out_base_dir)
-    print('Created new directory for visualization ready data:')
-    print('{}'.format(out_base_dir))
+    if args.verbose:
+      print('Created new directory for visualization ready data:')
+      print('{}'.format(out_base_dir))
   else:
     print('################################################################################')
     print('#                                 ERROR                                        #')
@@ -118,52 +114,61 @@ print('')
 ################################################################################
 # Get list of sample direcories
 ################################################################################
-#for root, dirs, files in os.walk(sample_base_dir):
-#  #print('root = {}'.format(root))
-#  #print('dirs = {}'.format(dirs))
-#  #print('files = {}'.format(files))
-#  #print('')
-#
-#  path, dirname = os.path.split(root)
-#  if 'sample' in dirname:
-#    print(dirname)
-
-#sample_dirs = [directory for directory in os.listdir(sample_base_dir) if 'sample' in directory]
-#print(sample_dirs)
-
-# Get list of sample directories
-sample_dirs = [os.path.join(sample_base_dir,directory) for directory in os.listdir(sample_base_dir) if 'sample' in directory]
+sample_dirs = [os.path.join(base_dir,directory) for directory in os.listdir(base_dir) if 'sample' in directory]
 sample_dirs.sort()
-#print(sample_dirs)
+if args.verbose:
+  print('Found sample directories:')
+  [print(sample_dir) for sample_dir in sample_dirs]
+  print('')
 
+################################################################################
+# Process data in sample directories
+################################################################################
+if args.verbose:
+  print('##############################################################################')
+  print('#                             Process Data                                   #')
+  print('##############################################################################')
 
-# See if need to merge data
 for sample_dir in sample_dirs:
-  merge_data = False
 
   path, sample_dir_basename = os.path.split(sample_dir)
   out_dir = os.path.join(out_base_dir,sample_dir_basename)
 
-  fluid_dirs = [os.path.join(sample_dir,directory) for directory in os.listdir(sample_dir) if 'fluid' in directory and os.path.isdir(os.path.join(sample_dir,directory))]
-  fluid_dirs.sort()
-  #print(fluid_dirs)
+  sample_dir_to_viz = sample_dir
 
+  fluid_dirs = [os.path.join(sample_dir,fluid_directory) for fluid_directory in os.listdir(sample_dir) if 'fluid' in fluid_directory and os.path.isdir(os.path.join(sample_dir,fluid_directory))]
+  fluid_dirs.sort()
+
+  particle_dirs = [os.path.join(sample_dir,particle_directory) for particle_directory in os.listdir(sample_dir) if 'particles' in particle_directory and os.path.isdir(os.path.join(sample_dir,particle_directory))]
+  particle_dirs.sort()
+
+  if args.verbose:
+    print('In sample directory: {}'.format(sample_dir))
+    print('Found fluid directories:'.format(sample_dir))
+    [print(fluid_dir) for fluid_dir in fluid_dirs]
+    print('Found particle directories:'.format(sample_dir))
+    [print(particle_dir) for particle_dir in particle_dirs]
+    print('')
+
+  # Determine if the data needs to be merged 
+  merge_data = False
   for fluid_dir in fluid_dirs:
     fluid_restarts = [os.path.join(fluid_dir,restart_file) for restart_file in os.listdir(fluid_dir) if os.path.isfile(os.path.join(fluid_dir,restart_file))]
-    #print(fluid_restarts)
-
+    # If more than one file in the restart directories we will need to merge them
     if len(fluid_restarts) > 1:
-      #print(len(fluid_restarts))
       merge_data = True
       break
 
+  # Merge the data into one hdf5 file if needed
   if merge_data == True:
+    if args.verbose:
+      print('merging data in sample dir: {}'.format(sample_dir))
+
     sample_dir_merged_data = os.path.join(sample_dir,'merged_data')
     command = 'python {} --sampledir {} --outdir {}'.format(
                                                      merge_data_script,
                                                      sample_dir,
                                                      sample_dir_merged_data)
-    # Merge Data
     if args.debug:
       print('Would run command:')
       print(command)
@@ -182,89 +187,31 @@ for sample_dir in sample_dirs:
         print('{}'.format(command))
     print('')
 
+    # Change input dir for viz script to point to merged data
+    sample_dir_to_viz = sample_dir_merged_data 
 
-    # Convert for viz
-    command = 'python {} --sampledir {} --outdir {}'.format(
-                                                     viz_script,
-                                                     sample_dir_merged_data,
-                                                     out_dir)
-    if args.debug:
-      print('Would run command:')
-      print(command)
+  # Convert the hdf5 files to a more paraview friendly format
+  if args.verbose:
+    print('converting data in sample dir: {}'.format(sample_dir))
+  # Convert data to output
+  command = 'python {} --sampledir {} --outdir {}'.format(
+                                                   viz_script,
+                                                   sample_dir_to_viz,
+                                                   out_dir)
+  if args.debug:
+    print('Would run command:')
+    print(command)
+  else:
+    try:
+      subprocess.check_output(command, shell=True)
+      print('Running command:')
+      print('{}'.format(command))
+    except subprocess.CalledProcessError as e:
+      print('Failed command with output:')
+      print('{}'.format(command))
+      print(e.output)
+      sys.exit()
     else:
-      try:
-        subprocess.check_output(command, shell=True)
-        print('Running command:')
-        print('{}'.format(command))
-      except subprocess.CalledProcessError as e:
-        print('Failed command with output:')
-        print('{}'.format(command))
-        print(e.output)
-        sys.exit()
-      else:
-        print('Successfully ran command:')
-        print('{}'.format(command))
-    print('')
-
-
-
-  else : 
-    command = 'python {} --sampledir {} --outdir {}'.format(
-                                                     viz_script,
-                                                     sample_dir,
-                                                     out_dir)
-    if args.debug:
-      print('Would run command:')
-      print(command)
-    else:
-      try:
-        subprocess.check_output(command, shell=True)
-        print('Running command:')
-        print('{}'.format(command))
-      except subprocess.CalledProcessError as e:
-        print('Failed command with output:')
-        print('{}'.format(command))
-        print(e.output)
-        sys.exit()
-      else:
-        print('Successfully ran command:')
-        print('{}'.format(command))
-    print('')
-
-
-
-  #particle_dirs = [os.path.join(sample_dir,directory) for directory in os.listdir(sample_dir) if 'particles' in directory and os.path.isdir(os.path.join(sample_dir,directory))]
-  #particle_dirs.sort()
-  #print(particle_dirs)
-  #print('')
-
-#################################################################################
-## Create top level file 
-#################################################################################
-#
-#sample0_out_dir = os.path.join(out_base_dir, 'sample0')
-#sample1_out_dir = os.path.join(out_base_dir, 'sample1')
-#
-#for sample_dir, out_dir in zip([sample0_base_dir, sample1_base_dir], [sample0_out_dir, sample1_out_dir]):
-#  
-#  command = 'python {} --sampledir {} --outdir {}'.format(
-#                                                   viz_script,
-#                                                   sample_dir,
-#                                                   out_dir)
-#  if args.debug:
-#    print('Would run command:')
-#    print(command)
-#  else:
-#    try:
-#      subprocess.check_output(command, shell=True)
-#      print('Running command:')
-#      print('{}'.format(command))
-#    except subprocess.CalledProcessError as e:
-#      print('Failed command with output:')
-#      print('{}'.format(command))
-#      print(e.output)
-#      sys.exit()
-#    else:
-#      print('Successfully ran command:')
-#      print('{}'.format(command))
-#  print('')
+      print('Successfully ran command:')
+      print('{}'.format(command))
+  print('')
