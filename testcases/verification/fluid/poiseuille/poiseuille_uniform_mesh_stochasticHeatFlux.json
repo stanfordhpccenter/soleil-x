@@ -8,8 +8,8 @@
     },
 
     "Grid" : {
-        "xNum" : 512,
-        "yNum" : 256,
+        "xNum" : 128,
+        "yNum" : 128,
         "zNum" : 1,
         "origin" : [0.0, 0.0, 0.0],
         "xWidth" : 1.0,
@@ -44,9 +44,9 @@
     "Integrator" : {
         "startIter" : 0,
         "startTime" : 0.0,
-        "maxIter" : 4000000,
+        "maxIter" : 40000,
         "cfl" : -1.0,
-        "fixedDeltaTime" : 2.5e-7,
+        "fixedDeltaTime" : 2.5e-6,
          "rkOrder" : 4
     },
 
@@ -57,8 +57,8 @@
         "viscosityModel" : {"type" : "Constant",
                              "viscosity" : 1.0
                            },
-        "initCase" : "Restart",
-        "restartDir" : "/p/gpfs1/adcock4/922219/sample0/fluid_iter0003600000",
+        "initCase" : "Uniform",
+        "restartDir" : "",
         "initParams" : [1.0, 86100.0, 0.0, 0.0, 0.0, -1.0],
         "bodyForce" : [8.0, 0.0, 0.0],
         "turbForcing" : { "type" : "OFF" }
@@ -90,13 +90,13 @@
     },
 
     "IO" : {
-        "wrtRestart" : true,
-        "restartEveryTimeSteps" : 400000,
-        "probes" : [{"fromCell" : [511,25,0], "uptoCell" : [511,25,0]},
-                    {"fromCell" : [511,63,0], "uptoCell" : [511,63,0]},
-                    {"fromCell" : [511,127,0], "uptoCell" : [511,127,0]},
-                    {"fromCell" : [255,25,0], "uptoCell" : [255,25,0]},
-                    {"fromCell" : [255,63,0], "uptoCell" : [255,63,0]},
-                    {"fromCell" : [255,127,0], "uptoCell" : [255,127,0]}]
+        "wrtRestart" : false,
+        "restartEveryTimeSteps" : 400,
+        "probes" : [{"fromCell" : [127,12,0], "uptoCell" : [127,12,0]},
+                    {"fromCell" : [127,31,0], "uptoCell" : [127,31,0]},
+                    {"fromCell" : [127,63,0], "uptoCell" : [127,63,0]},
+                    {"fromCell" : [63,12,0], "uptoCell" : [127,12,0]},
+                    {"fromCell" : [63,31,0], "uptoCell" : [63,31,0]},
+                    {"fromCell" : [63,63,0], "uptoCell" : [63,63,0]}]
     }
 }
