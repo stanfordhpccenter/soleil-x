@@ -9,7 +9,7 @@
 
     "Grid" : {
         "xNum" : 128,
-        "yNum" : 128,
+        "yNum" : 64,
         "zNum" : 1,
         "origin" : [0.0, 0.0, 0.0],
         "xWidth" : 1.0,
@@ -29,8 +29,8 @@
                                     "baseline" : 1000.0,
                                     "diff" : 1000.0,
                                     "numUncertainties" : 10,
-                                    "sigmaMin" : 0.03,
-                                    "sigmaMax" : 0.04}
+                                    "sigmaMin" : 0.01,
+                                    "sigmaMax" : 0.02}
                      },
         "yBCRight" : {"type" : "Wall",
                       "Velocity" : [0.0,0.0,0.0],
@@ -44,9 +44,9 @@
     "Integrator" : {
         "startIter" : 0,
         "startTime" : 0.0,
-        "maxIter" : 40000,
+        "maxIter" : 200000,
         "cfl" : -1.0,
-        "fixedDeltaTime" : 2.5e-6,
+        "fixedDeltaTime" : 5e-6,
          "rkOrder" : 4
     },
 
@@ -57,8 +57,8 @@
         "viscosityModel" : {"type" : "Constant",
                              "viscosity" : 1.0
                            },
-        "initCase" : "Uniform",
-        "restartDir" : "",
+        "initCase" : "Restart",
+        "restartDir" : "/p/gpfs1/adcock4/922233/sample0/fluid_iter0000200000/",
         "initParams" : [1.0, 86100.0, 0.0, 0.0, 0.0, -1.0],
         "bodyForce" : [8.0, 0.0, 0.0],
         "turbForcing" : { "type" : "OFF" }
@@ -90,13 +90,13 @@
     },
 
     "IO" : {
-        "wrtRestart" : false,
-        "restartEveryTimeSteps" : 400,
-        "probes" : [{"fromCell" : [127,12,0], "uptoCell" : [127,12,0]},
+        "wrtRestart" : true,
+        "restartEveryTimeSteps" : 20000,
+        "probes" : [{"fromCell" : [127,5,0], "uptoCell" : [127,5,0]},
+                    {"fromCell" : [127,15,0], "uptoCell" : [127,15,0]},
                     {"fromCell" : [127,31,0], "uptoCell" : [127,31,0]},
-                    {"fromCell" : [127,63,0], "uptoCell" : [127,63,0]},
-                    {"fromCell" : [63,12,0], "uptoCell" : [127,12,0]},
-                    {"fromCell" : [63,31,0], "uptoCell" : [63,31,0]},
-                    {"fromCell" : [63,63,0], "uptoCell" : [63,63,0]}]
+                    {"fromCell" : [63,5,0], "uptoCell" : [63,5,0]},
+                    {"fromCell" : [63,15,0], "uptoCell" : [63,15,0]},
+                    {"fromCell" : [63,31,0], "uptoCell" : [63,31,0]}]
     }
 }

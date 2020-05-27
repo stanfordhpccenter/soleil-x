@@ -2276,12 +2276,6 @@ do
   var config_sigmaMax = config.BC.yBCLeft.u.Wall.EnergyBC.u.StochasticHeatFlux.sigmaMax
   var rngState : C.drand48_data
   C.srand48_r(C.legion_get_current_time_in_nanos(), &rngState)
-  -- var diff = region(ispace(int1d, {config_numUncertainties}), double)
-  -- var sigma = region(ispace(int1d, {config_numUncertainties}), double)
-  -- var mu = region(ispace(int1d, {config_numUncertainties}), double)
-  -- var diff : double[config_numUncertainties]
-  -- var sigma : double[config_numUncertainties]
-  -- var mu : double[config_numUncertainties]
   var diff : double[10]
   var sigma : double[10]
   var mu : double[10]
