@@ -1565,6 +1565,7 @@ do
   var xSize = hi.x-lo.x+1
   var ySize = hi.y-lo.y+1
   var zSize = hi.z-lo.z+1
+  var numCellsInTile = xSize*ySize*zSize
   var numTiles = config.Mapping.tiles[0]*config.Mapping.tiles[1]*config.Mapping.tiles[2]
   var particlesPerTile = config.Particles.initNum / config.Particles.parcelSize / numTiles
   var Particles_density = config.Particles.density
@@ -1576,6 +1577,9 @@ do
     if relIdx < particlesPerTile then
       Particles[p].__valid = true
       var c = lo + int3d{relIdx%xSize, relIdx/xSize%ySize, relIdx/xSize/ySize%zSize}
+      if particlesPerTile < numCellsInTile then
+        c = lo + int3d{int(relIdx*(numCellsInTile/particlesPerTile))%xSize, int(relIdx*(numCellsInTile/particlesPerTile))/xSize%ySize, int(relIdx*(numCellsInTile/particlesPerTile))/xSize/ySize%zSize}
+      end
       Particles[p].cell = c
       Particles[p].position = Fluid[c].centerCoordinates
       Particles[p].velocity = Fluid[c].velocity

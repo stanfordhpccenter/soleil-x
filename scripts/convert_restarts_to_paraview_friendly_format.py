@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 import shutil
 import sys
@@ -10,7 +12,7 @@ import glob
 ################################################################################
 parser = argparse.ArgumentParser()
 parser.add_argument('--basedir', nargs='?', const='.', default='.',
-                    help='directory that contains the samples')
+                    help='directory that contains the sample directories. basedir usually has subdirectories: sample0, sample1, ...')
 parser.add_argument('--outdir', nargs='?', const='default', default='default',
                     help='directory where output is written')
 parser.add_argument('-v', '--verbose',
@@ -73,7 +75,7 @@ if not os.path.isfile(merge_data_script):
   print('file: {} does not exist'.format(merge_data_script))
   sys.exit()
 
-viz_script = os.path.expandvars('$SOLEIL_DIR/scripts/convert_output_for_viz.py')
+viz_script = os.path.expandvars('$SOLEIL_DIR/scripts/viz_sample.py')
 if not os.path.isfile(viz_script):
   print('################################################################################')
   print('#                                 ERROR                                        #')
@@ -82,11 +84,40 @@ if not os.path.isfile(viz_script):
   sys.exit()
 
 ################################################################################
+# Get list of sample direcories
+################################################################################
+sample_dirs = [os.path.join(base_dir,directory) for directory in os.listdir(base_dir) if 'sample' in directory]
+sample_dirs.sort()
+
+if not sample_dirs:
+  print('################################################################################')
+  print('#                                 ERROR                                        #')
+  print('################################################################################')
+  print('Input base directory ( {} ) did not contain any sample directories. This script looks in the input base directory for sub-directores with the substring "sample" in the name. None were found.'.format(base_dir))
+  print('This script assumes a input base directory format of:')
+  print('input_base_dir')
+  print('|-- sample0')
+  print('|-- sample1')
+  print('|--   .')
+  print('|--   .')
+  print('|--   .')
+  print('|-- sampleN')
+  sys.exit()
+
+if args.verbose:
+  print('##############################################################################')
+  print('#                Find sample directories in input base directory             #')
+  print('##############################################################################')
+  print('Found sample directories:')
+  [print(sample_dir) for sample_dir in sample_dirs]
+  print('')
+
+################################################################################
 #                        Create Directory for Output                           #
 ################################################################################
 if args.verbose:
   print('##############################################################################')
-  print('#                Set up directory for visualization ready data files         #')
+  print('#                Make directory for output paraview friendly output          #')
   print('##############################################################################')
 
 if args.debug:
@@ -109,17 +140,6 @@ else:
     print('')
     sys.exit()
 print('')
-
-
-################################################################################
-# Get list of sample direcories
-################################################################################
-sample_dirs = [os.path.join(base_dir,directory) for directory in os.listdir(base_dir) if 'sample' in directory]
-sample_dirs.sort()
-if args.verbose:
-  print('Found sample directories:')
-  [print(sample_dir) for sample_dir in sample_dirs]
-  print('')
 
 ################################################################################
 # Process data in sample directories
@@ -162,6 +182,9 @@ for sample_dir in sample_dirs:
   # Merge the data into one hdf5 file if needed
   if merge_data == True:
     if args.verbose:
+      print('################################################################################')
+      print('#                               Merge Data                                     #')
+      print('################################################################################')
       print('merging data in sample dir: {}'.format(sample_dir))
 
     sample_dir_merged_data = os.path.join(sample_dir,'merged_data')
@@ -172,11 +195,12 @@ for sample_dir in sample_dirs:
     if args.debug:
       print('Would run command:')
       print(command)
+      print('')
     else:
       try:
-        subprocess.check_output(command, shell=True)
-        print('Running command:')
-        print('{}'.format(command))
+        output=subprocess.check_output(command, shell=True)
+        #print('Running command:')
+        #print('{}'.format(command))
       except subprocess.CalledProcessError as e:
         print('Failed command with output:')
         print('{}'.format(command))
@@ -185,27 +209,36 @@ for sample_dir in sample_dirs:
       else:
         print('Successfully ran command:')
         print('{}'.format(command))
-    print('')
+        print('')
+        print('With output:')
+        print(output.decode('utf-8'))
+        print('')
 
     # Change input dir for viz script to point to merged data
     sample_dir_to_viz = sample_dir_merged_data 
 
   # Convert the hdf5 files to a more paraview friendly format
   if args.verbose:
+    print('################################################################################')
+    print('#                               Convert Data                                   #')
+    print('################################################################################')
     print('converting data in sample dir: {}'.format(sample_dir))
   # Convert data to output
   command = 'python {} --sampledir {} --outdir {}'.format(
                                                    viz_script,
                                                    sample_dir_to_viz,
                                                    out_dir)
+  if args.verbose:
+    command = command + ' --verbose'
   if args.debug:
     print('Would run command:')
     print(command)
+    print('')
   else:
     try:
-      subprocess.check_output(command, shell=True)
-      print('Running command:')
-      print('{}'.format(command))
+      output=subprocess.check_output(command, shell=True)
+      #print('Running command:')
+      #print('{}'.format(command))
     except subprocess.CalledProcessError as e:
       print('Failed command with output:')
       print('{}'.format(command))
@@ -214,4 +247,7 @@ for sample_dir in sample_dirs:
     else:
       print('Successfully ran command:')
       print('{}'.format(command))
-  print('')
+      print('')
+      print('With output:')
+      print(output.decode('utf-8'))
+      print('')
