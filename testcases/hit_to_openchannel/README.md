@@ -35,6 +35,7 @@ Perform HF runs (must be split into multiple jobs):
 ```
 cd hf
 mkdir -p "$SCRATCH"/hf/aggr
+../make_cases.sh ../uncertainties_32.dat base.json # creates files hf/case{0..31}.json
 ../chain_jobs.py "$SCRATCH"/hf case{0..31}.json 150000
 # follow the printed instructions to launch all jobs (assuming 16 jobs in this example)
 # wait for runs to finish
@@ -46,8 +47,8 @@ for I in {0..31}; do ../merge_files.sh "$SCRATCH"/hf/job{0..15}/sample$((2*I+1))
 Perform LF runs (short enough to fit in one job):
 
 ```
-cd "$LEVEL"
-../make_cases.sh ../uncertainties_32.dat base.json # creates files "$LEVEL"/case{0..31}.json
+cd lf"$I"
+../make_cases.sh ../uncertainties_32.dat base.json # creates files "lf$I"/case{0..31}.json
 RANKS_PER_NODE=4 "$SOLEIL_DIR"/src/soleil.sh $(echo -m\ case{0..31}.json)
 # wait for runs to finish
 RUNTIME=1 AVERAGE=1 ../job_status.sh . # time averages printed to csv file
@@ -56,9 +57,9 @@ RUNTIME=1 AVERAGE=1 ../job_status.sh . # time averages printed to csv file
 Instructions (other machines)
 =============================
 
-The same scripts should work on other machines, but you may need to edit (at least) the following:
+The same scripts should work on other machines, but you need to edit (at least) the following:
 
 * set `RANKS_PER_NODE` to the number of GPUs per node
 * supply an appropriate value for `iters_per_job` to `chain_jobs.py`
-* set `wallTime` in the base HF configuration file according to the cluster's job time limit
-* set `tiles` and `collocateSections` in the base HF configuration file according to the node's memory limit
+* set `wallTime` in the base HF configuration according to the cluster's job time limit
+* set `tiles` and `collocateSections` in the base HF configuration according to the GPU memory limits
