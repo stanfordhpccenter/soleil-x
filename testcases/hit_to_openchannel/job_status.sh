@@ -32,7 +32,7 @@ for ARG in "$@"; do
         if [[ "$RUNTIME" == 1 ]]; then
             T="$("$SCRIPT_DIR"/average_runtime.py "$OUT_DIR"/sample*/console.txt)"
             echo -n ", runtime: $T s"
-	fi
+        fi
     }
     function average() {
         if [[ "$AVERAGE" == 1 ]]; then
@@ -91,7 +91,7 @@ for ARG in "$@"; do
         echo "cannot open jobfile"
     elif grep -q Successfully "$JOBOUT"; then
         echo -n "done"
-	runtime
+        runtime
         average
         count_failures
         echo
