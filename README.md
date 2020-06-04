@@ -1,3 +1,20 @@
+Soleil-X is a turbulence/particle/radiation solver written in the Regent language for execution with the Legion runtime.
+
+Contents
+========
+
+* `scripts/`: various scripts (pre/post-processing, visualization, special builds, etc.)
+* `testcases/`: various case configurations
+  * `suite/`: simple regression test suite
+  * `ws-*/`: inputs for weak scaling runs
+  * `hit_to_openchannel/`: LF model search experiment (see `README.md` in that directory)
+* `src/`:
+  * `LMquads/`: quadrature files, used by the DOM solver
+  * `blacklist/`: node blacklist files, read by the run scripts
+  * `*.lua`, `*.rg`, `*.cc`, `*.c`, `*.h`: sources
+  * `Makefile`, `desugar.py`, `process_schema.rg`: build scripts
+  * `*.sh`, `*.py`, `*.slurm`, `*.lsf`, `*.pbs`: run scripts
+
 Setup (generic)
 ===============
 

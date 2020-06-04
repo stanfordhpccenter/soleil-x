@@ -5,6 +5,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 COUNT_FAILURES="${COUNT_FAILURES:-0}"
 AVERAGE="${AVERAGE:-0}"
 RESTART="${RESTART:-0}"
+RUNTIME="${RUNTIME:-0}"
 
 for ARG in "$@"; do
     # For directories, find the latest jobout
@@ -27,6 +28,12 @@ for ARG in "$@"; do
     OUT_DIR="$( head -n 1 "$JOBOUT" | awk '{print $4'} )"
 
     # Possible actions
+    function runtime() {
+        if [[ "$RUNTIME" == 1 ]]; then
+            T="$("$SCRIPT_DIR"/average_runtime.py "$OUT_DIR"/sample*/console.txt)"
+            echo -n ", runtime: $T s"
+	fi
+    }
     function average() {
         if [[ "$AVERAGE" == 1 ]]; then
             echo -n ", averaging"
@@ -84,6 +91,7 @@ for ARG in "$@"; do
         echo "cannot open jobfile"
     elif grep -q Successfully "$JOBOUT"; then
         echo -n "done"
+	runtime
         average
         count_failures
         echo
