@@ -7,7 +7,7 @@ Contents
 * `testcases/`: various case configurations
   * `suite/`: simple regression test suite
   * `ws-*/`: inputs for weak scaling runs
-  * `hit_to_openchannel/`: LF model search experiment (see `README.md` in that directory)
+  * `hit_to_openchannel/`: scripts, input and output from the automated low-fidelity model selection case study performed on Lassen in early 2019 (see `README.md` in that directory for a description of the experiment, and instructions to reproduce)
 * `src/`:
   * `LMquads/`: quadrature files, used by the DOM solver
   * `blacklist/`: node blacklist files, read by the run scripts
