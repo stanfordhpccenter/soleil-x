@@ -46,14 +46,14 @@ This study was performed on the Lassen supercomputer. At the time of the study, 
 
 * CPUs: 44 IBM Power9 3.5GHz cores per node
 * GPUs: 4 NVIDIA Tesla V100 GPUs per node
-* CPU memory:: 256GB per node
+* CPU memory: 256GB per node
 * GPU memory: 64GB per node
 * Interconnect: EDR InfiniBand
 * Operating system: RHEL
 
 Each sample was ran on a dedicated GPU.
 
-For this study, Soleil-X was built and run using the following software:
+For this study, Soleil-X was built and run using the following software versions:
 
 * GCC 7.3.1
 * LLVM 3.8
