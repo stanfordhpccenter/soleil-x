@@ -5598,6 +5598,28 @@ do
   return acc
 end
 
+-- Delete the particles in the plane of the NSCBC outflow planes.
+__demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
+task Particles_DeleteEscapingParticles_NSCBC_Outflow(Particles : region(ispace(int1d), Particles_columns),
+                                                     x_max     : double)
+where
+  reads(Particles.position),
+  reads writes(Particles.__valid)
+do
+  var acc = int64(0)
+  __demand(__openmp)
+  for p in Particles do
+    if Particles[p].__valid then
+      var pos = Particles[p].position
+      if pos[0] > x_max then
+        Particles[p].__valid = false
+        acc += (-1)
+      end
+    end
+  end
+  return acc
+end
+
 -------------------------------------------------------------------------------
 -- MAIN SIMULATION
 -------------------------------------------------------------------------------
@@ -6774,6 +6796,12 @@ local function mkInstance(config) local INSTANCE = {}
                                               Grid.xRealOrigin, Grid.xRealMax,
                                               Grid.yRealOrigin, Grid.yRealMax,
                                               Grid.zRealOrigin, Grid.zRealMax)
+        end
+
+        for c in tiles do
+          Particles_number +=
+            Particles_DeleteEscapingParticles_NSCBC_Outflow(p_Particles[c],
+                                                            config.Grid.xWidth)
         end
 
         -- Move particles to new partitions
