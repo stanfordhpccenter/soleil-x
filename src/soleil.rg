@@ -1832,9 +1832,9 @@ end
 __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task Radiation_InitializeGeometry(Radiation : region(ispace(int3d), Radiation_columns),
                                   Fluid     : region(ispace(int3d), Fluid_columns),
-                                  Grid_xNum : int32,
-                                  Grid_yNum : int32,
-                                  Grid_zNum : int32,
+                                  Grid_xBnum : int32, Grid_xNum : int32,
+                                  Grid_yBnum : int32, Grid_yNum : int32,
+                                  Grid_zBnum : int32, Grid_zNum : int32,
                                   Radiation_xNum : int32,
                                   Radiation_yNum : int32,
                                   Radiation_zNum : int32)
@@ -1851,12 +1851,12 @@ do
   for rad_cell in Radiation do
     var rad_index = int3d(rad_cell)
 
-    var fluid_index_x_neg = (rad_index.x  )*xFactor
-    var fluid_index_x_pos = (rad_index.x+1)*xFactor - 1
-    var fluid_index_y_neg = (rad_index.y  )*yFactor
-    var fluid_index_y_pos = (rad_index.y+1)*yFactor - 1
-    var fluid_index_z_neg = (rad_index.z  )*zFactor
-    var fluid_index_z_pos = (rad_index.z+1)*zFactor - 1
+    var fluid_index_x_neg = (rad_index.x  )*xFactor + Grid_xBnum
+    var fluid_index_x_pos = (rad_index.x+1)*xFactor - 1 + Grid_xBnum
+    var fluid_index_y_neg = (rad_index.y  )*yFactor + Grid_yBnum
+    var fluid_index_y_pos = (rad_index.y+1)*yFactor - 1 + Grid_yBnum
+    var fluid_index_z_neg = (rad_index.z  )*zFactor + Grid_yBnum
+    var fluid_index_z_pos = (rad_index.z+1)*zFactor - 1 + Grid_yBnum
     var fluid_index_neg = int3d({fluid_index_x_neg, fluid_index_y_neg, fluid_index_z_neg})
     var fluid_index_pos = int3d({fluid_index_x_pos, fluid_index_y_pos, fluid_index_z_pos})
 
@@ -6326,9 +6326,9 @@ local function mkInstance(config) local INSTANCE = {}
       for c in tiles do
         Radiation_InitializeGeometry(p_Radiation[c],
                                      p_Fluid[c],
-                                     config.Grid.xNum,
-                                     config.Grid.yNum,
-                                     config.Grid.zNum,
+                                     Grid.xBnum, config.Grid.xNum,
+                                     Grid.yBnum, config.Grid.yNum,
+                                     Grid.zBnum, config.Grid.zNum,
                                      config.Radiation.u.DOM.xNum,
                                      config.Radiation.u.DOM.yNum,
                                      config.Radiation.u.DOM.zNum)
@@ -6798,11 +6798,11 @@ local function mkInstance(config) local INSTANCE = {}
                                               Grid.zRealOrigin, Grid.zRealMax)
         end
 
-        for c in tiles do
-          Particles_number +=
-            Particles_DeleteEscapingParticles_NSCBC_Outflow(p_Particles[c],
-                                                            config.Grid.xWidth)
-        end
+        --for c in tiles do
+        --  Particles_number +=
+        --    Particles_DeleteEscapingParticles_NSCBC_Outflow(p_Particles[c],
+        --                                                    config.Grid.xWidth)
+        --end
 
         -- Move particles to new partitions
         for c in tiles do
