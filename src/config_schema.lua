@@ -52,6 +52,7 @@ Exports.InflowVelocityProfile = Union{
   },
   Incoming = {
     addedVelocity = double,
+    initialVelocity = Array(3,double),
   },
 }
 
@@ -59,7 +60,9 @@ Exports.InflowTemperatureProfile = Union{
   Constant = {
     temperature = double,
   },
-  Incoming = {},
+  Incoming = {
+    initialTemperature = double,
+  },
 }
 
 Exports.FlowBC = Union{

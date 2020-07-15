@@ -2135,13 +2135,15 @@ do
   var BC_xBCLeft_type  = config.BC.xBCLeft.type 
   var BC_xBCRight_type = config.BC.xBCRight.type 
   -- Inflow velocity values
-  var BC_xBCLeftInflowVelocityProfile_type                   = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.VelocityProfile.type
-  var BC_xBCLeftInflowVelocityProfile_Constant_velocity      = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.VelocityProfile.u.Constant.velocity
-  var BC_xBCLeftInflowVelocityProfile_Duct_meanVelocity      = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.VelocityProfile.u.Duct.meanVelocity
-  var BC_xBCLeftInflowVelocityProfile_Incoming_addedVelocity = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.VelocityProfile.u.Incoming.addedVelocity
+  var BC_xBCLeftInflowVelocityProfile_type                     = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.VelocityProfile.type
+  var BC_xBCLeftInflowVelocityProfile_Constant_velocity        = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.VelocityProfile.u.Constant.velocity
+  var BC_xBCLeftInflowVelocityProfile_Duct_meanVelocity        = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.VelocityProfile.u.Duct.meanVelocity
+  var BC_xBCLeftInflowVelocityProfile_Incoming_addedVelocity   = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.VelocityProfile.u.Incoming.addedVelocity
+  var BC_xBCLeftInflowVelocityProfile_Incoming_initialVelocity = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.VelocityProfile.u.Incoming.initialVelocity
   -- Inflow temperature values
   var BC_xBCLeftTemperatureProfile_type                 = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.TemperatureProfile.type
   var BC_xBCLeftTemperatureProfile_Constant_temperature = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.TemperatureProfile.u.Constant.temperature
+  var BC_xBCLeftTemperatureProfile_Incoming_initialTemperature = config.BC.xBCLeft.u.NSCBC_SubsonicInflow.TemperatureProfile.u.Incoming.initialTemperature
   -- Fluid Properties
   var Flow_gasConstant = config.Flow.gasConstant
   var Flow_constantVisc = config.Flow.viscosityModel.u.Constant.viscosity
@@ -2208,15 +2210,24 @@ do
         var n = -1.7 + 1.8*log(Re)
         velocity[0] = meanVelocity*pow((d/d_max), (1.0/n))
       else -- BC_xBCLeftInflowVelocityProfile_type == SCHEMA.InflowProfile_Incoming
-        -- This value will be overwritten by the incoming fluid, so just set
-        -- it to something reasonable.
-        velocity = Fluid[c_int].velocity
-        -- HACK: The inflow boundary code later overrides the velocity field
-        -- based on the incoming values, so we set a fake incoming value, that
-        -- would have produced the fake velocity setting above.
+        ---- This value will be overwritten by the incoming fluid, so just set
+        ---- it to something reasonable.
+        --velocity = Fluid[c_int].velocity
+        ---- HACK: The inflow boundary code later overrides the velocity field
+        ---- based on the incoming values, so we set a fake incoming value, that
+        ---- would have produced the fake velocity setting above.
+        --var velocity_inc = velocity
+        --velocity_inc[0] += -BC_xBCLeftInflowVelocityProfile_Incoming_addedVelocity
+        --Fluid[c_bnd].velocity_inc = velocity_inc
+
+        --velocity = BC_xBCLeftInflowVelocityProfile_Incoming_initialVelocity 
+        --Fluid[c_bnd].velocity_inc = BC_xBCLeftInflowVelocityProfile_Incoming_initialVelocity 
+
+        velocity = BC_xBCLeftInflowVelocityProfile_Incoming_initialVelocity 
         var velocity_inc = velocity
         velocity_inc[0] += -BC_xBCLeftInflowVelocityProfile_Incoming_addedVelocity
         Fluid[c_bnd].velocity_inc = velocity_inc
+
       end
       Fluid[c_bnd].velocity = velocity
 
@@ -2231,14 +2242,19 @@ do
       -- elseif BC_xBCLeftHeat_type == SCHEMA.TempProfile_Parabola then
       --   regentlib.assert(false, 'Parabola heat model not supported')
       else -- BC_xBCLeftHeat_type == SCHEMA.TempProfile_Incoming
-        -- This value will be overwritten by the incoming fluid, so just set
-        -- it to something reasonable.
-        Fluid[c_bnd].pressure = Fluid[c_int].pressure
-        -- Use equation of state to find temperature of cell
-        temperature = (Fluid[c_bnd].pressure/(Flow_gasConstant*Fluid[c_bnd].rho))
-        -- HACK: The inflow boundary code later overrides the temperature field
-        -- based on the incoming values, so we set a fake incoming value, that
-        -- would have produced the fake pressure setting above.
+        ---- This value will be overwritten by the incoming fluid, so just set
+        ---- it to something reasonable.
+        --Fluid[c_bnd].pressure = Fluid[c_int].pressure
+        ---- Use equation of state to find temperature of cell
+        --temperature = (Fluid[c_bnd].pressure/(Flow_gasConstant*Fluid[c_bnd].rho))
+        ---- HACK: The inflow boundary code later overrides the temperature field
+        ---- based on the incoming values, so we set a fake incoming value, that
+        ---- would have produced the fake pressure setting above.
+        --Fluid[c_bnd].temperature_inc = temperature
+    
+        temperature = BC_xBCLeftTemperatureProfile_Incoming_initialTemperature
+        -- Use the specified temperature to find the correct pressure for current density from EOS
+        Fluid[c_bnd].pressure = temperature*Flow_gasConstant*Fluid[c_bnd].rho
         Fluid[c_bnd].temperature_inc = temperature
       end
 
