@@ -18,6 +18,9 @@ parser.add_argument('--outdir', nargs='?', const='default', default='default',
 parser.add_argument('-v', '--verbose',
                     action='store_true',
                     help='verbose output')
+parser.add_argument('--zip',
+                    action='store_true',
+                    help='create zip file')
 parser.add_argument('--debug',
                     action='store_true',
                     help='run in debug mode')
@@ -230,6 +233,40 @@ for sample_dir in sample_dirs:
                                                    out_dir)
   if args.verbose:
     command = command + ' --verbose'
+  if args.debug:
+    print('Would run command:')
+    print(command)
+    print('')
+  else:
+    try:
+      output=subprocess.check_output(command, shell=True)
+      #print('Running command:')
+      #print('{}'.format(command))
+    except subprocess.CalledProcessError as e:
+      print('Failed command with output:')
+      print('{}'.format(command))
+      print(e.output)
+      sys.exit()
+    else:
+      print('Successfully ran command:')
+      print('{}'.format(command))
+      print('')
+      print('With output:')
+      print(output.decode('utf-8'))
+      print('')
+
+
+if args.zip:
+  if args.verbose:
+    print('##############################################################################')
+    print('#                        Zip Visualization Ready Data                        #')
+    print('##############################################################################')
+
+  zip_filename = out_base_dir + '.tar.gz'
+  # Convert data to output
+  command = 'tar -czvf {} {}'.format(zip_filename,
+                                                  out_dir)
+
   if args.debug:
     print('Would run command:')
     print(command)
