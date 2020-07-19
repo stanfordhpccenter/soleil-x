@@ -8,6 +8,41 @@ import argparse
 import glob
 
 ################################################################################
+#                             Utility Functions                                #
+################################################################################
+def print_banner(message):
+  print(80*'#')
+  print('#{:^78s}#'.format(message))
+  print(80*'#')
+
+def print_error_message(message):
+  print_banner('ERROR')
+  print('{}'.format(message))
+
+def run_command(command):
+    if args.debug:
+      print('Would run command:')
+      print(command)
+      print('')
+    else:
+      try:
+        output=subprocess.check_output(command, shell=True)
+        #print('Running command:')
+        #print('{}'.format(command))
+      except subprocess.CalledProcessError as e:
+        print('Failed command with output:')
+        print('{}'.format(command))
+        print(e.output)
+        sys.exit()
+      else:
+        print('Successfully ran command:')
+        print('{}'.format(command))
+        print('')
+        print('With output:')
+        print(output.decode('utf-8'))
+        print('')
+
+################################################################################
 #                               Parse Input                                    #
 ################################################################################
 parser = argparse.ArgumentParser()
@@ -31,15 +66,12 @@ out_base_dir = args.outdir
 if args.outdir == 'default':
   out_base_dir = os.path.join(args.basedir,'viz_ready_data')
 
-# Turn pathnames into absolute paths
-# doing this because later os.walk() can have trouble with relative path names.
+# Turn pathnames into absolute paths. Doing this because later in this script os.walk() can have trouble with relative path names.
 base_dir = os.path.abspath(args.basedir)
 out_base_dir = os.path.abspath(out_base_dir)
 
 if args.verbose:
-  print('################################################################################')
-  print('#                              Input Summary                                   #')
-  print('################################################################################')
+  print_banner('Input Summary')
   print('input  base directory: {}'.format(base_dir))
   print('output base directory: {}'.format(out_base_dir))
   print('')
@@ -49,41 +81,25 @@ if args.verbose:
 ################################################################################
 
 if not os.path.exists(base_dir):
-  print('################################################################################')
-  print('#                                 ERROR                                        #')
-  print('################################################################################')
-  print('Error: the provided sample base directory {} does not exist'.format(base_dir))
+  print_error_message('Error: the provided sample base directory {} does not exist'.format(base_dir))
   sys.exit()
 
 if base_dir == out_base_dir:
-  print('################################################################################')
-  print('#                                 ERROR                                        #')
-  print('################################################################################')
-  print('Error: arguments basedir outdir cannot be the same')
+  print_error_message('Error: arguments basedir outdir cannot be the same')
   sys.exit()
 
 if 'SOLEIL_DIR' not in os.environ:
-  print('################################################################################')
-  print('#                                 ERROR                                        #')
-  print('################################################################################')
-  print('Environment variable SOLEIL_DIR not set')
-  print('This should point to the directory where you installed Soliel-X')
+  print_error_message('Error: Environment variable SOLEIL_DIR not set\n This should point to the directory where you installed Soliel-X')
   sys.exit()
 
 merge_data_script = os.path.expandvars('$SOLEIL_DIR/scripts/merge_data.py')
 if not os.path.isfile(merge_data_script):
-  print('################################################################################')
-  print('#                                 ERROR                                        #')
-  print('################################################################################')
-  print('file: {} does not exist'.format(merge_data_script))
+  print_error_message('file: {} does not exist'.format(merge_data_script))
   sys.exit()
 
 viz_script = os.path.expandvars('$SOLEIL_DIR/scripts/viz_sample.py')
 if not os.path.isfile(viz_script):
-  print('################################################################################')
-  print('#                                 ERROR                                        #')
-  print('################################################################################')
-  print('file: {} does not exist'.format())
+  print_error_message('file: {} does not exist'.format())
   sys.exit()
 
 ################################################################################
@@ -93,24 +109,19 @@ sample_dirs = [os.path.join(base_dir,directory) for directory in os.listdir(base
 sample_dirs.sort()
 
 if not sample_dirs:
-  print('################################################################################')
-  print('#                                 ERROR                                        #')
-  print('################################################################################')
-  print('Input base directory ( {} ) did not contain any sample directories. This script looks in the input base directory for sub-directores with the substring "sample" in the name. None were found.'.format(base_dir))
-  print('This script assumes a input base directory format of:')
-  print('input_base_dir')
-  print('|-- sample0')
-  print('|-- sample1')
-  print('|--   .')
-  print('|--   .')
-  print('|--   .')
-  print('|-- sampleN')
+  print_error_message("""Input base directory ( {} ) did not contain any sample directories. This script looks in the input base directory for sub-directores with the substring "sample" in the name. None were found.
+   This script assumes a input base directory format of:
+   input_base_dir
+   |-- sample0
+   |-- sample1
+   |--   .
+   |--   .
+   |--   .
+   |-- sampleN""".format(base_dir))
   sys.exit()
 
 if args.verbose:
-  print('##############################################################################')
-  print('#                Find sample directories in input base directory             #')
-  print('##############################################################################')
+  print_banner('Find sample directories in input base directory')
   print('Found sample directories:')
   [print(sample_dir) for sample_dir in sample_dirs]
   print('')
@@ -119,9 +130,7 @@ if args.verbose:
 #                        Create Directory for Output                           #
 ################################################################################
 if args.verbose:
-  print('##############################################################################')
-  print('#                Make directory for output paraview friendly output          #')
-  print('##############################################################################')
+  print_banner('Make directory for output paraview friendly output')
 
 if args.debug:
   print('Would create new directory for visualization ready data:')
@@ -133,14 +142,11 @@ else:
       print('Created new directory for visualization ready data:')
       print('{}'.format(out_base_dir))
   else:
-    print('################################################################################')
-    print('#                                 ERROR                                        #')
-    print('################################################################################')
-    print('Directory for visualization ready data already exists:')
-    print('{}'.format(out_base_dir))
-    print('I don\'t want to clobber whatever is there.')
-    print('Delete it and re-run and this script')
-    print('')
+    print_error_message("""Directory for visualization ready data already exists:
+    {}
+    I don\'t want to clobber whatever is there.
+    Delete it and re-run and this script""".format(out_base_dir))
+
     sys.exit()
 print('')
 
@@ -148,9 +154,7 @@ print('')
 # Process data in sample directories
 ################################################################################
 if args.verbose:
-  print('##############################################################################')
-  print('#                             Process Data                                   #')
-  print('##############################################################################')
+  print_banner('Process Data')
 
 for sample_dir in sample_dirs:
 
@@ -185,9 +189,7 @@ for sample_dir in sample_dirs:
   # Merge the data into one hdf5 file if needed
   if merge_data == True:
     if args.verbose:
-      print('################################################################################')
-      print('#                               Merge Data                                     #')
-      print('################################################################################')
+      print_banner('Merge Data')
       print('merging data in sample dir: {}'.format(sample_dir))
 
     sample_dir_merged_data = os.path.join(sample_dir,'merged_data')
@@ -195,36 +197,14 @@ for sample_dir in sample_dirs:
                                                      merge_data_script,
                                                      sample_dir,
                                                      sample_dir_merged_data)
-    if args.debug:
-      print('Would run command:')
-      print(command)
-      print('')
-    else:
-      try:
-        output=subprocess.check_output(command, shell=True)
-        #print('Running command:')
-        #print('{}'.format(command))
-      except subprocess.CalledProcessError as e:
-        print('Failed command with output:')
-        print('{}'.format(command))
-        print(e.output)
-        sys.exit()
-      else:
-        print('Successfully ran command:')
-        print('{}'.format(command))
-        print('')
-        print('With output:')
-        print(output.decode('utf-8'))
-        print('')
+    run_command(command)
 
     # Change input dir for viz script to point to merged data
     sample_dir_to_viz = sample_dir_merged_data 
 
   # Convert the hdf5 files to a more paraview friendly format
   if args.verbose:
-    print('################################################################################')
-    print('#                               Convert Data                                   #')
-    print('################################################################################')
+    print_banner('Convert Data')
     print('converting data in sample dir: {}'.format(sample_dir))
   # Convert data to output
   command = 'python {} --sampledir {} --outdir {}'.format(
@@ -233,58 +213,16 @@ for sample_dir in sample_dirs:
                                                    out_dir)
   if args.verbose:
     command = command + ' --verbose'
-  if args.debug:
-    print('Would run command:')
-    print(command)
-    print('')
-  else:
-    try:
-      output=subprocess.check_output(command, shell=True)
-      #print('Running command:')
-      #print('{}'.format(command))
-    except subprocess.CalledProcessError as e:
-      print('Failed command with output:')
-      print('{}'.format(command))
-      print(e.output)
-      sys.exit()
-    else:
-      print('Successfully ran command:')
-      print('{}'.format(command))
-      print('')
-      print('With output:')
-      print(output.decode('utf-8'))
-      print('')
 
+  run_command(command)
 
 if args.zip:
   if args.verbose:
-    print('##############################################################################')
-    print('#                        Zip Visualization Ready Data                        #')
-    print('##############################################################################')
+    print_banner('Zip Visualization Ready Data')
 
   zip_filename = out_base_dir + '.tar.gz'
   # Convert data to output
   command = 'tar -czvf {} {}'.format(zip_filename,
-                                                  out_dir)
+                                     out_base_dir)
 
-  if args.debug:
-    print('Would run command:')
-    print(command)
-    print('')
-  else:
-    try:
-      output=subprocess.check_output(command, shell=True)
-      #print('Running command:')
-      #print('{}'.format(command))
-    except subprocess.CalledProcessError as e:
-      print('Failed command with output:')
-      print('{}'.format(command))
-      print(e.output)
-      sys.exit()
-    else:
-      print('Successfully ran command:')
-      print('{}'.format(command))
-      print('')
-      print('With output:')
-      print(output.decode('utf-8'))
-      print('')
+  run_command(command)
