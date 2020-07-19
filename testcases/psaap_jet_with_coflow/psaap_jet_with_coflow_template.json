@@ -1,0 +1,245 @@
+{
+    "configs" : [{
+        "Mapping" : {
+            "tiles" : [4,1,1],
+            "tilesPerRank" : [4,1,1],
+            "sampleId" : -1,
+            "outDir" : "",
+            "wallTime" : 720
+        },
+
+        "Grid" : {
+            "xNum" : "TBD",
+            "yNum" : "TBD",
+            "zNum" : "TBD",
+            "origin" : [0.0, 0.0, 0.0],
+            "xWidth" : "TBD",
+            "yWidth" : "TBD",
+            "zWidth" : "TBD",
+            "xType" : "Uniform",
+            "yType" : "Uniform",
+            "zType" : "Uniform"
+        },
+
+        "BC" : {
+            "xBCLeft"  : {"type" : "Periodic"},
+            "xBCRight" : {"type" : "Periodic"},
+            "yBCLeft"  : {"type" : "Periodic"},
+            "yBCRight" : {"type" : "Periodic"},
+            "zBCLeft"  : {"type" : "Periodic"},
+            "zBCRight" : {"type" : "Periodic"}
+        },
+
+        "Integrator" : {
+            "startIter" : 0,
+            "startTime" : 0.0,
+            "maxIter" : "TBD",
+            "cfl" : -1.0,
+            "fixedDeltaTime" : "TBD",
+            "rkOrder" : 4
+        },
+
+        "Flow" : {
+            "gasConstant" : "TBD",
+            "gamma" : "TBD",
+            "prandtl" : "TBD",
+            "viscosityModel" : {"type" : "Constant",
+                                "viscosity" : "TBD"
+                               },
+            "initCase" : "Perturbed",
+            "restartDir" : "",
+            "initParams" : ["TBD", "TBD", "TBD", 0.0, 0.0, "TBD"],
+            "bodyForce" : ["TBD", 0.0, 0.0],
+            "turbForcing" : {
+                "type" : "HIT",
+                "meanVelocity" : ["TBD", 0.0, 0.0],
+                "G" : 67.0,
+                "t_o" : "TBD",
+                "K_o" : "TBD"
+            }
+        },
+
+        "Particles" : {
+            "initCase" : "Random",
+            "restartDir" : "",
+            "initNum" : "TBD",
+            "maxNum"  : "TBD",
+            "restitutionCoeff" : "TBD",
+            "convectiveCoeff" : "TBD",
+            "heatCapacity" : "TBD",
+            "initTemperature" : "TBD",
+            "density" : "TBD",
+            "diameterMean" : "TBD",
+            "bodyForce" : ["TBD", 0.0, 0.0],
+            "maxSkew" : "TBD",
+            "escapeRatioPerDir" : 0.01,
+            "collisions" : false,
+            "twoWayCoupled" : true,
+            "feeding" : { "type" : "OFF" },
+            "staggerFactor" : "TBD",
+            "parcelSize" : 1
+        },
+
+        "Radiation" : {
+            "type" : "OFF"
+        },
+
+        "IO" : {
+            "wrtRestart" : true,
+            "restartEveryTimeSteps" : "TBD",
+            "probes" : []
+        }
+    }, {
+        "Mapping" : {
+            "tiles" : ["TBD",1,1],
+            "tilesPerRank" : ["TBD",1,1],
+            "sampleId" : -1,
+            "outDir" : "",
+            "wallTime" : 720
+        },
+
+        "Grid" : {
+            "xNum" : "TBD",
+            "yNum" : "TBD",
+            "zNum" : "TBD",
+            "origin" : [0.0, 0.0, 0.0],
+            "xWidth" : "TBD",
+            "yWidth" : "TBD",
+            "zWidth" : "TBD",
+            "xType" : "Uniform",
+            "yType" : "Uniform",
+            "zType" : "Uniform"
+        },
+
+
+        "BC" : {
+            "xBCLeft" :  {"type"               : "NSCBC_SubsonicInflow",
+                          "VelocityProfile"    : {"type" : "Incoming",
+                                                  "initialVelocity" : ["TBD", 0.0, 0.0],
+                                                  "addedVelocity" : 0.0
+                                                 },
+                          "TemperatureProfile" : {"type" : "Incoming",
+                                                  "initialTemperature" : "TBD"
+                                                 }
+                         },
+            "xBCRight" : {"type"  : "NSCBC_SubsonicOutflow",
+                          "P_inf" :  "TBD"
+                         },
+            "yBCLeft"  : {"type" : "Wall",
+                          "Velocity" : ["TBD", 0.0, 0.0],
+                          "EnergyBC" : {"type" : "ConstantHeatFlux",
+                                        "heatFlux" : 0.0}
+                         },
+            "yBCRight" : {"type" : "Wall",
+                          "Velocity" : ["TBD", 0.0, 0.0],
+                          "EnergyBC" : {"type" : "ConstantHeatFlux",
+                                        "heatFlux" : 0.0}
+                         },
+            "zBCLeft"  : {"type" : "Wall",
+                          "Velocity" : ["TBD", 0.0, 0.0],
+                          "EnergyBC" : {"type" : "ConstantHeatFlux",
+                                        "heatFlux" : 0.0}
+                         },
+            "zBCRight" : {"type" : "Wall",
+                          "Velocity" : ["TBD", 0.0, 0.0],
+                          "EnergyBC" : {"type" : "ConstantHeatFlux",
+                                        "heatFlux" : 0.0}
+                         }
+        },
+
+        "Integrator" : {
+            "startIter" : 0,
+            "startTime" : 0.0,
+            "maxIter" : "TBD",
+            "cfl" : -1.0,
+            "fixedDeltaTime" : "TBD",
+            "rkOrder" : 4
+        },
+
+        "Flow" : {
+            "gasConstant" : "TBD",
+            "gamma" : "TBD",
+            "prandtl" : "TBD",
+            "viscosityModel" : {"type" : "Constant",
+                                "viscosity" : "TBD"
+                               },
+            "initCase" : "Perturbed",
+            "restartDir" : "",
+            "initParams" : ["TBD", "TBD", "TBD", 0.0, 0.0, "TBD"],
+            "bodyForce" : ["TBD", 0.0, 0.0],
+            "turbForcing" : {"type" : "OFF"}
+        },
+
+        "Particles" : {
+            "initCase" : "Uniform",
+            "restartDir" : "",
+            "initNum" : "TBD",
+            "maxNum"  : "TBD",
+            "restitutionCoeff" : 1.0,
+            "convectiveCoeff" : "TBD",
+            "heatCapacity" : "TBD",
+            "initTemperature" : "TBD",
+            "density" : "TBD",
+            "diameterMean" : "TBD",
+            "bodyForce" : ["TBD", 0.0, 0.0],
+            "maxSkew" : "TBD",
+            "escapeRatioPerDir" : 0.01,
+            "collisions" : false,
+            "twoWayCoupled" : true,
+            "feeding" : { "type" : "Incoming",
+                          "addedVelocity" : [0.0,0.0,0.0]},
+            "staggerFactor" : "TBD",
+            "parcelSize" : 1
+        },
+
+        "Radiation" : {
+            "type" : "DOM",
+            "qa" : "TBD",
+            "qs" : "TBD",
+            "xNum" : "TBD",
+            "yNum" : "TBD",
+            "zNum" : "TBD",
+            "angles" : "TBD",
+            "xHiEmiss" : 1.0,
+            "xLoEmiss" : 1.0,
+            "yHiEmiss" : 1.0,
+            "yLoEmiss" : 1.0,
+            "zHiEmiss" : 1.0,
+            "zLoEmiss" : 1.0,
+            "xHiTemp" : 0.0,
+            "xLoTemp" : 0.0,
+            "yHiTemp" : 0.0,
+            "yLoTemp" : 0.0,
+            "zHiTemp" : 0.0,
+            "zLoTemp" : 0.0,
+            "xHiIntensity" : 0.0,
+            "xLoIntensity" : 0.0,
+            "yHiIntensity" : 0.0,
+            "yLoIntensity" : "TBD",
+            "zHiIntensity" : 0.0,
+            "zLoIntensity" : 0.0,
+            "xHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+            "xLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+            "yHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+            "yLoWindow" : { "fromCell" : [0,0],   "uptoCell" : [9999,9999] },
+            "zHiWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] },
+            "zLoWindow" : { "fromCell" : [-1,-1], "uptoCell" : [-1,-1] }
+        },
+
+        "IO" : {
+            "wrtRestart" : true,
+            "restartEveryTimeSteps" : "TBD",
+            "probes" : [{"fromCell" : ["TBD",0,0], "uptoCell" : ["TBD","TBD","TBD"]}]
+        }
+    }],
+    "copySrc" : {
+        "fromCell" : [0,0,0],
+        "uptoCell" : [0,"TBD","TBD"]
+    },
+    "copyTgt" : {
+        "fromCell" : [0,0,0],
+        "uptoCell" : [0,"TBD","TBD"]
+    },
+    "collocateSections" : true,
+    "copyEveryTimeSteps" : "TBD"
+}
