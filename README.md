@@ -104,7 +104,7 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=0 USE_OPENMP=1 USE_GASNET=0 USE_HDF=1 scripts/setup_env.py --llvm-version 35
+USE_CUDA=0 USE_OPENMP=1 USE_GASNET=0 USE_HDF=1 scripts/setup_env.py --llvm-version 38
 ```
 
 ### Compile Soleil-X
@@ -149,7 +149,7 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 35
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38
 ```
 
 ### Compile Soleil-X
