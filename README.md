@@ -370,10 +370,8 @@ Setup (PizDaint @ ETH)
 ```
 # Module loads
 module swap PrgEnv-cray PrgEnv-gnu
-module unload gcc/8.3.0
-module load gcc/7.3.0 # Terra doesn't currently compile with gcc 8
 module load daint-gpu
-module load cudatoolkit/10.1.105_3.27-7.0.1.1_4.1__ga311ce7
+module load cudatoolkit
 # Build config
 export CC=cc
 export CXX=CC
@@ -400,7 +398,7 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ```
 cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 60
 ```
 
 ### Compile Soleil-X
