@@ -11,6 +11,10 @@ from matplotlib.patches import Rectangle
 # --------------------------------------------------------------------------- #
 #                                 User Input                                   #
 # --------------------------------------------------------------------------- #
+# list of things to save
+scalar_data_to_save = ['rho','pressure','temperature']
+vector_data_to_save = ['velocity']
+
 # list of things to plot
 #scalar_data_to_plot = ['rho','pressure','temperature']
 scalar_data_to_plot = ['temperature']
@@ -88,16 +92,16 @@ if args.verbose:
   print('output file: {}'.format(output_file))
   print('')
 
-################################################################################
-#                              Error Checking                                  #
-################################################################################
+# --------------------------------------------------------------------------- #
+#                              Error Checking                                 #
+# --------------------------------------------------------------------------- #
 if not os.path.exists(input_dir):
   print_error_message('Error: the provided input directory {} does not exist'.format(base_dir))
   sys.exit()
 
-################################################################################
+# --------------------------------------------------------------------------- #
 # Get list of fluid and particle data files in input directory
-################################################################################
+# --------------------------------------------------------------------------- #
 files_in_input_dir = [f for f in os.listdir(input_dir) if os.path.isfile(os.path.join(input_dir, f))]
 
 fluid_filenames = []
@@ -156,7 +160,27 @@ unit_labels = {'rho'         : r'$\left[\frac{kg}{m^3}\right]$',
 # Constant to convert meters to centimeters in the plots
 m_to_cm = np.power(10,2.0)
 
+
+# Open file where output will be written
+if args.debug:
+  print('Would create new file:')
+  print('{}'.format(output_file))
+else:
+  if not os.path.exists(output_file):
+    # hdf output filename
+    hdf_out = h5py.File(output_file, 'w')
+  else:
+    print_error_message("""Output file exists:
+    {}
+    I don\'t want to clobber whatever is there.
+    Delete it and re-run and this script""".format(output_file))
+
+    sys.exit()
+
 for filename in fluid_filenames:
+  # Get time step number from the file name
+  time_step = int(filename.lstrip('fluid').rstrip('.hdf'))
+
   # read fluid data file 
   f = h5py.File(os.path.join(input_dir,filename), 'r')
   
@@ -165,13 +189,8 @@ for filename in fluid_filenames:
   y_points = f['y_points']
   z_points = f['z_points']
   
-  # pack the data into a dictionary
-  data = {}
-  for data_name in scalar_data_to_plot + vector_data_to_plot:
-    data['{}'.format(data_name)] = f['{}'.format(data_name)]
-  
   # Get number of cells in each direction
-  [Nx, Ny, Nz] = np.shape(data[scalar_data_to_plot[0]])
+  [Nx, Ny, Nz] = np.shape(f[scalar_data_to_plot[0]])
   
   # Get length of domain in each direction
   Lx = (np.max(x_points) - np.min(x_points))
@@ -221,162 +240,155 @@ for filename in fluid_filenames:
     print('[Nx, Ny, Nz] = [{}, {}, {}]'.format(Nx, Ny, Nz))
     print('[Lx, Ly, Lz] = [{}, {}, {}]'.format(Lx, Ly, Lz))
 
-  if args.debug:
-    print('Would create new file:')
-    print('{}'.format(output_file))
-  else:
-    if not os.path.exists(output_file):
-      # hdf output filename
-      hdf_out = h5py.File(output_file, 'w')
-    else:
-      print_error_message("""Output file exists:
-      {}
-      I don\'t want to clobber whatever is there.
-      Delete it and re-run and this script""".format(output_file))
-  
-      sys.exit()
+  # Save data to an hdf output file
+  hdf_out.attrs['L_spanwise_average_window '] = L_spanwise_average_window 
+  hdf_out.attrs['duct_width'] = duct_width 
 
+  hdf_out.attrs['x_duct_start'] = x_duct_start   
+  hdf_out.attrs['x_duct_stop'] = x_duct_stop   
+  hdf_out.attrs['y_duct_start'] = y_duct_start  
+  hdf_out.attrs['y_duct_stop'] = y_duct_stop   
 
-  # Extract slices
-  for scalar_feild_name in scalar_data_to_plot: 
-    # Streamwise Midslice `
-    hdf_out['mid_x_slice_{}'.format(scalar_feild_name)] = f['{}'.format(scalar_feild_name)][x_mid_idx,:,:]
+  hdf_out.attrs['x_spanwise_average_start'] = x_spanwise_average_start
+  hdf_out.attrs['x_spanwise_average_stop'] = x_spanwise_average_stop 
+  hdf_out.attrs['y_spanwise_average_start'] = y_spanwise_average_start
+  hdf_out.attrs['y_spanwise_average_stop'] = y_spanwise_average_stop 
+
+  hdf_out.attrs['x_spanwise_average_start_idx'] = x_spanwise_average_start_idx
+  hdf_out.attrs['x_spanwise_average_stop_idx'] = x_spanwise_average_stop_idx 
+  hdf_out.attrs['y_spanwise_average_start_idx'] = y_spanwise_average_start_idx
+  hdf_out.attrs['y_spanwise_average_stop_idx'] = y_spanwise_average_stop_idx 
+
+  time_step_group = hdf_out.create_group("timestep_{}".format(time_step))
+
+  for feild_name in (scalar_data_to_save + vector_data_to_save): 
+    ## Streamwise Midslice `
+    #hdf_out['mid_x_slice_{}'.format(feild_name)] = f['{}'.format(feild_name)][x_mid_idx,:,:]
+
+    ## Spanwise slices Measurement plane slice
+    #hdf_out['measurement_z_slice_{}'.format(feild_name)] = f['{}'.format(feild_name)][:,:,z_measure_ment_plane_idx]
+    #hdf_out['inlet_z_slice_{}'.format(feild_name)] = f['{}'.format(feild_name)][:,:,0]
+    #hdf_out['outlet_z_slice_{}'.format(feild_name)] = f['{}'.format(feild_name)][:,:,-1]
+
+    #hdf_out['{}_spanwise_average'.format(feild_name)] = np.mean(f['{}'.format(feild_name)][x_spanwise_average_start_idx:x_spanwise_average_stop_idx,
+    #                                                                                       y_spanwise_average_start_idx:y_spanwise_average_stop_idx,
+    #                                                                                       :], axis=(0,1))
+   
+    # Streamwise Midslice
+    time_step_group['mid_x_slice_{}'.format(feild_name)] = f['{}'.format(feild_name)][x_mid_idx,:,:]
 
     # Spanwise slices Measurement plane slice
-    hdf_out['measurement_z_slice_{}'.format(scalar_feild_name)] = f['{}'.format(scalar_feild_name)][:,:,z_measure_ment_plane_idx]
-    hdf_out['inlet_z_slice_{}'.format(scalar_feild_name)] = f['{}'.format(scalar_feild_name)][:,:,0]
-    hdf_out['outlet_z_slice_{}'.format(scalar_feild_name)] = f['{}'.format(scalar_feild_name)][:,:,-1]
-  
+    time_step_group['measurement_z_slice_{}'.format(feild_name)] = f['{}'.format(feild_name)][:,:,z_measure_ment_plane_idx]
+    time_step_group['inlet_z_slice_{}'.format(feild_name)] = f['{}'.format(feild_name)][:,:,0]
+    time_step_group['outlet_z_slice_{}'.format(feild_name)] = f['{}'.format(feild_name)][:,:,-1]
+
+    time_step_group['{}_spanwise_average'.format(feild_name)] = np.mean(f['{}'.format(feild_name)][x_spanwise_average_start_idx:x_spanwise_average_stop_idx,
+                                                                                           y_spanwise_average_start_idx:y_spanwise_average_stop_idx,
+                                                                                           :], axis=(0,1))
+  f.close()
 
 
-#  x_value_plot = x_mid 
-#  z_value_plot = streamwise_location_of_measurement_plane 
-#  
-#  #y_plot_width = 0.045  # [m]
-#  y_plot_width = 0.09  # [m]
-#  y_min_plot = y_mid - (y_plot_width/2.0) 
-#  y_max_plot = y_mid + (y_plot_width/2.0) 
-#  
-#  x_slice_idx = bisect.bisect(x_points, x_value_plot)
-#  y_slice_idx_start = bisect.bisect(y_points, y_min_plot)
-#  y_slice_idx_stop  = bisect.bisect(y_points, y_max_plot) 
-#  z_slice_idx = bisect.bisect(z_points, z_value_plot)
-#  
+#   # Plots
 #  for scalar_feild_name in scalar_data_to_plot: 
 #    plt.figure()
-#    plt.plot(f['{}'.format(scalar_feild_name)][x_slice_idx,y_slice_idx_start:y_slice_idx_stop,z_slice_idx],
-#             y_points[y_slice_idx_start:y_slice_idx_stop]*m_to_cm,
+#    plt.plot(f['{}'.format(scalar_feild_name)][x_mid_idx, y_spanwise_average_start_idx:y_spanwise_average_stop_idx, z_measure_ment_plane_idx],
+#             y_centers[y_spanwise_average_start_idx:y_spanwise_average_stop_idx],
 #             '-k')
 #    plt.xlabel('{} {}'.format(title_labels[scalar_feild_name], unit_labels[scalar_feild_name]), fontsize = 20)
-#    plt.ylabel(r'$y$ [cm]', fontsize = 20)
+#    plt.ylabel(r'$y$ [m]', fontsize = 20)
 #    plt.title('{} on Measurement Line'.format(title_labels[scalar_feild_name]), fontsize = 20)
-#    #plt.legend()
 #    plt.savefig('{}_measurement_line.png'.format(scalar_feild_name), bbox_inches='tight')
-   
-  for scalar_feild_name in scalar_data_to_plot: 
-    plt.figure(figsize=(11,9))
-    #plt.figure()
-    #X,Y = np.meshgrid(y_points[1:-1], z_points[1:-1])
-    #plt.pcolormesh(X,
-    #               Y,
-    #               np.array(f['{}'.format(scalar_feild_name)][x_slice_idx,1:-1,1:-1]))
-  
-    #X,Y = np.meshgrid(y_points[:], z_points[:])
-    #plt.pcolormesh(X,
-    #               Y,
-    #               np.array(f['{}'.format(scalar_feild_name)][x_slice_idx,:,:]))
-    #plt.axis('scaled')
-  
-    #plt.pcolormesh(z_points,
-    #               y_points,
-    #               np.array(f['{}'.format(scalar_feild_name)][x_slice_idx,:,:]))
-    #plt.axis('scaled')
-    #plt.title('{}'.format(title_labels[scalar_feild_name]), fontsize = 20)
-  
-    #plt.pcolormesh(z_points*m_to_cm,
-    #               y_points[y_slice_idx_start:y_slice_idx_stop]*m_to_cm,
-    #               np.array(f['{}'.format(scalar_feild_name)][x_slice_idx,y_slice_idx_start:y_slice_idx_stop,:]))
-
-    plt.pcolormesh(z_points,
-                   y_points,
-                   hdf_out['mid_x_slice_{}'.format(scalar_feild_name)])
-
-    # Add where duct would be
-    rect = Rectangle((0.0, y_duct_start), Lz, duct_width, edgecolor='k', facecolor='none', linestyle='--')
-    ax = plt.gca()
-    ax.add_patch(rect)
-
-    ## Add where averaging area is
-    rect = Rectangle((0.0, y_spanwise_average_start), Lz, L_spanwise_average_window, edgecolor='k', facecolor='none')
-    ax = plt.gca()
-    ax.add_patch(rect)
-
-
-    plt.axis('scaled')
-    plt.xlim([0.0,Lz])
-    plt.ylim([0.0,Ly])
-    plt.xlabel(r'$z \ [cm]$', fontsize = 20)
-    plt.ylabel(r'$y \ [cm]$', fontsize = 20)
-    plt.title('{} {}'.format(title_labels[scalar_feild_name], unit_labels[scalar_feild_name]), fontsize = 20)
-    # create an axes on the right side of ax. The width of cax will be 5%
-    # of ax and the padding between cax and ax will be fixed at 0.05 inch.
-    divider = make_axes_locatable(plt.gca())
-    cax = divider.append_axes("right", size="2%", pad=0.05)
-    plt.colorbar(cax=cax)
-
-    plt.savefig('{}_slice.png'.format(scalar_feild_name), dpi=300, bbox_inches='tight')
-
-  for scalar_feild_name in scalar_data_to_plot: 
-    plt.figure(figsize=(11,9))
-    #plt.pcolormesh(y_points,
-    #               x_points,
-    #               hdf_out['measurement_z_slice_{}'.format(scalar_feild_name)] )
-    plt.pcolormesh(y_points,
-                   x_points,
-                   hdf_out['outlet_z_slice_{}'.format(scalar_feild_name)] )
-
-    # Add where duct would be
-    rect = Rectangle((x_duct_start, x_duct_start), duct_width, duct_width, edgecolor='k', facecolor='none', linestyle='--')
-    ax = plt.gca()
-    ax.add_patch(rect)
-
-    # Add where averaging area is
-    rect = Rectangle((x_spanwise_average_start, x_spanwise_average_start), L_spanwise_average_window, L_spanwise_average_window, edgecolor='k', facecolor='none')
-    ax = plt.gca()
-    ax.add_patch(rect)
-
-
-    plt.axis('scaled')
-    plt.xlabel(r'$z \ [cm]$', fontsize = 20)
-    plt.ylabel(r'$y \ [cm]$', fontsize = 20)
-    plt.title('{} {}'.format(title_labels[scalar_feild_name], unit_labels[scalar_feild_name]), fontsize = 20)
-    # create an axes on the right side of ax. The width of cax will be 5%
-    # of ax and the padding between cax and ax will be fixed at 0.05 inch.
-    divider = make_axes_locatable(plt.gca())
-    cax = divider.append_axes("right", size="2%", pad=0.05)
-    plt.colorbar(cax=cax)
-    plt.savefig('measurement_plane_{}_slice.png'.format(scalar_feild_name), dpi=300, bbox_inches='tight')
-
- 
-
+#   
+#  for scalar_feild_name in scalar_data_to_plot: 
+#    plt.figure(figsize=(11,9))
+#
+#    #X,Y = np.meshgrid(y_points[1:-1], z_points[1:-1])
+#    #plt.pcolormesh(X,
+#    #               Y,
+#    #               np.array(f['{}'.format(scalar_feild_name)][x_slice_idx,1:-1,1:-1]))
 #  
+#    #X,Y = np.meshgrid(y_points[:], z_points[:])
+#    #plt.pcolormesh(X,
+#    #               Y,
+#    #               np.array(f['{}'.format(scalar_feild_name)][x_slice_idx,:,:]))
 #  
-#    # find average over planes in x
-#    data['{}_spanwise_average'.format(scalar_feild_name)] = np.mean(f['{}'.format(scalar_feild_name)][:,y_slice_idx_start:y_slice_idx_stop,:], axis=(0,1))
+#    #plt.pcolormesh(z_points,
+#    #               y_points,
+#    #               np.array(f['{}'.format(scalar_feild_name)][x_slice_idx,:,:]))
 #  
+#    #plt.pcolormesh(z_points*m_to_cm,
+#    #               y_points[y_slice_idx_start:y_slice_idx_stop]*m_to_cm,
+#    #               np.array(f['{}'.format(scalar_feild_name)][x_slice_idx,y_slice_idx_start:y_slice_idx_stop,:]))
+#
+#    plt.pcolormesh(z_points,
+#                   y_points,
+#                   time_step_group['mid_x_slice_{}'.format(scalar_feild_name)])
+#
+#    # Add where duct would be
+#    rect = Rectangle((0.0, y_duct_start), Lz, duct_width, edgecolor='k', facecolor='none', linestyle='--')
+#    ax = plt.gca()
+#    ax.add_patch(rect)
+#
+#    ## Add where averaging area is
+#    rect = Rectangle((0.0, y_spanwise_average_start), Lz, L_spanwise_average_window, edgecolor='k', facecolor='none')
+#    ax = plt.gca()
+#    ax.add_patch(rect)
+#
+#    plt.axis('scaled')
+#    plt.xlim([0.0,Lz])
+#    plt.ylim([0.0,Ly])
+#    plt.xlabel(r'$z \ [cm]$', fontsize = 20)
+#    plt.ylabel(r'$y \ [cm]$', fontsize = 20)
+#    plt.title('{} {}'.format(title_labels[scalar_feild_name], unit_labels[scalar_feild_name]), fontsize = 20)
+#    # create an axes on the right side of ax. The width of cax will be 5%
+#    # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+#    divider = make_axes_locatable(plt.gca())
+#    cax = divider.append_axes("right", size="2%", pad=0.05)
+#    plt.colorbar(cax=cax)
+#
+#    plt.savefig('{}_slice.png'.format(scalar_feild_name), dpi=300, bbox_inches='tight')
+#
+#  for scalar_feild_name in scalar_data_to_plot: 
+#    plt.figure(figsize=(11,9))
+#    #plt.pcolormesh(y_points,
+#    #               x_points,
+#    #               time_step_group['measurement_z_slice_{}'.format(scalar_feild_name)] )
+#    plt.pcolormesh(y_points,
+#                   x_points,
+#                   time_step_group['outlet_z_slice_{}'.format(scalar_feild_name)] )
+#
+#    # Add where duct would be
+#    rect = Rectangle((x_duct_start, x_duct_start), duct_width, duct_width, edgecolor='k', facecolor='none', linestyle='--')
+#    ax = plt.gca()
+#    ax.add_patch(rect)
+#
+#    # Add where averaging area is
+#    rect = Rectangle((x_spanwise_average_start, x_spanwise_average_start), L_spanwise_average_window, L_spanwise_average_window, edgecolor='k', facecolor='none')
+#    ax = plt.gca()
+#    ax.add_patch(rect)
+#
+#    plt.axis('scaled')
+#    plt.xlabel(r'$z \ [cm]$', fontsize = 20)
+#    plt.ylabel(r'$y \ [cm]$', fontsize = 20)
+#    plt.title('{} {}'.format(title_labels[scalar_feild_name], unit_labels[scalar_feild_name]), fontsize = 20)
+#    # create an axes on the right side of ax. The width of cax will be 5%
+#    # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+#    divider = make_axes_locatable(plt.gca())
+#    cax = divider.append_axes("right", size="2%", pad=0.05)
+#    plt.colorbar(cax=cax)
+#    plt.savefig('measurement_plane_{}_slice.png'.format(scalar_feild_name), dpi=300, bbox_inches='tight')
+#
+#  for scalar_feild_name in scalar_data_to_plot: 
 #    plt.figure()
-#    plt.plot(z_centers*m_to_cm,
-#             data['{}_spanwise_average'.format(scalar_feild_name)],
+#    plt.plot(z_centers,
+#             time_step_group['{}_spanwise_average'.format(scalar_feild_name)],
 #             '-k',
 #             label='Soleil-X')
-#    plt.xlabel(r'$z \ [cm]$', fontsize = 20)
+#    plt.xlabel(r'$z \ [m]$', fontsize = 20)
 #    plt.ylabel('{} {}'.format(title_labels[scalar_feild_name], unit_labels[scalar_feild_name]), fontsize = 20)
-#    #plt.ylabel('{} '.format(title_labels[scalar_feild_name]), fontsize = 20)
 #    plt.title('{} Spanwise Average'.format(title_labels[scalar_feild_name]), fontsize = 20)
 #    plt.savefig('{}_spanwise_average.png'.format(scalar_feild_name), bbox_inches='tight')
 #    
-#    
-#  
 #  
 #  #for vector_feild_name in vector_data_to_plot: 
 #  #  for vector_component in ['x','y','z']:
@@ -414,5 +426,7 @@ for filename in fluid_filenames:
 #  #    plt.ylabel(r'$y \ [m]$', fontsize = 20)
 #  #    #plt.legend()
 #  #    #plt.savefig('{}.pdf'.format(vector_feild_name), bbox_inches='tight')
+#
+#plt.show()
 
-plt.show()
+hdf_out.close()
