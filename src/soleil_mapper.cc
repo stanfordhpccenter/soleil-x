@@ -687,13 +687,7 @@ public:
   // TODO: Select appropriate memories for instances that will be communicated,
   // (e.g. parallelizer-created ghost partitions), such as RDMA memory,
   // zero-copy memory.
-  virtual Memory default_policy_select_target_memory(
-                              MapperContext ctx,
-                              Processor target_proc,
-                              const RegionRequirement& req) {
-    return DefaultMapper::default_policy_select_target_memory
-      (ctx, target_proc, req);
-  }
+  // virtual Memory default_policy_select_target_memory(...) { ... }
 
   // Disable an optimization done by the default mapper (attempts to reuse an
   // instance that covers a superset of the requested index space, by searching
@@ -719,6 +713,12 @@ public:
   }
 
   // Shouldn't have to shard any of the following operations.
+  virtual void select_sharding_functor(const MapperContext ctx,
+                                       const Copy& copy,
+                                       const SelectShardingFunctorInput& input,
+                                       SelectShardingFunctorOutput& output) {
+    CHECK(false, "Unsupported: Sharded Copy");
+  }
   virtual void select_sharding_functor(const MapperContext ctx,
                                        const Close& close,
                                        const SelectShardingFunctorInput& input,

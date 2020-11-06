@@ -122,7 +122,7 @@ Setup (Sapling @ Stanford)
 ```
 # Module loads
 module load mpi/openmpi/1.8.2
-module load cuda/7.0
+module load cuda/8.0
 # Build config
 export CONDUIT=ibv
 export CC=gcc-4.9
@@ -133,7 +133,7 @@ export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
 export SCRATCH=/scratch/oldhome/`whoami`
 # CUDA config
-export CUDA_HOME=/usr/local/cuda-7.0
+export CUDA_HOME=/usr/local/cuda-8.0
 export CUDA="$CUDA_HOME"
 export GPU_ARCH=fermi
 ```

@@ -23,7 +23,7 @@ HDF_LIBNAME ?= hdf5
 
 # C compiler options
 CFLAGS += -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent
-CXXFLAGS += -std=c++11 -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent
+CXXFLAGS += -std=c++11 -g -O2 -Wall -Woverloaded-virtual -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent
 
 # Regent options
 export INCLUDE_PATH := .
@@ -31,7 +31,7 @@ ifdef HDF_ROOT
   export INCLUDE_PATH := $(INCLUDE_PATH);$(HDF_ROOT)/include
   export $(DYNLINK_PATH) := $($(DYNLINK_PATH)):$(HDF_ROOT)/lib
 endif
-REGENT := $(LEGION_DIR)/language/regent.py -g
+REGENT := $(LEGION_DIR)/language/regent.py
 ifeq ($(USE_CUDA), 1)
   REGENT_FLAGS := -fflow 0 -fopenmp 1 -foverride-demand-openmp 1 -finner 1 -fcuda 1 -fcuda-offline 1 -foverride-demand-cuda 1
 else
