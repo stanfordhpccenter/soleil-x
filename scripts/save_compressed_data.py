@@ -207,6 +207,12 @@ for filename in fluid_filenames:
   y_mid = np.min(y_points) + (Ly/2.0)
   z_mid = np.min(z_points) + (Lz/2.0)
 
+
+  # Get index of center of the domain
+  x_mid_idx = bisect.bisect(x_points, x_mid)
+  y_mid_idx = bisect.bisect(y_points, y_mid)
+  z_mid_idx = bisect.bisect(z_points, z_mid)
+
   # Legend of plotting:
   # x = Spanwise
   # y = Spanwise and Radiation Streaming Direction
@@ -214,10 +220,6 @@ for filename in fluid_filenames:
 
   # Stremwise location of measurement plane used in experiments
   streamwise_location_of_measurement_plane = 0.305 # [m]
-  
-  x_mid_idx = bisect.bisect(x_points, x_mid)
-  y_mid_idx = bisect.bisect(y_points, y_mid)
-  z_mid_idx = bisect.bisect(z_points, z_mid)
 
   z_measure_ment_plane_idx = bisect.bisect(z_points, streamwise_location_of_measurement_plane)
 
@@ -259,6 +261,10 @@ for filename in fluid_filenames:
   hdf_out.attrs['y_spanwise_average_start_idx'] = y_spanwise_average_start_idx
   hdf_out.attrs['y_spanwise_average_stop_idx'] = y_spanwise_average_stop_idx 
 
+  time_step_group['x_points'] = f['x_points']
+  time_step_group['y_points'] = f['y_points']
+  time_step_group['z_points'] = f['z_points']
+
   time_step_group = hdf_out.create_group("timestep_{}".format(time_step))
 
   for feild_name in (scalar_data_to_save + vector_data_to_save): 
@@ -273,6 +279,7 @@ for filename in fluid_filenames:
     #hdf_out['{}_spanwise_average'.format(feild_name)] = np.mean(f['{}'.format(feild_name)][x_spanwise_average_start_idx:x_spanwise_average_stop_idx,
     #                                                                                       y_spanwise_average_start_idx:y_spanwise_average_stop_idx,
     #                                                                                       :], axis=(0,1))
+
    
     # Streamwise Midslice
     time_step_group['mid_x_slice_{}'.format(feild_name)] = f['{}'.format(feild_name)][x_mid_idx,:,:]
