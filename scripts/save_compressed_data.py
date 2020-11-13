@@ -292,6 +292,7 @@ for filename in fluid_filenames:
    
     # Streamwise Midslice
     time_step_group['mid_x_slice_{}'.format(feild_name)] = f['{}'.format(feild_name)][x_mid_idx,:,:]
+    time_step_group['mid_y_slice_{}'.format(feild_name)] = f['{}'.format(feild_name)][y_mid_idx,:,:]
 
     # Spanwise slices Measurement plane slice
     time_step_group['measurement_z_slice_{}'.format(feild_name)] = f['{}'.format(feild_name)][:,:,z_measure_ment_plane_idx]
@@ -313,7 +314,7 @@ for filename in fluid_filenames:
 
     time_step_group['{}_average_0'.format(feild_name)]        = np.mean(f['{}'.format(feild_name)][x_spanwise_average_start_idx:x_spanwise_average_stop_idx,:,:], axis=(0))
     time_step_group['{}_average_1'.format(feild_name)]        = np.mean(f['{}'.format(feild_name)][:,y_spanwise_average_start_idx:y_spanwise_average_stop_idx,:], axis=(1))
-    time_step_group['{}_average_2'.format(feild_name)]        = np.mean(f['{}'.format(feild_name)][x_spanwise_average_start_idx:x_spanwise_average_stop_idx,y_spanwise_average_start_idx:y_spanwise_average_stop_idx,:], axis=(2))
+    #time_step_group['{}_average_2'.format(feild_name)]        = np.mean(f['{}'.format(feild_name)][x_spanwise_average_start_idx:x_spanwise_average_stop_idx,y_spanwise_average_start_idx:y_spanwise_average_stop_idx,:], axis=(2))
 
   f.close()
 

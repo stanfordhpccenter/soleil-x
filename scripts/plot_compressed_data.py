@@ -193,10 +193,14 @@ h5_file  = h5py.File(os.path.join(input_dir,filename), "r")
 time_averaged_data = {}
 for feild_name in (scalar_data_saved + vector_data_saved): 
   time_averaged_data['mid_x_slice_{}'.format(feild_name)]         = np.zeros(np.shape(np.array(h5_file['timestep_0']['mid_x_slice_{}'.format(feild_name)])))
+  time_averaged_data['mid_y_slice_{}'.format(feild_name)]         = np.zeros(np.shape(np.array(h5_file['timestep_0']['mid_y_slice_{}'.format(feild_name)])))
   time_averaged_data['measurement_z_slice_{}'.format(feild_name)] = np.zeros(np.shape(np.array(h5_file['timestep_0']['measurement_z_slice_{}'.format(feild_name)])))
   time_averaged_data['inlet_z_slice_{}'.format(feild_name)]       = np.zeros(np.shape(np.array(h5_file['timestep_0']['inlet_z_slice_{}'.format(feild_name)])))
   time_averaged_data['outlet_z_slice_{}'.format(feild_name)]      = np.zeros(np.shape(np.array(h5_file['timestep_0']['outlet_z_slice_{}'.format(feild_name)])))
   time_averaged_data['{}_spanwise_average'.format(feild_name)]    = np.zeros(np.shape(np.array(h5_file['timestep_0']['{}_spanwise_average'.format(feild_name)])))
+  time_averaged_data['{}_average_0'.format(feild_name)]           = np.zeros(np.shape(np.array(h5_file['timestep_0']['{}_average_0'.format(feild_name)])))
+  time_averaged_data['{}_average_1'.format(feild_name)]           = np.zeros(np.shape(np.array(h5_file['timestep_0']['{}_average_1'.format(feild_name)])))
+  #time_averaged_data['{}_average_2'.format(feild_name)]           = np.zeros(np.shape(np.array(h5_file['timestep_0']['{}_average_2'.format(feild_name)])))
   time_averaged_data['measurement_line_{}'.format(feild_name)]    = np.zeros(np.shape(np.array(h5_file['timestep_0']['measurement_z_slice_{}'.format(feild_name)][x_mid_idx, :])))
 h5_file.close()
 
@@ -211,20 +215,28 @@ for filename in hdf_filenames:
       n_timesteps_total += 1 
       for feild_name in (scalar_data_saved + vector_data_saved): 
         time_averaged_data['mid_x_slice_{}'.format(feild_name)]         += np.array(h5_file[timestep_group]['mid_x_slice_{}'.format(feild_name)])
+        time_averaged_data['mid_y_slice_{}'.format(feild_name)]         += np.array(h5_file[timestep_group]['mid_y_slice_{}'.format(feild_name)])
         time_averaged_data['measurement_z_slice_{}'.format(feild_name)] += np.array(h5_file[timestep_group]['measurement_z_slice_{}'.format(feild_name)])
         time_averaged_data['inlet_z_slice_{}'.format(feild_name)]       += np.array(h5_file[timestep_group]['inlet_z_slice_{}'.format(feild_name)])
         time_averaged_data['outlet_z_slice_{}'.format(feild_name)]      += np.array(h5_file[timestep_group]['outlet_z_slice_{}'.format(feild_name)])
         time_averaged_data['{}_spanwise_average'.format(feild_name)]    += np.array(h5_file[timestep_group]['{}_spanwise_average'.format(feild_name)])
+        time_averaged_data['{}_average_0'.format(feild_name)]           += np.array(h5_file[timestep_group]['{}_average_0'.format(feild_name)])
+        time_averaged_data['{}_average_1'.format(feild_name)]           += np.array(h5_file[timestep_group]['{}_average_1'.format(feild_name)])
+        #time_averaged_data['{}_average_2'.format(feild_name)]           += np.array(h5_file[timestep_group]['{}_average_2'.format(feild_name)])
         time_averaged_data['measurement_line_{}'.format(feild_name)]    += np.array(h5_file[timestep_group]['measurement_z_slice_{}'.format(feild_name)][x_mid_idx, :])
   h5_file.close() 
 
 # Average
 for feild_name in (scalar_data_saved + vector_data_saved): 
   time_averaged_data['mid_x_slice_{}'.format(feild_name)]         /= n_timesteps_total 
+  time_averaged_data['mid_y_slice_{}'.format(feild_name)]         /= n_timesteps_total 
   time_averaged_data['measurement_z_slice_{}'.format(feild_name)] /= n_timesteps_total 
   time_averaged_data['inlet_z_slice_{}'.format(feild_name)]       /= n_timesteps_total 
   time_averaged_data['outlet_z_slice_{}'.format(feild_name)]      /= n_timesteps_total 
   time_averaged_data['{}_spanwise_average'.format(feild_name)]    /= n_timesteps_total 
+  time_averaged_data['{}_average_0'.format(feild_name)]           /= n_timesteps_total
+  time_averaged_data['{}_average_1'.format(feild_name)]           /= n_timesteps_total
+  #time_averaged_data['{}_average_2'.format(feild_name)]           /= n_timesteps_total
   time_averaged_data['measurement_line_{}'.format(feild_name)]    /= n_timesteps_total 
 
 ###############################################################################
@@ -257,8 +269,97 @@ for scalar_feild_name in scalar_data_to_plot:
   divider = make_axes_locatable(plt.gca())
   cax = divider.append_axes("right", size="2%", pad=0.05)
   plt.colorbar(cax=cax)
-
   plt.savefig(os.path.join(output_dir,'{}_mid_x_slice_time_average.png'.format(scalar_feild_name)), dpi=300, bbox_inches='tight')
+
+# Mid Y Slice
+for scalar_feild_name in scalar_data_to_plot: 
+  plt.figure(figsize=(11,9))
+  plt.pcolormesh(np.array(z_points),
+                 np.array(x_points),
+                 time_averaged_data['mid_y_slice_{}'.format(scalar_feild_name)])
+  # Add where duct would be
+  rect = Rectangle((0.0, y_duct_start), Lz, duct_width, edgecolor='k', facecolor='none', linestyle='--')
+  ax = plt.gca()
+  ax.add_patch(rect)
+  ## Add where averaging area is
+  rect = Rectangle((0.0, y_spanwise_average_start), Lz, L_spanwise_average_window, edgecolor='k', facecolor='none')
+  ax = plt.gca()
+  ax.add_patch(rect)
+  # Labels
+  plt.axis('scaled')
+  plt.xlim([0.0,Lz])
+  plt.ylim([0.0,Ly])
+  plt.xlabel(r'$x \ [m]$', fontsize = 20)
+  plt.ylabel(r'$z \ [m]$', fontsize = 20)
+  plt.title('{} {}'.format(title_labels[scalar_feild_name], unit_labels[scalar_feild_name]), fontsize = 20)
+  # create an axes on the right side of ax. The width of cax will be 5%
+  # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+  divider = make_axes_locatable(plt.gca())
+  cax = divider.append_axes("right", size="2%", pad=0.05)
+  plt.colorbar(cax=cax)
+  plt.savefig(os.path.join(output_dir,'{}_mid_z_slice_time_average.png'.format(scalar_feild_name)), dpi=300, bbox_inches='tight')
+
+# Average axis 0 (spanwise )
+for scalar_feild_name in scalar_data_to_plot: 
+  plt.figure(figsize=(11,9))
+  plt.pcolormesh(np.array(z_points),
+                 np.array(y_points),
+                 time_averaged_data['{}_average_0'.format(scalar_feild_name)])
+  # Add where duct would be
+  rect = Rectangle((0.0, y_duct_start), Lz, duct_width, edgecolor='k', facecolor='none', linestyle='--')
+  ax = plt.gca()
+  ax.add_patch(rect)
+  ## Add where averaging area is
+  rect = Rectangle((0.0, y_spanwise_average_start), Lz, L_spanwise_average_window, edgecolor='k', facecolor='none')
+  ax = plt.gca()
+  ax.add_patch(rect)
+  # Labels
+  plt.axis('scaled')
+  plt.xlim([0.0,Lz])
+  plt.ylim([0.0,Ly])
+  plt.xlabel(r'$x \ [m]$', fontsize = 20)
+  plt.ylabel(r'$y \ [m]$', fontsize = 20)
+  plt.title('{} {}'.format(title_labels[scalar_feild_name], unit_labels[scalar_feild_name]), fontsize = 20)
+  # create an axes on the right side of ax. The width of cax will be 5%
+  # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+  divider = make_axes_locatable(plt.gca())
+  cax = divider.append_axes("right", size="2%", pad=0.05)
+  plt.colorbar(cax=cax)
+  plt.savefig(os.path.join(output_dir,'{}_average_0_time_average.png'.format(scalar_feild_name)), dpi=300, bbox_inches='tight')
+
+# Average axis 1 (spanwise and direction of radiation propigation)
+for scalar_feild_name in scalar_data_to_plot: 
+  plt.figure(figsize=(11,9))
+  plt.pcolormesh(np.array(z_points),
+                 np.array(x_points),
+                 time_averaged_data['{}_average_1'.format(scalar_feild_name)])
+  # Add where duct would be
+  rect = Rectangle((0.0, y_duct_start), Lz, duct_width, edgecolor='k', facecolor='none', linestyle='--')
+  ax = plt.gca()
+  ax.add_patch(rect)
+  ## Add where averaging area is
+  rect = Rectangle((0.0, y_spanwise_average_start), Lz, L_spanwise_average_window, edgecolor='k', facecolor='none')
+  ax = plt.gca()
+  ax.add_patch(rect)
+  # Labels
+  plt.axis('scaled')
+  plt.xlim([0.0,Lz])
+  plt.ylim([0.0,Ly])
+  plt.xlabel(r'$x \ [m]$', fontsize = 20)
+  plt.ylabel(r'$z \ [m]$', fontsize = 20)
+  plt.title('{} {}'.format(title_labels[scalar_feild_name], unit_labels[scalar_feild_name]), fontsize = 20)
+  # create an axes on the right side of ax. The width of cax will be 5%
+  # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+  divider = make_axes_locatable(plt.gca())
+  cax = divider.append_axes("right", size="2%", pad=0.05)
+  plt.colorbar(cax=cax)
+  plt.savefig(os.path.join(output_dir,'{}_average_1_time_average.png'.format(scalar_feild_name)), dpi=300, bbox_inches='tight')
+
+  #plt.figure()
+  #plt.pcolormesh(np.array(x_points),
+  #               np.array(y_points),
+  #               time_averaged_data['{}_average_2'.format(scalar_feild_name)])
+ 
 
 # Spanwise average
 for scalar_feild_name in scalar_data_to_plot: 
