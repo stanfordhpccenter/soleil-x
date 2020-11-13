@@ -298,9 +298,22 @@ for filename in fluid_filenames:
     time_step_group['inlet_z_slice_{}'.format(feild_name)] = f['{}'.format(feild_name)][:,:,0]
     time_step_group['outlet_z_slice_{}'.format(feild_name)] = f['{}'.format(feild_name)][:,:,-1]
 
-    time_step_group['{}_spanwise_average'.format(feild_name)] = np.mean(f['{}'.format(feild_name)][x_spanwise_average_start_idx:x_spanwise_average_stop_idx,
-                                                                                           y_spanwise_average_start_idx:y_spanwise_average_stop_idx,
-                                                                                           :], axis=(0,1))
+
+    #time_step_group['{}_spanwise_average'.format(feild_name)] = np.mean(f['{}'.format(feild_name)][x_spanwise_average_start_idx:x_spanwise_average_stop_idx,
+    #                                                                                       y_spanwise_average_start_idx:y_spanwise_average_stop_idx,
+    #                                                                                       :], axis=(0,1))
+    #
+    #time_step_group['{}_average_0'.format(feild_name)] = np.mean(f['{}'.format(feild_name)][x_spanwise_average_start_idx:x_spanwise_average_stop_idx,y_spanwise_average_start_idx:y_spanwise_average_stop_idx,:], axis=(1))
+    #time_step_group['{}_average_1'.format(feild_name)] = np.mean(f['{}'.format(feild_name)][x_spanwise_average_start_idx:x_spanwise_average_stop_idx,y_spanwise_average_start_idx:y_spanwise_average_stop_idx,:], axis=(1))
+    #time_step_group['{}_average_2'.format(feild_name)] = np.mean(f['{}'.format(feild_name)][x_spanwise_average_start_idx:x_spanwise_average_stop_idx,y_spanwise_average_start_idx:y_spanwise_average_stop_idx,:], axis=(2))
+
+
+    averaging_window_idx = np.s_[x_spanwise_average_start_idx:x_spanwise_average_stop_idx,y_spanwise_average_start_idx:y_spanwise_average_stop_idx,:]
+    time_step_group['{}_average_0'.format(feild_name)]        = np.mean(f['{}'.format(feild_name)][averaging_window_idx], axis=(1))
+    time_step_group['{}_average_1'.format(feild_name)]        = np.mean(f['{}'.format(feild_name)][averaging_window_idx], axis=(1))
+    time_step_group['{}_average_2'.format(feild_name)]        = np.mean(f['{}'.format(feild_name)][averaging_window_idx], axis=(2))
+    time_step_group['{}_spanwise_average'.format(feild_name)] = np.mean(f['{}'.format(feild_name)][averaging_window_idx], axis=(0,1))
+
   f.close()
 
 
