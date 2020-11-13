@@ -309,10 +309,11 @@ for filename in fluid_filenames:
 
 
     averaging_window_idx = np.s_[x_spanwise_average_start_idx:x_spanwise_average_stop_idx,y_spanwise_average_start_idx:y_spanwise_average_stop_idx,:]
-    time_step_group['{}_average_0'.format(feild_name)]        = np.mean(f['{}'.format(feild_name)][averaging_window_idx], axis=(1))
-    time_step_group['{}_average_1'.format(feild_name)]        = np.mean(f['{}'.format(feild_name)][averaging_window_idx], axis=(1))
-    time_step_group['{}_average_2'.format(feild_name)]        = np.mean(f['{}'.format(feild_name)][averaging_window_idx], axis=(2))
     time_step_group['{}_spanwise_average'.format(feild_name)] = np.mean(f['{}'.format(feild_name)][averaging_window_idx], axis=(0,1))
+
+    time_step_group['{}_average_0'.format(feild_name)]        = np.mean(f['{}'.format(feild_name)][x_spanwise_average_start_idx:x_spanwise_average_stop_idx,:,:], axis=(0))
+    time_step_group['{}_average_1'.format(feild_name)]        = np.mean(f['{}'.format(feild_name)][:,y_spanwise_average_start_idx:y_spanwise_average_stop_idx,:], axis=(1))
+    time_step_group['{}_average_2'.format(feild_name)]        = np.mean(f['{}'.format(feild_name)][x_spanwise_average_start_idx:x_spanwise_average_stop_idx,y_spanwise_average_start_idx:y_spanwise_average_stop_idx,:], axis=(2))
 
   f.close()
 
