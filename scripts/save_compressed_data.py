@@ -69,6 +69,9 @@ parser.add_argument('--indir', nargs='?', const='.', default='.',
                     help='directory that contains the postprocessed soleil-x hdf5 files. basedir usually has files: fluiditer0000.hdf, fluiditer0001.hdf, particlesiter0000.hdf, particlesiter0001.hdf, ...')
 parser.add_argument('--outfile', nargs='?', const='default', default='default',
                     help='directory where output is written')
+parser.add_argument('-f','--force',
+                    action='store_true',
+                    help='clobber the output directory if it already exists before writing output there')
 parser.add_argument('-v', '--verbose',
                     action='store_true',
                     help='verbose output')
@@ -169,6 +172,12 @@ else:
   if not os.path.exists(output_file):
     # hdf output filename
     hdf_out = h5py.File(output_file, 'w')
+  elif args.force:
+    os.remove(output_file)
+    hdf_out = h5py.File(output_file, 'w')
+    if args.verbose:
+      print('Clobbered old file and created new fesh file for compressed data:')
+      print('{}'.format(output_file))
   else:
     print_error_message("""Output file exists:
     {}
@@ -261,11 +270,11 @@ for filename in fluid_filenames:
   hdf_out.attrs['y_spanwise_average_start_idx'] = y_spanwise_average_start_idx
   hdf_out.attrs['y_spanwise_average_stop_idx'] = y_spanwise_average_stop_idx 
 
-  time_step_group['x_points'] = f['x_points']
-  time_step_group['y_points'] = f['y_points']
-  time_step_group['z_points'] = f['z_points']
-
   time_step_group = hdf_out.create_group("timestep_{}".format(time_step))
+
+  time_step_group['x_points'] = np.array(x_points)
+  time_step_group['y_points'] = np.array(y_points)
+  time_step_group['z_points'] = np.array(z_points)
 
   for feild_name in (scalar_data_to_save + vector_data_to_save): 
     ## Streamwise Midslice `

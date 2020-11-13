@@ -53,6 +53,9 @@ parser.add_argument('--outdir', nargs='?', const='default', default='default',
 parser.add_argument('-v', '--verbose',
                     action='store_true',
                     help='verbose output')
+parser.add_argument('-f','--force',
+                    action='store_true',
+                    help='clobber the output directory if it already exists before writing output there')
 parser.add_argument('--zip',
                     action='store_true',
                     help='create zip file')
@@ -141,11 +144,17 @@ else:
     if args.verbose:
       print('Created new directory for visualization ready data:')
       print('{}'.format(out_base_dir))
+  elif args.force:
+    shutil.rmtree(out_base_dir)
+    os.makedirs(out_base_dir)
+    if args.verbose:
+      print('Clobbered old directory and created new directory for visualization ready data:')
+      print('{}'.format(out_base_dir))
   else:
     print_error_message("""Directory for visualization ready data already exists:
     {}
     I don\'t want to clobber whatever is there.
-    Delete it and re-run and this script""".format(out_base_dir))
+    Delete it and re-run and this script or run with the option --clobber""".format(out_base_dir))
 
     sys.exit()
 print('')
