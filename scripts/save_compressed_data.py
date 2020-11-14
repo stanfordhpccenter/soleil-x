@@ -22,8 +22,9 @@ vector_data_to_plot = ['velocity']
 #vector_data_to_plot = ['cellWidth','velocity']
 
 # Width of the domain used to obtain the spanwise averages (will be centered in simulation domain)
-duct_width = 0.04 #[m]
-L_spanwise_average_window = 0.075 #[m]
+duct_width = 0.04 # [m]
+#L_spanwise_average_window = 0.075 # [m]
+L_spanwise_average_window = 0.0462 # [m]
 
 # --------------------------------------------------------------------------- #
 #                             Utility Functions                               #
@@ -292,7 +293,7 @@ for filename in fluid_filenames:
    
     # Streamwise Midslice
     time_step_group['mid_x_slice_{}'.format(feild_name)] = f['{}'.format(feild_name)][x_mid_idx,:,:]
-    time_step_group['mid_y_slice_{}'.format(feild_name)] = f['{}'.format(feild_name)][y_mid_idx,:,:]
+    time_step_group['mid_y_slice_{}'.format(feild_name)] = f['{}'.format(feild_name)][:,y_mid_idx,:]
 
     # Spanwise slices Measurement plane slice
     time_step_group['measurement_z_slice_{}'.format(feild_name)] = f['{}'.format(feild_name)][:,:,z_measure_ment_plane_idx]
