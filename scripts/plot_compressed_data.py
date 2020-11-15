@@ -258,6 +258,8 @@ for feild_name in (scalar_data_saved + vector_data_saved):
 ###############################################################################
 # plot the time averages
 ###############################################################################
+# NOTE to be consistent with other thesis slides set axis labels so that x = flow direction, y = spanwise direction, z = spanwise and radiation direction
+#                                           but this data is saved with  x = spanwise direction, y = spanwise radiation direction, z = flow direction
 
 # Mid X Slice
 for scalar_feild_name in scalar_data_to_plot: 
@@ -278,7 +280,7 @@ for scalar_feild_name in scalar_data_to_plot:
   plt.xlim([0.0,Lz])
   plt.ylim([0.0,Ly])
   plt.xlabel(r'$x \ [m]$', fontsize = 20)
-  plt.ylabel(r'$y \ [m]$', fontsize = 20)
+  plt.ylabel(r'$z \ [m]$', fontsize = 20)
   plt.title('{} {}'.format(title_labels[scalar_feild_name], unit_labels[scalar_feild_name]), fontsize = 20)
   # create an axes on the right side of ax. The width of cax will be 5%
   # of ax and the padding between cax and ax will be fixed at 0.05 inch.
@@ -306,7 +308,7 @@ for scalar_feild_name in scalar_data_to_plot:
   plt.xlim([0.0,Lz])
   plt.ylim([0.0,Ly])
   plt.xlabel(r'$x \ [m]$', fontsize = 20)
-  plt.ylabel(r'$z \ [m]$', fontsize = 20)
+  plt.ylabel(r'$y \ [m]$', fontsize = 20)
   plt.title('{} {}'.format(title_labels[scalar_feild_name], unit_labels[scalar_feild_name]), fontsize = 20)
   # create an axes on the right side of ax. The width of cax will be 5%
   # of ax and the padding between cax and ax will be fixed at 0.05 inch.
@@ -334,7 +336,7 @@ for scalar_feild_name in scalar_data_to_plot:
   plt.xlim([0.0,Lz])
   plt.ylim([0.0,Ly])
   plt.xlabel(r'$x \ [m]$', fontsize = 20)
-  plt.ylabel(r'$y \ [m]$', fontsize = 20)
+  plt.ylabel(r'$z \ [m]$', fontsize = 20)
   plt.title('{} {}'.format(title_labels[scalar_feild_name], unit_labels[scalar_feild_name]), fontsize = 20)
   # create an axes on the right side of ax. The width of cax will be 5%
   # of ax and the padding between cax and ax will be fixed at 0.05 inch.
@@ -362,7 +364,7 @@ for scalar_feild_name in scalar_data_to_plot:
   plt.xlim([0.0,Lz])
   plt.ylim([0.0,Ly])
   plt.xlabel(r'$x \ [m]$', fontsize = 20)
-  plt.ylabel(r'$z \ [m]$', fontsize = 20)
+  plt.ylabel(r'$y \ [m]$', fontsize = 20)
   plt.title('{} {}'.format(title_labels[scalar_feild_name], unit_labels[scalar_feild_name]), fontsize = 20)
   # create an axes on the right side of ax. The width of cax will be 5%
   # of ax and the padding between cax and ax will be fixed at 0.05 inch.
@@ -397,8 +399,8 @@ for scalar_feild_name in scalar_data_to_plot:
   plt.pcolormesh(x_points,
                  y_points,
                  time_averaged_data['measurement_z_slice_{}'.format(scalar_feild_name)].T )
-  plt.xlabel(r'$z \ [m]$', fontsize = 20)
-  plt.ylabel(r'$y \ [m]$', fontsize = 20)
+  plt.xlabel(r'$y \ [m]$', fontsize = 20)
+  plt.ylabel(r'$z \ [m]$', fontsize = 20)
 
   #plt.pcolormesh(y_points,
   #               x_points,
@@ -433,7 +435,7 @@ for scalar_feild_name in scalar_data_to_plot:
            y_centers,
            '-k')
   plt.xlabel('{} {}'.format(title_labels[scalar_feild_name], unit_labels[scalar_feild_name]), fontsize = 20)
-  plt.ylabel(r'$y$ [m]', fontsize = 20)
+  plt.ylabel(r'$z$ [m]', fontsize = 20)
   plt.title('{} on Measurement Line'.format(title_labels[scalar_feild_name]), fontsize = 20)
   plt.savefig(os.path.join(output_dir,'measurement_line_{}_time_average.png'.format(scalar_feild_name)), dpi=300, bbox_inches='tight')
 
@@ -589,7 +591,7 @@ for filename in hdf_filenames:
         plt.xlim([0.0,Lz])
         plt.ylim([0.0,Ly])
         plt.xlabel(r'$x \ [m]$', fontsize = 20)
-        plt.ylabel(r'$y \ [m]$', fontsize = 20)
+        plt.ylabel(r'$z \ [m]$', fontsize = 20)
         plt.title('{} {}'.format(title_labels[scalar_feild_name], unit_labels[scalar_feild_name]), fontsize = 20)
         # create an axes on the right side of ax. The width of cax will be 5%
         # of ax and the padding between cax and ax will be fixed at 0.05 inch.
@@ -608,16 +610,16 @@ for filename in hdf_filenames:
                        np.array(h5_file[timestep_group]['measurement_z_slice_{}'.format(scalar_feild_name)]).T,
                        vmin =  stuff_for_plots['measurement_z_slice_{}'.format(scalar_feild_name)]['min'],
                        vmax =  stuff_for_plots['measurement_z_slice_{}'.format(scalar_feild_name)]['max'])
-        plt.xlabel(r'$z \ [m]$', fontsize = 20)
-        plt.ylabel(r'$y \ [m]$', fontsize = 20)
+        plt.xlabel(r'$y \ [m]$', fontsize = 20)
+        plt.ylabel(r'$z \ [m]$', fontsize = 20)
 
         #plt.pcolormesh(y_points,
         #               x_points,
         #               h5_file[timestep_group]['measurement_z_slice_{}'.format(scalar_feild_name)],
         #               vmin =  stuff_for_plots['measurement_z_slice_{}'.format(scalar_feild_name)]['min'],
         #               vmax =  stuff_for_plots['measurement_z_slice_{}'.format(scalar_feild_name)]['max'])
-        #plt.xlabel(r'$y \ [m]$', fontsize = 20)
-        #plt.ylabel(r'$z \ [m]$', fontsize = 20)
+        #plt.xlabel(r'$z \ [m]$', fontsize = 20)
+        #plt.ylabel(r'$y \ [m]$', fontsize = 20)
       
         ## Add where duct would be
         #rect = Rectangle((x_duct_start, x_duct_start), duct_width, duct_width, edgecolor='k', facecolor='none', linestyle='--')
@@ -630,8 +632,6 @@ for filename in hdf_filenames:
         ax.add_patch(rect)
 
         plt.axis('scaled')
-        plt.xlabel(r'$x \ [m]$', fontsize = 20)
-        plt.ylabel(r'$y \ [m]$', fontsize = 20)
         plt.title('{} {}'.format(title_labels[scalar_feild_name], unit_labels[scalar_feild_name]), fontsize = 20)
         # create an axes on the right side of ax. The width of cax will be 5%
         # of ax and the padding between cax and ax will be fixed at 0.05 inch.
@@ -676,7 +676,7 @@ for filename in hdf_filenames:
                  label='time average')
         plt.xlim([stuff_for_plots['measurement_line_{}'.format(scalar_feild_name)]['min'],stuff_for_plots['measurement_line_{}'.format(scalar_feild_name)]['max']])
         plt.xlabel('{} {}'.format(title_labels[scalar_feild_name], unit_labels[scalar_feild_name]), fontsize = 20)
-        plt.ylabel(r'$y$ [m]', fontsize = 20)
+        plt.ylabel(r'$z$ [m]', fontsize = 20)
         plt.title('{} on Measurement Line'.format(title_labels[scalar_feild_name]), fontsize = 20)
         plt.legend(loc='upper right', prop={'size': 18})
         plt.savefig(os.path.join(frames_dir,'measurement_line_{}_{:04d}.png'.format(scalar_feild_name, restart_number)), dpi=300, bbox_inches='tight')
