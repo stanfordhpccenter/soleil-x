@@ -125,8 +125,10 @@ module load mpi/openmpi/1.8.2
 module load cuda/8.0
 # Build config
 export CONDUIT=ibv
-export CC=gcc-4.9
-export CXX=g++-4.9
+export CC=gcc-5
+export CXX=g++-5
+export CC_FLAGS=-std=c++11
+export NVCC_FLAGS=-std=c++11
 # Path setup
 export LEGION_DIR=???
 export HDF_ROOT="$LEGION_DIR"/language/hdf/install
