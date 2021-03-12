@@ -128,8 +128,6 @@ module load slurm/20.11.4
 export CONDUIT=ibv
 export CC=gcc
 export CXX=g++
-export CC_FLAGS=-std=c++14
-export NVCC_FLAGS=-std=c++14
 # Path setup
 export LEGION_DIR=???
 export HDF_ROOT="$LEGION_DIR"/language/hdf/install
