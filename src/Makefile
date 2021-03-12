@@ -23,7 +23,7 @@ HDF_LIBNAME ?= hdf5
 
 # C compiler options
 CFLAGS += -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent
-CXXFLAGS += -std=c++11 -g -O2 -Wall -Woverloaded-virtual -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent
+CXXFLAGS += -g -O2 -Wall -Woverloaded-virtual -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent
 ifeq ($(USE_CUDA), 1)
   CFLAGS += -I$(CUDA_HOME)/include
   CXXFLAGS += -I$(CUDA_HOME)/include

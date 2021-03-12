@@ -126,50 +126,18 @@ function run_certainty {
         "$SOLEIL_DIR"/src/certainty.slurm
 }
 
-function run_sherlock {
-    RESOURCES=
+function run_sapling {
+    export QUEUE="${QUEUE:-cpu}"
     if [[ "$USE_CUDA" == 1 ]]; then
-        RESOURCES="gpu:4"
+        export QUEUE=gpu
     fi
     DEPS=
     if [[ ! -z "$AFTER" ]]; then
         DEPS="-d afterok:$AFTER"
     fi
     sbatch --export=ALL \
-        -N "$NUM_NODES" -t "$WALLTIME" --gres="$RESOURCES" $DEPS \
-        "$SOLEIL_DIR"/src/sherlock.slurm
-}
-
-function run_sapling {
-    # Allocate up to 2 nodes, from n0002 up to n0003
-    if (( NUM_NODES == 1 )); then
-        NODES="n0003"
-    elif (( NUM_NODES == 2 )); then
-        NODES="n0002,n0003"
-    elif (( NUM_NODES == 3 )); then
-        NODES="n0001,n0002,n0003"
-    elif (( NUM_NODES == 4 )); then
-        NODES="n0000,n0001,n0002,n0003"
-    else
-        quit "Too many nodes requested"
-    fi
-    # Synthesize final command
-    CORES_PER_NODE=12
-    RAM_PER_NODE=30000
-    GPUS_PER_NODE=2
-    FB_PER_GPU=5000
-    source "$SOLEIL_DIR"/src/jobscript_shared.sh
-    # Emit final command
-    mpiexec -H "$NODES" --bind-to none \
-        -x LD_LIBRARY_PATH -x SOLEIL_DIR -x REALM_BACKTRACE -x LEGION_FREEZE_ON_ERROR -x DEBUG_COPYING \
-        $COMMAND
-    # Resources:
-    # 40230MB RAM per node
-    # 2 NUMA domains per node
-    # 6 cores per NUMA domain
-    # 2-way SMT per core
-    # 2 Tesla C2070 GPUs per node
-    # 6GB FB per GPU
+        -N "$NUM_NODES" -t "$WALLTIME" -p "$QUEUE" $DEPS \
+        "$SOLEIL_DIR"/src/sapling.slurm
 }
 
 function run_local {
@@ -203,8 +171,6 @@ elif [[ "$(uname -n)" == *"daint"* ]]; then
     run_pizdaint
 elif [[ "$(uname -n)" == *"certainty"* ]]; then
     run_certainty
-elif [[ "$(uname -n)" == *"sh-ln"* ]]; then
-    run_sherlock
 elif [[ "$(uname -n)" == *"sapling"* ]]; then
     run_sapling
 else

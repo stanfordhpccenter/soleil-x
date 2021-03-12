@@ -117,70 +117,25 @@ make
 Setup (Sapling @ Stanford)
 ==========================
 
-### Add to shell startup
-
-```
-# Module loads
-module load mpi/openmpi/1.8.2
-module load cuda/8.0
-# Build config
-export CONDUIT=ibv
-export CC=gcc-5
-export CXX=g++-5
-export CC_FLAGS=-std=c++11
-export NVCC_FLAGS=-std=c++11
-# Path setup
-export LEGION_DIR=???
-export HDF_ROOT="$LEGION_DIR"/language/hdf/install
-export SOLEIL_DIR=???
-export SCRATCH=/scratch/oldhome/`whoami`
-# CUDA config
-export CUDA_HOME=/usr/local/cuda-8.0
-export CUDA="$CUDA_HOME"
-export GPU_ARCH=fermi
-```
-
-### Download software
-
-```
-git clone https://gitlab.com/StanfordLegion/legion.git "$LEGION_DIR"
-git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
-```
-
-### Install Legion
-
-```
-cd "$LEGION_DIR"/language
-USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 scripts/setup_env.py --llvm-version 38
-```
-
-### Compile Soleil-X
-
-```
-cd "$SOLEIL_DIR"/src
-make
-```
-
-Setup (Sherlock @ Stanford)
-===========================
+See [Elliott's guide](https://github.com/StanfordLegion/sapling-guide) for general guidance on using sapling.
 
 ### Add to shell startup
 
 ```
 # Module loads
-module load gcc/6.3.0
-module load cuda/9.2.148
-module load openmpi/2.0.2
+module load slurm/20.11.4
 # Build config
 export CONDUIT=ibv
 export CC=gcc
 export CXX=g++
+export CC_FLAGS=-std=c++14
+export NVCC_FLAGS=-std=c++14
 # Path setup
 export LEGION_DIR=???
 export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
 # CUDA config
-export CUDA_HOME=/share/software/user/open/cuda/9.2.148
+export CUDA_HOME=/usr/local/cuda-11.1
 export CUDA="$CUDA_HOME"
 export GPU_ARCH=pascal
 ```
@@ -194,20 +149,20 @@ git clone https://github.com/stanfordhpccenter/soleil-x.git "$SOLEIL_DIR"
 
 ### Install Legion
 
-We build Legion in a SLURM job, because processes on the login node are restricted to 1 core, and we also require a node with a proper CUDA installation.
+We can't build Legion on the head node, because it has a different architecture than the compute nodes. Currently we have to manually reload modules when moving to a compute node, because the version installed on the head node is incompatible with that on the compute nodes.
 
 ```
 cd "$LEGION_DIR"/language
-LD_FLAGS=-lpmi2 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 srun -N 1 -c 10 -p aaiken --gres=gpu:4 scripts/setup_env.py --llvm-version 38
+USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 srun --exclusive -N 1 -p gpu bash -c '. "$SOLEIL_DIR"/src/sapling_reload_modules.sh; scripts/setup_env.py --llvm-version 60'
 ```
 
 ### Compile Soleil-X
 
-Soleil-X must similarly be built in a SLURM job:
+Similarly, we build Soleil on a compute node.
 
 ```
 cd "$SOLEIL_DIR"/src
-srun -N 1 -c 10 -p aaiken --gres=gpu:4 make
+srun --exclusive -N 1 -p gpu bash -c '. "$SOLEIL_DIR"/src/sapling_reload_modules.sh; make'
 ```
 
 Setup (Certainty @ Stanford)
