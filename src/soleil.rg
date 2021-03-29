@@ -7,7 +7,7 @@ import "regent"
 local C = regentlib.c
 local MAPPER = terralib.includec("soleil_mapper.h")
 local SCHEMA = terralib.includec("config_schema.h")
-local UTIL = require 'util-desugared'
+local UTIL = require 'util'
 
 local acos = regentlib.acos(double)
 local ceil = regentlib.ceil(double)
@@ -167,7 +167,7 @@ struct Radiation_columns {
 -- EXTERNAL MODULE IMPORTS
 -------------------------------------------------------------------------------
 
-local DOM = (require 'dom-desugared')(MAX_ANGLES_PER_QUAD, Radiation_columns, SCHEMA)
+local DOM = (require 'dom')(MAX_ANGLES_PER_QUAD, Radiation_columns, SCHEMA)
 
 local HDF_FLUID = (require 'hdf_helper')(int3d, int3d, Fluid_columns,
                                          Fluid_primitives,
@@ -3404,13 +3404,13 @@ do
                                       Grid_zBnum, Grid_zNum, NZ)
       if elemColor ~= partColor then
         toTransfer += 1;
-        @ESCAPE for k = 1,26 do @EMIT
+        rescape for k = 1,26 do remit rquote
           if Particles[i].__xfer_dir == 0 and
              elemColor == (partColor + [colorOffsets[k]] + {NX,NY,NZ}) % {NX,NY,NZ} then
             Particles[i].__xfer_dir = k
             toTransfer += -1
           end
-        @TIME end @EPACSE
+        end end end
       end
     end
   end
@@ -3421,7 +3421,7 @@ do
      rexpr toTransfer end)];
   var total_xfers = int64(0);
   -- For each movement direction...
-  @ESCAPE for k = 1,26 do local queue = tradeQueues[k] @EMIT
+  rescape for k = 1,26 do local queue = tradeQueues[k] remit rquote
     -- Clear the transfer queue
     __demand(__openmp)
     for j in queue do
@@ -3450,13 +3450,13 @@ do
     for i in Particles do
       if Particles[i].__xfer_dir == k then
         var j = Particles[i].__xfer_slot - 1 + queue.bounds.lo;
-        @ESCAPE for _,fld in ipairs(Particles_subStepConserved) do @EMIT
+        rescape for _,fld in ipairs(Particles_subStepConserved) do remit rquote
           queue[j].[fld] = Particles[i].[fld]
-        @TIME end @EPACSE
+        end end end
         Particles[i].__valid = false
       end
     end
-  @TIME end @EPACSE
+  end end end
   return total_xfers
 end
 
@@ -3478,7 +3478,7 @@ do
   var xfer_bounds : int64[27]
   xfer_bounds[0] = 0
   var total_xfers = int64(0);
-  @ESCAPE for k = 1,26 do local queue = tradeQueues[k] @EMIT
+  rescape for k = 1,26 do local queue = tradeQueues[k] remit rquote
     __demand(__openmp)
     for j in queue do
       if queue[j].__valid then
@@ -3486,7 +3486,7 @@ do
       end
     end
     xfer_bounds[k] = total_xfers
-  @TIME end @EPACSE
+  end end end
   -- Number all empty slots on particles sub-region
   var avail_slots = int64(0)
   __demand(__openmp)
@@ -3506,7 +3506,7 @@ do
      rexpr config.Mapping.sampleId end)];
   -- Copy moving particles from the transfer queues
   -- NOTE: This part assumes that transfer queues are filled contiguously.
-  @ESCAPE for k = 1,26 do local queue = tradeQueues[k] @EMIT
+  rescape for k = 1,26 do local queue = tradeQueues[k] remit rquote
     var lo = xfer_bounds[k-1]
     var hi = xfer_bounds[k]
     __demand(__openmp)
@@ -3515,13 +3515,13 @@ do
         var j_off = Particles[i].__xfer_slot - 1
         if j_off >= lo and j_off < hi then
           var j = j_off - lo + queue.bounds.lo;
-          @ESCAPE for _,fld in ipairs(Particles_subStepConserved) do @EMIT
+          rescape for _,fld in ipairs(Particles_subStepConserved) do remit rquote
             Particles[i].[fld] = queue[j].[fld]
-          @TIME end @EPACSE
+          end end end
         end
       end
     end
-  @TIME end @EPACSE
+  end end end
   return total_xfers
 end
 
@@ -3831,9 +3831,9 @@ where
   reads writes(Fluid.{rho_new, rhoEnergy_new, rhoVelocity_new})
 do
   var dt = Integrator_deltaTime;
-  @ESCAPE for ORDER = RK_MIN_ORDER,RK_MAX_ORDER do @EMIT
+  rescape for ORDER = RK_MIN_ORDER,RK_MAX_ORDER do remit rquote
     if config.Integrator.rkOrder == ORDER then
-      @ESCAPE for STAGE = 1,ORDER do @EMIT
+      rescape for STAGE = 1,ORDER do remit rquote
         if Integrator_stage == STAGE then
           __demand(__openmp)
           for c in Fluid do
@@ -3845,12 +3845,12 @@ do
                rexpr vs_mul(Fluid[c].rhoVelocity_t, [RK_B[ORDER][STAGE]] * dt) end)];
             Fluid[c].rhoEnergy_new +=
               Fluid[c].rhoEnergy_t * [RK_B[ORDER][STAGE]] * dt;
-            @ESCAPE if STAGE == ORDER then @EMIT
+            rescape if STAGE == ORDER then remit rquote
               -- Set final values
               Fluid[c].rho = Fluid[c].rho_new
               Fluid[c].rhoVelocity = Fluid[c].rhoVelocity_new
               Fluid[c].rhoEnergy = Fluid[c].rhoEnergy_new
-            @TIME else @EMIT
+            end else remit rquote
               -- Set values for next substep
               Fluid[c].rho = Fluid[c].rho_old +
                 Fluid[c].rho_t * [RK_C[ORDER][STAGE]] * dt
@@ -3858,12 +3858,12 @@ do
                 vs_mul(Fluid[c].rhoVelocity_t, [RK_C[ORDER][STAGE]] * dt))
               Fluid[c].rhoEnergy = Fluid[c].rhoEnergy_old +
                 Fluid[c].rhoEnergy_t * [RK_C[ORDER][STAGE]] * dt
-            @TIME end @EPACSE
+            end end end
           end
         end
-      @TIME end @EPACSE
+      end end end
     end
-  @TIME end @EPACSE
+  end end end
 end
 
 __demand(__leaf, __parallel, __cuda)
@@ -3879,9 +3879,9 @@ where
   reads writes(Particles.{position_new, temperature_new, velocity_new})
 do
   var dt = Particles_deltaTime;
-  @ESCAPE for ORDER = RK_MIN_ORDER,RK_MAX_ORDER do @EMIT
+  rescape for ORDER = RK_MIN_ORDER,RK_MAX_ORDER do remit rquote
     if config.Integrator.rkOrder == ORDER then
-      @ESCAPE for STAGE = 1,ORDER do @EMIT
+      rescape for STAGE = 1,ORDER do remit rquote
         if Integrator_stage == STAGE then
           __demand(__openmp)
           for p in Particles do
@@ -3895,12 +3895,12 @@ do
                  rexpr vs_mul(Particles[p].velocity_t, [RK_B[ORDER][STAGE]] * dt) end)];
               Particles[p].temperature_new +=
                 Particles[p].temperature_t * [RK_B[ORDER][STAGE]] * dt;
-              @ESCAPE if STAGE == ORDER then @EMIT
+              rescape if STAGE == ORDER then remit rquote
                 -- Set final values
                 Particles[p].position = Particles[p].position_new
                 Particles[p].velocity = Particles[p].velocity_new
                 Particles[p].temperature = Particles[p].temperature_new
-              @TIME else @EMIT
+              end else remit rquote
                 -- Set values for next substep
                 Particles[p].position = vv_add(Particles[p].position_old,
                   vs_mul(Particles[p].velocity, [RK_C[ORDER][STAGE]] * dt))
@@ -3908,13 +3908,13 @@ do
                   vs_mul(Particles[p].velocity_t, [RK_C[ORDER][STAGE]] * dt))
                 Particles[p].temperature = Particles[p].temperature_old +
                   Particles[p].temperature_t * [RK_C[ORDER][STAGE]] * dt
-              @TIME end @EPACSE
+              end end end
             end
           end
         end
-      @TIME end @EPACSE
+      end end end
     end
-  @TIME end @EPACSE
+  end end end
 end
 
 __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
@@ -4594,7 +4594,7 @@ local function mkInstance() local INSTANCE = {}
     [UTIL.emitRegionTagAttach(Particles, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     var [Particles_copy] = region(is_Particles, Particles_columns);
     [UTIL.emitRegionTagAttach(Particles_copy, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
-    @ESCAPE for k = 1,26 do @EMIT
+    rescape for k = 1,26 do remit rquote
       -- Make tradequeues smaller for diagonal movement
       var off = [colorOffsets[k]]
       var num_dirs = off.x*off.x + off.y*off.y + off.z*off.z
@@ -4605,7 +4605,7 @@ local function mkInstance() local INSTANCE = {}
       var is_TradeQueue = ispace(int1d, int64(ceil(escapeRatio * maxParticlesPerTile) * numTiles))
       var [TradeQueue[k]] = region(is_TradeQueue, TradeQueue_columns);
       [UTIL.emitRegionTagAttach(TradeQueue[k], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
-    @TIME end @EPACSE
+    end end end
 
     -- Create Radiation Regions
     var rad_x = NX
@@ -4638,14 +4638,14 @@ local function mkInstance() local INSTANCE = {}
     var [p_Particles_copy] =
       [UTIL.mkPartitionByTile(int1d, int3d, Particles_columns)]
       (Particles_copy, tiles, 0, int3d{0,0,0});
-    @ESCAPE for k = 1,26 do @EMIT
+    rescape for k = 1,26 do remit rquote
       var [p_TradeQueue_bySrc[k]] =
         [UTIL.mkPartitionByTile(int1d, int3d, TradeQueue_columns)]
         ([TradeQueue[k]], tiles, 0, int3d{0,0,0});
       var [p_TradeQueue_byDst[k]] =
         [UTIL.mkPartitionByTile(int1d, int3d, TradeQueue_columns)]
         ([TradeQueue[k]], tiles, 0, [colorOffsets[k]]);
-    @TIME end @EPACSE
+    end end end
 
     -- Radiation Partitioning
     var [p_Radiation] =
@@ -5392,19 +5392,19 @@ local function mkInstance() local INSTANCE = {}
       end
 
       -- Advance the time for the next sub-step
-      @ESCAPE for ORDER = RK_MIN_ORDER,RK_MAX_ORDER do @EMIT
+      rescape for ORDER = RK_MIN_ORDER,RK_MAX_ORDER do remit rquote
         if config.Integrator.rkOrder == ORDER then
-          @ESCAPE for STAGE = 1,ORDER do @EMIT
+          rescape for STAGE = 1,ORDER do remit rquote
             if Integrator_stage == STAGE then
-              @ESCAPE if STAGE == ORDER then @EMIT
+              rescape if STAGE == ORDER then remit rquote
                 Integrator_simTime = Integrator_time_old + Integrator_deltaTime
-              @TIME else @EMIT
+              end else remit rquote
                 Integrator_simTime = Integrator_time_old + [RK_B[ORDER][STAGE]] * Integrator_deltaTime
-              @TIME end @EPACSE
+              end end end
             end
-          @TIME end @EPACSE
+          end end end
         end
-      @TIME end @EPACSE
+      end end end
 
     end -- RK sub-time-stepping
 

@@ -10,7 +10,7 @@ import 'regent'
 
 local C = regentlib.c
 local SCHEMA = terralib.includec("config_schema.h")
-local UTIL = require 'util-desugared'
+local UTIL = require 'util'
 
 local pow = regentlib.pow(double)
 
@@ -38,7 +38,7 @@ struct Point_columns {
 -- Import DOM module
 -------------------------------------------------------------------------------
 
-local DOM = (require 'dom-desugared')(MAX_ANGLES_PER_QUAD, Point_columns, SCHEMA)
+local DOM = (require 'dom')(MAX_ANGLES_PER_QUAD, Point_columns, SCHEMA)
 local DOM_INST = DOM.mkInstance()
 
 -------------------------------------------------------------------------------

@@ -567,15 +567,15 @@ function Exports.emitArrayReduce(dims, op, lhs, rhs)
   -- emit them as atomic operations if needed.
   return rquote
     var tmp = [rhs];
-    @ESCAPE for i = 0,dims-1 do
-      if     op == '+'   then @EMIT lhs[i] +=   tmp[i] @TIME
-      elseif op == '-'   then @EMIT lhs[i] -=   tmp[i] @TIME
-      elseif op == '*'   then @EMIT lhs[i] *=   tmp[i] @TIME
-      elseif op == '/'   then @EMIT lhs[i] /=   tmp[i] @TIME
-      elseif op == 'max' then @EMIT lhs[i] max= tmp[i] @TIME
-      elseif op == 'min' then @EMIT lhs[i] min= tmp[i] @TIME
+    rescape for i = 0,dims-1 do
+      if     op == '+'   then remit rquote lhs[i] +=   tmp[i] end
+      elseif op == '-'   then remit rquote lhs[i] -=   tmp[i] end
+      elseif op == '*'   then remit rquote lhs[i] *=   tmp[i] end
+      elseif op == '/'   then remit rquote lhs[i] /=   tmp[i] end
+      elseif op == 'max' then remit rquote lhs[i] max= tmp[i] end
+      elseif op == 'min' then remit rquote lhs[i] min= tmp[i] end
       else assert(false) end
-    end @EPACSE
+    end end
   end
 end
 

@@ -12,7 +12,7 @@ return function(MAX_ANGLES_PER_QUAD, Point_columns, SCHEMA) local MODULE = {}
 
 local C = regentlib.c
 local MAPPER = terralib.includec("soleil_mapper.h")
-local UTIL = require 'util-desugared'
+local UTIL = require 'util'
 
 local fabs = regentlib.fabs(double)
 local max = regentlib.fmax
@@ -153,49 +153,49 @@ do
   read_double(f)
   -- Read fields round-robin into angle quadrants
   for m = 0, MAX_ANGLES_PER_QUAD do
-    @ESCAPE for q = 1, 8 do @EMIT
+    rescape for q = 1, 8 do remit rquote
       if m*8 + q - 1 == num_angles then break end
       [angles[q]][m].xi = read_double(f)
-    @TIME end @EPACSE
+    end end end
   end
   for m = 0, MAX_ANGLES_PER_QUAD do
-    @ESCAPE for q = 1, 8 do @EMIT
+    rescape for q = 1, 8 do remit rquote
       if m*8 + q - 1 == num_angles then break end
       [angles[q]][m].eta = read_double(f)
-    @TIME end @EPACSE
+    end end end
   end
   for m = 0, MAX_ANGLES_PER_QUAD do
-    @ESCAPE for q = 1, 8 do @EMIT
+    rescape for q = 1, 8 do remit rquote
       if m*8 + q - 1 == num_angles then break end
       [angles[q]][m].mu = read_double(f)
-    @TIME end @EPACSE
+    end end end
   end
   for m = 0, MAX_ANGLES_PER_QUAD do
-    @ESCAPE for q = 1, 8 do @EMIT
+    rescape for q = 1, 8 do remit rquote
       if m*8 + q - 1 == num_angles then break end
       [angles[q]][m].w = read_double(f)
-    @TIME end @EPACSE
+    end end end
   end
   -- Close angles file.
   C.fclose(f);
   -- Check that angles are partitioned correctly into quadrants.
-  @ESCAPE for q = 1, 8 do @EMIT
+  rescape for q = 1, 8 do remit rquote
     for m = 0, quadrantSize(q, num_angles) do
       regentlib.assert([angleInQuadrant(q, rexpr [angles[q]][m] end)],
                        'Angle in wrong quadrant')
     end
-  @TIME end @EPACSE
+  end end end
   -- Check that normals exist for all walls.
   var normalExists = array(false, false, false, false, false, false);
-  @ESCAPE for q = 1, 8 do @EMIT
+  rescape for q = 1, 8 do remit rquote
     for m = 0, quadrantSize(q, num_angles) do
-      @ESCAPE for wall = 1, 6 do @EMIT
+      rescape for wall = 1, 6 do remit rquote
         if [isWallNormal(wall, rexpr [angles[q]][m] end)] then
           normalExists[wall-1] = true
         end
-      @TIME end @EPACSE
+      end end end
     end
-  @TIME end @EPACSE
+  end end end
   regentlib.assert(normalExists[0], 'Normal missing for wall xLo')
   regentlib.assert(normalExists[1], 'Normal missing for wall xHi')
   regentlib.assert(normalExists[2], 'Normal missing for wall yLo')
@@ -465,7 +465,7 @@ local function mkBound(wall)
       var value = 0.0
       -- Calculate reflected intensity
       if epsw < 1.0 then
-        @ESCAPE for _,q in ipairs(incomingQuadrants) do @EMIT
+        rescape for _,q in ipairs(incomingQuadrants) do remit rquote
           for m = 0, quadrantSize(q, num_angles) do
             value +=
               (1.0-epsw)/PI * [angles[q]][m].w * [faces[q]][idx].I_prev[m]
@@ -478,12 +478,12 @@ local function mkBound(wall)
                         rexpr [angles[q]][m].mu  end,
                       }[wall]])
           end
-        @TIME end @EPACSE
+        end end end
       end
       -- Add blackbody radiation
       value += epsw*SB*pow(Tw,4.0)/PI;
       -- Set outgoing intensity values
-      @ESCAPE for _,q in ipairs(outgoingQuadrants) do @EMIT
+      rescape for _,q in ipairs(outgoingQuadrants) do remit rquote
         for m = 0, quadrantSize(q, num_angles) do
           if [terralib.newlist{
                 rexpr [angles[q]][m].xi  > 0 end,
@@ -503,7 +503,7 @@ local function mkBound(wall)
             [faces[q]][idx].I[m] = I
           end
         end
-      @TIME end @EPACSE
+      end end end
     end
   end
 
@@ -653,18 +653,18 @@ do
     grid_map.bounds.lo.y == 0 and grid_map.bounds.hi.y + 1 == Ty and
     grid_map.bounds.lo.z == 0 and grid_map.bounds.hi.z + 1 == Tz,
     'Internal error');
-  @ESCAPE for q = 1, 8 do @EMIT
+  rescape for q = 1, 8 do remit rquote
     regentlib.assert(
       int64([sub_points[q]].bounds.hi - [sub_points[q]].bounds.lo + 1)
       == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz,
       'Internal error')
-  @TIME end @EPACSE
+  end end end
   var num_angles = config.Radiation.u.DOM.angles
   __demand(__openmp)
   for p in points do
     p.G = 0.0
   end
-  @ESCAPE for q = 1, 8 do @EMIT
+  rescape for q = 1, 8 do remit rquote
     __demand(__openmp)
     for p in points do
       var G = 0.0
@@ -683,7 +683,7 @@ do
       end
       p.G += G
     end
-  @TIME end @EPACSE
+  end end end
 end
 
 -------------------------------------------------------------------------------
@@ -759,34 +759,34 @@ function MODULE.mkInstance() local INSTANCE = {}
     -- Conceptually int4d, but rolled into 1 dimension to make CUDA code
     -- generation easier. The effective storage order is Z > Y > X > M.
     var is_sub_points = ispace(int1d, int64(MAX_ANGLES_PER_QUAD)*Nx*Ny*Nz);
-    @ESCAPE for q = 1, 8 do @EMIT
+    rescape for q = 1, 8 do remit rquote
       var [sub_points[q]] = region(is_sub_points, SubPoint_columns);
       [UTIL.emitRegionTagAttach(sub_points[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
-    @TIME end @EPACSE
+    end end end
 
     -- Regions for faces
     var grid_x = ispace(int2d, {   Ny,Nz})
     var grid_y = ispace(int2d, {Nx,   Nz})
     var grid_z = ispace(int2d, {Nx,Ny   });
-    @ESCAPE for q = 1, 8 do @EMIT
+    rescape for q = 1, 8 do remit rquote
       var [x_faces[q]] = region(grid_x, Face_columns);
       [UTIL.emitRegionTagAttach(x_faces[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
       var [y_faces[q]] = region(grid_y, Face_columns);
       [UTIL.emitRegionTagAttach(y_faces[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
       var [z_faces[q]] = region(grid_z, Face_columns);
       [UTIL.emitRegionTagAttach(z_faces[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
-    @TIME end @EPACSE
+    end end end
 
     -- Regions for angles
     var num_angles = 8
     if config.Radiation.type == SCHEMA.RadiationModel_DOM then
       num_angles = config.Radiation.u.DOM.angles
     end
-    @ESCAPE for q = 1, 8 do @EMIT
+    rescape for q = 1, 8 do remit rquote
       var is_angles = ispace(int1d, quadrantSize(q, num_angles))
       var [angles[q]] = region(is_angles, Angle_columns);
       [UTIL.emitRegionTagAttach(angles[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
-    @TIME end @EPACSE
+    end end end
 
     -- Regions for intra-tile information
     var is_sub_point_offsets = ispace(int1d, int64(MAX_ANGLES_PER_QUAD)*Tx*Ty*Tz)
@@ -800,17 +800,17 @@ function MODULE.mkInstance() local INSTANCE = {}
     -- (done by the host code)
 
     -- Partition sub-points
-    @ESCAPE for q = 1, 8 do @EMIT
+    rescape for q = 1, 8 do remit rquote
       var [p_sub_points[q]] =
         [UTIL.mkPartitionByTile(int1d, int3d, SubPoint_columns)]
         ([sub_points[q]], tiles, 0, int3d{0,0,0})
-    @TIME end @EPACSE
+    end end end
 
     -- Partition faces
     var [x_tiles] = ispace(int2d, {    nty,ntz})
     var [y_tiles] = ispace(int2d, {ntx,    ntz})
     var [z_tiles] = ispace(int2d, {ntx,nty    });
-    @ESCAPE for q = 1, 8 do @EMIT
+    rescape for q = 1, 8 do remit rquote
       var [p_x_faces[q]] =
         [UTIL.mkPartitionByTile(int2d, int2d, Face_columns)]
         ([x_faces[q]], x_tiles, int2d{0,0}, int2d{0,0})
@@ -820,7 +820,7 @@ function MODULE.mkInstance() local INSTANCE = {}
       var [p_z_faces[q]] =
         [UTIL.mkPartitionByTile(int2d, int2d, Face_columns)]
         ([z_faces[q]], z_tiles, int2d{0,0}, int2d{0,0})
-    @TIME end @EPACSE
+    end end end
 
     -- Cache intra-tile information
     var [diagonals] = ispace(int1d, (Tx-1)+(Ty-1)+(Tz-1)+1)
@@ -837,14 +837,14 @@ function MODULE.mkInstance() local INSTANCE = {}
     end
 
     -- Initialize sub-points
-    @ESCAPE for q = 1, 8 do @EMIT
+    rescape for q = 1, 8 do remit rquote
       for c in tiles do
         initialize_sub_points([p_sub_points[q]][c])
       end
-    @TIME end @EPACSE
+    end end end
 
     -- Initialize faces
-    @ESCAPE for q = 1, 8 do @EMIT
+    rescape for q = 1, 8 do remit rquote
       for c in x_tiles do
         [initialize_faces['x'][q]]([p_x_faces[q]][c], config)
       end
@@ -854,7 +854,7 @@ function MODULE.mkInstance() local INSTANCE = {}
       for c in z_tiles do
         [initialize_faces['z'][q]]([p_z_faces[q]][c], config)
       end
-    @TIME end @EPACSE
+    end end end
 
     -- Initialize angles
     initialize_angles([angles], config);
@@ -883,7 +883,7 @@ function MODULE.mkInstance() local INSTANCE = {}
 
       -- Cache the face intensity values from the previous iteration (those
       -- values represent the final downwind values).
-      @ESCAPE for q = 1, 8 do @EMIT
+      rescape for q = 1, 8 do remit rquote
         for c in x_tiles do
           [cache_intensity['x'][q]]([p_x_faces[q]][c], config)
         end
@@ -893,7 +893,7 @@ function MODULE.mkInstance() local INSTANCE = {}
         for c in z_tiles do
           [cache_intensity['z'][q]]([p_z_faces[q]][c], config)
         end
-      @TIME end @EPACSE
+      end end end
 
       -- Update face intensity values, to represent initial upwind values for
       -- this iteration.
@@ -930,7 +930,7 @@ function MODULE.mkInstance() local INSTANCE = {}
 
       -- Perform the sweep for computing new intensities.
       var acc = 0.0;
-      @ESCAPE for q = 1, 8 do @EMIT
+      rescape for q = 1, 8 do remit rquote
         for i = [directions[q][1] and rexpr   0 end or rexpr ntx-1 end],
                 [directions[q][1] and rexpr ntx end or rexpr    -1 end],
                 [directions[q][1] and rexpr   1 end or rexpr    -1 end] do
@@ -955,7 +955,7 @@ function MODULE.mkInstance() local INSTANCE = {}
             end
           end
         end
-      @TIME end @EPACSE
+      end end end
 
       -- Update intensity.
       for c in tiles do

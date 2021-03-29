@@ -4,7 +4,7 @@ local C = terralib.includecstring [[
 #include <string.h>
 ]]
 local JSON = terralib.includec('json.h')
-local UTIL = require 'util-desugared'
+local UTIL = require 'util'
 
 -------------------------------------------------------------------------------
 

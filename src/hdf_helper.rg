@@ -93,7 +93,7 @@ end
 
 local C = regentlib.c
 local HDF5 = terralib.includec(assert(os.getenv('HDF_HEADER')))
-local UTIL = require 'util-desugared'
+local UTIL = require 'util'
 
 -------------------------------------------------------------------------------
 -- CONSTANTS
