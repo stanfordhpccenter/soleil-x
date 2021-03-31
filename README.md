@@ -307,7 +307,7 @@ The system restricts the amount of memory we can use on a login node, so we need
 
 ```
 cd "$LEGION_DIR"/language
-CC_FLAGS='-DMAX_NUM_NODES=4096' TERRA_USE_PUC_LUA=1 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 bsub -W 60 -nnodes 1 -P CSC335 -I scripts/setup_env.py --llvm-version 38 --terra-branch 'puc_lua_master'
+CC_FLAGS='-DMAX_NUM_NODES=4096' USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 bsub -W 60 -nnodes 1 -P CSC335 -I scripts/setup_env.py --llvm-version 60
 ```
 
 ### Compile Soleil-X
@@ -373,7 +373,7 @@ Install Legion and Soleil-X on the `/usr/workspace` filesystem; your home direct
 ```
 # Module loads
 module load gcc/7.3.1
-module load cuda/9.2.148
+module load cuda/10.1.243
 # Build config
 export CC=gcc
 export CXX=g++
@@ -384,7 +384,7 @@ export HDF_ROOT="$LEGION_DIR"/language/hdf/install
 export SOLEIL_DIR=???
 export SCRATCH=/p/gpfs1/`whoami`
 # CUDA config
-export CUDA_HOME=/usr/tce/packages/cuda/cuda-9.2.148
+export CUDA_HOME=/usr/tce/packages/cuda/cuda-10.1.243
 export CUDA="$CUDA_HOME"
 export GPU_ARCH=volta
 ```
@@ -402,7 +402,7 @@ We need to go through the `lalloc` utility script to build on a compute node.
 
 ```
 cd "$LEGION_DIR"/language
-CC_FLAGS='-DMAX_NUM_NODES=4096' TERRA_USE_PUC_LUA=1 USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 lalloc 1 -W 720 scripts/setup_env.py --llvm-version 38 --terra-branch 'puc_lua_master'
+CC_FLAGS='-DMAX_NUM_NODES=4096' USE_CUDA=1 USE_OPENMP=1 USE_GASNET=1 USE_HDF=1 lalloc 1 -W 720 scripts/setup_env.py --llvm-version 60
 ```
 
 ### Compile Soleil-X
