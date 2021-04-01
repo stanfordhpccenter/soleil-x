@@ -79,8 +79,12 @@ local struct SubPoint_columns {
   I : double;
 }
 
+local struct TileInfo {
+  diagonal : int1d,
+}
+
 -------------------------------------------------------------------------------
--- QUADRANT MACROS
+-- MACROS
 -------------------------------------------------------------------------------
 
 local directions = terralib.newlist{
@@ -304,6 +308,36 @@ do
   regentlib.c.legion_domain_point_coloring_destroy(coloring)
   return p
 end
+
+-- 1..8 -> regentlib.task
+local function mkFillDiagonal(q)
+
+  local __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
+  task fill_diagonal(r_tiles : region(ispace(int3d), TileInfo))
+  where
+    writes(r_tiles.diagonal)
+  do
+    var ntx = r_tiles.bounds.hi.x + 1
+    var nty = r_tiles.bounds.hi.y + 1
+    var ntz = r_tiles.bounds.hi.z + 1
+    __demand(__openmp)
+    for t in r_tiles do
+      r_tiles[t].diagonal =
+        [directions[q][1] and rexpr t.x end or rexpr ntx-1-t.x end] +
+        [directions[q][2] and rexpr t.y end or rexpr nty-1-t.y end] +
+        [directions[q][3] and rexpr t.z end or rexpr ntz-1-t.z end]
+    end
+  end
+
+  local name = 'fill_diagonal_'..tostring(q)
+  fill_diagonal:set_name(name)
+  fill_diagonal:get_primary_variant():get_ast().name[1] = name -- XXX: Dangerous
+  return fill_diagonal
+
+end -- mkFillDiagonal
+
+local fill_diagonal =
+  UTIL.range(1,8):map(function(q) return mkFillDiagonal(q) end)
 
 local __demand(__leaf, __cuda) -- MANUALLY PARALLELIZED
 task initialize_sub_points(sub_points : region(ispace(int1d), SubPoint_columns))
@@ -724,6 +758,9 @@ function MODULE.mkInstance() local INSTANCE = {}
   local diagonals = regentlib.newsymbol('diagonals')
   local p_sub_point_offsets = regentlib.newsymbol('p_sub_point_offsets')
 
+  local r_tiles = UTIL.generate(8, regentlib.newsymbol)
+  local p_tiles_by_diagonal = UTIL.generate(8, regentlib.newsymbol)
+
   -- NOTE: This quote is included into the main simulation whether or not
   -- we're using DOM, so the values will be garbage if type ~= DOM.
   function INSTANCE.DeclSymbols(config, tiles) return rquote
@@ -796,6 +833,11 @@ function MODULE.mkInstance() local INSTANCE = {}
     var [grid_map] = region(is_grid_map, GridMap_columns);
     [UTIL.emitRegionTagAttach(grid_map, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
 
+    -- Regions for inter-tile information
+    rescape for q = 1, 8 do remit rquote
+      var [r_tiles[q]] = region(tiles, TileInfo)
+    end end end
+
     -- Partition points
     -- (done by the host code)
 
@@ -826,6 +868,12 @@ function MODULE.mkInstance() local INSTANCE = {}
     var [diagonals] = ispace(int1d, (Tx-1)+(Ty-1)+(Tz-1)+1)
     var [p_sub_point_offsets] =
       cache_grid_translation(grid_map, sub_point_offsets, diagonals)
+
+    -- Cache inter-tile information
+    rescape for q = 1, 8 do remit rquote
+      [fill_diagonal[q]]([r_tiles[q]])
+      var [p_tiles_by_diagonal[q]] = partition([r_tiles[q]].diagonal, diagonals)
+    end end end
 
   end end -- DeclSymbols
 
@@ -931,28 +979,21 @@ function MODULE.mkInstance() local INSTANCE = {}
       -- Perform the sweep for computing new intensities.
       var acc = 0.0;
       rescape for q = 1, 8 do remit rquote
-        for i = [directions[q][1] and rexpr   0 end or rexpr ntx-1 end],
-                [directions[q][1] and rexpr ntx end or rexpr    -1 end],
-                [directions[q][1] and rexpr   1 end or rexpr    -1 end] do
-          for j = [directions[q][2] and rexpr   0 end or rexpr nty-1 end],
-                  [directions[q][2] and rexpr nty end or rexpr    -1 end],
-                  [directions[q][2] and rexpr   1 end or rexpr    -1 end] do
-            for k = [directions[q][3] and rexpr   0 end or rexpr ntz-1 end],
-                    [directions[q][3] and rexpr ntz end or rexpr    -1 end],
-                    [directions[q][3] and rexpr   1 end or rexpr    -1 end] do
-              acc +=
-                [sweep[q]](p_points[{i,j,k}],
-                           [p_sub_points[q]][{i,j,k}],
-                           grid_map,
-                           sub_point_offsets,
-                           diagonals,
-                           p_sub_point_offsets,
-                           [p_x_faces[q]][{  j,k}],
-                           [p_y_faces[q]][{i,  k}],
-                           [p_z_faces[q]][{i,j  }],
-                           [angles[q]],
-                           config)
-            end
+        for d in diagonals do
+          __demand(__index_launch)
+          for t in [p_tiles_by_diagonal[q]][d] do
+            acc +=
+              [sweep[q]](p_points[t],
+                         [p_sub_points[q]][t],
+                         grid_map,
+                         sub_point_offsets,
+                         diagonals,
+                         p_sub_point_offsets,
+                         [p_x_faces[q]][{    t.y,t.z}],
+                         [p_y_faces[q]][{t.x,    t.z}],
+                         [p_z_faces[q]][{t.x,t.y    }],
+                         [angles[q]],
+                         config)
           end
         end
       end end end
