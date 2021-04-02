@@ -167,7 +167,7 @@ struct Radiation_columns {
 -- EXTERNAL MODULE IMPORTS
 -------------------------------------------------------------------------------
 
-local DOM = (require 'dom')(MAX_ANGLES_PER_QUAD, Radiation_columns, SCHEMA)
+local DOM = (require 'dom')(MAX_ANGLES_PER_QUAD, Radiation_columns, MAPPER, SCHEMA)
 
 local HDF_FLUID = (require 'hdf_helper')(int3d, int3d, Fluid_columns,
                                          Fluid_primitives,

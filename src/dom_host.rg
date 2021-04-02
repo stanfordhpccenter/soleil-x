@@ -9,6 +9,7 @@
 import 'regent'
 
 local C = regentlib.c
+local MAPPER = terralib.includec("soleil_mapper.h")
 local SCHEMA = terralib.includec("config_schema.h")
 local UTIL = require 'util'
 
@@ -38,7 +39,7 @@ struct Point_columns {
 -- Import DOM module
 -------------------------------------------------------------------------------
 
-local DOM = (require 'dom')(MAX_ANGLES_PER_QUAD, Point_columns, SCHEMA)
+local DOM = (require 'dom')(MAX_ANGLES_PER_QUAD, Point_columns, MAPPER, SCHEMA)
 local DOM_INST = DOM.mkInstance()
 
 -------------------------------------------------------------------------------
@@ -69,7 +70,7 @@ end
 -------------------------------------------------------------------------------
 
 local __forbid(__optimize) __demand(__inner, __replicable)
-task work(config : SCHEMA.Config)
+task workSingle(config : SCHEMA.Config)
   -- Declare externally-managed regions
   var is_points = ispace(int3d, {config.Radiation.u.DOM.xNum,
                                  config.Radiation.u.DOM.yNum,
@@ -97,16 +98,17 @@ local __demand(__inner)
 task main()
   var args = C.legion_runtime_get_input_args()
   var stderr = C.fdopen(2, 'w')
-  if args.argc < 2 then
-    C.fprintf(stderr, "Usage: %s config.json\n", args.argv[0])
+  if args.argc < 3 or C.strcmp(args.argv[1], '-i') ~= 0 then
+    C.fprintf(stderr, "Usage: %s -i config.json\n", args.argv[0])
     C.fflush(stderr)
     C.exit(1)
   end
   var config : SCHEMA.Config
-  SCHEMA.parse_Config(&config, args.argv[1])
+  SCHEMA.parse_Config(&config, args.argv[2])
+  config.Mapping.sampleId = 0
   regentlib.assert(config.Radiation.type == SCHEMA.RadiationModel_DOM,
                    'Configuration file must use DOM radiation model')
-  work(config)
+  workSingle(config)
 end
 
-regentlib.saveobj(main, 'dom_host.o', 'object')
+regentlib.saveobj(main, 'dom_host.o', 'object', MAPPER.register_mappers)

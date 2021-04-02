@@ -4,14 +4,13 @@ import 'regent'
 -- MODULE PARAMETERS
 -------------------------------------------------------------------------------
 
-return function(MAX_ANGLES_PER_QUAD, Point_columns, SCHEMA) local MODULE = {}
+return function(MAX_ANGLES_PER_QUAD, Point_columns, MAPPER, SCHEMA) local MODULE = {}
 
 -------------------------------------------------------------------------------
 -- IMPORTS
 -------------------------------------------------------------------------------
 
 local C = regentlib.c
-local MAPPER = terralib.includec("soleil_mapper.h")
 local UTIL = require 'util'
 
 local fabs = regentlib.fabs(double)
@@ -841,7 +840,8 @@ function MODULE.mkInstance() local INSTANCE = {}
 
     -- Regions for inter-tile information
     rescape for q = 1, 8 do remit rquote
-      var [r_tiles[q]] = region(tiles, TileInfo)
+      var [r_tiles[q]] = region(tiles, TileInfo);
+      [UTIL.emitRegionTagAttach(r_tiles[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
     end end end
 
     -- Partition points

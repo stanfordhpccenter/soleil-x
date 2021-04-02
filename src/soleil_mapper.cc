@@ -364,6 +364,8 @@ private:
     if (task.is_index_space ||
         STARTS_WITH(task.get_task_name(), "sweep_") ||
         EQUALS(task.get_task_name(), "cache_grid_translation") ||
+        STARTS_WITH(task.get_task_name(), "fill_diagonal_") ||
+        EQUALS(task.get_task_name(), "writeIntensity") ||
         EQUALS(task.get_task_name(), "initialize_angles") ||
         STARTS_WITH(task.get_task_name(), "readTileAttr")) {
       CHECK(!task.regions.empty(),
@@ -435,6 +437,8 @@ private:
     else if (EQUALS(task.get_task_name(), "workSingle") ||
              EQUALS(task.get_task_name(), "workDual") ||
              EQUALS(task.get_task_name(), "cache_grid_translation") ||
+             STARTS_WITH(task.get_task_name(), "fill_diagonal_") ||
+             EQUALS(task.get_task_name(), "writeIntensity") ||
              EQUALS(task.get_task_name(), "initialize_angles") ||
              STARTS_WITH(task.get_task_name(), "Console_Write") ||
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
@@ -483,6 +487,8 @@ private:
              EQUALS(task.get_task_name(), "workDual") ||
              STARTS_WITH(task.get_task_name(), "sweep_") ||
              EQUALS(task.get_task_name(), "cache_grid_translation") ||
+             STARTS_WITH(task.get_task_name(), "fill_diagonal_") ||
+             EQUALS(task.get_task_name(), "writeIntensity") ||
              EQUALS(task.get_task_name(), "initialize_angles") ||
              STARTS_WITH(task.get_task_name(), "Console_Write") ||
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||

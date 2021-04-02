@@ -72,10 +72,10 @@ soleil.exec: soleil.o soleil_mapper.o config_schema.o json.o
 soleil.o: soleil.rg soleil_mapper.h config_schema.h hdf_helper.rg dom.rg util.rg
 	$(REGENT) soleil.rg $(REGENT_FLAGS)
 
-dom_host.exec: dom_host.o config_schema.o json.o
+dom_host.exec: dom_host.o soleil_mapper.o config_schema.o json.o
 	$(CXX) -o $@ $^ $(LINK_FLAGS)
 
-dom_host.o: dom_host.rg config_schema.h dom.rg util.rg
+dom_host.o: dom_host.rg soleil_mapper.h config_schema.h dom.rg util.rg
 	$(REGENT) dom_host.rg $(REGENT_FLAGS)
 
 soleil_mapper.o: soleil_mapper.cc soleil_mapper.h config_schema.h
