@@ -71,11 +71,13 @@ end
 
 local __forbid(__optimize) __demand(__inner, __replicable)
 task workSingle(config : SCHEMA.Config)
+  var sampleId = config.Mapping.sampleId
   -- Declare externally-managed regions
   var is_points = ispace(int3d, {config.Radiation.u.DOM.xNum,
                                  config.Radiation.u.DOM.yNum,
                                  config.Radiation.u.DOM.zNum})
-  var points = region(is_points, Point_columns)
+  var points = region(is_points, Point_columns);
+  [UTIL.emitRegionTagAttach(points, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
   var tiles = ispace(int3d, {config.Mapping.tiles[0],
                              config.Mapping.tiles[1],
                              config.Mapping.tiles[2]})

@@ -837,9 +837,7 @@ private:
 static void create_mappers(Machine machine,
                            Runtime* rt,
                            const std::set<Processor>& local_procs) {
-  for (Processor proc : local_procs) {
-    rt->replace_default_mapper(new SoleilMapper(rt, machine, proc), proc);
-  }
+  rt->replace_default_mapper(new SoleilMapper(rt, machine, *(local_procs.begin())));
 }
 
 void register_mappers() {
