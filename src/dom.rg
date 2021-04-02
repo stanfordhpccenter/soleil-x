@@ -235,7 +235,7 @@ end
 local -- NOT LEAF, MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
 task cache_grid_translation(grid_map : region(ispace(int3d), GridMap_columns),
                             sub_point_offsets : region(ispace(int1d), bool),
-                            diagonals : ispace(int1d))
+                            inner_diagonals : ispace(int1d))
 where
   writes(grid_map.{p_to_s3d, s3d_to_p})
 do
@@ -248,8 +248,8 @@ do
     grid_map.bounds.lo.z == 0 and
     int64(sub_point_offsets.bounds.lo) == 0 and
     int64(sub_point_offsets.bounds.hi + 1) == MAX_ANGLES_PER_QUAD*Tx*Ty*Tz and
-    int64(diagonals.bounds.lo) == 0 and
-    int64(diagonals.bounds.hi) == (Tx-1)+(Ty-1)+(Tz-1),
+    int64(inner_diagonals.bounds.lo) == 0 and
+    int64(inner_diagonals.bounds.hi) == (Tx-1)+(Ty-1)+(Tz-1),
     'Internal error')
   var coloring = regentlib.c.legion_domain_point_coloring_create()
   var rect_start = int64(0)
@@ -304,7 +304,7 @@ do
                    rect_start == int64(sub_point_offsets.bounds.hi + 1),
                    'Internal error')
   -- Construct & return partition of sub-point offsets
-  var p = partition(disjoint, sub_point_offsets, coloring, diagonals)
+  var p = partition(disjoint, sub_point_offsets, coloring, inner_diagonals)
   regentlib.c.legion_domain_point_coloring_destroy(coloring)
   return p
 end
@@ -317,6 +317,11 @@ local function mkFillDiagonal(q)
   where
     writes(r_tiles.diagonal)
   do
+    regentlib.assert(
+      r_tiles.bounds.lo.x == 0 and
+      r_tiles.bounds.lo.y == 0 and
+      r_tiles.bounds.lo.z == 0,
+      'Internal error')
     var ntx = r_tiles.bounds.hi.x + 1
     var nty = r_tiles.bounds.hi.y + 1
     var ntz = r_tiles.bounds.hi.z + 1
@@ -567,8 +572,8 @@ local function mkSweep(q)
              sub_points : region(ispace(int1d), SubPoint_columns),
              grid_map : region(ispace(int3d), GridMap_columns),
              sub_point_offsets : region(ispace(int1d), bool),
-             diagonals : ispace(int1d),
-             p_sub_point_offsets : partition(disjoint, sub_point_offsets, diagonals),
+             inner_diagonals : ispace(int1d),
+             p_sub_point_offsets : partition(disjoint, sub_point_offsets, inner_diagonals),
              x_faces : region(ispace(int2d), Face_columns),
              y_faces : region(ispace(int2d), Face_columns),
              z_faces : region(ispace(int2d), Face_columns),
@@ -606,7 +611,7 @@ local function mkSweep(q)
     var num_angles = config.Radiation.u.DOM.angles
     var acc = 0.0
     -- Launch in order of intra-tile diagonals
-    for d = int64(diagonals.bounds.lo), int64(diagonals.bounds.hi+1) do
+    for d = int64(inner_diagonals.bounds.lo), int64(inner_diagonals.bounds.hi+1) do
       __demand(__openmp)
       for s1d_off in p_sub_point_offsets[d] do
         -- Compute sub-point index, translate to point index
@@ -755,9 +760,10 @@ function MODULE.mkInstance() local INSTANCE = {}
 
   local grid_map = regentlib.newsymbol('grid_map')
   local sub_point_offsets = regentlib.newsymbol('sub_point_offsets')
-  local diagonals = regentlib.newsymbol('diagonals')
+  local inner_diagonals = regentlib.newsymbol('inner_diagonals')
   local p_sub_point_offsets = regentlib.newsymbol('p_sub_point_offsets')
 
+  local outer_diagonals = regentlib.newsymbol('outer_diagonals')
   local r_tiles = UTIL.generate(8, regentlib.newsymbol)
   local p_tiles_by_diagonal = UTIL.generate(8, regentlib.newsymbol)
 
@@ -865,14 +871,15 @@ function MODULE.mkInstance() local INSTANCE = {}
     end end end
 
     -- Cache intra-tile information
-    var [diagonals] = ispace(int1d, (Tx-1)+(Ty-1)+(Tz-1)+1)
+    var [inner_diagonals] = ispace(int1d, (Tx-1)+(Ty-1)+(Tz-1)+1)
     var [p_sub_point_offsets] =
-      cache_grid_translation(grid_map, sub_point_offsets, diagonals)
+      cache_grid_translation(grid_map, sub_point_offsets, inner_diagonals)
 
     -- Cache inter-tile information
+    var [outer_diagonals] = ispace(int1d, (ntx-1)+(nty-1)+(ntz-1)+1)
     rescape for q = 1, 8 do remit rquote
       [fill_diagonal[q]]([r_tiles[q]])
-      var [p_tiles_by_diagonal[q]] = partition([r_tiles[q]].diagonal, diagonals)
+      var [p_tiles_by_diagonal[q]] = partition([r_tiles[q]].diagonal, outer_diagonals)
     end end end
 
   end end -- DeclSymbols
@@ -979,7 +986,7 @@ function MODULE.mkInstance() local INSTANCE = {}
       -- Perform the sweep for computing new intensities.
       var acc = 0.0;
       rescape for q = 1, 8 do remit rquote
-        for d in diagonals do
+        for d in outer_diagonals do
           __demand(__index_launch)
           for t in [p_tiles_by_diagonal[q]][d] do
             acc +=
@@ -987,7 +994,7 @@ function MODULE.mkInstance() local INSTANCE = {}
                          [p_sub_points[q]][t],
                          grid_map,
                          sub_point_offsets,
-                         diagonals,
+                         inner_diagonals,
                          p_sub_point_offsets,
                          [p_x_faces[q]][{    t.y,t.z}],
                          [p_y_faces[q]][{t.x,    t.z}],
