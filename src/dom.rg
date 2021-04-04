@@ -927,9 +927,10 @@ function MODULE.mkInstance() local INSTANCE = {}
                        config)
     end
 
-    -- Compute until convergence.
-    var res = 1.0
-    while res > TOLERANCE do
+    -- Iterate until convergence.
+    var iter = 0
+    var done = false
+    while not done do
 
       -- Update the source term.
       for c in tiles do
@@ -1015,9 +1016,17 @@ function MODULE.mkInstance() local INSTANCE = {}
       end
 
       -- Compute the residual.
-      res = sqrt(acc/(Nx*Ny*Nz*config.Radiation.u.DOM.angles))
+      var res = sqrt(acc/(Nx*Ny*Nz*config.Radiation.u.DOM.angles))
 
-    end -- while res > TOLERANCE
+      -- Compute iteration stop condition.
+      iter += 1
+      if config.Radiation.u.DOM.numIters > 0 then
+        done = iter >= config.Radiation.u.DOM.numIters
+      else
+        done = res < TOLERANCE
+      end
+
+    end -- while not done
 
   end end -- ComputeRadiationField
 
