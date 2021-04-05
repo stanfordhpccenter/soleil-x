@@ -685,6 +685,26 @@ public:
     output.chosen_functor = mapping.hardcoded_functor(Point<3>(0,0,0))->id;
   }
 
+  // Send each dependent partitioning operation to the first rank of the first
+  // section.
+  // NOTE: Will only run if Legion is compiled with dynamic control replication.
+  virtual void select_sharding_functor(const MapperContext ctx,
+                                       const Partition& partition,
+                                       const SelectShardingFunctorInput& input,
+                                       SelectShardingFunctorOutput& output) {
+    CHECK(partition.parent_task != NULL &&
+          (EQUALS(partition.parent_task->get_task_name(), "workDual") ||
+           EQUALS(partition.parent_task->get_task_name(), "workSingle")) &&
+          !partition.is_index_space &&
+          partition.requirement.region.exists() &&
+          runtime->get_index_space_depth
+            (ctx, partition.requirement.region.get_index_space()) == 0,
+          "Unexpected argument on partition");
+    unsigned sample_id = find_sample_id(ctx, *(partition.parent_task));
+    SampleMapping& mapping = sample_mappings_[sample_id];
+    output.chosen_functor = mapping.hardcoded_functor(Point<3>(0,0,0))->id;
+  }
+
 //=============================================================================
 // MAPPER CLASS: MINOR OVERRIDES
 //=============================================================================
@@ -742,12 +762,6 @@ public:
                                        const SelectShardingFunctorInput& input,
                                        SelectShardingFunctorOutput& output) {
     CHECK(false, "Unsupported: Sharded Release");
-  }
-  virtual void select_sharding_functor(const MapperContext ctx,
-                                       const Partition& partition,
-                                       const SelectShardingFunctorInput& input,
-                                       SelectShardingFunctorOutput& output) {
-    CHECK(false, "Unsupported: Sharded Partition");
   }
   virtual void select_sharding_functor(const MapperContext ctx,
                                        const MustEpoch& epoch,
