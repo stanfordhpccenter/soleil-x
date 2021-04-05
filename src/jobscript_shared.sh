@@ -85,7 +85,7 @@ fi
 # Add GASNET options
 GASNET_OPTS=
 if [[ "$LOCAL_RUN" == 0 ]]; then
-    GASNET_OPTS="-ll:ahandlers 4 -ll:rsize 0 -ll:ib_rsize 1024 -ll:gsize 0"
+    GASNET_OPTS="-ll:rsize 0 -ll:ib_rsize 1024 -ll:gsize 0"
 fi
 # Synthesize final command
 COMMAND="$EXECUTABLE $ARGS \
