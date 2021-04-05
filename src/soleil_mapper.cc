@@ -788,9 +788,9 @@ private:
       dir[parse_dimension(task)] = false;
     } else {
       unsigned quadrant = std::stoul(match[1].str()) - 1;
-      dir[0] = 1 - ((quadrant >> 0) & 1);
+      dir[0] = 1 - ((quadrant >> 2) & 1);
       dir[1] = 1 - ((quadrant >> 1) & 1);
-      dir[2] = 1 - ((quadrant >> 2) & 1);
+      dir[2] = 1 - ((quadrant >> 0) & 1);
     }
     return dir;
   }
