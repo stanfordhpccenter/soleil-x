@@ -1016,13 +1016,13 @@ function MODULE.mkInstance() local INSTANCE = {}
       end
 
       -- Compute the residual.
-      var res = sqrt(acc/(Nx*Ny*Nz*config.Radiation.u.DOM.angles))
 
       -- Compute iteration stop condition.
       iter += 1
       if config.Radiation.u.DOM.numIters > 0 then
         done = iter >= config.Radiation.u.DOM.numIters
       else
+        var res = sqrt(acc/(Nx*Ny*Nz*config.Radiation.u.DOM.angles))
         done = res < TOLERANCE
       end
 
