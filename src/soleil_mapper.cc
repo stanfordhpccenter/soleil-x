@@ -399,6 +399,7 @@ private:
     // Helper & I/O tasks: go up one level to the work task
     else if (STARTS_WITH(task.get_task_name(), "Console_Write") ||
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
+             EQUALS(task.get_task_name(), "print_dt") ||
              EQUALS(task.get_task_name(), "IO_CreateDir") ||
              EQUALS(task.get_task_name(), "__dummy") ||
              STARTS_WITH(task.get_task_name(), "__unary_") ||
@@ -439,6 +440,7 @@ private:
              EQUALS(task.get_task_name(), "cache_grid_translation") ||
              STARTS_WITH(task.get_task_name(), "fill_diagonal_") ||
              EQUALS(task.get_task_name(), "writeIntensity") ||
+             EQUALS(task.get_task_name(), "print_dt") ||
              EQUALS(task.get_task_name(), "initialize_angles") ||
              STARTS_WITH(task.get_task_name(), "Console_Write") ||
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
@@ -489,6 +491,7 @@ private:
              EQUALS(task.get_task_name(), "cache_grid_translation") ||
              STARTS_WITH(task.get_task_name(), "fill_diagonal_") ||
              EQUALS(task.get_task_name(), "writeIntensity") ||
+             EQUALS(task.get_task_name(), "print_dt") ||
              EQUALS(task.get_task_name(), "initialize_angles") ||
              STARTS_WITH(task.get_task_name(), "Console_Write") ||
              STARTS_WITH(task.get_task_name(), "Probe_Write") ||
