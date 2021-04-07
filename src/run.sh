@@ -4,8 +4,8 @@
 # Inputs
 ###############################################################################
 
-# Which executable to invoke
-export EXECUTABLE="${EXECUTABLE:-}"
+# Which executable to invoke (must be specified)
+true "$EXECUTABLE"
 
 # Which group to submit jobs under (if a scheduler is available)
 export GROUP="${GROUP:-}"
