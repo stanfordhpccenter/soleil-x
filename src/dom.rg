@@ -724,11 +724,6 @@ do
   end end end
 end
 
-local __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
-task print_dt(ts_start : uint64, ts_end : uint64)
-  C.printf("ELAPSED TIME = %7.3f ms\n", 1e-3 * (ts_end - ts_start))
-end
-
 -------------------------------------------------------------------------------
 -- FULL SIMULATION QUOTES
 -------------------------------------------------------------------------------
@@ -932,10 +927,6 @@ function MODULE.mkInstance() local INSTANCE = {}
                        config)
     end
 
-    -- Start timer
-    __fence(__execution, __block)
-    var ts_start = C.legion_get_current_time_in_micros()
-
     -- Iterate until convergence.
     var iter = 0
     var done = false
@@ -1036,11 +1027,6 @@ function MODULE.mkInstance() local INSTANCE = {}
       end
 
     end -- while not done
-
-    -- End timer
-    __fence(__execution, __block)
-    var ts_end = C.legion_get_current_time_in_micros()
-    print_dt(ts_start, ts_end)
 
   end end -- ComputeRadiationField
 

@@ -93,7 +93,7 @@ task workSingle(config : SCHEMA.Config)
   -- Invoke DOM solver
   [DOM_INST.ComputeRadiationField(config, tiles, p_points)];
   -- Output results
-  -- writeIntensity(points)
+  writeIntensity(points)
 end
 
 local __demand(__inner)
