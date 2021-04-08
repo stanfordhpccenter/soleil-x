@@ -1,10 +1,10 @@
 {
     "Mapping" : {
         "tiles" : [4,4,4],
-        "tilesPerRank" : [1,2,2],
+        "tilesPerRank" : [1,1,1],
         "sampleId" : -1,
         "outDir" : "",
-        "wallTime" : 120
+        "wallTime" : 60
     },
 
     "Grid" : {
@@ -104,7 +104,7 @@
         "escapeRatioPerDir" : 0.005,
         "collisions" : false,
         "feeding" : { "type" : "OFF" },
-        "staggerFactor" : 25,
+        "staggerFactor" : 50,
         "parcelSize" : 1
     },
 

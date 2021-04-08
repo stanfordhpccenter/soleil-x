@@ -64,7 +64,7 @@
     "Integrator" : {
         "startIter" : 0,
         "startTime" : 0.0,
-        "maxIter" : 5,
+        "maxIter" : 50,
         "cfl" : -1.0,
         "fixedDeltaTime" : 1.3238808905546225e-05,
         "rkOrder" : 4
@@ -104,7 +104,7 @@
         "escapeRatioPerDir" : 0.005,
         "collisions" : false,
         "feeding" : { "type" : "OFF" },
-        "staggerFactor" : 1,
+        "staggerFactor" : 5,
         "parcelSize" : 1
     },
 
