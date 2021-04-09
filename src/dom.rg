@@ -180,7 +180,7 @@ do
     end end end
   end
   -- Close angles file.
-  C.fclose(f);
+  C.fclose(f)
   -- Check that angles are partitioned correctly into quadrants.
   rescape for q = 1, 8 do remit rquote
     for m = 0, quadrantSize(q, num_angles) do
@@ -189,7 +189,7 @@ do
     end
   end end end
   -- Check that normals exist for all walls.
-  var normalExists = array(false, false, false, false, false, false);
+  var normalExists = array(false, false, false, false, false, false)
   rescape for q = 1, 8 do remit rquote
     for m = 0, quadrantSize(q, num_angles) do
       rescape for wall = 1, 6 do remit rquote
@@ -802,8 +802,7 @@ function MODULE.mkInstance() local INSTANCE = {}
     -- generation easier. The effective storage order is Z > Y > X > M.
     var is_sub_points = ispace(int1d, int64(MAX_ANGLES_PER_QUAD)*Nx*Ny*Nz);
     rescape for q = 1, 8 do remit rquote
-      var [sub_points[q]] = region(is_sub_points, SubPoint_columns);
-      [UTIL.emitRegionTagAttach(sub_points[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+      var [sub_points[q]] = region(is_sub_points, SubPoint_columns)
     end end end
 
     -- Regions for faces
@@ -811,12 +810,9 @@ function MODULE.mkInstance() local INSTANCE = {}
     var grid_y = ispace(int2d, {Nx,   Nz})
     var grid_z = ispace(int2d, {Nx,Ny   });
     rescape for q = 1, 8 do remit rquote
-      var [x_faces[q]] = region(grid_x, Face_columns);
-      [UTIL.emitRegionTagAttach(x_faces[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
-      var [y_faces[q]] = region(grid_y, Face_columns);
-      [UTIL.emitRegionTagAttach(y_faces[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
-      var [z_faces[q]] = region(grid_z, Face_columns);
-      [UTIL.emitRegionTagAttach(z_faces[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+      var [x_faces[q]] = region(grid_x, Face_columns)
+      var [y_faces[q]] = region(grid_y, Face_columns)
+      var [z_faces[q]] = region(grid_z, Face_columns)
     end end end
 
     -- Regions for angles
@@ -826,22 +822,18 @@ function MODULE.mkInstance() local INSTANCE = {}
     end
     rescape for q = 1, 8 do remit rquote
       var is_angles = ispace(int1d, quadrantSize(q, num_angles))
-      var [angles[q]] = region(is_angles, Angle_columns);
-      [UTIL.emitRegionTagAttach(angles[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+      var [angles[q]] = region(is_angles, Angle_columns)
     end end end
 
     -- Regions for intra-tile information
     var is_sub_point_offsets = ispace(int1d, int64(MAX_ANGLES_PER_QUAD)*Tx*Ty*Tz)
-    var [sub_point_offsets] = region(is_sub_point_offsets, bool);
-    [UTIL.emitRegionTagAttach(sub_point_offsets, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+    var [sub_point_offsets] = region(is_sub_point_offsets, bool)
     var is_grid_map = ispace(int3d, {Tx,Ty,Tz})
-    var [grid_map] = region(is_grid_map, GridMap_columns);
-    [UTIL.emitRegionTagAttach(grid_map, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+    var [grid_map] = region(is_grid_map, GridMap_columns)
 
     -- Regions for inter-tile information
     rescape for q = 1, 8 do remit rquote
-      var [r_tiles[q]] = region(tiles, TileInfo);
-      [UTIL.emitRegionTagAttach(r_tiles[q], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+      var [r_tiles[q]] = region(tiles, TileInfo)
     end end end
 
     -- Partition points
