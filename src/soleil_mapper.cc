@@ -102,7 +102,7 @@ class SampleMapping {
 public:
   class Tiling3DFunctor;
   class Tiling2DFunctor;
-  class HardcodedFunctor;
+  class TileZeroFunctor;
 
 public:
   SampleMapping(Runtime* rt, const Config& config, AddressSpace first_rank)
@@ -122,16 +122,8 @@ public:
                           {new Tiling2DFunctor(rt, *this, 1, false),
                            new Tiling2DFunctor(rt, *this, 1, true )},
                           {new Tiling2DFunctor(rt, *this, 2, false),
-                           new Tiling2DFunctor(rt, *this, 2, true )}} {
-    for (unsigned x = 0; x < x_tiles(); ++x) {
-      for (unsigned y = 0; y < y_tiles(); ++y) {
-        for (unsigned z = 0; z < z_tiles(); ++z) {
-          hardcoded_functors_.push_back
-            (new HardcodedFunctor(rt, *this, Point<3>(x,y,z)));
-        }
-      }
-    }
-  }
+                           new Tiling2DFunctor(rt, *this, 2, true )}},
+      tile_zero_functor_(new TileZeroFunctor(rt, *this)) {}
   SampleMapping(const SampleMapping& rhs) = delete;
   SampleMapping& operator=(const SampleMapping& rhs) = delete;
 
@@ -161,14 +153,8 @@ public:
     assert(0 <= dim && dim < 3);
     return tiling_2d_functors_[dim][dir];
   }
-  HardcodedFunctor* hardcoded_functor(const DomainPoint& tile) {
-    assert(tile.get_dim() == 3);
-    assert(0 <= tile[0] && tile[0] < x_tiles());
-    assert(0 <= tile[1] && tile[1] < y_tiles());
-    assert(0 <= tile[2] && tile[2] < z_tiles());
-    return hardcoded_functors_[tile[0] * y_tiles() * z_tiles() +
-                               tile[1] * z_tiles() +
-                               tile[2]];
+  TileZeroFunctor* tile_zero_functor() {
+    return tile_zero_functor_;
   }
 
 public:
@@ -243,25 +229,21 @@ public:
     bool dir_;
   };
 
-  // Maps every task to the same shard & splinter (the ones corresponding to
-  // the tile specified in the constructor).
-  class HardcodedFunctor : public SplinteringFunctor {
+  // Maps every task to the shard & splinter corresponding to the first tile.
+  class TileZeroFunctor : public SplinteringFunctor {
   public:
-    HardcodedFunctor(Runtime* rt,
-                     SampleMapping& parent,
-                     const DomainPoint& tile)
-      : SplinteringFunctor(rt, parent), tile_(tile) {}
+    TileZeroFunctor(Runtime* rt, SampleMapping& parent)
+      : SplinteringFunctor(rt, parent) {}
   public:
     virtual ShardID shard(const DomainPoint& point,
                           const Domain& full_space,
                           const size_t total_shards) {
-      return parent_.tiling_3d_functor_->shard(tile_, full_space, total_shards);
+      return parent_.tiling_3d_functor_->shard
+        (Point<3>(0,0,0), full_space, total_shards);
     }
     virtual SplinterID splinter(const DomainPoint &point) {
-      return parent_.tiling_3d_functor_->splinter(tile_);
+      return parent_.tiling_3d_functor_->splinter(Point<3>(0,0,0));
     }
-  private:
-    DomainPoint tile_;
   };
 
 private:
@@ -270,7 +252,7 @@ private:
   AddressSpace first_rank_;
   Tiling3DFunctor* tiling_3d_functor_;
   Tiling2DFunctor* tiling_2d_functors_[3][2];
-  std::vector<HardcodedFunctor*> hardcoded_functors_;
+  TileZeroFunctor* tile_zero_functor_;
 };
 
 AddressSpace SplinteringFunctor::get_rank(const DomainPoint &point) {
@@ -359,32 +341,11 @@ public:
 private:
   std::vector<unsigned> find_sample_ids(const MapperContext ctx,
                                         const Task& task) const {
+    CHECK(task.has_parent_task(),
+          "Unexpected task in find_sample_ids: %s", task.get_task_name());
     std::vector<unsigned> sample_ids;
-    // Tasks called on regions: read the SAMPLE_ID_TAG from the region
-    if (task.is_index_space ||
-        STARTS_WITH(task.get_task_name(), "sweep_") ||
-        EQUALS(task.get_task_name(), "cache_grid_translation") ||
-        STARTS_WITH(task.get_task_name(), "fill_diagonal_") ||
-        EQUALS(task.get_task_name(), "writeIntensity") ||
-        EQUALS(task.get_task_name(), "initialize_angles") ||
-        STARTS_WITH(task.get_task_name(), "readTileAttr")) {
-      CHECK(!task.regions.empty(),
-            "Expected region argument in call to %s", task.get_task_name());
-      const RegionRequirement& req = task.regions[0];
-      LogicalRegion region = req.region.exists() ? req.region
-        : runtime->get_parent_logical_region(ctx, req.partition);
-      region = get_root(ctx, region);
-      const void* info = NULL;
-      size_t info_size = 0;
-      bool success = runtime->retrieve_semantic_information
-        (ctx, region, SAMPLE_ID_TAG, info, info_size,
-         false/*can_fail*/, true/*wait_until_ready*/);
-      CHECK(success, "Missing SAMPLE_ID_TAG semantic information on region");
-      assert(info_size == sizeof(unsigned));
-      sample_ids.push_back(*static_cast<const unsigned*>(info));
-    }
     // Tasks with Config as 1st argument: read config.Mapping.sampleId
-    else if (EQUALS(task.get_task_name(), "workSingle")) {
+    if (EQUALS(task.get_task_name(), "workSingle")) {
       const Config* config = static_cast<const Config*>(first_arg(task));
       sample_ids.push_back(static_cast<unsigned>(config->Mapping.sampleId));
     }
@@ -396,20 +357,9 @@ private:
       sample_ids.push_back
         (static_cast<unsigned>(mc->configs[1].Mapping.sampleId));
     }
-    // Helper & I/O tasks: go up one level to the work task
-    else if (STARTS_WITH(task.get_task_name(), "Console_Write") ||
-             STARTS_WITH(task.get_task_name(), "Probe_Write") ||
-             EQUALS(task.get_task_name(), "IO_CreateDir") ||
-             EQUALS(task.get_task_name(), "__dummy") ||
-             STARTS_WITH(task.get_task_name(), "__unary_") ||
-             STARTS_WITH(task.get_task_name(), "__binary_")) {
-      assert(task.parent_task != NULL);
-      sample_ids = find_sample_ids(ctx, *(task.parent_task));
-    }
-    // Other tasks: fail and notify the user
+    // Other tasks: go up one level to the work task
     else {
-      CHECK(false, "Unhandled task in find_sample_ids: %s",
-            task.get_task_name());
+      sample_ids = find_sample_ids(ctx, *(task.get_parent_task()));
     }
     // Sanity checks
     assert(!sample_ids.empty());
@@ -423,50 +373,18 @@ private:
     return find_sample_ids(ctx, task)[0];
   }
 
-  DomainPoint find_tile(const MapperContext ctx,
-                        const Task& task) const {
-    // 3D index space tasks that are launched individually
-    if (STARTS_WITH(task.get_task_name(), "sweep_") ||
-        STARTS_WITH(task.get_task_name(), "readTileAttr")) {
-      assert(!task.regions.empty() && task.regions[0].region.exists());
-      DomainPoint tile =
-        runtime->get_logical_region_color_point(ctx, task.regions[0].region);
-      return tile;
-    }
-    // Tasks that should run on the first rank of their sample's allocation
-    else if (EQUALS(task.get_task_name(), "workSingle") ||
-             EQUALS(task.get_task_name(), "workDual") ||
-             EQUALS(task.get_task_name(), "cache_grid_translation") ||
-             STARTS_WITH(task.get_task_name(), "fill_diagonal_") ||
-             EQUALS(task.get_task_name(), "writeIntensity") ||
-             EQUALS(task.get_task_name(), "initialize_angles") ||
-             STARTS_WITH(task.get_task_name(), "Console_Write") ||
-             STARTS_WITH(task.get_task_name(), "Probe_Write") ||
-             EQUALS(task.get_task_name(), "IO_CreateDir") ||
-             EQUALS(task.get_task_name(), "__dummy") ||
-             STARTS_WITH(task.get_task_name(), "__unary_") ||
-             STARTS_WITH(task.get_task_name(), "__binary_")) {
-      return Point<3>(0,0,0);
-    }
-    // Other tasks: fail and notify the user
-    else {
-      CHECK(false, "Unhandled task in find_tile: %s", task.get_task_name());
-      return Point<3>(0,0,0);
-    }
-  }
-
   SplinteringFunctor* pick_functor(const MapperContext ctx,
                                    const Task& task) {
+    unsigned sample_id = find_sample_id(ctx, task);
+    SampleMapping& mapping = sample_mappings_[sample_id];
     // 3D index space tasks
-    if (task.is_index_space && task.index_domain.get_dim() == 3) {
-      unsigned sample_id = find_sample_id(ctx, task);
-      SampleMapping& mapping = sample_mappings_[sample_id];
+    if ((task.is_index_space && task.index_domain.get_dim() == 3) ||
+        task.index_point.get_dim() == 3) {
       return mapping.tiling_3d_functor();
     }
     // 2D index space tasks
-    else if (task.is_index_space && task.index_domain.get_dim() == 2) {
-      unsigned sample_id = find_sample_id(ctx, task);
-      SampleMapping& mapping = sample_mappings_[sample_id];
+    else if ((task.is_index_space && task.index_domain.get_dim() == 2) ||
+             task.index_point.get_dim() == 2) {
       unsigned dim = parse_dimension(task);
       bool dir = parse_direction(task)[dim];
       if (STARTS_WITH(task.get_task_name(), "initialize_faces_") ||
@@ -483,29 +401,10 @@ private:
       return mapping.tiling_2d_functor(dim, dir);
     }
     // Sample-specific tasks that are launched individually
-    else if (EQUALS(task.get_task_name(), "workSingle") ||
-             EQUALS(task.get_task_name(), "workDual") ||
-             STARTS_WITH(task.get_task_name(), "sweep_") ||
-             EQUALS(task.get_task_name(), "cache_grid_translation") ||
-             STARTS_WITH(task.get_task_name(), "fill_diagonal_") ||
-             EQUALS(task.get_task_name(), "writeIntensity") ||
-             EQUALS(task.get_task_name(), "initialize_angles") ||
-             STARTS_WITH(task.get_task_name(), "Console_Write") ||
-             STARTS_WITH(task.get_task_name(), "Probe_Write") ||
-             EQUALS(task.get_task_name(), "IO_CreateDir") ||
-             EQUALS(task.get_task_name(), "__dummy") ||
-             STARTS_WITH(task.get_task_name(), "__unary_") ||
-             STARTS_WITH(task.get_task_name(), "__binary_") ||
-             STARTS_WITH(task.get_task_name(), "readTileAttr")) {
-      unsigned sample_id = find_sample_id(ctx, task);
-      SampleMapping& mapping = sample_mappings_[sample_id];
-      DomainPoint tile = find_tile(ctx, task);
-      return mapping.hardcoded_functor(tile);
-    }
-    // Other tasks: fail and notify the user
     else {
-      CHECK(false, "Unhandled task in pick_functor: %s", task.get_task_name());
-      return NULL;
+      CHECK(task.index_point.get_dim() == 1,
+            "Unexpected index information on task %s", task.get_task_name());
+      return mapping.tile_zero_functor();
     }
   }
 
@@ -600,19 +499,13 @@ public:
     else if (EQUALS(task.get_task_name(), "main")) {
       return DefaultMapper::default_policy_select_initial_processor(ctx, task);
     }
-    // Other tasks
+    // Other tasks: consult functor
     else {
-      unsigned sample_id = find_sample_id(ctx, task);
-      DomainPoint tile = find_tile(ctx, task);
       VariantInfo info =
         default_find_preferred_variant(task, ctx, false/*needs_tight_bound*/);
       SplinteringFunctor* functor = pick_functor(ctx, task);
-      Processor target_proc = select_proc(tile, info.proc_kind, functor);
-      LOG.debug() << "Sample " << sample_id
-                  << ": Task " << task.get_task_name()
-                  << ": Sequential launch"
-                  << ": Tile " << tile
-                  << ": Processor " << target_proc;
+      Processor target_proc =
+        select_proc(task.index_point, info.proc_kind, functor);
       return target_proc;
     }
   }
@@ -622,7 +515,6 @@ public:
                           const SliceTaskInput& input,
                           SliceTaskOutput& output) {
     output.verify_correctness = false;
-    unsigned sample_id = find_sample_id(ctx, task);
     VariantInfo info =
       default_find_preferred_variant(task, ctx, false/*needs_tight_bound*/);
     SplinteringFunctor* functor = pick_functor(ctx, task);
@@ -630,11 +522,6 @@ public:
       Processor target_proc = select_proc(it.p, info.proc_kind, functor);
       output.slices.emplace_back(Domain(it.p, it.p), target_proc,
                                  false/*recurse*/, false/*stealable*/);
-      LOG.debug() << "Sample " << sample_id
-                  << ": Task " << task.get_task_name()
-                  << ": Index space launch"
-                  << ": Tile " << it.p
-                  << ": Processor " << target_proc;
     }
   }
 
@@ -647,10 +534,12 @@ public:
     // has more dependencies downstream (count the number of diagonals between
     // the launch tile and the end of the domain).
     if (STARTS_WITH(task.get_task_name(), "sweep_")) {
+      assert(!task.regions.empty() && task.regions[0].region.exists());
       unsigned sample_id = find_sample_id(ctx, task);
       const SampleMapping& mapping = sample_mappings_[sample_id];
       std::array<bool,3> dir = parse_direction(task);
-      DomainPoint tile = find_tile(ctx, task);
+      DomainPoint tile =
+        runtime->get_logical_region_color_point(ctx, task.regions[0].region);
       priority =
         (dir[0] ? mapping.x_tiles() - tile[0] - 1 : tile[0]) +
         (dir[1] ? mapping.y_tiles() - tile[1] - 1 : tile[1]) +
@@ -682,7 +571,7 @@ public:
           "Unexpected argument on fill");
     unsigned sample_id = find_sample_id(ctx, *(fill.parent_task));
     SampleMapping& mapping = sample_mappings_[sample_id];
-    output.chosen_functor = mapping.hardcoded_functor(Point<3>(0,0,0))->id;
+    output.chosen_functor = mapping.tile_zero_functor()->id;
   }
 
   // Send each dependent partitioning operation to the first rank of the first
@@ -702,7 +591,7 @@ public:
           "Unexpected argument on partition");
     unsigned sample_id = find_sample_id(ctx, *(partition.parent_task));
     SampleMapping& mapping = sample_mappings_[sample_id];
-    output.chosen_functor = mapping.hardcoded_functor(Point<3>(0,0,0))->id;
+    output.chosen_functor = mapping.tile_zero_functor()->id;
   }
 
 //=============================================================================
