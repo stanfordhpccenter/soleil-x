@@ -9,16 +9,22 @@ parser.add_argument('-b', '--before', type=int, default=5)
 parser.add_argument('console', type=argparse.FileType('r'))
 args = parser.parse_args()
 
+i_start = None
+t_start = None
 tail = collections.deque()
-for (i,line) in enumerate(args.console, -1):
+next(args.console)
+for line in args.console:
     toks = line.split()
+    i = int(toks[0])
+    assert i >= 0
     if i < args.before:
         continue
-    assert i == int(toks[0])
     t = float(toks[2])
-    if i == args.before:
+    if i_start is None:
         i_start = i
         t_start = t
+    else:
+        assert i > i_start and t >= t_start
     if len(tail) == args.after + 1:
         tail.popleft()
     tail.append((i,t))
