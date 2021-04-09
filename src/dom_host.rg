@@ -65,6 +65,11 @@ do
   C.fclose(f)
 end
 
+local __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+task print_dt(ts_start : uint64, ts_end : uint64)
+  C.printf("ELAPSED TIME = %7.3f ms\n", 1e-3 * (ts_end - ts_start))
+end
+
 -------------------------------------------------------------------------------
 -- Proxy main
 -------------------------------------------------------------------------------
@@ -89,10 +94,17 @@ task workSingle(config : SCHEMA.Config)
   -- Prepare fake inputs
   fill(points.Ib, (SB/PI) * pow(1000.0,4.0))
   fill(points.sigma, 5.0);
+  -- Start timer
+  __fence(__execution, __block)
+  var ts_start = C.legion_get_current_time_in_micros();
   -- Invoke DOM solver
   [DOM_INST.ComputeRadiationField(config, tiles, p_points)];
+  -- End timer
+  __fence(__execution, __block)
+  var ts_end = C.legion_get_current_time_in_micros()
+  print_dt(ts_start, ts_end)
   -- Output results
-  writeIntensity(points)
+  -- writeIntensity(points)
 end
 
 local __demand(__inner)
