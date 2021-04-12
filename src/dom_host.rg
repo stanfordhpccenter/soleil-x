@@ -104,7 +104,7 @@ task workSingle(config : SCHEMA.Config)
   var ts_end = C.legion_get_current_time_in_micros()
   print_dt(ts_start, ts_end)
   -- Output results
-  -- writeIntensity(points)
+  writeIntensity(points)
 end
 
 local __demand(__inner)
