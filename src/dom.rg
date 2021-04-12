@@ -980,7 +980,6 @@ function MODULE.mkInstance() local INSTANCE = {}
       var acc = 0.0;
       rescape for q = 1, 8 do remit rquote
         for d in outer_diagonals do
-          __demand(__index_launch)
           for t in [p_tiles_by_diagonal[q]][d] do
             acc +=
               [sweep[q]](p_points[t],
