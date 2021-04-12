@@ -5,8 +5,8 @@ import json
 
 parser = argparse.ArgumentParser()
 parser.add_argument('base_json', type=argparse.FileType('r'))
-parser.add_argument('-n', '--num_times', type=int, default=8)
-parser.add_argument('-s', '--strong_scale', action='store_true')
+parser.add_argument('-n', '--num-times', type=int, default=8)
+parser.add_argument('-s', '--strong-scale', action='store_true')
 args = parser.parse_args()
 
 # Read base config
@@ -17,6 +17,23 @@ z_tiles = int(config['Mapping']['tiles'][2])
 x_tpr = int(config['Mapping']['tilesPerRank'][0])
 y_tpr = int(config['Mapping']['tilesPerRank'][1])
 z_tpr = int(config['Mapping']['tilesPerRank'][2])
+
+# Double the dimension with the fewest tiles first
+if x_tpr == min(x_tpr, y_tpr, z_tpr):
+    if y_tpr <= z_tpr:
+        doubling_order = [0,1,2]
+    else:
+        doubling_order = [0,2,1]
+elif y_tpr == min(x_tpr, y_tpr, z_tpr):
+    if x_tpr <= z_tpr:
+        doubling_order = [1,0,2]
+    else:
+        doubling_order = [1,2,0]
+else: # z_tpr == min(x_tpr, y_tpr, z_tpr)
+    if x_tpr <= y_tpr:
+        doubling_order = [2,0,1]
+    else:
+        doubling_order = [2,1,0]
 
 # Scale down to 1 node
 config['Mapping']['tiles'][0] = x_tpr
@@ -43,28 +60,24 @@ with open('1.json', 'w') as fout:
 
 # Scale up
 for i in range(0,args.num_times):
-    if i % 3 == 0:
-        config['Mapping']['tiles'][2] *= 2
-    elif i % 3 == 1:
-        config['Mapping']['tiles'][1] *= 2
-    else: # i % 3 == 2
-        config['Mapping']['tiles'][0] *= 2
+    dim = doubling_order[i % 3]
+    config['Mapping']['tiles'][dim] *= 2
     if not args.strong_scale:
-        if i % 3 == 0:
-            config['Grid']['zNum'] *= 2
-            config['Grid']['zWidth'] *= 2
-            if config['Radiation']['type'] == 'DOM':
-                config['Radiation']['zNum'] *= 2
-        elif i % 3 == 1:
-            config['Grid']['yNum'] *= 2
-            config['Grid']['yWidth'] *= 2
-            if config['Radiation']['type'] == 'DOM':
-                config['Radiation']['yNum'] *= 2
-        else: # i % 3 == 2
+        if dim == 0:
             config['Grid']['xNum'] *= 2
             config['Grid']['xWidth'] *= 2
             if config['Radiation']['type'] == 'DOM':
                 config['Radiation']['xNum'] *= 2
+        elif dim == 1:
+            config['Grid']['yNum'] *= 2
+            config['Grid']['yWidth'] *= 2
+            if config['Radiation']['type'] == 'DOM':
+                config['Radiation']['yNum'] *= 2
+        else: # dim == 2
+            config['Grid']['zNum'] *= 2
+            config['Grid']['zWidth'] *= 2
+            if config['Radiation']['type'] == 'DOM':
+                config['Radiation']['zNum'] *= 2
         config['Particles']['initNum'] *= 2
         config['Particles']['maxNum'] *= 2
     with open(str(2**(i+1)) + '.json', 'w') as fout:

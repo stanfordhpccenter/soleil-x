@@ -167,7 +167,7 @@ struct Radiation_columns {
 -- EXTERNAL MODULE IMPORTS
 -------------------------------------------------------------------------------
 
-local DOM = (require 'dom')(MAX_ANGLES_PER_QUAD, Radiation_columns, SCHEMA)
+local DOM = (require 'dom')(MAX_ANGLES_PER_QUAD, Radiation_columns, MAPPER, SCHEMA)
 
 local HDF_FLUID = (require 'hdf_helper')(int3d, int3d, Fluid_columns,
                                          Fluid_primitives,
@@ -3403,7 +3403,7 @@ do
                                       Grid_yBnum, Grid_yNum, NY,
                                       Grid_zBnum, Grid_zNum, NZ)
       if elemColor ~= partColor then
-        toTransfer += 1;
+        toTransfer += 1
         rescape for k = 1,26 do remit rquote
           if Particles[i].__xfer_dir == 0 and
              elemColor == (partColor + [colorOffsets[k]] + {NX,NY,NZ}) % {NX,NY,NZ} then
@@ -3419,7 +3419,7 @@ do
      'Sample %d: %ld particle(s) moved past expected stencil',
      rexpr config.Mapping.sampleId end,
      rexpr toTransfer end)];
-  var total_xfers = int64(0);
+  var total_xfers = int64(0)
   -- For each movement direction...
   rescape for k = 1,26 do local queue = tradeQueues[k] remit rquote
     -- Clear the transfer queue
@@ -3449,7 +3449,7 @@ do
     __demand(__openmp)
     for i in Particles do
       if Particles[i].__xfer_dir == k then
-        var j = Particles[i].__xfer_slot - 1 + queue.bounds.lo;
+        var j = Particles[i].__xfer_slot - 1 + queue.bounds.lo
         rescape for _,fld in ipairs(Particles_subStepConserved) do remit rquote
           queue[j].[fld] = Particles[i].[fld]
         end end end
@@ -3477,7 +3477,7 @@ do
   -- Count number of particles coming in from each transfer queue
   var xfer_bounds : int64[27]
   xfer_bounds[0] = 0
-  var total_xfers = int64(0);
+  var total_xfers = int64(0)
   rescape for k = 1,26 do local queue = tradeQueues[k] remit rquote
     __demand(__openmp)
     for j in queue do
@@ -3514,7 +3514,7 @@ do
       if not Particles[i].__valid then
         var j_off = Particles[i].__xfer_slot - 1
         if j_off >= lo and j_off < hi then
-          var j = j_off - lo + queue.bounds.lo;
+          var j = j_off - lo + queue.bounds.lo
           rescape for _,fld in ipairs(Particles_subStepConserved) do remit rquote
             Particles[i].[fld] = queue[j].[fld]
           end end end
@@ -3830,7 +3830,7 @@ where
   writes(Fluid.{rho, rhoEnergy, rhoVelocity}),
   reads writes(Fluid.{rho_new, rhoEnergy_new, rhoVelocity_new})
 do
-  var dt = Integrator_deltaTime;
+  var dt = Integrator_deltaTime
   rescape for ORDER = RK_MIN_ORDER,RK_MAX_ORDER do remit rquote
     if config.Integrator.rkOrder == ORDER then
       rescape for STAGE = 1,ORDER do remit rquote
@@ -3844,7 +3844,7 @@ do
                rexpr Fluid[c].rhoVelocity_new end,
                rexpr vs_mul(Fluid[c].rhoVelocity_t, [RK_B[ORDER][STAGE]] * dt) end)];
             Fluid[c].rhoEnergy_new +=
-              Fluid[c].rhoEnergy_t * [RK_B[ORDER][STAGE]] * dt;
+              Fluid[c].rhoEnergy_t * [RK_B[ORDER][STAGE]] * dt
             rescape if STAGE == ORDER then remit rquote
               -- Set final values
               Fluid[c].rho = Fluid[c].rho_new
@@ -3894,7 +3894,7 @@ do
                  rexpr Particles[p].velocity_new end,
                  rexpr vs_mul(Particles[p].velocity_t, [RK_B[ORDER][STAGE]] * dt) end)];
               Particles[p].temperature_new +=
-                Particles[p].temperature_t * [RK_B[ORDER][STAGE]] * dt;
+                Particles[p].temperature_t * [RK_B[ORDER][STAGE]] * dt
               rescape if STAGE == ORDER then remit rquote
                 -- Set final values
                 Particles[p].position = Particles[p].position_new
@@ -4271,7 +4271,7 @@ local function mkInstance() local INSTANCE = {}
     ---------------------------------------------------------------------------
 
     -- Start timer
-    var [startTime] = C.legion_get_current_time_in_micros() / 1000;
+    var [startTime] = C.legion_get_current_time_in_micros() / 1000
 
     -- Write console header
     Console_WriteHeader(0, config)
@@ -4576,10 +4576,8 @@ local function mkInstance() local INSTANCE = {}
     var is_Fluid = ispace(int3d, {x = config.Grid.xNum + 2*Grid.xBnum,
                                   y = config.Grid.yNum + 2*Grid.yBnum,
                                   z = config.Grid.zNum + 2*Grid.zBnum})
-    var [Fluid] = region(is_Fluid, Fluid_columns);
-    [UTIL.emitRegionTagAttach(Fluid, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
-    var [Fluid_copy] = region(is_Fluid, Fluid_columns);
-    [UTIL.emitRegionTagAttach(Fluid_copy, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+    var [Fluid] = region(is_Fluid, Fluid_columns)
+    var [Fluid_copy] = region(is_Fluid, Fluid_columns)
 
     -- Create Particles Regions
     regentlib.assert((config.Particles.maxNum / config.Particles.parcelSize) % numTiles == 0,
@@ -4590,10 +4588,8 @@ local function mkInstance() local INSTANCE = {}
         int64(ceil(maxParticlesPerTile * config.Particles.maxSkew))
     end
     var is_Particles = ispace(int1d, maxParticlesPerTile * numTiles)
-    var [Particles] = region(is_Particles, Particles_columns);
-    [UTIL.emitRegionTagAttach(Particles, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
-    var [Particles_copy] = region(is_Particles, Particles_columns);
-    [UTIL.emitRegionTagAttach(Particles_copy, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+    var [Particles] = region(is_Particles, Particles_columns)
+    var [Particles_copy] = region(is_Particles, Particles_columns)
     rescape for k = 1,26 do remit rquote
       -- Make tradequeues smaller for diagonal movement
       var off = [colorOffsets[k]]
@@ -4603,8 +4599,7 @@ local function mkInstance() local INSTANCE = {}
         escapeRatio *= config.Particles.escapeRatioPerDir
       end
       var is_TradeQueue = ispace(int1d, int64(ceil(escapeRatio * maxParticlesPerTile) * numTiles))
-      var [TradeQueue[k]] = region(is_TradeQueue, TradeQueue_columns);
-      [UTIL.emitRegionTagAttach(TradeQueue[k], MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+      var [TradeQueue[k]] = region(is_TradeQueue, TradeQueue_columns)
     end end end
 
     -- Create Radiation Regions
@@ -4617,8 +4612,7 @@ local function mkInstance() local INSTANCE = {}
       rad_z = config.Radiation.u.DOM.zNum
     end
     var is_Radiation = ispace(int3d, {x = rad_x, y = rad_y, z = rad_z})
-    var [Radiation] = region(is_Radiation, Radiation_columns);
-    [UTIL.emitRegionTagAttach(Radiation, MAPPER.SAMPLE_ID_TAG, sampleId, int)];
+    var [Radiation] = region(is_Radiation, Radiation_columns)
 
     -- Partitioning domain
     var [tiles] = ispace(int3d, {NX,NY,NZ})
@@ -4637,14 +4631,14 @@ local function mkInstance() local INSTANCE = {}
       (Particles, tiles, 0, int3d{0,0,0})
     var [p_Particles_copy] =
       [UTIL.mkPartitionByTile(int1d, int3d, Particles_columns)]
-      (Particles_copy, tiles, 0, int3d{0,0,0});
+      (Particles_copy, tiles, 0, int3d{0,0,0})
     rescape for k = 1,26 do remit rquote
       var [p_TradeQueue_bySrc[k]] =
         [UTIL.mkPartitionByTile(int1d, int3d, TradeQueue_columns)]
-        ([TradeQueue[k]], tiles, 0, int3d{0,0,0});
+        ([TradeQueue[k]], tiles, 0, int3d{0,0,0})
       var [p_TradeQueue_byDst[k]] =
         [UTIL.mkPartitionByTile(int1d, int3d, TradeQueue_columns)]
-        ([TradeQueue[k]], tiles, 0, [colorOffsets[k]]);
+        ([TradeQueue[k]], tiles, 0, [colorOffsets[k]])
     end end end
 
     -- Radiation Partitioning
@@ -5461,7 +5455,6 @@ task workSingle(config : Config)
   [SIM.DeclSymbols(config)];
   var is_FakeCopyQueue = ispace(int1d, 0)
   var FakeCopyQueue = region(is_FakeCopyQueue, CopyQueue_columns);
-  [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
   [parallelizeFor(SIM, rquote
     [SIM.InitRegions(config)];
     while true do
@@ -5522,8 +5515,7 @@ task workDual(mc : MultiConfig)
   [SIM0.DeclSymbols(rexpr mc.configs[0] end)];
   [SIM1.DeclSymbols(rexpr mc.configs[1] end)];
   var is_FakeCopyQueue = ispace(int1d, 0)
-  var FakeCopyQueue = region(is_FakeCopyQueue, CopyQueue_columns);
-  [UTIL.emitRegionTagAttach(FakeCopyQueue, MAPPER.SAMPLE_ID_TAG, -1, int)];
+  var FakeCopyQueue = region(is_FakeCopyQueue, CopyQueue_columns)
   var copySrcOrigin = array(
     SIM0.Grid.xRealOrigin + mc.copySrc.fromCell[0] * SIM0.Grid.xCellWidth,
     SIM0.Grid.yRealOrigin + mc.copySrc.fromCell[1] * SIM0.Grid.yCellWidth,
@@ -5545,8 +5537,7 @@ task workDual(mc : MultiConfig)
     CopyQueue_size += partSize
   end
   var is_CopyQueue = ispace(int1d, CopyQueue_size)
-  var CopyQueue = region(is_CopyQueue, CopyQueue_columns);
-  [UTIL.emitRegionTagAttach(CopyQueue, MAPPER.SAMPLE_ID_TAG, rexpr mc.configs[0].Mapping.sampleId end, int)];
+  var CopyQueue = region(is_CopyQueue, CopyQueue_columns)
   var p_CopyQueue = partition(disjoint, CopyQueue, coloring_CopyQueue, SIM0.tiles)
   C.legion_domain_point_coloring_destroy(coloring_CopyQueue)
   -- Check 2-section configuration

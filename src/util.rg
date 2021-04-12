@@ -442,15 +442,6 @@ end
 -- Regent metaprogramming
 -------------------------------------------------------------------------------
 
--- regentlib.symbol, int, regentlib.rexpr, terralib.type -> regentlib.rquote
-function Exports.emitRegionTagAttach(r, tag, value, typ)
-  return rquote
-    var info : typ = value
-    regentlib.c.legion_logical_region_attach_semantic_information(
-      __runtime(), __raw(r), tag, &info, [sizeof(typ)], false)
-  end
-end
-
 -- intXd, intXd, terralib.struct -> regentlib.task
 function Exports.mkPartitionByTile(r_istype, cs_istype, fs)
   local partitionByTile

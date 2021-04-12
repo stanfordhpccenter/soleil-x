@@ -9,6 +9,7 @@
 import 'regent'
 
 local C = regentlib.c
+local MAPPER = terralib.includec("soleil_mapper.h")
 local SCHEMA = terralib.includec("config_schema.h")
 local UTIL = require 'util'
 
@@ -38,7 +39,7 @@ struct Point_columns {
 -- Import DOM module
 -------------------------------------------------------------------------------
 
-local DOM = (require 'dom')(MAX_ANGLES_PER_QUAD, Point_columns, SCHEMA)
+local DOM = (require 'dom')(MAX_ANGLES_PER_QUAD, Point_columns, MAPPER, SCHEMA)
 local DOM_INST = DOM.mkInstance()
 
 -------------------------------------------------------------------------------
@@ -64,12 +65,18 @@ do
   C.fclose(f)
 end
 
+local __demand(__leaf) -- MANUALLY PARALLELIZED, NO CUDA, NO OPENMP
+task print_dt(ts_start : uint64, ts_end : uint64)
+  C.printf("ELAPSED TIME = %7.3f ms\n", 1e-3 * (ts_end - ts_start))
+end
+
 -------------------------------------------------------------------------------
 -- Proxy main
 -------------------------------------------------------------------------------
 
 local __forbid(__optimize) __demand(__inner, __replicable)
-task work(config : SCHEMA.Config)
+task workSingle(config : SCHEMA.Config)
+  var sampleId = config.Mapping.sampleId
   -- Declare externally-managed regions
   var is_points = ispace(int3d, {config.Radiation.u.DOM.xNum,
                                  config.Radiation.u.DOM.yNum,
@@ -87,8 +94,15 @@ task work(config : SCHEMA.Config)
   -- Prepare fake inputs
   fill(points.Ib, (SB/PI) * pow(1000.0,4.0))
   fill(points.sigma, 5.0);
+  -- Start timer
+  __fence(__execution, __block)
+  var ts_start = C.legion_get_current_time_in_micros();
   -- Invoke DOM solver
   [DOM_INST.ComputeRadiationField(config, tiles, p_points)];
+  -- End timer
+  __fence(__execution, __block)
+  var ts_end = C.legion_get_current_time_in_micros()
+  print_dt(ts_start, ts_end)
   -- Output results
   writeIntensity(points)
 end
@@ -97,16 +111,17 @@ local __demand(__inner)
 task main()
   var args = C.legion_runtime_get_input_args()
   var stderr = C.fdopen(2, 'w')
-  if args.argc < 2 then
-    C.fprintf(stderr, "Usage: %s config.json\n", args.argv[0])
+  if args.argc < 3 or C.strcmp(args.argv[1], '-i') ~= 0 then
+    C.fprintf(stderr, "Usage: %s -i config.json\n", args.argv[0])
     C.fflush(stderr)
     C.exit(1)
   end
   var config : SCHEMA.Config
-  SCHEMA.parse_Config(&config, args.argv[1])
+  SCHEMA.parse_Config(&config, args.argv[2])
+  config.Mapping.sampleId = 0
   regentlib.assert(config.Radiation.type == SCHEMA.RadiationModel_DOM,
                    'Configuration file must use DOM radiation model')
-  work(config)
+  workSingle(config)
 end
 
-regentlib.saveobj(main, 'dom_host.o', 'object')
+regentlib.saveobj(main, 'dom_host.o', 'object', MAPPER.register_mappers)

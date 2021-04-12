@@ -85,7 +85,7 @@ fi
 # Add GASNET options
 GASNET_OPTS=
 if [[ "$LOCAL_RUN" == 0 ]]; then
-    GASNET_OPTS="-ll:ahandlers 4 -ll:rsize 0 -ll:ib_rsize 1024 -ll:gsize 0"
+    GASNET_OPTS="-ll:rsize 0 -ll:ib_rsize 1024 -ll:gsize 0"
 fi
 # Synthesize final command
 COMMAND="$EXECUTABLE $ARGS \
@@ -95,6 +95,6 @@ COMMAND="$EXECUTABLE $ARGS \
   -ll:util 4 -ll:io 1 -ll:dma 2 \
   -ll:csize $RAM_PER_RANK \
   $GASNET_OPTS \
-  -ll:stacksize 8 -ll:ostack 8 -lg:sched -1 -lg:hysteresis 0"
+  -ll:stacksize 8 -ll:ostack 8"
 echo "Invoking Legion on $NUM_RANKS rank(s), $NUM_NODES node(s) ($RANKS_PER_NODE rank(s) per node), as follows:"
 echo $COMMAND

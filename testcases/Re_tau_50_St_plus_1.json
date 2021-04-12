@@ -110,6 +110,7 @@
 
     "Radiation" : {
         "type" : "DOM",
+        "numIters" : -1,
         "qa" : 0.5,
         "qs" : 0.5,
         "xNum" : 64,

@@ -1,3 +1,3 @@
 #!/bin/bash -eu
 
-rm -rf intensity.dat test.out
+rm -rf intensity.dat test.out *.log

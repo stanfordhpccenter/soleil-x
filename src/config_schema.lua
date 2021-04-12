@@ -60,6 +60,7 @@ Exports.RadiationModel = Union{
     absorptivity = double,
   },
   DOM = {
+    numIters = int,
     qa = double,
     qs = double,
     -- number of cells in the radiation grid

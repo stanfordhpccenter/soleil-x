@@ -408,6 +408,7 @@
                     ]
                 },
                 "type": "DOM",
+                "numIters" : -1,
                 "zLoEmiss": 1.0,
                 "xHiIntensity": 0.0,
                 "yHiTemp": 0.0,
