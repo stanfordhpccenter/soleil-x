@@ -402,7 +402,7 @@ private:
     }
     // Sample-specific tasks that are launched individually
     else {
-      CHECK(task.index_point.get_dim() == 1,
+      CHECK(task.index_point.get_dim() <= 1,
             "Unexpected index information on task %s", task.get_task_name());
       return mapping.tile_zero_functor();
     }
