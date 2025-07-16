@@ -25,8 +25,8 @@ export HDF_HEADER ?= hdf5.h
 HDF_LIBNAME ?= hdf5
 
 # C compiler options
-CFLAGS += -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent
-CXXFLAGS += -g -O2 -Wall -Woverloaded-virtual -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent
+CFLAGS += -g -O2 -Wall -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent -I$(Realm_ROOT)/include
+CXXFLAGS += -g -O2 -Wall -Woverloaded-virtual -Werror -fno-strict-aliasing -I$(LEGION_DIR)/runtime -I$(LEGION_DIR)/bindings/regent -I$(Realm_ROOT)/include
 ifeq ($(USE_CUDA), 1)
   CFLAGS += -I$(CUDA_HOME)/include
   CXXFLAGS += -I$(CUDA_HOME)/include
