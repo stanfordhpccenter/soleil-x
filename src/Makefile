@@ -5,6 +5,9 @@ endif
 ifndef SOLEIL_DIR
   $(error SOLEIL_DIR is not set)
 endif
+ifndef Realm_ROOT
+  $(error Realm_ROOT is not set)
+endif
 
 # OS-specific options
 ifeq ($(shell uname),Darwin)
@@ -48,7 +51,7 @@ ifdef CRAYPE_VERSION
   LINK_FLAGS += $(CRAY_UGNI_POST_LINK_OPTS) -lugni
   LINK_FLAGS += $(CRAY_UDREG_POST_LINK_OPTS) -ludreg
 endif
-LINK_FLAGS += -L$(LEGION_DIR)/bindings/regent -lregent
+LINK_FLAGS += -L$(LEGION_DIR)/bindings/regent -lregent -L$(Realm_ROOT)/lib -lrealm
 ifdef HDF_ROOT
   LINK_FLAGS += -L$(HDF_ROOT)/lib
 endif
